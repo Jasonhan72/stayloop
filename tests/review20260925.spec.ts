@@ -153,8 +153,8 @@ describe('phone: one safe-area-aware bottom bar; sample pages say they are sampl
     expect((rp.match(/<PreviewNote zh=\{zh\}/g) || []).length).toBe(3)
     expect(rp).toContain('data-testid="preview-note"')
   })
-  it('the hat menu contains only menu items', () => {
-    expect(read('components/WorkspaceShell.tsx')).toContain('role="menuitem" aria-disabled="true" aria-current="true"')
+  it('the hat menu contains only menu items (the switcher lives in HatChip since the third round)', () => {
+    expect(read('components/agent/HatChip.tsx')).toContain('role="menuitem" aria-disabled="true" aria-current="true"')
   })
 })
 

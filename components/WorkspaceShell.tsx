@@ -1,14 +1,13 @@
 'use client'
 
 import { isRegistrationLive } from '@/lib/agentProfile'
-import { ReactNode, useEffect, useRef, useState } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useHats } from '@/lib/useHats'
 import Header from './Header'
 import { useI18n } from '@/lib/i18n'
-import { ROLE_THEME } from '@/lib/roleTheme'
 import { LiveRowsProvider, useLiveRowsTotal } from '@/lib/liveRows'
 import { SampleBanner } from './SampleNotice'
 import { supabase } from '@/lib/supabase'
@@ -386,7 +385,8 @@ function Rail({ role }: { role: WorkspaceRole }) {
       {/* "+" = new conversation (user 2026-09-25, as on claude.ai): on the
           assistant page it starts one in place; elsewhere it opens the page
           with ?new=1. The role avatar that used to sit here is gone, and so
-          is the text label under it — the hat now sits above settings. */}
+          is the text label under it; the hat is a text label beside the
+          assistant's avatar now (HatChip, user 2026-09-25), not a rail chip. */}
       <Link
         href={`/${role}/agent?new=1`}
         onClick={(e) => { if (path === `/${role}/agent`) { e.preventDefault(); window.dispatchEvent(new Event('sl-new-thread')) } }}
@@ -402,84 +402,8 @@ function Rail({ role }: { role: WorkspaceRole }) {
       <div className="my-1.5 h-px w-7 flex-none" style={{ background: '#D3E3EF' }} />
       {pages.map((it) => link(it))}
       <div className="mt-auto" />
-      <RoleBadge role={role} />
       {link(settingsItem)}
     </nav>
     </>
-  )
-}
-
-const ROLE_LABEL: Record<WorkspaceRole, { zh: string; en: string; icon: string }> = {
-  tenant: { zh: '租客', en: 'Tenant', icon: '🏠' }, landlord: { zh: '房东', en: 'Landlord', icon: '🔑' }, agent: { zh: '经纪', en: 'Agent', icon: '💼' },
-}
-
-/* The current hat, just above 设置 (user 2026-09-25: the text label under "+"
-   goes, the role moves above settings). A role-coloured chip with the same
-   emoji as the header's identity menu; hovering names it, clicking opens a
-   small hat switcher — held hats switch in place, missing ones link to their
-   door (the same rules as Header). */
-function RoleBadge({ role }: { role: WorkspaceRole }) {
-  const { lang } = useI18n()
-  const en = lang === 'en'
-  const auth = useAuth()
-  const hats = useHats()
-  const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
-  }, [open])
-  const held = (r: WorkspaceRole) => (r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)
-  const switchTo = (r: WorkspaceRole) => { setOpen(false); auth.setRole(r); router.push(`/${r}/agent`) }
-  const name = (r: WorkspaceRole) => (en ? ROLE_LABEL[r].en : ROLE_LABEL[r].zh)
-  const title = en ? `Identity: ${name(role)}` : `身份：${name(role)}`
-  const row = 'flex w-full items-center gap-2.5 px-3 py-2 text-left transition hover:bg-surface'
-  return (
-    <div ref={ref} className="relative mb-1 flex-none">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={title}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="group relative flex h-9 w-9 items-center justify-center rounded-full text-[16px] shadow-sm ring-2 ring-white transition hover:ring-line-strong"
-        style={{ background: ROLE_THEME[role].avatarGradient }}
-      >
-        <span aria-hidden>{ROLE_LABEL[role].icon}</span>
-        {!open && <span className="pointer-events-none absolute left-[48px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-[7px] px-2.5 py-1.5 text-[12px] font-semibold text-white shadow-lg group-hover:block group-focus-visible:block" style={{ background: '#1B1B3C' }}>{title}</span>}
-      </button>
-      {open && (
-        <div role="menu" className="absolute bottom-0 left-[48px] z-50 w-[228px] overflow-hidden rounded-xl border border-line bg-white py-1 shadow-xl">
-          <div className="px-3 pb-1 pt-2 font-mono text-[10.5px] font-bold uppercase tracking-[.12em] text-body-3">{en ? 'Identity' : '身份'}</div>
-          {(['tenant', 'landlord', 'agent'] as const).map((r) => {
-            const isCurrent = r === role
-            const has = held(r)
-            const pendingAgent = r === 'agent' && hats.agent && !isRegistrationLive(hats.agent)
-            const inner = (
-              <>
-                <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full text-[14px]" style={{ background: ROLE_THEME[r].lightRgba }}>{ROLE_LABEL[r].icon}</span>
-                <span className="flex-1 text-[13.5px] font-semibold text-ink">{name(r)}</span>
-                {isCurrent
-                  ? <span className="rounded-full px-2 py-[1px] text-[11px] font-bold" style={{ background: ROLE_THEME[r].lightRgba, color: ROLE_THEME[r].accent }}>{en ? 'current' : '当前'}</span>
-                  : pendingAgent
-                    ? <span className="rounded-full bg-amber-50 px-2 py-[1px] text-[11px] font-bold text-amber-800">{en ? 'pending' : '待认证'}</span>
-                    : !has
-                      ? <span className="rounded-full border border-line px-2 py-[1px] text-[11px] font-semibold text-body-3">{en ? 'add' : '开通'}</span>
-                      : <span className="text-body-3">›</span>}
-              </>
-            )
-            // A menu may only contain menu items — the current hat is a disabled one, not a bare div (a11y review 2026-09-25).
-            if (isCurrent) return <div key={r} role="menuitem" aria-disabled="true" aria-current="true" className={row}>{inner}</div>
-            if (has) return <button key={r} type="button" role="menuitem" onClick={() => switchTo(r)} className={row}>{inner}</button>
-            return <Link key={r} role="menuitem" href={r === 'landlord' ? '/onboarding/name?role=landlord' : '/agent/verify'} onClick={() => setOpen(false)} className={row}>{inner}</Link>
-          })}
-        </div>
-      )}
-    </div>
   )
 }

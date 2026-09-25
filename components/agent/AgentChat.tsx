@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useT } from '@/lib/i18n'
 import AgentInputBar, { type ComposerDraft } from './AgentInputBar'
+import HatChip, { HAT_LABEL } from './HatChip'
 import DraftListingChatCard from './DraftListingChatCard'
 import ListingChatCard from './ListingChatCard'
 import CommercialCompareTable from './CommercialCompareTable'
@@ -86,6 +87,7 @@ export default function AgentChat({
   onOpenThread,
   compactHeader = false,
   avatarFallback = 'role',
+  hatChip = false,
 }: {
   role: AgentRole
   agentName: string
@@ -134,6 +136,8 @@ export default function AgentChat({
   compactHeader?: boolean
   /** 'brand' = the signed-in user's one assistant (same face under every hat); 'role' = a demo persona's orb. */
   avatarFallback?: 'role' | 'brand'
+  /** Workspace page: the current hat as a text label under the name (the homepage has its own hat line). */
+  hatChip?: boolean
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -201,6 +205,9 @@ export default function AgentChat({
         </button>
         <div className="flex min-w-0 max-w-full flex-col items-center">
           <div className={`rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:text-[14px] ${compactHeader ? 'mt-1' : 'mt-1.5 md:mt-2'}`}>{agentName}</div>
+          {/* Workspace page below lg (where the AssistantPanel is not shown): the
+              hat as a text label under the name (user 2026-09-25). */}
+          {hatChip && <HatChip role={role} className="mt-1" />}
           <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`${compactHeader ? 'mt-0.5' : 'mt-1'} flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
             <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
           </button>

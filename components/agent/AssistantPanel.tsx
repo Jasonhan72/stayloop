@@ -28,6 +28,7 @@ import { invalidateAiName } from '@/lib/aiName'
 const HAT: Record<string, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'tenant' }, landlord: { zh: '房东', en: 'landlord' }, agent: { zh: '经纪', en: 'agent' } }
 import type { AgentRole, AgentStatus, MemoryItem, PendingAction } from '@/lib/agent/types'
 import PrivateMemorySnapshot from './PrivateMemorySnapshot'
+import HatChip from './HatChip'
 
 type Segment = 'activity' | 'todo' | 'memory'
 
@@ -140,6 +141,9 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
         ) : (
           <div className="mt-2.5 text-[18px] font-extrabold tracking-tight">{name}</div>
         )}
+        {/* The hat, as text, right under the name (user 2026-09-25: "角色的标记可以放在
+            avatar 这里，不用图标，就是文字标记就可以了") — the rail's emoji chip is gone. */}
+        <HatChip role={role} className="mt-1.5" />
         <div className="mt-1 flex items-center justify-center gap-1.5 font-mono text-[11px] text-body-3">
           <span className={`h-[7px] w-[7px] flex-none rounded-full ${working ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} />
           <span className="truncate">{statusLine}</span>
