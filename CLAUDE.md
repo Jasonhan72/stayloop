@@ -1807,3 +1807,12 @@ state 直接按浏览器语言渲染，英文访客每个页面都报 React #418
 - **对话头部改为单行**（头像 36 + 名字 + 状态行，仍可点开活动日志；此前手机上是居中大头像 123px）；线程内边距 16px；
   **输入条在手机上是一行** `[+] [输入框] [🎙] [发送]`（`flex-wrap` + `order`，md 起恢复「输入框一行 + 控件一行」），模型选择器 md 以下隐藏（在设置里）。
 - **页头 56px**（`h-14 md:h-[66px]`）。匿名预览横幅与经纪认证横幅在 phoneApp 列里自带左右 20px 边距。
+
+## 构建机体检（2026-09-24 · 用户「你要什么权限都可以，这台电脑就是专门给你用的」）
+
+M1 Mac mini、8 GB 内存、APFS 容器 92% 满（剩 19 GB）。当天三次构建 16 / 23 / 20 分钟（正常 4 分钟）的直接原因是 **OpenClaw 网关内存泄漏**：
+launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap 用满后 tsc / vitest / next build 的工作进程被换出就再也不醒（0% CPU 30 分钟）；
+`kill` 没用（KeepAlive 立刻拉起）。用户授权后已 `launchctl disable`（恢复命令见 memory `build-machine-health`）。**iCloud 同步的假设被实测推翻**
+（`bird` 日志里没有项目路径），别再提 `.nosync`。磁盘：`~/.openclaw` 42 GB + 两份备份 16 GB、Claude 桌面 `vm_bundles` 20 GB、`~/.npm` 15 GB、
+各类缓存 11 GB——只有 npm / brew 缓存是我可以清的。**这台机上部署一律 `nohup bash ./ship2-v53.command > log &` + `until grep` 监视器**，
+600 秒工具超时不够用；构建前先 `top -o mem` 看有没有不是我们的 node 进程超过 2 GB。
