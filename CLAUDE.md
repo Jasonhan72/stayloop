@@ -2196,3 +2196,5 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
   **记忆**（靛蓝渐变；条数，点击切到记忆标签）。匿名预览只能看。`reflection.ts` 是服务端模块（引 llmChat），面板里的 `user_model` 键是重复
   声明并由测试钉住与 `USER_MODEL_KEY` 相等。
 - **手机没有面板**：同一个风格字段在 `/settings` 的「助手的说话风格」快捷块里（`VibeEditor`）。
+- **面板头部不再有状态行**（用户同日：「空闲 · 当前阶段 租前 · 记得 80 条 这个可以去掉了」）：只剩头像（铅笔菜单）、名字、身份标签；
+  `AssistantPanel` 不再接 `status / statusLine`。手机端对话头部的状态行保留（它是打开活动日志的入口），`lib/agent/statusLine.ts` 仍在。

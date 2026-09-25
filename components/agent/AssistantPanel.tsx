@@ -26,7 +26,7 @@ import { saveAssistantAvatar, saveAssistantName } from '@/lib/agent/assistantPro
 import { invalidateAiName } from '@/lib/aiName'
 
 const HAT: Record<string, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'tenant' }, landlord: { zh: '房东', en: 'landlord' }, agent: { zh: '经纪', en: 'agent' } }
-import type { AgentRole, AgentStatus, MemoryItem, PendingAction } from '@/lib/agent/types'
+import type { AgentRole, MemoryItem, PendingAction } from '@/lib/agent/types'
 import PrivateMemorySnapshot from './PrivateMemorySnapshot'
 import HatChip from './HatChip'
 import AssistantSettings from './AssistantSettings'
@@ -34,11 +34,9 @@ import { AvatarIcon, FingerprintIcon, ListIcon, MemoryIcon, PencilIcon, ShieldIc
 
 type Segment = 'activity' | 'todo' | 'memory' | 'settings'
 
-export default function AssistantPanel({ role, agentName, status, statusLine, pendingActions, memories, live, avatar, onAvatarChange, currentThreadId, onOpenThread, onClose }: {
+export default function AssistantPanel({ role, agentName, pendingActions, memories, live, avatar, onAvatarChange, currentThreadId, onOpenThread, onClose }: {
   role: AgentRole
   agentName: string
-  status: AgentStatus
-  statusLine: string
   pendingActions: PendingAction[]
   memories: MemoryItem[]
   live: boolean
@@ -120,7 +118,6 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
     }
   }
 
-  const working = status === 'working' || status === 'understanding'
   const TABS: { key: Segment; label: string; icon: ReactNode; badge: number }[] = [
     { key: 'activity', label: zh ? '活动' : 'Activity', icon: <ListIcon />, badge: 0 },
     { key: 'todo', label: zh ? '待办' : 'To-do', icon: <ShieldIcon />, badge: pending.length },
@@ -180,11 +177,9 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
         )}
         {/* The hat, as text, right under the name (user 2026-09-25: "角色的标记可以放在
             avatar 这里，不用图标，就是文字标记就可以了") — the rail's emoji chip is gone. */}
+        {/* No status line under the name (user 2026-09-25: "空闲 · 当前阶段 … · 记得 N 条 这个可以去掉了"):
+            the 待办 badge and the activity tab carry that information. */}
         <HatChip role={role} className="mt-1.5" />
-        <div className="mt-1 flex items-center justify-center gap-1.5 font-mono text-[11px] text-body-3">
-          <span className={`h-[7px] w-[7px] flex-none rounded-full ${working ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} />
-          <span className="truncate">{statusLine}</span>
-        </div>
       </div>
 
       {/* Segmented control as on Muse (user 2026-09-25 "包含用小图标，鼠标划过会有注释文字"):

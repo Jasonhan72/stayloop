@@ -19,7 +19,6 @@ import AssistantPanel from '@/components/agent/AssistantPanel'
 import ContextStrip from '@/components/mobile/ContextStrip'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
-import { assistantStatusLine } from '@/lib/agent/statusLine'
 import { useAssistantPanel } from '@/lib/agent/useAssistantPanel'
 import { AssistantAvatar, getStoredAvatar, setStoredAvatar } from '@/lib/agent/avatars'
 import { HAT_LABEL } from '@/components/agent/HatChip'
@@ -66,7 +65,6 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
   const stageLabel = lifecycle ? (zh ? lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.zh ?? '' : lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.en ?? '') : ''
   const pending = pendingActions.filter((a) => a.status === 'pending')
   const pendingCount = pending.length
-  const statusLine = assistantStatusLine({ status, pendingCount, hasApprovals: true, stageLabel, memoryCount: memories.length, zh })
   const reads = PREVIEW_READS[role]
 
   return (
@@ -116,7 +114,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
         </div>
         {panelOpen && (
           <aside className="hidden lg:flex lg:w-[360px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider">
-            <AssistantPanel role={role} agentName={agent.agent_name} status={status} statusLine={statusLine} pendingActions={pendingActions} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onClose={() => setPanelOpen(false)} />
+            <AssistantPanel role={role} agentName={agent.agent_name} pendingActions={pendingActions} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onClose={() => setPanelOpen(false)} />
           </aside>
         )}
       </div>
