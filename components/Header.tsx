@@ -12,7 +12,6 @@ import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { activeHat, useHats } from '@/lib/useHats'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
-import { useAIName } from '@/lib/aiName'
 import { supabase } from '@/lib/supabase'
 import { ROLE_THEME, type RoleKey } from '@/lib/roleTheme'
 
@@ -51,10 +50,9 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   const heldRoles = (['tenant', 'landlord', 'agent'] as const).filter((r) =>
     r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)
 
-  // Assistant names per hat — the menu names the workspace after the assistant
-  // (「Atlas 的工作台」) and lists every hat with its assistant (2026-09-22,
-  // user asked for a clearer switcher after the phone-tab redesign).
-  const aiNames: Record<string, string> = { tenant: useAIName('tenant'), landlord: useAIName('landlord'), agent: useAIName('agent') }
+  // The menu names hats, never assistants: 「当前：房东」「房东工作台」「租客 / 房东 / 经纪」
+  // (user 2026-09-25: the assistant names — Atlas, Nova, Brief — made it unclear who the
+  // user is; the 2026-09-22 assistant-named workspace entry is gone).
   // The hamburger's red dot used to be decorative (always on when signed in);
   // now it means "cards waiting for you" on the current hat.
   const [pendingCount, setPendingCount] = useState(0)
@@ -257,13 +255,13 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                         <div className="truncate text-[14px] font-semibold text-[#222]">{auth.fullName || auth.email}</div>
                         <div className="mt-0.5 inline-flex items-center gap-1.5 rounded-full px-2 py-[2px] text-[11px] font-bold" style={{ background: ROLE_META[currentRole].color + '14', color: ROLE_META[currentRole].color }}>
                           <span className="h-1.5 w-1.5 rounded-full" style={{ background: ROLE_META[currentRole].color }} />
-                          {lang === 'zh' ? `当前：${ROLE_META[currentRole].label} · ${aiNames[currentRole]}` : `Now: ${ROLE_META[currentRole].labelEn} · ${aiNames[currentRole]}`}
+                          {lang === 'zh' ? `当前：${ROLE_META[currentRole].label}` : `Now: ${ROLE_META[currentRole].labelEn}`}
                         </div>
                       </div>
                     </div>
                     <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
 
-                    {/* Primary — the current hat's workspace, named after its assistant */}
+                    {/* Primary — the current hat's workspace */}
                     <Link
                       href={ROLE_META[currentRole]?.home || '/tenant/agent'}
                       onClick={() => setMenuOpen(false)}
@@ -271,7 +269,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       role="menuitem"
                     >
                       <WorkspaceIcon />
-                      <span className="flex-1">{lang === 'zh' ? `${aiNames[currentRole]} 的工作台` : `${aiNames[currentRole]}'s workspace`}</span>
+                      <span className="flex-1">{lang === 'zh' ? `${ROLE_META[currentRole].label}工作台` : `${ROLE_META[currentRole].labelEn} workspace`}</span>
                       {pendingCount > 0 && <span className="rounded-full bg-[#FF385C] px-2 py-[1px] text-[11px] font-bold text-white">{pendingCount}</span>}
                     </Link>
                     {currentRole === 'landlord' && (
@@ -324,7 +322,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                           <span className="flex h-8 w-8 items-center justify-center rounded-full text-[15px]" style={{ background: ROLE_META[r].color + '14' }}>{ROLE_META[r].icon}</span>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 text-[14px] font-semibold text-[#222]">
-                              <span>{lang === 'zh' ? `${ROLE_META[r].label} · ${aiNames[r]}` : `${ROLE_META[r].labelEn} · ${aiNames[r]}`}</span>
+                              <span>{lang === 'zh' ? ROLE_META[r].label : ROLE_META[r].labelEn}</span>
                               {isCurrent && <span className="rounded-full px-2 py-[1px] text-[11px] font-bold" style={{ background: ROLE_META[r].color + '14', color: ROLE_META[r].color }}>{lang === 'zh' ? '当前' : 'current'}</span>}
                               {!isCurrent && pendingAgent && <span className="rounded-full bg-amber-50 px-2 py-[1px] text-[11px] font-bold text-amber-800">{lang === 'zh' ? '待认证' : 'pending'}</span>}
                               {!isCurrent && !held && <span className="rounded-full border border-[#E5E5E5] px-2 py-[1px] text-[11px] font-semibold text-[#717171]">{lang === 'zh' ? '开通' : 'add'}</span>}

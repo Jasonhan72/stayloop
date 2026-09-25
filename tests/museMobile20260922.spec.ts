@@ -123,10 +123,13 @@ describe('signed-in homepage + identity menu', () => {
     expect(home).toMatch(/setRole\(activeHat\(hats, auth\.role\)\)/) // review 2026-09-25: the same predicate as the header
     expect(home).toMatch(/换身份在右上角菜单/)
   })
-  it('menu: identity row, assistant-named workspace (no quick chips — user 2026-09-22), three hats with 当前 / 待认证 / 开通, red dot only when something waits', () => {
-    expect(header).toMatch(/当前：\$\{ROLE_META\[currentRole\]\.label\} · \$\{aiNames\[currentRole\]\}/)
+  it('menu: identity row, the hat\'s workspace (no quick chips — user 2026-09-22; no assistant names — user 2026-09-25), three hats with 当前 / 待认证 / 开通, red dot only when something waits', () => {
+    expect(header).toMatch(/当前：\$\{ROLE_META\[currentRole\]\.label\}`/)
     expect(header).not.toMatch(/\/\$\{currentRole\}\/\$\{k\}/)
-    expect(header).toMatch(/\$\{aiNames\[currentRole\]\} 的工作台/)
+    expect(header).toMatch(/\$\{ROLE_META\[currentRole\]\.label\}工作台/)
+    // 「Atlas · Nova · Brief」 made it unclear who the user is — the menu names hats only
+    expect(header).not.toMatch(/aiNames|useAIName|的工作台/)
+    expect(header).toMatch(/<span>\{lang === 'zh' \? ROLE_META\[r\]\.label : ROLE_META\[r\]\.labelEn\}<\/span>/)
     expect(header).toMatch(/\(\['tenant', 'landlord', 'agent'\] as const\)\.map\(\(r\) => \{\s*const held = heldRoles\.includes\(r\)/)
     expect(header).toMatch(/auth\.user && pendingCount > 0 && \(/)
     expect(header).not.toMatch(/otherRoles|missingRoles/)

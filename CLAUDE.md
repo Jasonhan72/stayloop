@@ -2130,6 +2130,12 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
 - **记录不改**：`agent_directory` 等 5 个 definer 视图是刻意的（linter 报 ERROR，接受）；`household_members / households / rent_payments /
   showing_intents` 表级 anon grant 是迁移时的默认权限，RLS 已挡住，未收。
 
+## 头像菜单不再出现助手名字（2026-09-25 · 用户截图「AI Agent 的名字都取消，会让人不清楚用户是谁」）
+
+`components/Header.tsx` 的身份菜单原来写「当前：房东 · Atlas」「Atlas 的工作台」「租客 · Nova / 房东 · Atlas / 经纪 · Brief」（2026-09-22 的
+「以助手命名工作台」）。现在只写身份：「当前：房东」「房东工作台」「租客 / 房东 / 经纪」（副行「找房 · 申请 · 签约」等不变），`useAIName` 从 Header 移除。
+窄栏的 `RoleBadge` 弹层本来就只写身份。首页 hero 上方的「我是房东 · Atlas」是对话卡的标识，未动。守卫 `tests/museMobile20260922.spec.ts`。
+
 ## 首页首屏让给对话（2026-09-25 · 用户截图「头像 / 名字 / 上面的文字占太多空间，挤压了对话框」）
 
 登录态首页在 743px 高的屏幕上：标题区（52px 两行 H1 + 两行导语 + 「我是房东 · Atlas」一行）+ 卡片内居中的 56px 头像 / 名字胶囊 / 状态行，
