@@ -229,33 +229,36 @@ export default function ApplyPage() {
       // before they go to the bucket (and later to the models), one at a time
       // so the kind stays attached to its file.
       const prep = await prepareUploads([raw])
-      if (!prep.accepted[0] && prep.rejected[0]) {
+      if (!prep.accepted.length && prep.rejected[0]) {
         setLoading(false)
         setUploadProgress(null)
-        setError(zh ? `${raw.name} 太大，压缩后仍超过 25 MB，请换一份。` : `${raw.name} is still over 25 MB after compression — please use a smaller file.`)
+        setError(zh ? `${raw.name} 无法处理到 25 MB 以内（PDF 不重编码），请换一份。` : `${raw.name} cannot be brought under 25 MB (PDFs are not re-encoded) — please use a smaller file.`)
         return
       }
-      const file = prep.accepted[0]?.file ?? raw
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const path = `${inserted.id}/${kind}/${Date.now()}_${safeName}`
-      const { error: upErr } = await supabase.storage
-        .from('tenant-files')
-        .upload(path, file, { contentType: file.type, upsert: false })
-      if (upErr) {
-        setLoading(false)
-        setUploadProgress(null)
-        setError(zh ? `${file.name} 上传失败: ${upErr.message}` : `${file.name} upload failed: ${upErr.message}`)
-        return
+      // Every prepared file is uploaded — an oversize PDF comes back as one image per page (review 2026-09-25: only the first was kept).
+      const outFiles = prep.accepted.length ? prep.accepted.map((a) => a.file) : [raw]
+      for (const [n, file] of outFiles.entries()) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const path = `${inserted.id}/${kind}/${Date.now()}_${n}_${safeName}`
+        const { error: upErr } = await supabase.storage
+          .from('tenant-files')
+          .upload(path, file, { contentType: file.type, upsert: false })
+        if (upErr) {
+          setLoading(false)
+          setUploadProgress(null)
+          setError(zh ? `${file.name} 上传失败: ${upErr.message}` : `${file.name} upload failed: ${upErr.message}`)
+          return
+        }
+        uploaded.push({
+          kind,
+          type: kind,
+          path,
+          name: file.name,
+          size: file.size,
+          mime: file.type || 'application/octet-stream',
+          uploaded_at: new Date().toISOString(),
+        })
       }
-      uploaded.push({
-        kind,
-        type: kind,
-        path,
-        name: file.name,
-        size: file.size,
-        mime: file.type || 'application/octet-stream',
-        uploaded_at: new Date().toISOString(),
-      })
     }
 
     if (uploaded.length > 0) {

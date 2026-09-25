@@ -16,7 +16,7 @@ import { useT } from '@/lib/i18n'
 import { isUnread } from '@/lib/household/readMarks'
 
 type Thread = { hh: string; label: string; latest: { id: number; sender_id: string; body: string; created_at: string } | null }
-type Intent = { id: string; kind: string | null; status: string | null; message: string | null; created_at: string; listing: { slug: string | null; address: string | null; unit: string | null } | null }
+type Intent = { id: string; kind: string | null; status: string | null; message: string | null; created_at: string; listing: { slug: string | null; address: string | null; unit: string | null; active?: boolean } | null }
 
 export default function Inbox({ role }: { role: 'tenant' | 'landlord' }) {
   const { lang } = useT()
@@ -36,7 +36,14 @@ export default function Inbox({ role }: { role: 'tenant' | 'landlord' }) {
       const [{ data: hhs }, { data: msgs }, intentsRes, waitingRes] = await Promise.all([
         ids.length ? supabase.from('households').select('id, address, unit').in('id', ids) : Promise.resolve({ data: [] as { id: string; address: string; unit: string | null }[] }),
         ids.length ? supabase.from('household_messages').select('id, household_id, sender_id, body, created_at').in('household_id', ids).order('id', { ascending: false }).limit(300) : Promise.resolve({ data: [] as never[] }),
-        role === 'tenant' ? supabase.from('tenants').select('id').eq('auth_id', user.id).maybeSingle().then(async ({ data: t }) => t ? supabase.from('showing_intents').select('id, kind, status, message, created_at, listing:listings(slug, address, unit)').eq('tenant_id', (t as { id: string }).id).order('created_at', { ascending: false }).limit(30) : { data: [] }) : Promise.resolve({ data: [] }),
+        // my_showing_intents = the tenant's own rows with a listing snapshot the public RLS would hide once the listing is off market (review 2026-09-25: the inbox read the table and lost the address).
+        role === 'tenant'
+          ? supabase.from('my_showing_intents').select('id, kind, status, message, created_at, listing_slug, listing_address, listing_unit, listing_active').order('created_at', { ascending: false }).limit(30)
+              .then(({ data }) => ({ data: ((data ?? []) as { id: string; kind: string | null; status: string | null; message: string | null; created_at: string; listing_slug: string | null; listing_address: string | null; listing_unit: string | null; listing_active: boolean | null }[]).map((r) => ({
+                id: r.id, kind: r.kind, status: r.status, message: r.message, created_at: r.created_at,
+                listing: r.listing_address ? { slug: r.listing_active !== false ? r.listing_slug : null, address: r.listing_address, unit: r.listing_unit, active: r.listing_active !== false } : null,
+              })) }))
+          : Promise.resolve({ data: [] }),
         role === 'landlord' ? supabase.from('agent_pending_actions').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'pending').in('action_type', ['showing_request', 'listing_inquiry']) : Promise.resolve({ count: 0 }),
       ])
       if (cancelled) return
@@ -92,7 +99,7 @@ export default function Inbox({ role }: { role: 'tenant' | 'landlord' }) {
               {intents.map((i) => { const st = intentStatus(i.status); return (
                 <div key={i.id} className="flex flex-wrap items-center gap-2 py-2.5 text-[13px]">
                   <span className="font-semibold">{i.kind === 'question' ? (zh ? '提问' : 'Question') : (zh ? '看房' : 'Showing')}</span>
-                  {i.listing?.slug ? <Link href={`/listings/${i.listing.slug}`} className="min-w-0 flex-1 truncate hover:underline">{i.listing.address}{i.listing.unit ? ` #${i.listing.unit}` : ''}</Link> : <span className="min-w-0 flex-1 truncate text-body-3">{i.listing?.address ?? (zh ? '房源已下架' : 'Listing no longer available')}</span>}
+                  {i.listing?.slug ? <Link href={`/listings/${i.listing.slug}`} className="min-w-0 flex-1 truncate hover:underline">{i.listing.address}{i.listing.unit ? ` #${i.listing.unit}` : ''}</Link> : <span className="min-w-0 flex-1 truncate text-body-3">{i.listing?.address ? `${i.listing.address}${i.listing.unit ? ` #${i.listing.unit}` : ''}${i.listing.active === false ? (zh ? ' · 已下架' : ' · off market') : ''}` : (zh ? '房源已下架' : 'Listing no longer available')}</span>}
                   <StatusPill tone={st.tone}>{zh ? st.zh : st.en}</StatusPill>
                   <span className="font-mono text-[11px] text-body-3">{fmt(i.created_at)}</span>
                 </div>

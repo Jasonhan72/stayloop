@@ -2083,3 +2083,45 @@ About the building（单元数 / 层数 / 年份 / 同楼在租）、Property hi
   标题行 = 地址 H1（26/30px）+ 右侧「分享 / 收藏」（图标 + 下划线文字），下面直接是照片拼图（行高 232px×2），拼图右下角一枚白底黑边
   「⋮⋮⋮ 查看全部照片」胶囊（原来第四格的黑色遮罩和左下「1 / N」计数都删了），拼图下方的「📷 N 张照片」一行也删了；面包屑整行去掉；
   「整套公寓 (Condo) · 1 间卧室 · 1 间浴室 · 799 ft²」+ VERIFIED 徽章改为照片下方内容区的第一行。
+
+## 代码与模块关系审查（2026-09-25 · 网页端 + 手机端 · 用户「做一下代码review和模块关系的review」）
+
+范围 = 当天 14 个提交 62 个文件（助手页 Muse 网页版 / 四项跟进 / 一条底栏 / 房源详情页三轮 / 房东租客走查修复）。三个只读审查代理（A 助手与工作台、
+B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块依赖图（411 个文件，**无值导入循环**；仅两处历史遗留的纯类型互引）与生产库权限核对。
+共 46 条 + 我查出的 2 条，**全部核实后修复并上线**，守卫 `tests/review20260925.spec.ts`（26 条）。四份迁移已应用 prod 并用回滚事务验证。值得记住的：
+- **`revoke execute … from anon` 在 ACL 仍含 PUBLIC（`=X/postgres`）时是空操作。** 2026-09-22 撤销的 7 个 RPC（`decide_pending_action` /
+  `bootstrap_agent_session` / `claim_tenant` / `seed_demo_agent_data` / `get_entitlements` / `lookup_corp_by_bn` / `search_corp_registry`）与 10 个触发器函数
+  anon 一直都能执行——匿名可以查 76 万行联邦公司注册库。`20260925_function_public_execute.sql`：先 `revoke from public, anon` 再显式 grant；触发器
+  函数一律 revoke 三个 API 角色（触发不检查 EXECUTE，回滚事务已验）。**以后锁函数一律写 `from public, anon`**，守卫会扫 2026-09-26 起的迁移。
+- **FOR ALL 策略没有 WITH CHECK = 双方都能改写。** 租客能把自己的看房意向改成 `accepted`（追踪条显示「房东已同意」）、房东能改租客的留言。
+  `20260925_showing_intents_guard.sql`：`BEFORE UPDATE OR DELETE` 守卫对直连客户端一律拒绝（唯一合法写入 = 租客 INSERT + service role 改状态）。
+- **房源的 `price_history` / `transit` / `enriched_at` / `lat` / `lng` 是服务端事实，房东却能直写伪造**（verified 徽章下显示「↓ $1,250 (−35.7%)」、15 米外的假地铁站、
+  挪动地图钉）。`20260925_listing_geo_history_guard.sql`：`listings_price_history()`（SECURITY INVOKER）对 `is_direct_client_write()` 保留旧值，INSERT 时忽略
+  客户端给的历史与坐标；Realtor 导入的首条历史事件写 `imported`（导入日不是挂牌日，详情页不再显示「上架 N 天」）；`neighborhood` 进入重审列表（它现在进模型
+  提示词与中位数样本）；`applicant_applications` 加 `jwt email <> ''` 门并显式 `security_invoker = false`；`agent_threads.messages` 加 ≤300 的 CHECK。
+- **会话线程四个时序问题（A 用 react-test-renderer 真实渲染 hook 复现）**：① 打开页面就重写线程行、`last_message_at` 被顶到「现在」（`applyThread` 的
+  setMessages 触发了持久化 effect）→ `lastAppliedRef` 记住「加载出来的那个数组」，三条持久化路径遇到它直接跳过；② 线程还在解析时发消息（深链 `&send=1`
+  与快手）→ 孤儿行 + 用户消息消失 + 回复落错线程 → `resolvingRef` 存在途 promise，`sendMessage` 先 await，输入框在 `threadLoading` 时禁用；③ 模型思考中
+  切换会话，回复追加到新打开的会话 → 记 `sentThread` / `startedIn`，不一致时 `appendToThread` 写回原线程行；④ `newThread` / `openThread` 不递增
+  `resolveGen`、`creating` 不清 → 迟到的 `applyThread` 覆盖新会话 → 两处都 `resolveGen.current++`、`creating = null`，`createThread` 的回调比对 gen。
+  **四个场景保留为行为测试 `tests/useAgentSessionThreads.spec.tsx`**（react-test-renderer 18 已加为 devDependency，Supabase / auth / 模型轮次全部 mock，
+  断言修好后的行为；夹具的线程 id 必须是 UUID——`loadThread` 只接受 UUID）。改 `useAgentSession` 的线程逻辑先跑它。
+- **「记住的角色」不校验帽子**（A/C 都报）：租客被送到 `/landlord/become`、经纪用 `/screening/app` 做客户筛查，都被 `roleFromPath` 记成 landlord，随后
+  `/settings` 的 shellRole=landlord → 帽子守卫再把人弹回 become 页，设置页从此打不开。`lib/useHats.ts heldHat / activeHat` 是唯一谓词（Header / 两个设置页 /
+  首页 hero / 手机底栏共用；底栏在 `hats.loading` 时渲染 null 而不是猜），`lib/activeRole.ts rememberableRoleFromPath` 把 `/landlord/become`、`/agent/verify`、
+  `/screening/app` 排除在「记住」之外（UI 上下文仍按路由）。
+- **enrich 路由把外部失败当事实缓存 30 天**：Overpass 429 → 「1.5 km 内没有车站」挂一个月。现在失败写 `transit.failed=true` 一小时后重试，页面显示
+  「站点数据暂时不可用」；Nominatim 结果必须落在房源城市（或同 FSA）；社区简介改为响应后 `waitUntil` 生成（当次返回 null）、被拒 / 失败写 24 小时负缓存、
+  社区名白名单 + `<place>` 定界后才进提示词；`Cache-Control` 挂在 POST 上是死代码，删。
+- **手机**：底栏的安全区内边距在 `h-16` 里面（border-box）→ 主屏 PWA 上图标被压到 29px；改为外层 padding + 内层 64px 行，工作台列高与 shell 底部内边距经
+  `globals.css` 的 `.sl-phone-col / .sl-phone-pb` 扣掉 `env(safe-area-inset-bottom)`（不交给 Tailwind 的 calc 归一化）。隐藏的助手面板在手机上仍拉活动日志
+  （`useActivityLog(…, enabled)` + `matchMedia(min-width:1024px)`）；`/x/ideas` `/x/progress` 匿名态展示演示记忆却无示范标注 → `PreviewNote`。
+- **其余**：`sameProperty` 比街名前三个字母（100 King St W = 100 Kingston Rd）→ 整词街名；`groupFeatures` 把 Recreation Centre / Games Room / Car Wash /
+  Intercom / 投币洗衣归「室内」且分类随语言变；TRREB 成交均价对独立屋也显示（8 卧独立屋「比 3+ 房公寓均价高 300%」）→ 只对 apartment/condo/townhouse
+  且有卧室数；申请追踪按地址包含匹配租约（同楼两单元指向同一份）→ 先按 `lease_documents.application_id`；工作台洞察把未核验房源算「上架 7 天 0 申请」；
+  租约页「最近活动」取 80 条再过滤 → 服务端 `.in('action', …)`，live 模式不再印「本月新增 1 / 近 6 个月」；`MyRent` 不按成员角色过滤（既出租又租房的账号看到租客的租金）；
+  已发布房源编辑器可清空照片保存（→ 同发布规则）、缺押金字段（补）、照片不降采样（补）；申请页超限 PDF 转页图只传第一张；`NOTICE_DAYS` 与 `N1_NOTICE_DAYS` 两份；
+  死代码（`MobileBottomNav` 登录分支残留、`ORB` 导出、`ScoreCard`、`useMemo`、`applicationStatusLabel`、`activityIcon` 再导出）；演示夹具里的 Plaid → Flinks；
+  帽子菜单 `role="menu"` 里的当前项不是 menuitem。
+- **记录不改**：三个 `/x/agent` 页仍是三份 95% 相同的文件（守卫断言归一化后逐字节相同，抽成共享组件是下一步）；`agent_directory` 等 5 个 definer 视图是
+  刻意的（linter 报 ERROR，接受）；`household_members / households / rent_payments / showing_intents` 表级 anon grant 是迁移时的默认权限，RLS 已挡住，未收。

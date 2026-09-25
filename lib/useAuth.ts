@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { clearCachedAiNames } from '@/lib/aiName'
-import { roleFromPath } from '@/lib/activeRole'
+import { rememberableRoleFromPath, roleFromPath } from '@/lib/activeRole'
 export { roleFromPath }
 import { getSupabaseBrowser } from './supabase'
 import type { Session, User } from '@supabase/supabase-js'
@@ -130,7 +130,9 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
   // Before 2026-09-25 only the login callback and the hat menu wrote it, so an
   // account that never switched hats had nothing remembered on /settings.
   useEffect(() => {
-    const r = roleFromPath(pathname)
+    // Gate pages (/landlord/become, /agent/verify, the screening app) carry a
+    // prefix without being a choice — review 2026-09-25.
+    const r = rememberableRoleFromPath(pathname)
     if (!r || !state.user || typeof window === 'undefined') return
     const key = roleStorageKey(state.user.id)
     if (window.localStorage.getItem(key) !== r) window.localStorage.setItem(key, r)

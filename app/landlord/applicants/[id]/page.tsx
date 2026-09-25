@@ -531,7 +531,7 @@ function RealApplicantDetail({ id }: { id: string }) {
 // non-UUID sample ids on the list page's zero-data fallback.
 const DIMS = [
   { key: 'doc_authenticity', name: { zh: '证件真实性', en: 'ID authenticity' }, val: 96, w: 20, color: '#00ACE4', note: { zh: '护照 + 自拍均通过 · 与 Persona DB 100% 匹配', en: 'Passport + selfie both passed · 100% match against Persona DB' } },
-  { key: 'payment_ability', name: { zh: '支付能力', en: 'Ability to pay' },   val: 91, w: 20, color: '#047857', note: { zh: 'Plaid 直连 · DTI 30.8% · 6 个月最低存款 $18,400', en: 'Plaid linked · DTI 30.8% · 6-month low balance $18,400' } },
+  { key: 'payment_ability', name: { zh: '支付能力', en: 'Ability to pay' },   val: 91, w: 20, color: '#047857', note: { zh: 'Flinks 直连 · DTI 30.8% · 6 个月最低存款 $18,400', en: 'Flinks linked · DTI 30.8% · 6-month low balance $18,400' } },
   { key: 'court_records', name: { zh: '法庭记录', en: 'Court records' },   val: 100, w: 20, color: '#DC2626', note: { zh: 'CanLII / LTB 无任何相关记录', en: 'No related records on CanLII / LTB' } },
   { key: 'stability', name: { zh: '稳定性', en: 'Stability' },     val: 87, w: 15, color: '#2563EB', note: { zh: 'RBC 工作 2.4 年 · 现地址 1.2 年', en: '2.4 yrs at RBC · 1.2 yrs at current address' } },
   { key: 'behavior_signals', name: { zh: '行为信号', en: 'Behavioral signals' },   val: 88, w: 13, color: '#D97706', note: { zh: '上家房东评价 5/5 · 无违规', en: 'Prior landlord rating 5/5 · no violations' } },

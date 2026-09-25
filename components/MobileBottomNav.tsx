@@ -11,12 +11,10 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
-import { useHats } from '@/lib/useHats'
+import { activeHat, useHats } from '@/lib/useHats'
 import { useT } from '@/lib/i18n'
 import { shouldShowMobileNav } from '@/lib/mobileNavRoutes'
-import { PhoneTabs, RAIL_BY_ROLE, type WorkspaceRole } from './workspace/rail'
-
-const HOME: Record<string, string> = { tenant: '/tenant/agent', landlord: '/landlord/agent', agent: '/agent/agent' }
+import { PhoneTabs, RAIL_BY_ROLE } from './workspace/rail'
 
 export default function MobileBottomNav() {
   const path = usePathname() || '/'
@@ -35,24 +33,20 @@ export default function MobileBottomNav() {
   if (!show) return null
   const signedIn = !auth.loading && !!auth.user
   if (signedIn) {
-    // The hat the workbench bar is for: the remembered one when the account
-    // holds it (login set it via homeForHats), else the best hat it does hold.
-    const r = auth.role
-    const holds = (x: string | null | undefined): x is WorkspaceRole =>
-      x === 'tenant' || (x === 'landlord' && (hats.loading || hats.landlord)) || (x === 'agent' && (hats.loading || hats.agent !== null))
-    const role: WorkspaceRole = holds(r) ? r : hats.agent ? 'agent' : hats.landlord ? 'landlord' : 'tenant'
+    // The hat the workbench bar is for — the same predicate as the header and
+    // /settings (activeHat): the remembered role when the account holds it,
+    // else the best hat it does hold. While hats load, show nothing rather
+    // than guess (review 2026-09-25: a tenant with "landlord" remembered saw
+    // the landlord bar flash and fired a landlord badge query).
+    if (hats.loading) return null
+    const role = activeHat(hats, auth.role)
     return <PhoneTabs role={role} items={RAIL_BY_ROLE[role]} />
   }
-  // Review 2026-09-14: a role-less session used to land on /dashboard,
-  // whose useLandlord() claims a landlords row — one tap gave a tenant the
-  // landlord hat. Fall back to a hat the account actually holds.
-  const fallbackHome = hats.loading ? '/tenant/agent' : hats.agent ? '/agent/agent' : hats.landlord ? '/landlord/agent' : '/tenant/agent'
-  const mine = signedIn ? HOME[auth.role || ''] || fallbackHome : '/login'
   const items = [
     { key: 'home', href: '/', label: zh ? '助手' : 'Assistant', active: path === '/', icon: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /> },
     { key: 'listings', href: '/listings', label: zh ? '房源' : 'Listings', active: path.startsWith('/listings'), icon: <><path d="M3 11l9-7 9 7" /><path d="M5 10v9h14v-9" /></> },
     { key: 'screening', href: '/screening', label: zh ? '筛查' : 'Screening', active: path.startsWith('/screening'), icon: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></> },
-    { key: 'me', href: mine, label: signedIn ? (zh ? '我的' : 'Me') : (zh ? '登录' : 'Sign in'), active: false, icon: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></> },
+    { key: 'me', href: '/login', label: zh ? '登录' : 'Sign in', active: false, icon: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></> },
   ]
   return (
     <nav

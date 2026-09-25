@@ -12,7 +12,7 @@ import { buildActivity, type ActivityItem, type ActivityRow } from './activityLo
 import type { AgentRole } from './types'
 
 export type { ActionItem, ActivityItem, ActivityRow, ThreadItem } from './activityLog'
-export { activityGroups, activityIcon, fmtRowTime, itemIcon, itemNote } from './activityLog'
+export { activityGroups, fmtRowTime, itemIcon, itemNote } from './activityLog'
 
 /** Dispatched after anything that writes a thread or an audit row from the client (a turn, an approval, an undo). */
 export const ACTIVITY_CHANGED_EVENT = 'sl-activity-changed'
@@ -20,7 +20,10 @@ export function notifyActivityChanged(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(ACTIVITY_CHANGED_EVENT))
 }
 
-export function useActivityLog(live: boolean, role: AgentRole, limit = 30): ActivityItem[] | null {
+/** `enabled` lets a panel that is mounted but hidden (the web assistant panel
+ *  below lg) skip the two queries — review 2026-09-25: every phone load of
+ *  /x/agent fetched the log for a panel nobody could see. */
+export function useActivityLog(live: boolean, role: AgentRole, limit = 30, enabled = true): ActivityItem[] | null {
   const [items, setItems] = useState<ActivityItem[] | null>(null)
   // Re-read after the session writes a new row (a turn a moment ago showed
   // up only after a reload — walk-through 2026-09-25).
@@ -32,6 +35,7 @@ export function useActivityLog(live: boolean, role: AgentRole, limit = 30): Acti
   }, [])
   useEffect(() => {
     if (!live) { setItems([]); return }
+    if (!enabled) return
     let cancelled = false
     const events = supabase
       .from('agent_audit_events')
@@ -48,6 +52,6 @@ export function useActivityLog(live: boolean, role: AgentRole, limit = 30): Acti
       .then(([threads, evs]) => { if (!cancelled) setItems(buildActivity(threads, evs)) })
       .catch(() => { if (!cancelled) setItems([]) })
     return () => { cancelled = true }
-  }, [live, role, limit, tick])
+  }, [live, role, limit, tick, enabled])
   return items
 }

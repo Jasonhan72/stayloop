@@ -14,7 +14,7 @@ import { useAgentSession } from '@/lib/agent/useAgentSession'
 import AssistantPanel from '@/components/agent/AssistantPanel'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
 import { useAssistantPanel } from '@/lib/agent/useAssistantPanel'
-import { AssistantAvatar, getStoredAvatar } from '@/lib/agent/avatars'
+import { AssistantAvatar, getStoredAvatar, setStoredAvatar } from '@/lib/agent/avatars'
 import { usePromptDeepLink } from '@/lib/agent/usePromptDeepLink'
 import { useT } from '@/lib/i18n'
 
@@ -29,7 +29,13 @@ export default function TenantAgentPage() {
   // The assistant's face: the chosen preset (agent_configs.avatar, mirrored in localStorage) or the role orb.
   const [avatar, setAvatar] = useState<string | null>(null)
   const dbAvatar = data?.agent.avatar ?? null
-  useEffect(() => { setAvatar(getStoredAvatar('tenant') ?? dbAvatar) }, [dbAvatar])
+  // Live: the account's saved choice wins and is mirrored locally — it used to be the other way round,
+  // so a choice made on another device never showed (review 2026-09-25). Demo sessions use the browser's.
+  const hasData = !!data
+  useEffect(() => {
+    if (live && hasData) { setAvatar(dbAvatar); setStoredAvatar('tenant', dbAvatar ?? 'default') }
+    else setAvatar(getStoredAvatar('tenant') ?? dbAvatar)
+  }, [dbAvatar, live, hasData])
 
 
   if (loading || !data) {
@@ -56,7 +62,7 @@ export default function TenantAgentPage() {
           sits beside it, closable. 今日 lives on /x/todo, the 租前·租中·租后
           rail on /x/progress, recommendations on /x/ideas — nothing sits
           above the conversation. */}
-      <div className="flex h-[calc(100dvh-121px)] flex-col md:h-[calc(100vh-66px)] md:flex-row">
+      <div className="sl-phone-col flex flex-col md:h-[calc(100vh-66px)] md:flex-row">
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           {!live && <div className="flex-none px-5 pt-4 md:px-8 md:pt-4"><DemoBanner /></div>}
           {live && <div className="md:hidden"><ContextStrip lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/tenant/todo" lang={lang} onPrompt={prefill} /></div>}

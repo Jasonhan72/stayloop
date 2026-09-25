@@ -24,11 +24,6 @@ export const ACCENT: Record<AgentRole, string> = {
   landlord: ROLE_THEME.landlord.accent,
   agent: ROLE_THEME.agent.accent,
 }
-export const ORB: Record<AgentRole, string> = {
-  tenant: ROLE_THEME.tenant.avatarGradient,
-  landlord: ROLE_THEME.landlord.avatarGradient,
-  agent: ROLE_THEME.agent.avatarGradient,
-}
 
 // Quick-start prompts shown while the thread is empty — one tap sends the
 // prompt, so the blank console teaches what the agent can do.
@@ -164,6 +159,14 @@ export default function AgentChat({
   // Listing cards come in pages of six; the server sends up to two pages per
   // turn. offset per message id: 0 = first page, 6 = the six ranked after.
   const [listingOffset, setListingOffset] = useState<Record<string, number>>({})
+  // Per-conversation UI state: the collapsed "decided" lines, listing page
+  // offsets (message ids repeat across threads) and an unsent chip template
+  // belong to the thread they were made in (review 2026-09-25).
+  useEffect(() => {
+    setDecided([])
+    setListingOffset({})
+    setChipDraft(null)
+  }, [currentThreadId])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -455,7 +458,7 @@ export default function AgentChat({
       {/* input */}
       <div className={hero ? 'border-t border-line-divider p-2 md:border-t-0 md:px-10 md:pb-5 md:pt-1' : 'border-t border-line-divider p-2 md:p-3'}>
         <div className={hero ? 'mx-auto max-w-[760px]' : ''}>
-          <AgentInputBar agentName={agentName} role={role} onSend={onSend} disabled={thinking} draft={composerDraft} pill={hero} />
+          <AgentInputBar agentName={agentName} role={role} onSend={onSend} disabled={thinking || threadLoading} draft={composerDraft} pill={hero} />
         </div>
       </div>
     </div>

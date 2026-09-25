@@ -88,6 +88,15 @@ export async function saveThread(client: SupabaseClient, id: string, messages: C
   if (error) console.warn('[threads] save failed', error.message)
 }
 
+/** Append messages to a thread that is no longer the one on screen (the reply to
+ *  a turn that finished after the user switched conversations — review
+ *  2026-09-25: it used to land in whichever thread was open). */
+export async function appendToThread(client: SupabaseClient, id: string, extra: ChatMessage[]): Promise<void> {
+  const t = await loadThread(client, id)
+  if (!t) return
+  await saveThread(client, id, [...t.messages, ...extra])
+}
+
 /** The user's conversations for one role, newest first — the activity log's rows. */
 export async function listThreads(client: SupabaseClient, role: AgentRole, limit = 30): Promise<ThreadListRow[]> {
   const { data } = await client

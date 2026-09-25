@@ -71,11 +71,7 @@ export function TodoPage({ role }: { role: AgentRole }) {
   return (
     <WorkspaceShell role={role} hideAside>
       <PageHead eyebrow="TO-DO" title={zh ? '等你点头的' : 'Waiting on you'} sub={zh ? `${data.agent.agent_name} 不会替你决定；这里的每一件都要你批准才执行。` : `${data.agent.agent_name} never decides for you; nothing here runs until you approve.`} />
-      {!live && (
-        <div className="mb-4 rounded-xl border border-line-strong bg-surface-chip px-4 py-3 text-[12.5px] text-body-3">
-          {zh ? '预览模式：登录后这里是你真实的待办。' : 'Preview mode: sign in to see your real to-dos.'} <Link href="/login" className="font-bold text-brand">{zh ? '登录 →' : 'Sign in →'}</Link>
-        </div>
-      )}
+      {!live && <PreviewNote zh={zh} what={zh ? '待办' : 'to-dos'} />}
       {live && <div className="mb-4"><TodayCard lifecycle={lifecycle} pending={pending.map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref={`/${role}/todo`} lang={lang} omitPending /></div>}
       {waiting.length > 0 && (
         <div className="mb-4 space-y-2">
@@ -99,10 +95,22 @@ export function TodoPage({ role }: { role: AgentRole }) {
   )
 }
 
+/** Anonymous / preview sessions run on demo fixtures (a $2,100–2,400 budget,
+ *  King West…): say so, the way every other sample surface does (CLAUDE.md
+ *  示范数据标注; review 2026-09-25 — the ideas and progress pages showed the
+ *  fixtures unlabelled). */
+function PreviewNote({ zh, what }: { zh: boolean; what: string }) {
+  return (
+    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-900" data-testid="preview-note">
+      {zh ? `预览模式：下面是产品演示数据，不是你的记录。登录后这里是你真实的${what}。` : `Preview mode: what follows is sample data, not your records. Sign in to see your real ${what}.`} <Link href="/login" className="font-bold text-brand">{zh ? '登录 →' : 'Sign in →'}</Link>
+    </div>
+  )
+}
+
 export function IdeasPage({ role }: { role: AgentRole }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const { loading, data } = useAgentSession(role)
+  const { loading, live, data } = useAgentSession(role)
   if (loading || !data) return <Skeleton role={role} />
   const ideas = buildIdeas({
     role,
@@ -116,6 +124,7 @@ export function IdeasPage({ role }: { role: AgentRole }) {
   return (
     <WorkspaceShell role={role} hideAside>
       <PageHead eyebrow="IDEAS" title={zh ? `${data.agent.agent_name} 可以替你做` : `${data.agent.agent_name} can do for you`} sub={zh ? '每一条都写了为什么。点一条，就是把那句话发给它。' : 'Each one says why. Tap one and it is sent to the conversation.'} />
+      {!live && <PreviewNote zh={zh} what={zh ? '想法' : 'ideas'} />}
       <div className="divide-y divide-line-divider rounded-2xl border border-line-divider bg-white">
         {ideas.length === 0 && (
           <div className="px-5 py-10 text-center text-[13.5px] text-body-3">
@@ -155,6 +164,7 @@ export function ProgressPage({ role }: { role: AgentRole }) {
   return (
     <WorkspaceShell role={role} hideAside>
       <PageHead eyebrow="PROGRESS" title={zh ? '正在跟的' : 'Tracking'} sub={zh ? '流程走到哪、你手上有什么、它记住了什么。' : 'Where the flow stands, what you have on hand, what it remembers.'} />
+      {!live && <PreviewNote zh={zh} what={zh ? '进度' : 'progress'} />}
       <div className="space-y-5">
         {live && lifecycle ? (
           <div>

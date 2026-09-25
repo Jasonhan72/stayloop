@@ -95,8 +95,9 @@ describe('sign-in and chrome', () => {
     expect(cb).not.toContain("getItem('sl-active-role')")
     // …and an account that never switched hats still gets the right identity: the role page it is on is remembered, /settings falls back to the best hat it holds
     expect(auth).toContain('if (window.localStorage.getItem(key) !== r) window.localStorage.setItem(key, r)')
-    for (const f of ['app/settings/page.tsx', 'app/settings/models/page.tsx']) expect(read(f), f).toContain("(auth.role || bestHat(hats)) as WorkspaceRole")
-    expect(read('components/Header.tsx')).toContain('const currentRole = auth.role || bestHat(hats)')
+    // review 2026-09-25: the remembered role only counts when the account holds that hat (activeHat)
+    for (const f of ['app/settings/page.tsx', 'app/settings/models/page.tsx']) expect(read(f), f).toContain("activeHat(hats, auth.role) as WorkspaceRole")
+    expect(read('components/Header.tsx')).toContain('const currentRole = activeHat(hats, auth.role)')
   })
   it('jump-to-latest is the dark circle the user pointed at, shown after 120px of scroll-back', () => {
     const chat = read('components/agent/AgentChat.tsx')

@@ -11,14 +11,23 @@ const GUARDED = ['monthly_rent', 'bedrooms', 'bathrooms', 'sqft', 'unit', 'addre
 
 const norm = (s: string) => s.toLowerCase().replace(/[\s,，、]/g, '')
 
-/** Same street number + same street name start = the same property, whatever the abbreviation. */
+// Street-type words and directions are abbreviated differently by the model
+// and by Realtor.ca ("St W" / "Street West"); the street NAME must match whole.
+const STREET_NOISE = /\b(st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|cres|crescent|crt|court|ct|pl|place|way|lane|ln|trail|trl|terr|terrace|pkwy|parkway|hwy|highway|sq|square|circle|cir|e|east|w|west|n|north|s|south|unit|apt|suite|#)\b/g
+
+/** Same street number + same street name (whole word) = the same property,
+ *  whatever the abbreviation. Review 2026-09-25: the first three letters were
+ *  compared, so "100 King St W" and "100 Kingston Rd" counted as one
+ *  property and a re-draft "restored" the other building's rent and photos. */
 export function sameProperty(a: string | undefined, b: string | undefined): boolean {
   if (!a || !b) return false
   const na = norm(a), nb = norm(b)
   if (na === nb) return true
-  const numA = na.match(/\d+/)?.[0], numB = nb.match(/\d+/)?.[0]
-  const streetA = na.replace(/\d+/g, '').slice(0, 3), streetB = nb.replace(/\d+/g, '').slice(0, 3)
-  return !!numA && numA === numB && !!streetA && streetA === streetB
+  const numA = a.match(/\d+/)?.[0], numB = b.match(/\d+/)?.[0]
+  if (!numA || numA !== numB) return false
+  const street = (s: string) => s.toLowerCase().replace(/^\s*[\d\-]+[a-z]?\s*/, '').split(/[,，]/)[0].replace(STREET_NOISE, ' ').replace(/[^a-z一-鿿]+/g, ' ').trim()
+  const sa = street(a), sb = street(b)
+  return sa.length > 0 && sa === sb
 }
 
 function mentioned(message: string, value: unknown): boolean {

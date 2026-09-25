@@ -9,6 +9,9 @@ import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { getSupabaseBrowser } from '@/lib/supabase'
+import { hasUsablePhotos } from '@/lib/listingVisibility'
+import { LISTING_PUBLISH_MSG } from '@/lib/listingPublish'
+import { prepareUploads } from '@/lib/screening/prepareUpload'
 
 const AMENITY_OPTIONS: { id: string; zh: string; en: string }[] = [
   { id: 'central_ac', zh: '中央空调', en: 'Central A/C' },
@@ -32,6 +35,7 @@ type Form = {
   city: string
   neighborhood: string
   monthly_rent: number
+  deposit: number | null
   bedrooms: number | null
   bathrooms: number | null
   sqft: number | null
@@ -99,6 +103,7 @@ export default function EditPublishedListingPage() {
           city: data.city || 'Toronto',
           neighborhood: data.neighborhood || '',
           monthly_rent: data.monthly_rent || 0,
+          deposit: data.deposit ?? null,
           bedrooms: data.bedrooms ?? null,
           bathrooms: data.bathrooms ?? null,
           sqft: data.sqft ?? null,
@@ -149,17 +154,21 @@ export default function EditPublishedListingPage() {
     set('amenities', next)
   }
 
-  const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
-    Array.from(files).forEach((f) => {
+    const picked = Array.from(files)
+    e.target.value = ''
+    // Same downscaling as the screening upload (long edge 2600px) — the photos are stored as data URLs on the row.
+    const prep = await prepareUploads(picked)
+    for (const { file } of prep.accepted) {
       const reader = new FileReader()
       reader.onload = () => {
-        if (typeof reader.result === 'string') setPhotos((prev) => [...prev, reader.result as string])
+        if (typeof reader.result === 'string') setPhotos((prev) => (prev.length >= 12 ? prev : [...prev, reader.result as string]))
       }
-      reader.readAsDataURL(f)
-    })
-    e.target.value = ''
+      reader.readAsDataURL(file)
+    }
+    if (prep.rejected.length) setError(zh ? `${prep.rejected.length} 张照片超过 25 MB，未加入。` : `${prep.rejected.length} photo(s) over 25 MB were skipped.`)
   }
 
   const removePhoto = (idx: number) => {
@@ -168,6 +177,8 @@ export default function EditPublishedListingPage() {
 
   const handleSave = async () => {
     if (!user || !form.address) return
+    // A live listing without photos would vanish from /listings yet keep answering on its own URL (review 2026-09-25) — same rule as publishing.
+    if (form.is_active && !hasUsablePhotos(photos)) { setError(zh ? LISTING_PUBLISH_MSG.noPhotos.zh : LISTING_PUBLISH_MSG.noPhotos.en); return }
     setSaving(true)
     setError(null)
     setSaved(false)
@@ -180,6 +191,7 @@ export default function EditPublishedListingPage() {
         city: form.city || 'Toronto',
         neighborhood: form.neighborhood || null,
         monthly_rent: form.monthly_rent,
+        deposit: form.deposit,
         bedrooms: form.bedrooms,
         bathrooms: form.bathrooms,
         sqft: form.sqft,
@@ -284,6 +296,12 @@ export default function EditPublishedListingPage() {
             <div className="grid gap-4 sm:grid-cols-4">
               <LabelField label={zh ? '月租 (CAD) *' : 'Rent (CAD) *'}>
                 <input className="sl-input" type="number" value={form.monthly_rent} onChange={(e) => set('monthly_rent', Number(e.target.value) || 0)} required />
+              </LabelField>
+              <LabelField label={zh ? '租金押金 (CAD)' : 'Rent deposit (CAD)'}>
+                <input className="sl-input" type="number" value={form.deposit ?? ''} onChange={(e) => set('deposit', e.target.value ? Number(e.target.value) : null)} />
+                {form.deposit != null && form.monthly_rent > 0 && form.deposit > form.monthly_rent && (
+                  <p className="mt-1 text-[11.5px] text-red-700">{zh ? '安省租金押金最多一个月租金，且只能抵最后一个月租金（RTA s.106）。' : 'Ontario caps the rent deposit at one month and it may only cover the last month (RTA s.106).'}</p>
+                )}
               </LabelField>
               <LabelField label={zh ? '卧室' : 'Bedrooms'}>
                 <input className="sl-input" type="number" value={form.bedrooms ?? ''} onChange={(e) => set('bedrooms', e.target.value ? Number(e.target.value) : null)} />

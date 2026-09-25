@@ -5,6 +5,7 @@
 // navigation. One in-flight promise per role, reused for a short window
 // (perf review 2026-09-23). Callers still refetch on route change.
 import { supabase } from '@/lib/supabase'
+import { ACTIVITY_CHANGED_EVENT } from './useActivityLog'
 
 const SHARE_MS = 2000
 const inflight = new Map<string, { at: number; p: Promise<number> }>()
@@ -32,6 +33,6 @@ export function notifyPendingChanged(): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(PENDING_CHANGED_EVENT))
     // A decision is also an audit row the activity panel should show now.
-    window.dispatchEvent(new Event('sl-activity-changed'))
+    window.dispatchEvent(new Event(ACTIVITY_CHANGED_EVENT))
   }
 }

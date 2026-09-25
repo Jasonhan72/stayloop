@@ -205,13 +205,20 @@ const N_FORMS: { code: string; title: { zh: string; en: string }; rule: { zh: st
 /** Display code for a real lease row (uuid) — the timeline and table used to print the raw uuid. */
 const leaseCode = (id: string): string => (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(id) ? `L-${id.slice(0, 4).toUpperCase()}` : id)
 
+/** The landlord-side lease events the "最近活动" rail lists (server-side filter). */
+export const LEASE_ACTIVITY_ACTIONS = [
+  'lease_sent_for_signature', 'lease_signed_landlord', 'lease_fully_executed', 'lease_resent', 'lease_withdrawn',
+  'executed_send_lease', 'executed_send_renewal_letter', 'executed_renewal_checkpoint', 'executed_rent_reminder',
+  'household_created_from_esign',
+]
+
 function downloadCSV(lang: Lang, rows: LeaseItem[]) {
   const header = lang === 'zh'
-    ? '租约编号,租客,单元,月租,开始日期,结束日期,状态,按时率'
-    : 'Lease ID,Tenant,Unit,Monthly Rent,Start Date,End Date,Status,On-time Rate'
+    ? '租约编号,租约 ID,租客,单元,月租,开始日期,结束日期,状态,按时率'
+    : 'Lease code,Lease ID,Tenant,Unit,Monthly Rent,Start Date,End Date,Status,On-time Rate'
   const csv = toCsv(
     header.split(','),
-    rows.map(l => [l.id, l.tenant, l.unit, l.rent, l.start, l.end, l.status, l.onTime]),
+    rows.map(l => [leaseCode(l.id), l.id, l.tenant, l.unit, l.rent, l.start, l.end, l.status, l.onTime]),
   )
   downloadCsv(`stayloop-leases-${new Date().toISOString().slice(0, 10)}.csv`, csv)
 }
@@ -248,16 +255,19 @@ export default function LandlordLeasesPage() {
   useEffect(() => {
     if (!landlord) return
     let cancelled = false
+    // Filter on the server: reading the latest 80 rows and filtering client-side
+    // showed "暂无" to any account whose recent rows were all conversation turns
+    // (review 2026-09-25). Landlord-side lease events only — the tenant-side
+    // signature event is the other hat's.
     supabase
       .from('agent_audit_events')
       .select('id, action, created_at, metadata')
+      .in('action', LEASE_ACTIVITY_ACTIONS)
       .order('created_at', { ascending: false })
-      .limit(80)
+      .limit(6)
       .then(({ data }) => {
         if (cancelled) return
         const rows = ((data ?? []) as { action: string; created_at: string; metadata: Record<string, unknown> | null }[])
-          .filter((r) => /lease|renewal|household_created|rent_reminder|esign/i.test(r.action) && !/session/i.test(r.action))
-          .slice(0, 5)
           .map((r) => ({
             time: new Date(r.created_at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }),
             text: auditActionLabel(r.action, lang, r.metadata || undefined),
@@ -392,7 +402,7 @@ export default function LandlordLeasesPage() {
         title={lang === 'zh' ? '等待签字' : 'Awaiting signature'}
         eyebrow="PENDING"
         count={pending.length}
-        right={lang === 'zh' ? '本月新增 1' : '1 new this month'}
+        right={liveMode ? undefined : (lang === 'zh' ? '本月新增 1' : '1 new this month')}
         items={pending}
         lang={lang}
         showSigning
@@ -402,7 +412,7 @@ export default function LandlordLeasesPage() {
         title={lang === 'zh' ? '已结束 / 月租中' : 'Ended / month-to-month'}
         eyebrow="EXPIRED"
         count={expired.length}
-        right={lang === 'zh' ? '近 6 个月' : 'Last 6 months'}
+        right={liveMode ? undefined : (lang === 'zh' ? '近 6 个月' : 'Last 6 months')}
         items={expired}
         lang={lang}
       />

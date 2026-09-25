@@ -25,7 +25,7 @@ import { useAgentSession } from '@/lib/agent/useAgentSession'
 import { useT, type Lang } from '@/lib/i18n'
 import { GENERIC_AI_NAME, useAIName } from '@/lib/aiName'
 import { useAuth } from '@/lib/useAuth'
-import { useHats } from '@/lib/useHats'
+import { activeHat, useHats } from '@/lib/useHats'
 import type { AgentRole } from '@/lib/agent/types'
 
 type Bi = { zh: string; en: string }
@@ -161,12 +161,9 @@ export default function HomeNext() {
   useEffect(() => {
     if (!signedIn || hats.loading || pinnedRole.current) return
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('ask')) { pinnedRole.current = true; return }
-    // Mirror the header exactly (auth.role, tenant when nothing is remembered)
-    // so the hero and the menu never disagree; fall back to tenant only when
-    // the remembered hat is one the account no longer holds.
-    const r = auth.role || 'tenant'
-    const held = r === 'landlord' ? hats.landlord : r === 'agent' ? hats.agent !== null : true
-    setRole(held ? r : 'tenant')
+    // Mirror the header exactly — the same predicate (activeHat): the remembered
+    // hat when the account holds it, else the best hat it does hold.
+    setRole(activeHat(hats, auth.role))
     pinnedRole.current = true
   }, [signedIn, hats.loading, hats.landlord, hats.agent, auth.role])
   const tenantName = useAIName('tenant')

@@ -71,3 +71,20 @@ export function bestHat(h: Pick<Hats, 'landlord' | 'agent'>): 'tenant' | 'landlo
   if (h.agent && isRegistrationLive(h.agent)) return 'agent'
   return h.landlord ? 'landlord' : 'tenant'
 }
+
+/** Does this account hold `role` right now? Tenant always; landlord = a
+ *  landlords row; agent = a live RECO registration (verified / renewal_due).
+ *  The remembered role is only a preference among held hats — review
+ *  2026-09-25: a tenant who had merely visited /landlord/become had
+ *  "landlord" remembered and was bounced off /settings by the hat guard. */
+export function heldHat(h: Pick<Hats, 'landlord' | 'agent'>, role: string | null | undefined): role is 'tenant' | 'landlord' | 'agent' {
+  if (role === 'tenant') return true
+  if (role === 'landlord') return h.landlord
+  if (role === 'agent') return !!h.agent && isRegistrationLive(h.agent)
+  return false
+}
+
+/** The role the UI should act as: the remembered one when the account holds it, else the best hat it does hold. */
+export function activeHat(h: Pick<Hats, 'landlord' | 'agent'>, remembered: string | null | undefined): 'tenant' | 'landlord' | 'agent' {
+  return heldHat(h, remembered) ? remembered : bestHat(h)
+}

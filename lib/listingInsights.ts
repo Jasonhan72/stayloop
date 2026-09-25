@@ -6,7 +6,8 @@ import type { Lang } from '@/lib/i18n'
 
 export type PriceEvent = { date: string; price: number; prev?: number | null; event?: string }
 export type TransitStop = { name: string; kind: 'subway' | 'go' | 'streetcar' | 'rail'; lines?: string[]; distance_m: number; lat?: number; lng?: number }
-export type ListingTransit = { stations: TransitStop[]; fetched_at?: string }
+/** `failed` marks a lookup that could not reach OpenStreetMap: shown as "temporarily unavailable" and retried after an hour, never cached as "no stations" for 30 days. */
+export type ListingTransit = { stations: TransitStop[]; fetched_at?: string; failed?: boolean }
 
 /** Days since the listing went live (published_at, else created_at). */
 export function daysOnMarket(since: string | null | undefined, now = new Date()): number | null {
@@ -35,12 +36,13 @@ export function fmtDistance(meters: number, lang: Lang): string {
 /** The most recent change in a price history (needs at least two entries). */
 export function lastPriceChange(history: PriceEvent[] | null | undefined): { date: string; delta: number; pct: number } | null {
   if (!Array.isArray(history) || history.length < 2) return null
-  const rows = history.filter((h) => h && typeof h.price === 'number' && typeof h.date === 'string')
+  // Sorted by date, not by array position; a zero "before" price has no percentage.
+  const rows = history.filter((h) => h && typeof h.price === 'number' && typeof h.date === 'string').sort((a, b) => a.date.localeCompare(b.date))
   if (rows.length < 2) return null
   const last = rows[rows.length - 1]
   const before = rows[rows.length - 2]
   const delta = last.price - before.price
-  if (!delta) return null
+  if (!delta || before.price <= 0) return null
   return { date: last.date.slice(0, 10), delta, pct: Math.round((delta / before.price) * 1000) / 10 }
 }
 
@@ -73,7 +75,9 @@ export function amenityLabel(a: string, lang: Lang): string {
 }
 
 const UNIT_RE = /in-?\s?unit|ensuite|en-suite|dishwasher|washer|dryer|balcony|hardwood|laminate|stainless|granite|quartz|walk-?in|closet|air ?con|\ba\/c\b|central air|fireplace|island|floor|window|洗碗|洗衣|烘干|阳台|硬木|空调|衣帽|壁炉|地板|包暖|包水|heat_incl|water_incl|central_ac/i
-const BUILDING_RE = /concierge|doorman|gym|fitness|exercise|pool|sauna|whirlpool|party|rooftop|roof|elevator|security|bike|storage|locker|visitor|playroom|theat|media|bbq|guest suite|laundry room|yoga|lounge|business|courtyard|garden|游泳|健身|前台|电梯|储物|停车|车位|派对|天台|访客|门禁|会所|24h|24 小时/i
+// Review 2026-09-25: Realtor.ca's usual building words (Recreation Centre, Games Room, Car Wash,
+// Intercom, coin laundry, tennis / squash court, hot tub, parking) were landing under "室内".
+const BUILDING_RE = /concierge|doorman|gym|fitness|exercise|pool|sauna|whirlpool|hot tub|party|rooftop|roof|elevator|security|intercom|bike|storage|locker|visitor|parking|playroom|theat|media|bbq|guest suite|laundry room|laundry facilit|coin|recreation|games|meeting|common room|car wash|court|yoga|lounge|business|courtyard|garden|游泳|健身|前台|电梯|储物|停车|车位|派对|天台|访客|门禁|会所|24h|24 小时/i
 
 /** Unit features vs building amenities (StreetEasy splits "Home features" from
  *  "Building amenities"). Appliances are always the unit's; building_features
@@ -89,14 +93,16 @@ export function groupFeatures(input: { amenities?: string[] | null; building_fea
     seen.add(k)
     arr.push(label)
   }
-  for (const a of input.appliances || []) push(unit, amenityLabel(a, lang))
-  for (const a of input.building_features || []) push(building, amenityLabel(a, lang))
-  for (const raw of input.amenities || []) {
-    const a = String(raw)
+  const strings = (xs: unknown[] | null | undefined) => (xs || []).filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+  for (const a of strings(input.appliances)) push(unit, amenityLabel(a, lang))
+  for (const a of strings(input.building_features)) push(building, amenityLabel(a, lang))
+  for (const a of strings(input.amenities)) {
     const label = amenityLabel(a, lang)
-    const probe = `${a} ${label}`
+    // Classify on the raw value AND both labels so the split does not depend on the UI language.
+    const probe = `${a} ${amenityLabel(a, 'zh')} ${amenityLabel(a, 'en')}`
     if (/in-?\s?unit|ensuite|en-suite|室内/i.test(probe)) push(unit, label)
     else if (BUILDING_RE.test(probe)) push(building, label)
+    else if (UNIT_RE.test(probe)) push(unit, label)
     else push(unit, label)
   }
   return { unit, building }
@@ -108,7 +114,8 @@ export function transitLines(tags: Record<string, string | undefined>): string[]
   for (const key of ['route_ref', 'line', 'lines', 'ref']) {
     const v = tags[key]
     if (!v) continue
-    for (const part of v.split(/[;,/]/)) { const p = part.trim(); if (p && p.length <= 24) out.add(p) }
+    // `ref` on a TTC node is often the stop number (14234), not a line.
+    for (const part of v.split(/[;,/]/)) { const p = part.trim(); if (p && p.length <= 24 && !(key === 'ref' && /^\d{4,}$/.test(p))) out.add(p) }
     if (out.size) break
   }
   return [...out].slice(0, 4)
@@ -122,7 +129,7 @@ export function transitKind(tags: Record<string, string | undefined>): TransitSt
   if (station === 'subway' || tags.subway === 'yes') return 'subway'
   if (tags.railway === 'station' || tags.public_transport === 'station') {
     if (station === 'light_rail' || tags.light_rail === 'yes') return 'rail'
-    if (/go transit|via rail|\bgo\b/.test(net) || tags.train === 'yes') return 'go'
+    if (/go transit|metrolinx|\bgo\b/.test(net)) return 'go' // a VIA-only station is rail, not GO
     return 'rail'
   }
   return null

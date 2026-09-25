@@ -10,7 +10,7 @@
 // getModelForUser() — a pick that later becomes invalid (model disabled,
 // key removed) silently falls back to the system default.
 import { useCallback, useEffect, useState } from 'react'
-import { bestHat, useHats } from '@/lib/useHats'
+import { activeHat, useHats } from '@/lib/useHats'
 import Link from 'next/link'
 import WorkspaceShell, { type WorkspaceRole } from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
@@ -33,7 +33,7 @@ export default function UserModelsPage() {
   const hats = useHats()
   const { lang } = useI18n()
   const zh = lang === 'zh'
-  const shellRole = (auth.role || bestHat(hats)) as WorkspaceRole
+  const shellRole = activeHat(hats, auth.role) as WorkspaceRole
   const color = ROLE_THEME[shellRole]?.accent || ROLE_THEME.tenant.accent
 
   const [data, setData] = useState<CatalogResponse | null>(null)

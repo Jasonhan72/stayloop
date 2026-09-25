@@ -28,7 +28,8 @@ export default function MyShowings({ zh }: { zh: boolean }) {
     return () => { cancelled = true }
   }, [auth.loading, auth.user])
   if (!rows || rows.length === 0) return null
-  const st = (s: string) => s === 'accepted' ? (zh ? '房东已同意 · 请查收邮件' : 'Accepted · check your email') : s === 'declined' ? (zh ? '房东未回应' : 'Not taken up') : (zh ? '等房东回应' : 'Waiting for the landlord')
+  // Same words as the inbox (components/messages/Inbox.tsx) for the same status.
+  const st = (s: string) => s === 'accepted' ? (zh ? '房东已同意 · 请查收邮件' : 'Accepted · check your email') : s === 'declined' ? (zh ? '房东婉拒' : 'Declined') : s === 'expired' ? (zh ? '已过期' : 'Expired') : (zh ? '等房东回应' : 'Waiting for the landlord')
   return (
     <div className="mb-6 rounded-2xl border border-line-divider bg-white p-5">
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '我的看房与提问 · 真实记录' : 'MY VIEWINGS & QUESTIONS · LIVE'}</div>
@@ -42,7 +43,7 @@ export default function MyShowings({ zh }: { zh: boolean }) {
                   {r.kind === 'question' ? (zh ? '提问 · ' : 'Question · ') : (zh ? '看房 · ' : 'Viewing · ')}
                   {l ? (l.active && l.slug ? <Link href={`/listings/${l.slug}`} className="underline underline-offset-2">{l.address}{l.unit ? ` #${l.unit}` : ''}</Link> : <span>{l.address}{l.unit ? ` #${l.unit}` : ''}<span className="ml-1.5 rounded-full bg-surface-chip px-1.5 py-[1px] text-[10.5px] font-semibold text-body-3">{zh ? '已下架' : 'Off market'}</span></span>) : '—'}
                 </div>
-                <div className="mt-0.5 text-[12px] text-body-3">
+                <div className="mt-0.5 break-words text-[12px] text-body-3">
                   {r.move_in_date ? (zh ? `期望入住 ${r.move_in_date} · ` : `Move-in ${r.move_in_date} · `) : ''}{r.message ? r.message.slice(0, 80) : ''}
                 </div>
               </div>

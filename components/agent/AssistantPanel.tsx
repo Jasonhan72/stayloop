@@ -45,7 +45,18 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
   const auth = useAuth()
   const [seg, setSeg] = useState<Segment>('activity')
   const pending = pendingActions.filter((a) => a.status === 'pending')
-  const rows = useActivityLog(live, role)
+  // The panel is mounted on every width but only visible from lg: fetch the
+  // log only when someone can see it (review 2026-09-25 — each phone load of
+  // /x/agent paid two queries for a hidden panel).
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const sync = () => setVisible(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+  const rows = useActivityLog(live, role, 30, visible)
   const groups = rows ? activityGroups(rows, lang) : []
 
   // Rename in place: the name is the user's (agent_configs RLS = self); the
@@ -100,7 +111,7 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
           <div data-testid="avatar-picker" className="mx-auto mt-3 max-w-[300px] rounded-xl border border-line-divider bg-white p-2.5 shadow-lg">
             <div className="mb-1.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '选一个头像' : 'Pick an avatar'}</div>
             <div className="grid grid-cols-6 gap-1.5">
-              <button type="button" onClick={() => void chooseAvatar(null)} title={zh ? '默认' : 'Default'} aria-label={zh ? '默认头像' : 'Default avatar'} className={`flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-chip ${!avatar ? 'ring-2 ring-brand ring-offset-1' : ''}`}>
+              <button type="button" onClick={() => void chooseAvatar(null)} title={zh ? '默认' : 'Default'} aria-label={zh ? '默认头像' : 'Default avatar'} className={`flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-chip ${!avatar || avatar === 'default' ? 'ring-2 ring-brand ring-offset-1' : ''}`}>
                 <AssistantAvatar avatar={null} role={role} className="h-8 w-8" />
               </button>
               {AVATAR_PRESETS.map((p) => (

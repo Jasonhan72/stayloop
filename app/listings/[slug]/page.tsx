@@ -8,7 +8,7 @@ import ListingLocationMap from '@/components/ListingLocationMap'
 import { readTrrebBenchmark, type TrrebBenchmark } from '@/lib/agent/trrebRent'
 import { daysOnMarket, fmtDistance, groupFeatures, lastPriceChange, pricePerSqft, walkMinutes, type ListingTransit, type PriceEvent } from '@/lib/listingInsights'
 import { useParams } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/lib/useAuth'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -17,7 +17,7 @@ import { AgentPicker } from '@/components/AgentPicker'
 import { ShowingRequestModal, type ShowingKind } from '@/components/ShowingRequestModal'
 import { supabase } from '@/lib/supabase'
 import { useT, type Lang } from '@/lib/i18n'
-import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
+import { LISTING_VISIBILITY_OR, hasUsablePhotos } from '@/lib/listingVisibility'
 import { stampForTier } from '@/lib/passportStamps'
 import { favKey, useFavorites, type FavListing } from '@/lib/favorites'
 
@@ -186,13 +186,19 @@ export default function ListingDetailPage() {
   useEffect(() => {
     if (!listing) return
     let cancelled = false
-    fetch('/api/listings/enrich', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: listing.id }) })
+    // 20 s cap: the route may wait on OSM + the model; the section shows its fallback instead of a spinner for a minute (review 2026-09-25).
+    fetch('/api/listings/enrich', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: listing.id }), signal: AbortSignal.timeout(20_000) })
       .then((r) => (r.ok ? (r.json() as Promise<Insight>) : null))
       .then((v) => { if (!cancelled) setInsight(v) })
       .catch(() => { if (!cancelled) setInsight(null) })
-    readTrrebBenchmark(listing.bedrooms ?? 1, [listing.neighborhood, listing.city], listing.property_type === 'townhouse' ? 'townhouse' : 'apartment')
-      .then((b) => { if (!cancelled) setBenchmark(b) })
-      .catch(() => { /* benchmark is optional */ })
+    // TRREB publishes apartment / townhouse averages by bedroom count: a detached house or an unknown
+    // bedroom count has no comparable row (an 8-bed house read "300% above the 3+ bed condo average").
+    const trrebType = listing.property_type === 'townhouse' ? 'townhouse' : ['apartment', 'condo'].includes(listing.property_type || '') ? 'apartment' : null
+    if (trrebType && listing.bedrooms != null) {
+      readTrrebBenchmark(listing.bedrooms, [listing.neighborhood, listing.city], trrebType)
+        .then((b) => { if (!cancelled) setBenchmark(b) })
+        .catch(() => { /* benchmark is optional */ })
+    }
     return () => { cancelled = true }
   }, [listing?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [similar, setSimilar] = useState<DBListing[]>([])
@@ -280,7 +286,10 @@ export default function ListingDetailPage() {
           .eq('is_active', true)
           .or(LISTING_VISIBILITY_OR)
           .neq('id', (data as any).id)
-          .limit(24)
+          // Same city (the table holds "Toronto" and "Toronto, ON"), newest first, a bounded candidate pool.
+          .ilike('city', `${String((data as DBListing).city || '').split(',')[0].trim()}%`)
+          .order('created_at', { ascending: false })
+          .limit(48)
         if (!cancelled) {
           // Similar = same neighbourhood, then same bedroom count, then closest rent (StreetEasy "Similar homes").
           const me = data as DBListing
@@ -288,7 +297,7 @@ export default function ListingDetailPage() {
             (x.neighborhood && me.neighborhood && x.neighborhood.toLowerCase() === me.neighborhood.toLowerCase() ? 0 : 2) +
             ((x.bedrooms ?? -1) === (me.bedrooms ?? -2) ? 0 : 1) +
             Math.min(3, (Math.abs(x.monthly_rent - me.monthly_rent) / Math.max(1, me.monthly_rent)) * 4)
-          setSimilar(((rest || []) as DBListing[]).filter((x) => x.images && x.images.length > 0).sort((a, b) => score(a) - score(b)).slice(0, 3))
+          setSimilar(((rest || []) as DBListing[]).filter((x) => hasUsablePhotos(x.images)).sort((a, b) => score(a) - score(b)).slice(0, 3))
         }
       }
     })()
@@ -497,7 +506,8 @@ export default function ListingDetailPage() {
               {/* Price facts (StreetEasy: $/ft², lease term, availability, days on market, last change) */}
               {(() => {
                 const ppsf = pricePerSqft(listing.monthly_rent, listing.sqft)
-                const dom = daysOnMarket(listing.published_at || listing.created_at)
+                // A Realtor.ca import carries its import date, not the MLS listing date — no days-on-market for it.
+                const dom = listing.source === 'realtor' ? null : daysOnMarket(listing.published_at || listing.created_at)
                 const change = lastPriceChange(listing.price_history)
                 return (
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] tracking-eyebrow text-body-3">
@@ -711,7 +721,7 @@ export default function ListingDetailPage() {
                   {[...listing.price_history].reverse().map((h, i) => (
                     <div key={`${h.date}-${i}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13.5px]">
                       <span className="font-mono text-[12px] text-body-3">{String(h.date).slice(0, 10)}</span>
-                      <span className="flex-1 text-body-2">{h.event === 'listed' ? (zh ? '上架' : 'Listed') : h.prev != null ? (h.price > h.prev ? (zh ? `涨价（原 $${Number(h.prev).toLocaleString()}）` : `Increased (was $${Number(h.prev).toLocaleString()})`) : (zh ? `降价（原 $${Number(h.prev).toLocaleString()}）` : `Reduced (was $${Number(h.prev).toLocaleString()})`)) : (zh ? '调价' : 'Changed')}</span>
+                      <span className="flex-1 text-body-2">{h.event === 'imported' ? (zh ? '导入 Stayloop（Realtor.ca 挂牌）' : 'Imported (Realtor.ca listing)') : h.event === 'listed' ? (zh ? '上架' : 'Listed') : h.prev != null ? (h.price > h.prev ? (zh ? `涨价（原 $${Number(h.prev).toLocaleString()}）` : `Increased (was $${Number(h.prev).toLocaleString()})`) : (zh ? `降价（原 $${Number(h.prev).toLocaleString()}）` : `Reduced (was $${Number(h.prev).toLocaleString()})`)) : (zh ? '调价' : 'Changed')}</span>
                       <span className="font-semibold">${Number(h.price).toLocaleString()}</span>
                     </div>
                   ))}
@@ -722,10 +732,12 @@ export default function ListingDetailPage() {
             {/* Section 5 — 位置与交通: the transit list beside the listing's own map (user 2026-09-25: "交通这边要带地图，和房源位置在一起") */}
             {insight !== null && (
               <Section title={zh ? '位置与交通' : 'Location & transit'} eyebrow="LOCATION">
-                <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
+                <div className="grid gap-5 xl:grid-cols-[1.15fr_1fr]">
                   <div>
                     {insight === undefined ? (
                       <div className="text-[13.5px] text-body-3">{zh ? '正在查附近站点…' : 'Looking up nearby stations…'}</div>
+                    ) : insight.transit.failed ? (
+                      <div className="text-[13.5px] text-body-3">{zh ? '站点数据暂时不可用（OpenStreetMap 未响应），稍后会自动重试。' : 'Station data is temporarily unavailable (OpenStreetMap did not respond); it retries later.'}</div>
                     ) : insight.transit.stations.length === 0 ? (
                       <div className="text-[13.5px] text-body-3">{zh ? '1.5 km 内没有地铁 / GO 车站记录（OpenStreetMap 数据）。' : 'No subway or GO station on record within 1.5 km (OpenStreetMap data).'}</div>
                     ) : (
@@ -737,7 +749,7 @@ export default function ListingDetailPage() {
                               <span className={`flex-none rounded-md px-1.5 py-[2px] font-mono text-[10px] font-bold text-white ${st.kind === 'subway' ? 'bg-[#1B1B3C]' : st.kind === 'go' ? 'bg-emerald-700' : st.kind === 'streetcar' ? 'bg-red-700' : 'bg-body-3'}`}>
                                 {st.kind === 'subway' ? (zh ? '地铁' : 'SUBWAY') : st.kind === 'go' ? 'GO' : st.kind === 'streetcar' ? (zh ? '有轨电车' : 'STREETCAR') : (zh ? '轨道' : 'RAIL')}
                               </span>
-                              <span className="min-w-0 break-words text-body">{st.name}{st.lines && st.lines.length ? <span className="ml-1.5 text-body-3">{st.lines.join(' · ')}</span> : null}</span>
+                              <span className="min-w-0 break-normal text-body">{st.name}{st.lines && st.lines.length ? <span className="ml-1.5 text-body-3">{st.lines.join(' · ')}</span> : null}</span>
                             </span>
                             <span className="flex-none whitespace-nowrap font-mono text-[12px] text-body-3">{fmtDistance(st.distance_m, lang)} · {zh ? `步行约 ${walkMinutes(st.distance_m)} 分钟` : `~${walkMinutes(st.distance_m)} min walk`}</span>
                           </div>
@@ -764,7 +776,7 @@ export default function ListingDetailPage() {
 
             {/* Section 6 — 关于社区 (StreetEasy "About Murray Hill", one block): AI primer · asking · leased · this listing */}
             {(insight?.profile || (insight?.neighborhood && insight.neighborhood.all.n > 0) || benchmark) && (() => {
-              const bedLabel = listing.bedrooms === 0 ? 'Studio' : zh ? `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''} 房` : `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''}-bed`
+              const bedLabel = listing.bedrooms === 0 ? 'Studio' : zh ? `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''} 卧` : `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''}-bed`
               const same = insight?.neighborhood?.same_beds
               const all = insight?.neighborhood?.all
               const rel = (v: number, what: string) => {
@@ -788,7 +800,7 @@ export default function ListingDetailPage() {
                         <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? 'Stayloop + Realtor.ca 在租样本' : 'Stayloop + Realtor.ca listings'}</div>
                         <div className="mt-2 text-[12px] text-body-3">{same && same.median != null ? bedLabel : (zh ? '全部户型' : 'All sizes')}</div>
                         <div className="text-[22px] font-extrabold leading-tight">${((same && same.median != null ? same.median : all.median) ?? 0).toLocaleString()}</div>
-                        <div className="text-[11.5px] text-body-3">{zh ? `中位 · ${same && same.median != null ? same.n : all.n} 套在租` : `median · ${same && same.median != null ? same.n : all.n} listed`}</div>
+                        <div className="text-[11.5px] text-body-3">{(() => { const n = same && same.median != null ? same.n : all.n; return n === 1 ? (zh ? '仅 1 套在租（非中位）' : '1 listed (not a median)') : zh ? `中位 · ${n} 套在租` : `median · ${n} listed` })()}</div>
                       </div>
                     )}
                     {benchmark && (
@@ -802,10 +814,10 @@ export default function ListingDetailPage() {
                     )}
                     <div className="rounded-[12px] border border-line-divider bg-white p-4">
                       <div className="text-[13px] font-bold">{zh ? '这套房源' : 'This listing'}</div>
-                      <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? '相对同区' : 'vs the area'}</div>
+                      <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{insight?.neighborhood?.scope === 'city' ? (zh ? '相对全市' : 'vs the city') : (zh ? '相对同区' : 'vs the area')}</div>
                       <div className="mt-2 text-[22px] font-extrabold leading-tight">${listing.monthly_rent.toLocaleString()}</div>
                       <ul className="mt-1 space-y-0.5 text-[11.5px] text-body-3">
-                        {same && same.median != null && <li>{rel(same.median, zh ? '同区中位挂牌价' : 'area median asking')}</li>}
+                        {same && same.median != null && <li>{rel(same.median, insight?.neighborhood?.scope === 'city' ? (zh ? '全市中位挂牌价' : 'city median asking') : (zh ? '同区中位挂牌价' : 'area median asking'))}</li>}
                         {benchmark && <li>{rel(benchmark.avg, zh ? 'TRREB 成交均价' : 'TRREB leased average')}</li>}
                         {!(same && same.median != null) && !benchmark && <li>{zh ? '暂无同区对比数据' : 'No area comparison yet'}</li>}
                       </ul>
@@ -1216,32 +1228,6 @@ function BuildingFact({ label, value }: { label: string; value: string | number 
         {label}
       </div>
       <div className="mt-0.5 text-[14px] font-semibold text-body">{value}</div>
-    </div>
-  )
-}
-
-function ScoreCard({
-  label,
-  value,
-  note,
-}: {
-  label: string
-  value: number
-  note: string
-}) {
-  const color = value >= 90 ? '#047857' : value >= 70 ? '#B45309' : '#DC2626'
-  return (
-    <div className="rounded-[12px] border border-line-divider bg-white p-4">
-      <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {label}
-      </div>
-      <div
-        className="mt-1 text-[28px] font-extrabold leading-none tracking-tight"
-        style={{ color }}
-      >
-        {value}
-      </div>
-      <div className="mt-1 text-[11.5px] text-body-2">{note}</div>
     </div>
   )
 }

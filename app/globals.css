@@ -277,3 +277,11 @@ html, body {
 @media (max-width: 767px) {
   body.has-bottom-nav { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
+
+/* Workbench pages on phones (components/WorkspaceShell phoneApp + the three /x/agent
+   columns): the fixed 64px tab bar plus the home-screen safe area. Kept as CSS so the
+   env() maths is not at the mercy of Tailwind's calc() normalisation (review 2026-09-25). */
+@media (max-width: 767px) {
+  .sl-phone-col { height: calc(100dvh - 121px - env(safe-area-inset-bottom)); }
+  .sl-phone-pb { padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
+}

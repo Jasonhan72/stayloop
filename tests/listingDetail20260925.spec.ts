@@ -55,7 +55,7 @@ describe('page, route and migration', () => {
     const page = read('app/listings/[slug]/page.tsx')
     for (const eyebrow of ['eyebrow="POLICIES"', 'eyebrow="PRICE HISTORY"', 'eyebrow="LOCATION"', 'eyebrow="NEIGHBOURHOOD"']) expect(page).toContain(eyebrow)
     expect(page).toContain("fetch('/api/listings/enrich', { method: 'POST'")
-    expect(page).toContain("readTrrebBenchmark(listing.bedrooms ?? 1, [listing.neighborhood, listing.city]")
+    expect(page).toContain("readTrrebBenchmark(listing.bedrooms, [listing.neighborhood, listing.city], trrebType)") // review 2026-09-25: apartment / townhouse with a bedroom count only
     expect(page).toContain('groupFeatures({ amenities: listing.amenities, building_features: listing.building_features, appliances: listing.appliances }, lang)')
     expect(page).toContain('daysOnMarket(listing.published_at || listing.created_at)')
     expect(page).toContain('data © OpenStreetMap contributors')
@@ -110,6 +110,6 @@ describe('second round (user 2026-09-25: Airbnb header, neighbourhood block, map
     expect(page).toContain("{zh ? '相似房源' : 'Similar homes'}")
     expect(page).toContain('onClick={() => toggle(snapS)}')
     expect(page).not.toContain("sl-eyebrow\">{zh ? '类似房源'")
-    expect(page).toContain(".filter((x) => x.images && x.images.length > 0).sort((a, b) => score(a) - score(b)).slice(0, 3)")
+    expect(page).toContain(".filter((x) => hasUsablePhotos(x.images)).sort((a, b) => score(a) - score(b)).slice(0, 3)")
   })
 })

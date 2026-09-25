@@ -19,11 +19,11 @@ import { useT, type Lang } from '@/lib/i18n'
 import { downloadCsv, toCsv } from '@/lib/csv'
 
 const HISTORY = [
-  { date: '2026-05-01', amount: 2800, status: 'paid', method: { zh: 'Plaid · RBC ****8721', en: 'Plaid · RBC ****8721' } },
-  { date: '2026-04-01', amount: 2800, status: 'paid', method: { zh: 'Plaid · RBC ****8721', en: 'Plaid · RBC ****8721' } },
+  { date: '2026-05-01', amount: 2800, status: 'paid', method: { zh: 'Flinks · RBC ****8721', en: 'Flinks · RBC ****8721' } },
+  { date: '2026-04-01', amount: 2800, status: 'paid', method: { zh: 'Flinks · RBC ****8721', en: 'Flinks · RBC ****8721' } },
   { date: '2026-03-01', amount: 2800, status: 'paid', method: { zh: 'e-Transfer', en: 'e-Transfer' } },
   { date: '2026-02-01', amount: 2800, status: 'late', method: { zh: '迟付 3 天', en: '3 days late' } },
-  { date: '2026-01-01', amount: 2800, status: 'paid', method: { zh: 'Plaid · RBC ****8721', en: 'Plaid · RBC ****8721' } },
+  { date: '2026-01-01', amount: 2800, status: 'paid', method: { zh: 'Flinks · RBC ****8721', en: 'Flinks · RBC ****8721' } },
 ]
 
 /**

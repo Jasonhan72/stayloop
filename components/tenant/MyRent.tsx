@@ -25,7 +25,9 @@ export default function MyRent() {
     let cancelled = false
     const uid = auth.user.id
     ;(async () => {
-      const { data: mem } = await supabase.from('household_members').select('household_id').eq('user_id', uid).eq('status', 'active').limit(20)
+      // Only tenancies this account is the TENANT on: an account that also lets out a unit
+      // must not see its tenant's rent here as "my rent" (review 2026-09-25).
+      const { data: mem } = await supabase.from('household_members').select('household_id').eq('user_id', uid).eq('status', 'active').eq('role', 'tenant').limit(20)
       const ids = ((mem ?? []) as { household_id: string }[]).map((m) => m.household_id)
       if (!ids.length) { if (!cancelled) setRows([]); return }
       const { data: hh } = await supabase.from('households').select('id, address, unit, current_lease_id').in('id', ids)
@@ -41,15 +43,17 @@ export default function MyRent() {
     return () => { cancelled = true }
   }, [auth.loading, auth.user])
   if (!rows || rows.length === 0) return null
-  const label = (s: string) => zh ? ({ due: '待付', paid: '已付', late: '逾期', partial: '部分' } as Record<string, string>)[s] ?? s : s
+  // rent_payments.status ∈ due | paid | late | failed (20260509_v5_schema)
+  const LABEL: Record<string, { zh: string; en: string }> = { due: { zh: '待付', en: 'Due' }, paid: { zh: '已付', en: 'Paid' }, late: { zh: '逾期', en: 'Late' }, failed: { zh: '失败', en: 'Failed' } }
+  const label = (s: string) => (LABEL[s] ? (zh ? LABEL[s].zh : LABEL[s].en) : s)
   return (
     <div className="mb-6 rounded-2xl border border-line-divider bg-white p-5">
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '我的租金记录 · 真实记录' : 'MY RENT · LIVE'}</div>
       <div className="mt-3 divide-y divide-line-divider">
         {rows.map((r) => (
-          <div key={r.id} className="flex items-center justify-between gap-3 py-2.5 text-[13.5px]">
-            <div className="min-w-0">
-              <div className="font-semibold">{r.address}{r.unit ? ` #${r.unit}` : ''}</div>
+          <div key={r.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 py-2.5 text-[13.5px]">
+            <div className="min-w-0 flex-1 basis-[180px]">
+              <div className="break-words font-semibold">{r.address}{r.unit ? ` #${r.unit}` : ''}</div>
               <div className="mt-0.5 text-[12px] text-body-3">{zh ? '账期 ' : 'Due '}{r.due_date}{r.paid_at ? (zh ? ` · 记录付于 ${r.paid_at.slice(0, 10)}` : ` · recorded paid ${r.paid_at.slice(0, 10)}`) : ''}{r.method ? ` · ${r.method}` : ''}</div>
             </div>
             <div className="flex flex-none items-center gap-2">

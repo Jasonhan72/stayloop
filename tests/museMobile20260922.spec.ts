@@ -61,9 +61,9 @@ describe('phone workspace wiring', () => {
   })
   it('one bottom bar per phone: signed in, the public pages mount the same workbench bar (with 房源 in its 更多 sheet); visitors keep 助手 · 房源 · 筛查 · 登录 (user 2026-09-25)', () => {
     const pub = readFileSync('components/MobileBottomNav.tsx', 'utf8')
-    expect(pub).toContain("import { PhoneTabs, RAIL_BY_ROLE, type WorkspaceRole } from './workspace/rail'")
+    expect(pub).toContain("import { PhoneTabs, RAIL_BY_ROLE } from './workspace/rail'")
     expect(pub).toContain('return <PhoneTabs role={role} items={RAIL_BY_ROLE[role]} />')
-    expect(pub).toContain("label: signedIn ? (zh ? '我的' : 'Me') : (zh ? '登录' : 'Sign in')")
+    expect(pub).toContain("label: zh ? '登录' : 'Sign in'") // the visitor bar; signed-in phones get the workbench bar above
     expect(rail).toContain('<Link href="/listings" className={')
     expect(shell).not.toMatch(/function PhoneTabs/)
   })
@@ -121,7 +121,7 @@ describe('signed-in homepage + identity menu', () => {
   const header = readFileSync('components/Header.tsx', 'utf8')
   it('homepage hides the pills for signed-in users and mirrors auth.role', () => {
     expect(home).toMatch(/\{signedIn \? \(/)
-    expect(home).toMatch(/const r = auth\.role \|\| 'tenant'/)
+    expect(home).toMatch(/setRole\(activeHat\(hats, auth\.role\)\)/) // review 2026-09-25: the same predicate as the header
     expect(home).toMatch(/换身份在右上角菜单/)
   })
   it('menu: identity row, assistant-named workspace (no quick chips — user 2026-09-22), three hats with 当前 / 待认证 / 开通, red dot only when something waits', () => {

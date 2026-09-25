@@ -89,7 +89,10 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
   const moreOn = more || (!tabs.some((t) => path === t.href || path.startsWith(t.href + '/')) && path !== `/${role}/agent`)
   return (
     <>
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-between border-t border-line-divider px-1 pb-[env(safe-area-inset-bottom)] md:hidden" style={{ background: '#FFFFFF' }} aria-label={zh ? '工作台' : 'Workspace'}>
+      {/* The safe-area padding sits OUTSIDE the 64px row: with border-box sizing, padding inside
+          `h-16` squeezed the icons + labels into ~29px on a home-screen iPhone (review 2026-09-25). */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line-divider md:hidden" style={{ background: '#FFFFFF', paddingBottom: 'env(safe-area-inset-bottom)' }} aria-label={zh ? '工作台' : 'Workspace'}>
+       <div className="flex h-16 items-stretch justify-between px-1">
         {tabs.map((t) => {
           const on = path === t.href || path.startsWith(t.href + '/')
           return (
@@ -106,10 +109,11 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
           <MoreIcon />
           <span className="text-[11px] font-medium leading-none">{zh ? '更多' : 'More'}</span>
         </button>
+       </div>
       </nav>
       {more && (
         <div className="fixed inset-0 z-[45] bg-black/35 md:hidden" onClick={() => setMore(false)}>
-          <div className="absolute inset-x-0 bottom-16 rounded-t-2xl bg-white px-4 pb-4 pt-3" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={zh ? '更多页面' : 'More pages'}>
+          <div className="absolute inset-x-0 rounded-t-2xl bg-white px-4 pb-4 pt-3" style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={zh ? '更多页面' : 'More pages'}>
             <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line-strong" />
             <div className="grid grid-cols-4 gap-2">
               {items.filter((it) => it.key !== 'home').map((it) => {

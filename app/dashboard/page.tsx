@@ -183,9 +183,11 @@ export default function Dashboard() {
 
   async function toggleListingActive(id: string, currentlyActive: boolean) {
     const next = !currentlyActive
-    const { error } = await supabase.from('listings').update({ is_active: next }).eq('id', id)
+    // Re-listing restarts the clock: days-on-market must not include the time it was off market.
+    const patch = next ? { is_active: true, published_at: new Date().toISOString() } : { is_active: false }
+    const { error } = await supabase.from('listings').update(patch).eq('id', id)
     if (error) { alert(error.message); return }
-    setListings((prev) => prev.map((l) => l.id === id ? { ...l, is_active: next } : l))
+    setListings((prev) => prev.map((l) => l.id === id ? { ...l, ...patch } : l))
   }
 
   const stats = {
@@ -267,8 +269,10 @@ export default function Dashboard() {
               // application after a week (the card used to name another
               // landlord's Estelle Avenue listing with invented numbers — 2026-09-25).
               const now = Date.now()
+              // Only listings the public can actually see: a pending (unverified) one has
+              // zero applications because nobody can find it, not because of its price.
               const stale = listings
-                .filter((l) => l.is_active)
+                .filter((l) => l.is_active && ((l as { verification_status?: string | null }).verification_status === 'verified' || (l as { source?: string | null }).source === 'realtor'))
                 .map((l) => ({
                   l,
                   days: Math.floor((now - new Date((l as { published_at?: string | null }).published_at || l.created_at || Date.now()).getTime()) / 86_400_000),

@@ -301,7 +301,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
             design/redesign-2026-09/Console.dc.html) */}
         <div className="md:flex md:min-h-[calc(100vh-66px)]">
           <Rail role={role} />
-          <div className={phoneApp ? 'min-w-0 flex-1 p-0 pb-16 md:p-0' : 'min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12'}>
+          <div className={phoneApp ? 'sl-phone-pb min-w-0 flex-1 p-0 md:p-0' : 'min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12'}>
             {(sampleNote || role === 'agent') && (
               <div className={phoneApp ? 'px-5 pt-4 md:px-8 md:pt-4' : ''}>
                 {sampleNote && <SampleBanner zh={lang === 'zh'} note={sampleNote} />}
@@ -473,7 +473,8 @@ function RoleBadge({ role }: { role: WorkspaceRole }) {
                       : <span className="text-body-3">›</span>}
               </>
             )
-            if (isCurrent) return <div key={r} className={row} aria-current="true">{inner}</div>
+            // A menu may only contain menu items — the current hat is a disabled one, not a bare div (a11y review 2026-09-25).
+            if (isCurrent) return <div key={r} role="menuitem" aria-disabled="true" aria-current="true" className={row}>{inner}</div>
             if (has) return <button key={r} type="button" role="menuitem" onClick={() => switchTo(r)} className={row}>{inner}</button>
             return <Link key={r} role="menuitem" href={r === 'landlord' ? '/onboarding/name?role=landlord' : '/agent/verify'} onClick={() => setOpen(false)} className={row}>{inner}</Link>
           })}

@@ -12,3 +12,15 @@ export function roleFromPath(path: string | null | undefined): ActiveRole {
   if (path.startsWith('/agent/')) return 'agent'
   return null
 }
+
+/** Pages that carry a role prefix without being that role's workspace: the
+ *  landlord onboarding door, the agent registration form, and the screening
+ *  app (used by RECO agents for client screening since 2026-09-24). Visiting
+ *  them must not be remembered as "this account uses that hat" — review
+ *  2026-09-25: a tenant bounced to /landlord/become had landlord remembered
+ *  and was then bounced off /settings as well. */
+const NOT_A_CHOICE = ['/landlord/become', '/agent/verify', '/screening/app']
+export function rememberableRoleFromPath(path: string | null | undefined): ActiveRole {
+  if (!path || NOT_A_CHOICE.some((p) => path.startsWith(p))) return null
+  return roleFromPath(path)
+}

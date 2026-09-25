@@ -10,7 +10,7 @@ import LanguageCurrencyModal from './LanguageCurrencyModal'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
-import { bestHat, useHats } from '@/lib/useHats'
+import { activeHat, useHats } from '@/lib/useHats'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import { useAIName } from '@/lib/aiName'
 import { supabase } from '@/lib/supabase'
@@ -46,7 +46,8 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   // account holds and a door to each it does not. localStorage only remembers
   // the last one used (design/multi-role-accounts-2026-09.md §3).
   const hats = useHats()
-  const currentRole = auth.role || bestHat(hats)
+  // The remembered role only counts when the account holds that hat (review 2026-09-25).
+  const currentRole = activeHat(hats, auth.role)
   const heldRoles = (['tenant', 'landlord', 'agent'] as const).filter((r) =>
     r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)
 

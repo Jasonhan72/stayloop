@@ -22,7 +22,7 @@ describe('icon rail (WorkspaceShell, md+)', () => {
     expect(shell).toContain("md:border-r md:border-line-divider md:px-2 md:py-3\"\n      style={{ background: '#F3F8FC' }}")
     expect(shell).toContain("style={on ? { background: '#FFFFFF', color: '#1B1B3C', boxShadow: '0 1px 2px rgba(27,27,60,0.10)' } : { color: '#6E6E8A' }}")
     const rail = read('components/workspace/rail.tsx')
-    expect(rail).toContain("border-t border-line-divider px-1 pb-[env(safe-area-inset-bottom)] md:hidden\" style={{ background: '#FFFFFF' }}")
+    expect(rail).toContain("border-t border-line-divider md:hidden\" style={{ background: '#FFFFFF', paddingBottom: 'env(safe-area-inset-bottom)' }}")
     expect(shell + rail).not.toContain("'#c7d2e3'")
   })
   it('carries the four assistant pages (the phone tabs) plus the role pages and settings', () => {
@@ -31,7 +31,7 @@ describe('icon rail (WorkspaceShell, md+)', () => {
     expect(shell).toContain("const pages = items.filter((it) => it.key !== 'home')")
   })
   it('assistant pages get no content padding on md+ (the chat is the page)', () => {
-    expect(shell).toContain("phoneApp ? 'min-w-0 flex-1 p-0 pb-16 md:p-0'")
+    expect(shell).toContain("phoneApp ? 'sl-phone-pb min-w-0 flex-1 p-0 md:p-0'")
   })
 })
 
@@ -43,7 +43,7 @@ describe('the conversation is the page', () => {
     expect(chat).toContain("${hero ? 'lg:hidden' : ''}")
     expect(chat).toContain("space-y-3 ${hero ? '' : 'lg:hidden'}")
     expect(chat).toContain('pill={hero}')
-    expect(chat).toMatch(/export const ORB/)
+    expect(chat).not.toMatch(/export const ORB/) // dead export removed in the 2026-09-25 review
   })
   it('composer pill: one row at every width, 28px radius, model picker under the bar', () => {
     const bar = read('components/agent/AgentInputBar.tsx')
@@ -59,7 +59,7 @@ describe('assistant panel', () => {
     expect(panel).toContain("['activity', zh ? '活动' : 'Activity'")
     expect(panel).toContain("['todo', zh ? '待办' : 'To-do'")
     expect(panel).toContain("['memory', zh ? '记忆' : 'Memory'")
-    expect(panel).toContain('useActivityLog(live, role)')
+    expect(panel).toContain('useActivityLog(live, role, 30, visible)')
     expect(panel).toContain("from('agent_configs').update({ agent_name: next }).eq('user_id', auth.user.id).eq('role', role)")
     expect(panel).toContain('onClick={onClose}')
     expect(panel).toContain('<PrivateMemorySnapshot agentName={name} memories={memories} role={role} editable={live} />')

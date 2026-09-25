@@ -16,13 +16,14 @@
 // Idempotency is by (lease_id, stage): each stage is proposed at most once
 // per lease, ever — decided or not, we never re-nag.
 import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
-import { guidelineFor, n1DeadlineFor } from '@/lib/ontario/rules'
+import { N1_NOTICE_DAYS, guidelineFor, n1DeadlineFor } from '@/lib/ontario/rules'
 
 // The guideline is per calendar year of the increase's effective date (RTA
 // s.120; 2026 = 2.1%, 2027 = 1.9%) — see lib/ontario/rules.ts RENT_GUIDELINE.
 // A renewal increase takes effect when the current term ends.
 export const WINDOW_DAYS = 120
-export const NOTICE_DAYS = 90
+// One source for the N1 lead time (lib/ontario/rules) — the deadline dates already come from n1DeadlineFor.
+export const NOTICE_DAYS = N1_NOTICE_DAYS
 
 export type RenewalStage = '90d' | '60d' | '30d'
 

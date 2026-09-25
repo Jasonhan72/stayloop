@@ -11,7 +11,7 @@ import { useAgentSession } from '@/lib/agent/useAgentSession'
 import AssistantPanel from '@/components/agent/AssistantPanel'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
 import { useAssistantPanel } from '@/lib/agent/useAssistantPanel'
-import { AssistantAvatar, getStoredAvatar } from '@/lib/agent/avatars'
+import { AssistantAvatar, getStoredAvatar, setStoredAvatar } from '@/lib/agent/avatars'
 import { usePromptDeepLink } from '@/lib/agent/usePromptDeepLink'
 import { useT } from '@/lib/i18n'
 
@@ -26,7 +26,13 @@ export default function LandlordAgentPage() {
   // The assistant's face: the chosen preset (agent_configs.avatar, mirrored in localStorage) or the role orb.
   const [avatar, setAvatar] = useState<string | null>(null)
   const dbAvatar = data?.agent.avatar ?? null
-  useEffect(() => { setAvatar(getStoredAvatar('landlord') ?? dbAvatar) }, [dbAvatar])
+  // Live: the account's saved choice wins and is mirrored locally — it used to be the other way round,
+  // so a choice made on another device never showed (review 2026-09-25). Demo sessions use the browser's.
+  const hasData = !!data
+  useEffect(() => {
+    if (live && hasData) { setAvatar(dbAvatar); setStoredAvatar('landlord', dbAvatar ?? 'default') }
+    else setAvatar(getStoredAvatar('landlord') ?? dbAvatar)
+  }, [dbAvatar, live, hasData])
 
   if (loading || !data) {
     return (
@@ -56,7 +62,7 @@ export default function LandlordAgentPage() {
           sits beside it, closable. 今日 lives on /x/todo, the 租前·租中·租后
           rail on /x/progress, recommendations on /x/ideas — nothing sits
           above the conversation. */}
-      <div className="flex h-[calc(100dvh-121px)] flex-col md:h-[calc(100vh-66px)] md:flex-row">
+      <div className="sl-phone-col flex flex-col md:h-[calc(100vh-66px)] md:flex-row">
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           {!live && (
             <div className="mx-5 mb-3 mt-4 flex-none rounded-xl border border-line-strong bg-surface-chip px-4 py-3 font-mono text-[11px] leading-relaxed text-body-3 md:mx-8 md:mb-2 md:mt-4">

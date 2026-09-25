@@ -17,7 +17,7 @@ import { decidePendingAction } from './approval-engine'
 import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
 import { demoSession } from './demo'
 import { getAIName, setAIName, getStoredAIName, getDefaultName } from '@/lib/aiName'
-import { createThread, latestThread, loadThread, readPointer, saveThread, writePointer } from './threads'
+import { appendToThread, createThread, latestThread, loadThread, readPointer, saveThread, writePointer } from './threads'
 import { notifyActivityChanged } from './useActivityLog'
 import { reconcileDraft } from './draftReconcile'
 
@@ -170,6 +170,13 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const creating = useRef<Promise<string | null> | null>(null)
   const resolveGen = useRef(0)
   const agentNameRef = useRef('')
+  // The exact array a thread was loaded as: the persist effect must not treat
+  // loading as a change (review 2026-09-25 — opening any assistant page
+  // rewrote the row and bumped last_message_at to "now").
+  const lastAppliedRef = useRef<ChatMessage[] | null>(null)
+  // The in-flight resolve / open: sendMessage waits for it so a message typed
+  // during "读取对话…" never creates an orphan row or lands in the wrong thread.
+  const resolvingRef = useRef<Promise<void> | null>(null)
 
   // Put a thread on screen: its messages (re-keyed, listing exclusions
   // rebuilt) or the greeting for an empty one. `id` null = a new, unsaved thread.
@@ -178,15 +185,17 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     setThreadId(id)
     writePointer(role, scope, id)
     shownListings.current.clear()
+    let next: ChatMessage[]
     if (msgs && msgs.length > 0) {
-      const fixed = rekeyMessages(msgs)
-      msgSeq.current = Math.max(fixed.length, ...fixed.map((m) => parseInt(String(m.id).replace(/^m/, ''), 10) || 0))
-      for (const m of fixed) for (const l of (m.listings ?? []).slice(0, m.listingsPage ?? LISTINGS_PAGE)) shownListings.current.add(l.address.toLowerCase())
-      setMessages(fixed)
+      next = rekeyMessages(msgs)
+      msgSeq.current = Math.max(next.length, ...next.map((m) => parseInt(String(m.id).replace(/^m/, ''), 10) || 0))
+      for (const m of next) for (const l of (m.listings ?? []).slice(0, m.listingsPage ?? LISTINGS_PAGE)) shownListings.current.add(l.address.toLowerCase())
     } else {
       msgSeq.current = 0
-      setMessages([{ id: nextId(), role: 'agent', text: greeting(role, agentNameRef.current || getDefaultName(role), langRef.current) }])
+      next = [{ id: nextId(), role: 'agent', text: greeting(role, agentNameRef.current || getDefaultName(role), langRef.current) }]
     }
+    lastAppliedRef.current = next
+    setMessages(next)
     setThreadLoading(false)
   }, [role])
 
@@ -276,7 +285,11 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
         }
         return [{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name, langRef.current) }]
       })
-      if (isLive && user?.id && (!settledBefore || scopeChanged) && !hadTyped) void resolveThread(user.id, nextScope)
+      if (isLive && user?.id && (!settledBefore || scopeChanged) && !hadTyped) {
+        const p = resolveThread(user.id, nextScope)
+        resolvingRef.current = p
+        void p.finally(() => { if (resolvingRef.current === p) resolvingRef.current = null })
+      }
     },
     [role, user, resolveThread]
   )
@@ -288,9 +301,13 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     const uid = user?.id
     if (!uid || chatScopeRef.current === 'anon') return null
     if (!creating.current) {
+      // "+" or opening another conversation while the row is being created:
+      // the new id belongs to the conversation the user just left (review 2026-09-25).
+      const gen = resolveGen.current
       creating.current = createThread(getSupabaseBrowser(), uid, role, msgs).then((id) => {
-        if (id) { threadIdRef.current = id; setThreadId(id); writePointer(role, chatScopeRef.current, id) }
         creating.current = null
+        if (!id || gen !== resolveGen.current) return null
+        threadIdRef.current = id; setThreadId(id); writePointer(role, chatScopeRef.current, id)
         return id
       })
     }
@@ -299,7 +316,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const persistThread = useCallback(async () => {
     if (chatScopeRef.current === 'anon') return
     const msgs = messagesRef.current
-    if (msgs.length <= 1) return
+    if (msgs.length <= 1 || msgs === lastAppliedRef.current) return
     const id = await ensureThread(msgs)
     if (id) await saveThread(getSupabaseBrowser(), id, messagesRef.current)
     // The activity panel re-read right after the turn, before this debounced
@@ -310,10 +327,13 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   persistRef.current = persistThread
   const flushThread = useCallback(() => {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
-    if (chatScopeRef.current !== 'anon' && threadIdRef.current && messagesRef.current.length > 1) void saveThread(getSupabaseBrowser(), threadIdRef.current, messagesRef.current)
+    if (chatScopeRef.current !== 'anon' && threadIdRef.current && messagesRef.current.length > 1 && messagesRef.current !== lastAppliedRef.current) void saveThread(getSupabaseBrowser(), threadIdRef.current, messagesRef.current)
   }, [])
   const newThread = useCallback(() => {
     flushThread()
+    // Whatever is still resolving or being created belongs to the conversation being left.
+    resolveGen.current++
+    creating.current = null
     const scope = chatScopeRef.current
     if (scope === 'anon') { try { localStorage.removeItem(chatKey(role, 'anon')) } catch { /* private mode */ } }
     urlImagesRef.current = []
@@ -325,12 +345,18 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     flushThread()
     setThreadLoading(true)
     const gen = ++resolveGen.current
-    const t = await loadThread(getSupabaseBrowser(), id)
-    if (gen !== resolveGen.current) return
-    if (!t) { setThreadLoading(false); return }
-    urlImagesRef.current = []
-    setStatus('idle')
-    applyThread(t.id, t.messages, chatScopeRef.current)
+    creating.current = null
+    const p = (async () => {
+      const t = await loadThread(getSupabaseBrowser(), id)
+      if (gen !== resolveGen.current) return
+      if (!t) { setThreadLoading(false); return }
+      urlImagesRef.current = []
+      setStatus('idle')
+      applyThread(t.id, t.messages, chatScopeRef.current)
+    })()
+    resolvingRef.current = p
+    void p.finally(() => { if (resolvingRef.current === p) resolvingRef.current = null })
+    await p
   }, [flushThread, applyThread])
   // The rail's "+" (WorkspaceShell) starts a new conversation on this page.
   useEffect(() => {
@@ -345,6 +371,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   // live → the thread row (debounced).
   useEffect(() => {
     if (messages.length <= 1) return
+    if (messages === lastAppliedRef.current) return // loaded, not changed
     if (chatScopeRef.current === 'anon') { saveMessages(role, 'anon', messages); return }
     if (threadLoading) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -446,6 +473,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       let removed: AgentSessionResponse['pendingActions'][number] | undefined
       let prevStatus: AgentStatus | null = null
       let remainingPending = 0
+      // The "✅ 已执行" line 60 s later belongs to the conversation the card was decided in.
+      const startedIn = threadIdRef.current
       setData((prev) => {
         if (!prev) return prev
         removed = prev.pendingActions.find((a) => a.id === actionId)
@@ -519,14 +548,20 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
                   ? 'renewal letter'
                   : removed?.action_type === 'rent_reminder'
                     ? 'rent reminder'
-                    : 'email')
-            setMessages((msgs) => [...msgs, {
+                    : removed?.action_type === 'maintenance_request'
+                      ? 'maintenance request'
+                      : 'email')
+            const doneMsg: ChatMessage = {
               id: nextId(),
               role: 'agent',
               text: zh
                 ? `✅ 已执行：「${removed?.title ?? '你批准的操作'}」— ${artifact}已真实发送至 ${sentTo}${rentAmt ? `（月租 $${rentAmt.toLocaleString()}）` : ''}。执行记录已写入审计日志。`
                 : `✅ Done: "${removed?.title ?? 'the action you approved'}" — the ${artifact} was actually sent to ${sentTo}${rentAmt ? ` (monthly rent $${rentAmt.toLocaleString()})` : ''}. The execution was written to the audit log.`,
-            }])
+            }
+            if (startedIn && threadIdRef.current !== startedIn) void appendToThread(getSupabaseBrowser(), startedIn, [doneMsg])
+            else setMessages((msgs) => [...msgs, doneMsg])
+            // The execution wrote an audit row — the activity panel should show it now, not on the next reload.
+            notifyActivityChanged()
           } else if (j.executed) {
             // already executed earlier — nothing new to report
           } else if (j.reason === 'no_executor_for_type') {
@@ -567,6 +602,11 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const sendMessage = useCallback(
     async (message: string, attachments?: ChatAttachment[]) => {
       if ((!message.trim() && !attachments?.length) || !data) return
+      // A live session may still be deciding which thread is open (deep links
+      // send on the same tick the page settles): wait, or the message is
+      // shown, then wiped by the loaded history, and its reply lands in an
+      // orphan row (review 2026-09-25, reproduced in a hook harness).
+      if (resolvingRef.current) await resolvingRef.current
       // Capture the prior thread as context so follow-ups ("再找几个 / 换一批")
       // keep the earlier criteria.
       const history = messagesRef.current.slice(-6).map((m) => ({ role: m.role, text: m.text }))
@@ -593,6 +633,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       let memoryWrites: AgentSessionResponse['memories'] = []
       let proposedAction: AgentSessionResponse['pendingActions'][number] | null = null
       let nextStage: string | null = null
+      // The thread the question was asked in — the reply goes there even if the user has since opened another one.
+      let sentThread: string | null = null
       let listings: ChatMessage['listings']
       let listingsSource: ChatMessage['listingsSource']
       let listingsNotice: ChatMessage['listingsNotice']
@@ -611,6 +653,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           // The thread row exists before the turn is audited, so the activity
           // log can point back at this conversation.
           const tid = await ensureThread([...messagesRef.current.filter((m) => m.id !== userMsg.id), userMsg])
+          sentThread = tid
           const turn = await runAgentTurn({
             lang: uiLang,
             client: getSupabaseBrowser(),
@@ -794,11 +837,15 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           latestResult: { ...result, kind: 'summary' },
         }
       })
-      // Append the agent's reply (with any listing/draft cards) to the thread.
-      setMessages((m) => [
-        ...m,
-        { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, market, followups, draftListing },
-      ])
+      // Append the agent's reply (with any listing/draft cards) to the thread it
+      // was asked in. If the user opened another conversation meanwhile, the
+      // reply is written to that row instead of the one on screen (review 2026-09-25).
+      const reply: ChatMessage = { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, market, followups, draftListing }
+      if (sentThread && threadIdRef.current !== sentThread) {
+        void appendToThread(getSupabaseBrowser(), sentThread, [reply]).then(() => notifyActivityChanged())
+        return
+      }
+      setMessages((m) => [...m, reply])
     },
     [live, user, role, data]
   )
@@ -817,12 +864,13 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     try {
       const sb = getSupabaseBrowser()
       const { data: row } = await sb.from('agent_pending_actions').update({ status: 'pending' }).eq('id', actionId).eq('status', 'approved').is('executed_at', null).select('*').maybeSingle()
-      notifyPendingChanged()
       if (row) {
         setData((prev) => (prev ? { ...prev, pendingActions: [row as AgentSessionResponse['pendingActions'][number], ...prev.pendingActions.filter((a) => a.id !== actionId)] } : prev))
         setStatus('approval')
         await sb.from('agent_audit_events').insert({ actor_id: user?.id ?? null, actor_type: 'user', action: 'approval_undone', target_type: 'agent_pending_action', target_id: actionId, metadata: { thread_id: ((row as { metadata?: Record<string, unknown> | null }).metadata?.thread_id as string | undefined) ?? null } })
       }
+      // After the audit row exists, so the badges and the activity log re-read the final state.
+      notifyPendingChanged()
     } catch (e) {
       setError((e as Error).message)
     }

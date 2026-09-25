@@ -31,18 +31,8 @@ type Row = {
   listing_unit: string | null
   listing_active: boolean | null
 }
-type LeaseRow = { id: string; status: string | null; unit_label: string | null; sent_at: string | null; signed_at: string | null; created_at: string }
+type LeaseRow = { id: string; application_id: string | null; status: string | null; unit_label: string | null; sent_at: string | null; signed_at: string | null; created_at: string }
 type HhRow = { id: string; current_lease_id: string | null; address: string | null }
-
-export function applicationStatusLabel(status: string | null, zh: boolean): { text: string; tone: 'ok' | 'bad' | 'wait' } {
-  switch (status) {
-    case 'approved': return { text: zh ? '已录取 · 请查收邮件' : 'Approved · check your email', tone: 'ok' }
-    case 'declined': return { text: zh ? '未被选中' : 'Not selected', tone: 'bad' }
-    case 'reviewing': return { text: zh ? '房东请你补充材料' : 'Landlord asked for more', tone: 'wait' }
-    case 'scored': return { text: zh ? '房东审核中' : 'Under review', tone: 'wait' }
-    default: return { text: zh ? '已提交 · 等房东回应' : 'Submitted · waiting for the landlord', tone: 'wait' }
-  }
-}
 
 function Tracker({ steps, zh }: { steps: TrackStep[]; zh: boolean }) {
   return (
@@ -77,7 +67,7 @@ export default function MyApplications({ zh }: { zh: boolean }) {
     ;(async () => {
       const [{ data: apps }, { data: ls }, { data: hh }, { data: mem }] = await Promise.all([
         supabase.from('applicant_applications').select('id, status, created_at, move_in_date, viewed_at, screened_at, decision_notified_at, listing_id, listing_slug, listing_address, listing_unit, listing_active').order('created_at', { ascending: false }).limit(20),
-        email ? supabase.from('lease_documents').select('id, status, unit_label, sent_at, signed_at, created_at').ilike('tenant_email', email).order('created_at', { ascending: false }).limit(20) : Promise.resolve({ data: [] as LeaseRow[] }),
+        email ? supabase.from('lease_documents').select('id, application_id, status, unit_label, sent_at, signed_at, created_at').ilike('tenant_email', email).order('created_at', { ascending: false }).limit(20) : Promise.resolve({ data: [] as LeaseRow[] }),
         supabase.from('households').select('id, current_lease_id, address').limit(20),
         supabase.from('household_members').select('household_id').eq('user_id', uid).limit(20),
       ])
@@ -96,9 +86,14 @@ export default function MyApplications({ zh }: { zh: boolean }) {
   // tracker never shows a blank step after 已录取.
   const leaseFor = (r: Row, l: { address: string; unit: string | null } | null): LeaseRow | null => {
     if (r.status !== 'approved') return null
+    // The lease drafted from this application names it (lease_documents.application_id) — exact match first.
+    // The address heuristic is only for leases that predate the column, and never for a lease that names
+    // another application (review 2026-09-25: two units in one building both matched the first lease).
+    const exact = leases.find((x) => x.application_id === r.id)
+    if (exact) return exact
     const key = l ? `${l.address} ${l.unit ?? ''}`.toLowerCase() : ''
     // No fallback to "the newest lease": two approved applications would otherwise both claim it (review 2026-09-23).
-    return leases.find((x) => x.unit_label && key && (key.includes(x.unit_label.toLowerCase()) || x.unit_label.toLowerCase().includes(l!.address.toLowerCase()))) ?? null
+    return leases.find((x) => !x.application_id && x.unit_label && key && (key.includes(x.unit_label.toLowerCase()) || x.unit_label.toLowerCase().includes(l!.address.toLowerCase()))) ?? null
   }
   return (
     <div className="mb-6 rounded-2xl border border-line-divider bg-white p-5">
