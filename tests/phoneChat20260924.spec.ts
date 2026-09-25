@@ -17,9 +17,10 @@ describe('phone assistant screen', () => {
       expect(s).toContain('flex h-[calc(100dvh-121px)] flex-col md:grid md:h-auto')
       expect(s).toContain('<div className="md:hidden"><ContextStrip')
       expect(s).toContain('phoneFill')
-      // 今日 and the compact rail are md+ only; the strip carries them on phones
-      expect(s).toContain('<div className="mb-4 hidden md:block"><TodayCard')
-      expect(s).not.toContain('md:hidden"><LifecycleRail')
+      // 今日 and the rail are carried by the strip on phones and by /x/todo and
+      // /x/progress on the web — never above the conversation (user 2026-09-24)
+      expect(s).not.toContain('<TodayCard')
+      expect(s).not.toContain('<LifecycleRail')
       expect(s).not.toContain('-mx-5 min-w-0 sm:mx-0')
     }
   })
@@ -35,11 +36,12 @@ describe('phone assistant screen', () => {
     expect(shell).toContain("phoneApp ? 'min-w-0 flex-1 p-0 pb-16 md:px-7 md:py-9 md:pb-9 lg:px-12'")
     expect(read('components/Header.tsx')).toContain('flex h-14 max-w-[1240px] items-center justify-between px-5 sm:px-8 md:h-[66px]')
   })
-  it('chat header: centred avatar + name pill on phones (Muse reference), one row from md; phoneFill fills the parent', () => {
+  it('chat header: centred avatar with the name below on every breakpoint (user 2026-09-24, phone and web); phoneFill fills the parent', () => {
     const s = read('components/agent/AgentChat.tsx')
     expect(s).not.toContain("'flex-col text-center sm:flex-row sm:text-left'")
-    expect(s).toContain('flex flex-none flex-col items-center px-4 pb-2 pt-3 md:flex-row')
-    expect(s).toContain('h-11 w-11 md:h-9 md:w-9')
+    expect(s).toContain('flex flex-none flex-col items-center px-4 pb-2 pt-3 md:border-b')
+    expect(s).not.toContain('md:flex-row md:gap-3')
+    expect(s).toContain('h-11 w-11 md:h-14 md:w-14')
     expect(s).not.toContain('-mt-2 rounded-full border border-line-divider bg-white') // 名字不得压住头像（用户 2026-09-24）
     expect(s).toContain("phoneFill ? 'h-full md:h-[70vh] md:rounded-2xl md:border md:border-line-divider md:shadow-sm lg:h-full'")
     expect(s).toContain('border-t border-line-divider p-2 md:p-3')

@@ -69,14 +69,19 @@ describe('lifecycle stages are derived from rows, not from the model', () => {
     const lc = landlordLifecycle({ listings: [{ id: 'L1', verification_status: 'verified', is_active: true }], showingsPending: 2, applications: [{ id: 'A1', listing_id: 'L1', status: 'new', decision_notified_at: null }], screenings: [{ application_id: 'A1', status: 'scored' }], leases: [], households: [], rent: [], tickets: [], renewalCards: [] }, today)
     expect(JSON.stringify(lc)).not.toMatch(/\d+%|评分 \d|score \d/)
   })
-  it('the rail is mounted on all three consoles and the progress page; the status line uses the phase', () => {
+  it('the rail lives in the phone context strip and on the progress page — never above the conversation (user 2026-09-24); the status line uses the phase', () => {
     for (const f of ['app/tenant/agent/page.tsx', 'app/landlord/agent/page.tsx', 'app/agent/agent/page.tsx']) {
       const src = readFileSync(f, 'utf8')
-      expect(src, f).toMatch(/<LifecycleRail lifecycle=\{lifecycle\} lang=\{lang\} onPrompt=\{prefill\} \/>/)
-      // Phones (2026-09-24): the compact rail lives inside the context strip.
+      // The web version mixed the workbench (今日 + rail) into the chat page; the user
+      // asked for it back: chat as the hero, nothing above it.
+      expect(src, f).not.toContain('<LifecycleRail')
+      expect(src, f).not.toContain('<TodayCard')
+      // Phones: the compact rail lives inside the context strip.
       expect(src, f).toMatch(/<ContextStrip lifecycle=\{lifecycle\}/)
       expect(src, f).toMatch(/phaseLabel=\{/)
     }
+    // Desktop still reaches the full rail from the controls column.
+    expect(readFileSync('components/agent/RelatedPagesCard.tsx', 'utf8')).toContain("href: '/landlord/progress'")
     expect(readFileSync('components/mobile/ContextStrip.tsx', 'utf8')).toMatch(/<LifecycleRail lifecycle=\{lifecycle\} lang=\{lang\} compact/)
     expect(readFileSync('components/mobile/RolePages.tsx', 'utf8')).toMatch(/<LifecycleRail lifecycle=\{lifecycle\} lang=\{lang\} full \/>/)
   })

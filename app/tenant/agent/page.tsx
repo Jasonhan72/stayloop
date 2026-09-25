@@ -8,8 +8,6 @@ import { useCallback, useState } from 'react'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
-import LifecycleRail from '@/components/lifecycle/LifecycleRail'
-import TodayCard from '@/components/lifecycle/TodayCard'
 import ContextStrip from '@/components/mobile/ContextStrip'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
@@ -45,18 +43,12 @@ export default function TenantAgentPage() {
     <WorkspaceShell role="tenant" hideAside phoneApp>
       {!live && <div className="px-5 pt-4 md:px-0 md:pt-0"><DemoBanner /></div>}
 
-      {live && (
-        <div className="mb-4 hidden md:block"><TodayCard lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/tenant/todo" lang={lang} onPrompt={prefill} /></div>
-      )}
-      {live && lifecycle && (
-        <>
-          <div className="mb-5 hidden md:block"><LifecycleRail lifecycle={lifecycle} lang={lang} onPrompt={prefill} /></div>
-        </>
-      )}
-      {/* Phone (2026-09-24): the assistant IS the screen — a fixed column of
-          [context strip] + [chat] filling the viewport between header (56px)
-          and the tab bar (64px); 今日 and the rail collapse into the strip.
-          md+: the previous grid. */}
+      {/* The assistant IS the screen (user 2026-09-24, both phone and web):
+          phone — a fixed column of [context strip] + [chat] between the 56px
+          header and the 64px tab bar, 今日 and the rail folded into the strip;
+          md+ — the chat as the hero with the controls column beside it. 今日
+          lives on /x/todo and the 租前·租中·租后 rail on /x/progress; neither
+          sits above the conversation here. */}
       <div className="flex h-[calc(100dvh-121px)] flex-col md:grid md:h-auto md:gap-6 lg:grid-cols-[1fr_380px]">
         {live && <div className="md:hidden"><ContextStrip lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/tenant/todo" lang={lang} onPrompt={prefill} /></div>}
         {/* Conversation */}

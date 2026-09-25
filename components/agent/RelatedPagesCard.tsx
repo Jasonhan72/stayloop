@@ -10,18 +10,21 @@ const LINKS: Record<AgentRole, { href: string; label: { zh: string; en: string }
     { href: '/listings', label: { zh: '房源', en: 'Listings' } },
     { href: '/tenant/applications', label: { zh: '申请', en: 'Applications' } },
     { href: '/tenant/lease', label: { zh: '租约', en: 'Lease' } },
+    { href: '/tenant/progress', label: { zh: '租前·租中·租后进度', en: 'Progress' } },
   ],
   landlord: [
     { href: '/landlord/applicants', label: { zh: '申请人', en: 'Applicants' } },
     { href: '/dashboard', label: { zh: '房源', en: 'Listings' } },
     { href: '/landlord/leases', label: { zh: '租约', en: 'Leases' } },
     { href: '/landlord/finance', label: { zh: '财务', en: 'Finance' } },
+    { href: '/landlord/progress', label: { zh: '租前·租中·租后进度', en: 'Progress' } },
   ],
   agent: [
     { href: '/agent/tasks', label: { zh: '任务', en: 'Tasks' } },
     { href: '/agent/clients', label: { zh: '客户', en: 'Clients' } },
     { href: '/agent/calendar', label: { zh: '日历', en: 'Calendar' } },
     { href: '/agent/earnings', label: { zh: '佣金', en: 'Commission' } },
+    { href: '/agent/progress', label: { zh: '全流程进度', en: 'Progress' } },
   ],
 }
 
