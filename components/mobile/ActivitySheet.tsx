@@ -9,7 +9,7 @@
 import Link from 'next/link'
 import { useT } from '@/lib/i18n'
 import { auditActionLabel } from '@/lib/agent/ideas'
-import { fmtActivityTime, itemIcon, threadFacts, useActivityLog, type ActivityItem } from '@/lib/agent/useActivityLog'
+import { itemIcon, useActivityLog, type ActivityItem } from '@/lib/agent/useActivityLog'
 import type { AgentRole } from '@/lib/agent/types'
 
 export function ActivitySheet({ role, agentName, live, memoryCount, currentThreadId, onOpenThread, onClose }: {
@@ -53,32 +53,18 @@ export function ActivitySheet({ role, agentName, live, memoryCount, currentThrea
           {items?.map((it) => {
             const clickable = live && !!it.threadId && !!onOpenThread
             const current = !!it.threadId && it.threadId === currentThreadId
+            const label = it.kind === 'thread' ? (it.title ?? (zh ? '新对话' : 'New conversation')) : auditActionLabel(it.action, lang, it.metadata || undefined)
             const inner = (
               <>
-                <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-surface-chip text-[12px]">{itemIcon(it)}</span>
-                <span className="min-w-0 flex-1">
-                  {it.kind === 'thread' ? (
-                    <>
-                      <span className="block text-[13px] leading-snug text-body">{it.title ?? (zh ? '新对话' : 'New conversation')}</span>
-                      {it.summary && <span className="mt-0.5 line-clamp-2 block text-[12px] leading-snug text-body-3">{it.summary}</span>}
-                      <span className="mt-0.5 block font-mono text-[10.5px] text-body-3">{[...threadFacts(it, lang), fmtActivityTime(it.at, lang)].join(' · ')}{current ? (zh ? ' · 当前对话' : ' · this conversation') : ''}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="block text-[13px] leading-snug text-body-2">
-                        {auditActionLabel(it.action, lang, it.metadata || undefined)}
-                        {it.actor_type === 'user' && <span className="ml-1 text-[11px] text-body-3">{zh ? '· 你' : '· you'}</span>}
-                      </span>
-                      <span className="mt-0.5 block font-mono text-[10.5px] text-body-3">{fmtActivityTime(it.at, lang)}</span>
-                    </>
-                  )}
-                </span>
+                <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-surface-chip text-[11px]">{itemIcon(it)}</span>
+                <span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>
+                {current && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? '当前' : 'now'}</span>}
               </>
             )
             return clickable ? (
-              <button key={it.id} type="button" onClick={() => open(it)} className="flex w-full gap-3 py-2.5 text-left active:bg-surface-chip">{inner}</button>
+              <button key={it.id} type="button" onClick={() => open(it)} className="flex w-full items-center gap-3 py-2.5 text-left active:bg-surface-chip">{inner}</button>
             ) : (
-              <div key={it.id} className="flex gap-3 py-2.5">{inner}</div>
+              <div key={it.id} className="flex items-center gap-3 py-2.5">{inner}</div>
             )
           })}
         </div>

@@ -61,16 +61,6 @@ export function buildActivity(threads: ThreadListRow[], events: ActivityRow[]): 
   return items.sort((a, b) => ts(b.at) - ts(a.at))
 }
 
-export function fmtActivityTime(iso: string, lang: Lang, now = new Date()): string {
-  const d = new Date(iso)
-  const sameDay = d.toDateString() === now.toDateString()
-  const hm = d.toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
-  if (sameDay) return hm
-  const yest = new Date(now.getTime() - 86_400_000)
-  if (d.toDateString() === yest.toDateString()) return lang === 'zh' ? `昨天 ${hm}` : `Yesterday ${hm}`
-  return d.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-CA', { month: 'short', day: 'numeric' })
-}
-
 /** Today / Yesterday / Earlier, in that order, empty groups dropped (Muse web reference). */
 export function activityGroups<T extends { at: string }>(items: T[], lang: Lang, now = new Date()): { key: 'today' | 'yesterday' | 'earlier'; label: string; rows: T[] }[] {
   const today = now.toDateString()
@@ -101,16 +91,4 @@ export function activityIcon(action: string): string {
 export function itemIcon(item: ActivityItem): string {
   if (item.kind === 'action') return activityIcon(item.action)
   return item.executed > 0 || item.approved > 0 ? '✓' : '💬'
-}
-
-/** The tail of a conversation row: turns and what was decided in it. */
-export function threadFacts(item: ThreadItem, lang: Lang): string[] {
-  const zh = lang === 'zh'
-  const out: string[] = []
-  if (item.turns > 0) out.push(zh ? `${item.turns} 轮` : `${item.turns} ${item.turns === 1 ? 'turn' : 'turns'}`)
-  if (item.executed) out.push(zh ? `已执行 ${item.executed}` : `${item.executed} carried out`)
-  if (item.approved) out.push(zh ? `批准 ${item.approved}` : `${item.approved} approved`)
-  if (item.rejected) out.push(zh ? `拒绝 ${item.rejected}` : `${item.rejected} declined`)
-  if (item.undone) out.push(zh ? `撤销 ${item.undone}` : `${item.undone} undone`)
-  return out
 }

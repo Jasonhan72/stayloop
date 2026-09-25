@@ -7,10 +7,10 @@
 // Closable; the page remembers the choice in localStorage.
 //
 // 2026-09-25 follow-ups: the avatar opens a picker of 3D presets; the
-// activity log is one row per conversation (title · what it amounted to ·
-// turns and the decisions taken in it) plus the actions that happened outside
-// any conversation — a conversation row reopens it (user: "不是记录每一条
-// 消息，是记录每一个对话").
+// activity log is one row per conversation — just its title, like the chat
+// list on claude.ai (user: "不是记录每一条消息，是记录每一个对话" → "只要做一个
+// 标题就可以，点击能到该 chat") — plus the actions that happened outside any
+// conversation; a conversation row reopens it, the outcome shows on hover.
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -18,7 +18,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { setAIName } from '@/lib/aiName'
 import { auditActionLabel } from '@/lib/agent/ideas'
-import { activityGroups, fmtActivityTime, itemIcon, threadFacts, useActivityLog, type ActivityItem } from '@/lib/agent/useActivityLog'
+import { activityGroups, itemIcon, useActivityLog, type ActivityItem } from '@/lib/agent/useActivityLog'
 import { AVATAR_PRESETS, AssistantAvatar, setStoredAvatar } from '@/lib/agent/avatars'
 import type { AgentRole, AgentStatus, MemoryItem, PendingAction } from '@/lib/agent/types'
 import PrivateMemorySnapshot from './PrivateMemorySnapshot'
@@ -151,24 +151,19 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
                 {g.rows.map((it) => {
                   const clickable = live && !!it.threadId
                   const current = !!it.threadId && it.threadId === currentThreadId
-                  const cls = `-mx-2 flex w-[calc(100%+16px)] gap-2.5 rounded-lg px-2 py-2 text-left transition ${clickable ? 'hover:bg-surface-chip' : ''} ${opening === it.id ? 'opacity-60' : ''}`
-                  const icon = <span className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-surface-chip text-[13px]">{itemIcon(it)}</span>
-                  const body = it.kind === 'thread' ? (
+                  const cls = `-mx-2 flex w-[calc(100%+16px)] items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition ${clickable ? 'hover:bg-surface-chip' : ''} ${opening === it.id ? 'opacity-60' : ''}`
+                  const icon = <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-surface-chip text-[11px]">{itemIcon(it)}</span>
+                  const label = it.kind === 'thread' ? (it.title ?? (zh ? '新对话' : 'New conversation')) : auditActionLabel(it.action, lang, it.metadata || undefined)
+                  const body = (
                     <>
-                      <span className="block text-[13px] leading-snug text-body">{it.title ?? (zh ? '新对话' : 'New conversation')}</span>
-                      {it.summary && <span className="mt-0.5 line-clamp-2 block text-[12px] leading-snug text-body-3">{it.summary}</span>}
-                      <span className="mt-0.5 block font-mono text-[10.5px] text-body-3">{[...threadFacts(it, lang), fmtActivityTime(it.at, lang)].join(' · ')}{current ? (zh ? ' · 当前对话' : ' · this conversation') : ''}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="block text-[13px] leading-snug text-body">{auditActionLabel(it.action, lang, it.metadata || undefined)}{it.actor_type === 'user' && <span className="ml-1 text-[11px] text-body-3">{zh ? '· 你' : '· you'}</span>}</span>
-                      <span className="mt-0.5 block font-mono text-[10.5px] text-body-3">{fmtActivityTime(it.at, lang)}</span>
+                      <span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>
+                      {current && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? '当前' : 'now'}</span>}
                     </>
                   )
                   return clickable ? (
-                    <button key={it.id} type="button" onClick={() => void openItem(it)} disabled={opening === it.id} title={zh ? '回到这段对话' : 'Back to this conversation'} className={cls}>{icon}<span className="min-w-0 flex-1">{body}</span></button>
+                    <button key={it.id} type="button" onClick={() => void openItem(it)} disabled={opening === it.id} title={it.kind === 'thread' && it.summary ? it.summary : (zh ? '回到这段对话' : 'Back to this conversation')} className={cls}>{icon}{body}</button>
                   ) : (
-                    <div key={it.id} className={cls}>{icon}<span className="min-w-0 flex-1">{body}</span></div>
+                    <div key={it.id} className={cls}>{icon}{body}</div>
                   )
                 })}
               </div>

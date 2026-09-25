@@ -12,7 +12,7 @@ import { buildActivity, type ActivityItem, type ActivityRow } from './activityLo
 import type { AgentRole } from './types'
 
 export type { ActionItem, ActivityItem, ActivityRow, ThreadItem } from './activityLog'
-export { activityGroups, activityIcon, fmtActivityTime, itemIcon, threadFacts } from './activityLog'
+export { activityGroups, activityIcon, itemIcon } from './activityLog'
 
 /** Dispatched after anything that writes a thread or an audit row from the client (a turn, an approval, an undo). */
 export const ACTIVITY_CHANGED_EVENT = 'sl-activity-changed'

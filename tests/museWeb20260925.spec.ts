@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
-import { activityGroups, activityIcon, buildActivity, itemIcon, threadFacts, type ThreadItem } from '@/lib/agent/activityLog'
+import { activityGroups, activityIcon, buildActivity, itemIcon, type ThreadItem } from '@/lib/agent/activityLog'
 import type { ThreadListRow } from '@/lib/agent/threads'
 
 const read = (p: string) => readFileSync(p, 'utf8')
@@ -131,7 +131,6 @@ describe('pure helpers', () => {
     expect([a.approved, a.executed, a.at]).toEqual([1, 1, '2026-09-25T14:11:00-04:00'])
     expect(itemIcon(a)).toBe('✓')
     expect(itemIcon(items[3])).toBe('💬')
-    expect(threadFacts(a, 'zh')).toEqual(['2 轮', '已执行 1', '批准 1'])
     const g = activityGroups(items, 'zh', now)
     expect(g.map((x) => [x.label, x.rows.map((r) => r.id)])).toEqual([['今天', ['t:A', 'a:e4', 'a:e5']], ['昨天', ['t:B']], ['更早', ['t:C']]])
     expect(activityIcon('executed_send_message')).toBe('✓')
@@ -195,6 +194,12 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     const panel = read('components/agent/AssistantPanel.tsx')
     expect(panel).toContain('await onOpenThread(it.threadId)')
     expect(panel).toContain('onClick={() => void openItem(it)}')
+    // Rows are a title only (user: "文字太多了，只要做一个标题就可以"); the outcome is the hover title.
+    expect(panel).toContain('<span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>')
+    expect(panel).not.toContain('fmtActivityTime(it.at')
+    expect(panel).not.toContain('{it.summary}')
+    expect(panel).toContain("title={it.kind === 'thread' && it.summary ? it.summary :")
+    expect(read('components/mobile/ActivitySheet.tsx')).toContain('<span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>')
     // Later the same day (user: "不是记录每一条消息，是记录每一个对话"): the log
     // reads conversations, not turn events, and every decision carries the
     // conversation it was taken in so the log can fold it into that row.
