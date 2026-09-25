@@ -51,12 +51,23 @@ describe('ideas planner (item D) — deterministic, with a reason each', () => {
 
 describe('phone workspace wiring', () => {
   const shell = readFileSync('components/WorkspaceShell.tsx', 'utf8')
+  const rail = readFileSync('components/workspace/rail.tsx', 'utf8')
   const chat = readFileSync('components/agent/AgentChat.tsx', 'utf8')
   it('five phone tabs (助手 · 待办 · 想法 · 进度 · 更多) with a pending badge; desktop rail unchanged', () => {
-    expect(shell).toMatch(/function PhoneTabs/)
-    for (const k of ["key: 'agent'", "key: 'todo'", "key: 'ideas'", "key: 'progress'"]) expect(shell).toContain(k)
-    expect(shell).toMatch(/badge: pendingCount/)
+    expect(rail).toMatch(/export function PhoneTabs/)
+    for (const k of ["key: 'agent'", "key: 'todo'", "key: 'ideas'", "key: 'progress'"]) expect(rail).toContain(k)
+    expect(rail).toMatch(/badge: pendingCount/)
     expect(shell).toMatch(/hidden md:flex md:w-16/)
+  })
+  it('one bottom bar per phone: signed in, the public pages mount the same workbench bar (with 房源 in its 更多 sheet); visitors keep 助手 · 房源 · 筛查 · 登录 (user 2026-09-25)', () => {
+    const pub = readFileSync('components/MobileBottomNav.tsx', 'utf8')
+    expect(pub).toContain("import { PhoneTabs, RAIL_BY_ROLE, type WorkspaceRole } from './workspace/rail'")
+    expect(pub).toContain('return <PhoneTabs role={role} items={RAIL_BY_ROLE[role]} />')
+    expect(pub).toContain("label: signedIn ? (zh ? '我的' : 'Me') : (zh ? '登录' : 'Sign in')")
+    expect(rail).toContain('<Link href="/listings" className={')
+    expect(shell).not.toMatch(/function PhoneTabs/)
+  })
+  it('agent tabs stay open before RECO verification', () => {
     // agent tabs stay open before RECO verification
     expect(shell).toMatch(/\(agent\|verify\|todo\|ideas\|progress\)/)
   })

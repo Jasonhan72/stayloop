@@ -1974,6 +1974,11 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
 - **原右栏六张卡归位**：状态总览 + 当前进度 → `/x/progress`；推荐 `RecommendationDeck` → `/x/ideas` 末尾；记忆 → 面板；相关页面 →
   窄栏；待批 → 对话流。`PendingActionsPanel` 不再挂在任何 `/x/agent`。
 - 手机端（<md）保持 09-24 定稿。**规矩不变：`/x/agent` 的对话上方不放任何面板。**
+- **手机只有一条底栏（2026-09-25 晚，用户「底部这 2 个菜单容易分不清」）**：此前公开页是 `MobileBottomNav`（助手 · 房源 · 筛查 · 我的）、工作台是
+  `PhoneTabs`（助手 · 待办 · 想法 · 进度 · 更多），两条「助手」还指向不同地方。现在**登录后所有页面都挂同一条工作台底栏**——`PhoneTabs`、
+  `RAIL_BY_ROLE`（各角色页面表）与整套图标搬到 `components/workspace/rail.tsx`（`WorkspaceShell` 从它导入并 re-export `WorkspaceRole`），
+  `MobileBottomNav` 在已登录时直接渲染 `PhoneTabs`（帽子 = 记住的角色且账号持有，否则按持有的帽子回退），公开的「房源」进了「更多」抽屉；
+  匿名访客仍是 助手 · 房源 · 筛查 · 登录。守卫 `tests/museMobile20260922.spec.ts`「one bottom bar per phone」。
 
 ## 助手页四项跟进（2026-09-25 · 用户看桌面截图后）
 

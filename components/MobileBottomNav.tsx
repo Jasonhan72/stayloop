@@ -1,10 +1,12 @@
 'use client'
 
-// Phone-only bottom tab bar for the PUBLIC pages (2026-09-07). The signed-in
-// workspace keeps its own rail (WorkspaceShell), so this one is skipped
-// there, and on auth / onboarding / signing flows where a nav would only
-// distract. Body gets bottom padding while it is mounted so nothing hides
-// behind it.
+// Phone-only bottom tab bar for the PUBLIC pages (2026-09-07): 助手 · 房源 ·
+// 筛查 · 登录 for visitors. Signed in, the SAME workbench bar as on /x/*
+// (助手 · 待办 · 想法 · 进度 · 更多) is mounted here instead, so a phone never
+// shows two different bottom menus (user 2026-09-25: "容易分不清"); 房源 sits
+// in that bar's 更多 sheet. Skipped on auth / onboarding / signing flows where
+// a nav would only distract, and on /x/* where the shell mounts it. Body gets
+// bottom padding while it is mounted so nothing hides behind it.
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -12,6 +14,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useHats } from '@/lib/useHats'
 import { useT } from '@/lib/i18n'
 import { shouldShowMobileNav } from '@/lib/mobileNavRoutes'
+import { PhoneTabs, RAIL_BY_ROLE, type WorkspaceRole } from './workspace/rail'
 
 const HOME: Record<string, string> = { tenant: '/tenant/agent', landlord: '/landlord/agent', agent: '/agent/agent' }
 
@@ -31,6 +34,15 @@ export default function MobileBottomNav() {
 
   if (!show) return null
   const signedIn = !auth.loading && !!auth.user
+  if (signedIn) {
+    // The hat the workbench bar is for: the remembered one when the account
+    // holds it (login set it via homeForHats), else the best hat it does hold.
+    const r = auth.role
+    const holds = (x: string | null | undefined): x is WorkspaceRole =>
+      x === 'tenant' || (x === 'landlord' && (hats.loading || hats.landlord)) || (x === 'agent' && (hats.loading || hats.agent !== null))
+    const role: WorkspaceRole = holds(r) ? r : hats.agent ? 'agent' : hats.landlord ? 'landlord' : 'tenant'
+    return <PhoneTabs role={role} items={RAIL_BY_ROLE[role]} />
+  }
   // Review 2026-09-14: a role-less session used to land on /dashboard,
   // whose useLandlord() claims a landlords row — one tap gave a tenant the
   // landlord hat. Fall back to a hat the account actually holds.

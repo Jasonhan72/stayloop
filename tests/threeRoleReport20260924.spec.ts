@@ -143,9 +143,9 @@ describe('round 2 (user: 改成 V0.6，其余按建议全部修)', () => {
     expect(read('lib/listingPublish.ts')).toContain('...(form.description ? { description: form.description } : {})')
   })
   it('SL-T-07 · a messages inbox for tenants and landlords', () => {
-    const shell = read('components/WorkspaceShell.tsx')
-    expect(shell).toContain("href: '/tenant/messages'")
-    expect(shell).toContain("href: '/landlord/messages'")
+    const rail = read('components/workspace/rail.tsx') // the role page lists moved out of WorkspaceShell on 2026-09-25
+    expect(rail).toContain("href: '/tenant/messages'")
+    expect(rail).toContain("href: '/landlord/messages'")
     expect(read('components/messages/Inbox.tsx')).toContain("from('household_messages')")
     expect(read('app/h/[id]/page.tsx')).toContain('setReadMark(id,')
   })
