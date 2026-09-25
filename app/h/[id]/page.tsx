@@ -7,6 +7,7 @@ export const runtime = 'edge'
 // messages, rent, maintenance. Everything reads through RLS — membership is
 // the only key that opens this page.
 
+import { setReadMark } from '@/lib/household/readMarks'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -103,7 +104,9 @@ export default function HouseholdHub() {
 
   useEffect(() => {
     if (tab === 'messages') msgEndRef.current?.scrollIntoView({ block: 'end' })
-  }, [msgs.length, tab])
+    // Opening the conversation marks it read for the inbox (/tenant|landlord/messages).
+    if (tab === 'messages' && msgs.length) setReadMark(id, Math.max(...msgs.map((m) => Number((m as { id: number | string }).id) || 0)))
+  }, [msgs.length, tab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ?intent=renew|leave|negotiate from the 30-day email: preselect, the
   // tenant confirms with one click (read in an effect — never on first paint).

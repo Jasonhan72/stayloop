@@ -90,6 +90,7 @@ type AppDetail = {
   ltb_records_found: number | null
   status: string | null
   created_at: string
+  archived_at?: string | null
   files: ApplicationFile[] | null
   listing: { address: string | null; unit: string | null; monthly_rent: number | null } | null
 }
@@ -129,7 +130,7 @@ function RealApplicantDetail({ id }: { id: string }) {
       const { data } = await supabase
         .from('applications')
         .select(
-          'id, first_name, last_name, ai_extracted_name, email, phone, monthly_income, employer_name, job_title, ai_score, ai_summary, ai_dimension_notes, doc_authenticity_score, payment_ability_score, court_records_score, stability_score, behavior_signals_score, info_consistency_score, ltb_records_found, status, created_at, files, viewed_at, listing:listings(address, unit, monthly_rent)',
+          'id, first_name, last_name, ai_extracted_name, email, phone, monthly_income, employer_name, job_title, ai_score, ai_summary, ai_dimension_notes, doc_authenticity_score, payment_ability_score, court_records_score, stability_score, behavior_signals_score, info_consistency_score, ltb_records_found, status, created_at, archived_at, files, viewed_at, listing:listings(address, unit, monthly_rent)',
         )
         .eq('id', id)
         .maybeSingle()
@@ -510,6 +511,13 @@ function RealApplicantDetail({ id }: { id: string }) {
             <p className="mt-3 text-[11.5px] font-mono text-body-3">
               {zh ? '所有文件加密保存 · 你查看 = 在 audit log 留痕' : 'All files stored encrypted · your view = logged in the audit log'}
             </p>
+            <button type="button" data-testid="archive-toggle" onClick={async () => {
+              const at = app.archived_at ? null : new Date().toISOString()
+              const { error } = await getSupabaseBrowser().from('applications').update({ archived_at: at }).eq('id', app.id)
+              if (!error) setApp({ ...app, archived_at: at })
+            }} className="mt-3 w-full rounded-lg border border-line-divider py-2 text-[12.5px] font-semibold text-body-2">
+              {app.archived_at ? (zh ? '取消归档' : 'Unarchive') : (zh ? '归档这份申请' : 'Archive this application')}
+            </button>
             {preview && <FilePreviewModal path={preview.path} name={preview.name} zh={zh} onClose={() => setPreview(null)} />}
           </div>
         </div>

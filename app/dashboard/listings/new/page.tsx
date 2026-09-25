@@ -1,5 +1,6 @@
 'use client'
 
+import { draftListingCopy } from '@/lib/listingCopy'
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -79,6 +80,10 @@ export default function NewListingPage() {
     smoking_policy: '' as '' | 'no' | 'outdoor_only' | 'yes',
     furnished: '' as '' | 'yes' | 'no',
     utilities_included: [] as string[],
+    // Title / description (SL-L-03): written by the landlord, or drafted from
+    // the fields above by lib/listingCopy.ts (no model) — reviewed before publishing.
+    title: '',
+    description: '',
   })
   const [photos, setPhotos] = useState<string[]>([])
   const photoRef = useRef<HTMLInputElement>(null)
@@ -144,6 +149,8 @@ export default function NewListingPage() {
         smoking_policy: form.smoking_policy || undefined,
         furnished: form.furnished === '' ? undefined : form.furnished === 'yes',
         utilities_included: form.utilities_included,
+        title: form.title.trim() || undefined,
+        description: form.description.trim() || undefined,
       },
       { landlordId: landlord.landlordId, slug, slim: true, photos },
     )
@@ -261,8 +268,8 @@ export default function NewListingPage() {
             </h1>
             <p className="mt-2 text-[13px] text-body-2">
               {lang === 'zh'
-                ? `填关键字段，${aiName} 自动生成英中文文案、推荐价格区间、SEO 描述`
-                : `Fill in the key fields and ${aiName} generates EN/Chinese copy, a recommended price range, and the SEO description.`}
+                ? '填关键字段。只有你填过的内容会发布；最后一步可以按已填字段生成中英文标题和描述草稿，发布前逐字核对。'
+                : 'Fill in the key fields. Only what you enter is published; the last step can draft a bilingual title and description from those fields for you to review word by word.'}
             </p>
           </div>
 
@@ -542,6 +549,27 @@ export default function NewListingPage() {
                   </dl>
                 </div>
 
+                <div data-testid="listing-copy" className="rounded-xl border border-line-divider bg-white p-4 text-[13px]">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-body-3">{lang === 'zh' ? '标题与描述 · 房源页原样显示' : 'Title & description · shown as-is on the listing'}</div>
+                    <button type="button" onClick={() => {
+                      const d = draftListingCopy({
+                        address: form.address, unit: form.unit, city: form.city, property_type: form.property_type,
+                        bedrooms: parseInt(form.bedrooms), bathrooms: parseInt(form.bathrooms), sqft: parseInt(form.sqft) || null, monthly_rent: parseInt(form.monthly_rent) || null,
+                        lease_term: form.lease_term, pets_allowed: form.pets_allowed, smoking_policy: form.smoking_policy, furnished: form.furnished,
+                        amenities: form.amenities.map((id) => AMENITIES.find((a) => a.id === id)).filter(Boolean) as { zh: string; en: string }[],
+                        utilities: form.utilities_included.map((id) => UTILITY_OPTIONS.find((u) => u.id === id)).filter(Boolean) as { zh: string; en: string }[],
+                      })
+                      setForm((f) => ({ ...f, title: d.title, description: d.description }))
+                    }} className="rounded-lg border border-line-divider px-2.5 py-1 text-[12px] font-semibold">{lang === 'zh' ? '按已填字段生成中英文草稿' : 'Draft from my fields (中文 + English)'}</button>
+                  </div>
+                  <label className="mt-3 block text-[12px] text-body-3">{lang === 'zh' ? '标题' : 'Title'}</label>
+                  <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value.slice(0, 160) }))} placeholder={lang === 'zh' ? `留空则用地址：${form.address || '—'}` : `Blank = the address: ${form.address || '—'}`} className="mt-1 w-full rounded-lg border border-line-divider px-3 py-2 text-[16px] md:text-[13px]" />
+                  <label className="mt-3 block text-[12px] text-body-3">{lang === 'zh' ? '描述（中文与英文都会显示）' : 'Description (both languages are shown)'}</label>
+                  <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value.slice(0, 4000) }))} rows={7} placeholder={lang === 'zh' ? '留空则房源页不显示描述。' : 'Blank = no description on the listing page.'} className="mt-1 w-full rounded-lg border border-line-divider px-3 py-2 text-[16px] leading-relaxed md:text-[13px]" />
+                  <p className="mt-1 text-[11.5px] text-body-3">{lang === 'zh' ? '草稿只用你在前几步填过的字段，不会补写任何没提供的信息（宠物、水电、面积等）。' : 'The draft only uses fields you entered in the earlier steps; nothing you did not provide (pets, utilities, size…) is added.'}</p>
+                </div>
+
                 <div className="rounded-xl border border-line-divider bg-white p-4 text-[13px]">
                   <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-body-3">
                     {lang === 'zh' ? '发布前检查' : 'Pre-publish checks'}
@@ -560,7 +588,7 @@ export default function NewListingPage() {
                         </>
                       )
                     })()}
-                    <li>✓ {lang === 'zh' ? '没有 AI 补写的事实：文案只在房源管理里由你编辑' : 'No AI-filled facts: the description is written only by you, under Manage listings'}</li>
+                    <li>✓ {lang === 'zh' ? '没有 AI 补写的事实：标题与描述只来自你填的字段或你自己写的文字' : 'No AI-filled facts: title and description come only from your fields or your own words'}</li>
                     <li>{photos.length ? '✓ ' : '✗ '}{lang === 'zh' ? (photos.length ? '有照片' : '没有照片——至少 1 张才能发布（没有照片的房源不会出现在任何公开页面）') : (photos.length ? 'Photos attached' : 'No photos — at least one is required to publish (listings without photos are never shown publicly)')}</li>
                   </ul>
                 </div>

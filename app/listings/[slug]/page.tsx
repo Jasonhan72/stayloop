@@ -494,7 +494,7 @@ export default function ListingDetailPage() {
 
             {/* Section 1 — 关于这套房源 */}
             <Section title={zh ? '关于这套房源' : 'About this listing'} eyebrow="ABOUT">
-              <p className="text-[14.5px] leading-relaxed text-body-2">
+              <p className="whitespace-pre-line text-[14.5px] leading-relaxed text-body-2">
                 {listing.description ||
                   (zh
                     ? `${listing.neighborhood ?? listing.city} 的整套${

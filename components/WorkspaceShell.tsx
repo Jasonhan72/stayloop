@@ -27,6 +27,7 @@ interface RailItem {
 const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   tenant: [
     { key: 'home',      href: '/tenant/agent',     icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 Luna 对话——找房、办事的入口', en: 'Chat with Luna — search and get things done' } },
+    { key: 'msgs',      href: '/tenant/messages',  icon: <MailIcon />,    label: { zh: '消息', en: 'Messages' } , desc: { zh: '租约对话与看房请求', en: 'Tenancy conversations and showing requests' } },
     { key: 'apps',      href: '/tenant/applications', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } , desc: { zh: '我的申请进度', en: 'Track your applications' } },
     { key: 'passport',  href: '/tenant/passport',  icon: <PassIcon />,    label: { zh: 'Passport', en: 'Passport' } , desc: { zh: '租客护照与四枚章', en: 'Your Passport and four stamps' } },
     { key: 'lease',     href: '/tenant/lease',     icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '查看与签署租约', en: 'View and sign leases' } },
@@ -36,6 +37,7 @@ const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   ],
   landlord: [
     { key: 'home',      href: '/landlord/agent',   icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 Logic 对话——管房的入口', en: 'Chat with Logic — manage your rentals' } },
+    { key: 'msgs',      href: '/landlord/messages', icon: <MailIcon />,   label: { zh: '消息', en: 'Messages' } , desc: { zh: '租约对话与看房请求', en: 'Tenancy conversations and showing requests' } },
     { key: 'apps',      href: '/landlord/applicants', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } , desc: { zh: '申请人审查与评分', en: 'Review and score applicants' } },
     { key: 'screen',    href: '/screening/app',    icon: <ScreenIcon />,  label: { zh: '筛查', en: 'Screen' } , desc: { zh: '租客筛查报告', en: 'Tenant screening reports' } },
     { key: 'lease',     href: '/landlord/leases',  icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '租约管理与续约', en: 'Leases and renewals' } },
@@ -114,8 +116,8 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
   },
   '/agent/tasks': {
-    zh: '还没有客户任务。客户与任务功能将在代表协议记录上线后开放;现在可以先让 Brief 准备带看包或定价。', en: 'No client tasks yet. Clients and tasks open once representation records ship; meanwhile Brief can prep a showing pack or price a unit.',
-    ctaZh: '和 Brief 开工 →', ctaEn: 'Start with Brief →', href: '/agent/agent',
+    zh: '任务由你的客户表自动生成：缺代表协议 / Information Guide 的日期、超过 7 天没联系、看房中要备带看包、已申请要跟进结果。先在客户表里加第一位客户。', en: 'Tasks come from your client table: missing agreement / Information Guide dates, 7+ days quiet, a showing pack to prepare, an application to follow up. Add your first client in the client table.',
+    ctaZh: '去客户表 →', ctaEn: 'Open the client table →', href: '/agent/clients',
   },
   '/agent/clients': {
     zh: '上面是你的真实客户表：加第一位客户，并记录代表协议与 Information Guide 的日期。下面的样例只是演示。', en: 'Your real client table is above: add the first client and record the agreement and Information Guide dates. The samples below are a demo.',
@@ -553,6 +555,7 @@ const I = (d: string) => (
 
 function HomeIcon()  { return I('M3 9l9-7 9 7v11a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z') }
 function ChatIcon()  { return I('M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z') }
+function MailIcon()  { return I('M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z|M22 6l-10 7L2 6') }
 function ListIcon()  { return I('M3 6h18|M3 12h18|M3 18h18') }
 function FileIcon()  { return I('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z|M14 2v6h6|M16 13H8|M16 17H8|M10 9H8') }
 function PassIcon()  { return I('M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z|M3 10h18|M9 16h.01') }

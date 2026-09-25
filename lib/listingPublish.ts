@@ -90,6 +90,9 @@ export function buildListingRow(form: ListingFormInput, opts: BuildListingRowOpt
       smoking_policy: form.smoking_policy ?? null,
       furnished: form.furnished ?? null,
       utilities_included: form.utilities_included ?? [],
+      // Landlord-reviewed copy from the wizard's last step (SL-L-03); absent → address / none.
+      ...(form.title ? { title: form.title } : {}),
+      ...(form.description ? { description: form.description } : {}),
       images: opts.photos ?? [],
       slug: opts.slug,
       is_active: true,

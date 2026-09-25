@@ -258,6 +258,14 @@ async function loadAgentStats(sb: Sb, uid: string): Promise<Stats> {
     showingsToday = showings.count ?? 0
     activeClients = new Set((tasks.data ?? []).map((t) => t.client_tenant_id as string)).size
   }
+  // The client table (agent_clients) is the source of truth for "clients" —
+  // the same rows the lifecycle rail counts (non-archived). The legacy
+  // agent_tasks count said 0 while the rail said "1 位客户" (three-role test
+  // report 2026-09-24, SL-A-04).
+  {
+    const { count } = await sb.from('agent_clients').select('id', { count: 'exact', head: true }).eq('agent_auth_id', uid).neq('stage', 'closed')
+    activeClients = Math.max(activeClients, count ?? 0)
+  }
 
   // Referral-fee ledger (RLS: brokerage owner) — unsettled = no transfer yet.
   const { data: coms } = await sb.from('commission').select('fee_amount, stripe_transfer_id').limit(200)

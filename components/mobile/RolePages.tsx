@@ -75,7 +75,7 @@ export function TodoPage({ role }: { role: AgentRole }) {
           {zh ? '预览模式：登录后这里是你真实的待办。' : 'Preview mode: sign in to see your real to-dos.'} <Link href="/login" className="font-bold text-brand">{zh ? '登录 →' : 'Sign in →'}</Link>
         </div>
       )}
-      {live && <div className="mb-4"><TodayCard lifecycle={lifecycle} pending={pending.map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref={`/${role}/todo`} lang={lang} /></div>}
+      {live && <div className="mb-4"><TodayCard lifecycle={lifecycle} pending={pending.map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref={`/${role}/todo`} lang={lang} omitPending /></div>}
       {waiting.length > 0 && (
         <div className="mb-4 space-y-2">
           {waiting.map(([id, w]) => (

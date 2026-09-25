@@ -93,3 +93,57 @@ describe('P2 items', () => {
     for (const p of ['app/pricing/page.tsx', 'components/settings/SubscriptionCard.tsx']) expect(read(p)).not.toContain('内部测试期')
   })
 })
+
+describe('round 2 (user: 改成 V0.6，其余按建议全部修)', () => {
+  it('footer shows V0.6', () => {
+    expect(read('components/Footer.tsx')).toContain('>V0.6<')
+    expect(read('components/Footer.tsx')).not.toContain('>v5.3<')
+  })
+  it('SL-L-02 · the to-do page does not repeat its own cards in 今日', async () => {
+    const { buildToday } = await import('@/lib/lifecycle/today')
+    const pending = [{ id: '1', action_type: 'showing_request', title: '看房请求' }]
+    const lc = { current: 'pre', phases: [{ key: 'pre', steps: [{ key: 'showings', state: 'current', label: { zh: '看房 / 提问', en: 'Showings' }, detail: { zh: '1 条等你回复', en: '1 waiting' }, href: '/landlord/todo' }], next: null }] } as never
+    expect(buildToday(lc, pending, '/landlord/todo').map((i) => i.id)).toEqual(['approvals'])
+    expect(buildToday(lc, pending, '/landlord/todo', { omitPending: true })).toEqual([])
+    expect(read('components/mobile/RolePages.tsx')).toContain('omitPending')
+  })
+  it('SL-A-04 · client counts and tasks come from the client table', async () => {
+    expect(read('components/agent/StatusOverview.tsx')).toMatch(/from\('agent_clients'\)[^\n]*neq\('stage', 'closed'\)/)
+    const { clientTasks } = await import('@/lib/agent/clientBook')
+    const base = { client_role: 'tenant' as const, last_contact_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+    const t = clientTasks([
+      { ...base, id: 'a', name: 'Amy', stage: 'searching', representation_agreement_at: null, info_guide_given_at: null },
+      { ...base, id: 'b', name: 'Ben', stage: 'showing', representation_agreement_at: '2026-09-01', info_guide_given_at: '2026-09-01' },
+      { ...base, id: 'c', name: 'Cat', stage: 'closed', representation_agreement_at: null, info_guide_given_at: null },
+    ])
+    expect(t.map((x) => x.id)).toEqual(['paper:a', 'pack:b'])
+    expect(read('app/agent/tasks/page.tsx')).toContain('liveSlot={<ClientTasks')
+    expect(read('components/WorkspaceShell.tsx')).not.toContain('客户与任务功能将在代表协议记录上线后开放')
+  })
+  it('SL-L-05 · applications can be archived and unarchived', () => {
+    expect(read('supabase/migrations/20260924_applications_archive.sql')).toContain('archived_at timestamptz')
+    const list = read('app/landlord/applicants/page.tsx')
+    expect(list).toContain("update({ archived_at: at }).in('id', ids)")
+    expect(list).toContain('data-testid="archived-applications"')
+    expect(read('app/landlord/applicants/[id]/page.tsx')).toContain('data-testid="archive-toggle"')
+  })
+  it('SL-L-03 · wizard drafts bilingual copy only from entered fields, no false AI promise', async () => {
+    const { draftListingCopy } = await import('@/lib/listingCopy')
+    const d = draftListingCopy({ address: '88 Harbour St', unit: '1203', city: 'Toronto', property_type: 'condo', bedrooms: 1, bathrooms: 1, monthly_rent: 2450 })
+    expect(d.title).toContain('88 Harbour St')
+    expect(d.description).toMatch(/月租 \$2,450/)
+    expect(d.description).toMatch(/\$2,450\/month/)
+    expect(d.description).not.toMatch(/宠物|pet|包含|includes|家具|Furnished|吸烟|smoking/i)
+    const w = read('app/dashboard/listings/new/page.tsx')
+    expect(w).not.toContain('自动生成英中文文案、推荐价格区间、SEO 描述')
+    expect(w).toContain('data-testid="listing-copy"')
+    expect(read('lib/listingPublish.ts')).toContain('...(form.description ? { description: form.description } : {})')
+  })
+  it('SL-T-07 · a messages inbox for tenants and landlords', () => {
+    const shell = read('components/WorkspaceShell.tsx')
+    expect(shell).toContain("href: '/tenant/messages'")
+    expect(shell).toContain("href: '/landlord/messages'")
+    expect(read('components/messages/Inbox.tsx')).toContain("from('household_messages')")
+    expect(read('app/h/[id]/page.tsx')).toContain('setReadMark(id,')
+  })
+})

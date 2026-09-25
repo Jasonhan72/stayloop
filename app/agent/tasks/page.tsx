@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import ClientTasks from '@/components/agent/ClientTasks'
 import {
   AsideBlock,
   EmptyState,
@@ -166,7 +167,7 @@ export default function AgentTasksPage() {
   }, [lang])
 
   return (
-    <WorkspaceShell role="agent" aside={<Aside lang={lang} />}>
+    <WorkspaceShell role="agent" aside={<Aside lang={lang} />} liveSlot={<ClientTasks zh={lang === 'zh'} />}>
       <PageHeader
         title={zh ? '任务队列' : 'Task queue'}
         sub={

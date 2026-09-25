@@ -27,10 +27,13 @@ function clockItem(p: Phase): TodayItem | null {
   return { id: `clock:${p.key}`, kind: 'clock', tone: c.tone === 'ok' ? 'info' : c.tone, text: { zh, en }, href: p.next?.href ?? p.steps.find((s) => s.state === 'current')?.href, prompt: p.next?.prompt }
 }
 
-export function buildToday(lifecycle: Lifecycle | null, pending: TodayPending[], todoHref: string): TodayItem[] {
+export function buildToday(lifecycle: Lifecycle | null, pending: TodayPending[], todoHref: string, opts: { omitPending?: boolean } = {}): TodayItem[] {
   const out: TodayItem[] = []
-  // 1) Approvals — always first, one line, never one per card.
-  if (pending.length) {
+  // 1) Approvals — always first, one line, never one per card. On the to-do
+  // page itself the cards are listed right below, so the line is omitted
+  // (three-role test report 2026-09-24, SL-L-02: 今日 and 待批准 showed the
+  // same tasks twice).
+  if (pending.length && !opts.omitPending) {
     out.push({
       id: 'approvals',
       kind: 'approval',
@@ -51,6 +54,9 @@ export function buildToday(lifecycle: Lifecycle | null, pending: TodayPending[],
     for (const s of p.steps) {
       // Only steps whose detail carries a count ("2 份未筛查"); static hints are not to-dos.
       if (s.state !== 'current' || !s.detail || !/^\d/.test(s.detail.zh)) continue
+      // A step that only points at the to-do list ("2 条等你回复") is the same
+      // cards as the approvals line / the list — never a second entry.
+      if (s.href === todoHref && (pending.length || opts.omitPending)) continue
       out.push({ id: `step:${p.key}:${s.key}`, kind: 'step', tone: 'info', text: { zh: `${s.label.zh}：${s.detail.zh}`, en: `${s.label.en}: ${s.detail.en}` }, href: s.href, prompt: s.prompt })
     }
   }

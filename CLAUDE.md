@@ -1885,6 +1885,20 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
   identities 显示（「邮箱（密码或登录链接）」/ Google），不再写死 Magic Link；A-05 侧栏 title「设置」。
 - **公开站**：`[TEST] 100 Test Ave` 房源 `is_active=false`（行保留）；8 Colvestone Road（Realtor 导入，标题「5+3 卧」）卧室数
   3 → 8（价格 $13,800 / 7 浴是真实豪宅数据，非错误）；定价页与订阅卡「内部测试期」→「限时免费」；申请人列表副标题缩短。
-- **未改 / 待定**：T-07 独立消息收件箱、L-02 今日与待批重复、L-03 发布前中英文案预览、L-05 归档、L-06 筛查摘要里的英文（模型
-  输出）、L-07 `/screening` 营销页与工作台导航、A-04 经纪任务门控与客户数口径、页脚「v5.3」（改版本字样需用户拍板）、
-  真实评价 / 运营数据（没有可核实来源前不放）。
+- **第二轮（用户：「改成 V0.6，其余按建议全部修」）**：
+  - 页脚版本「v5.3」→「V0.6」（git 分支与部署脚本名不变）。
+  - L-02：`buildToday(…, { omitPending })`——待办页不再在「今日」里重复自己的卡片；任何页面上，只指向待办页的步骤（「N 条等你回复」）
+    在已有「N 件等你点头」时不再单列。
+  - A-04：经纪首页「活跃客户」改读 `agent_clients`（非 closed，与进度条同口径；旧值来自 V4 的 field_agents / agent_tasks 恒为 0）；
+    `/agent/tasks` 用 `clientTasks()`（`lib/agent/clientBook.ts`，纯函数）从客户表生成真实任务：缺代表协议 / Information Guide 日期、
+    ≥7 天没联系、看房中备带看包、已申请跟进结果；`components/agent/ClientTasks.tsx` 作 liveSlot，空态文案不再说「上线后开放」。
+  - L-05：`applications.archived_at`（迁移 `20260924_applications_archive.sql`，已应用 prod，房东私有、不进申请人视图）；列表页「已决定」
+    段一键全部归档、底部可展开「已归档」并逐条取消；详情页有归档 / 取消归档按钮。
+  - L-03：发布向导顶部原写「自动生成英中文文案、推荐价格区间、SEO 描述」——**这个功能从来不存在**，已删。第 5 步新增「标题与描述」：
+    可手写，或「按已填字段生成中英文草稿」（`lib/listingCopy.ts draftListingCopy`，确定性、只用填过的字段，不补宠物 / 水电 / 面积等），
+    发布前逐字可改；slim 行带上 title / description；房源页描述 `whitespace-pre-line` 以分开中英两段。
+  - T-07：`/tenant/messages`、`/landlord/messages`（`components/messages/Inbox.tsx`，侧栏「消息」）：列出所在在管租约的最新对话（未读
+    标记 = 本机 localStorage `sl-msg-read:<hh>`，在 `/h/[id]` 打开对话即已读，`lib/household/readMarks.ts`）、租客发出的看房请求与提问
+    （状态如实：等房东回复 / 已回复见邮箱 / 婉拒）、房东待回复的看房请求数。经纪暂无消息渠道，不加入口。
+  - 仍未做：L-06 筛查摘要里偶发英文（模型输出）、L-07 `/screening` 营销页导航（公开页，工作台入口本来就是 `/screening/app`）、
+    真实评价 / 运营数据（没有可核实来源前不放）。守卫在同一 spec 的「round 2」段。

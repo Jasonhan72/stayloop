@@ -8,7 +8,9 @@ import type { Lang } from '@/lib/i18n'
 import type { Lifecycle } from '@/lib/lifecycle/stages'
 import { buildToday, type TodayPending } from '@/lib/lifecycle/today'
 
-export default function TodayCard({ lifecycle, pending, todoHref, lang, onPrompt }: {
+export default function TodayCard({ lifecycle, pending, todoHref, lang, onPrompt, omitPending = false }: {
+  /** The page lists the pending cards itself (the to-do page) — do not repeat them. */
+  omitPending?: boolean
   lifecycle: Lifecycle | null
   pending: TodayPending[]
   todoHref: string
@@ -16,7 +18,7 @@ export default function TodayCard({ lifecycle, pending, todoHref, lang, onPrompt
   onPrompt?: (text: string) => void
 }) {
   const zh = lang === 'zh'
-  const items = buildToday(lifecycle, pending, todoHref)
+  const items = buildToday(lifecycle, pending, todoHref, { omitPending })
   const today = new Date()
   const dateLabel = zh ? `${today.getMonth() + 1} 月 ${today.getDate()} 日` : today.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
   return (

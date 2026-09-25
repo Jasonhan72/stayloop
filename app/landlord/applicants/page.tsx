@@ -116,6 +116,7 @@ const FUNNEL: { stage: { zh: string; en: string }; n: number }[] = [
 
 type AppRow = {
   id: string
+  archived_at?: string | null
   first_name: string | null
   last_name: string | null
   ai_extracted_name: string | null
@@ -228,7 +229,7 @@ export default function LandlordApplicantsPage() {
       // hard filter by user id here (dual-ID invariant).
       const { data, error } = await supabase
         .from('applications')
-        .select('id, first_name, last_name, ai_extracted_name, monthly_income, ai_score, status, created_at, decision_notified_at, screened_at, move_in_date, employer_name, files, ltb_records_found, listing:listings(address, unit, monthly_rent)')
+        .select('id, first_name, last_name, ai_extracted_name, monthly_income, ai_score, status, created_at, archived_at, decision_notified_at, screened_at, move_in_date, employer_name, files, ltb_records_found, listing:listings(address, unit, monthly_rent)')
         .order('created_at', { ascending: false })
         .limit(100)
       let list = error ? [] : ((data ?? []) as unknown as AppRow[])
@@ -253,9 +254,23 @@ export default function LandlordApplicantsPage() {
   }, [user, authLoading])
 
   const liveMode = !!rows && rows.length > 0
+  // Archive (three-role test report 2026-09-24, SL-L-05): archived rows leave
+  // the stage sections and live in a collapsible section at the bottom.
+  const activeRows = useMemo(() => (rows ?? []).filter((r) => !r.archived_at), [rows])
+  const archivedRows = useMemo(() => (rows ?? []).filter((r) => !!r.archived_at), [rows])
+  const [showArchived, setShowArchived] = useState(false)
+  const [archiving, setArchiving] = useState(false)
+  async function setArchived(ids: string[], on: boolean) {
+    if (!ids.length) return
+    setArchiving(true)
+    const at = on ? new Date().toISOString() : null
+    const { error } = await supabase.from('applications').update({ archived_at: at }).in('id', ids)
+    if (!error) setRows((prev) => (prev ?? []).map((r) => (ids.includes(r.id) ? { ...r, archived_at: at } : r)))
+    setArchiving(false)
+  }
   const apps = useMemo(
-    () => (liveMode ? rows!.map(toApplicant) : DEMO_APPS),
-    [liveMode, rows],
+    () => (liveMode ? activeRows.map(toApplicant) : DEMO_APPS),
+    [liveMode, activeRows],
   )
 
   const eyebrow = liveMode
@@ -446,6 +461,9 @@ export default function LandlordApplicantsPage() {
             padded={false}
             title={<span className="flex flex-wrap items-center gap-2"><StatusPill tone={s.tone}>{s.label[lang]}</StatusPill>{s.hint && <span className="text-[11.5px] font-normal text-body-3">{s.hint[lang]}</span>}</span>}
             meta={<span className="font-mono">{list.length}</span>}
+            action={liveMode && s.key === 'decided' && list.length > 0 ? (
+              <button type="button" disabled={archiving} onClick={() => setArchived(list.map((a) => a.id), true)} className="rounded-lg border border-line-divider px-2.5 py-1 text-[12px] font-semibold text-body-2">{lang === 'zh' ? `全部归档（${list.length}）` : `Archive all (${list.length})`}</button>
+            ) : undefined}
           >
             {list.map((a) => (
               <Link
@@ -490,6 +508,21 @@ export default function LandlordApplicantsPage() {
         )
       })}
 
+      {liveMode && archivedRows.length > 0 && (
+        <SectionCard className="mb-3" title={<button type="button" onClick={() => setShowArchived((v) => !v)} className="text-left">{showArchived ? '▾' : '▸'} {lang === 'zh' ? '已归档' : 'Archived'}</button>} meta={<span className="font-mono">{archivedRows.length}</span>}>
+          {showArchived && (
+            <div data-testid="archived-applications" className="divide-y divide-line-divider">
+              {archivedRows.map((r) => { const a = toApplicant(r, 0); return (
+                <div key={r.id} className="flex flex-wrap items-center gap-2 py-2 text-[13px]">
+                  <Link href={`/landlord/applicants/${r.id}`} className="min-w-0 flex-1 font-semibold hover:underline">{a.name}{a.unitLabel ? <span className="font-normal text-body-3"> · {a.unitLabel}</span> : null}</Link>
+                  <span className="font-mono text-[11px] text-body-3">{r.archived_at!.slice(0, 10)}</span>
+                  <button type="button" disabled={archiving} onClick={() => setArchived([r.id], false)} className="rounded-lg border border-line-divider px-2.5 py-1 text-[12px] font-semibold">{lang === 'zh' ? '取消归档' : 'Unarchive'}</button>
+                </div>
+              ) })}
+            </div>
+          )}
+        </SectionCard>
+      )}
       {!liveMode && <DecidedTable lang={lang} />}
     </WorkspaceShell>
   )
