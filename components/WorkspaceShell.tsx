@@ -368,11 +368,6 @@ function Rail({ role }: { role: WorkspaceRole }) {
   const en = lang === 'en'
   const items = RAIL_BY_ROLE[role]
   const auth = useAuth()
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  useEffect(() => {
-    const cached = typeof window !== 'undefined' ? localStorage.getItem('stayloop-avatar') : null
-    if (cached) setAvatarUrl(cached)
-  }, [])
   // 待办 badge = cards waiting on this hat (same shared fetch as the phone tabs).
   const [pendingCount, setPendingCount] = useState(0)
   useEffect(() => {
@@ -426,13 +421,18 @@ function Rail({ role }: { role: WorkspaceRole }) {
       style={{ background: '#1B1B3C' }}
       aria-label={en ? 'Workspace' : '工作台'}
     >
-      <Link href="/settings" aria-label={en ? `${ROLE_LABEL[role].en} · settings` : `${ROLE_LABEL[role].zh} · 设置`} className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden rounded-xl">
-        {avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="h-10 w-10 object-cover" />
-        ) : (
-          <span className="block h-10 w-10" style={{ background: ROLE_THEME[role].avatarGradient }} />
-        )}
+      {/* "+" = new conversation (user 2026-09-25, as on claude.ai): on the
+          assistant page it starts one in place; elsewhere it opens the page
+          with ?new=1. The role avatar that used to sit here is gone. */}
+      <Link
+        href={`/${role}/agent?new=1`}
+        onClick={(e) => { if (path === `/${role}/agent`) { e.preventDefault(); window.dispatchEvent(new Event('sl-new-thread')) } }}
+        aria-label={en ? 'New conversation' : '新会话'}
+        className="group relative flex h-10 w-10 flex-none items-center justify-center rounded-xl text-white transition hover:bg-white/20"
+        style={{ background: 'rgba(255,255,255,0.12)' }}
+      >
+        <PlusIcon />
+        <span className="pointer-events-none absolute left-[52px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-[7px] px-2.5 py-1.5 text-[12px] font-semibold text-white shadow-lg group-hover:block" style={{ background: '#1B1B3C' }}>{en ? 'New conversation' : '新会话'}</span>
       </Link>
       <div className="mb-2 mt-1 text-[9.5px] font-semibold tracking-[.06em]" style={{ color: '#9fb3cf' }}>{en ? ROLE_LABEL[role].en : ROLE_LABEL[role].zh}</div>
       {assistant.map((it) => link(it, it.key === 'todo' ? pendingCount : 0))}
@@ -557,6 +557,7 @@ function InstallHint({ zh }: { zh: boolean }) {
   )
 }
 function TodoIcon() { return I('M4 4h16v16H4z|M8 12l3 3 5-6') }
+function PlusIcon() { return I('M12 5v14|M5 12h14') }
 function ProgressIcon() { return I('M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z|M12 7v5l3 2') }
 function BulbIcon() { return I('M9 18h6|M10 21h4|M12 3a6 6 0 0 0-4 10.5c.7.6 1 1.3 1 2.5h6c0-1.2.3-1.9 1-2.5A6 6 0 0 0 12 3z') }
 function MoreIcon() { return I('M5 12h.01|M12 12h.01|M19 12h.01') }

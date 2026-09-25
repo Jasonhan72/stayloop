@@ -17,6 +17,7 @@ import { ActivitySheet } from '@/components/mobile/ActivitySheet'
 import { WORKFLOW_STAGES, stageIndex } from '@/lib/agent/orchestrator'
 import { LISTINGS_PAGE, nextBatchPrompt, pageListings } from '@/lib/agent/listingPaging'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
+import { AssistantAvatar } from '@/lib/agent/avatars'
 
 export const ACCENT: Record<AgentRole, string> = {
   tenant: ROLE_THEME.tenant.accent,
@@ -84,6 +85,8 @@ export default function AgentChat({
   phaseLabel,
   phoneFill = false,
   hero = false,
+  avatar = null,
+  threadLoading = false,
 }: {
   role: AgentRole
   agentName: string
@@ -118,6 +121,10 @@ export default function AgentChat({
    *  in the thread at every width, a pill composer; the identity header hides from
    *  lg where the AssistantPanel shows it. Phones render exactly as phoneFill. */
   hero?: boolean
+  /** Chosen avatar preset (lib/agent/avatars.tsx); null = the role orb. */
+  avatar?: string | null
+  /** A live thread is being fetched — hold the quick starts until it lands. */
+  threadLoading?: boolean
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -139,6 +146,15 @@ export default function AgentChat({
   const statusLine = assistantStatusLine({ status, pendingCount: pending.length, hasApprovals: !!pendingActions, stageLabel, memoryCount, zh })
   const canOpenSheet = !!pendingActions
   const endRef = useRef<HTMLDivElement>(null)
+  // "↓" appears once the user has scrolled up more than ~160px from the newest
+  // message (user 2026-09-25); tapping it returns to the bottom.
+  const threadRef = useRef<HTMLDivElement>(null)
+  const [showJump, setShowJump] = useState(false)
+  const onThreadScroll = () => {
+    const el = threadRef.current
+    if (!el) return
+    setShowJump(el.scrollHeight - el.scrollTop - el.clientHeight > 160)
+  }
   const thinking = status === 'understanding' || status === 'working'
   // Listing cards come in pages of six; the server sends up to two pages per
   // turn. offset per message id: 0 = first page, 6 = the six ranked after.
@@ -146,6 +162,7 @@ export default function AgentChat({
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    setShowJump(false)
   }, [messages.length, thinking])
 
   return (
@@ -161,8 +178,9 @@ export default function AgentChat({
           disabled={!canOpenSheet}
           aria-label={canOpenSheet ? (zh ? `${agentName} 的活动日志` : `${agentName}'s activity log`) : undefined}
           className={`flex-none rounded-full h-11 w-11 md:h-14 md:w-14 ${canOpenSheet ? 'shadow-[0_4px_14px_rgba(27,27,60,.16)]' : 'cursor-default'}`}
-          style={{ background: ORB[role] }}
-        />
+        >
+          <AssistantAvatar avatar={avatar} role={role} className="h-full w-full" />
+        </button>
         <div className="flex min-w-0 max-w-full flex-col items-center">
           <div className="mt-1.5 rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:mt-2 md:text-[14px]">{agentName}</div>
           <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`mt-1 flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
@@ -173,12 +191,13 @@ export default function AgentChat({
       {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} onClose={() => setSheet(false)} />}
 
       {/* thread */}
-      <div className={`flex-1 overflow-y-auto px-4 py-4 ${hero ? 'md:px-10 md:py-6' : 'md:px-5 md:py-5'}`}>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div ref={threadRef} onScroll={onThreadScroll} className={`flex-1 overflow-y-auto px-4 py-4 ${hero ? 'md:px-10 md:py-6' : 'md:px-5 md:py-5'}`}>
       <div className={hero ? 'mx-auto w-full max-w-[760px] space-y-4' : 'space-y-4'}>
         {messages.map((m) => (
           <div key={m.id} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
             {m.role === 'agent' && (
-              <span className={`mr-2 mt-0.5 h-7 w-7 flex-none rounded-full ${hero ? 'md:hidden' : ''}`} style={{ background: ORB[role] }} />
+              <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero ? 'md:hidden' : ''}`} />
             )}
             <div
               className={
@@ -376,7 +395,10 @@ export default function AgentChat({
             ))}
           </div>
         )}
-        {messages.length <= 1 && !thinking && (
+        {threadLoading && (
+          <div className="py-6 text-center font-mono text-[11px] text-body-3">{zh ? '读取对话…' : 'Loading the conversation…'}</div>
+        )}
+        {messages.length <= 1 && !thinking && !threadLoading && (
           <div className={`pl-9 pt-1 ${hero ? 'md:pl-0' : ''}`}>
             <div className="mb-2.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">
               {lang === 'zh' ? '试试这些 · 一句话开工' : 'Try one — a single sentence starts the work'}
@@ -405,12 +427,23 @@ export default function AgentChat({
         )}
         {thinking && (
           <div className="flex justify-start">
-            <span className={`mr-2 mt-0.5 h-7 w-7 flex-none rounded-full ${hero ? 'md:hidden' : ''}`} style={{ background: ORB[role] }} />
+            <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero ? 'md:hidden' : ''}`} />
             <ThinkingIndicator status={status} lang={lang} />
           </div>
         )}
         <div ref={endRef} />
       </div>
+      </div>
+      {showJump && (
+        <button
+          type="button"
+          onClick={() => endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })}
+          aria-label={zh ? '回到最新消息' : 'Jump to the latest message'}
+          className="absolute bottom-3 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-line-divider bg-white text-body-2 shadow-md transition hover:border-line-strong"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
+        </button>
+      )}
       </div>
 
       {/* input */}

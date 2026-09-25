@@ -168,6 +168,8 @@ export async function runAgentTurn(args: {
   anonymous?: boolean
   // UI language for the few client-authored strings in the turn result.
   lang?: 'zh' | 'en'
+  /** The conversation this turn belongs to (agent_threads.id) — lets the activity log reopen it. */
+  threadId?: string | null
 }): Promise<AgentTurn> {
   const { client, userId, role, agentName, message, memories, workflow, stageLabel, attachments, exclude, history, live } = args
   const lang = args.lang === 'en' ? 'en' : 'zh'
@@ -311,6 +313,7 @@ export async function runAgentTurn(args: {
       targetType: 'agent_message',
       metadata: {
         message: message.slice(0, 500),
+        thread_id: args.threadId ?? null,
         // Reply snippet feeds the nightly reflection pass (lib/agent/reflection.ts)
         // — without it the user-model synthesis only sees one side of the dialogue.
         reply: (replyBody || '').slice(0, 400),

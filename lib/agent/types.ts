@@ -50,6 +50,8 @@ export type AgentConfig = {
   model_tier: string
   automation_level: 'approval_required' | string
   memory_enabled: boolean
+  /** Chosen avatar preset (lib/agent/avatars.tsx); null = the role's gradient orb. */
+  avatar?: string | null
 }
 
 export type AgentSession = {

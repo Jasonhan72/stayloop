@@ -1973,3 +1973,20 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
 - **原右栏六张卡归位**：状态总览 + 当前进度 → `/x/progress`；推荐 `RecommendationDeck` → `/x/ideas` 末尾；记忆 → 面板；相关页面 →
   窄栏；待批 → 对话流。`PendingActionsPanel` 不再挂在任何 `/x/agent`。
 - 手机端（<md）保持 09-24 定稿。**规矩不变：`/x/agent` 的对话上方不放任何面板。**
+
+## 助手页四项跟进（2026-09-25 · 用户看桌面截图后）
+
+守卫在 `tests/museWeb20260925.spec.ts`「follow-ups」段；迁移 `20260925_agent_threads.sql` 已应用 prod。
+- **窄栏顶部的头像去掉**，换成「+ 新会话」（学 claude.ai）：在助手页上点 = 派发 `sl-new-thread` 事件就地开新会话；在别的页点 = 跳
+  `/x/agent?new=1`。角色小标签保留。
+- **对话回滚到上面时底部出现「↓」**（`AgentChat`：滚动位置离底 >160px 时显示，点击回到最新消息；新消息到达自动隐藏）。
+- **3D 头像预设**：`lib/agent/avatars.tsx` 11 个用 SVG 画的带光影的形状（球 ×5、方块、圆环、宝石、胶囊、水滴、星星），`AssistantAvatar`
+  组件统一渲染（面板 72px、手机头部 44/56px、消息小圆球 28px、重新打开面板的小胶囊 24px）；面板点头像弹出选择格；选择写
+  `agent_configs.avatar`（新列，本人 RLS）+ `localStorage sl-avatar-<role>`；null = 原角色渐变球。
+- **会话线程 `agent_threads`**（此前消息只存 localStorage、每角色一条）：live 用户每段对话一行（messages jsonb 同 ChatMessage 形状、
+  附件 dataUrl 剥掉、最多存 300 条、title = 第一句用户话 ≤60 字），本人 RLS、anon 无权。`useAgentSession`：live 登录后按
+  `?thread=<id>` / `?new=1` / 浏览器指针 `sl-thread-current-<role>-<uid8>` / 最近一条 / **旧 localStorage 历史一次性迁成第一条线程** 的
+  顺序决定打开哪条；线程行**在第一句用户消息时才建**（ensureThread，「+」不产生空行），之后消息变化 800ms 去抖写回，离开页面前
+  flush；`newThread` / `openThread` 暴露给页面；turn 的审计事件 metadata 多了 `thread_id`。匿名 / 演示仍走 localStorage。
+- **活动面板每行可点 → 回到那段对话**：有 `thread_id` 直接开；老记录按事件时间取当时的线程（`threadAt`）。对话轮次的行标题改为用户
+  那句话（`metadata.message`），副标题「和你对话了一轮 · 时间」，当前对话标「当前对话」。

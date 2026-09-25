@@ -17,6 +17,7 @@ import { decidePendingAction } from './approval-engine'
 import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
 import { demoSession } from './demo'
 import { getAIName, setAIName, getStoredAIName, getDefaultName } from '@/lib/aiName'
+import { createThread, latestThread, loadThread, readPointer, saveThread, writePointer } from './threads'
 
 const CHAT_KEY_PREFIX = 'stayloop-agent-chat-'
 
@@ -41,28 +42,30 @@ function saveMessages(role: AgentRole, scope: string, messages: ChatMessage[]): 
   } catch {}
 }
 
+// Histories saved before 2026-09-18 can carry duplicate ids (the seq
+// restarted at `saved.length`); re-key repeats so React keys stay unique.
+function rekeyMessages(parsed: ChatMessage[]): ChatMessage[] {
+  const seen = new Set<string>()
+  let max = 0
+  for (const m of parsed) max = Math.max(max, parseInt(String(m.id).replace(/^m/, ''), 10) || 0)
+  return parsed.map((m) => {
+    const id = String(m.id)
+    if (!seen.has(id)) {
+      seen.add(id)
+      return m
+    }
+    const fresh = `m${++max}`
+    seen.add(fresh)
+    return { ...m, id: fresh }
+  })
+}
+
 function restoreMessages(role: AgentRole, scope: string): ChatMessage[] | null {
   try {
     const raw = localStorage.getItem(chatKey(role, scope))
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      // Histories saved before 2026-09-18 can carry duplicate ids (the seq
-      // restarted at `saved.length`); re-key repeats so React keys stay unique.
-      const seen = new Set<string>()
-      let max = 0
-      for (const m of parsed as ChatMessage[]) max = Math.max(max, parseInt(String(m.id).replace(/^m/, ''), 10) || 0)
-      return (parsed as ChatMessage[]).map((m) => {
-        const id = String(m.id)
-        if (!seen.has(id)) {
-          seen.add(id)
-          return m
-        }
-        const fresh = `m${++max}`
-        seen.add(fresh)
-        return { ...m, id: fresh }
-      })
-    }
+    if (Array.isArray(parsed) && parsed.length > 0) return rekeyMessages(parsed as ChatMessage[])
   } catch {}
   return null
 }
@@ -119,6 +122,11 @@ export type UseAgentSession = {
   sendMessage: (message: string, attachments?: ChatAttachment[]) => Promise<void>
   /** The chat reveals a further page of listing cards: exclude those addresses from later searches too. */
   markListingsShown: (addresses: string[]) => void
+  /** Conversation threads (2026-09-25): live sessions keep one thread per conversation in agent_threads. */
+  threadId: string | null
+  threadLoading: boolean
+  newThread: () => void
+  openThread: (id: string) => Promise<void>
 }
 
 const RENDER_DEADLINE_MS = 10000
@@ -151,6 +159,67 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const urlImagesRef = useRef<string[]>([])
   // Storage scope for chat history: the authed user's id, or 'anon' for demo.
   const chatScopeRef = useRef('anon')
+  // Conversation threads (agent_threads, 2026-09-25): a live session keeps its
+  // history per thread in the DB (the localStorage key stays for demo/anon).
+  const [threadId, setThreadId] = useState<string | null>(null)
+  const threadIdRef = useRef<string | null>(null)
+  const [threadLoading, setThreadLoading] = useState(false)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const creating = useRef<Promise<string | null> | null>(null)
+  const resolveGen = useRef(0)
+  const agentNameRef = useRef('')
+
+  // Put a thread on screen: its messages (re-keyed, listing exclusions
+  // rebuilt) or the greeting for an empty one. `id` null = a new, unsaved thread.
+  const applyThread = useCallback((id: string | null, msgs: ChatMessage[] | null, scope: string) => {
+    threadIdRef.current = id
+    setThreadId(id)
+    writePointer(role, scope, id)
+    shownListings.current.clear()
+    if (msgs && msgs.length > 0) {
+      const fixed = rekeyMessages(msgs)
+      msgSeq.current = Math.max(fixed.length, ...fixed.map((m) => parseInt(String(m.id).replace(/^m/, ''), 10) || 0))
+      for (const m of fixed) for (const l of (m.listings ?? []).slice(0, m.listingsPage ?? LISTINGS_PAGE)) shownListings.current.add(l.address.toLowerCase())
+      setMessages(fixed)
+    } else {
+      msgSeq.current = 0
+      setMessages([{ id: nextId(), role: 'agent', text: greeting(role, agentNameRef.current || getDefaultName(role), langRef.current) }])
+    }
+    setThreadLoading(false)
+  }, [role])
+
+  // Which thread a live session opens: ?thread=<id> / ?new=1 from the URL,
+  // else the browser's pointer, else the latest thread, else the pre-thread
+  // localStorage history migrated once into a first thread, else a greeting.
+  const resolveThread = useCallback(async (uid: string, scope: string) => {
+    const gen = ++resolveGen.current
+    setThreadLoading(true)
+    const client = getSupabaseBrowser()
+    let wantNew = false
+    let wantId: string | null = null
+    try {
+      const params = new URLSearchParams(window.location.search)
+      wantNew = params.get('new') === '1'
+      wantId = params.get('thread')
+      if (wantNew || wantId) {
+        params.delete('new'); params.delete('thread')
+        window.history.replaceState(null, '', window.location.pathname + (params.toString() ? `?${params}` : '') + window.location.hash)
+      }
+    } catch { /* no window */ }
+    let id: string | null = null
+    let msgs: ChatMessage[] | null = null
+    if (!wantNew) {
+      const pointer = wantId || readPointer(role, scope)
+      if (pointer) { const t = await loadThread(client, pointer); if (t) { id = t.id; msgs = t.messages } }
+      if (!id) { const t = await latestThread(client, role); if (t) { id = t.id; msgs = t.messages } }
+      if (!id) {
+        const legacy = restoreMessages(role, scope)
+        if (legacy && legacy.length > 1) { const created = await createThread(client, uid, role, legacy); if (created) { id = created; msgs = legacy } }
+      }
+    }
+    if (gen !== resolveGen.current) return
+    applyThread(id, msgs, scope)
+  }, [role, applyThread])
 
   const settle = useCallback(
     (d: AgentSessionResponse, isLive: boolean) => {
@@ -175,6 +244,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       // workspace, input bar, memory aside, and LLM all use the chosen name.
       const chosen = getAIName(role)
       if (chosen) d = { ...d, agent: { ...d.agent, agent_name: chosen } }
+      agentNameRef.current = d.agent.agent_name
+      const hadTyped = messagesRef.current.length > 1
       // All state updates batched by React 18+ automatic batching
       setData(d)
       setStatus(d.status)
@@ -185,35 +256,95 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
         // Never rebuild it from storage.
         if (settledBefore && !scopeChanged) return cur
         // Scope upgrade mid-conversation (user typed during the demo phase):
-        // keep exactly what they see, and re-home it to the new scope so a
-        // reload restores it from the right key.
+        // keep exactly what they see (a live scope saves it into a new thread
+        // on the next change; anon re-homes it to its key).
         if (cur.length > 1) {
-          saveMessages(role, nextScope, cur)
+          if (nextScope === 'anon') saveMessages(role, nextScope, cur)
           return cur
         }
-        // Fresh render for this scope: restore its history, or greet.
+        // Live: the thread is resolved from the DB below — render nothing
+        // until it lands (no greeting flash before the history).
+        if (nextScope !== 'anon') return cur
+        // Demo/anon: restore this scope's localStorage history, or greet.
         const saved = restoreMessages(role, nextScope)
         if (saved && saved.length > 0) {
-          // Continue from the highest restored id, not the count — a trimmed
-          // or rolled-back history has gaps, and reusing "m6" for a new
-          // message made React drop/duplicate children (dev console: two
-          // children with the same key).
           msgSeq.current = Math.max(saved.length, ...saved.map((m) => parseInt(String(m.id).replace(/^m/, ''), 10) || 0))
-          // Rebuild the exclusion set from what the restored thread shows
-          // (first page of each card set; deeper pages reset on reload).
           for (const m of saved) for (const l of (m.listings ?? []).slice(0, m.listingsPage ?? LISTINGS_PAGE)) shownListings.current.add(l.address.toLowerCase())
           return saved
         }
         return [{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name, langRef.current) }]
       })
+      if (isLive && user?.id && (!settledBefore || scopeChanged) && !hadTyped) void resolveThread(user.id, nextScope)
     },
-    [role, user]
+    [role, user, resolveThread]
   )
 
-  // Persist conversation history to localStorage on every change.
+  // Create the thread row the first time a live conversation has something
+  // to keep (never an empty row per "+"), once even when two writers race.
+  const ensureThread = useCallback(async (msgs: ChatMessage[]): Promise<string | null> => {
+    if (threadIdRef.current) return threadIdRef.current
+    const uid = user?.id
+    if (!uid || chatScopeRef.current === 'anon') return null
+    if (!creating.current) {
+      creating.current = createThread(getSupabaseBrowser(), uid, role, msgs).then((id) => {
+        if (id) { threadIdRef.current = id; setThreadId(id); writePointer(role, chatScopeRef.current, id) }
+        creating.current = null
+        return id
+      })
+    }
+    return creating.current
+  }, [role, user])
+  const persistThread = useCallback(async () => {
+    if (chatScopeRef.current === 'anon') return
+    const msgs = messagesRef.current
+    if (msgs.length <= 1) return
+    const id = await ensureThread(msgs)
+    if (id) await saveThread(getSupabaseBrowser(), id, messagesRef.current)
+  }, [ensureThread])
+  const persistRef = useRef(persistThread)
+  persistRef.current = persistThread
+  const flushThread = useCallback(() => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
+    if (chatScopeRef.current !== 'anon' && threadIdRef.current && messagesRef.current.length > 1) void saveThread(getSupabaseBrowser(), threadIdRef.current, messagesRef.current)
+  }, [])
+  const newThread = useCallback(() => {
+    flushThread()
+    const scope = chatScopeRef.current
+    if (scope === 'anon') { try { localStorage.removeItem(chatKey(role, 'anon')) } catch { /* private mode */ } }
+    urlImagesRef.current = []
+    setStatus('idle')
+    applyThread(null, null, scope)
+  }, [flushThread, applyThread, role])
+  const openThread = useCallback(async (id: string) => {
+    if (chatScopeRef.current === 'anon' || id === threadIdRef.current) return
+    flushThread()
+    setThreadLoading(true)
+    const gen = ++resolveGen.current
+    const t = await loadThread(getSupabaseBrowser(), id)
+    if (gen !== resolveGen.current) return
+    if (!t) { setThreadLoading(false); return }
+    urlImagesRef.current = []
+    setStatus('idle')
+    applyThread(t.id, t.messages, chatScopeRef.current)
+  }, [flushThread, applyThread])
+  // The rail's "+" (WorkspaceShell) starts a new conversation on this page.
   useEffect(() => {
-    if (messages.length > 1) saveMessages(role, chatScopeRef.current, messages)
-  }, [messages, role])
+    const h = () => newThread()
+    window.addEventListener('sl-new-thread', h)
+    return () => window.removeEventListener('sl-new-thread', h)
+  }, [newThread])
+  // Flush a pending save when leaving the page.
+  useEffect(() => () => { if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; void persistRef.current() } }, [])
+
+  // Persist the conversation on every change: demo/anon → localStorage;
+  // live → the thread row (debounced).
+  useEffect(() => {
+    if (messages.length <= 1) return
+    if (chatScopeRef.current === 'anon') { saveMessages(role, 'anon', messages); return }
+    if (threadLoading) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => { saveTimer.current = null; void persistRef.current() }, 800)
+  }, [messages, role, threadLoading])
 
   // Demo mode only: when the language toggles, re-derive the demo fixtures so
   // the preview cards/memories follow the switch. Live sessions hold real user
@@ -435,7 +566,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       // keep the earlier criteria.
       const history = messagesRef.current.slice(-6).map((m) => ({ role: m.role, text: m.text }))
       // Show the user's message (with any attachments) in the thread immediately.
-      setMessages((m) => [...m, { id: nextId(), role: 'user', text: message.trim(), attachments }])
+      const userMsg: ChatMessage = { id: nextId(), role: 'user', text: message.trim(), attachments }
+      setMessages((m) => [...m, userMsg])
       setStatus('understanding')
 
       // Default result is only ever shown on the signed-in-but-disconnected
@@ -471,10 +603,14 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       if (live && user) {
         try {
           const stageLabel = WORKFLOW_STAGES[role].find((s) => s.key === data.workflow.current_stage)?.label[uiLang]
+          // The thread row exists before the turn is audited, so the activity
+          // log can point back at this conversation.
+          const tid = await ensureThread([...messagesRef.current.filter((m) => m.id !== userMsg.id), userMsg])
           const turn = await runAgentTurn({
             lang: uiLang,
             client: getSupabaseBrowser(),
             userId: user.id,
+            threadId: tid,
             role,
             agentName: data.agent.agent_name,
             message,
@@ -679,5 +815,5 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     }
   }, [live, user])
 
-  return { loading, live, data, status, error, messages, decide, sendMessage, markListingsShown, scheduled, undo }
+  return { loading, live, data, status, error, messages, decide, sendMessage, markListingsShown, scheduled, undo, threadId, threadLoading, newThread, openThread }
 }

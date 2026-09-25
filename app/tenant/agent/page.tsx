@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 // /tenant/agent — Luna's workspace. A Claude-style chat with the tenant's
 // personal agent on the left; pending approvals, workflow progress, private
@@ -14,18 +14,22 @@ import { useAgentSession } from '@/lib/agent/useAgentSession'
 import AssistantPanel from '@/components/agent/AssistantPanel'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
 import { useAssistantPanel } from '@/lib/agent/useAssistantPanel'
-import { ROLE_THEME } from '@/lib/roleTheme'
+import { AssistantAvatar, getStoredAvatar } from '@/lib/agent/avatars'
 import { usePromptDeepLink } from '@/lib/agent/usePromptDeepLink'
 import { useT } from '@/lib/i18n'
 
 export default function TenantAgentPage() {
-  const { loading, live, data, status, messages, decide, sendMessage, markListingsShown, scheduled, undo } = useAgentSession('tenant')
+  const { loading, live, data, status, messages, decide, sendMessage, markListingsShown, scheduled, undo, threadId, threadLoading, openThread } = useAgentSession('tenant')
   const { lang } = useT()
   const [draft, setDraft] = useState<ComposerDraft | null>(null)
   const prefill = useCallback((t: string) => setDraft({ text: t, nonce: Date.now() }), [])
   usePromptDeepLink(loading, sendMessage, prefill)
   const { lifecycle } = useLifecycle('tenant')
   const [panelOpen, setPanelOpen] = useAssistantPanel()
+  // The assistant's face: the chosen preset (agent_configs.avatar, mirrored in localStorage) or the role orb.
+  const [avatar, setAvatar] = useState<string | null>(null)
+  const dbAvatar = data?.agent.avatar ?? null
+  useEffect(() => { setAvatar(getStoredAvatar('tenant') ?? dbAvatar) }, [dbAvatar])
 
 
   if (loading || !data) {
@@ -58,7 +62,7 @@ export default function TenantAgentPage() {
           {live && <div className="md:hidden"><ContextStrip lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/tenant/todo" lang={lang} onPrompt={prefill} /></div>}
           {!panelOpen && (
             <button type="button" onClick={() => setPanelOpen(true)} aria-label={zh ? '打开助手面板' : 'Open the assistant panel'} className="absolute right-4 top-3 z-10 hidden items-center gap-2 rounded-full border border-line-divider bg-white py-1 pl-1 pr-3 text-[12.5px] font-bold text-body-2 shadow-sm transition hover:border-line-strong lg:flex">
-              <span className="h-6 w-6 rounded-full" style={{ background: ROLE_THEME.tenant.avatarGradient }} />
+              <AssistantAvatar avatar={avatar} role="tenant" className="h-6 w-6" />
               {agent.agent_name}{pendingCount > 0 ? (zh ? ` · 等你点头 ${pendingCount} 件` : ` · ${pendingCount} waiting`) : ''}
             </button>
           )}
@@ -68,6 +72,8 @@ export default function TenantAgentPage() {
               phoneFill
               draft={draft}
               phaseLabel={stageLabel || null}
+              avatar={avatar}
+              threadLoading={threadLoading}
               role="tenant"
               agentName={agent.agent_name}
               status={status}
@@ -86,7 +92,7 @@ export default function TenantAgentPage() {
         </div>
         {panelOpen && (
           <aside className="hidden lg:flex lg:w-[360px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider">
-            <AssistantPanel role="tenant" agentName={agent.agent_name} status={status} statusLine={statusLine} pendingActions={pendingActions} memories={memories} live={live} onClose={() => setPanelOpen(false)} />
+            <AssistantPanel role="tenant" agentName={agent.agent_name} status={status} statusLine={statusLine} pendingActions={pendingActions} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onClose={() => setPanelOpen(false)} />
           </aside>
         )}
       </div>
