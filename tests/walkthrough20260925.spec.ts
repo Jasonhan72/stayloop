@@ -115,6 +115,10 @@ describe('tenant walk-through (tenant test account on production, 2026-09-25)', 
     expect(tracker).toContain('listing_slug, listing_address, listing_unit, listing_active')
     expect(tracker).not.toContain('listing:listings(slug, address, unit)')
     expect(tracker).toContain("{zh ? '已下架' : 'Off market'}")
+    const showings = read('components/tenant/MyShowings.tsx')
+    expect(showings).toContain(".from('my_showing_intents')")
+    expect(showings).not.toContain('listing:listings(slug, address, unit)')
+    expect(read('supabase/migrations/20260925_my_showing_intents_view.sql')).toContain('revoke insert, update, delete, truncate, references, trigger on public.my_showing_intents from authenticated')
   })
   it('the sample lease’s legal commentary is right (no grace period, no pet deposit) and the apply cap matches the bucket', () => {
     const lease = read('app/tenant/lease/page.tsx')

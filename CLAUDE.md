@@ -2046,3 +2046,8 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
   （大照片先压缩）；④ `/tenant/payments` 是 DEMO_GATE 却没有 liveSlot——进度页数着「1 期待付」，付款页说「还没有租金记录」→ 新
   `components/tenant/MyRent.tsx`（成员 → household → `rent_payments`）；⑤ `/h/[id]` 成员列表印对方 uid 前 8 位 → 「对方」；⑥ 想法页「已按…盖章门槛过滤」
   （trust_tier 已清空）→「已按你的预算与区域过滤」。
+  ⑦ 「我的看房与提问」同样对已下架房源显示「—」→ 只读视图 `my_showing_intents`（本人 tenants 行 → 意向 + listings 快照，迁移
+  `20260925_my_showing_intents_view.sql`，已应用 prod），`MyShowings` 改读它。**留意**：`showing_intents` 的策略 `intents_parties` 是 FOR ALL，
+  租客理论上能把自己意向的 status 改成 accepted（只影响自己页面上的文案，没有副作用），下轮加 `BEFORE UPDATE` 守卫。
+- **经纪号第三轮（同日）**：客户表 / 任务 / 认证页 / 筛查页（该号同时持房东帽，直接进 `/screening/app` 走房东导航属预期）/ 收益空态都正常；
+  375px 上 `/agent/agent` 无横向溢出、底栏是统一的工作台五项、输入条在底栏之上。
