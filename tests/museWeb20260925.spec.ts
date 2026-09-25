@@ -6,7 +6,8 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
-import { activityGroups, activityIcon } from '@/lib/agent/activityLog'
+import { activityGroups, activityIcon, buildActivity, itemIcon, threadFacts, type ThreadItem } from '@/lib/agent/activityLog'
+import type { ThreadListRow } from '@/lib/agent/threads'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 const pages = ['app/tenant/agent/page.tsx', 'app/landlord/agent/page.tsx', 'app/agent/agent/page.tsx']
@@ -52,7 +53,7 @@ describe('assistant panel', () => {
     expect(panel).toContain("['activity', zh ? '活动' : 'Activity'")
     expect(panel).toContain("['todo', zh ? '待办' : 'To-do'")
     expect(panel).toContain("['memory', zh ? '记忆' : 'Memory'")
-    expect(panel).toContain('useActivityLog(live)')
+    expect(panel).toContain('useActivityLog(live, role)')
     expect(panel).toContain("from('agent_configs').update({ agent_name: next }).eq('user_id', auth.user.id).eq('role', role)")
     expect(panel).toContain('onClick={onClose}')
     expect(panel).toContain('<PrivateMemorySnapshot agentName={name} memories={memories} role={role} editable={live} />')
@@ -71,7 +72,7 @@ describe('assistant panel', () => {
   })
   it('the phone sheet and the web panel read the same log', () => {
     const sheet = read('components/mobile/ActivitySheet.tsx')
-    expect(sheet).toContain('useActivityLog(live, 20)')
+    expect(sheet).toContain('useActivityLog(live, role, 20)')
     expect(sheet).not.toContain("from('agent_audit_events')")
   })
 })
@@ -111,11 +112,28 @@ describe('pure helpers', () => {
     expect(assistantStatusLine({ status: 'result', pendingCount: 0, hasApprovals: true, stageLabel: '租前', memoryCount: 60, zh: true })).toBe('空闲 · 当前阶段 租前 · 记得 60 条')
     expect(assistantStatusLine({ status: 'result', pendingCount: 0, hasApprovals: false, stageLabel: '', memoryCount: 0, zh: false })).toBe('ONLINE · READING YOUR MEMORY')
   })
-  it('activity log groups by today / yesterday / earlier and picks a glyph per action family', () => {
+  it('activity log: one row per conversation, decisions folded into it, other actions on their own; grouped today / yesterday / earlier', () => {
     const now = new Date('2026-09-25T15:00:00-04:00')
-    const row = (id: string, iso: string, action = 'turn') => ({ id, action, actor_type: 'agent', created_at: iso, metadata: null })
-    const g = activityGroups([row('a', '2026-09-25T14:02:00-04:00'), row('b', '2026-09-24T22:20:00-04:00'), row('c', '2026-09-20T09:00:00-04:00'), row('d', '2026-09-25T09:00:00-04:00')], 'zh', now)
-    expect(g.map((x) => [x.label, x.rows.map((r) => r.id)])).toEqual([['今天', ['a', 'd']], ['昨天', ['b']], ['更早', ['c']]])
+    const thread = (id: string, at: string): ThreadListRow => ({ id, title: `t-${id}`, summary: null, turn_count: 2, message_count: 5, created_at: at, updated_at: at, last_message_at: at })
+    const ev = (id: string, iso: string, action: string, thread_id: string | null = null) => ({ id, action, actor_type: 'user', created_at: iso, metadata: thread_id ? { thread_id } : {} })
+    const items = buildActivity(
+      [thread('A', '2026-09-25T14:02:00-04:00'), thread('B', '2026-09-24T22:20:00-04:00'), thread('C', '2026-09-20T09:00:00-04:00')],
+      [
+        ev('e1', '2026-09-25T14:30:00-04:00', 'tenant_agent_turn', 'A'), // a turn is never a row — the conversation is
+        ev('e2', '2026-09-25T14:10:00-04:00', 'pending_action_approved', 'A'), // folded into A
+        ev('e3', '2026-09-25T14:11:00-04:00', 'executed_send_message', 'A'), // folded into A and bumps its time
+        ev('e4', '2026-09-25T09:00:00-04:00', 'pending_action_approved'), // outside any conversation → its own row
+        ev('e5', '2026-09-25T08:00:00-04:00', 'pending_action_rejected', 'ZZZ'), // unknown conversation → its own row
+      ],
+    )
+    expect(items.map((i) => i.id)).toEqual(['t:A', 'a:e4', 'a:e5', 't:B', 't:C'])
+    const a = items[0] as ThreadItem
+    expect([a.approved, a.executed, a.at]).toEqual([1, 1, '2026-09-25T14:11:00-04:00'])
+    expect(itemIcon(a)).toBe('✓')
+    expect(itemIcon(items[3])).toBe('💬')
+    expect(threadFacts(a, 'zh')).toEqual(['2 轮', '已执行 1', '批准 1'])
+    const g = activityGroups(items, 'zh', now)
+    expect(g.map((x) => [x.label, x.rows.map((r) => r.id)])).toEqual([['今天', ['t:A', 'a:e4', 'a:e5']], ['昨天', ['t:B']], ['更早', ['t:C']]])
     expect(activityIcon('executed_send_message')).toBe('✓')
     expect(activityIcon('memory_forgotten')).toBe('🧠')
     expect(activityIcon('approval_undone')).toBe('↩')
@@ -175,8 +193,28 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     expect(hook).toContain('const created = await createThread(client, uid, role, legacy)') // one-time migration of the localStorage history
     expect(hook).toMatch(/return \{ [^}]*threadId, threadLoading, newThread, openThread \}/)
     const panel = read('components/agent/AssistantPanel.tsx')
-    expect(panel).toContain('await threadAt(supabase, role, r.created_at)')
-    expect(panel).toContain('onClick={() => void openRow(r)}')
+    expect(panel).toContain('await onOpenThread(it.threadId)')
+    expect(panel).toContain('onClick={() => void openItem(it)}')
+    // Later the same day (user: "不是记录每一条消息，是记录每一个对话"): the log
+    // reads conversations, not turn events, and every decision carries the
+    // conversation it was taken in so the log can fold it into that row.
+    const log = read('lib/agent/useActivityLog.ts')
+    expect(log).toContain('listThreads(supabase, role, limit)')
+    expect(log).toContain(".not('action', 'ilike', '%turn')")
+    const threads = read('lib/agent/threads.ts')
+    expect(threads).toContain('summary: threadSummary(messages), turn_count: userTurns(messages)')
+    expect(threads).not.toContain('export async function threadAt')
+    expect(read('lib/agent/orchestrator.ts')).toContain("metadata: { origin: 'agent_turn', ...(pa.metadata ?? {}), thread_id: args.threadId ?? null }")
+    expect(read('app/api/agent/execute/route.ts')).toContain("thread_id: (action.metadata as Record<string, unknown> | null)?.thread_id ?? null")
+    expect(hook).toContain("action: 'approval_undone', target_type: 'agent_pending_action', target_id: actionId, metadata: { thread_id:")
+    const rpc = read('supabase/migrations/20260925_agent_threads_summary.sql')
+    expect(rpc).toContain("'thread_id', v_act.metadata->'thread_id'")
+    expect(rpc).toContain('add column if not exists summary text')
+    for (const p of pages) expect(read(p)).toContain('currentThreadId={threadId} onOpenThread={openThread}')
+    const { threadSummary, userTurns } = await import('@/lib/agent/threads')
+    const msgs = [{ id: 'a', role: 'agent', text: '你好' }, { id: 'b', role: 'user', text: '找房' }, { id: 'c', role: 'agent', text: '### 好的\n**两居室**，我先查   一下。' }] as never
+    expect(threadSummary(msgs)).toBe('好的 两居室，我先查 一下。')
+    expect(userTurns(msgs)).toBe(1)
     const { threadTitle, stripForStorage, MAX_STORED_MESSAGES } = await import('@/lib/agent/threads')
     expect(threadTitle([{ id: 'm1', role: 'agent', text: 'hi' }, { id: 'm2', role: 'user', text: '  帮我找   两居室  ' }] as never)).toBe('帮我找 两居室')
     const many = Array.from({ length: MAX_STORED_MESSAGES + 5 }, (_, i) => ({ id: `m${i}`, role: 'user', text: 'x', attachments: [{ name: 'a', dataUrl: 'data:1', isImage: true }] }))

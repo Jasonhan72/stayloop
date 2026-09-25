@@ -82,7 +82,7 @@ export default function FieldAgentPage() {
               draft={draft}
               phaseLabel={stageLabel || null}
               avatar={avatar}
-              threadLoading={threadLoading}
+              threadLoading={threadLoading} currentThreadId={threadId} onOpenThread={openThread}
               role="agent"
               agentName={agent.agent_name}
               status={status}

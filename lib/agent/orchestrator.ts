@@ -273,7 +273,10 @@ export async function runAgentTurn(args: {
       status: 'pending' as const,
       requires_approval: true,
       expires_at: null,
-      metadata: { origin: 'agent_turn', ...(pa.metadata ?? {}) },
+      // thread_id: the conversation this card was proposed in — the approval
+      // audit event (decide_pending_action) and the execution audit copy it, so
+      // the activity log folds decisions into their conversation's row.
+      metadata: { origin: 'agent_turn', ...(pa.metadata ?? {}), thread_id: args.threadId ?? null },
     }
     let id = (globalThis.crypto?.randomUUID?.() as string) || `act-${Date.now()}`
     let created_at = new Date().toISOString()

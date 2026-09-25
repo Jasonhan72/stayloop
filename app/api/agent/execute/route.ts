@@ -122,11 +122,12 @@ async function releaseClaim(admin: Admin, actionId: string, error?: string): Pro
 async function finalizeExecution(
   admin: Admin,
   userId: string,
-  actionId: string,
+  action: Pick<ActionRow, 'id' | 'metadata'>,
   auditAction: string,
   executionResult: Record<string, unknown>,
   auditMetadata: Record<string, unknown>,
 ): Promise<NextResponse> {
+  const actionId = action.id
   await admin.from('agent_pending_actions')
     .update({ execution_result: executionResult })
     .eq('id', actionId)
@@ -137,7 +138,9 @@ async function finalizeExecution(
     action: auditAction,
     target_type: 'agent_pending_action',
     target_id: actionId,
-    metadata: auditMetadata,
+    // thread_id = the conversation the card was proposed in (null for cron /
+    // to-do-page cards) — the activity log folds the execution into that row.
+    metadata: { ...auditMetadata, thread_id: (action.metadata as Record<string, unknown> | null)?.thread_id ?? null },
   })
   if (auditErr) console.error('[agent/execute] audit insert failed:', auditErr.message)
 
@@ -247,7 +250,7 @@ Reply to this email to accept, discuss, or ask questions. Under Ontario's Reside
   }
 
   const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: m.tenant_email, option, rent }
-  return finalizeExecution(admin, userId, action.id, 'executed_send_renewal_letter', executionResult, {
+  return finalizeExecution(admin, userId, action, 'executed_send_renewal_letter', executionResult, {
     lease_id: m.lease_id,
     sent_to: m.tenant_email,
     option,
@@ -419,7 +422,7 @@ The ticket is on your shared tenancy hub; both sides see its progress.${emergenc
   // always possible). Never auto-dispatches.
   if (ll.auth_id) void suggestDispatch(admin, ll.auth_id, ticket.id)
   const executionResult = { ok: true, kind: 'ticket', ticket_id: ticket.id, household_id: ll.household_id, email_id: result.ok ? result.id : null, sent_to: ll.email, email_error: result.ok ? null : result.error }
-  return finalizeExecution(admin, userId, action.id, 'executed_maintenance_request', executionResult, { ticket_id: ticket.id, household_id: ll.household_id, sent_to: ll.email })
+  return finalizeExecution(admin, userId, action, 'executed_maintenance_request', executionResult, { ticket_id: ticket.id, household_id: ll.household_id, sent_to: ll.email })
 }
 
 // ---------------------------------------------------------------------------
@@ -436,7 +439,7 @@ async function executeDispatchWorkOrder(admin: Admin, userId: string, action: Ac
   if (!(await claimExecution(admin, action.id))) return ALREADY()
   const r = await createWorkOrder(admin, { ticketId, landlordAuthId: userId, providerId, externalEmail: external, externalName: typeof m.external_name === 'string' ? m.external_name : null, entryPermission: (['anytime', 'call_first', 'tenant_present'] as const).find((x) => x === m.entry_permission) ?? null, actor: 'landlord' })
   if (!r.ok) { await releaseClaim(admin, action.id, r.error); return NextResponse.json({ executed: false, reason: r.error }, { status: r.status }) }
-  return finalizeExecution(admin, userId, action.id, 'executed_dispatch_work_order', { ok: true, kind: 'work_order', work_order_id: r.wo.id, status: r.wo.status }, { work_order_id: r.wo.id, ticket_id: ticketId, provider_id: r.wo.provider_id })
+  return finalizeExecution(admin, userId, action, 'executed_dispatch_work_order', { ok: true, kind: 'work_order', work_order_id: r.wo.id, status: r.wo.status }, { work_order_id: r.wo.id, ticket_id: ticketId, provider_id: r.wo.provider_id })
 }
 
 async function executeWorkOrderDecision(admin: Admin, userId: string, action: ActionRow, kind: 'approve_quote' | 'accept_completion', preview = false): Promise<NextResponse> {
@@ -447,7 +450,7 @@ async function executeWorkOrderDecision(admin: Admin, userId: string, action: Ac
   if (!(await claimExecution(admin, action.id))) return ALREADY()
   const r = await actOnWorkOrder(admin, { woId, action: kind, by: 'landlord', actorId: userId, payload: kind === 'approve_quote' && m.expected_amount != null ? { expected_amount: m.expected_amount } : {} })
   if (!r.ok) { await releaseClaim(admin, action.id, r.error); return NextResponse.json({ executed: false, reason: r.error }, { status: r.status }) }
-  return finalizeExecution(admin, userId, action.id, `executed_${kind}`, { ok: true, kind, work_order_id: woId, status: r.wo.status }, { work_order_id: woId, status: r.wo.status })
+  return finalizeExecution(admin, userId, action, `executed_${kind}`, { ok: true, kind, work_order_id: woId, status: r.wo.status }, { work_order_id: woId, status: r.wo.status })
 }
 
 async function executeSendMessage(
@@ -497,7 +500,7 @@ async function executeSendMessage(
   }
 
   const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: to }
-  return finalizeExecution(admin, userId, action.id, 'executed_send_message', executionResult, {
+  return finalizeExecution(admin, userId, action, 'executed_send_message', executionResult, {
     sent_to: to,
     subject,
     email_id: result.id,
@@ -544,7 +547,7 @@ async function executeRentReminder(
   }
 
   const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: m.tenant_email }
-  return finalizeExecution(admin, userId, action.id, 'executed_rent_reminder', executionResult, {
+  return finalizeExecution(admin, userId, action, 'executed_rent_reminder', executionResult, {
     lease_id: m.lease_id,
     sent_to: m.tenant_email,
     due_date: m.due_date,
@@ -565,7 +568,7 @@ async function executeRenewalCheckpoint(admin: Admin, userId: string, action: Ac
   if (!(await claimExecution(admin, action.id))) return ALREADY()
   const m = action.metadata || {}
   const executionResult = { ok: true, kind: 'acknowledged', stage: m.stage ?? null, lease_id: m.lease_id ?? null }
-  return finalizeExecution(admin, userId, action.id, auditAction, executionResult, {
+  return finalizeExecution(admin, userId, action, auditAction, executionResult, {
     stage: m.stage ?? null,
     lease_id: m.lease_id ?? null,
   })
@@ -649,7 +652,7 @@ The landlord has received your question about ${addr}. ${contactEn}`
   }
   await admin.from('showing_intents').update({ status: 'accepted' }).eq('id', intent.id)
   const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: to, intent_id: intent.id }
-  return finalizeExecution(admin, userId, action.id, isShowing ? 'executed_showing_request' : 'executed_listing_inquiry', executionResult, {
+  return finalizeExecution(admin, userId, action, isShowing ? 'executed_showing_request' : 'executed_listing_inquiry', executionResult, {
     sent_to: to,
     subject,
     email_id: result.id,
@@ -716,7 +719,7 @@ async function executeSendDecision(admin: Admin, userId: string, action: ActionR
   await admin.from('applications').update({ status: newStatus, decision_notified_at: new Date().toISOString(), decision_reason: reason || null }).eq('id', app.id)
   await admin.from('compliance_events').insert({ user_id: userId, role: 'landlord', source: 'decision_notice', rule_id: 'CRA-10-7-notice', severity: 'info', target_type: 'application', target_id: app.id, metadata: { decision } })
   const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: to, decision }
-  return finalizeExecution(admin, userId, action.id, 'executed_send_decision', executionResult, { application_id: app.id, decision, sent_to: to, email_id: result.id, reason_given: !!reason })
+  return finalizeExecution(admin, userId, action, 'executed_send_decision', executionResult, { application_id: app.id, decision, sent_to: to, email_id: result.id, reason_given: !!reason })
 }
 
 // ---------------------------------------------------------------------------
@@ -750,7 +753,7 @@ async function executeSendLease(admin: Admin, userId: string, action: ActionRow,
     return NextResponse.json({ executed: false, reason: sent.error }, { status: sent.status })
   }
   const executionResult = { ok: true, kind: 'email', email_id: sent.email_id, sent_to: sent.sent_to, lease_id: lease.id }
-  return finalizeExecution(admin, userId, action.id, 'executed_send_lease', executionResult, { lease_id: lease.id, sent_to: sent.sent_to, email_id: sent.email_id })
+  return finalizeExecution(admin, userId, action, 'executed_send_lease', executionResult, { lease_id: lease.id, sent_to: sent.sent_to, email_id: sent.email_id })
 }
 
 export async function POST(req: Request) {

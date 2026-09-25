@@ -1990,5 +1990,12 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
   `?thread=<id>` / `?new=1` / 浏览器指针 `sl-thread-current-<role>-<uid8>` / 最近一条 / **旧 localStorage 历史一次性迁成第一条线程** 的
   顺序决定打开哪条；线程行**在第一句用户消息时才建**（ensureThread，「+」不产生空行），之后消息变化 800ms 去抖写回，离开页面前
   flush；`newThread` / `openThread` 暴露给页面；turn 的审计事件 metadata 多了 `thread_id`。匿名 / 演示仍走 localStorage。
-- **活动面板每行可点 → 回到那段对话**：有 `thread_id` 直接开；老记录按事件时间取当时的线程（`threadAt`）。对话轮次的行标题改为用户
-  那句话（`metadata.message`），副标题「和你对话了一轮 · 时间」，当前对话标「当前对话」。
+- **活动面板 = 每段对话一行，不是每条消息一行**（用户同日第二轮：「不是记录每一条消息，是记录每一个对话」，对照 Muse 每行一个 chat +
+  结果）：`useActivityLog(live, role)` 并行读 `agent_threads`（`listThreads`：title / summary / turn_count / 时间）与 `agent_audit_events`
+  （排除 `%session%` 与 `%turn`——轮次事件永不成行），`lib/agent/activityLog.ts buildActivity` 把带 `thread_id` 的批准 / 拒绝 / 执行 /
+  撤销折进对应对话行（计数 + 时间取最晚），没有对话的动作（待办页批准的 cron 卡、工单）各自一行。行 = 标题（第一句用户话）+
+  摘要（`agent_threads.summary` = 助手最后一条回复压成一行 ≤240 字，`threadSummary`）+「N 轮 · 已执行 x · 批准 y · 时间 · 当前对话」，
+  有执行 / 批准的对话图标 ✓，否则 💬；点对话行 = `openThread`。为了能折叠，`thread_id` 现在随卡片走：orchestrator 把它写进
+  `agent_pending_actions.metadata`，`decide_pending_action` RPC 把它抄进审批审计事件（迁移 `20260925_agent_threads_summary.sql`，
+  已应用 prod，同时加 `summary` / `turn_count` 两列并回填），execute 路由的 `finalizeExecution` 与 `undo` 的审计行也带。手机端
+  `ActivitySheet` 同一份数据，对话行可点回到该对话（`AgentChat` 新 prop `currentThreadId` / `onOpenThread`）。`threadAt` 已删。

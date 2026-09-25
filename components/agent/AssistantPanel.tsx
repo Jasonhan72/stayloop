@@ -6,9 +6,11 @@
 // the workbench tiles live on /x/progress and the recommendations on /x/ideas.
 // Closable; the page remembers the choice in localStorage.
 //
-// 2026-09-25 follow-ups: the avatar opens a picker of 3D presets; every
-// activity row reopens the conversation it came from (thread_id on the
-// audit event, or the thread that was current at that moment for older rows).
+// 2026-09-25 follow-ups: the avatar opens a picker of 3D presets; the
+// activity log is one row per conversation (title · what it amounted to ·
+// turns and the decisions taken in it) plus the actions that happened outside
+// any conversation — a conversation row reopens it (user: "不是记录每一条
+// 消息，是记录每一个对话").
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -16,9 +18,8 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { setAIName } from '@/lib/aiName'
 import { auditActionLabel } from '@/lib/agent/ideas'
-import { activityGroups, activityIcon, fmtActivityTime, useActivityLog, type ActivityRow } from '@/lib/agent/useActivityLog'
+import { activityGroups, fmtActivityTime, itemIcon, threadFacts, useActivityLog, type ActivityItem } from '@/lib/agent/useActivityLog'
 import { AVATAR_PRESETS, AssistantAvatar, setStoredAvatar } from '@/lib/agent/avatars'
-import { threadAt } from '@/lib/agent/threads'
 import type { AgentRole, AgentStatus, MemoryItem, PendingAction } from '@/lib/agent/types'
 import PrivateMemorySnapshot from './PrivateMemorySnapshot'
 
@@ -43,7 +44,7 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
   const auth = useAuth()
   const [seg, setSeg] = useState<Segment>('activity')
   const pending = pendingActions.filter((a) => a.status === 'pending')
-  const rows = useActivityLog(live)
+  const rows = useActivityLog(live, role)
   const groups = rows ? activityGroups(rows, lang) : []
 
   // Rename in place: the name is the user's (agent_configs RLS = self); the
@@ -71,26 +72,16 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
     if (live && auth.user) await supabase.from('agent_configs').update({ avatar: key }).eq('user_id', auth.user.id).eq('role', role)
   }
 
-  // An activity row → the conversation it belongs to.
+  // A conversation row → reopen it. Actions outside any conversation only list.
   const [opening, setOpening] = useState<string | null>(null)
-  async function openRow(r: ActivityRow) {
-    const direct = typeof r.metadata?.thread_id === 'string' ? (r.metadata.thread_id as string) : null
-    setOpening(r.id)
+  async function openItem(it: ActivityItem) {
+    if (!it.threadId) return
+    setOpening(it.id)
     try {
-      const id = direct ?? (await threadAt(supabase, role, r.created_at))
-      if (id) await onOpenThread(id)
+      await onOpenThread(it.threadId)
     } finally {
       setOpening(null)
     }
-  }
-  const rowTitle = (r: ActivityRow): string => {
-    const m = typeof r.metadata?.message === 'string' ? (r.metadata.message as string).trim() : ''
-    if (/_agent_turn$|^turn$/.test(r.action) && m) return m.length > 72 ? `${m.slice(0, 72)}…` : m
-    return auditActionLabel(r.action, lang, r.metadata || undefined)
-  }
-  const rowSub = (r: ActivityRow): string | null => {
-    const m = typeof r.metadata?.message === 'string' ? (r.metadata.message as string).trim() : ''
-    return /_agent_turn$|^turn$/.test(r.action) && m ? auditActionLabel(r.action, lang, r.metadata || undefined) : null
   }
 
   const working = status === 'working' || status === 'understanding'
@@ -151,24 +142,33 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
             {rows === null && <div className="py-4 text-[13px] text-body-3">{zh ? '读取中…' : 'Loading…'}</div>}
             {rows && rows.length === 0 && (
               <div className="py-4 text-[13px] leading-relaxed text-body-3">
-                {live ? (zh ? '还没有后台动作。它替你做的每件事都会记在这里。' : 'No background actions yet. Everything it does for you is listed here.') : (zh ? '预览模式没有日志。登录后这里会列出助手做过的事。' : 'Preview mode has no log. Sign in and the assistant’s actions are listed here.')}
+                {live ? (zh ? '还没有对话记录。你和它的每段对话、它替你做的每件事都会记在这里。' : 'No conversations yet. Every conversation and everything it does for you is listed here.') : (zh ? '预览模式没有日志。登录后这里会列出你和助手的对话。' : 'Preview mode has no log. Sign in and your conversations are listed here.')}
               </div>
             )}
             {groups.map((g) => (
               <div key={g.key} className="mb-2">
                 <div className="mb-1 mt-1.5 text-[12px] font-extrabold">{g.label}</div>
-                {g.rows.map((r) => {
-                  const tid = typeof r.metadata?.thread_id === 'string' ? (r.metadata.thread_id as string) : null
-                  const current = !!tid && tid === currentThreadId
-                  const sub = rowSub(r)
-                  return (
-                    <button key={r.id} type="button" onClick={() => void openRow(r)} disabled={!live || opening === r.id} title={zh ? '回到这段对话' : 'Back to this conversation'} className={`-mx-2 flex w-[calc(100%+16px)] gap-2.5 rounded-lg px-2 py-2 text-left transition hover:bg-surface-chip disabled:cursor-default ${opening === r.id ? 'opacity-60' : ''}`}>
-                      <span className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-surface-chip text-[13px]">{activityIcon(r.action)}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[13px] leading-snug text-body">{rowTitle(r)}{r.actor_type === 'user' && !sub && <span className="ml-1 text-[11px] text-body-3">{zh ? '· 你' : '· you'}</span>}</span>
-                        <span className="block font-mono text-[10.5px] text-body-3">{sub ? `${sub} · ` : ''}{fmtActivityTime(r.created_at, lang)}{current ? (zh ? ' · 当前对话' : ' · this conversation') : ''}</span>
-                      </span>
-                    </button>
+                {g.rows.map((it) => {
+                  const clickable = live && !!it.threadId
+                  const current = !!it.threadId && it.threadId === currentThreadId
+                  const cls = `-mx-2 flex w-[calc(100%+16px)] gap-2.5 rounded-lg px-2 py-2 text-left transition ${clickable ? 'hover:bg-surface-chip' : ''} ${opening === it.id ? 'opacity-60' : ''}`
+                  const icon = <span className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-surface-chip text-[13px]">{itemIcon(it)}</span>
+                  const body = it.kind === 'thread' ? (
+                    <>
+                      <span className="block text-[13px] leading-snug text-body">{it.title ?? (zh ? '新对话' : 'New conversation')}</span>
+                      {it.summary && <span className="mt-0.5 line-clamp-2 block text-[12px] leading-snug text-body-3">{it.summary}</span>}
+                      <span className="mt-0.5 block font-mono text-[10.5px] text-body-3">{[...threadFacts(it, lang), fmtActivityTime(it.at, lang)].join(' · ')}{current ? (zh ? ' · 当前对话' : ' · this conversation') : ''}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="block text-[13px] leading-snug text-body">{auditActionLabel(it.action, lang, it.metadata || undefined)}{it.actor_type === 'user' && <span className="ml-1 text-[11px] text-body-3">{zh ? '· 你' : '· you'}</span>}</span>
+                      <span className="mt-0.5 block font-mono text-[10.5px] text-body-3">{fmtActivityTime(it.at, lang)}</span>
+                    </>
+                  )
+                  return clickable ? (
+                    <button key={it.id} type="button" onClick={() => void openItem(it)} disabled={opening === it.id} title={zh ? '回到这段对话' : 'Back to this conversation'} className={cls}>{icon}<span className="min-w-0 flex-1">{body}</span></button>
+                  ) : (
+                    <div key={it.id} className={cls}>{icon}<span className="min-w-0 flex-1">{body}</span></div>
                   )
                 })}
               </div>

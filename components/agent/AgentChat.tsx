@@ -87,6 +87,8 @@ export default function AgentChat({
   hero = false,
   avatar = null,
   threadLoading = false,
+  currentThreadId = null,
+  onOpenThread,
 }: {
   role: AgentRole
   agentName: string
@@ -125,6 +127,9 @@ export default function AgentChat({
   avatar?: string | null
   /** A live thread is being fetched — hold the quick starts until it lands. */
   threadLoading?: boolean
+  /** The open conversation + how to reopen another one — the phone activity sheet's rows are conversations (2026-09-25). */
+  currentThreadId?: string | null
+  onOpenThread?: (id: string) => void | Promise<void>
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -188,7 +193,7 @@ export default function AgentChat({
           </button>
         </div>
       </div>
-      {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} onClose={() => setSheet(false)} />}
+      {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} currentThreadId={currentThreadId} onOpenThread={onOpenThread} onClose={() => setSheet(false)} />}
 
       {/* thread */}
       <div className="relative flex min-h-0 flex-1 flex-col">

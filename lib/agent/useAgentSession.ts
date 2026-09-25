@@ -811,7 +811,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       if (row) {
         setData((prev) => (prev ? { ...prev, pendingActions: [row as AgentSessionResponse['pendingActions'][number], ...prev.pendingActions.filter((a) => a.id !== actionId)] } : prev))
         setStatus('approval')
-        await sb.from('agent_audit_events').insert({ actor_id: user?.id ?? null, actor_type: 'user', action: 'approval_undone', target_type: 'agent_pending_action', target_id: actionId, metadata: {} })
+        await sb.from('agent_audit_events').insert({ actor_id: user?.id ?? null, actor_type: 'user', action: 'approval_undone', target_type: 'agent_pending_action', target_id: actionId, metadata: { thread_id: ((row as { metadata?: Record<string, unknown> | null }).metadata?.thread_id as string | undefined) ?? null } })
       }
     } catch (e) {
       setError((e as Error).message)
