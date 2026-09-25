@@ -41,7 +41,7 @@ describe('one assistant per account', () => {
     }
     expect(read('components/agent/AssistantPanel.tsx')).toContain('await saveAssistantName(supabase, auth.user.id, next)')
     expect(read('app/onboarding/name/page.tsx')).toContain('if (user && chosen !== GENERIC_AI_NAME) void saveAssistantName(supabase, user.id, chosen)')
-    expect(read('lib/useOnboarding.ts')).toContain('setNamed(!!getStoredAIName())')
+    expect(read('lib/useOnboarding.ts')).toContain('setNamed(!!getStoredAIName(user?.id ?? null))')
   })
   it('the session loads the account profile and every hat’s memories; the prompt tags facts from other hats', () => {
     const loader = read('lib/agent/session-loader.ts')

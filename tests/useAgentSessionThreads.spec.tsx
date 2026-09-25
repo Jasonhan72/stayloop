@@ -52,7 +52,7 @@ vi.mock('@/lib/useAuth', () => ({
   useAuth: () => ({ loading: false, user: { id: 'u1', email: 'u@x.test' }, session: null, role: 'tenant', fullName: null, email: 'u@x.test', setRole: () => {}, signOut: async () => {} }),
 }))
 vi.mock('@/lib/i18n', () => ({ useT: () => ({ lang: 'zh', t: (_k: string, f: string) => f }), useI18n: () => ({ lang: 'zh', t: (_k: string, f: string) => f }) }))
-vi.mock('@/lib/aiName', () => ({ getAIName: () => 'Luna', setAIName: () => {}, getStoredAIName: () => null, getDefaultName: () => 'AI Agent', clearCachedAiNames: () => {}, useAIName: () => 'Luna', GENERIC_AI_NAME: 'AI Agent' }))
+vi.mock('@/lib/aiName', () => ({ getAIName: () => 'Luna', setAIName: () => {}, getStoredAIName: () => null, getDefaultName: () => 'AI Agent', clearCachedAiNames: () => {}, dropForeignAIName: () => {}, useAIName: () => 'Luna', GENERIC_AI_NAME: 'AI Agent' }))
 vi.mock('@/lib/agent/session-loader', () => ({
   loadAgentSession: async (_c: unknown, role: string) => ({
     session: { id: 's1' },

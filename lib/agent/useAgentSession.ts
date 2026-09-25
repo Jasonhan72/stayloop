@@ -16,7 +16,7 @@ import { loadAgentSession } from './session-loader'
 import { decidePendingAction } from './approval-engine'
 import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
 import { demoSession } from './demo'
-import { getAIName, setAIName, getStoredAIName, getDefaultName } from '@/lib/aiName'
+import { getAIName, setAIName, getStoredAIName, getDefaultName, dropForeignAIName } from '@/lib/aiName'
 import { appendToThread, createThread, latestThread, loadThread, readPointer, saveThread, writePointer } from './threads'
 import { notifyActivityChanged } from './useActivityLog'
 import { saveAssistantName } from './assistantProfile'
@@ -82,13 +82,18 @@ async function reconcileAgentName(
   sess: AgentSessionResponse,
   _role: AgentRole
 ): Promise<void> {
+  const uid = sess.agent.user_id
   const dbName = sess.agent.agent_name && sess.agent.agent_name !== getDefaultName() ? sess.agent.agent_name : null
-  const local = getStoredAIName()
+  // A cache another account left on this browser is neither shown nor pushed (prod 2026-09-25).
+  dropForeignAIName(uid)
+  const local = getStoredAIName(uid)
   try {
     if (dbName) {
-      if (local !== dbName) setAIName(dbName)
+      setAIName(dbName, uid)
     } else if (local && local !== getDefaultName()) {
-      await saveAssistantName(client, sess.agent.user_id, local)
+      // Named before signing in (onboarding) → the account adopts it.
+      await saveAssistantName(client, uid, local)
+      setAIName(local, uid)
     }
   } catch (e) {
     console.warn('[agent] name reconcile failed', (e as Error).message)
@@ -253,7 +258,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       // A name cached on this device (onboarding writes it before the profile
       // row lands) shows immediately; the loader already put the account's
       // saved name on d.agent, so nothing overrides that with the generic label.
-      const chosen = getStoredAIName()
+      const chosen = getStoredAIName(isLive && user?.id ? user.id : null)
       if (chosen && chosen !== getDefaultName()) d = { ...d, agent: { ...d.agent, agent_name: chosen } }
       agentNameRef.current = d.agent.agent_name
       const hadTyped = messagesRef.current.length > 1

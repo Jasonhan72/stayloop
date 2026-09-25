@@ -162,7 +162,7 @@ function NamePageInner() {
     if (submitting) return
     setSubmitting(true)
     const chosen = name ?? final
-    setAIName(chosen)
+    setAIName(chosen, user?.id ?? null) // signed out: unclaimed, adopted by the account that signs in next
     if (user && chosen !== GENERIC_AI_NAME) void saveAssistantName(supabase, user.id, chosen)
     setRole(role)
     // First-time SIGNED-IN landlords land on the aha moment, not a chat

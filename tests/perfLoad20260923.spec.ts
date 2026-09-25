@@ -23,7 +23,7 @@ describe('page-load round trips', () => {
   })
   it('the assistant name comes from one profile query per session (one assistant per account, 2026-09-25)', () => {
     const s = read('lib/aiName.ts')
-    expect(s).toContain('let nameResolve: Promise<string | null> | null = null')
+    expect(s).toContain('let nameResolve: Promise<{ uid: string | null; name: string | null }> | null = null')
     expect(s).toContain('const profile = await readAssistantProfile(supabase)')
     expect(s).not.toContain("from('agent_configs')")
   })

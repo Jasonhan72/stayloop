@@ -76,7 +76,7 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
     setRenaming(false)
     if (!next || next === name) return
     setName(next)
-    setAIName(next)
+    setAIName(next, live && auth.user ? auth.user.id : null)
     invalidateAiName()
     if (live && auth.user) await saveAssistantName(supabase, auth.user.id, next)
   }

@@ -35,7 +35,7 @@ export default function SettingsPage() {
   const color = ROLE_COLORS[shellRole] || ROLE_THEME.tenant.accent
 
   const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()
-  const aiName = getAIName()
+  const aiName = getAIName(auth.user?.id ?? null)
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -193,7 +193,7 @@ function QuickAction({ label, desc, children }: { label: string; desc: string; c
 }
 
 function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: boolean; user: any; color: string }) {
-  const currentName = getAIName()
+  const currentName = getAIName(user?.id ?? null)
   const defaultName = getDefaultName()
   const [value, setValue] = useState(currentName)
   const [saved, setSaved] = useState(false)
@@ -202,7 +202,7 @@ function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: bool
   const handleSave = async () => {
     const trimmed = value.trim() || defaultName
     setSaving(true)
-    setAIName(trimmed)
+    setAIName(trimmed, user?.id ?? null)
     if (user) {
       try {
         // One assistant per account (2026-09-25): the name lives on assistant_profiles.

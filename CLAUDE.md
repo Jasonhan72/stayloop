@@ -2171,3 +2171,10 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
 - **不变**：待批卡、工作流阶段、生命周期 rail、Header 菜单里的身份切换全部按帽子；提示词的身份规则（OHRC / RTA / RECO）按帽子注入。
 - **文案**：首页导语「为租客、房东、经纪各提供一个独立的 AI Agent」→「给你一个独立的 AI 助理：租客、房东、经纪的事它都会办」；工作台空态、窄栏说明、
   三个 layout 标题、模型设置页、`/platform`、客户表里的「让 Luna / Logic / Brief …」全部改成「助手」。匿名首页演示保留三个人设（`lib/agent/demo.ts`）。
+- **名字缓存绑定账号（2026-09-25 晚，生产核对时发现的真问题）**：`sl-ai-name` 是账号级缓存，而 `reconcileAgentName` 在档案没有名字时会把本地缓存
+  推进 `assistant_profiles`——同一台浏览器上一个账号（经纪测试号）留下的名字，在房东测试号用魔法链接登录（没有经过退出）那一刻被写进了房东号的档案。
+  退出清缓存挡不住「会话被直接替换」。现在 `lib/aiName.ts` 多一把 `sl-ai-name-owner`：`setAIName(name, owner)` 必须写明归属（登录中 = uid；
+  onboarding 未登录起的名 = null「未认领」，下一个登录的账号认领）；`getStoredAIName(uid)` / `getAIName(uid)` 只返回本账号的或未认领的缓存，
+  别的账号的一律当不存在；`dropForeignAIName(uid)` 在 `useAIName` 与 reconcile 里先把外人的缓存清掉；`resolveAccountName()` 共享一次
+  `{uid, name}` 解析，`useOnboarding` 也用它——换设备时档案里有名字就不再被拖回 onboarding。守卫 `tests/aiNameOwner20260925.spec.ts`（6 条）。
+  房东测试号被误写的名字已改回空。
