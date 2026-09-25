@@ -10,6 +10,7 @@
 // getModelForUser() — a pick that later becomes invalid (model disabled,
 // key removed) silently falls back to the system default.
 import { useCallback, useEffect, useState } from 'react'
+import { bestHat, useHats } from '@/lib/useHats'
 import Link from 'next/link'
 import WorkspaceShell, { type WorkspaceRole } from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
@@ -29,9 +30,10 @@ const COST: Record<string, { zh: string; en: string }> = { 低: { zh: '费用低
 
 export default function UserModelsPage() {
   const auth = useAuth()
+  const hats = useHats()
   const { lang } = useI18n()
   const zh = lang === 'zh'
-  const shellRole = (auth.role || 'tenant') as WorkspaceRole
+  const shellRole = (auth.role || bestHat(hats)) as WorkspaceRole
   const color = ROLE_THEME[shellRole]?.accent || ROLE_THEME.tenant.accent
 
   const [data, setData] = useState<CatalogResponse | null>(null)

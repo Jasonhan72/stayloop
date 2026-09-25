@@ -126,5 +126,16 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
   // Active hat = route prefix first (design/multi-role-accounts-2026-09.md
   // §3: the URL is the truth), remembered role as the fallback on neutral
   // pages such as /settings or the home page.
+  // Being on a role-prefixed page IS the choice: remember it for this account.
+  // Before 2026-09-25 only the login callback and the hat menu wrote it, so an
+  // account that never switched hats had nothing remembered on /settings.
+  useEffect(() => {
+    const r = roleFromPath(pathname)
+    if (!r || !state.user || typeof window === 'undefined') return
+    const key = roleStorageKey(state.user.id)
+    if (window.localStorage.getItem(key) !== r) window.localStorage.setItem(key, r)
+    if (state.role !== r) setState((prev) => ({ ...prev, role: r }))
+  }, [pathname, state.user, state.role])
+
   return { ...state, role: roleFromPath(pathname) ?? state.role, setRole, signOut }
 }

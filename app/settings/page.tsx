@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { bestHat, useHats } from '@/lib/useHats'
 import Link from 'next/link'
 import WorkspaceShell, { type WorkspaceRole } from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
@@ -25,9 +26,10 @@ const ROLE_LABELS: Record<string, { zh: string; en: string }> = {
 
 export default function SettingsPage() {
   const auth = useAuth()
+  const hats = useHats()
   const { lang } = useI18n()
   const zh = lang === 'zh'
-  const shellRole = (auth.role || 'tenant') as WorkspaceRole
+  const shellRole = (auth.role || bestHat(hats)) as WorkspaceRole
   const color = ROLE_COLORS[shellRole] || ROLE_THEME.tenant.accent
 
   const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()

@@ -6,6 +6,7 @@
 // and admin. Read from the my_hats() RPC — the server's answer, not the
 // localStorage "active role", which is only a UI preference.
 import { useEffect, useState } from 'react'
+import { isRegistrationLive } from '@/lib/agentProfile'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import type { AgentStatus } from '@/lib/agentProfile'
@@ -63,3 +64,10 @@ export function useHats(): Hats & { refresh: () => Promise<void> } {
 
 /** Invalidate after the user gains a hat (published a listing, submitted an agent profile). */
 export function invalidateHats() { cache = null; inflight = null }
+
+/** The hat to assume when nothing is remembered for this account (/settings,
+ *  the header chip): a live agent registration, else landlord, else tenant. */
+export function bestHat(h: Pick<Hats, 'landlord' | 'agent'>): 'tenant' | 'landlord' | 'agent' {
+  if (h.agent && isRegistrationLive(h.agent)) return 'agent'
+  return h.landlord ? 'landlord' : 'tenant'
+}
