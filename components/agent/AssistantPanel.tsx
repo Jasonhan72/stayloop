@@ -7,10 +7,11 @@
 // Closable; the page remembers the choice in localStorage.
 //
 // 2026-09-25 follow-ups: the avatar opens a picker of 3D presets; the
-// activity log is one row per conversation — just its title, like the chat
-// list on claude.ai (user: "不是记录每一条消息，是记录每一个对话" → "只要做一个
-// 标题就可以，点击能到该 chat") — plus the actions that happened outside any
-// conversation; a conversation row reopens it, the outcome shows on hover.
+// activity log is one row per conversation — title, one short note on what
+// it amounted to, time — the way Muse lists its chats (user: "不是记录每一条
+// 消息，是记录每一个对话" → "要有时间，要有标题和简短的注释，跟右边图一样"),
+// plus the actions that happened outside any conversation; a conversation
+// row reopens it.
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -18,7 +19,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { setAIName } from '@/lib/aiName'
 import { auditActionLabel } from '@/lib/agent/ideas'
-import { activityGroups, itemIcon, useActivityLog, type ActivityItem } from '@/lib/agent/useActivityLog'
+import { activityGroups, fmtRowTime, itemIcon, itemNote, useActivityLog, type ActivityItem } from '@/lib/agent/useActivityLog'
 import { AVATAR_PRESETS, AssistantAvatar, setStoredAvatar } from '@/lib/agent/avatars'
 import type { AgentRole, AgentStatus, MemoryItem, PendingAction } from '@/lib/agent/types'
 import PrivateMemorySnapshot from './PrivateMemorySnapshot'
@@ -151,17 +152,22 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
                 {g.rows.map((it) => {
                   const clickable = live && !!it.threadId
                   const current = !!it.threadId && it.threadId === currentThreadId
-                  const cls = `-mx-2 flex w-[calc(100%+16px)] items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition ${clickable ? 'hover:bg-surface-chip' : ''} ${opening === it.id ? 'opacity-60' : ''}`
-                  const icon = <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-surface-chip text-[11px]">{itemIcon(it)}</span>
+                  const cls = `-mx-2 flex w-[calc(100%+16px)] items-start gap-2.5 rounded-lg px-2 py-2 text-left transition ${clickable ? 'hover:bg-surface-chip' : ''} ${opening === it.id ? 'opacity-60' : ''}`
+                  const icon = <span className="mt-px flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-surface-chip text-[13px]">{itemIcon(it)}</span>
                   const label = it.kind === 'thread' ? (it.title ?? (zh ? '新对话' : 'New conversation')) : auditActionLabel(it.action, lang, it.metadata || undefined)
+                  const note = itemNote(it, lang)
                   const body = (
-                    <>
-                      <span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>
-                      {current && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? '当前' : 'now'}</span>}
-                    </>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>
+                        {current && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? '当前' : 'now'}</span>}
+                      </span>
+                      {note && <span className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-body-3">{note}</span>}
+                      <span className="mt-0.5 block font-mono text-[10.5px] text-body-3">{fmtRowTime(it.at, lang)}{it.kind === 'action' && it.actor_type === 'user' ? (zh ? ' · 你' : ' · you') : ''}</span>
+                    </span>
                   )
                   return clickable ? (
-                    <button key={it.id} type="button" onClick={() => void openItem(it)} disabled={opening === it.id} title={it.kind === 'thread' && it.summary ? it.summary : (zh ? '回到这段对话' : 'Back to this conversation')} className={cls}>{icon}{body}</button>
+                    <button key={it.id} type="button" onClick={() => void openItem(it)} disabled={opening === it.id} title={zh ? '回到这段对话' : 'Back to this conversation'} className={cls}>{icon}{body}</button>
                   ) : (
                     <div key={it.id} className={cls}>{icon}{body}</div>
                   )

@@ -92,3 +92,61 @@ export function itemIcon(item: ActivityItem): string {
   if (item.kind === 'action') return activityIcon(item.action)
   return item.executed > 0 || item.approved > 0 ? '✓' : '💬'
 }
+
+/** HH:MM inside today / yesterday (the group header already says which day);
+ *  date + time further back. */
+export function fmtRowTime(iso: string, lang: Lang, now = new Date()): string {
+  const d = new Date(iso)
+  const hm = d.toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const day = d.toDateString()
+  if (day === now.toDateString() || day === new Date(now.getTime() - 86_400_000).toDateString()) return hm
+  return `${d.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-CA', { month: 'short', day: 'numeric' })} ${hm}`
+}
+
+/** The short note under a conversation's title (Muse: "Generated 10-page PDF
+ *  and saved session notes"): the first sentence of what it amounted to — two
+ *  when the first is just "好的。" — capped at `max` chars. */
+export function shortNote(summary: string | null | undefined, max = 64): string | null {
+  const s = (summary ?? '').replace(/\s+/g, ' ').trim()
+  if (!s) return null
+  const END = /[。！？!?]|\.\s/g
+  let cut = -1
+  let m: RegExpExecArray | null
+  while ((m = END.exec(s))) {
+    const end = m.index + m[0].length
+    if (end >= 8) { cut = end; break }
+  }
+  const out = (cut > 0 ? s.slice(0, cut) : s).trim()
+  return out.length > max ? `${out.slice(0, max - 1)}…` : out
+}
+
+const ACTION_TYPE: Record<string, { zh: string; en: string }> = {
+  send_message: { zh: '发一条消息', en: 'Send a message' },
+  send_renewal_letter: { zh: '续约函', en: 'Renewal letter' },
+  rent_reminder: { zh: '租金提醒', en: 'Rent reminder' },
+  renewal_checkpoint: { zh: '续约提醒', en: 'Renewal checkpoint' },
+  relist_prompt: { zh: '重新挂牌提醒', en: 'Relist prompt' },
+  showing_request: { zh: '看房请求', en: 'Showing request' },
+  listing_inquiry: { zh: '房源提问', en: 'Listing inquiry' },
+  send_decision: { zh: '申请决定通知', en: 'Decision notice' },
+  send_lease: { zh: '发送租约', en: 'Send the lease' },
+  maintenance_request: { zh: '报修工单', en: 'Maintenance request' },
+  dispatch_work_order: { zh: '派单', en: 'Dispatch a work order' },
+  approve_quote: { zh: '批准报价', en: 'Approve a quote' },
+  accept_completion: { zh: '验收完工', en: 'Accept completion' },
+  payment_authorization: { zh: '付款授权', en: 'Payment authorization' },
+  publish_listing: { zh: '发布房源', en: 'Publish a listing' },
+}
+/** What kind of card an approval / execution row was about. */
+export function actionTypeLabel(type: string | null | undefined, lang: Lang): string | null {
+  if (!type) return null
+  const hit = ACTION_TYPE[type]
+  return hit ? (lang === 'zh' ? hit.zh : hit.en) : type.replace(/_/g, ' ')
+}
+
+/** The note line: a conversation's outcome, or the card an action was about. */
+export function itemNote(item: ActivityItem, lang: Lang): string | null {
+  if (item.kind === 'thread') return shortNote(item.summary)
+  const t = typeof item.metadata?.action_type === 'string' ? (item.metadata.action_type as string) : null
+  return actionTypeLabel(t, lang)
+}

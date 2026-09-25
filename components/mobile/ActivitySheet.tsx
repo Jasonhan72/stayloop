@@ -9,7 +9,7 @@
 import Link from 'next/link'
 import { useT } from '@/lib/i18n'
 import { auditActionLabel } from '@/lib/agent/ideas'
-import { itemIcon, useActivityLog, type ActivityItem } from '@/lib/agent/useActivityLog'
+import { fmtRowTime, itemIcon, itemNote, useActivityLog, type ActivityItem } from '@/lib/agent/useActivityLog'
 import type { AgentRole } from '@/lib/agent/types'
 
 export function ActivitySheet({ role, agentName, live, memoryCount, currentThreadId, onOpenThread, onClose }: {
@@ -54,17 +54,24 @@ export function ActivitySheet({ role, agentName, live, memoryCount, currentThrea
             const clickable = live && !!it.threadId && !!onOpenThread
             const current = !!it.threadId && it.threadId === currentThreadId
             const label = it.kind === 'thread' ? (it.title ?? (zh ? '新对话' : 'New conversation')) : auditActionLabel(it.action, lang, it.metadata || undefined)
+            const note = itemNote(it, lang)
             const inner = (
               <>
-                <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-surface-chip text-[11px]">{itemIcon(it)}</span>
-                <span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>
-                {current && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? '当前' : 'now'}</span>}
+                <span className="mt-px flex h-7 w-7 flex-none items-center justify-center rounded-full bg-surface-chip text-[12px]">{itemIcon(it)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>
+                    {current && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? '当前' : 'now'}</span>}
+                  </span>
+                  {note && <span className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-body-3">{note}</span>}
+                  <span className="mt-0.5 block font-mono text-[10.5px] text-body-3">{fmtRowTime(it.at, lang)}{it.kind === 'action' && it.actor_type === 'user' ? (zh ? ' · 你' : ' · you') : ''}</span>
+                </span>
               </>
             )
             return clickable ? (
-              <button key={it.id} type="button" onClick={() => open(it)} className="flex w-full items-center gap-3 py-2.5 text-left active:bg-surface-chip">{inner}</button>
+              <button key={it.id} type="button" onClick={() => open(it)} className="flex w-full items-start gap-3 py-2.5 text-left active:bg-surface-chip">{inner}</button>
             ) : (
-              <div key={it.id} className="flex items-center gap-3 py-2.5">{inner}</div>
+              <div key={it.id} className="flex items-start gap-3 py-2.5">{inner}</div>
             )
           })}
         </div>

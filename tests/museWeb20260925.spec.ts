@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
-import { activityGroups, activityIcon, buildActivity, itemIcon, type ThreadItem } from '@/lib/agent/activityLog'
+import { actionTypeLabel, activityGroups, activityIcon, buildActivity, fmtRowTime, itemIcon, shortNote, type ThreadItem } from '@/lib/agent/activityLog'
 import type { ThreadListRow } from '@/lib/agent/threads'
 
 const read = (p: string) => readFileSync(p, 'utf8')
@@ -139,6 +139,16 @@ describe('pure helpers', () => {
     expect(itemIcon(items[3])).toBe('💬')
     const g = activityGroups(items, 'zh', now)
     expect(g.map((x) => [x.label, x.rows.map((r) => r.id)])).toEqual([['今天', ['t:A', 'a:e4', 'a:e5']], ['昨天', ['t:B']], ['更早', ['t:C']]])
+    // the note line: first sentence (two when the first is a stub), ≤ 64 chars; time is HH:MM inside today / yesterday
+    expect(shortNote('⚠️ 批准已记录，但我不知道该发给哪位房东：你的账号上还没有已确认的在管租约。先在「租约」里接受邀请。')).toBe('⚠️ 批准已记录，但我不知道该发给哪位房东：你的账号上还没有已确认的在管租约。')
+    expect(shortNote('好的。我先查一下多大附近的两居室，稍等。')).toBe('好的。我先查一下多大附近的两居室，稍等。')
+    expect(shortNote('x'.repeat(100))).toHaveLength(64)
+    expect(shortNote('   ')).toBeNull()
+    expect(fmtRowTime('2026-09-25T14:02:00-04:00', 'zh', now)).toBe('14:02')
+    expect(fmtRowTime('2026-09-24T22:20:00-04:00', 'zh', now)).toBe('22:20')
+    expect(fmtRowTime('2026-09-20T09:05:00-04:00', 'zh', now)).toMatch(/9月20日 09:05/)
+    expect(actionTypeLabel('send_renewal_letter', 'zh')).toBe('续约函')
+    expect(actionTypeLabel('something_new', 'en')).toBe('something new')
     expect(activityIcon('executed_send_message')).toBe('✓')
     expect(activityIcon('memory_forgotten')).toBe('🧠')
     expect(activityIcon('approval_undone')).toBe('↩')
@@ -200,12 +210,14 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     const panel = read('components/agent/AssistantPanel.tsx')
     expect(panel).toContain('await onOpenThread(it.threadId)')
     expect(panel).toContain('onClick={() => void openItem(it)}')
-    // Rows are a title only (user: "文字太多了，只要做一个标题就可以"); the outcome is the hover title.
-    expect(panel).toContain('<span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>')
-    expect(panel).not.toContain('fmtActivityTime(it.at')
-    expect(panel).not.toContain('{it.summary}')
-    expect(panel).toContain("title={it.kind === 'thread' && it.summary ? it.summary :")
-    expect(read('components/mobile/ActivitySheet.tsx')).toContain('<span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>')
+    // Rows read like Muse's (user, third round: "要有时间，要有标题和简短的注释"): title · one short note · time
+    for (const f of ['components/agent/AssistantPanel.tsx', 'components/mobile/ActivitySheet.tsx']) {
+      const c = read(f)
+      expect(c, f).toContain('<span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>')
+      expect(c, f).toContain('{note && <span className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-body-3">{note}</span>}')
+      expect(c, f).toContain('{fmtRowTime(it.at, lang)}')
+      expect(c, f).not.toContain('line-clamp-2 block') // display:block cancels the clamp — that was the wall of text the user saw
+    }
     // Later the same day (user: "不是记录每一条消息，是记录每一个对话"): the log
     // reads conversations, not turn events, and every decision carries the
     // conversation it was taken in so the log can fold it into that row.
