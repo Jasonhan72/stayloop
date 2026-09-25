@@ -5,6 +5,7 @@ export const runtime = 'edge'
 // V5.3 · Scan Complete / Stayloop Score — loads real data from Supabase.
 // Route: /screening/[id]/done
 
+import { summaryFor } from '@/lib/screening/summaryText'
 import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -12,6 +13,8 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
+import { signalLabel } from '@/lib/screening/signalLabels'
 
 /* ---------- helpers ---------- */
 
@@ -68,31 +71,31 @@ function dimsOf(row: any): Record<string, number> {
   return {}
 }
 
-function tierInfo(tier: string): { label: string; color: string; bg: string } {
-  if (tier === 'approve') return { label: 'PROCEED', color: '#047857', bg: '#04785714' }
-  if (tier === 'conditional') return { label: 'CONDITIONAL', color: '#D97706', bg: '#D9770614' }
-  if (tier === 'decline') return { label: 'DECLINE', color: '#DC2626', bg: '#DC262614' }
+function tierInfo(tier: string, zh: boolean): { label: string; color: string; bg: string } {
+  if (tier === 'approve') return { label: zh ? '优质 · 建议通过' : 'PROCEED', color: '#047857', bg: '#04785714' }
+  if (tier === 'conditional') return { label: zh ? '待定 · 附加条件' : 'CONDITIONAL', color: '#D97706', bg: '#D9770614' }
+  if (tier === 'decline') return { label: zh ? '建议拒绝' : 'DECLINE', color: '#DC2626', bg: '#DC262614' }
   // Pre-v3 rows have no verdict — absence renders neutral, never as DECLINE.
-  return { label: 'NO VERDICT', color: '#64748B', bg: '#64748B14' }
+  return { label: zh ? '无结论' : 'NO VERDICT', color: '#64748B', bg: '#64748B14' }
 }
 
-const DIMENSION_META: Record<string, { icon: string; name: string; label: string }> = {
-  ability_to_pay: { icon: '$', name: 'Income', label: 'Ability to Pay' },
-  credit_health:  { icon: 'X', name: 'Credit', label: 'Credit Health' },
-  rental_history: { icon: 'H', name: 'History', label: 'Rental History' },
-  verification:   { icon: 'ID', name: 'Identity', label: 'Verification' },
+const DIMENSION_META: Record<string, { icon: string; name: string; label: string; zhName: string; zhLabel: string }> = {
+  ability_to_pay: { icon: '$', name: 'Income', label: 'Ability to Pay', zhName: '收入', zhLabel: '付款能力' },
+  credit_health:  { icon: 'X', name: 'Credit', label: 'Credit Health', zhName: '信用', zhLabel: '信用状况' },
+  rental_history: { icon: 'H', name: 'History', label: 'Rental History', zhName: '租住史', zhLabel: '租住记录' },
+  verification:   { icon: 'ID', name: 'Identity', label: 'Verification', zhName: '身份', zhLabel: '核验' },
 }
 
 /* ---------- loading / error shells ---------- */
 
-function LoadingShell() {
+function LoadingShell({ zh }: { zh: boolean }) {
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="solid" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-[#047857] border-t-transparent" />
-          <p className="mt-4 font-mono text-[13px] text-[#999]">Loading screening...</p>
+          <p className="mt-4 font-mono text-[13px] text-[#999]">{zh ? '正在加载筛查…' : 'Loading screening...'}</p>
         </div>
       </div>
       <Footer />
@@ -100,17 +103,17 @@ function LoadingShell() {
   )
 }
 
-function NotFoundShell() {
+function NotFoundShell({ zh }: { zh: boolean }) {
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="solid" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="text-[48px]">&#128269;</div>
-          <h2 className="mt-4 text-[22px] font-extrabold">Screening not found</h2>
-          <p className="mt-2 text-[14px] text-[#999]">This screening does not exist or you do not have access.</p>
+          <h2 className="mt-4 text-[22px] font-extrabold">{zh ? '找不到这份筛查' : 'Screening not found'}</h2>
+          <p className="mt-2 text-[14px] text-[#999]">{zh ? '这份筛查不存在，或你没有查看权限。' : 'This screening does not exist or you do not have access.'}</p>
           <Link href="/screening/app" className="mt-6 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#047857' }}>
-            Back to Screenings
+            {zh ? '回到筛查' : 'Back to Screenings'}
           </Link>
         </div>
       </div>
@@ -124,6 +127,8 @@ function NotFoundShell() {
 export default function ScanDonePage() {
   const params = useParams()
   const id = params?.id as string
+  const { lang } = useT()
+  const zh = lang === 'zh'
   const { loading: authLoading, user } = useAuth()
   const router = useRouter()
   // A logged-out visitor (expired session, pasted URL in a fresh browser)
@@ -153,15 +158,15 @@ export default function ScanDonePage() {
       })
   }, [user, id])
 
-  if (authLoading || (!screening && !loadError)) return <LoadingShell />
-  if (loadError) return <NotFoundShell />
+  if (authLoading || (!screening && !loadError)) return <LoadingShell zh={zh} />
+  if (loadError) return <NotFoundShell zh={zh} />
 
   // Extract real data
   const score = screening.ai_score ?? 0
   const maxScore = 100
   const tier = screening.v3_tier ?? 'none'
-  const ti = tierInfo(tier)
-  const applicantName = screening.ai_extracted_name || screening.tenant_name || 'Applicant'
+  const ti = tierInfo(tier, zh)
+  const applicantName = screening.ai_extracted_name || screening.tenant_name || (zh ? '申请人' : 'Applicant')
   const dims = dimsOf(screening)
   const redFlags = screening.red_flags || []
   const hardGates = screening.hard_gates_triggered || []
@@ -170,7 +175,7 @@ export default function ScanDonePage() {
   const redCount = Object.values(dims).filter((v: unknown) => typeof v === 'number' && (v as number) < 50).length + hardGates.length
   const coverage = screening.evidence_coverage != null ? Math.round(screening.evidence_coverage * 100) : null
   const fileCount = Array.isArray(screening.files) ? screening.files.length : 0
-  const createdAt = screening.created_at ? new Date(screening.created_at).toLocaleString() : ''
+  const createdAt = screening.created_at ? new Date(screening.created_at).toLocaleString(zh ? 'zh-CN' : 'en-CA') : ''
 
   return (
     <div style={{ background: '#FFFFFF', color: '#171717', minHeight: '100vh' }}>
@@ -180,11 +185,11 @@ export default function ScanDonePage() {
       <div className="border-b border-line-divider" style={{ background: '#F3F8FC' }}>
         <div className="mx-auto flex max-w-[1240px] items-center gap-3 px-5 py-3 sm:px-7 lg:px-12">
           <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#047857' }}>
-            SCREENING
+            {zh ? '筛查' : 'SCREENING'}
           </span>
           <span className="font-mono text-[11px] text-body-3">&middot;</span>
           <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-body-2">
-            {screening.status === 'done' ? 'COMPLETE' : screening.status?.toUpperCase() || 'PROCESSING'}
+            {screening.status === 'scored' || screening.status === 'done' ? (zh ? '已完成' : 'COMPLETE') : screening.status === 'error' ? (zh ? '未完成' : 'ERROR') : (zh ? '处理中' : 'PROCESSING')}
           </span>
           {screening.status === 'done' && (
             <>
@@ -207,7 +212,7 @@ export default function ScanDonePage() {
               <h1 className="text-[28px] font-extrabold leading-tight sm:text-[32px]">
                 {applicantName}
                 <span className="text-body-3 font-normal"> &middot; </span>
-                Screening Complete
+                {zh ? '筛查完成' : 'Screening Complete'}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-[11px] text-body-3">
                 <span className="font-bold text-body-2">{id.slice(0, 8)}</span>
@@ -216,13 +221,13 @@ export default function ScanDonePage() {
                 {fileCount > 0 && (
                   <>
                     <span>&middot;</span>
-                    <span>{fileCount} files</span>
+                    <span>{zh ? `${fileCount} 个文件` : `${fileCount} files`}</span>
                   </>
                 )}
                 {coverage != null && (
                   <>
                     <span>&middot;</span>
-                    <span>{coverage}% coverage</span>
+                    <span>{zh ? `证据充足度 ${coverage}%` : `${coverage}% coverage`}</span>
                   </>
                 )}
               </div>
@@ -234,14 +239,14 @@ export default function ScanDonePage() {
                 href={`/screening/${id}/share`}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-line-divider bg-white px-4 py-2 text-[13px] font-medium text-body-2 transition hover:border-line-strong"
               >
-                Share
+                {zh ? '分享' : 'Share'}
               </Link>
               <Link
                 href={`/screening/${id}/report`}
                 className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2 text-[13px] font-bold text-white transition hover:opacity-90"
                 style={{ background: '#047857' }}
               >
-                View Full Report &rarr;
+                {zh ? '查看完整报告' : 'View Full Report'} &rarr;
               </Link>
             </div>
           </div>
@@ -249,7 +254,7 @@ export default function ScanDonePage() {
           {/* Score Card */}
           <div className="mt-8 rounded-2xl border border-line-divider bg-white p-7 shadow-sm sm:p-10">
             <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-body-3">
-              STAYLOOP SCORE
+              {zh ? 'Stayloop 评分 · 仅供参考' : 'STAYLOOP SCORE · INFORMATION ONLY'}
             </div>
 
             <div className="mt-6 flex flex-col items-center gap-8 sm:flex-row sm:gap-12">
@@ -261,7 +266,7 @@ export default function ScanDonePage() {
                   </span>
                   <span className="font-mono text-[13px] text-body-3">/ {maxScore}</span>
                   <span className="mt-1 font-mono text-[10px] font-bold uppercase tracking-wider text-body-3">
-                    EVIDENCE
+                    {zh ? '证据' : 'EVIDENCE'}
                   </span>
                 </div>
               </div>
@@ -275,23 +280,23 @@ export default function ScanDonePage() {
 
                 <div className="mt-4 flex flex-wrap gap-3">
                   <span className="rounded-md px-3 py-1 font-mono text-[12px] font-bold" style={{ background: '#04785714', color: '#047857' }}>
-                    {passCount} PASS
+                    {passCount} {zh ? '项良好' : 'PASS'}
                   </span>
                   <span className="rounded-md px-3 py-1 font-mono text-[12px] font-bold" style={{ background: '#D9770614', color: '#D97706' }}>
-                    {infoCount} INFO
+                    {infoCount} {zh ? '项留意' : 'INFO'}
                   </span>
                   <span className="rounded-md px-3 py-1 font-mono text-[12px] font-bold" style={{ background: '#DC262614', color: '#DC2626' }}>
-                    {redCount} FLAGS
+                    {redCount} {zh ? '项风险' : 'FLAGS'}
                   </span>
                 </div>
 
                 {/* Stats row */}
                 <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {[
-                    { label: 'COVERAGE', value: coverage != null ? `${coverage}%` : 'N/A' },
-                    { label: 'FILES', value: `${fileCount}` },
-                    { label: 'SCORE', value: `${score}/${maxScore}` },
-                    { label: 'TIER', value: ti.label },
+                    { label: zh ? '证据充足度' : 'COVERAGE', value: coverage != null ? `${coverage}%` : (zh ? '—' : 'N/A') },
+                    { label: zh ? '文件' : 'FILES', value: `${fileCount}` },
+                    { label: zh ? '评分' : 'SCORE', value: `${score}/${maxScore}` },
+                    { label: zh ? '结论' : 'TIER', value: ti.label },
                   ].map((s) => (
                     <div key={s.label} className="rounded-lg border border-line-divider px-3 py-2">
                       <div className="font-mono text-[9px] font-bold uppercase tracking-wider text-body-3">{s.label}</div>
@@ -307,12 +312,12 @@ export default function ScanDonePage() {
           {Object.keys(dims).length > 0 && (
             <div className="mt-10">
               <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-body-3">
-                DIMENSIONS
+                {zh ? '分项' : 'DIMENSIONS'}
               </div>
               <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {Object.entries(dims).map(([key, val]) => {
                   const dimScore = typeof val === 'number' ? val : 0
-                  const meta = DIMENSION_META[key] || { icon: '?', name: key, label: key }
+                  const meta = DIMENSION_META[key] || { icon: '?', name: key, label: key, zhName: key, zhLabel: key }
                   return (
                     <div key={key} className="relative rounded-xl border border-line-divider bg-white p-5 transition hover:border-line-strong hover:shadow-sm">
                       <div className="flex items-center gap-2.5">
@@ -323,8 +328,8 @@ export default function ScanDonePage() {
                           {meta.icon}
                         </span>
                         <div>
-                          <div className="text-[13px] font-bold text-body">{meta.name}</div>
-                          <div className="text-[11px] text-body-3">{meta.label}</div>
+                          <div className="text-[13px] font-bold text-body">{zh ? meta.zhName : meta.name}</div>
+                          <div className="text-[11px] text-body-3">{zh ? meta.zhLabel : meta.label}</div>
                         </div>
                       </div>
                       <div className="mt-3 flex items-end justify-between">
@@ -346,24 +351,24 @@ export default function ScanDonePage() {
           {(redFlags.length > 0 || hardGates.length > 0) && (
             <div className="mt-10 rounded-2xl border border-line-divider bg-white p-7 sm:p-10">
               <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-body-3">
-                FLAGS &amp; GATES
+                {zh ? '风险标记与硬门槛' : <>FLAGS &amp; GATES</>}
               </div>
               {hardGates.length > 0 && (
                 <div className="mt-4">
-                  <div className="font-mono text-[10px] font-bold mb-2" style={{ color: '#DC2626' }}>HARD GATES</div>
+                  <div className="font-mono text-[10px] font-bold mb-2" style={{ color: '#DC2626' }}>{zh ? '硬门槛' : 'HARD GATES'}</div>
                   <div className="flex flex-wrap gap-2">
                     {hardGates.map((g: string, i: number) => (
-                      <span key={i} className="max-w-full break-words rounded-md px-2.5 py-1 text-[11px] font-mono font-bold" style={{ color: '#DC2626', background: '#FEF2F2' }}>{g}</span>
+                      <span key={i} className="max-w-full break-words rounded-md px-2.5 py-1 text-[11px] font-mono font-bold" style={{ color: '#DC2626', background: '#FEF2F2' }}>{signalLabel(g, zh)}</span>
                     ))}
                   </div>
                 </div>
               )}
               {redFlags.length > 0 && (
                 <div className="mt-4">
-                  <div className="font-mono text-[10px] font-bold mb-2" style={{ color: '#EA580C' }}>RED FLAGS</div>
+                  <div className="font-mono text-[10px] font-bold mb-2" style={{ color: '#EA580C' }}>{zh ? '风险标记' : 'RED FLAGS'}</div>
                   <div className="flex flex-wrap gap-2">
                     {redFlags.map((f: string, i: number) => (
-                      <span key={i} className="max-w-full break-words rounded-md px-2.5 py-1 text-[11px] font-mono font-bold" style={{ color: '#EA580C', background: '#FFF7ED' }}>{f}</span>
+                      <span key={i} className="max-w-full break-words rounded-md px-2.5 py-1 text-[11px] font-mono font-bold" style={{ color: '#EA580C', background: '#FFF7ED' }}>{signalLabel(f, zh)}</span>
                     ))}
                   </div>
                 </div>
@@ -375,10 +380,10 @@ export default function ScanDonePage() {
           {(screening.ai_summary || screening.ai_summary_en || screening.ai_summary_zh) && (
             <div className="mt-10 rounded-2xl border border-line-divider bg-white p-7 sm:p-10">
               <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-body-3">
-                AI SUMMARY
+                {zh ? 'AI 摘要' : 'AI SUMMARY'}
               </div>
               <p className="mt-4 text-[14px] leading-relaxed text-body-2">
-                {screening.ai_summary_en || screening.ai_summary || screening.ai_summary_zh}
+                {summaryFor(screening, zh)}
               </p>
             </div>
           )}
@@ -389,26 +394,26 @@ export default function ScanDonePage() {
               href={`/screening/${id}/ltb`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-line-divider bg-white px-5 py-2.5 text-[13px] font-medium text-body-2 transition hover:border-line-strong"
             >
-              LTB / Court &rarr;
+              {zh ? 'LTB / 法院记录' : 'LTB / Court'} &rarr;
             </Link>
             <Link
               href={`/screening/${id}/graph`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-line-divider bg-white px-5 py-2.5 text-[13px] font-medium text-body-2 transition hover:border-line-strong"
             >
-              Network Graph &rarr;
+              {zh ? '关系图' : 'Network Graph'} &rarr;
             </Link>
             <Link
               href={`/screening/${id}/share`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-line-divider bg-white px-5 py-2.5 text-[13px] font-medium text-body-2 transition hover:border-line-strong"
             >
-              Share
+              {zh ? '分享' : 'Share'}
             </Link>
             <Link
               href={`/screening/${id}/report`}
               className="inline-flex items-center gap-1.5 rounded-lg px-6 py-2.5 text-[14px] font-bold text-white transition hover:opacity-90"
               style={{ background: '#047857' }}
             >
-              View Full Report &rarr;
+              {zh ? '查看完整报告' : 'View Full Report'} &rarr;
             </Link>
           </div>
 

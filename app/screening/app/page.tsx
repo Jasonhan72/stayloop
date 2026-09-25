@@ -1,4 +1,5 @@
 'use client'
+import { summaryFor } from '@/lib/screening/summaryText'
 import { useState, useEffect, useRef, useCallback, type ReactNode, type CSSProperties } from 'react'
 import { dissolutionReason } from '@/lib/forensics/employer-checks'
 import { inInternalTestWindow } from '@/lib/billing/freeWindow'
@@ -31,6 +32,7 @@ interface Screening {
   ai_extracted_name: string | null
   ai_score: number | null
   ai_summary: string | null
+  ai_summary_zh?: string | null
   status: string
   created_at: string
 }
@@ -1919,7 +1921,7 @@ export default function ScreenPage() {
   async function loadHistory() {
     const { data } = await supabase
       .from('screenings')
-      .select('id, tenant_name, ai_extracted_name, ai_score, ai_summary, status, created_at')
+      .select('id, tenant_name, ai_extracted_name, ai_score, ai_summary, ai_summary_zh, status, created_at')
       .order('created_at', { ascending: false })
       .limit(20)
     if (data) setHistory(data)
@@ -4174,7 +4176,7 @@ export default function ScreenPage() {
                       {isLoading && <span style={{ marginLeft: 8, color: '#0E7490' }}>· {t('history.loading')}</span>}
                       {clickable && !isLoading && <span style={{ marginLeft: 8, color: 'var(--text-muted)' }}>· {t('history.viewHint')}</span>}
                     </div>
-                    {s.ai_summary && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.ai_summary}</div>}
+                    {summaryFor(s, lang === 'zh') && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{summaryFor(s, lang === 'zh')}</div>}
                   </li>
                 )
               })}

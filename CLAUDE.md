@@ -1900,5 +1900,13 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
   - T-07：`/tenant/messages`、`/landlord/messages`（`components/messages/Inbox.tsx`，侧栏「消息」）：列出所在在管租约的最新对话（未读
     标记 = 本机 localStorage `sl-msg-read:<hh>`，在 `/h/[id]` 打开对话即已读，`lib/household/readMarks.ts`）、租客发出的看房请求与提问
     （状态如实：等房东回复 / 已回复见邮箱 / 婉拒）、房东待回复的看房请求数。经纪暂无消息渠道，不加入口。
-  - 仍未做：L-06 筛查摘要里偶发英文（模型输出）、L-07 `/screening` 营销页导航（公开页，工作台入口本来就是 `/screening/app`）、
-    真实评价 / 运营数据（没有可核实来源前不放）。守卫在同一 spec 的「round 2」段。
+  - 仍未做：L-07 `/screening` 营销页导航（公开页，工作台入口本来就是 `/screening/app`）、真实评价 / 运营数据（没有可核实来源前不放）。
+    守卫在同一 spec 的「round 2」段。
+- **L-06 筛查的英文（用户：「筛查摘要也要修好」）**：模型的中文字段本身是中文（`_v3.summary_zh`、`_details_zh` 抽样无整句英文，
+  只有文件名 / 软件名），英文来自显示端：① `screenings.ai_summary` 只存英文，而 `ai_summary_en` / `ai_summary_zh` 两列从没写过——
+  现在评分时三列都写，182 条历史记录从 `_v3.summary_zh` 回填（13 条早期记录本来没有中文摘要，仍显示英文）；`lib/screening/summaryText.ts
+  summaryFor(row, zh)` 在完成页、申请人详情页、筛查历史列表按界面语言取；② 硬门槛 / 红旗在报告页与完成页直接印内部代码
+  （`cross_doc_contradictions`…）——`lib/screening/signalLabels.ts signalLabel(code, zh)` 覆盖生产 60 天内出现过的全部代码
+  （`forensics_` 前缀自动剥离），未知代码显示为可读形式；③ `/screening/[id]/done` 与 `/graph` 两页此前**整页写死英文**，现已双语；
+  报告页结论标签（PROCEED/CONDITIONAL/DECLINE）中文下与结果卡同一说法（优质 · 建议通过 / 待定 · 附加条件 / 建议拒绝）；④ `/share`
+  原是一个只会 `alert('coming soon')` 的英文假表单，改为如实的双语说明页（分享链接尚未上线 → 去报告页下载 PDF，附 PIPEDA 提醒）。

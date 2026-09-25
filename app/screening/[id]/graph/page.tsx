@@ -12,6 +12,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
 
 // scores_v3 lives in ai_dimension_notes._v3.scores (the scoring route never
 // writes a scores_v3 column) — per-column values are the fallback for old
@@ -47,23 +48,29 @@ function dimColor(score: number): string {
   return '#DC2626'
 }
 
-const DIMENSION_META: Record<string, { label: string; fullLabel: string }> = {
+const DIMENSION_META_EN: Record<string, { label: string; fullLabel: string }> = {
   ability_to_pay: { label: 'Pay', fullLabel: 'Ability to Pay' },
   credit_health:  { label: 'Credit', fullLabel: 'Credit Health' },
   rental_history: { label: 'History', fullLabel: 'Rental History' },
   verification:   { label: 'ID', fullLabel: 'Verification' },
 }
+const DIMENSION_META_ZH: Record<string, { label: string; fullLabel: string }> = {
+  ability_to_pay: { label: '付款', fullLabel: '付款能力' },
+  credit_health:  { label: '信用', fullLabel: '信用状况' },
+  rental_history: { label: '租住', fullLabel: '租住记录' },
+  verification:   { label: '核验', fullLabel: '核验' },
+}
 
 /* ── Loading / Error ───────────────────────────────────────────── */
 
-function LoadingShell() {
+function LoadingShell({ zh }: { zh: boolean }) {
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="transparent" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-[#00ACE4] border-t-transparent" />
-          <p className="mt-4 font-mono text-[13px] text-[#999]">Loading graph...</p>
+          <p className="mt-4 font-mono text-[13px] text-[#999]">{zh ? '正在加载…' : 'Loading graph...'}</p>
         </div>
       </div>
       <Footer />
@@ -71,17 +78,17 @@ function LoadingShell() {
   )
 }
 
-function NotFoundShell() {
+function NotFoundShell({ zh }: { zh: boolean }) {
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="transparent" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="text-[48px]">&#128269;</div>
-          <h2 className="mt-4 text-[22px] font-extrabold">Screening not found</h2>
-          <p className="mt-2 text-[14px] text-[#999]">This screening does not exist or you do not have access.</p>
+          <h2 className="mt-4 text-[22px] font-extrabold">{zh ? '找不到这份筛查' : 'Screening not found'}</h2>
+          <p className="mt-2 text-[14px] text-[#999]">{zh ? '这份筛查不存在，或你没有查看权限。' : 'This screening does not exist or you do not have access.'}</p>
           <Link href="/screening/app" className="mt-6 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#047857' }}>
-            Back to Screenings
+            {zh ? '回到筛查' : 'Back to Screenings'}
           </Link>
         </div>
       </div>
@@ -92,7 +99,8 @@ function NotFoundShell() {
 
 /* ── Radar Chart SVG ──────────────────────────────────────────── */
 
-function RadarChart({ dims }: { dims: Record<string, number> }) {
+function RadarChart({ dims, zh }: { dims: Record<string, number>; zh: boolean }) {
+  const DIMENSION_META = zh ? DIMENSION_META_ZH : DIMENSION_META_EN
   const entries = Object.entries(dims)
   const count = entries.length
   if (count < 3) return null
@@ -209,6 +217,9 @@ function RadarChart({ dims }: { dims: Record<string, number> }) {
 
 export default function GraphPage() {
   const params = useParams()
+  const { lang } = useT()
+  const zh = lang === 'zh'
+  const DIMENSION_META = zh ? DIMENSION_META_ZH : DIMENSION_META_EN
   const id = params?.id as string
   const { loading: authLoading, user } = useAuth()
   const router = useRouter()
@@ -239,10 +250,10 @@ export default function GraphPage() {
       })
   }, [user, id])
 
-  if (authLoading || (!screening && !loadError)) return <LoadingShell />
-  if (loadError) return <NotFoundShell />
+  if (authLoading || (!screening && !loadError)) return <LoadingShell zh={zh} />
+  if (loadError) return <NotFoundShell zh={zh} />
 
-  const applicantName = screening.ai_extracted_name || screening.tenant_name || 'Applicant'
+  const applicantName = screening.ai_extracted_name || screening.tenant_name || (zh ? '申请人' : 'Applicant')
   const dims = dimsOf(screening)
   const score = screening.ai_score ?? 0
   const tier = screening.v3_tier ?? 'none'
@@ -262,24 +273,24 @@ export default function GraphPage() {
             href={`/screening/${id}/report`}
             className="font-mono text-[12px] text-body-3 hover:text-body"
           >
-            &larr; Back to Report
+            &larr; {zh ? '回到报告' : 'Back to Report'}
           </Link>
 
           <div className="mt-5 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#00ACE4' }}>
             <span className="inline-block h-[6px] w-[6px] rounded-full" style={{ background: '#00ACE4', boxShadow: '0 0 6px #00ACE4' }} />
-            SCREENING VISUALIZATION
+            {zh ? '筛查可视化' : 'SCREENING VISUALIZATION'}
           </div>
 
           <h1 className="mt-4 text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">
-            {applicantName} &middot; Dimension Analysis
+            {applicantName} &middot; {zh ? '分项分析' : 'Dimension Analysis'}
           </h1>
           <p className="mt-3 max-w-[800px] text-[14px] leading-relaxed text-body-2">
-            Radar chart and key metrics from the screening analysis.
+            {zh ? '筛查结果的雷达图与关键指标。评分仅供参考，录取由房东本人决定。' : 'Radar chart and key metrics from the screening analysis. Scores are information only; the landlord decides.'}
           </p>
 
           <div className="mt-4 inline-flex items-center gap-2 rounded-lg px-3 py-1.5 font-mono text-[11px] font-bold uppercase" style={{ color: '#047857', background: '#04785714' }}>
             <span className="inline-block h-[6px] w-[6px] rounded-full" style={{ background: '#047857' }} />
-            SCORE: {score} / 100
+            {zh ? '评分' : 'SCORE'}: {score} / 100
           </div>
         </div>
       </section>
@@ -290,46 +301,46 @@ export default function GraphPage() {
           {/* Radar Chart */}
           {hasDims && (
             <div className="rounded-2xl border border-line-divider bg-white p-6 sm:p-8">
-              <h2 className="text-[18px] font-extrabold tracking-tight">Dimension Radar</h2>
+              <h2 className="text-[18px] font-extrabold tracking-tight">{zh ? '分项雷达图' : 'Dimension Radar'}</h2>
               <div className="mt-1 font-mono text-[11px] text-body-3">
-                {Object.keys(dims).length} dimensions evaluated
+                {zh ? `${Object.keys(dims).length} 个分项` : `${Object.keys(dims).length} dimensions evaluated`}
               </div>
               <div className="mt-6">
-                <RadarChart dims={dims} />
+                <RadarChart dims={dims} zh={zh} />
               </div>
             </div>
           )}
 
           {/* Key Metrics */}
           <div className="rounded-2xl border border-line-divider bg-white p-6 sm:p-8">
-            <h2 className="text-[18px] font-extrabold tracking-tight">Key Metrics</h2>
+            <h2 className="text-[18px] font-extrabold tracking-tight">{zh ? '关键指标' : 'Key Metrics'}</h2>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-xl border border-line-divider bg-[#FAFAF8] p-4 text-center">
                 <div className="font-mono text-[28px] font-extrabold" style={{ color: dimColor(score) }}>{score}</div>
-                <div className="mt-1 text-[13px] font-bold text-body">Overall Score</div>
-                <div className="mt-0.5 text-[11px] text-body-3">out of 100</div>
+                <div className="mt-1 text-[13px] font-bold text-body">{zh ? '总分' : 'Overall Score'}</div>
+                <div className="mt-0.5 text-[11px] text-body-3">{zh ? '满分 100' : 'out of 100'}</div>
               </div>
               <div className="rounded-xl border border-line-divider bg-[#FAFAF8] p-4 text-center">
                 <div className="font-mono text-[28px] font-extrabold" style={{ color: tier === 'approve' ? '#047857' : tier === 'conditional' ? '#D97706' : tier === 'decline' ? '#DC2626' : '#64748B' }}>
-                  {tier === 'approve' ? 'PASS' : tier === 'conditional' ? 'COND' : tier === 'decline' ? 'FAIL' : '—'}
+                  {tier === 'approve' ? (zh ? '通过' : 'PASS') : tier === 'conditional' ? (zh ? '待定' : 'COND') : tier === 'decline' ? (zh ? '拒绝' : 'FAIL') : '—'}
                 </div>
-                <div className="mt-1 text-[13px] font-bold text-body">Recommendation</div>
+                <div className="mt-1 text-[13px] font-bold text-body">{zh ? '结论' : 'Recommendation'}</div>
                 <div className="mt-0.5 text-[11px] text-body-3">{tier}</div>
               </div>
               <div className="rounded-xl border border-line-divider bg-[#FAFAF8] p-4 text-center">
                 <div className="font-mono text-[28px] font-extrabold" style={{ color: '#047857' }}>
-                  {coverage ?? 'N/A'}{coverage != null && '%'}
+                  {coverage ?? (zh ? '—' : 'N/A')}{coverage != null && '%'}
                 </div>
-                <div className="mt-1 text-[13px] font-bold text-body">Coverage</div>
-                <div className="mt-0.5 text-[11px] text-body-3">evidence completeness</div>
+                <div className="mt-1 text-[13px] font-bold text-body">{zh ? '证据充足度' : 'Coverage'}</div>
+                <div className="mt-0.5 text-[11px] text-body-3">{zh ? '材料完整程度' : 'evidence completeness'}</div>
               </div>
               <div className="rounded-xl border border-line-divider bg-[#FAFAF8] p-4 text-center">
                 <div className="font-mono text-[28px] font-extrabold" style={{ color: (redFlags.length + hardGates.length) > 0 ? '#DC2626' : '#047857' }}>
                   {redFlags.length + hardGates.length}
                 </div>
-                <div className="mt-1 text-[13px] font-bold text-body">Flags</div>
-                <div className="mt-0.5 text-[11px] text-body-3">red flags + hard gates</div>
+                <div className="mt-1 text-[13px] font-bold text-body">{zh ? '风险项' : 'Flags'}</div>
+                <div className="mt-0.5 text-[11px] text-body-3">{zh ? '风险标记 + 硬门槛' : 'red flags + hard gates'}</div>
               </div>
             </div>
           </div>
@@ -337,7 +348,7 @@ export default function GraphPage() {
           {/* Dimension Bars */}
           {hasDims && (
             <div className="rounded-2xl border border-line-divider bg-white p-6 sm:p-8">
-              <h2 className="text-[18px] font-extrabold tracking-tight">Dimension Breakdown</h2>
+              <h2 className="text-[18px] font-extrabold tracking-tight">{zh ? '分项明细' : 'Dimension Breakdown'}</h2>
 
               <div className="mt-5 space-y-4">
                 {Object.entries(dims).map(([key, val]) => {
@@ -363,12 +374,12 @@ export default function GraphPage() {
           {/* Income / Rent metrics if available */}
           {(screening.monthly_rent || screening.income_rent_ratio) && (
             <div className="rounded-2xl border border-line-divider bg-white p-6 sm:p-8">
-              <h2 className="text-[18px] font-extrabold tracking-tight">Financial Metrics</h2>
+              <h2 className="text-[18px] font-extrabold tracking-tight">{zh ? '财务指标' : 'Financial Metrics'}</h2>
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 {screening.monthly_rent && (
                   <div className="rounded-xl border border-line-divider bg-[#FAFAF8] p-4 text-center">
                     <div className="font-mono text-[24px] font-extrabold text-body">${screening.monthly_rent}</div>
-                    <div className="mt-1 text-[12px] font-medium text-body-3">Monthly Rent</div>
+                    <div className="mt-1 text-[12px] font-medium text-body-3">{zh ? '月租' : 'Monthly Rent'}</div>
                   </div>
                 )}
                 {screening.income_rent_ratio && (
@@ -376,13 +387,13 @@ export default function GraphPage() {
                     <div className="font-mono text-[24px] font-extrabold" style={{ color: screening.income_rent_ratio >= 3 ? '#047857' : '#D97706' }}>
                       {screening.income_rent_ratio.toFixed(1)}x
                     </div>
-                    <div className="mt-1 text-[12px] font-medium text-body-3">Income / Rent Ratio</div>
+                    <div className="mt-1 text-[12px] font-medium text-body-3">{zh ? '收入 / 租金比（仅供参考）' : 'Income / Rent Ratio (information only)'}</div>
                   </div>
                 )}
                 {screening.gate_cap != null && (
                   <div className="rounded-xl border border-line-divider bg-[#FAFAF8] p-4 text-center">
                     <div className="font-mono text-[24px] font-extrabold text-body">{screening.gate_cap}</div>
-                    <div className="mt-1 text-[12px] font-medium text-body-3">Gate Cap</div>
+                    <div className="mt-1 text-[12px] font-medium text-body-3">{zh ? '门槛封顶分' : 'Gate Cap'}</div>
                   </div>
                 )}
               </div>
@@ -395,13 +406,13 @@ export default function GraphPage() {
               href={`/screening/${id}/report`}
               className="inline-flex items-center gap-2 rounded-xl border border-line-divider bg-white px-6 py-3 text-[13.5px] font-semibold text-body-2 transition hover:border-line-strong hover:shadow-sm"
             >
-              &larr; Full Report
+              &larr; {zh ? '完整报告' : 'Full Report'}
             </Link>
             <Link
               href={`/screening/${id}/ltb`}
               className="inline-flex items-center gap-2 rounded-xl border border-line-divider bg-white px-6 py-3 text-[13.5px] font-semibold text-body-2 transition hover:border-line-strong hover:shadow-sm"
             >
-              LTB / Court &rarr;
+              {zh ? 'LTB / 法院记录' : 'LTB / Court'} &rarr;
             </Link>
           </div>
 

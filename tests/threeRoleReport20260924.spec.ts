@@ -147,3 +147,42 @@ describe('round 2 (user: 改成 V0.6，其余按建议全部修)', () => {
     expect(read('app/h/[id]/page.tsx')).toContain('setReadMark(id,')
   })
 })
+
+describe('SL-L-06 · screening pages speak the UI language', () => {
+  it('summaries are persisted in both languages and picked by UI language', async () => {
+    const { summaryFor } = await import('@/lib/screening/summaryText')
+    const row = { ai_summary: 'Strong credit.', ai_summary_en: 'Strong credit.', ai_summary_zh: '信用强。' }
+    expect(summaryFor(row, true)).toBe('信用强。')
+    expect(summaryFor(row, false)).toBe('Strong credit.')
+    expect(summaryFor({ ai_summary: 'Old row, English only.' }, true)).toBe('Old row, English only.')
+    const route = read('app/api/screen-score/route.ts')
+    expect(route).toContain('ai_summary_zh: parsed.summary_zh || null')
+    for (const p of ['app/screening/[id]/done/page.tsx', 'app/landlord/applicants/[id]/page.tsx', 'app/screening/app/page.tsx']) expect(read(p)).toContain('summaryFor(')
+  })
+  it('gate / flag codes are shown as plain language, never as raw codes only', async () => {
+    const { signalLabel } = await import('@/lib/screening/signalLabels')
+    expect(signalLabel('doc_tampering', true)).toBe('文件疑似被改动（取证）')
+    expect(signalLabel('forensics_timestamp_batch_creation', true)).toBe('多份文件创建时间几乎相同')
+    expect(signalLabel('cross_doc_contradictions', false)).toBe('Documents contradict each other')
+    expect(signalLabel('brand_new_code', true)).toBe('其他信号：brand new code')
+    expect(signalLabel('A free-text flag.', true)).toBe('A free-text flag.')
+    expect(read('app/screening/[id]/report/page.tsx')).toContain('signalLabel(g, zh)')
+    expect(read('app/screening/[id]/done/page.tsx')).toContain('signalLabel(f, zh)')
+  })
+  it('done / graph pages are bilingual; share page no longer fakes a share form', () => {
+    for (const p of ['app/screening/[id]/done/page.tsx', 'app/screening/[id]/graph/page.tsx']) {
+      const s = read(p)
+      expect(s).toContain("const zh = lang === 'zh'")
+      expect(s).toMatch(/[一-龥]/)
+    }
+    expect(read('app/screening/[id]/done/page.tsx')).not.toMatch(/>\s*Screening Complete\s*</)
+    const share = read('app/screening/[id]/share/page.tsx')
+    expect(share).toContain('分享链接尚未上线')
+    expect(share).not.toContain("alert('Share links are coming soon")
+  })
+  it('report tier labels match the result card wording in Chinese', () => {
+    const r = read('app/screening/[id]/report/page.tsx')
+    expect(r).toContain("zh ? '优质 · 建议通过' : 'PROCEED'")
+    expect(r).toContain('tierInfo(tier, zh)')
+  })
+})

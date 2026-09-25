@@ -3467,6 +3467,10 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     const { error: updateError } = await supabase.from('screenings').update(stripNul({
       ai_score: overall,
       ai_summary: parsed.summary_en || '',
+      // Both languages persisted (three-role test report 2026-09-24, SL-L-06):
+      // pages that read the row showed the English ai_summary in the Chinese UI.
+      ai_summary_en: parsed.summary_en || null,
+      ai_summary_zh: parsed.summary_zh || null,
       ai_extracted_name: finalExtractedName,
       ai_dimension_notes: mergedNotes,
       forensics_detail: forensicsReport,

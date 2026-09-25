@@ -2,6 +2,7 @@
 
 export const runtime = 'edge'
 
+import { summaryFor } from '@/lib/screening/summaryText'
 import FilePreviewModal from '@/components/landlord/FilePreviewModal'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -165,7 +166,7 @@ function RealApplicantDetail({ id }: { id: string }) {
     let cancelled = false
     ;(async () => {
       const [{ data: sc }, { data: pa }] = await Promise.all([
-        supabase.from('screenings').select('id, status, ai_score, ai_summary, v3_tier, hard_gates_triggered, verification').eq('application_id', app.id).order('created_at', { ascending: false }).limit(1),
+        supabase.from('screenings').select('id, status, ai_score, ai_summary, ai_summary_zh, v3_tier, hard_gates_triggered, verification').eq('application_id', app.id).order('created_at', { ascending: false }).limit(1),
         supabase.from('agent_pending_actions').select('*').eq('action_type', 'send_decision').eq('status', 'pending').contains('metadata', { application_id: app.id }).order('created_at', { ascending: false }).limit(1),
       ])
       if (cancelled) return
@@ -346,7 +347,7 @@ function RealApplicantDetail({ id }: { id: string }) {
                   note: typeof notes[d.key] === 'string' ? (notes[d.key] as string) : null,
                 }),
               )}
-              aiLine={app.ai_summary ? firstSentence(app.ai_summary) : null}
+              aiLine={summaryFor(linked ?? app, zh) || app.ai_summary ? firstSentence(summaryFor(linked ?? app, zh) || app.ai_summary || '') : null}
               ltbCount={app.ltb_records_found}
               incomeRatio={
                 app.monthly_income != null && app.listing?.monthly_rent
@@ -364,7 +365,7 @@ function RealApplicantDetail({ id }: { id: string }) {
                 <div className="font-mono text-[10.5px] uppercase text-body-3">/100 · {tierLabel(linked.v3_tier)}</div>
               </div>
             </div>
-            {linked.ai_summary && <p className="mt-4 text-[13.5px] leading-relaxed text-body-2">{linked.ai_summary}</p>}
+            {summaryFor(linked, zh) && <p className="mt-4 text-[13.5px] leading-relaxed text-body-2">{summaryFor(linked, zh)}</p>}
             {Array.isArray(linked.hard_gates_triggered) && linked.hard_gates_triggered.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {linked.hard_gates_triggered.map((g) => (
@@ -396,7 +397,7 @@ function RealApplicantDetail({ id }: { id: string }) {
           <div className="sl-card p-6">
             <h3 className="text-[15px] font-bold tracking-tight">{zh ? `${aiName} 建议` : `${aiName} recommends`}</h3>
             <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
-              {app.ai_summary || linked?.ai_summary ||
+              {summaryFor(linked, zh) || app.ai_summary ||
                 (zh
                   ? `${name} 的申请已收到。收入 ${app.monthly_income ? `$${app.monthly_income.toLocaleString()}/mo` : '未填'}${app.employer_name ? ` · ${app.employer_name}` : ''}。评分完成后这里会给出完整建议。`
                   : `${name}'s application is in. Income ${app.monthly_income ? `$${app.monthly_income.toLocaleString()}/mo` : 'not given'}${app.employer_name ? ` · ${app.employer_name}` : ''}. A full recommendation appears here once scoring completes.`)}

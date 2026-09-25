@@ -20,6 +20,7 @@ export const runtime = 'edge'
 // packs at scoring time) with per-column fallbacks — same reconstruction the
 // screening history view uses. Presentation layer only; no scoring logic here.
 
+import { signalLabel } from '@/lib/screening/signalLabels'
 import { useState, useEffect } from 'react'
 import { dissolutionReason } from '@/lib/forensics/employer-checks'
 import Link from 'next/link'
@@ -48,10 +49,11 @@ const statusColor = (s: string) =>
 
 const statusBg = (s: string) => statusColor(s) + '12'
 
-function tierInfo(tier: string): { label: string; color: string } {
-  if (tier === 'approve') return { label: 'PROCEED', color: '#16A34A' }
-  if (tier === 'conditional') return { label: 'CONDITIONAL', color: '#D97706' }
-  return { label: 'DECLINE', color: '#DC2626' }
+function tierInfo(tier: string, zh = false): { label: string; color: string } {
+  // Same Chinese wording as the result card on /screening/app (SL-L-06).
+  if (tier === 'approve') return { label: zh ? '优质 · 建议通过' : 'PROCEED', color: '#16A34A' }
+  if (tier === 'conditional') return { label: zh ? '待定 · 附加条件' : 'CONDITIONAL', color: '#D97706' }
+  return { label: zh ? '建议拒绝' : 'DECLINE', color: '#DC2626' }
 }
 
 // Weights come from the rubric, not from a second copy that can drift. The old
@@ -220,14 +222,14 @@ function KV({ k, children }: { k: string; children: React.ReactNode }) {
 
 /* ─────────────────── LOADING / ERROR ─────────────────── */
 
-function LoadingShell() {
+function LoadingShell({ zh }: { zh: boolean }) {
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="solid" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-[#047857] border-t-transparent" />
-          <p className="mt-4 font-mono text-[13px] text-[#999]">Loading report...</p>
+          <p className="mt-4 font-mono text-[13px] text-[#999]">{zh ? '正在加载报告…' : 'Loading report...'}</p>
         </div>
       </div>
       <Footer />
@@ -235,17 +237,17 @@ function LoadingShell() {
   )
 }
 
-function NotFoundShell() {
+function NotFoundShell({ zh }: { zh: boolean }) {
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="solid" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="text-[48px]">&#128269;</div>
-          <h2 className="mt-4 text-[22px] font-extrabold">Screening not found</h2>
-          <p className="mt-2 text-[14px] text-[#999]">This screening does not exist or you do not have access.</p>
+          <h2 className="mt-4 text-[22px] font-extrabold">{zh ? '找不到这份筛查' : 'Screening not found'}</h2>
+          <p className="mt-2 text-[14px] text-[#999]">{zh ? '这份筛查不存在，或你没有查看权限。' : 'This screening does not exist or you do not have access.'}</p>
           <Link href="/screening/app" className="mt-6 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#047857' }}>
-            Back to Screenings
+            {zh ? '回到筛查' : 'Back to Screenings'}
           </Link>
         </div>
       </div>
@@ -291,14 +293,14 @@ export default function ReportPage() {
       })
   }, [user, id])
 
-  if (authLoading || (!screening && !loadError)) return <LoadingShell />
-  if (loadError) return <NotFoundShell />
+  if (authLoading || (!screening && !loadError)) return <LoadingShell zh={zh} />
+  if (loadError) return <NotFoundShell zh={zh} />
 
   // Full pipeline snapshot (ai_dimension_notes._v3 + column fallbacks)
   const r = reconstructResult(screening)
   const score = r.overall
   const tier = r.v3_tier ?? 'decline'
-  const ti = tierInfo(tier)
+  const ti = tierInfo(tier, zh)
   const applicantName = r.extracted_name || (zh ? '申请人' : 'Applicant')
   const dims = r.scores_v3 || {}
   const summary = zh ? (r.summary_zh || r.summary_en || r.summary) : (r.summary_en || r.summary || r.summary_zh)
@@ -523,8 +525,8 @@ export default function ReportPage() {
                 <div className="space-y-2">
                   {hardGates.map((g: string, i: number) => (
                     <div key={i} className="flex items-start gap-2 rounded-lg px-4 py-2.5" style={{ background: '#DC262608' }}>
-                      <Badge label="GATE" color="#DC2626" />
-                      <span className="min-w-0 break-words font-mono text-[12px] text-body-2">{g}</span>
+                      <Badge label={zh ? '门槛' : 'GATE'} color="#DC2626" />
+                      <span className="min-w-0 break-words text-[13px] text-body-2">{signalLabel(g, zh)}<span className="ml-2 font-mono text-[10.5px] text-body-3">{g}</span></span>
                     </div>
                   ))}
                 </div>
@@ -538,8 +540,8 @@ export default function ReportPage() {
                 <div className="space-y-2">
                   {redFlags.map((f: string, i: number) => (
                     <div key={i} className="flex items-start gap-2 rounded-lg px-4 py-2.5" style={{ background: '#EA580C08' }}>
-                      <Badge label="FLAG" color="#EA580C" />
-                      <span className="min-w-0 break-words text-[13px] text-body-2">{f}</span>
+                      <Badge label={zh ? '标记' : 'FLAG'} color="#EA580C" />
+                      <span className="min-w-0 break-words text-[13px] text-body-2">{signalLabel(f, zh)}</span>
                     </div>
                   ))}
                 </div>
