@@ -2051,3 +2051,23 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
   租客理论上能把自己意向的 status 改成 accepted（只影响自己页面上的文案，没有副作用），下轮加 `BEFORE UPDATE` 守卫。
 - **经纪号第三轮（同日）**：客户表 / 任务 / 认证页 / 筛查页（该号同时持房东帽，直接进 `/screening/app` 走房东导航属预期）/ 收益空态都正常；
   375px 上 `/agent/agent` 无横向溢出、底栏是统一的工作台五项、输入条在底栏之上。
+
+## 房源详情页对照 StreetEasy 补内容（2026-09-25 · 用户「看一下这个房源详情页，我们的内容需要增加」）
+
+对照 streeteasy.com 的 The Lotus #11C：他们有净有效租金 / 租期 / $ per ft² / 可入住与最近调价、Policies、Home features 与 Building amenities 分开、
+About the building（单元数 / 层数 / 年份 / 同楼在租）、Property history、Transit（地铁线 + 距离）、Explore the neighbourhood（1 房中位挂牌价）。
+我们只加有数据或能确定性算出来的（守卫 `tests/listingDetail20260925.spec.ts`，迁移 `20260925_listings_history_transit.sql` 已应用 prod）：
+- **价格一行**（`lib/listingInsights.ts`）：$/ft²·月、租期、可入住日、上架 N 天（`published_at ?? created_at`）、最近调价（来自 `price_history`）。
+- **租赁条件 POLICIES 网格**：宠物 / 吸烟 / 家具 / 租期 / 押金 / 车位 / 租金包含，下附 RTA s.14 与 s.105–106、s.134 一句；配套区改为
+  **室内 / 楼宇**两组（`groupFeatures`：appliances 归室内、building_features 归楼宇、自由文本按关键词，「in-unit」优先于楼宇词；向导的
+  amenity id 如 `parking_spot` 以前原样打印，现在经 `amenityLabel` 翻成中英文）。建筑信息里重复的入住 / 押金 / 租期已挪走。
+- **价格记录**：`listings.price_history` 由触发器 `listings_price_history` 维护（插入时种下「上架」行，月租变化追加 `{date, price, prev, event}`），
+  存量行按 `published_at ?? created_at` 补了上架行；页面倒序列出。
+- **交通**：`POST /api/listings/enrich {id}`（edge，公开房源限定，每 IP 90/h）——首次访问用 Nominatim 按地址取坐标、Overpass 取 1.5 km 内
+  `railway=station`（地铁 / GO / 轨道）与 600 m 内 `tram_stop`（只留最近一站），`pickTransit` 按站名去重、最多 6 条，写回 `lat/lng/transit/enriched_at`
+  缓存 30 天；页面显示类别 pill + 站名 + 直线距离 + 步行分钟（80 m/min），注明「数据 © OpenStreetMap 贡献者」，有坐标时给 Google 地图链接。
+  两个外部服务都带 UA `Stayloop/0.6 (…privacy@stayloop.ai)`，超时 8s / 20s，失败时缓存空结果不重试。
+- **关于社区**：同一路由返回同区（`neighborhood`，无则 city）在租挂牌价中位（同户型 + 全部，Stayloop + Realtor 样本，注明样本数）与「同楼在租 N 套」；
+  页面另用公开表 `trreb_rent_stats` 经 `readTrrebBenchmark` 取该户型的 TRREB 成交均价（区先 district 后 All TRREB Areas，注明「成交，非挂牌」）
+  并给出本套相对均价的百分比。dev 实测 1001 Bay #1618：Wellesley 260 m、Museum / Bay / Bloor-Yonge / College、TRREB Toronto C01 2026 Q1 1 房 $2,438。
+- **没做**：净有效租金（没有 incentive 字段）、单元数（没有数据）、学校 / 公园（没有可靠来源）。

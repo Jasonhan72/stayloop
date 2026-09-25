@@ -4,6 +4,8 @@ export const runtime = 'edge'
 
 import Link from 'next/link'
 import { parkingStat } from '@/lib/listingDisplay'
+import { readTrrebBenchmark, type TrrebBenchmark } from '@/lib/agent/trrebRent'
+import { daysOnMarket, fmtDistance, groupFeatures, lastPriceChange, pricePerSqft, walkMinutes, type ListingTransit, type PriceEvent } from '@/lib/listingInsights'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/lib/useAuth'
@@ -102,6 +104,23 @@ interface DBListing {
   mls_number: string | null
   source: string | null
   verification_status: string | null
+  source_url: string | null
+  published_at: string | null
+  // 2026-09-25 (StreetEasy comparison): price record + cached transit / geo
+  price_history: PriceEvent[] | null
+  transit: ListingTransit | null
+  lat: number | null
+  lng: number | null
+  enriched_at: string | null
+}
+
+/** What /api/listings/enrich returns: cached transit + two aggregates the anonymous RLS cannot compute. */
+type Insight = {
+  lat: number | null
+  lng: number | null
+  transit: ListingTransit
+  building: { other_active: number }
+  neighborhood: { scope: 'neighborhood' | 'city'; name: string; all: { n: number; median: number | null }; same_beds: { n: number; median: number | null } }
 }
 
 const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: string; en: string }[] }> = {
@@ -158,6 +177,22 @@ export default function ListingDetailPage() {
   const params = useParams<{ slug: string }>()
   const slug = params?.slug
   const [listing, setListing] = useState<DBListing | null>(null)
+  // Transit / building / neighbourhood facts (server-side, cached per listing)
+  // and the TRREB benchmark for this bedroom count (public cache table).
+  const [insight, setInsight] = useState<Insight | null | undefined>(undefined)
+  const [benchmark, setBenchmark] = useState<TrrebBenchmark | null>(null)
+  useEffect(() => {
+    if (!listing) return
+    let cancelled = false
+    fetch('/api/listings/enrich', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: listing.id }) })
+      .then((r) => (r.ok ? (r.json() as Promise<Insight>) : null))
+      .then((v) => { if (!cancelled) setInsight(v) })
+      .catch(() => { if (!cancelled) setInsight(null) })
+    readTrrebBenchmark(listing.bedrooms ?? 1, [listing.neighborhood, listing.city], listing.property_type === 'townhouse' ? 'townhouse' : 'apartment')
+      .then((b) => { if (!cancelled) setBenchmark(b) })
+      .catch(() => { /* benchmark is optional */ })
+    return () => { cancelled = true }
+  }, [listing?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [similar, setSimilar] = useState<DBListing[]>([])
   const [loading, setLoading] = useState(true)
   const [fieldAgentOpen, setFieldAgentOpen] = useState(false)
@@ -453,6 +488,25 @@ export default function ListingDetailPage() {
                 {listing.neighborhood && ' · '}
                 {listing.city}, {listing.province}
               </div>
+              {/* Price facts (StreetEasy: $/ft², lease term, availability, days on market, last change) */}
+              {(() => {
+                const ppsf = pricePerSqft(listing.monthly_rent, listing.sqft)
+                const dom = daysOnMarket(listing.published_at || listing.created_at)
+                const change = lastPriceChange(listing.price_history)
+                return (
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] tracking-eyebrow text-body-3">
+                    {ppsf != null && <span>${ppsf}/ft²{zh ? ' · 月' : ' · mo'}</span>}
+                    {listing.lease_term && <span>{listing.lease_term}</span>}
+                    <span>{listing.available_date ? (zh ? `${listing.available_date.slice(0, 10)} 起` : `from ${listing.available_date.slice(0, 10)}`) : (zh ? '即可入住' : 'Available now')}</span>
+                    {dom != null && <span>{dom === 0 ? (zh ? '今天上架' : 'Listed today') : zh ? `上架 ${dom} 天` : `${dom} days on market`}</span>}
+                    {change && (
+                      <span className={change.delta > 0 ? 'text-red-600' : 'text-emerald-700'}>
+                        {zh ? '最近调价 ' : 'Last change '}{change.delta > 0 ? '↑' : '↓'} ${Math.abs(change.delta).toLocaleString()} ({change.pct > 0 ? '+' : ''}{change.pct}%) · {change.date}
+                      </span>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Stat strip */}
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -524,55 +578,57 @@ export default function ListingDetailPage() {
               )}
             </Section>
 
-            {/* Section 2 — 生活配套 */}
+            {/* Section 2 — 租赁条件 (StreetEasy "Policies"): every term a tenant filters on, in one grid */}
+            <Section title={zh ? '租赁条件' : 'Lease terms & policies'} eyebrow="POLICIES">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-[13.5px] sm:grid-cols-4">
+                <BuildingFact
+                  label={zh ? '宠物' : 'Pets'}
+                  value={
+                    listing.pets_allowed === 'yes' ? (zh ? '允许' : 'Allowed')
+                    : listing.pets_allowed === 'restricted' ? (zh ? '有限制' : 'With restrictions')
+                    : listing.pets_allowed === 'no' ? (zh ? '房东写「不允许」' : 'Listed as “no pets”')
+                    : listing.pet_policy || (zh ? '未说明' : 'Not stated')
+                  }
+                />
+                <BuildingFact
+                  label={zh ? '吸烟' : 'Smoking'}
+                  value={listing.smoking_policy === 'no' ? (zh ? '禁止' : 'No smoking') : listing.smoking_policy === 'outdoor_only' ? (zh ? '仅室外' : 'Outdoors only') : listing.smoking_policy === 'yes' ? (zh ? '允许' : 'Allowed') : (zh ? '未说明' : 'Not stated')}
+                />
+                <BuildingFact label={zh ? '家具' : 'Furnished'} value={listing.furnished == null ? (zh ? '未说明' : 'Not stated') : listing.furnished ? (zh ? '带家具' : 'Furnished') : (zh ? '不带家具' : 'Unfurnished')} />
+                <BuildingFact label={zh ? '租期' : 'Lease term'} value={listing.lease_term || (zh ? '未说明' : 'Not stated')} />
+                <BuildingFact label={zh ? '押金' : 'Deposit'} value={listing.deposit != null ? `$${listing.deposit.toLocaleString()}` : (zh ? '房东未设置' : 'Not set')} />
+                <BuildingFact label={zh ? '车位' : 'Parking'} value={listing.parking_spaces ? `${listing.parking_spaces}${zh ? ' 个' : ''}` : listing.parking ? listing.parking : (zh ? '未说明' : 'Not stated')} />
+                <BuildingFact label={zh ? '租金包含' : 'Included'} value={listing.utilities_included && listing.utilities_included.length ? listing.utilities_included.map((u) => (zh ? UTILITY_ZH[u.toLowerCase()] ?? u : u)).join(' · ') : (zh ? '未说明' : 'Not stated')} />
+              </div>
+              <p className="mt-3 text-[12px] leading-relaxed text-body-3">
+                {zh
+                  ? '安省 RTA s.14：租约里的「禁止养宠」条款无效（共管大楼自身的规定除外）；押金只能是最后一月租金 + 钥匙押金（s.105–106、s.134）。'
+                  : 'Ontario RTA s.14: a “no pets” clause in a lease is void (condominium rules aside); the only deposits allowed are last month’s rent and a key deposit (s.105–106, s.134).'}
+              </p>
+            </Section>
+
+            {/* Section 3 — 室内配置 / 楼宇设施 (StreetEasy splits home features from building amenities) */}
             {(() => {
-              const petLabel =
-                listing.pets_allowed === 'yes' ? (zh ? '允许宠物' : 'Pets allowed')
-                : listing.pets_allowed === 'restricted' ? (zh ? '宠物有限制' : 'Pets with restrictions')
-                : listing.pets_allowed === 'no' ? (zh ? '不允许宠物' : 'No pets')
-                : null
-              const items: { label: string; ok: boolean }[] = [
-                ...(listing.amenities || []).map((a) => ({ label: a, ok: true })),
-                ...(listing.building_features || []).map((a) => ({ label: a, ok: true })),
-                ...(listing.appliances || []).map((a) => ({
-                  label: zh ? `电器: ${a}` : `Appliance: ${a}`,
-                  ok: true,
-                })),
-                ...(listing.furnished != null
-                  ? [{ label: listing.furnished ? (zh ? '带家具' : 'Furnished') : (zh ? '不带家具' : 'Unfurnished'), ok: true }]
-                  : []),
-                ...(listing.parking
-                  ? [{ label: zh ? `停车: ${listing.parking}` : `Parking: ${listing.parking}`, ok: true }]
-                  : []),
-                ...(listing.smoking_policy
-                  ? [{
-                      label: listing.smoking_policy === 'no' ? (zh ? '禁止吸烟' : 'No smoking')
-                        : listing.smoking_policy === 'outdoor_only' ? (zh ? '仅限室外吸烟' : 'Smoking outdoors only')
-                        : (zh ? '允许吸烟' : 'Smoking allowed'),
-                      ok: true,
-                    }]
-                  : []),
-                ...(listing.lease_term
-                  ? [{ label: zh ? `租期: ${listing.lease_term}` : `Lease term: ${listing.lease_term}`, ok: true }]
-                  : []),
-                ...(petLabel
-                  ? [{ label: petLabel, ok: listing.pets_allowed !== 'no' }]
-                  : listing.pet_policy
-                    ? [{
-                        label: zh ? `宠物: ${listing.pet_policy}` : `Pets: ${listing.pet_policy}`,
-                        ok: listing.pet_policy !== 'no-pets',
-                      }]
-                    : []),
-              ]
-              return items.length > 0 ? (
-                <Section title={zh ? '生活配套' : 'Amenities'} eyebrow="AMENITIES">
-                  <ul className="grid grid-cols-1 gap-y-2 text-[14px] text-body-2 sm:grid-cols-2">
-                    {items.map((item) => (
-                      <Li key={item.label} ok={item.ok}>{item.label}</Li>
-                    ))}
-                  </ul>
+              const g = groupFeatures({ amenities: listing.amenities, building_features: listing.building_features, appliances: listing.appliances }, lang)
+              if (!g.unit.length && !g.building.length) return null
+              return (
+                <Section title={zh ? '配置与设施' : 'Features & amenities'} eyebrow="AMENITIES">
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    {g.unit.length > 0 && (
+                      <div>
+                        <div className="mb-2 text-[12px] font-bold text-body-2">{zh ? '室内' : 'In the unit'}</div>
+                        <ul className="space-y-2 text-[14px] text-body-2">{g.unit.map((f) => <Li key={f} ok>{f}</Li>)}</ul>
+                      </div>
+                    )}
+                    {g.building.length > 0 && (
+                      <div>
+                        <div className="mb-2 text-[12px] font-bold text-body-2">{zh ? '楼宇' : 'In the building'}</div>
+                        <ul className="space-y-2 text-[14px] text-body-2">{g.building.map((f) => <Li key={f} ok>{f}</Li>)}</ul>
+                      </div>
+                    )}
+                  </div>
                 </Section>
-              ) : null
+              )
             })()}
 
             {/* 入住前费用一览 — Ontario fixes the legal move-in charges (RTA s.105–106),
@@ -617,15 +673,11 @@ export default function ListingDetailPage() {
                 {listing.cross_streets && (
                   <BuildingFact label={zh ? '十字路口' : 'Cross streets'} value={listing.cross_streets} />
                 )}
-                {listing.deposit != null && (
-                  <BuildingFact label={zh ? '押金' : 'Deposit'} value={`$${listing.deposit.toLocaleString()}`} />
-                )}
-                {listing.lease_term && <BuildingFact label={zh ? '租期' : 'Lease term'} value={listing.lease_term} />}
                 {listing.mls_number && <BuildingFact label="MLS®" value={listing.mls_number} />}
-                <BuildingFact
-                  label={zh ? '入住' : 'Available'}
-                  value={listing.available_date ? listing.available_date.slice(0, 10) : (zh ? '即可' : 'Now')}
-                />
+                {insight && insight.building.other_active > 0 && (
+                  <BuildingFact label={zh ? '同楼在租' : 'Also for rent here'} value={zh ? `${insight.building.other_active} 套` : `${insight.building.other_active} unit${insight.building.other_active === 1 ? '' : 's'}`} />
+                )}
+                {listing.source === 'realtor' && <BuildingFact label={zh ? '来源' : 'Source'} value="Realtor.ca" />}
                 {listing.brokerage && (
                   <BuildingFact label={zh ? '挂牌机构' : 'Brokerage'} value={listing.brokerage} />
                 )}
@@ -646,7 +698,91 @@ export default function ListingDetailPage() {
               )}
             </Section>
 
-            {/* Section 4 — Walk Score — only show when real data exists */}
+            {/* Section 4 — 价格记录 (trigger-maintained price_history) */}
+            {Array.isArray(listing.price_history) && listing.price_history.length > 0 && (
+              <Section title={zh ? '价格记录' : 'Price history'} eyebrow="PRICE HISTORY">
+                <div className="divide-y divide-line-divider rounded-[12px] border border-line-divider bg-white">
+                  {[...listing.price_history].reverse().map((h, i) => (
+                    <div key={`${h.date}-${i}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13.5px]">
+                      <span className="font-mono text-[12px] text-body-3">{String(h.date).slice(0, 10)}</span>
+                      <span className="flex-1 text-body-2">{h.event === 'listed' ? (zh ? '上架' : 'Listed') : h.prev != null ? (h.price > h.prev ? (zh ? `涨价（原 $${Number(h.prev).toLocaleString()}）` : `Increased (was $${Number(h.prev).toLocaleString()})`) : (zh ? `降价（原 $${Number(h.prev).toLocaleString()}）` : `Reduced (was $${Number(h.prev).toLocaleString()})`)) : (zh ? '调价' : 'Changed')}</span>
+                      <span className="font-semibold">${Number(h.price).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* Section 5 — 交通 (nearest subway / GO / streetcar from OpenStreetMap, cached on the row) */}
+            {insight !== null && (
+              <Section title={zh ? '交通' : 'Transit'} eyebrow="TRANSIT">
+                {insight === undefined ? (
+                  <div className="text-[13.5px] text-body-3">{zh ? '正在查附近站点…' : 'Looking up nearby stations…'}</div>
+                ) : insight.transit.stations.length === 0 ? (
+                  <div className="text-[13.5px] text-body-3">{zh ? '1.5 km 内没有地铁 / GO 车站记录（OpenStreetMap 数据）。' : 'No subway or GO station on record within 1.5 km (OpenStreetMap data).'}</div>
+                ) : (
+                  <div className="divide-y divide-line-divider rounded-[12px] border border-line-divider bg-white">
+                    {insight.transit.stations.map((st) => (
+                      <div key={`${st.kind}-${st.name}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13.5px]">
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <span className={`flex-none rounded-md px-1.5 py-[2px] font-mono text-[10px] font-bold text-white ${st.kind === 'subway' ? 'bg-[#1B1B3C]' : st.kind === 'go' ? 'bg-emerald-700' : st.kind === 'streetcar' ? 'bg-red-700' : 'bg-body-3'}`}>
+                            {st.kind === 'subway' ? (zh ? '地铁' : 'SUBWAY') : st.kind === 'go' ? 'GO' : st.kind === 'streetcar' ? (zh ? '有轨电车' : 'STREETCAR') : (zh ? '轨道' : 'RAIL')}
+                          </span>
+                          <span className="truncate text-body">{st.name}{st.lines && st.lines.length ? <span className="ml-1.5 text-body-3">{st.lines.join(' · ')}</span> : null}</span>
+                        </span>
+                        <span className="flex-none font-mono text-[12px] text-body-3">{fmtDistance(st.distance_m, lang)} · {zh ? `步行约 ${walkMinutes(st.distance_m)} 分钟` : `~${walkMinutes(st.distance_m)} min walk`}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-body-3">
+                  <span>{zh ? '直线距离 · 数据 © OpenStreetMap 贡献者' : 'Straight-line distance · data © OpenStreetMap contributors'}</span>
+                  {insight?.lat != null && insight?.lng != null && (
+                    <a href={`https://www.google.com/maps/search/?api=1&query=${insight.lat},${insight.lng}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-strong">{zh ? '在 Google 地图打开 ↗' : 'Open in Google Maps ↗'}</a>
+                  )}
+                </div>
+              </Section>
+            )}
+
+            {/* Section 6 — 关于社区: asking-rent medians from our own listings + the TRREB official benchmark */}
+            {(insight?.neighborhood || benchmark) && (
+              <Section title={zh ? `关于 ${listing.neighborhood || listing.city}` : `About ${listing.neighborhood || listing.city}`} eyebrow="NEIGHBOURHOOD">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {insight?.neighborhood && insight.neighborhood.all.n > 0 && (
+                    <div className="rounded-[12px] border border-line-divider bg-white p-4">
+                      <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? '同区在租挂牌价 · Stayloop + Realtor.ca 样本' : 'Asking rents nearby · Stayloop + Realtor.ca sample'}</div>
+                      {insight.neighborhood.same_beds.n > 0 && insight.neighborhood.same_beds.median != null && (
+                        <div className="mt-2 text-[15px] font-bold">
+                          {zh ? `${listing.bedrooms === 0 ? 'Studio' : `${listing.bedrooms} 房`} 中位 $${insight.neighborhood.same_beds.median.toLocaleString()}` : `${listing.bedrooms === 0 ? 'Studio' : `${listing.bedrooms}-bed`} median $${insight.neighborhood.same_beds.median.toLocaleString()}`}
+                          <span className="ml-2 text-[12px] font-medium text-body-3">· {zh ? `${insight.neighborhood.same_beds.n} 套` : `${insight.neighborhood.same_beds.n} listings`}</span>
+                        </div>
+                      )}
+                      {insight.neighborhood.all.median != null && (
+                        <div className="mt-1 text-[12.5px] text-body-2">{zh ? `全部户型 ${insight.neighborhood.all.n} 套 · 中位 $${insight.neighborhood.all.median.toLocaleString()}` : `All sizes: ${insight.neighborhood.all.n} listings · median $${insight.neighborhood.all.median.toLocaleString()}`}</div>
+                      )}
+                      {insight.neighborhood.same_beds.median != null && (
+                        <div className="mt-1 text-[12px] text-body-3">
+                          {(() => { const d = Math.round(((listing.monthly_rent - insight.neighborhood.same_beds.median!) / insight.neighborhood.same_beds.median!) * 100); return zh ? `这套 ${d === 0 ? '与中位持平' : d > 0 ? `高于中位 ${d}%` : `低于中位 ${Math.abs(d)}%`}` : `This listing is ${d === 0 ? 'at the median' : d > 0 ? `${d}% above` : `${Math.abs(d)}% below`}` })()}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {benchmark && (
+                    <div className="rounded-[12px] border border-line-divider bg-white p-4">
+                      <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? `官方基准 · TRREB ${benchmark.area} · ${benchmark.period}` : `Official benchmark · TRREB ${benchmark.area} · ${benchmark.period}`}</div>
+                      <div className="mt-2 text-[15px] font-bold">
+                        {zh ? `${listing.bedrooms === 0 ? 'Studio' : `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''} 房`} ${listing.property_type === 'townhouse' ? '联排' : '公寓'}成交均价 $${benchmark.avg.toLocaleString()}` : `${listing.bedrooms === 0 ? 'Studio' : `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''}-bed`} ${listing.property_type === 'townhouse' ? 'townhouse' : 'apartment'} average lease $${benchmark.avg.toLocaleString()}`}
+                        {benchmark.prev_avg != null && benchmark.prev_avg > 0 && (
+                          <span className={`ml-2 text-[12px] font-medium ${benchmark.avg >= benchmark.prev_avg ? 'text-red-600' : 'text-emerald-700'}`}>{zh ? '同比 ' : 'YoY '}{benchmark.avg >= benchmark.prev_avg ? '+' : ''}{Math.round(((benchmark.avg - benchmark.prev_avg) / benchmark.prev_avg) * 1000) / 10}%</span>
+                        )}
+                      </div>
+                      <div className="mt-1 text-[12.5px] text-body-2">{zh ? `${benchmark.leased?.toLocaleString() ?? '—'} 宗成交 · 这套挂牌价${listing.monthly_rent >= benchmark.avg ? '高于' : '低于'}均价 ${Math.abs(Math.round(((listing.monthly_rent - benchmark.avg) / benchmark.avg) * 100))}%` : `${benchmark.leased?.toLocaleString() ?? '—'} leased · this asking rent is ${Math.abs(Math.round(((listing.monthly_rent - benchmark.avg) / benchmark.avg) * 100))}% ${listing.monthly_rent >= benchmark.avg ? 'above' : 'below'} the average`}</div>
+                      <div className="mt-1 text-[11.5px] text-body-3">{zh ? '来源：TRREB 季度租赁市场报告（成交，非挂牌）' : 'Source: TRREB quarterly rental market report (leased, not asking)'}</div>
+                    </div>
+                  )}
+                </div>
+              </Section>
+            )}
 
             {/* Section 5 — 房客信用门槛 · 房东设置 */}
             {tier != null && tierInfo && (
