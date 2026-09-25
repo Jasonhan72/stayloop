@@ -1,5 +1,6 @@
 'use client'
 
+import { isRegistrationLive } from '@/lib/agentProfile'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
@@ -309,7 +310,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                     {(['tenant', 'landlord', 'agent'] as const).map((r) => {
                       const held = heldRoles.includes(r)
                       const isCurrent = r === currentRole
-                      const pendingAgent = r === 'agent' && hats.agent && hats.agent !== 'verified'
+                      const pendingAgent = r === 'agent' && hats.agent && !isRegistrationLive(hats.agent)
                       const sub = r === 'tenant'
                         ? (lang === 'zh' ? '找房 · 申请 · 签约' : 'Search · Apply · Lease')
                         : r === 'landlord'

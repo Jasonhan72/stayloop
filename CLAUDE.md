@@ -1822,3 +1822,22 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
 从 2026-09-24 起，**下一个开发版本叫 V0.6，正式发布版叫 V1.0**。此前的「v5.3」是内部迭代号：git 分支 `v5.3-launch`、部署脚本 `ship2-v53.command`、
 页脚「v5.3」、`design/v53-*` 手册都保持不变（部署脚本与 GitHub 默认分支依赖分支名）；新工作在计划、CLAUDE.md 小节与提交信息里一律称 V0.6。
 改页脚等用户可见的版本字样前先问。
+
+## V0.6 收尾与清债（2026-09-24）
+
+用户选定 V0.6 两条线：收尾清债（本节）+ 服务市场 P2。守卫 `tests/v06Cleanup.spec.ts`。
+- **RECO 到期自动转态**：`agent_registration_sweep()`（迁移 `20260924_agent_registration_sweep.sql`，已应用 prod；pg_cron
+  `agent-registration-sweep` 每天 13:20 UTC）——verified 且到期 ≤30 天 → `renewal_due`，到期日已过 → `expired`，各写一条
+  `agent_verification_events`（actor null、note `auto: …`）。函数内把 `request.jwt.claims` 设成 service_role 让
+  `guard_agent_profile_fields` 放行（否则触发器会把 status 还原——测试时自己的 setup 也会被还原，要同样设 claims）。
+  **renewal_due 仍是有效注册**：`lib/agentProfile.ts isRegistrationLive`（verified | renewal_due）统一用于徽章、Header 帽子标、
+  经纪专属页锁；`agent_directory` 视图收录 renewal_due 且到期日未过的行；工作台横幅对 renewal_due / expired 分别说明。
+- **删除 `/api/trust/verify`**（查不存在的 `rental_passports` 表）；`scripts/route-audit.mjs` 改为期望 404。
+- **报修直接通知对方**：`POST /api/maintenance/notify {ticket_id}`——RLS 读证明调用者是开单人 → service role 以
+  `maintenance_tickets.counterpart_notified_at`（新列）幂等认领 → 租客开的单给房东发邮件 + 推送 + 派单建议卡（`suggestDispatch`
+  从 execute 路由搬到 `lib/marketplace/server.ts` 共用），房东开的单给租客发邮件 + 推送；收件人只取自 household 成员；
+  每用户每小时 20 次；审计 `maintenance_ticket_notified`。租客报修弹窗与 `/h/[id]` 报修面板都在插入后调用
+  （`lib/household/notifyTicket.ts`），弹窗完成态写明「已通过邮件和推送通知房东」。
+- **生命周期 rail 一趟取数**：`lifecycle_facts_landlord()` / `lifecycle_facts_tenant()`（**SECURITY INVOKER**，调用者 RLS，
+  anon 无权；迁移 `20260924_lifecycle_facts_rpc.sql`）把房东四波、租客两波串行请求合成一个 RPC；`useLifecycle` 先调 RPC，
+  出错回退到原逐表加载。租客侧申请仍经无分数视图 `applicant_applications`。

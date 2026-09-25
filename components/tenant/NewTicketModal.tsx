@@ -8,6 +8,7 @@
 // tenancy (same table the /h/[id] hub and the landlord board read).
 // Without a confirmed tenancy there is nobody to send it to, so the modal
 // says so instead of pretending.
+import { notifyTicket } from '@/lib/household/notifyTicket'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -47,7 +48,7 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
   const [hh, setHh] = useState<Household | null | 'loading'>('loading')
   const [busy, setBusy] = useState<false | 'preparing' | 'uploading' | 'saving'>(false)
   const [err, setErr] = useState<string | null>(null)
-  const [done, setDone] = useState<{ ticketId: string; householdId: string; failedPhotos: number } | null>(null)
+  const [done, setDone] = useState<{ ticketId: string; householdId: string; failedPhotos: number; notified: boolean } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // The tenant's most recent active tenancy (household membership as tenant).
@@ -133,8 +134,10 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
         if (error) failed += paths.length
       }
     }
+    // Photos are attached first so the landlord's email links to a complete ticket.
+    const notified = await notifyTicket(ticketId)
     setBusy(false)
-    setDone({ ticketId, householdId: hh.id, failedPhotos: failed })
+    setDone({ ticketId, householdId: hh.id, failedPhotos: failed, notified })
     onCreated?.(ticketId, hh.id)
   }
 
@@ -151,8 +154,8 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
             <h3 className="mt-2 text-[24px] font-bold tracking-tight">{zh ? '已提交' : 'Submitted'}</h3>
             <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
               {zh
-                ? `工单已记录在你的在管租约上，房东在工作台就能看到。${photos.length ? `照片 ${photos.length - done.failedPhotos}/${photos.length} 张已附上。` : ''}`
-                : `The ticket is on your managed tenancy; the landlord sees it in their workspace. ${photos.length ? `${photos.length - done.failedPhotos}/${photos.length} photos attached.` : ''}`}
+                ? `工单已记录在你的在管租约上${done.notified ? '，并已通过邮件和推送通知房东' : '，房东在工作台就能看到'}。${photos.length ? `照片 ${photos.length - done.failedPhotos}/${photos.length} 张已附上。` : ''}`
+                : `The ticket is on your managed tenancy${done.notified ? ' and your landlord has been emailed' : '; the landlord sees it in their workspace'}. ${photos.length ? `${photos.length - done.failedPhotos}/${photos.length} photos attached.` : ''}`}
             </p>
             {done.failedPhotos > 0 && <p className="mt-2 text-[12.5px] text-amber-800">{zh ? `${done.failedPhotos} 张照片未能上传，可在租约页的报修标签里补传。` : `${done.failedPhotos} photo(s) failed to upload; you can add them from the tenancy page.`}</p>}
             <div className="mt-6 flex gap-2">

@@ -339,3 +339,30 @@ export async function peekByToken(admin: Admin, token: string): Promise<{ wo: Wo
   if (accepted) { const { data } = await admin.auth.admin.getUserById(wo.landlord_auth_id); landlordEmail = data?.user?.email ?? null }
   return { wo, ticket: { title: ctx.ticket.title, description: ctx.ticket.description, category: ctx.ticket.category, priority: ctx.ticket.priority }, address: { city: ctx.household.city, full: accepted ? [ctx.household.address, ctx.household.unit ? `#${ctx.household.unit}` : null, ctx.household.city].filter(Boolean).join(', ') : null }, landlordEmail }
 }
+
+/** Services marketplace step ③: after a ticket lands, suggest the dispatch to
+ *  the landlord as a card. Never auto-dispatches. Shared by the maintenance
+ *  executor and /api/maintenance/notify. */
+export async function suggestDispatch(admin: Admin, landlordAuthId: string, ticketId: string): Promise<void> {
+  try {
+    const ctx = await ticketContext(admin, ticketId)
+    if (!ctx) return
+    const trade = tradeForCategory(ctx.ticket.category)
+    const { data: provs } = await admin.from('service_providers').select('id, legal_name, trade_name, status, trades, service_cities').eq('status', 'verified').contains('trades', [trade]).limit(20)
+    const candidates: { provider_id: string; name: string }[] = []
+    for (const p of (provs ?? []) as { id: string; legal_name: string; trade_name: string | null; status: string; trades: string[]; service_cities: string[] }[]) {
+      const { data: creds } = await admin.from('provider_credentials').select('kind, expires_at, verified_at').eq('provider_id', p.id)
+      if (providerEligible(p, (creds ?? []) as { kind: string; expires_at: string | null; verified_at: string | null }[], trade, ctx.household.city).ok) candidates.push({ provider_id: p.id, name: p.trade_name || p.legal_name })
+      if (candidates.length >= 5) break
+    }
+    const tradeLabel = TRADES.find((t) => t.key === trade)
+    const unit = [ctx.household.address, ctx.household.unit ? `#${ctx.household.unit}` : null].filter(Boolean).join(' ')
+    await admin.from('agent_pending_actions').insert({
+      user_id: landlordAuthId, role: 'landlord', action_type: 'dispatch_work_order',
+      title: `派单：${ctx.ticket.title} · ${unit}`,
+      summary: `租客的报修「${ctx.ticket.title}」需要${tradeLabel?.zh ?? '维修'}。` + (candidates.length ? `精选网络里有 ${candidates.length} 家资质在有效期内的服务商可派：${candidates.map((c) => c.name).join('、')}。批准 = 向第一位发出派单邀请（可在工单页改派或派给自己的联系人）。` : '精选网络里暂时没有覆盖这个工种与区域的已核验服务商——请在工单页把它派给你自己的联系人（只需一个邮箱）。') + (ctx.ticket.priority === 'high' ? ' 紧急件：进入按 RTA s.26 可不提前通知。' : ' 非紧急：批准报价时我会给租客发 24 小时进入通知（RTA s.27）。'),
+      recipient_label: candidates[0]?.name ?? null, data_scope: ['工单内容', '地址（接单后）'], excluded_data: ['租约', '筛查报告', '租金记录'], risk_level: 'low', status: 'pending', requires_approval: true,
+      metadata: { ticket_id: ticketId, household_id: ctx.household.id, candidates, provider_id: candidates[0]?.provider_id ?? null, source: 'work_order' },
+    })
+  } catch (e) { console.warn('[marketplace] suggestDispatch failed:', (e as Error).message) }
+}

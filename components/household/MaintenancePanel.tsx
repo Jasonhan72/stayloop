@@ -5,6 +5,7 @@
 // review → done), the work order under each ticket, the landlord's 指派
 // button and the tenant's "确认已解决". Everything reads through RLS; every
 // transition is a server call.
+import { notifyTicket } from '@/lib/household/notifyTicket'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -77,9 +78,10 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
   async function createTicket() {
     if (!form.title.trim() || !user) return
     setBusy(true); setErr(null)
-    const { error } = await supabase.from('maintenance_tickets').insert({ household_id: householdId, opened_by: user.id, title: form.title.trim().slice(0, 200), description: form.description.trim().slice(0, 2000) || null, priority: form.priority, category: form.category, status: 'new' })
+    const id = crypto.randomUUID()
+    const { error } = await supabase.from('maintenance_tickets').insert({ id, household_id: householdId, opened_by: user.id, title: form.title.trim().slice(0, 200), description: form.description.trim().slice(0, 2000) || null, priority: form.priority, category: form.category, status: 'new' })
     if (error) setErr(error.message)
-    else { setForm({ title: '', description: '', priority: 'medium', category: 'other' }); setShowForm(false); await load() }
+    else { void notifyTicket(id); setForm({ title: '', description: '', priority: 'medium', category: 'other' }); setShowForm(false); await load() }
     setBusy(false)
   }
   async function setStatus(t: Ticket, status: string) {

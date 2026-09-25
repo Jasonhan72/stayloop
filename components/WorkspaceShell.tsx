@@ -1,5 +1,6 @@
 'use client'
 
+import { isRegistrationLive } from '@/lib/agentProfile'
 import { ReactNode, useEffect, useState } from 'react'
 import { fetchPendingCount } from '@/lib/agent/pendingCount'
 import Link from 'next/link'
@@ -253,8 +254,10 @@ function AgentVerificationBanner({ status, zh }: { status: ReturnType<typeof use
     ? (zh ? '你的 RECO 注册信息已提交，等待人工核验。核验通过后进入租客可选的经纪目录。' : 'Your RECO registration is submitted and awaiting manual verification. Once verified you appear in the tenant-facing agent directory.')
     : status === 'rejected'
       ? (zh ? '认证未通过。请检查提交的注册信息并重新提交。' : 'Verification was not approved. Check the submitted registration and resubmit.')
-      : status === 'renewal_due' || status === 'expired'
-        ? (zh ? '你的 RECO 注册已到期或即将到期，请更新到期日以重新核验。' : 'Your RECO registration has expired or is about to; update the expiry date to be re-verified.')
+      : status === 'renewal_due'
+        ? (zh ? '你的 RECO 注册将在 30 天内到期。续期后在认证页更新到期日，我们会重新核验；到期前你仍在经纪目录中。' : 'Your RECO registration expires within 30 days. After renewing, update the expiry date on the verification page to be re-checked; you stay in the directory until it lapses.')
+      : status === 'expired'
+        ? (zh ? '你的 RECO 注册已过期，已暂时移出经纪目录。续期后更新到期日即可重新核验。' : 'Your RECO registration has expired and you have been removed from the directory for now. Update the expiry date after renewing to be re-verified.')
         : (zh ? '经纪身份尚未认证：提交 RECO 注册信息，人工核验后获得「RECO 注册已核」标记并进入租客可选目录。Stayloop 不是经纪公司，不收取佣金或转介费。' : 'Not yet verified as an agent: submit your RECO registration; once checked by hand you get the “RECO verified” mark and appear in the tenant-facing directory. Stayloop is not a brokerage and takes no commission or referral fee.')
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
@@ -314,7 +317,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
                 {role === 'agent' && <AgentVerificationBanner status={agentStatus} zh={lang === 'zh'} />}
               </div>
             )}
-            {role === 'agent' && agentStatus !== 'loading' && agentStatus !== 'verified' && isAgentOnlyRoute(shellPath)
+            {role === 'agent' && agentStatus !== 'loading' && !isRegistrationLive(agentStatus) && isAgentOnlyRoute(shellPath)
               ? <AgentLockedState status={agentStatus} zh={lang === 'zh'} />
               : <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo} liveSlot={liveSlot}>{children}</DemoGate>}
           </div>

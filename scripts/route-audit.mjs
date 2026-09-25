@@ -53,7 +53,7 @@ await probe('lease/send anon → 401', `${BASE}/api/lease/send`, { method: 'POST
 await probe('lease/sign bad token → 4xx', `${BASE}/api/lease/sign`, { method: 'POST', ...J, body: '{"token":"nope"}' }, { status: [400, 401, 404] })
 await probe('file-url anon → 401', `${BASE}/api/file-url`, { method: 'POST', ...J, body: '{"path":"x"}' }, { status: [400, 401] })
 await probe('ltb-search anon → 401', `${BASE}/api/ltb-search`, { method: 'POST', ...J, body: '{"name":"x"}' }, { status: [400, 401] })
-await probe('trust/verify no key → 401', `${BASE}/api/trust/verify`, { method: 'POST', ...J, body: '{}' }, { status: [400, 401] })
+await probe('retired trust/verify → 404', `${BASE}/api/trust/verify`, { method: 'POST', ...J, body: '{}' }, { status: [404, 405] })
 await probe('admin/model-discover anon → 401', `${BASE}/api/admin/model-discover`, {}, { status: [401, 403] })
 await probe('admin/diag-pdftext anon → 401', `${BASE}/api/admin/diag-pdftext`, {}, { status: [401, 403] })
 await probe('models/catalog anon', `${BASE}/api/models/catalog`, {}, { status: [200, 401] })

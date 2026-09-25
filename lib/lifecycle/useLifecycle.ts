@@ -16,7 +16,7 @@ import {
 const LEASE_COLS = 'id, status, start_date, end_date, unit_label, tenant_name, monthly_rent'
 const HH_COLS = 'id, current_lease_id, verified, status, end_date, address, unit, monthly_rent, created_by'
 
-async function loadLandlord(uid: string): Promise<Lifecycle> {
+async function loadLandlordLegacy(uid: string): Promise<Lifecycle> {
   const { data: lls } = await supabase.from('landlords').select('id').or(`id.eq.${uid},auth_id.eq.${uid}`)
   const llIds = (lls ?? []).map((r: { id: string }) => r.id)
   const [{ data: listings }, { data: cards }, { data: leases }, { data: hhRaw }] = await Promise.all([
@@ -53,7 +53,7 @@ async function loadLandlord(uid: string): Promise<Lifecycle> {
   })
 }
 
-async function loadTenant(uid: string, email: string | null): Promise<Lifecycle> {
+async function loadTenantLegacy(uid: string, email: string | null): Promise<Lifecycle> {
   // Multi-hat accounts: the landlord policies would also return applications
   // and intents RECEIVED on their listings — read the applicant view (email
   // filtered) and intents by the caller's own tenants row (review 2026-09-23).
@@ -92,6 +92,50 @@ async function loadTenant(uid: string, email: string | null): Promise<Lifecycle>
     rent: (rent ?? []) as RentFact[],
     tickets: (tickets ?? []) as TicketFact[],
     passportShares: shareCount ?? 0,
+  })
+}
+
+// V0.6 (2026-09-24): one round trip. lifecycle_facts_{landlord,tenant} are
+// SECURITY INVOKER RPCs that run the same reads under the caller's RLS; the
+// per-table loaders below stay as the fallback (RPC missing / error).
+type Arr<T> = T[] | null | undefined
+const arr = <T,>(v: Arr<T>): T[] => (Array.isArray(v) ? v : [])
+
+async function loadLandlord(uid: string): Promise<Lifecycle> {
+  const { data, error } = await supabase.rpc('lifecycle_facts_landlord')
+  if (error || !data) return loadLandlordLegacy(uid)
+  const f = data as Record<string, unknown>
+  const cardRows = arr(f.cards as Arr<{ action_type: string; status: string; metadata: { lease_id?: string; stage?: string } | null }>)
+  return landlordLifecycle({
+    listings: arr(f.listings as Arr<{ id: string; verification_status: string | null; is_active: boolean | null }>),
+    showingsPending: cardRows.filter((c) => ['showing_request', 'listing_inquiry'].includes(c.action_type) && c.status === 'pending').length,
+    applications: arr(f.applications as Arr<{ id: string; listing_id: string | null; status: string | null; decision_notified_at: string | null }>),
+    screenings: arr(f.screenings as Arr<{ application_id: string | null; status: string | null }>),
+    leases: arr(f.leases as Arr<LeaseFact>),
+    households: arr(f.households as Arr<HouseholdFact>),
+    rent: arr(f.rent as Arr<RentFact>),
+    tickets: arr(f.tickets as Arr<TicketFact>),
+    renewalIntents: arr(f.intents as Arr<{ household_id: string; lease_id: string | null; intent: string }>),
+    renewalCards: cardRows.filter((c) => ['send_renewal_letter', 'renewal_checkpoint'].includes(c.action_type)).map((c) => ({ action_type: c.action_type, status: c.status, lease_id: c.metadata?.lease_id, stage: c.metadata?.stage })),
+  })
+}
+
+async function loadTenant(uid: string, email: string | null): Promise<Lifecycle> {
+  const { data, error } = await supabase.rpc('lifecycle_facts_tenant')
+  if (error || !data) return loadTenantLegacy(uid, email)
+  const f = data as Record<string, unknown>
+  const invites = arr(f.invites as Arr<{ household_id: string; address: string | null; unit: string | null; current_lease_id: string | null; end_date: string | null }>)
+  return tenantLifecycle({
+    showings: arr(f.showings as Arr<{ kind: string | null; status: string | null }>),
+    applications: arr(f.applications as Arr<{ id: string; status: string | null; decision_notified_at: string | null; viewed_at?: string | null; screened_at?: string | null }>),
+    renewalIntent: (f.intent as { intent: string; created_at: string } | null) ?? null,
+    leases: arr(f.leases as Arr<LeaseFact>),
+    households: arr(f.households as Arr<HouseholdFact>),
+    memberOf: arr(f.members as Arr<string>),
+    pendingInvites: invites.map((i) => ({ id: i.household_id, current_lease_id: i.current_lease_id, verified: false, status: 'pending', end_date: i.end_date, address: i.address, unit: i.unit })),
+    rent: arr(f.rent as Arr<RentFact>),
+    tickets: arr(f.tickets as Arr<TicketFact>),
+    passportShares: Number(f.shares) || 0,
   })
 }
 

@@ -49,6 +49,12 @@ export function statusLabel(s: AgentStatus, lang: 'zh' | 'en'): string {
   }
 }
 
+/** Registration still valid on RECO's register as last checked: verified, or
+ *  verified-but-expiring (renewal_due, set by the daily sweep 30 days out). */
+export function isRegistrationLive(s: AgentStatus | string | null | undefined): boolean {
+  return s === 'verified' || s === 'renewal_due'
+}
+
 export function isRecoNumber(s: string): boolean {
   return /^[0-9]{7}$/.test(s.trim())
 }

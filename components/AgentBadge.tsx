@@ -5,11 +5,11 @@
 // never "licensed and endorsed by Stayloop". RECO itself disclaims the
 // register's completeness, so the badge links to it and to RECO's
 // complaints desk (design/roles-and-agent-verification-2026-09.md §5).
-import { RECO_COMPLAINTS_URL, RECO_REGISTER_URL, categoryLabel, type AgentProfile } from '@/lib/agentProfile'
+import { RECO_COMPLAINTS_URL, RECO_REGISTER_URL, categoryLabel, isRegistrationLive, type AgentProfile } from '@/lib/agentProfile'
 
 export function AgentBadge({ agent, lang, compact = false }: { agent: Pick<AgentProfile, 'status' | 'reco_number' | 'brokerage_name' | 'verified_at' | 'category' | 'crea_member'>; lang: 'zh' | 'en'; compact?: boolean }) {
   const zh = lang === 'zh'
-  if (agent.status !== 'verified') {
+  if (!isRegistrationLive(agent.status)) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-[2px] text-[11px] font-bold text-amber-800">
         {zh ? '未认证' : 'Not verified'}
