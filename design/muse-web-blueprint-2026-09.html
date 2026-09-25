@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stayloop 网页端助手页蓝本 · Muse 对照（2026-09-24）</title>
+<style>
+  :root{
+    --brand:#00ACE4; --brand-strong:#0094C6; --ink:#1B1B3C; --body2:#4A4A6A; --body3:#6E6E8A;
+    --surface:#F3F8FC; --chip:#EEF5FA; --line:#D3E3EF; --line-soft:#E4EEF6; --navy:#0f1b33; --navy2:#1B1B3C;
+    --tenant:#7C3AED; --ok:#34D399; --warn:#F59E0B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#E9EEF4;color:var(--ink);font-family:"Inter Tight",Inter,-apple-system,"PingFang SC","Noto Sans SC",sans-serif;font-size:14px}
+  .wrap{max-width:1520px;margin:0 auto;padding:28px 24px 60px}
+  h1{font-size:22px;margin:0 0 6px}
+  .lead{color:var(--body2);font-size:13.5px;line-height:1.7;max-width:980px;margin:0 0 18px}
+  .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--body3);font-weight:700}
+  .frame-title{display:flex;align-items:baseline;gap:12px;margin:26px 0 10px}
+  .frame-title h2{font-size:15px;margin:0}
+  .frame-title span{color:var(--body3);font-size:12px}
+  /* ---------- the 1440px frame ---------- */
+  .frame{width:1440px;max-width:100%;height:860px;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;box-shadow:0 10px 30px rgba(27,27,60,.08)}
+  .frame.small{transform-origin:top left}
+  /* rail */
+  .rail{width:64px;flex:none;background:var(--navy);display:flex;flex-direction:column;align-items:center;padding:12px 0 10px;gap:4px}
+  .rail .who{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#C4B5FD,#00ACE4);margin-bottom:2px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px}
+  .rail .role{font-size:9.5px;color:#9fb3cf;letter-spacing:.06em;margin-bottom:10px}
+  .rail a{position:relative;width:44px;height:44px;border-radius:10px;display:grid;place-items:center;color:#c7d2e3;text-decoration:none}
+  .rail a.on{background:rgba(255,255,255,.12);color:#fff}
+  .rail a .dot{position:absolute;top:8px;right:8px;min-width:16px;height:16px;border-radius:8px;background:#EF4444;color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;padding:0 4px}
+  .rail a .tip{position:absolute;left:52px;top:50%;transform:translateY(-50%);background:var(--navy2);color:#fff;font-size:12px;font-weight:600;padding:5px 9px;border-radius:7px;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.25)}
+  .rail a .tip:before{content:"";position:absolute;left:-5px;top:50%;transform:translateY(-50%);border:5px solid transparent;border-right-color:var(--navy2);border-left:0}
+  .rail .sep{width:28px;height:1px;background:rgba(255,255,255,.14);margin:6px 0}
+  .rail .grow{flex:1}
+  .rail svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  /* conversation */
+  .conv{flex:1;min-width:0;display:flex;flex-direction:column;background:#fff;position:relative}
+  .conv .top{height:52px;flex:none;display:flex;align-items:center;justify-content:flex-end;padding:0 20px;gap:10px}
+  .conv .top .reopen{display:none;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:4px 10px 4px 4px;font-size:12.5px;font-weight:700;color:var(--body2);background:#fff}
+  .conv .top .reopen .orb{width:24px;height:24px;border-radius:50%}
+  .thread{flex:1;overflow:hidden;padding:0 40px}
+  .col{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px;padding-top:4px}
+  .orb{background:radial-gradient(circle at 35% 30%,#E9D5FF 0,#8B5CF6 45%,#312E81 100%)}
+  .msg{max-width:88%;padding:12px 16px;border-radius:18px;line-height:1.6;font-size:14px}
+  .msg.ai{background:var(--chip);color:var(--ink);border-top-left-radius:6px;align-self:flex-start}
+  .msg.me{background:var(--brand);color:#fff;border-top-right-radius:6px;align-self:flex-end}
+  .msg .stamp{display:block;margin-top:6px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--body3)}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:88%}
+  .card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+  .card .ph{height:72px;background:linear-gradient(135deg,#dbeafe,#e9f5fd)}
+  .card .b{padding:8px 10px;font-size:12px;line-height:1.45}
+  .card .b b{display:block;font-size:13px}
+  .card .b .p{color:var(--brand-strong);font-weight:800}
+  .approval{max-width:88%;border:1.5px solid var(--brand);border-radius:16px;padding:14px 16px;background:#fff;align-self:flex-start}
+  .approval .ey{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;color:var(--brand-strong);font-weight:700}
+  .approval h4{margin:6px 0 4px;font-size:14.5px}
+  .approval p{margin:0;color:var(--body2);font-size:13px;line-height:1.55}
+  .approval .btns{display:flex;gap:8px;margin-top:12px}
+  .btn{border-radius:10px;padding:8px 14px;font-size:12.5px;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--body2)}
+  .btn.primary{background:var(--navy2);color:#fff;border-color:var(--navy2)}
+  .approval .note{margin-top:8px;font-size:11px;color:var(--body3)}
+  .composer{flex:none;padding:10px 40px 18px}
+  .composer .bar{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:28px;padding:8px 10px 8px 12px;box-shadow:0 8px 24px rgba(27,27,60,.06);background:#fff}
+  .composer .plus,.composer .mic{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--body3);font-size:18px}
+  .composer .in{flex:1;color:var(--body3);font-size:14px}
+  .composer .send{width:36px;height:36px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800}
+  .composer .under{max-width:760px;margin:6px auto 0;display:flex;justify-content:space-between;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--body3)}
+  /* assistant panel */
+  .panel{width:360px;flex:none;border-left:1px solid var(--line);background:#fff;display:flex;flex-direction:column}
+  .panel .head{position:relative;padding:26px 20px 14px;text-align:center;border-bottom:1px solid var(--line-soft)}
+  .panel .x{position:absolute;right:12px;top:10px;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--body3);font-size:20px}
+  .panel .avatar{position:relative;width:72px;height:72px;border-radius:50%;margin:0 auto;box-shadow:0 8px 24px rgba(27,27,60,.18)}
+  .panel .avatar .pen{position:absolute;right:-2px;bottom:-2px;width:24px;height:24px;border-radius:50%;background:#fff;border:1px solid var(--line);display:grid;place-items:center;font-size:12px}
+  .panel .name{margin-top:10px;font-size:18px;font-weight:800;letter-spacing:-.01em}
+  .panel .status{margin-top:4px;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--body3);display:flex;justify-content:center;align-items:center;gap:6px}
+  .panel .status i{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block}
+  .seg{margin:14px 20px 0;display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--chip);border-radius:10px;padding:3px}
+  .seg span{text-align:center;font-size:12.5px;font-weight:700;color:var(--body3);padding:6px 0;border-radius:8px}
+  .seg span.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(27,27,60,.1)}
+  .seg span em{font-style:normal;background:var(--warn);color:#fff;border-radius:8px;padding:0 5px;font-size:10px;margin-left:4px}
+  .log{padding:14px 20px 18px;overflow:hidden;flex:1}
+  .log .day{font-size:12px;font-weight:800;color:var(--ink);margin:6px 0 8px}
+  .row{display:flex;gap:10px;padding:8px 0}
+  .row .ic{width:30px;height:30px;border-radius:50%;background:var(--chip);flex:none;display:grid;place-items:center;font-size:13px}
+  .row b{display:block;font-size:13px}
+  .row .d{font-size:12px;color:var(--body2);line-height:1.45}
+  .row .t{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--body3);margin-top:2px}
+  .log .more{margin-top:8px;font-size:12px;font-weight:700;color:var(--brand-strong)}
+  /* spec table */
+  table{border-collapse:collapse;width:100%;max-width:1100px;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--line-soft);text-align:left;vertical-align:top;line-height:1.5}
+  th{background:var(--chip);font-size:12px;color:var(--body2)}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--chip);padding:1px 5px;border-radius:5px}
+  @media (max-width:1500px){ .frame{width:100%;height:auto;min-height:720px} .thread{padding:0 24px} .composer{padding:10px 24px 16px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Design · Console · Muse web reference · 2026-09-24</div>
+  <h1>网页端助手页蓝本：图标窄栏 · 对话即页面 · 助手面板</h1>
+  <p class="lead">按 Muse 网页版的三栏结构重摆 Stayloop 的 <code>/tenant/agent</code>、<code>/landlord/agent</code>、<code>/agent/agent</code>（md 以上）。配色沿用现行 Flinks 蓝白系，不学 Muse 的深色；侧栏与窄栏仍是墨蓝。手机端（09-24 定稿）不动。三个角色只差名字、颜色与窄栏里的角色页；下面以租客 · Luna 为例。</p>
+
+  <div class="frame-title"><h2>帧 1 · 1440×860 · 助手面板打开（默认）</h2><span>窄栏 64 · 对话自适应（消息列限宽 760）· 面板 360</span></div>
+  <div class="frame">
+    <nav class="rail">
+      <div class="who">T</div>
+      <div class="role">租客</div>
+      <a class="on" title="助手"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="tip">助手 · Luna</span></a>
+      <a title="待办"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="dot">4</span></a>
+      <a title="想法"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg></a>
+      <a title="进度"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></a>
+      <div class="sep"></div>
+      <a title="消息"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M22 6l-10 7L2 6"/></svg></a>
+      <a title="申请"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg></a>
+      <a title="Passport"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 16h.01"/></svg></a>
+      <a title="租约"><svg viewBox="0 0 24 24"><path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6l2 2h6a2 2 0 0 1 2 2v3"/><path d="M14 14l3 3 6-6"/></svg></a>
+      <a title="维修"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0 5 5l-9.4 9.4a2.1 2.1 0 0 1-3-3l9.4-9.4z"/></svg></a>
+      <a title="付款"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></a>
+      <a title="审计"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></a>
+      <div class="grow"></div>
+      <a title="设置"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a>
+    </nav>
+
+    <section class="conv">
+      <div class="top"></div>
+      <div class="thread">
+        <div class="col">
+          <div class="msg me">帮我在多大附近找 5 套两居室，预算 3,000 以内。</div>
+          <div class="msg ai">找到 7 套，先给你 6 套；Stayloop 库里 2 套、Realtor.ca 5 套。同区两居挂牌中位 $2,950（TRREB 2026 Q2）。<span class="stamp">14:02 · 来源：Stayloop 库 + Realtor.ca 实时抓取</span></div>
+          <div class="cards">
+            <div class="card"><div class="ph"></div><div class="b"><b>1203 - 88 Harbour St</b><span class="p">$2,850/月</span> · 2 房 1 卫 · 720 sqft</div></div>
+            <div class="card"><div class="ph"></div><div class="b"><b>1105 - 203 College St</b><span class="p">$2,950/月</span> · 2 房 2 卫 · 810 sqft</div></div>
+            <div class="card"><div class="ph"></div><div class="b"><b>710 - 25 Huron St</b><span class="p">$2,700/月</span> · 2 房 1 卫 · 690 sqft</div></div>
+          </div>
+          <div class="msg me">第一套约个周六下午的看房。</div>
+          <div class="approval">
+            <div class="ey">PENDING APPROVAL · 等你确认 · 低风险</div>
+            <h4>看房请求：1203 - 88 Harbour St · 周六下午</h4>
+            <p>我会向房东发出看房请求并附上你的联系邮箱；对方接受后你会收到邮件。不会分享：筛查报告、收入证明。</p>
+            <div class="btns"><span class="btn">预览正文</span><span class="btn primary">✓ 确认 · 替我执行</span><span class="btn">拒绝</span></div>
+            <div class="note">批准与拒绝都会写入审计 · 批准后 60 秒内可撤销</div>
+          </div>
+        </div>
+      </div>
+      <div class="composer">
+        <div class="bar"><span class="plus">＋</span><span class="in">写点什么…</span><span class="mic">🎙</span><span class="send">↑</span></div>
+        <div class="under"><span>Enter 发送 · Shift+Enter 换行</span><span>模型 · Sonnet 4.6 ▾</span></div>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="head">
+        <div class="x">×</div>
+        <div class="avatar orb"><div class="pen">✎</div></div>
+        <div class="name">Luna</div>
+        <div class="status"><i></i> 空闲 · 当前阶段 租前 · 记得 60 条</div>
+      </div>
+      <div class="seg"><span class="on">活动</span><span>待办<em>4</em></span><span>记忆</span></div>
+      <div class="log">
+        <div class="day">今天</div>
+        <div class="row"><div class="ic">🔎</div><div><b>找了 7 套两居室</b><div class="d">多大附近 · $3,000 以内 · Stayloop 库 + Realtor.ca</div><div class="t">14:02</div></div></div>
+        <div class="row"><div class="ic">✓</div><div><b>提议看房请求</b><div class="d">1203 - 88 Harbour St · 等你确认</div><div class="t">14:03</div></div></div>
+        <div class="row"><div class="ic">🧠</div><div><b>记住了 2 条</b><div class="d">预算 $3,000 · 区域 多大附近</div><div class="t">14:02</div></div></div>
+        <div class="day">昨天</div>
+        <div class="row"><div class="ic">✉</div><div><b>向房东提问已发出</b><div class="d">1105 - 203 College St · 「包水电吗？」</div><div class="t">昨天 22:20</div></div></div>
+        <div class="row"><div class="ic">📄</div><div><b>申请已提交</b><div class="d">[TEST] 100 Test Ave #1 · 5 份材料</div><div class="t">昨天 21:05</div></div></div>
+        <div class="more">完整审计 →</div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="frame-title"><h2>帧 2 · 面板关闭后</h2><span>对话铺满；右上角一枚小头像可重新打开；状态记在本机</span></div>
+  <div class="frame" style="height:420px">
+    <nav class="rail" style="justify-content:flex-start">
+      <div class="who">T</div><div class="role">租客</div>
+      <a class="on"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></a>
+      <a><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="dot">4</span></a>
+      <a><svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg></a>
+      <a><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></a>
+    </nav>
+    <section class="conv">
+      <div class="top"><span class="reopen" style="display:inline-flex"><span class="orb"></span>Luna · 等你点头 4 件</span></div>
+      <div class="thread"><div class="col">
+        <div class="msg ai" style="max-width:70%">面板关闭时对话独占页面；消息列仍限宽 760px 居中，不会拉成一行 1300px 的长句。</div>
+      </div></div>
+      <div class="composer"><div class="bar"><span class="plus">＋</span><span class="in">写点什么…</span><span class="mic">🎙</span><span class="send">↑</span></div></div>
+    </section>
+  </div>
+
+  <div class="frame-title"><h2>规格</h2><span>与 Muse 逐项对应 · 复用现有组件</span></div>
+  <table>
+    <tr><th style="width:190px">区块</th><th style="width:330px">Muse 网页版</th><th>Stayloop 蓝本（复用什么）</th></tr>
+    <tr><td>左侧导航</td><td>64px 图标窄栏，无文字，当前项高亮</td><td>64px 墨蓝窄栏；图标沿用 <code>Rail</code>；悬停出名字；<b>新增 待办（红点=待批数）· 想法 · 进度</b>，与手机底栏一致；下面是角色页；底部设置。md+ 全部工作台页统一</td></tr>
+    <tr><td>对话</td><td>页面本身，无卡片；消息列约 620px；助手消息无头像</td><td>去掉外层卡片；消息列限宽 760px；助手消息不带小圆球（身份在右面板）；对话顶部不放任何面板（09-24 已定）</td></tr>
+    <tr><td>输入条</td><td>宽胶囊 + · Message · 🎙，居中 800px</td><td>胶囊 28px 圆角，限宽 760 居中：＋（附件 / 快捷）· 输入 · 🎙 · ↑；模型选择器收成输入条下一行小字</td></tr>
+    <tr><td>审批 / 产物</td><td>在对话里（Allow / Deny）</td><td>审批卡在线程末尾（手机端已如此），决定后折叠一行；房源卡 / 行情卡 / 草稿卡照旧在流内；右栏不再放 <code>PendingActionsPanel</code></td></tr>
+    <tr><td>右面板</td><td>380px：大头像 + 铅笔 · 名字 · Connected · 4 图标分段 · 活动日志按天分组 · 可关闭</td><td>360px「助手面板」：72px 头像（点铅笔 → 改名）· 名字 · 状态行（现有 <code>statusLine</code>）· 分段 <b>活动 · 待办 · 记忆</b>；活动 = <code>ActivitySheet</code> 数据按 今天/昨天/更早 分组加图标；待办 = 待批一行摘要 + 去待办页；记忆 = <code>PrivateMemorySnapshot</code>；× 关闭并记住（<code>localStorage</code>）</td></tr>
+    <tr><td>现在右栏的六张卡</td><td>—</td><td>状态总览 + 当前进度 → <code>/x/progress</code>；推荐 → <code>/x/ideas</code>；记忆 → 面板；相关页面 → 窄栏；待批 → 对话流</td></tr>
+    <tr><td>不抄</td><td>深色主题、Chats 多对话、Invite、3D 头像、消息表情/回复</td><td>保持蓝白；每角色一条线程；复制按钮可以有</td></tr>
+  </table>
+</div>
+</body>
+</html>
