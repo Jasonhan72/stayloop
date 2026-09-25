@@ -95,7 +95,7 @@ describe('second round (user 2026-09-25: Airbnb header, neighbourhood block, map
     const r = read('app/api/listings/enrich/route.ts')
     expect(r).toContain("from('neighborhood_profiles')")
     expect(r).toContain('Do NOT include numbers, years, prices')
-    expect(r).toContain("if (!zh || !en || /\\d/.test(zh) || /\\d/.test(en)) return null")
+    expect(r).toContain("if (!zh || !en || hardNumber.test(zh) || hardNumber.test(en)) {") // money / % / years / big figures reject the primer; "Line 1" is fine
     expect(read('supabase/migrations/20260925_neighborhood_profiles.sql')).toContain('revoke all on public.neighborhood_profiles from anon, authenticated, public')
   })
   it('location and transit share one section with the listing map; similar homes are full cards with a heart, ranked by area → beds → rent', () => {
