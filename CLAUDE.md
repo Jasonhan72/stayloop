@@ -1958,7 +1958,8 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
 
 研究稿 `design/muse-web-benchmark-2026-09.md`，蓝本 `design/muse-web-blueprint-2026-09.html`（来源：用户提供的 muse.ai 登录后桌面截图）。
 守卫 `tests/museWeb20260925.spec.ts`（含「三页版式块归一化后逐字节相同」的断言）。落地：
-- **图标窄栏（md+ 全部工作台页）**：`WorkspaceShell.Rail` 改为 64px 墨蓝图标列，无文字，悬停出名字（`group-hover:block`）；顶部角色头像 →
+- **图标窄栏（md+ 全部工作台页）**：`WorkspaceShell.Rail` 改为 64px 图标列（**2026-09-25 晚用户要求改浅色**：底 #F3F8FC + 右侧细线，当前页白色
+  圆角块 + 墨蓝图标，其余图标 #6E6E8A，只有「+」是墨蓝实心；手机底栏同步改白底 + 顶部细线，当前项 #EEF5FA），无文字，悬停出名字（`group-hover:block`）；顶部角色头像 →
   `/settings`；先列助手四页 **助手 · 待办（红点 = 待批数）· 想法 · 进度**（与手机底栏同一组，桌面端此前没有入口），分隔线，再列角色页，
   底部设置。**09-05「带文字标签的 Flinks 式 220px 侧栏」在桌面端退役**（用户 09-25 拍板）。`ProgressIcon`（时钟）取代进度页的房子图标。
 - **对话即页面**：三个 `/x/agent` 在 md+ 不再有内容边距（`phoneApp → md:p-0`），页面是一行 `[对话 flex-1] + [助手面板 360px]`，高

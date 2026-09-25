@@ -18,6 +18,11 @@ describe('icon rail (WorkspaceShell, md+)', () => {
     expect(shell).toContain('hidden md:flex md:w-16 md:flex-none md:flex-col md:items-center')
     expect(shell).not.toContain('md:w-[220px]')
     expect(shell).toContain('group-hover:block')
+    // Light, like the rest of the screen (user 2026-09-25): surface rail with a hairline, white pill for the active page, navy only on "+"
+    expect(shell).toContain("md:border-r md:border-line-divider md:px-2 md:py-3\"\n      style={{ background: '#F3F8FC' }}")
+    expect(shell).toContain("style={on ? { background: '#FFFFFF', color: '#1B1B3C', boxShadow: '0 1px 2px rgba(27,27,60,0.10)' } : { color: '#6E6E8A' }}")
+    expect(shell).toContain("border-t border-line-divider px-1 pb-[env(safe-area-inset-bottom)] md:hidden\" style={{ background: '#FFFFFF' }}")
+    expect(shell).not.toContain("'#c7d2e3'")
   })
   it('carries the four assistant pages (the phone tabs) plus the role pages and settings', () => {
     for (const k of ['`/${role}/agent`', '`/${role}/todo`', '`/${role}/ideas`', '`/${role}/progress`']) expect(shell).toContain(k)

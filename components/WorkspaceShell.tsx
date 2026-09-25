@@ -379,7 +379,8 @@ function Rail({ role }: { role: WorkspaceRole }) {
     return () => { cancelled = true; window.removeEventListener(PENDING_CHANGED_EVENT, load) }
   }, [auth.loading, auth.user, role, path])
   // md+ (Muse web reference, design/muse-web-blueprint-2026-09.html, user
-  // 2026-09-25 "按蓝本改"): a 64px icon column — no text labels, the name
+  // 2026-09-25 "按蓝本改"): a 64px icon column — light, like the rest of the
+  // screen (user 2026-09-25 "把这个条的颜色改为浅色") — no text labels, the name
   // appears on hover; the assistant's four pages first (the same four as the
   // phone tabs, which had no desktop entry before), then the role's pages,
   // the current hat and settings at the bottom. The labelled 220px sidebar
@@ -400,8 +401,8 @@ function Rail({ role }: { role: WorkspaceRole }) {
         href={it.href}
         aria-label={en ? it.label.en : it.label.zh}
         aria-current={on ? 'page' : undefined}
-        className="group relative flex h-11 w-11 flex-none items-center justify-center rounded-[10px] transition"
-        style={on ? { background: 'rgba(255,255,255,0.12)', color: '#ffffff' } : { color: '#c7d2e3' }}
+        className="group relative flex h-11 w-11 flex-none items-center justify-center rounded-[10px] transition hover:bg-white"
+        style={on ? { background: '#FFFFFF', color: '#1B1B3C', boxShadow: '0 1px 2px rgba(27,27,60,0.10)' } : { color: '#6E6E8A' }}
       >
         {it.icon}
         {badge > 0 && (
@@ -415,8 +416,8 @@ function Rail({ role }: { role: WorkspaceRole }) {
     <>
     <PhoneTabs role={role} items={items} />
     <nav
-      className="hidden md:flex md:w-16 md:flex-none md:flex-col md:items-center md:gap-1 md:px-2 md:py-3"
-      style={{ background: '#1B1B3C' }}
+      className="hidden md:flex md:w-16 md:flex-none md:flex-col md:items-center md:gap-1 md:border-r md:border-line-divider md:px-2 md:py-3"
+      style={{ background: '#F3F8FC' }}
       aria-label={en ? 'Workspace' : '工作台'}
     >
       {/* "+" = new conversation (user 2026-09-25, as on claude.ai): on the
@@ -427,15 +428,15 @@ function Rail({ role }: { role: WorkspaceRole }) {
         href={`/${role}/agent?new=1`}
         onClick={(e) => { if (path === `/${role}/agent`) { e.preventDefault(); window.dispatchEvent(new Event('sl-new-thread')) } }}
         aria-label={en ? 'New conversation' : '新会话'}
-        className="group relative flex h-10 w-10 flex-none items-center justify-center rounded-xl text-white transition hover:bg-white/20"
-        style={{ background: 'rgba(255,255,255,0.12)' }}
+        className="group relative flex h-10 w-10 flex-none items-center justify-center rounded-xl text-white transition hover:opacity-90"
+        style={{ background: '#1B1B3C' }}
       >
         <PlusIcon />
         <span className="pointer-events-none absolute left-[52px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-[7px] px-2.5 py-1.5 text-[12px] font-semibold text-white shadow-lg group-hover:block" style={{ background: '#1B1B3C' }}>{en ? 'New conversation' : '新会话'}</span>
       </Link>
       <div className="h-2 flex-none" />
       {assistant.map((it) => link(it, it.key === 'todo' ? pendingCount : 0))}
-      <div className="my-1.5 h-px w-7 flex-none" style={{ background: 'rgba(255,255,255,0.14)' }} />
+      <div className="my-1.5 h-px w-7 flex-none" style={{ background: '#D3E3EF' }} />
       {pages.map((it) => link(it))}
       <div className="mt-auto" />
       <RoleBadge role={role} />
@@ -483,7 +484,7 @@ function RoleBadge({ role }: { role: WorkspaceRole }) {
         aria-label={title}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="group relative flex h-9 w-9 items-center justify-center rounded-full text-[16px] ring-2 ring-white/20 transition hover:ring-white/50"
+        className="group relative flex h-9 w-9 items-center justify-center rounded-full text-[16px] shadow-sm ring-2 ring-white transition hover:ring-line-strong"
         style={{ background: ROLE_THEME[role].avatarGradient }}
       >
         <span aria-hidden>{ROLE_LABEL[role].icon}</span>
@@ -555,11 +556,11 @@ function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailItem[] }) 
   const moreOn = more || (!tabs.some((t) => path === t.href || path.startsWith(t.href + '/')) && path !== `/${role}/agent`)
   return (
     <>
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-between px-1 pb-[env(safe-area-inset-bottom)] md:hidden" style={{ background: '#1B1B3C' }} aria-label={zh ? '工作台' : 'Workspace'}>
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-between border-t border-line-divider px-1 pb-[env(safe-area-inset-bottom)] md:hidden" style={{ background: '#FFFFFF' }} aria-label={zh ? '工作台' : 'Workspace'}>
         {tabs.map((t) => {
           const on = path === t.href || path.startsWith(t.href + '/')
           return (
-            <Link key={t.key} href={t.href} className={cell} style={{ color: on ? '#ffffff' : '#c7d2e3', background: on ? 'rgba(255,255,255,0.10)' : undefined }}>
+            <Link key={t.key} href={t.href} className={cell} style={{ color: on ? '#1B1B3C' : '#6E6E8A', background: on ? '#EEF5FA' : undefined }}>
               <span className="relative">
                 {t.icon}
                 {!!t.badge && <span className="absolute -right-2.5 -top-1.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-bold leading-4 text-white">{t.badge > 9 ? '9+' : t.badge}</span>}
@@ -568,7 +569,7 @@ function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailItem[] }) 
             </Link>
           )
         })}
-        <button type="button" onClick={() => setMore((v) => !v)} className={cell} style={{ color: moreOn ? '#ffffff' : '#c7d2e3', background: moreOn ? 'rgba(255,255,255,0.10)' : undefined }} aria-expanded={more}>
+        <button type="button" onClick={() => setMore((v) => !v)} className={cell} style={{ color: moreOn ? '#1B1B3C' : '#6E6E8A', background: moreOn ? '#EEF5FA' : undefined }} aria-expanded={more}>
           <MoreIcon />
           <span className="text-[11px] font-medium leading-none">{zh ? '更多' : 'More'}</span>
         </button>
