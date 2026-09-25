@@ -284,7 +284,7 @@ export default function AgentInputBar({
       />
 
       <div className={pill ? 'order-1 contents' : 'order-1 contents md:order-2 md:flex md:w-full md:items-center md:justify-between md:gap-2 md:px-2.5 md:pb-2.5 md:pt-1'}>
-        <div className="order-1 flex items-center gap-1 md:order-none">
+        <div className={pill ? 'order-1 flex items-center gap-1' : 'order-1 flex items-center gap-1 md:order-none'}>
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
@@ -302,7 +302,7 @@ export default function AgentInputBar({
           )}
         </div>
 
-        <div className="order-3 flex items-center gap-1.5 md:order-none">
+        <div className={pill ? 'order-3 flex items-center gap-1.5' : 'order-3 flex items-center gap-1.5 md:order-none'}>
           {models && (
             <label className={`relative cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[12.5px] text-body-2 transition hover:bg-surface-chip ${pill ? 'hidden' : 'hidden md:flex'}`} title={lang === 'zh' ? '本对话使用的 AI 模型（与设置 → AI 模型同步）' : 'Model for your conversations (synced with Settings → AI models)'}>
               <span className="max-w-[140px] truncate font-medium">

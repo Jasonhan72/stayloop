@@ -19,6 +19,9 @@ export function useActivityLog(live: boolean, limit = 30): ActivityRow[] | null 
       .from('agent_audit_events')
       .select('id, action, actor_type, created_at, metadata')
       .order('created_at', { ascending: false })
+      // Session bookkeeping is not something the assistant "did" for the user —
+      // it drowned the log in "session started" rows (walk-through 2026-09-25).
+      .not('action', 'ilike', '%session%')
       .limit(limit)
       .then(({ data }) => { if (!cancelled) setRows((data ?? []) as ActivityRow[]) })
     return () => { cancelled = true }

@@ -63,6 +63,12 @@ describe('assistant panel', () => {
     expect(hook).toContain("localStorage.getItem(KEY) === 'closed'")
     expect(hook).toContain("const KEY = 'sl-assistant-panel'")
   })
+  it('the log skips session bookkeeping, labels every production action, and /agent/audit exists for the link', async () => {
+    expect(read('lib/agent/useActivityLog.ts')).toContain(".not('action', 'ilike', '%session%')")
+    const { auditActionLabel } = await import('@/lib/agent/ideas')
+    for (const a of ['tenant_agent_turn', 'pending_action_approved', 'work_order_auto_dispatched', 'application_file_viewed', 'lease_signed_tenant', 'executed_send_decision']) expect(auditActionLabel(a, 'zh'), a).toMatch(/[一-龥]/)
+    expect(read('app/agent/audit/page.tsx')).toContain('<AuditLog role="agent" />')
+  })
   it('the phone sheet and the web panel read the same log', () => {
     const sheet = read('components/mobile/ActivitySheet.tsx')
     expect(sheet).toContain('useActivityLog(live, 20)')
@@ -114,5 +120,6 @@ describe('pure helpers', () => {
     expect(activityIcon('memory_forgotten')).toBe('🧠')
     expect(activityIcon('approval_undone')).toBe('↩')
     expect(activityIcon('turn')).toBe('💬')
+    expect(activityIcon('tenant_agent_turn')).toBe('💬')
   })
 })

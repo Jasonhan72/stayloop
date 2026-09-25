@@ -143,6 +143,10 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     zh: '还没有审计记录。助手替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your assistant does for you is logged here.',
     ctaZh: '打开 Logic →', ctaEn: 'Open Logic →', href: '/landlord/agent',
   },
+  '/agent/audit': {
+    zh: '还没有审计记录。助手替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your assistant does for you is logged here.',
+    ctaZh: '打开 Brief →', ctaEn: 'Open Brief →', href: '/agent/agent',
+  },
   '/agent/showings/*': {
     zh: '还没有带看任务。让 Brief 帮你接第一场。', en: 'No showings yet. Let Brief book your first.',
     ctaZh: '打开 Brief →', ctaEn: 'Open Brief →', href: '/agent/agent',

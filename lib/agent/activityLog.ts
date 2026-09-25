@@ -37,6 +37,6 @@ export function activityIcon(action: string): string {
   if (/listing|search/.test(action)) return '🔎'
   if (/message|notified|sent|email/.test(action)) return '✉'
   if (/file|document|screen/.test(action)) return '📄'
-  if (action === 'turn') return '💬'
+  if (/(^|_)turn$/.test(action)) return '💬'
   return '·'
 }

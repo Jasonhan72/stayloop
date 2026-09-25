@@ -209,8 +209,32 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     memory_forgotten: { zh: '按你的要求忘掉了一条记忆', en: 'Forgot a memory at your request' },
     memory_edited: { zh: '按你的要求改了一条记忆', en: 'Edited a memory at your request' },
     reflection: { zh: '更新了对你的了解', en: 'Updated what it knows about you' },
+    // Actions seen in production on 2026-09-25 that used to fall through as
+    // "pending action approved" / "work order dispatched" in the log.
+    pending_action_approved: { zh: '你批准了一张待批卡', en: 'You approved a card' },
+    pending_action_rejected: { zh: '你拒绝了一张待批卡', en: 'You rejected a card' },
+    approval_undone: { zh: '你在 60 秒内撤销了一次批准', en: 'You undid an approval within 60 s' },
+    executed_maintenance_request: { zh: `报修工单已建立并通知房东${to ? ` · ${to}` : ''}`, en: `Repair ticket filed and the landlord notified${to ? ` · ${to}` : ''}` },
+    executed_send_decision: { zh: `发出录取 / 婉拒通知${to ? ` · ${to}` : ''}`, en: `Decision notice sent${to ? ` · ${to}` : ''}` },
+    executed_send_lease: { zh: `发出租约签署邀请${to ? ` · ${to}` : ''}`, en: `Lease sent for signature${to ? ` · ${to}` : ''}` },
+    executed_dispatch_work_order: { zh: '按你的批准派出了维修工单', en: 'Work order dispatched as approved' },
+    executed_approve_quote: { zh: '按你的批准通过了报价并发出进入通知', en: 'Quote approved and the entry notice sent' },
+    executed_accept_completion: { zh: '按你的批准验收了完工', en: 'Completion accepted as approved' },
+    executed_relist_prompt: { zh: '重新挂牌提醒已知悉', en: 'Re-list prompt acknowledged' },
+    work_order_dispatched: { zh: '你派出了一张维修工单', en: 'You dispatched a work order' },
+    work_order_auto_dispatched: { zh: '按你的派单策略自动派出了维修工单', en: 'Work order auto-dispatched under your policy' },
+    work_order_quote_auto_approved: { zh: '按你的预授权批准了紧急报价', en: 'Emergency quote approved under your pre-authorisation' },
+    application_file_viewed: { zh: '你查看了一份申请材料', en: 'You viewed an application document' },
+    screening_created_from_application: { zh: '你从申请一键发起了筛查', en: 'You started a screening from an application' },
+    lease_sent_for_signature: { zh: '你发出了租约签署邀请', en: 'You sent a lease for signature' },
+    lease_signed_tenant: { zh: '租客签署了租约', en: 'The tenant signed the lease' },
+    lease_signed_landlord: { zh: '房东签署了租约', en: 'The landlord signed the lease' },
+    household_created_from_esign: { zh: '双签完成，在管租约已自动建立', en: 'Both signed — the managed tenancy was created' },
+    maintenance_ticket_notified: { zh: '报修工单已通知对方', en: 'The other side was told about the repair ticket' },
+    trust_api_screen_started: { zh: '合作方通过 Stayloop API 发起了筛查', en: 'A partner started a screening through the Stayloop API' },
+    trust_api_passport_verify: { zh: '合作方通过 Stayloop API 读取了你授权的护照范围', en: 'A partner read the passport scopes you shared through the Stayloop API' },
   }
-  const hit = map[action]
+  const hit = map[action] ?? map[action.replace(/^(tenant|landlord|agent)_/, '')]
   if (hit) return hit[lang]
   return action.replace(/_/g, ' ')
 }
