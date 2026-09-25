@@ -308,3 +308,11 @@ describe('found while walking the agent test account (2026-09-24)', () => {
     expect(t.zh).toContain('记录 RECO Information Guide 的日期')
   })
 })
+
+describe('screening upload area in Chinese', () => {
+  it('file-type chips and the drop hint are Chinese in the zh UI', () => {
+    const s = read('lib/i18n.tsx')
+    for (const zh of ["zh: '在职信'", "zh: '工资单'", "zh: '银行流水'", "zh: '征信报告'", "zh: '其他文件'"]) expect(s).toContain(zh)
+    expect(s).not.toMatch(/zh: 'Employment Letter'|zh: 'Pay Stubs'|zh: 'Bank Statements'/)
+  })
+})

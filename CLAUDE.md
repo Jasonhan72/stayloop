@@ -1920,3 +1920,24 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
   claude-opus-5（effort low、结构化输出、`fallbacks: "default"`），脚本与写入前的逐行备份在会话 scratchpad `zhfill/`（`backup.jsonl`
   可整行还原 `ai_dimension_notes`），约 4 美元。③ 报告页不再附「English Summary」第二语言摘要框；评分规则行在中文下不显示内部代码；
   关系图「结论」下不再印原始 `conditional`。守卫同一 spec「report text in Chinese」段。
+
+## 三角色测试账号实机走查（2026-09-24 晚 · 用户在内置浏览器里输入密码，Claude 逐页检查）
+
+登录由用户完成（规则：Claude 不输入密码、不替测试号铸会话）；邮箱由 Claude 预填，切换账号前 Claude 退出上一个号并等首页跳转完成。
+逐页走下来新修的（守卫 `tests/threeRoleReport20260924.spec.ts` 末尾三段）：
+- **登录落点仍会错**：回调页在浏览器没有记住角色时读 `agent_configs` 最近用过的角色——租客号以前被自动开过房东身份、用过房东管家，
+  于是被送到 `/landlord/agent` 并把「landlord」写回浏览器。现在记住的角色 / 最近配置 / 注册时选的角色**都只是候选**，一律经
+  `my_hats` + `homeForHats` 核对后才决定落点与记住的角色。
+- **经纪做客户筛查被误拦**：客户表「发起筛查」链到 `/screening/app`，以前靠「打开即开通房东身份」才能用；开通改成明确动作后经纪
+  只会看到开通页。按既定决定（代表协议记录后开放），`/screening/app` 对 RECO 注册有效（verified / renewal_due）且没有房东帽子的
+  账号用**经纪导航**渲染（筛查记录以本人 authId 为 `landlord_id`，RLS 已允许）；两顶帽子都有的账号从客户表带 `?as=agent` 进入也用
+  经纪导航；纯租客仍去 `/landlord/become`。开通页的经纪提示改为说明如何从客户表发起筛查。
+- **续约卡按钮写死 +2.5%**（卡上方案 B 是 2026 年的 +2.1%）→ 读卡片的 `guideline_pct`，缺失时写「按指导上限」。
+- **在管租约消息不通知对方**，而消息页写着「回复会同时发到对方邮箱」→ 新增 `POST /api/household/notify-message`（发送者两分钟内
+  的消息才算、只推送不发邮件、每小时 60 次），消息页副标题按角色如实改写；已下架房源显示「房源已下架」。
+- **申请人页真实模式仍写「按 信用/收入/法庭记录 政策预筛」**（OHRC 截止线已于 09-13 取消）→ 改为看缺哪些材料；「offer」中英混排
+  改掉；并排对比表排除已归档。
+- 筛查页：取证结论「CLEAN」→ 中文；材料类别补 `government_id` 等；上传区的文件类型与提示原本 zh 值就是英文（Employment Letter…）
+  → 全部中文；关系图「结论」下的原始 `conditional` → 中文。
+- 发布向导：草稿标题空格、核对页没填租金时的孤立「$」。
+- 数据：经纪测试号在修复上线前又被旧代码自动建了一次房东行（01:58 UTC），已删；三个测试号现在只有房东号有房东身份。
