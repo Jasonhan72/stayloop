@@ -2,7 +2,7 @@
 
 // Claude-style conversation panel for a Personal Agent workspace: a scrolling
 // message thread (user ↔ agent bubbles) with the input pinned at the bottom.
-import {useEffect, useRef, useState} from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useT } from '@/lib/i18n'
 import AgentInputBar, { type ComposerDraft } from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
@@ -84,6 +84,8 @@ export default function AgentChat({
   threadLoading = false,
   currentThreadId = null,
   onOpenThread,
+  compactHeader = false,
+  headerNote,
 }: {
   role: AgentRole
   agentName: string
@@ -125,6 +127,11 @@ export default function AgentChat({
   /** The open conversation + how to reopen another one — the phone activity sheet's rows are conversations (2026-09-25). */
   currentThreadId?: string | null
   onOpenThread?: (id: string) => void | Promise<void>
+  /** Homepage hero (user 2026-09-25: the centred avatar + name + status block pushed the
+   *  conversation below the fold): one 48px row — avatar · name · status — with an
+   *  optional note on the right (the signed-in hat and how to switch it). */
+  compactHeader?: boolean
+  headerNote?: ReactNode
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -178,7 +185,19 @@ export default function AgentChat({
       {/* header — centred avatar, name below it, then the status line, on every
           breakpoint (user 2026-09-24: "avatar 放中间，下面放名字", phone and web
           alike). Compact (~80px on phones, ~110px on desktop). Avatar / status
-          open the activity log. */}
+          open the activity log. The homepage hero uses the one-row variant
+          instead (compactHeader) so the conversation gets the space. */}
+      {compactHeader ? (
+        <div className="flex h-12 flex-none items-center gap-2.5 border-b border-line-divider px-4 md:px-5" data-testid="chat-header-compact">
+          <AssistantAvatar avatar={avatar} role={role} className="h-8 w-8 flex-none" />
+          <span className="flex-none text-[14px] font-bold tracking-tight">{agentName}</span>
+          <span className="flex min-w-0 items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
+            <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} />
+            <span className="truncate">{statusLine}</span>
+          </span>
+          {headerNote && <span className="ml-auto hidden min-w-0 truncate text-[12px] text-body-3 sm:block">{headerNote}</span>}
+        </div>
+      ) : (
       <div className={`flex flex-none flex-col items-center px-4 pb-2 pt-3 md:border-b md:border-line-divider md:px-5 md:pb-3 md:pt-5 ${hero ? 'lg:hidden' : ''}`}>
         <button
           type="button"
@@ -196,6 +215,7 @@ export default function AgentChat({
           </button>
         </div>
       </div>
+      )}
       {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} currentThreadId={currentThreadId} onOpenThread={onOpenThread} onClose={() => setSheet(false)} />}
 
       {/* thread */}

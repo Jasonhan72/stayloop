@@ -2129,3 +2129,13 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
   （museWeb / phoneChat / lifecycleRail / templateChips）与 review spec 都改为读共享组件，museWeb 另断言三条路由是 <15 行的薄包装。
 - **记录不改**：`agent_directory` 等 5 个 definer 视图是刻意的（linter 报 ERROR，接受）；`household_members / households / rent_payments /
   showing_intents` 表级 anon grant 是迁移时的默认权限，RLS 已挡住，未收。
+
+## 首页首屏让给对话（2026-09-25 · 用户截图「头像 / 名字 / 上面的文字占太多空间，挤压了对话框」）
+
+登录态首页在 743px 高的屏幕上：标题区（52px 两行 H1 + 两行导语 + 「我是房东 · Atlas」一行）+ 卡片内居中的 56px 头像 / 名字胶囊 / 状态行，
+第一条气泡从 y≈505 才开始，输入条在折叠线下。改法（守卫 `tests/homeHero20260925.spec.ts`；只动首页，`/x/agent` 的居中头部不变）：
+- `AgentChat` 新 prop `compactHeader` + `headerNote`：一行 48px `[32px 头像] 名字 · 状态`，右侧可放一句注释；只有首页 `HomeNext` 用。
+- 标题区：H1 52 → 40px（角色页的 42 同一尺度）、导语 17 → 16px、顶部内边距 64 → 40px；登录后原来横在卡片上方的「我是房东 · Atlas · 换身份在
+  右上角菜单」并进卡片头部右侧（`headerNote`），匿名访客的三枚角色 pill 保留（它们切换演示助手）。
+- 卡片高度从固定 600px 改为「到折叠线为止」：登录态 `max(420px, 100vh − 330px)`、匿名 `max(420px, 100vh − 378px)`（差的 48px 是 pill 行），
+  输入条留在首屏；手机高度公式不变。1024×768 匿名实测：第一条气泡 y≈430（原约 490），卡片内头部 48px（原约 130px）。
