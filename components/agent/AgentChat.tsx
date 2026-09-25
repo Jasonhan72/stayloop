@@ -204,10 +204,13 @@ export default function AgentChat({
           <AssistantAvatar avatar={avatar} role={role} className="h-full w-full" fallback={avatarFallback} />
         </button>
         <div className="flex min-w-0 max-w-full flex-col items-center">
-          <div className={`rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:text-[14px] ${compactHeader ? 'mt-1' : 'mt-1.5 md:mt-2'}`}>{agentName}</div>
           {/* Workspace page below lg (where the AssistantPanel is not shown): the
-              hat as a text label under the name (user 2026-09-25). */}
-          {hatChip && <HatChip role={role} className="mt-1" />}
+              hat as a text label beside the name (user 2026-09-25) — on the same
+              row, so the phone header stays as short as before. */}
+          <div className={`flex max-w-full items-center gap-1.5 ${compactHeader ? 'mt-1' : 'mt-1.5 md:mt-2'}`}>
+            <div className="truncate rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:text-[14px]">{agentName}</div>
+            {hatChip && <HatChip role={role} />}
+          </div>
           <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`${compactHeader ? 'mt-0.5' : 'mt-1'} flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
             <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
           </button>
