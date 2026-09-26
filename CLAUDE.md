@@ -2199,6 +2199,8 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
 - **面板头部不再有状态行**（用户同日：「空闲 · 当前阶段 租前 · 记得 80 条 这个可以去掉了」）：只剩头像（铅笔菜单）、名字、身份标签；
   `AssistantPanel` 不再接 `status / statusLine`。手机端对话头部的状态行保留（它是打开活动日志的入口），`lib/agent/statusLine.ts` 仍在。
 - **首页 hero 同样排列（用户同日：「这里头像和名字的排列也一样改，头像上面『我是房东 · 换身份在右上角菜单』也可以删掉」）**：登录态的卡片上方
-  不再有身份行；卡片头部 = 头像 · 名字 · 身份文字标签（`AgentChat hatChip='stay'`——点标签在原地切换帽子，`HatChip stay` 不跳转，hero 按
-  `auth.role` 重挂载）、**没有状态行**（`compactHeader` 一律不渲染「在线 · 读取你的记忆」）；卡片高度登录态改为 `100vh − 345px`（手机 `− 230px`）。
+  不再有身份行；卡片头部 = 头像 · 名字 · 身份文字标签（`AgentChat hatChip` + `onHatSwitch`——点标签在原地切换帽子：`HatChip onSwitch` 回调直接
+  改 hero 的 role 并重挂载，不跳转）、**没有状态行**（`compactHeader` 一律不渲染「在线 · 读取你的记忆」）；卡片高度登录态改为 `100vh − 345px`（手机 `− 230px`）。
+  **顺带修的一个旧问题**：每个 `useAuth()` 实例各持一份 role 状态，`setRole` 只更新自己那个实例——生产实测原地切换后 Header 菜单仍写「当前：房东」。
+  现在 `setRole` 广播 `sl-role-changed`（`ROLE_CHANGED_EVENT`），所有实例监听并同步。
   匿名访客仍是三枚角色 pill + 人设名字，无标签。守卫 `tests/homeHero20260925.spec.ts` 已更新。

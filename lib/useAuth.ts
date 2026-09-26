@@ -20,6 +20,8 @@ export interface AuthState {
 }
 
 const ROLE_KEY = 'sl-active-role'
+/** Fired by setRole() so every useAuth() instance on the page picks up the new hat. */
+export const ROLE_CHANGED_EVENT = 'sl-role-changed'
 /** The remembered hat is per account: a landlord signing in after an agent on
  *  the same browser was shown the agent identity on /settings (2026-09-25). */
 export const roleStorageKey = (uid?: string | null): string => (uid ? `${ROLE_KEY}:${uid}` : ROLE_KEY)
@@ -109,7 +111,19 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
       }
       return { ...prev, role: r }
     })
+    // Every useAuth() instance keeps its own copy of the remembered role; a
+    // switch made in one (the hat label in the homepage hero, 2026-09-25) must
+    // reach the others on the page (the Header's identity menu, the hero).
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(ROLE_CHANGED_EVENT, { detail: r }))
   }
+  useEffect(() => {
+    const onChanged = (e: Event) => {
+      const r = ((e as CustomEvent<Role>).detail ?? null) as Role
+      setState((prev) => (prev.role === r ? prev : { ...prev, role: r }))
+    }
+    window.addEventListener(ROLE_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(ROLE_CHANGED_EVENT, onChanged)
+  }, [])
 
   const signOut = async () => {
     clearCachedAiNames()

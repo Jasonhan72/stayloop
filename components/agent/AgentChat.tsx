@@ -88,6 +88,7 @@ export default function AgentChat({
   compactHeader = false,
   avatarFallback = 'role',
   hatChip = false,
+  onHatSwitch,
 }: {
   role: AgentRole
   agentName: string
@@ -136,9 +137,10 @@ export default function AgentChat({
   compactHeader?: boolean
   /** 'brand' = the signed-in user's one assistant (same face under every hat); 'role' = a demo persona's orb. */
   avatarFallback?: 'role' | 'brand'
-  /** The current hat as a text label by the name: `true` on the workspace page (switching goes to
-   *  that hat's page), `'stay'` on the signed-in homepage (switches the hero in place). */
-  hatChip?: boolean | 'stay'
+  /** The current hat as a text label by the name (workspace page and signed-in homepage). */
+  hatChip?: boolean
+  /** Homepage: switch the hat in place (re-target the hero) instead of going to that hat's page. */
+  onHatSwitch?: (r: AgentRole) => void
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -216,7 +218,7 @@ export default function AgentChat({
               hat label under the name, no status line (user 2026-09-25); the hat switches
               in place there ('stay'). The workspace header keeps its status line: it is
               the button that opens the activity log. */}
-          {hatChip && compactHeader && <HatChip role={role} stay={hatChip === 'stay'} className="mt-1.5" />}
+          {hatChip && compactHeader && <HatChip role={role} onSwitch={onHatSwitch} className="mt-1.5" />}
           {!compactHeader && (
             <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`mt-1 flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
               <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>

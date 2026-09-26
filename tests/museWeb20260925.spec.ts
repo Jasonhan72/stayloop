@@ -199,7 +199,7 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     const page = read('components/agent/AgentWorkspacePage.tsx')
     expect(page).toMatch(/avatarFallback=\{live \? 'brand' : 'role'\}\n\s+hatChip\n/)
     expect(page).toContain("{agent.agent_name} · {zh ? HAT_LABEL[role].zh : HAT_LABEL[role].en}")
-    expect(read('components/home/HomeNext.tsx')).toContain("hatChip={live ? 'stay' : false}") // signed-in homepage: same label, switches in place
+    expect(read('components/home/HomeNext.tsx')).toContain('hatChip={live} onHatSwitch={onHatSwitch}') // signed-in homepage: same label, switches in place
   })
   it('a ↓ button appears once the thread is scrolled up and jumps to the newest message', () => {
     const chat = read('components/agent/AgentChat.tsx')
