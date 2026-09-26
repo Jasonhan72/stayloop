@@ -325,7 +325,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                     >
                       <IdentityIcon />
                       <span className="flex-1">{lang === 'zh' ? '切换身份' : 'Switch identity'}</span>
-                      <span className="text-[12px] font-normal text-[#717171]">{lang === 'zh' ? `${heldRoles.length} 个` : `${heldRoles.length} held`}</span>
+                      {heldRoles.length > 1 && <span className="text-[12px] font-normal text-[#717171]">{lang === 'zh' ? `${heldRoles.length} 个身份` : `${heldRoles.length} identities`}</span>}
                       <span className={'text-[#717171] transition-transform ' + (hatsOpen ? 'rotate-90' : '')}>›</span>
                     </button>
                     {hatsOpen && <div id="sl-identity-list" className="pb-1" data-testid="identity-list">
