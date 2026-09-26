@@ -532,7 +532,11 @@ households / rent_payments 都是 0，待办 18 条 0 条执行过；Trust API �
 （passport/verify 读核验快照、screen 包装现有管线 + 同意校验、listings/compliance 确定性规则免费），**申请人主动出示模式**，对金融机构
 开放需律师意见。**用户 2026-09-23 拍板「全部开始改」并要求三角色测试账号 + 全流程模拟测试。** 落地（守卫 `tests/lifecycle20260923.spec.ts`）：
 - **测试账号（密码都是 `Test1234`，`user_metadata.test_account=true`，测试数据标 `[TEST]`，正式发布前不删）**：`tenant-test@stayloop.ai`（tenants 行）、
-  `landlord-test@stayloop.ai`（landlords 行）、`agent-test@stayloop.ai`（agent_profiles 由测试阶段建）；早先的 `tester@stayloop.ai`（房东）仍在。
+  `landlord-test@stayloop.ai`（landlords 行）、`agent-test@stayloop.ai`（agent_profiles 由测试阶段建；同时持有服务商行 `[TEST] Maple Plumbing Inc.`）；
+  **2026-09-26 加第四个：`provider-test@stayloop.ai`（auth `f6b97901…`，纯服务商号）**——`service_providers` 行 `[TEST] Northline Home Services Inc.`
+  （`8e668976…`，水管 / 电气 / 杂工 / 门锁 · Toronto / Mississauga / Vaughan · verified，五项资质 sto_coq / esa_contractor / wsib_clearance /
+  liability_insurance / business_registration 全部已核、最早 2027-01 到期），与 Maple 一起构成水管类工单的两个合格候选（派单排序、首选设置可测）。
+  登录落点是租客首页（每个账号都有租客帽子），服务商入口在身份菜单「服务商 · 工单」；早先的 `tester@stayloop.ai`（房东）仍在。
 - **`lib/ontario/rules.ts`**：15 条规则的单一来源（编号 / 法条 / 中英 / 落点 / 严重度）+ `checkListingCompliance` / `checkLeaseTerms` /
   `decisionNoticeFooter`；公开页 `/rules`；发布向导第 5 步与 `/landlord/leases/new` 保存前都用它，命中写 `compliance_events`；turn 路由的
   guardrail 命中也写。表 + `admin_lifecycle_stats(p_days)` RPC 在迁移 `20260923_lifecycle_closed_loop.sql`（已应用 prod）。
