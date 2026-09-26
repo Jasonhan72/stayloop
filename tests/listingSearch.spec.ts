@@ -112,3 +112,53 @@ describe('externalFromStatuses — provider outage vs empty page', () => {
     expect(r.reason).not.toMatch(/402/)
   })
 })
+
+// 2026-09-25: a TMU 2-bed search came back empty. Realtor.ca's slugs are not
+// the TREB names the model uses (church-yonge-corridor is a map page), and its
+// bot check answers some reads with a "Security Check" page that Jina returns
+// as HTTP 200 — both had counted as "the page answered, nothing matched".
+import { vi } from 'vitest'
+import { classifyRealtorPage, readRealtorPage, resolveRealtorSlugs, REALTOR_BLOCKED } from '@/lib/agent/listingSearch'
+
+describe('Realtor.ca slugs, map pages and bot checks (2026-09-25)', () => {
+  it('TREB community names resolve to the slugs Realtor.ca actually serves, deduped and best first', () => {
+    expect(resolveRealtorSlugs(['Church-Yonge Corridor', 'Bay Street Corridor'])).toEqual(['church-wellesley', 'downtown-yonge-east', 'yonge-bay-corridor', 'bay-street-corridor'])
+    expect(resolveRealtorSlugs(['Toronto Metropolitan University', 'Church-Yonge Corridor'], 3)).toEqual(['ryerson', 'downtown-yonge-east', 'church-wellesley'])
+    expect(resolveRealtorSlugs(['University', 'Kensington-Chinatown'])).toEqual(['kensington-chinatown', 'bay-street-corridor'])
+    expect(resolveRealtorSlugs(['North York', null, ''])).toEqual(['north-york'])
+  })
+  it('classifies a Jina render: rows → ok, an area page with no rows → empty, the generic map page → nopage, a bot check → blocked', () => {
+    expect(classifyRealtorPage('Title: 58 - 2 Bedroom Apartments For Rent in Church & Wellesley\nURL Source: x\n\n[$2,900 / Month 12 Wellesley St E ![img](https://cdn.realtor.ca/listings/a.jpg) 2 Bedrooms 1 Bathroom](https://www.realtor.ca/real-estate/1/x)')).toBe('ok')
+    expect(classifyRealtorPage('Title: 0 Apartments For Rent in Nowhere, Toronto\nURL Source: x\n\nMarkdown Content: nothing here')).toBe('empty')
+    expect(classifyRealtorPage('Title: MLS® & Real Estate Map\nURL Source: https://www.realtor.ca/on/toronto/church-yonge-corridor/apartments-for-rent\n\nMarkdown Content: Find a REALTOR® …')).toBe('nopage')
+    expect(classifyRealtorPage('Title: Just a moment...\nURL Source: x\nWarning: This page maybe requiring CAPTCHA\n\n## Performing security verification')).toBe('blocked')
+    expect(classifyRealtorPage('Title: Security Check / Contrôle de sécurité\nURL Source: x\nWarning: Target URL returned error 403: Forbidden')).toBe('blocked')
+  })
+  it('a bot check on every read is "unavailable · realtor.ca bot check", never "no results"; one real page still means ok', () => {
+    expect(externalFromStatuses([REALTOR_BLOCKED, REALTOR_BLOCKED])).toEqual({ status: 'unavailable', reason: 'realtor.ca bot check' })
+    expect(externalFromStatuses([REALTOR_BLOCKED, 200]).status).toBe('ok')
+    expect(externalFromStatuses([402, REALTOR_BLOCKED]).reason).toMatch(/402/) // the account problem wins
+  })
+  it('a blocked read is retried once through Jina’s proxy pool; a map page is a 404, not an answer', async () => {
+    const calls: { url: string; headers: Record<string, string> }[] = []
+    const page = 'Title: 77 - 2 Bedroom Apartments For Rent in Bay Street Corridor\nURL Source: x\n\n[$3,100/Monthly 1001 Bay St ![img](https://cdn.realtor.ca/listings/b.jpg) 2 Bedrooms 2 Bathrooms 800 Square Feet](https://www.realtor.ca/real-estate/2/y)'
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: { headers: Record<string, string> }) => {
+      calls.push({ url, headers: init.headers })
+      const body = url.includes('nowhere') ? 'Title: MLS® & Real Estate Map\nURL Source: x\n' : init.headers['X-Proxy'] === 'auto' ? page : 'Title: Just a moment...\nURL Source: x\nWarning: This page maybe requiring CAPTCHA\n'
+      return { ok: true, status: 200, text: async () => body }
+    }))
+    try {
+      const r = await readRealtorPage('k', 'https://www.realtor.ca/on/toronto/bay-street-corridor/2-bedroom-apartments-for-rent', { min_beds: 2 })
+      expect(r.status).toBe(200)
+      expect(r.cards).toHaveLength(1)
+      expect(r.cards[0].address).toBe('1001 Bay St')
+      expect(calls).toHaveLength(2)
+      expect(calls[0].headers['X-Proxy']).toBeUndefined()
+      expect(calls[1].headers['X-Proxy']).toBe('auto')
+      const missing = await readRealtorPage('k', 'https://www.realtor.ca/on/toronto/nowhere/apartments-for-rent', { min_beds: 2 })
+      expect(missing.status).toBe(404)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})

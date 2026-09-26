@@ -2220,3 +2220,16 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
   卡）、面板收起后的重开胶囊都只剩头像 + 名字；`components/agent/HatChip.tsx` 删除。**换身份只在 Header 的身份菜单**（「当前：房东 / 切换 / 开通」），
   首页 hero 按 `auth.role` 跟随。`useAuth.setRole` 的广播与 updater 外写入保留。
   匿名访客仍是三枚角色 pill + 人设名字，无标签。守卫 `tests/homeHero20260925.spec.ts` 已更新。
+
+## 找房查不到房源（2026-09-25 · 用户截图：TMU 周边 2 房、预算不限 → 「Stayloop 库里没有匹配，Realtor.ca 抓取也没返回结果」）
+
+用 `.forensics-tmp/jina-realtor-probe*.mts` 直接打 Jina 复现，两个真实原因叠加（守卫 `tests/listingSearch.spec.ts`「Realtor.ca slugs, map pages and bot checks」段）：
+- **Realtor.ca 的社区 slug 不是模型熟悉的 TREB 社区名。** 模型把 TMU 解析成 `Church-Yonge Corridor`，slugify 成 `church-yonge-corridor`，而 Realtor.ca 上这一带
+  拆成 `church-wellesley` / `downtown-yonge-east` / `yonge-bay-corridor`，TMU 本身叫 `ryerson`，`university`（多大）也不存在；**不存在的 slug 返回通用
+  「MLS® & Real Estate Map」页，HTTP 200、0 行**，原代码当成「页面正常但没结果」。现在 `REALTOR_SLUG_ALIASES`（只收实测能出房源的）+ `resolveRealtorSlugs`
+  把候选社区名映射成真实 slug（最多 4 个），`classifyRealtorPage` 把地图页判成 `nopage` → 状态 404（不算「已回答」，搜索跳转照常进行）；搜索跳转
+  （s.jina.ai）现在除了最佳页还读第二个真实社区页的全部变体。
+- **Realtor.ca 反爬间歇性返回「Just a moment… / Security Check / Performing security verification」验证页，Jina 仍给 200。** 原代码解析 0 行 → 「没返回结果」。
+  现在识别为 `blocked` → 用 Jina 代理池重试一次（`X-Proxy: auto`，实测每次都能过，约 8–10 秒）→ 仍被拦记 `REALTOR_BLOCKED (599)`；全部被拦时
+  `externalFromStatuses` 给 `unavailable · realtor.ca bot check`，回复改说「实时抓取暂时不可用」而不是「没结果」。
+- 库里确实没有 TMU 周边的 2 房（7 套活跃 2 房+ 分布在 Kensington-Chinatown / North York / Harbourfront 等），「库里没有匹配」那半句是对的。

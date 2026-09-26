@@ -419,20 +419,76 @@ function slugifyArea(name: string): string | null {
   return /^[a-z0-9-]{3,60}$/.test(slug) ? slug : null
 }
 
-// `status` is the Jina HTTP status (0 = network/timeout) so the caller can
-// tell a provider outage from an empty page.
-async function readRealtorPage(
+// Realtor.ca's neighbourhood slugs are NOT the TREB community names the model
+// knows: "Church-Yonge Corridor" is split into Church & Wellesley / Downtown
+// Yonge East / Yonge-Bay Corridor on Realtor.ca, TMU's area is "ryerson", and
+// there is no "university" page. An unknown slug returns the generic map page
+// (HTTP 200, zero rows) — probed 2026-09-25 after a TMU 2-bed search found
+// nothing. Only slugs verified to serve listings go in here.
+const REALTOR_SLUG_ALIASES: Record<string, string[]> = {
+  'church-yonge-corridor': ['church-wellesley', 'downtown-yonge-east', 'yonge-bay-corridor'],
+  'church-yonge': ['church-wellesley', 'downtown-yonge-east', 'yonge-bay-corridor'],
+  'church-and-wellesley': ['church-wellesley'],
+  'downtown-yonge': ['downtown-yonge-east', 'yonge-bay-corridor'],
+  ryerson: ['ryerson', 'downtown-yonge-east', 'church-wellesley'],
+  'ryerson-university': ['ryerson', 'downtown-yonge-east', 'church-wellesley'],
+  'toronto-metropolitan-university': ['ryerson', 'downtown-yonge-east', 'church-wellesley'],
+  tmu: ['ryerson', 'downtown-yonge-east', 'church-wellesley'],
+  university: ['kensington-chinatown', 'bay-street-corridor'],
+  'university-of-toronto': ['kensington-chinatown', 'bay-street-corridor'],
+}
+
+/** Model-provided neighbourhood names → Realtor.ca slugs to read, best first, deduped. */
+export function resolveRealtorSlugs(candidates: readonly (string | null | undefined)[], max = 4): string[] {
+  const out: string[] = []
+  for (const name of candidates) {
+    const slug = name ? slugifyArea(name) : null
+    if (!slug) continue
+    for (const s of REALTOR_SLUG_ALIASES[slug] ?? [slug]) if (!out.includes(s)) out.push(s)
+  }
+  return out.slice(0, max)
+}
+
+/**
+ * What a Jina render of a Realtor.ca page actually is. Realtor.ca's bot
+ * protection answers some reads with a "Just a moment / Security Check" page
+ * (Jina still says HTTP 200), and an unknown slug gets the generic map page —
+ * neither is "the area has no listings".
+ */
+export function classifyRealtorPage(text: string): 'ok' | 'empty' | 'nopage' | 'blocked' {
+  const head = text.slice(0, 1500)
+  if (/Just a moment|Security Check|Contrôle de sécurité|Performing security verification|requiring CAPTCHA|Target URL returned error 403/i.test(head)) return 'blocked'
+  const rows = (text.match(/\$[\d,]+\s*\/\s*Month/gi) || []).length
+  if (rows > 0) return 'ok'
+  const title = head.match(/^Title:\s*(.*)$/m)?.[1] ?? ''
+  if (/MLS® & Real Estate Map|^REALTOR\.ca$/i.test(title.trim())) return 'nopage'
+  return 'empty'
+}
+
+/** Pseudo-status for "Realtor.ca's bot check answered instead of the page" (kept out of the HTTP range). */
+export const REALTOR_BLOCKED = 599
+
+// `status` is the Jina HTTP status (0 = network/timeout; 404 = no such area
+// page; REALTOR_BLOCKED = bot check) so the caller can tell a provider outage
+// from an empty page. A bot-check answer is retried once through Jina's proxy
+// pool (`X-Proxy: auto`), which got past it in every probe (2026-09-25).
+export async function readRealtorPage(
   key: string,
   pageUrl: string,
   c: SearchCriteria,
+  proxy = false,
 ): Promise<{ cards: ListingCard[]; rows: StatRow[]; status: number }> {
   try {
     const rres = await fetch(`https://r.jina.ai/${encodeURI(pageUrl)}`, {
-      headers: { Authorization: `Bearer ${key}` },
-      signal: AbortSignal.timeout(22000),
+      headers: { Authorization: `Bearer ${key}`, ...(proxy ? { 'X-Proxy': 'auto' } : {}) },
+      signal: AbortSignal.timeout(proxy ? 30000 : 22000),
     })
     if (!rres.ok) return { cards: [], rows: [], status: rres.status }
-    return { ...parseRealtor(await rres.text(), c), status: 200 }
+    const text = await rres.text()
+    const kind = classifyRealtorPage(text)
+    if (kind === 'blocked') return proxy ? { cards: [], rows: [], status: REALTOR_BLOCKED } : readRealtorPage(key, pageUrl, c, true)
+    if (kind === 'nopage') return { cards: [], rows: [], status: 404 }
+    return { ...parseRealtor(text, c), status: 200 }
   } catch {
     return { cards: [], rows: [], status: 0 }
   }
@@ -446,6 +502,11 @@ export function externalFromStatuses(statuses: number[]): ExternalStatus {
   const down = statuses.find((st) => PROVIDER_DOWN.has(st))
   if (down) {
     const reason = down === 402 ? 'jina 402 · balance exhausted' : `jina ${down}`
+    captureException(new Error(`Realtor.ca live source unavailable: ${reason}`), { route: 'listingSearch', level: 'warning', extra: { statuses } })
+    return { status: 'unavailable', reason }
+  }
+  if (statuses.some((st) => st === REALTOR_BLOCKED)) {
+    const reason = 'realtor.ca bot check'
     captureException(new Error(`Realtor.ca live source unavailable: ${reason}`), { route: 'listingSearch', level: 'warning', extra: { statuses } })
     return { status: 'unavailable', reason }
   }
@@ -497,10 +558,9 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
   // 0. Landmark path: the model already resolved a vague location ("多大附近")
   //    into official neighbourhoods, so read those pages DIRECTLY — no search
   //    hop needed.
-  const typePath = house ? 'houses-for-rent' : 'apartments-for-rent'
-  const slugs = Array.from(
-    new Set((c.area_candidates ?? []).map(slugifyArea).filter((s): s is string => !!s)),
-  ).slice(0, 3)
+  const typePath = house ? 'houses-for-rent' : (crit.min_beds && crit.min_beds >= 1 && crit.min_beds <= 4 ? `${crit.min_beds}-bedroom-apartments-for-rent` : 'apartments-for-rent')
+  // TREB community names → the slugs Realtor.ca actually serves (aliases), up to four.
+  const slugs = resolveRealtorSlugs(c.area_candidates ?? [])
   if (slugs.length) {
     // Primary area: ALL page variants IN PARALLEL — every one feeds the
     // market sample (deduped by address in buildMarket) and the card pool.
@@ -529,6 +589,8 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
 
   // 1. Find the Realtor.ca rentals page for this area.
   let pageUrl: string | null = null
+  // Distinct area bases among the type-matching results, best area match first.
+  let searchBases: string[] = []
   try {
     const q = `${area} Toronto ${house ? 'houses homes for rent' : 'apartments for rent'} site:realtor.ca`
     const sres = await fetch(`https://s.jina.ai/?q=${encodeURIComponent(q)}`, {
@@ -565,6 +627,14 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
         return bestU
       }
       pageUrl = best(house ? houseRe : aptRe) || best(anyRe) || candidates[0] || null
+      const typeRe = house ? houseRe : aptRe
+      searchBases = Array.from(new Set(
+        candidates
+          .filter((u) => typeRe.test(u))
+          .sort((a, b) => areaScore(b) - areaScore(a))
+          .map((u) => u.match(/^(https:\/\/www\.realtor\.ca\/on\/[a-z0-9-]+(?:\/[a-z0-9-]+)?)\/[a-z0-9-]+$/i)?.[1] || '')
+          .filter(Boolean),
+      ))
     }
   } catch {
     /* fall through */
@@ -576,9 +646,19 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
   }
 
   // 2. Read the page — plus every sibling variant of the same area base, in
-  //    parallel — parse all rows, then filter + rank for relevance.
-  const baseM = pageUrl.match(/^(https:\/\/www\.realtor\.ca\/on\/[a-z0-9-]+(?:\/[a-z0-9-]+)?)\/[a-z0-9-]+$/i)
-  const urls = baseM ? Array.from(new Set([pageUrl, ...statPageUrls(baseM[1], crit.min_beds, house)])) : [pageUrl]
+  //    parallel — parse all rows, then filter + rank for relevance. The
+  //    search results usually name TWO or three real area pages for a TREB
+  //    community that Realtor.ca splits (Church-Yonge Corridor → Church &
+  //    Wellesley + Downtown Yonge East), so the runner-up base is read too.
+  const baseRe = /^(https:\/\/www\.realtor\.ca\/on\/[a-z0-9-]+(?:\/[a-z0-9-]+)?)\/[a-z0-9-]+$/i
+  const baseM = pageUrl.match(baseRe)
+  const readSlugs = new Set(slugs)
+  const runnerUp = searchBases
+    .filter((b) => b !== baseM?.[1] && !readSlugs.has(b.split('/').pop() || ''))
+    .slice(0, 1)
+  const urls = baseM
+    ? Array.from(new Set([pageUrl, ...statPageUrls(baseM[1], crit.min_beds, house), ...runnerUp.flatMap((b) => statPageUrls(b, crit.min_beds, house))]))
+    : [pageUrl]
   const reads = await Promise.all(urls.map((u) => readRealtorPage(key, u, crit)))
   for (const r of reads) merge(r, true)
   // Rank by budget relevance: houses → priciest-within-budget first
