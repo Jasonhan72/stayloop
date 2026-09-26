@@ -82,6 +82,10 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   // (the identity section already covers the three roles; the bottom tabs
   // cover the workspace). Anonymous visitors still see them expanded.
   const [browseOpen, setBrowseOpen] = useState(false)
+  // The identity list (four or five hats with doors) folds behind one row —
+  // the menu had grown to a full screen (user 2026-09-26). Collapsed on every open.
+  const [hatsOpen, setHatsOpen] = useState(false)
+  useEffect(() => { if (!menuOpen) setHatsOpen(false) }, [menuOpen])
   const menuRef = useRef<HTMLDivElement>(null)
   const productRef = useRef<HTMLDivElement>(null)
 
@@ -309,8 +313,23 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
 
                     <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
 
-                    {/* Hats — every identity this account has or can get, current one marked */}
-                    <div className="px-4 pb-1 pt-2 font-mono text-[10.5px] font-bold uppercase tracking-[.12em] text-[#717171]">{lang === 'zh' ? '身份' : 'Identity'}</div>
+                    {/* Hats — every identity this account has or can get, current one marked.
+                        Folded behind one row; the top identity row already says which hat is on. */}
+                    <button
+                      onClick={() => setHatsOpen((v) => !v)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
+                      aria-expanded={hatsOpen}
+                      aria-controls="sl-identity-list"
+                      role="menuitem"
+                      data-testid="identity-toggle"
+                    >
+                      <IdentityIcon />
+                      <span className="flex-1">{lang === 'zh' ? '切换身份' : 'Switch identity'}</span>
+                      <span className="text-[12px] font-normal text-[#717171]">{lang === 'zh' ? `${heldRoles.length} 个` : `${heldRoles.length} held`}</span>
+                      <span className={'text-[#717171] transition-transform ' + (hatsOpen ? 'rotate-90' : '')}>›</span>
+                    </button>
+                    {hatsOpen && <div id="sl-identity-list" className="pb-1" data-testid="identity-list">
+                    <div className="px-4 pb-1 pt-1 font-mono text-[10.5px] font-bold uppercase tracking-[.12em] text-[#717171]">{lang === 'zh' ? '身份' : 'Identity'}</div>
                     {(['tenant', 'landlord', 'agent'] as const).map((r) => {
                       const held = heldRoles.includes(r)
                       const isCurrent = r === currentRole
@@ -361,6 +380,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                         <span className="text-[#717171]">›</span>
                       </Link>
                     )}
+                    </div>}
 
                     <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
 
@@ -557,6 +577,17 @@ function GlobeIcon() {
       <circle cx="8" cy="8" r="6.5" />
       <path d="M1.5 8h13" />
       <path d="M8 1.5c1.66 1.63 2.6 3.56 2.6 6.5s-.94 4.87-2.6 6.5c-1.66-1.63-2.6-3.56-2.6-6.5s.94-4.87 2.6-6.5z" />
+    </svg>
+  )
+}
+
+function IdentityIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+      <path d="M16 6h5m0 0-2-2m2 2-2 2" />
+      <path d="M21 12h-5m0 0 2-2m-2 2 2 2" />
     </svg>
   )
 }

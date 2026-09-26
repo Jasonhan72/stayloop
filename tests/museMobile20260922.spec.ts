@@ -134,4 +134,18 @@ describe('signed-in homepage + identity menu', () => {
     expect(header).toMatch(/auth\.user && pendingCount > 0 && \(/)
     expect(header).not.toMatch(/otherRoles|missingRoles/)
   })
+  it('menu: the identity list folds behind one 切换身份 row, collapsed on every open (user 2026-09-26: the menu had grown too long)', () => {
+    expect(header).toMatch(/const \[hatsOpen, setHatsOpen\] = useState\(false\)/)
+    expect(header).toMatch(/useEffect\(\(\) => \{ if \(!menuOpen\) setHatsOpen\(false\) \}, \[menuOpen\]\)/)
+    expect(header).toContain('data-testid="identity-toggle"')
+    expect(header).toContain("{lang === 'zh' ? '切换身份' : 'Switch identity'}")
+    expect(header).toMatch(/\{hatsOpen && <div id="sl-identity-list"/)
+    // Every hat row (three roles + both provider doors) sits inside the folded list.
+    const listStart = header.indexOf('{hatsOpen && <div id="sl-identity-list"')
+    const listEnd = header.indexOf('</div>}', listStart)
+    const list = header.slice(listStart, listEnd)
+    expect(list).toMatch(/\(\['tenant', 'landlord', 'agent'\] as const\)\.map/)
+    expect(list).toContain('data-testid="become-provider"')
+    expect(list).toContain('href="/provider/jobs"')
+  })
 })
