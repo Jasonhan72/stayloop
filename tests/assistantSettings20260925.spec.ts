@@ -80,7 +80,7 @@ describe('assistant panel, Muse round', () => {
 // SHAPES how it thinks (user: "这里的内容都是定义这个 Agent 的，需要专门和长期的
 // 保存，每一项也是需要可以修改的" → "相当于每一个 agent 的人格，记忆等"). Every
 // item is stored on its own table, edited in place, and fed into every turn.
-import { applyUserOverrides, readUserOverrides, userModelToPromptBlock } from '@/lib/agent/reflection'
+import { applyUserOverrides, readUserOverrides, userModelToPromptBlock, type UserModel } from '@/lib/agent/reflection'
 import { sanitizePersona, PERSONA_MAX } from '@/lib/agent/assistantProfile'
 
 describe('the assistant’s definition: stored, editable, and in every prompt', () => {
@@ -120,7 +120,7 @@ describe('the assistant’s definition: stored, editable, and in every prompt', 
   it('profile fields the person writes are user_overrides: they survive reflection and are marked as the person’s own in the prompt', () => {
     expect(readUserOverrides({ goals: ['x'], user_overrides: { goals: ['把 89 Estelle 租出去'], current_focus: '  续约  ', preferences: 'not-a-list', avoid: 42 } })).toEqual({ goals: ['把 89 Estelle 租出去'], current_focus: '续约' })
     expect(readUserOverrides(null)).toEqual({})
-    const inferred = { goals: ['guess'], preferences: ['zh'], constraints: [], communication_style: '', current_focus: 'inferred focus', worked_well: [], avoid: [], updated_at: '2026-09-26', turns_analyzed: 5 }
+    const inferred: UserModel = { goals: ['guess'], preferences: ['zh'], constraints: [], communication_style: '', current_focus: 'inferred focus', worked_well: [], avoid: [], updated_at: '2026-09-26', turns_analyzed: 5 }
     const merged = applyUserOverrides(inferred, { goals: ['mine'], current_focus: 'my focus' })
     expect(merged.goals).toEqual(['mine'])
     expect(merged.current_focus).toBe('my focus')
