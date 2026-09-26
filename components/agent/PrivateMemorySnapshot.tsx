@@ -97,6 +97,31 @@ export default function PrivateMemorySnapshot({
     } finally { setBusy(null) }
   }
 
+  // Add a fact by hand (user 2026-09-25: everything that defines the assistant
+  // is editable here): a labelled value under the current hat, source user_edit.
+  const [adding, setAdding] = useState(false)
+  const [newLabel, setNewLabel] = useState('')
+  const [newValue, setNewValue] = useState('')
+  async function addMemory() {
+    if (!role) return
+    const label = newLabel.trim().slice(0, 60)
+    const value = newValue.trim().slice(0, 500)
+    if (!label || !value) return
+    setBusy('__new__')
+    try {
+      const { data: u } = await supabase.auth.getUser()
+      const uid = u.user?.id
+      if (!uid) return
+      const key = `user_${label.toLowerCase().replace(/[^a-z0-9一-鿿]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'note'}_${Date.now().toString(36)}`
+      const row = { user_id: uid, role, memory_type: 'profile', key, label, value, confidence: 1, source: 'user_edit', updated_at: new Date().toISOString() }
+      const { error } = await supabase.from('user_memories').insert(row)
+      if (error) { alert(error.message); return }
+      setMemories((prev) => [{ key, label, value, confidence: 1, memory_type: 'profile', role }, ...prev])
+      setNewLabel(''); setNewValue(''); setAdding(false)
+      void writeAuditEvent(supabase, { actorId: uid, action: 'memory_edited', targetType: 'user_memory', metadata: { key, memory_type: 'profile', role, added: true } })
+    } finally { setBusy(null) }
+  }
+
   const human = memories.filter((m) => !isMachine(m))
   const machine = memories.length - human.length
   const shown = expanded ? human : human.slice(0, VISIBLE_CAP)
@@ -156,6 +181,21 @@ export default function PrivateMemorySnapshot({
           )
         })}
       </div>
+
+      {canEdit && (
+        adding ? (
+          <form onSubmit={(e) => { e.preventDefault(); void addMemory() }} className="mt-3 space-y-1.5 rounded-lg border border-line-divider bg-surface-chip p-2.5">
+            <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} maxLength={60} placeholder={zh ? '这条记什么（如：预算）' : 'What is it about (e.g. budget)'} className="sl-input !py-1 !text-[13px] w-full" autoFocus />
+            <input value={newValue} onChange={(e) => setNewValue(e.target.value)} maxLength={500} placeholder={zh ? '内容（如：每月 $2,400 以内）' : 'The fact (e.g. up to $2,400 a month)'} className="sl-input !py-1 !text-[13px] w-full" />
+            <div className="flex gap-1.5">
+              <button type="submit" disabled={busy === '__new__' || !newLabel.trim() || !newValue.trim()} className="rounded-md px-2.5 py-1 text-[12px] font-bold text-white disabled:opacity-50" style={{ background: '#00ACE4' }}>{zh ? '记住' : 'Remember'}</button>
+              <button type="button" onClick={() => setAdding(false)} className="rounded-md border border-line-divider px-2 py-1 text-[12px] text-body-2">{zh ? '取消' : 'Cancel'}</button>
+            </div>
+          </form>
+        ) : (
+          <button type="button" onClick={() => setAdding(true)} className="mt-3 text-[12px] font-semibold text-brand hover:underline">{zh ? '+ 让它记住一条' : '+ Add something to remember'}</button>
+        )
+      )}
 
       {(hidden > 0 || expanded) && human.length > VISIBLE_CAP && (
         <button

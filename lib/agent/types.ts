@@ -79,6 +79,8 @@ export type MemoryItem = {
   memory_type: string
   /** The hat this fact was learned under ('self' = the whole-person profile). */
   role?: string
+  /** 'user_edit' = typed or corrected by the person themselves (outranks inferred facts, 2026-09-26). */
+  source?: string
 }
 
 export type AgentResult = {

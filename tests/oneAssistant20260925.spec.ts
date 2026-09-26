@@ -48,7 +48,7 @@ describe('one assistant per account', () => {
     expect(loader).toContain('readAssistantProfile(client)')
     expect(loader).toContain('getUserMemories(client),')
     expect(loader).toContain("agent_name: profile?.name || ROLE_META[role].name, avatar: profile?.avatar ?? null")
-    expect(read('lib/agent/memory.ts')).toContain("select('key,label,value,confidence,memory_type,role')")
+    expect(read('lib/agent/memory.ts')).toContain("select('key,label,value,confidence,memory_type,role,source')") // + source since 2026-09-26 (user-written facts outrank inferred ones)
     const wf = { workflow_type: 'tenant_search', workflow_id: null, current_stage: 'intake', completed_steps: [], status: 'active' as const }
     const prompt = buildSystemPrompt('landlord', 'Atlas', [
       { key: 'budget', label: '预算', value: { max: 2400 }, confidence: 0.9, memory_type: 'preference', role: 'tenant' },

@@ -5,6 +5,7 @@
 // on the right, the turn-model selector (writes user_model_preferences, the
 // same store as /settings/models), the mic, and a square accent send key (↑).
 // Enter sends, Shift+Enter inserts a newline.
+import { CATALOG_CACHE_KEY, CATALOG_CACHE_MS } from '@/lib/agent/modelCatalog'
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
@@ -12,8 +13,6 @@ import { getSupabaseBrowser } from '@/lib/supabase'
 import type { AgentRole, ChatAttachment } from '@/lib/agent/types'
 import { ROLE_THEME } from '@/lib/roleTheme'
 
-const CATALOG_CACHE_KEY = 'sl-model-catalog'
-const CATALOG_CACHE_MS = 10 * 60 * 1000
 
 const MAX_FILES = 3
 const MAX_BYTES = 4 * 1024 * 1024 // 4MB

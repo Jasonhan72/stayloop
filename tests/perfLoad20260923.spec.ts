@@ -52,7 +52,7 @@ describe('page-load round trips', () => {
   })
   it('model catalogue is cached per user for the session', () => {
     const s = read('components/agent/AgentInputBar.tsx')
-    expect(s).toContain("const CATALOG_CACHE_KEY = 'sl-model-catalog'")
+    expect(read('lib/agent/modelCatalog.ts')).toContain("export const CATALOG_CACHE_KEY = 'sl-model-catalog'") // shared with the assistant's settings tab (2026-09-26)
     expect(s).toContain('sessionStorage.removeItem(`${CATALOG_CACHE_KEY}:${auth.user.id}`)')
   })
 })

@@ -10,7 +10,7 @@ export async function getUserMemories(
   client: SupabaseClient,
   role?: AgentRole
 ): Promise<MemoryItem[]> {
-  let q = client.from('user_memories').select('key,label,value,confidence,memory_type,role')
+  let q = client.from('user_memories').select('key,label,value,confidence,memory_type,role,source')
   if (role) q = q.eq('role', role)
   const { data, error } = await q
     .order('updated_at', { ascending: false })

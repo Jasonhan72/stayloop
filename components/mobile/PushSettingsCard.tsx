@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { disablePush, enablePush, getPushState, setPushLevel, type PushState } from '@/lib/push/client'
 import type { PushLevel } from '@/lib/push/notify'
 
-export default function PushSettingsCard({ live }: { live: boolean }) {
+export default function PushSettingsCard({ live, frameless = false }: { live: boolean; /** Inside another card (the assistant's settings tab): no card chrome of its own. */ frameless?: boolean }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const [state, setState] = useState<PushState | null>(null)
@@ -57,7 +57,7 @@ export default function PushSettingsCard({ live }: { live: boolean }) {
   )
 
   return (
-    <div className="sl-card p-5">
+    <div className={frameless ? '' : 'sl-card p-5'}>
       <div className="flex items-center justify-between">
         <h4 className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '通知 · 推到这台设备' : 'NOTIFICATIONS · THIS DEVICE'}</h4>
         {state?.subscribed && <span className="rounded-full px-2 py-[2px] font-mono text-[10px] font-bold" style={{ background: 'rgba(106,179,68,.12)', color: '#3F7D20' }}>{zh ? '已开' : 'ON'}</span>}

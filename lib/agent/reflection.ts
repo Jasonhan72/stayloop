@@ -42,6 +42,34 @@ export interface UserModel {
   avoid: string[]
   updated_at: string
   turns_analyzed: number
+  /** Fields the person wrote or corrected themselves in the assistant's settings (2026-09-25) — they
+   *  outrank what reflection infers and survive every later reflection. */
+  user_overrides?: Partial<UserOverrides>
+}
+
+export const USER_MODEL_LIST_FIELDS = ['goals', 'preferences', 'constraints', 'worked_well', 'avoid'] as const
+export const USER_MODEL_TEXT_FIELDS = ['current_focus', 'communication_style'] as const
+export type UserOverrides = Pick<UserModel, (typeof USER_MODEL_LIST_FIELDS)[number] | (typeof USER_MODEL_TEXT_FIELDS)[number]>
+
+/** Read the person's own edits off a stored profile value (tolerates any shape). Pure — tested. */
+export function readUserOverrides(value: unknown): Partial<UserOverrides> {
+  const raw = value && typeof value === 'object' ? (value as { user_overrides?: unknown }).user_overrides : null
+  if (!raw || typeof raw !== 'object') return {}
+  const o = raw as Record<string, unknown>
+  const out: Partial<UserOverrides> = {}
+  for (const f of USER_MODEL_LIST_FIELDS) if (Array.isArray(o[f])) out[f] = clampArr(o[f], 8, 80)
+  for (const f of USER_MODEL_TEXT_FIELDS) if (typeof o[f] === 'string') out[f] = (o[f] as string).trim().slice(0, 160)
+  return out
+}
+
+/** The person's own edits replace what reflection inferred, field by field, and ride along on the value. Pure — tested. */
+export function applyUserOverrides<T extends Partial<UserModel>>(model: T, overrides: Partial<UserOverrides>): T {
+  const keys = Object.keys(overrides) as (keyof UserOverrides)[]
+  if (!keys.length) return model
+  const out: Record<string, unknown> = { ...model }
+  for (const k of keys) out[k] = overrides[k]
+  out.user_overrides = { ...overrides }
+  return out as T
 }
 
 const REFLECT_PROMPT = `你是一个"用户理解引擎"。下面是某位 Stayloop 用户（身份：{ROLE}）最近与 AI 助理的对话记录、TA 已保存的记忆、以及 TA 对 AI 提议的批准/拒绝记录。
@@ -84,21 +112,26 @@ export function sanitizeUserModel(raw: unknown, turns: number): UserModel | null
 export function userModelToPromptBlock(value: unknown): string {
   const m = value && typeof value === 'object' ? (value as Partial<UserModel>) : null
   if (!m) return ''
-  const sec = (label: string, arr?: string[]) => (arr && arr.length ? `- ${label}: ${arr.join('；')}` : null)
+  const own = new Set(Object.keys(m.user_overrides ?? {}))
+  // Fields the person wrote themselves are marked so the model treats them as ground truth (2026-09-26).
+  const tag = (f: keyof UserOverrides) => (own.has(f) ? '（用户自己写定）' : '')
+  const sec = (label: string, f: keyof UserOverrides, arr?: string[]) => (arr && arr.length ? `- ${label}${tag(f)}: ${arr.join('；')}` : null)
   const lines = [
-    m.current_focus ? `- 当前重点: ${m.current_focus}` : null,
-    sec('目标', m.goals),
-    sec('偏好', m.preferences),
-    sec('硬性约束', m.constraints),
-    m.communication_style ? `- 沟通风格: ${m.communication_style}` : null,
-    sec('有效的做法', m.worked_well),
-    sec('避免', m.avoid),
+    m.current_focus ? `- 当前重点${tag('current_focus')}: ${m.current_focus}` : null,
+    sec('目标', 'goals', m.goals),
+    sec('偏好', 'preferences', m.preferences),
+    sec('硬性约束', 'constraints', m.constraints),
+    m.communication_style ? `- 沟通风格${tag('communication_style')}: ${m.communication_style}` : null,
+    sec('有效的做法', 'worked_well', m.worked_well),
+    sec('避免', 'avoid', m.avoid),
   ].filter(Boolean)
   if (!lines.length) return ''
   return (
     `\n\n## 我对这位用户的长期理解（系统自动学习，截至 ${m.updated_at || '近期'}）\n` +
     lines.join('\n') +
-    '\n（据此调整你的建议与语气；发现与画像矛盾的新信息时，照常用 memory_writes 记下新事实——画像会在下次自动反思时更新。）'
+    '\n（据此调整你的建议与语气；发现与画像矛盾的新信息时，照常用 memory_writes 记下新事实——画像会在下次自动反思时更新。' +
+    (own.size ? '标「用户自己写定」的项是用户亲自写的，以它为准，不要用你的推断去修正。' : '') +
+    '）'
   )
 }
 
@@ -116,11 +149,14 @@ const TURN_ACTIONS = ['tenant_agent_turn', 'landlord_agent_turn', 'agent_agent_t
 /** One user's reflection across every hat: gather evidence → synthesize → upsert the user_model memory (role 'self'). */
 export async function reflectUser(admin: SupabaseClient, userId: string): Promise<boolean> {
   const since = new Date(Date.now() - 14 * 86_400_000).toISOString()
-  const [turnsQ, memsQ, apprQ] = await Promise.all([
+  const [turnsQ, memsQ, apprQ, prevQ] = await Promise.all([
     admin.from('agent_audit_events').select('action,metadata,created_at').eq('actor_id', userId).in('action', TURN_ACTIONS).gte('created_at', since).order('created_at', { ascending: false }).limit(MAX_TURNS),
     admin.from('user_memories').select('memory_type,key,label,value,updated_at,role').eq('user_id', userId).neq('key', USER_MODEL_KEY).order('updated_at', { ascending: false }).limit(80),
     admin.from('approval_events').select('action_type,status,created_at').eq('user_id', userId).gte('created_at', since).order('created_at', { ascending: false }).limit(30),
+    // What the person wrote into the profile themselves (assistant settings, 2026-09-25) survives every reflection.
+    admin.from('user_memories').select('value').eq('user_id', userId).eq('role', 'self').eq('memory_type', 'system').eq('key', USER_MODEL_KEY).maybeSingle(),
   ])
+  const overrides = readUserOverrides((prevQ.data as { value?: unknown } | null)?.value)
   const turns = (turnsQ.data ?? []) as Array<{ action?: string; metadata?: Record<string, unknown>; created_at?: string }>
   if (turns.length < 3) return false // not enough signal to learn from yet
   const convo = turns
@@ -142,7 +178,7 @@ export async function reflectUser(admin: SupabaseClient, userId: string): Promis
   const { text } = await llmChat({
     model: def,
     system: REFLECT_PROMPT.replace('{ROLE}', '租客 / 房东 / 经纪 —— 同一个人可能同时有几种身份;画像写这个人本身,各身份的目标与约束分开写'),
-    messages: [{ role: 'user', content: `## 最近对话（旧→新）\n${convo.slice(0, 12_000)}\n\n## 已保存的记忆\n${mems.slice(0, 4_000)}\n\n## 提议批准/拒绝记录\n${appr.slice(0, 1_500)}` }],
+    messages: [{ role: 'user', content: `## 最近对话（旧→新）\n${convo.slice(0, 12_000)}\n\n## 已保存的记忆\n${mems.slice(0, 4_000)}\n\n## 提议批准/拒绝记录\n${appr.slice(0, 1_500)}${Object.keys(overrides).length ? `\n\n## 用户自己写定的画像项（照抄到对应字段，不要改写或删减）\n${JSON.stringify(overrides).slice(0, 2_000)}` : ''}` }],
     maxTokens: def.provider === 'openai-compat' ? 2500 : 1200,
     temperature: 0.2,
     jsonMode: def.provider === 'openai-compat',
@@ -153,9 +189,10 @@ export async function reflectUser(admin: SupabaseClient, userId: string): Promis
   if (!model) {
     // Review 2026-09-14: returning without a row left needsReflection()
     // true forever, so every later turn re-ran this 12k-char call. Stamp an
-    // empty profile (renders to nothing) so the staleness window applies.
+    // empty profile (renders to nothing) so the staleness window applies —
+    // keeping whatever the person wrote themselves.
     await admin.from('user_memories').upsert(
-      { user_id: userId, role: 'self', memory_type: 'system', key: USER_MODEL_KEY, label: '用户画像', value: { updated_at: new Date().toISOString().slice(0, 10), turns_analyzed: turns.length }, source: 'reflection', updated_at: new Date().toISOString() },
+      { user_id: userId, role: 'self', memory_type: 'system', key: USER_MODEL_KEY, label: '用户画像', value: applyUserOverrides({ updated_at: new Date().toISOString().slice(0, 10), turns_analyzed: turns.length }, overrides), source: 'reflection', updated_at: new Date().toISOString() },
       { onConflict: 'user_id,role,memory_type,key' },
     )
     return false
@@ -167,7 +204,7 @@ export async function reflectUser(admin: SupabaseClient, userId: string): Promis
       memory_type: 'system',
       key: USER_MODEL_KEY,
       label: '用户画像（自动学习）',
-      value: stripNul(model) as unknown as Record<string, unknown>,
+      value: stripNul(applyUserOverrides(model, overrides)) as unknown as Record<string, unknown>,
       confidence: 0.9,
       source: 'reflection',
       updated_at: new Date().toISOString(),

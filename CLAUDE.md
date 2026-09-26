@@ -2237,3 +2237,21 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
   现在识别为 `blocked` → 用 Jina 代理池重试一次（`X-Proxy: auto`，实测每次都能过，约 8–10 秒）→ 仍被拦记 `REALTOR_BLOCKED (599)`；全部被拦时
   `externalFromStatuses` 给 `unavailable · realtor.ca bot check`，回复改说「实时抓取暂时不可用」而不是「没结果」。
 - 库里确实没有 TMU 周边的 2 房（7 套活跃 2 房+ 分布在 Kensington-Chinatown / North York / Harbourfront 等），「库里没有匹配」那半句是对的。
+
+## 助手的长期档案：每一项都存、都能改、都进提示词（2026-09-25 晚 → 26 · 用户「这里的内容都是定义这个 Agent 的，需要专门和长期的保存，每一项也是需要可以修改的」→「这设置是对 Agent 的行为和思考产生影响的，相当于每一个 agent 的人格、记忆等」）
+
+守卫 `tests/assistantSettings20260925.spec.ts`「the assistant's definition」段；迁移 `20260926_assistant_persona.sql`（`assistant_profiles.persona text ≤600`）已应用 prod。
+「助手设置」标签现在是助理的定义档案，顶部写明「长期档案 · 存在你的账号里 · 这里的每一项都会进入它的每一次思考」，每项就地可改：
+- **名字 / 头像** → `assistant_profiles.name / avatar`（铅笔菜单；卡片里的名字行点击也开改名）。
+- **人设 `persona`（新）**：几句「它是谁、怎么做事、优先什么」（≤600 字，`sanitizePersona` 保留换行、丢弃覆盖指令句）→ turn 路由以调用者客户端读出、
+  `buildSystemPrompt(…, vibe, persona)` 第八参数注入：「用户为你写的人设（…每次思考前先读它，在不违反任何原则、不改变事实与能力边界的前提下始终照此行事）」，
+  排在人格句之后、风格句之前。**风格 `vibe`** 不变（语气一句话）。
+- **对话模型**：就地下拉（`lib/agent/modelCatalog.ts loadTurnModels / saveTurnModel`，与输入条选择器、`/settings/models` 同一个 `user_model_preferences`
+  存储与同一份 sessionStorage 缓存；`AgentInputBar` 改为从该模块取常量）。**通知**：内嵌 `PushSettingsCard frameless`（同一 `push_subscriptions`）。
+- **画像**（`user_memories` role self · key user_model）逐字段可改：当前重点 / 目标 / 偏好 / 硬性约束 / 沟通风格 / 有效的做法 / 避免；用户写的内容存进
+  `value.user_overrides`，`reflectUser` 每次反思前读上一行的 overrides、把它们塞进提示词「照抄到对应字段」、写回时 `applyUserOverrides` 再覆盖一遍——
+  **用户写定的字段永远不会被自动学习覆盖**；「交回自动」删掉该字段的 override；没有画像行时可直接写（insert，source user_edit）。
+  `userModelToPromptBlock` 给这些字段标「（用户自己写定）」并要求模型以它为准。
+- **记忆**：记忆标签可「+ 让它记住一条」（insert `user_memories`，memory_type profile、source user_edit，key = `user_<label>_<时间戳>`）；`getUserMemories`
+  现在带 `source`，提示词把 `source='user_edit'` 的条目标成【用户亲自写的】并说明「以它为准；别的记忆或你的推断与它冲突时听它的」。
+- 每项写入都有审计事件（`memory_edited` 带 field / added，`memory_forgotten`）。
