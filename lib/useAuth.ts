@@ -104,13 +104,15 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
   }, [])
 
   const setRole = (r: Role) => {
-    setState((prev) => {
-      if (typeof window !== 'undefined' && prev.user) {
-        if (r) window.localStorage.setItem(roleStorageKey(prev.user.id), r)
-        else window.localStorage.removeItem(roleStorageKey(prev.user.id))
-      }
-      return { ...prev, role: r }
-    })
+    // Persist OUTSIDE the state updater: an updater queued by a component that
+    // unmounts in the same event never runs (the hero re-keys on a hat switch,
+    // so the hat label that called setRole is gone before React gets to it —
+    // prod 2026-09-25: the hero switched, localStorage kept the old hat).
+    if (typeof window !== 'undefined' && state.user) {
+      if (r) window.localStorage.setItem(roleStorageKey(state.user.id), r)
+      else window.localStorage.removeItem(roleStorageKey(state.user.id))
+    }
+    setState((prev) => (prev.role === r ? prev : { ...prev, role: r }))
     // Every useAuth() instance keeps its own copy of the remembered role; a
     // switch made in one (the hat label in the homepage hero, 2026-09-25) must
     // reach the others on the page (the Header's identity menu, the hero).

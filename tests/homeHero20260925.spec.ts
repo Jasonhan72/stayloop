@@ -39,6 +39,8 @@ describe('homepage hero: same layout, tighter, the chat runs to the fold', () =>
     const auth = read('lib/useAuth.ts')
     expect(auth).toContain("window.dispatchEvent(new CustomEvent(ROLE_CHANGED_EVENT, { detail: r }))")
     expect(auth).toContain('window.addEventListener(ROLE_CHANGED_EVENT, onChanged)')
+    // the remembered hat is written outside the state updater — the hat label that called setRole unmounts in the same event
+    expect(auth).toMatch(/const setRole = \(r: Role\) => \{[\s\S]*?if \(typeof window !== 'undefined' && state\.user\) \{[\s\S]*?\}\s*setState\(\(prev\) => \(prev\.role === r \? prev : \{ \.\.\.prev, role: r \}\)\)/)
     expect(chat).not.toContain('headerNote')
     expect(chat).toContain("compactHeader ? 'flex flex-none flex-col items-center px-4 pb-1.5 pt-2.5 md:border-b md:border-line-divider md:px-5 md:pb-2 md:pt-3'")
     expect(chat).toContain("${compactHeader ? 'h-10 w-10 md:h-11 md:w-11' : 'h-11 w-11 md:h-14 md:w-14'}")
