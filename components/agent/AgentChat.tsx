@@ -136,8 +136,9 @@ export default function AgentChat({
   compactHeader?: boolean
   /** 'brand' = the signed-in user's one assistant (same face under every hat); 'role' = a demo persona's orb. */
   avatarFallback?: 'role' | 'brand'
-  /** Workspace page: the current hat as a text label under the name (the homepage has its own hat line). */
-  hatChip?: boolean
+  /** The current hat as a text label by the name: `true` on the workspace page (switching goes to
+   *  that hat's page), `'stay'` on the signed-in homepage (switches the hero in place). */
+  hatChip?: boolean | 'stay'
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -209,11 +210,18 @@ export default function AgentChat({
               row, so the phone header stays as short as before. */}
           <div className={`flex max-w-full items-center gap-1.5 ${compactHeader ? 'mt-1' : 'mt-1.5 md:mt-2'}`}>
             <div className="truncate rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:text-[14px]">{agentName}</div>
-            {hatChip && <HatChip role={role} />}
+            {hatChip && !compactHeader && <HatChip role={role} />}
           </div>
-          <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`${compactHeader ? 'mt-0.5' : 'mt-1'} flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
-            <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
-          </button>
+          {/* Homepage (compactHeader): the assistant panel's arrangement — avatar · name ·
+              hat label under the name, no status line (user 2026-09-25); the hat switches
+              in place there ('stay'). The workspace header keeps its status line: it is
+              the button that opens the activity log. */}
+          {hatChip && compactHeader && <HatChip role={role} stay={hatChip === 'stay'} className="mt-1.5" />}
+          {!compactHeader && (
+            <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`mt-1 flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
+              <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
+            </button>
+          )}
         </div>
       </div>
       {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} currentThreadId={currentThreadId} onOpenThread={onOpenThread} onClose={() => setSheet(false)} />}

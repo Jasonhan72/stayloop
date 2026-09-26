@@ -16,19 +16,24 @@ describe('homepage hero: same layout, tighter, the chat runs to the fold', () =>
     expect(home).not.toContain('sm:text-[52px]')
     expect(home).toContain('sm:px-7 sm:pt-9 lg:pt-11')
     expect(home).toContain('mt-3 hidden max-w-[640px] text-[16px] leading-relaxed text-body-2 sm:block')
-    // the hat line stays above the card for signed-in users; visitors keep the three pills
-    expect(home).toMatch(/\{signedIn \? \(\s*<div className="mb-2 flex flex-wrap items-center justify-center gap-2 text-\[12\.5px\] text-body-3 sm:mb-2\.5">/)
-    expect(home).toContain("{zh ? '换身份在右上角菜单' : 'Switch hats in the top-right menu'}")
+    // Signed in: no hat line above the card (user 2026-09-25, later the same day) — the hat is the
+    // text label under the assistant's name inside the card and switches in place; visitors keep the pills
+    expect(home).not.toContain('换身份在右上角菜单')
+    expect(home).toMatch(/\{!signedIn && \(\s*<div className="mb-2 flex flex-wrap items-center justify-center gap-1\.5 sm:mb-2\.5 sm:gap-2">/)
     expect(home).not.toContain('headerNote')
   })
   it('the chat card runs to the fold on ≥640px screens and keeps its phone sizing', () => {
-    expect(home).toContain('sm:h-[max(400px,calc(100vh-390px))]')
+    expect(home).toContain('sm:h-[max(400px,calc(100vh-390px))]') // visitors: pills above the card
+    expect(home).toContain('sm:h-[max(400px,calc(100vh-345px))]') // signed in: no hat line, the card gets the room
     expect(home).not.toContain('sm:h-[600px]')
     expect(home).toContain('h-[max(360px,calc(100vh-270px))]')
-    expect(home).toContain('onListingsShown={markListingsShown} fill compactHeader />')
+    expect(home).toContain("onListingsShown={markListingsShown} fill compactHeader hatChip={live ? 'stay' : false} />")
   })
-  it('compactHeader keeps the centred avatar · name · status block, only smaller; the assistant pages keep the original metrics', () => {
+  it('compactHeader keeps the centred avatar · name block, only smaller — hat label under the name, no status line (2026-09-25); the assistant pages keep the original metrics', () => {
     expect(chat).toContain('compactHeader?: boolean')
+    expect(chat).toContain("{hatChip && compactHeader && <HatChip role={role} stay={hatChip === 'stay'} className=\"mt-1.5\" />}")
+    expect(chat).toMatch(/\{!compactHeader && \(\s*<button type="button" onClick=\{\(\) => canOpenSheet && setSheet\(true\)\}/)
+    expect(read('components/agent/HatChip.tsx')).toContain("if (!stay) router.push(`/${r}/agent`)")
     expect(chat).not.toContain('headerNote')
     expect(chat).toContain("compactHeader ? 'flex flex-none flex-col items-center px-4 pb-1.5 pt-2.5 md:border-b md:border-line-divider md:px-5 md:pb-2 md:pt-3'")
     expect(chat).toContain("${compactHeader ? 'h-10 w-10 md:h-11 md:w-11' : 'h-11 w-11 md:h-14 md:w-14'}")

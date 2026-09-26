@@ -195,11 +195,11 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     // pill that reopens a closed panel; the homepage keeps its own hat line and passes nothing
     expect(read('components/agent/AssistantPanel.tsx')).toContain('<HatChip role={role} className="mt-1.5" />')
     const chat = read('components/agent/AgentChat.tsx')
-    expect(chat).toContain('{hatChip && <HatChip role={role} />}') // same row as the name pill: the phone header keeps its height
+    expect(chat).toContain('{hatChip && !compactHeader && <HatChip role={role} />}') // same row as the name pill: the phone header keeps its height
     const page = read('components/agent/AgentWorkspacePage.tsx')
     expect(page).toMatch(/avatarFallback=\{live \? 'brand' : 'role'\}\n\s+hatChip\n/)
     expect(page).toContain("{agent.agent_name} · {zh ? HAT_LABEL[role].zh : HAT_LABEL[role].en}")
-    expect(read('components/home/HomeNext.tsx')).not.toContain('hatChip')
+    expect(read('components/home/HomeNext.tsx')).toContain("hatChip={live ? 'stay' : false}") // signed-in homepage: same label, switches in place
   })
   it('a ↓ button appears once the thread is scrolled up and jumps to the newest message', () => {
     const chat = read('components/agent/AgentChat.tsx')

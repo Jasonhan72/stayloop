@@ -119,9 +119,9 @@ describe('signed-in homepage + identity menu', () => {
   const home = readFileSync('components/home/HomeNext.tsx', 'utf8')
   const header = readFileSync('components/Header.tsx', 'utf8')
   it('homepage hides the pills for signed-in users and mirrors auth.role', () => {
-    expect(home).toMatch(/\{signedIn \? \(/)
+    expect(home).toMatch(/\{!signedIn && \(/) // pills for visitors only; signed in, the hat label sits under the assistant's name (2026-09-25)
     expect(home).toMatch(/setRole\(activeHat\(hats, auth\.role\)\)/) // review 2026-09-25: the same predicate as the header
-    expect(home).toMatch(/换身份在右上角菜单/)
+    expect(home).not.toMatch(/换身份在右上角菜单/) // 2026-09-25 (later): the hat is a text label under the assistant's name inside the card, switching in place
   })
   it('menu: identity row, the hat\'s workspace (no quick chips — user 2026-09-22; no assistant names — user 2026-09-25), three hats with 当前 / 待认证 / 开通, red dot only when something waits', () => {
     expect(header).toMatch(/当前：\$\{ROLE_META\[currentRole\]\.label\}`/)

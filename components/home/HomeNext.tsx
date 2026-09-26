@@ -230,15 +230,10 @@ export default function HomeNext() {
 
           {/* role switch + live assistant */}
           <div ref={heroRef} id="assistant" className="mx-auto mt-2.5 min-w-0 max-w-[920px] scroll-mt-24 sm:mt-6">
-            {signedIn ? (
-              <div className="mb-2 flex flex-wrap items-center justify-center gap-2 text-[12.5px] text-body-3 sm:mb-2.5">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 font-semibold text-body" style={{ border: '1px solid #D3E3EF' }}>
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#00ACE4' }} />
-                  {pick(ROLE_LABEL[role], lang)}
-                </span>
-                <span>{zh ? '换身份在右上角菜单' : 'Switch hats in the top-right menu'}</span>
-              </div>
-            ) : (
+            {/* Signed in: no hat line above the card (user 2026-09-25) — the hat is the text
+                label under the assistant's name inside the card, as in the assistant panel,
+                and switches in place. Visitors keep the three pills (the demo switcher). */}
+            {!signedIn && (
             <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5 sm:mb-2.5 sm:gap-2">
               {(['tenant', 'landlord', 'agent'] as AgentRole[]).map((r) => (
                 <button
@@ -260,7 +255,9 @@ export default function HomeNext() {
                 eyebrow / title / lead / hat line ≈ 320px) — floor 400px (user
                 2026-09-25: the hero was squeezing the conversation; the layout
                 itself stays as it was, only the spacing is tighter). */}
-            <div className="h-[max(360px,calc(100vh-270px))] supports-[height:100dvh]:h-[max(360px,calc(100dvh-270px))] sm:h-[max(400px,calc(100vh-390px))]">
+            <div className={signedIn
+              ? 'h-[max(360px,calc(100vh-230px))] supports-[height:100dvh]:h-[max(360px,calc(100dvh-230px))] sm:h-[max(400px,calc(100vh-345px))]'
+              : 'h-[max(360px,calc(100vh-270px))] supports-[height:100dvh]:h-[max(360px,calc(100dvh-270px))] sm:h-[max(400px,calc(100vh-390px))]'}>
               <AssistantPanel key={role} role={role} name={names[role]} queued={queued} onQueuedSent={() => setQueued(null)} />
             </div>
             <div className="mt-3 flex flex-col items-center justify-between gap-2 text-[12px] text-body-3 sm:flex-row">
@@ -389,7 +386,7 @@ function AssistantPanel({ role, name, queued, onQueuedSent }: { role: AgentRole;
   if (loading || !data) {
     return <div className="h-full animate-pulse rounded-2xl border border-line-divider bg-white" />
   }
-  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} avatar={data.agent.avatar ?? null} avatarFallback={live ? 'brand' : 'role'} status={status} messages={messages} onSend={sendMessage} onListingsShown={markListingsShown} fill compactHeader />
+  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} avatar={data.agent.avatar ?? null} avatarFallback={live ? 'brand' : 'role'} status={status} messages={messages} onSend={sendMessage} onListingsShown={markListingsShown} fill compactHeader hatChip={live ? 'stay' : false} />
 }
 
 function Pain({ who, text, onTry, tryLabel }: { who: string; text: string; onTry: () => void; tryLabel: string }) {

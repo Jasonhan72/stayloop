@@ -20,7 +20,12 @@ export const HAT_LABEL: Record<AgentRole, { zh: string; en: string }> = {
   tenant: { zh: '租客', en: 'Tenant' }, landlord: { zh: '房东', en: 'Landlord' }, agent: { zh: '经纪', en: 'Agent' },
 }
 
-export default function HatChip({ role, className = '' }: { role: AgentRole; className?: string }) {
+export default function HatChip({ role, className = '', stay = false }: {
+  role: AgentRole
+  className?: string
+  /** Switch the hat in place (the homepage hero re-mounts on the remembered role) instead of going to that hat's assistant page. */
+  stay?: boolean
+}) {
   const { lang } = useT()
   const en = lang === 'en'
   const auth = useAuth()
@@ -37,7 +42,7 @@ export default function HatChip({ role, className = '' }: { role: AgentRole; cla
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
   }, [open])
   const held = (r: AgentRole) => (r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)
-  const switchTo = (r: AgentRole) => { setOpen(false); auth.setRole(r); router.push(`/${r}/agent`) }
+  const switchTo = (r: AgentRole) => { setOpen(false); auth.setRole(r); if (!stay) router.push(`/${r}/agent`) }
   const name = (r: AgentRole) => (en ? HAT_LABEL[r].en : HAT_LABEL[r].zh)
   const title = en ? `Identity: ${name(role)} · switch` : `身份：${name(role)} · 点击切换`
   const row = 'flex w-full items-center gap-2.5 px-3 py-2 text-left transition hover:bg-surface'
