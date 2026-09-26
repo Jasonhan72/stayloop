@@ -15,9 +15,12 @@ import type { CSSProperties } from 'react'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole } from './types'
 
-export type AvatarPreset = { key: string; zh: string; en: string; disc: string }
+export type AvatarGroup = 'pet' | 'person'
+export type AvatarPreset = { key: string; zh: string; en: string; disc: string; group: AvatarGroup }
 
-export const AVATAR_PRESETS: AvatarPreset[] = [
+/** Twenty plush-toy pets (2026-09-25). */
+const PETS: Omit<AvatarPreset, 'group'>[] = [
+
   { key: 'bunny', zh: '兔子', en: 'Bunny', disc: '#EEF3FF' },
   { key: 'cat', zh: '小猫', en: 'Cat', disc: '#FFE6D2' },
   { key: 'dog', zh: '小狗', en: 'Puppy', disc: '#E6F0FF' },
@@ -38,6 +41,40 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
   { key: 'monkey', zh: '猴子', en: 'Monkey', disc: '#F0E6DD' },
   { key: 'seal', zh: '海豹', en: 'Seal', disc: '#E3EEF8' },
   { key: 'mouse', zh: '老鼠', en: 'Mouse', disc: '#EEF0F3' },
+]
+
+/** Twenty young people — ten men, ten women, each in a different 3D style (user 2026-09-25 evening:
+ *  "再做 10 个男，10 个女的卡通头像，年轻人的，不同风格，也是 3D 的"). */
+const PEOPLE: Omit<AvatarPreset, 'group'>[] = [
+  { key: 'm-ace', zh: '阿哲', en: 'Ace', disc: '#E6F0FF' },
+  { key: 'm-leo', zh: '里奥', en: 'Leo', disc: '#FFF0DC' },
+  { key: 'm-kai', zh: '凯', en: 'Kai', disc: '#E4ECFA' },
+  { key: 'm-noah', zh: '诺亚', en: 'Noah', disc: '#E6F7E9' },
+  { key: 'm-sam', zh: '小森', en: 'Sam', disc: '#F3F1EC' },
+  { key: 'm-jay', zh: '杰', en: 'Jay', disc: '#FFF6CC' },
+  { key: 'm-milo', zh: '米洛', en: 'Milo', disc: '#FFE9DC' },
+  { key: 'm-ryan', zh: '瑞恩', en: 'Ryan', disc: '#E8F4EF' },
+  { key: 'm-omar', zh: '奥马尔', en: 'Omar', disc: '#EEF3FF' },
+  { key: 'm-eli', zh: '伊莱', en: 'Eli', disc: '#F0E6DD' },
+  { key: 'f-mia', zh: '米娅', en: 'Mia', disc: '#FFE4EC' },
+  { key: 'f-luna', zh: '露娜', en: 'Luna', disc: '#FFF3D6' },
+  { key: 'f-yuki', zh: '小雪', en: 'Yuki', disc: '#F0EAFF' },
+  { key: 'f-zoe', zh: '佐伊', en: 'Zoe', disc: '#E6F7E9' },
+  { key: 'f-nina', zh: '妮娜', en: 'Nina', disc: '#FFE6D2' },
+  { key: 'f-ava', zh: '艾娃', en: 'Ava', disc: '#FFF6CC' },
+  { key: 'f-rin', zh: '小凛', en: 'Rin', disc: '#FFE4EC' },
+  { key: 'f-jade', zh: '洁德', en: 'Jade', disc: '#E3EEF8' },
+  { key: 'f-lily', zh: '莉莉', en: 'Lily', disc: '#FBE9F1' },
+  { key: 'f-emma', zh: '艾玛', en: 'Emma', disc: '#EEF0F3' },
+]
+
+export const AVATAR_PRESETS: AvatarPreset[] = [
+  ...PETS.map((p) => ({ ...p, group: 'pet' as const })),
+  ...PEOPLE.map((p) => ({ ...p, group: 'person' as const })),
+]
+export const AVATAR_GROUPS: { key: AvatarGroup; zh: string; en: string }[] = [
+  { key: 'pet', zh: '宠物', en: 'Pets' },
+  { key: 'person', zh: '人物', en: 'People' },
 ]
 
 /** Pre-pet keys (2026-09-25 morning) → the pet a saved choice becomes. */
@@ -66,9 +103,10 @@ export function resolveAvatarKey(key: string | null | undefined): string | null 
   return LEGACY_AVATARS[key] ?? null
 }
 
-/** Where a pet's render lives (public/avatars/pets). */
+/** Where a preset's render lives: public/avatars/pets or public/avatars/people. */
 export function avatarImageSrc(key: string): string {
-  return `/avatars/pets/${key}.webp`
+  const group = AVATAR_PRESETS.find((p) => p.key === key)?.group ?? 'pet'
+  return `/avatars/${group === 'person' ? 'people' : 'pets'}/${key}.webp`
 }
 
 // One assistant per account (2026-09-25): one stored choice, not one per hat.

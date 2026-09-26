@@ -1,8 +1,10 @@
 // Twenty plush-toy pets replace the glossy shapes as the assistant's face (user
-// 2026-09-25, after Muse's fluffy creature: "3D 的头像，毛绒玩具的样子"), and the
-// name under the avatar is set like Muse's: plain, medium weight, larger. Each
-// pet is a generated render shipped under public/avatars/pets and rendered for
-// real with react-test-renderer: an <img> on a pastel disc.
+// 2026-09-25, after Muse's fluffy creature: "3D 的头像，毛绒玩具的样子"), joined the
+// same evening by twenty young people in different 3D styles ("再做 10 个男，10
+// 个女的卡通头像"); the name under the avatar is set like Muse's: plain, medium
+// weight, larger. Each preset is a generated render shipped under
+// public/avatars/{pets,people} and rendered for real with react-test-renderer:
+// an <img> on a pastel disc.
 import { describe, expect, it } from 'vitest'
 import React from 'react'
 import TestRenderer from 'react-test-renderer'
@@ -12,17 +14,28 @@ import { AVATAR_PRESETS, AssistantAvatar, DEFAULT_ASSISTANT_AVATAR, LEGACY_AVATA
 const read = (p: string) => readFileSync(p, 'utf8')
 
 describe('pet avatars', () => {
-  it('twenty distinct pets, each with a bilingual name and a disc colour; the default is one of them', () => {
-    expect(AVATAR_PRESETS).toHaveLength(20)
-    expect(new Set(AVATAR_PRESETS.map((p) => p.key)).size).toBe(20)
+  it('twenty pets + twenty young people (ten men, ten women), each with a bilingual name and a disc colour; the default is a pet', () => {
+    expect(AVATAR_PRESETS).toHaveLength(40)
+    expect(new Set(AVATAR_PRESETS.map((p) => p.key)).size).toBe(40)
+    expect(AVATAR_PRESETS.filter((p) => p.group === 'pet')).toHaveLength(20)
+    const people = AVATAR_PRESETS.filter((p) => p.group === 'person')
+    expect(people).toHaveLength(20)
+    expect(people.filter((p) => p.key.startsWith('m-'))).toHaveLength(10)
+    expect(people.filter((p) => p.key.startsWith('f-'))).toHaveLength(10)
     for (const p of AVATAR_PRESETS) {
       expect(p.zh, p.key).toMatch(/\S/)
       expect(p.en, p.key).toMatch(/\S/)
       expect(p.disc, p.key).toMatch(/^#[0-9A-F]{6}$/i)
     }
     expect(isAvatarPreset(DEFAULT_ASSISTANT_AVATAR)).toBe(true)
+    expect(AVATAR_PRESETS.find((p) => p.key === DEFAULT_ASSISTANT_AVATAR)?.group).toBe('pet')
+    expect(avatarImageSrc('bunny')).toBe('/avatars/pets/bunny.webp')
+    expect(avatarImageSrc('f-mia')).toBe('/avatars/people/f-mia.webp')
+    // the picker shows both groups, labelled
+    expect(read('components/agent/AssistantPanel.tsx')).toContain('{AVATAR_GROUPS.map((g) => (')
+    expect(read('components/agent/AssistantPanel.tsx')).toContain("{AVATAR_PRESETS.filter((p) => p.group === g.key).map((p) => (")
   })
-  it('every pet ships as a WebP render under public/avatars/pets (≤ 160 KB) and renders as an <img> on its disc', () => {
+  it('every preset ships as a WebP render under public/avatars/{pets,people} (≤ 160 KB) and renders as an <img> on its disc', () => {
     for (const p of AVATAR_PRESETS) {
       const file = `public${avatarImageSrc(p.key)}`
       const size = statSync(file).size

@@ -2216,6 +2216,10 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
   agent-test 的 cube → bear）。选择格每行 5 个、48px 格 / 40px 头像。**名字**改成 Muse 那种：面板 26px / 对话头部 17–19px、`font-medium`
   （站点字体 Inter Tight）、纯文字无胶囊。守卫 `tests/petAvatars20260925.spec.ts`（20 个文件存在且 ≤160 KB、逐个渲染成 `<img>` + 圆盘）。
   再生成某只：同一模板改动物描述，透明 WebP，`magick` 缩到 512px 放回同名文件即可。
+  **同晚追加 20 个年轻人（用户「再做 10 个男，10 个女的卡通头像，年轻人的，不同风格，也是 3D 的」）**：`m-ace … m-eli`、`f-mia … f-emma`，
+  每人一种 3D 风格（Pixar / 黏土 / 动漫 3D / 低多边形 / Q 版大头 / 亮面搪胶 / 羊毛毡 / 运动卡通 / 纸艺分层 / Memoji 风），肤色与族裔多样，同一管线
+  （gpt-image-1、透明 WebP、512px），存 `public/avatars/people/`；`AvatarPreset.group ∈ pet | person`，`AVATAR_GROUPS` 给选择格分「宠物 / 人物」
+  两段（可滚动，`max-h-[340px]`），`avatarImageSrc(key)` 按组选目录。默认仍是兔子。约 1 美元。
 - **最后一轮（用户「把所有这里的角色标记（房东/租客/经纪）都去掉吧」）**：助手头像区一律不显示身份——面板头部、对话头部（工作台手机端与首页 hero
   卡）、面板收起后的重开胶囊都只剩头像 + 名字；`components/agent/HatChip.tsx` 删除。**换身份只在 Header 的身份菜单**（「当前：房东 / 切换 / 开通」），
   首页 hero 按 `auth.role` 跟随。`useAuth.setRole` 的广播与 updater 外写入保留。
