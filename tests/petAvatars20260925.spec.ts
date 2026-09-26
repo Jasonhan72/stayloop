@@ -1,32 +1,38 @@
-// Twenty cute cartoon pets replace the glossy shapes as the assistant's face
-// (user 2026-09-25, after Muse's plush creature), and the name under the avatar
-// is set like Muse's: plain, medium weight, larger. Each pet is rendered for
-// real with react-test-renderer — an SVG face on a coloured disc.
+// Twenty plush-toy pets replace the glossy shapes as the assistant's face (user
+// 2026-09-25, after Muse's fluffy creature: "3D 的头像，毛绒玩具的样子"), and the
+// name under the avatar is set like Muse's: plain, medium weight, larger. Each
+// pet is a generated render shipped under public/avatars/pets and rendered for
+// real with react-test-renderer: an <img> on a pastel disc.
 import { describe, expect, it } from 'vitest'
 import React from 'react'
 import TestRenderer from 'react-test-renderer'
-import { readFileSync } from 'node:fs'
-import { AVATAR_PRESETS, AssistantAvatar, DEFAULT_ASSISTANT_AVATAR, LEGACY_AVATARS, isAvatarPreset, resolveAvatarKey } from '@/lib/agent/avatars'
+import { readFileSync, statSync } from 'node:fs'
+import { AVATAR_PRESETS, AssistantAvatar, DEFAULT_ASSISTANT_AVATAR, LEGACY_AVATARS, avatarImageSrc, isAvatarPreset, resolveAvatarKey } from '@/lib/agent/avatars'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 
 describe('pet avatars', () => {
-  it('twenty distinct pets, each with a bilingual name; the default is one of them', () => {
+  it('twenty distinct pets, each with a bilingual name and a disc colour; the default is one of them', () => {
     expect(AVATAR_PRESETS).toHaveLength(20)
     expect(new Set(AVATAR_PRESETS.map((p) => p.key)).size).toBe(20)
     for (const p of AVATAR_PRESETS) {
       expect(p.zh, p.key).toMatch(/\S/)
       expect(p.en, p.key).toMatch(/\S/)
+      expect(p.disc, p.key).toMatch(/^#[0-9A-F]{6}$/i)
     }
     expect(isAvatarPreset(DEFAULT_ASSISTANT_AVATAR)).toBe(true)
   })
-  it('every pet renders as an SVG face on a disc — at least the disc, two eyes and their highlights', () => {
+  it('every pet ships as a WebP render under public/avatars/pets (≤ 160 KB) and renders as an <img> on its disc', () => {
     for (const p of AVATAR_PRESETS) {
+      const file = `public${avatarImageSrc(p.key)}`
+      const size = statSync(file).size
+      expect(size, file).toBeGreaterThan(5_000)
+      expect(size, file).toBeLessThanOrEqual(160_000)
       const r = TestRenderer.create(React.createElement(AssistantAvatar, { avatar: p.key, role: 'tenant' }))
-      const svg = r.root.findByType('svg')
-      expect(svg.props['data-avatar'], p.key).toBe(p.key)
-      expect(svg.props.viewBox).toBe('0 0 100 100')
-      expect(r.root.findAllByType('circle').length, p.key).toBeGreaterThanOrEqual(5)
+      const disc = r.root.findByType('span')
+      expect(disc.props['data-avatar'], p.key).toBe(p.key)
+      expect(disc.props.style.background).toBe(p.disc)
+      expect(r.root.findByType('img').props.src).toBe(avatarImageSrc(p.key))
       r.unmount()
     }
   })
@@ -39,11 +45,11 @@ describe('pet avatars', () => {
     expect(resolveAvatarKey('nope')).toBeNull()
     expect(resolveAvatarKey(null)).toBeNull()
     const orb = TestRenderer.create(React.createElement(AssistantAvatar, { avatar: 'nope', role: 'landlord' }))
-    expect(orb.root.findAllByType('svg')).toHaveLength(0)
+    expect(orb.root.findAllByType('img')).toHaveLength(0)
     const brand = TestRenderer.create(React.createElement(AssistantAvatar, { avatar: 'nope', role: 'landlord', fallback: 'brand' }))
-    expect(brand.root.findByType('svg').props['data-avatar']).toBe(DEFAULT_ASSISTANT_AVATAR)
+    expect(brand.root.findByType('span').props['data-avatar']).toBe(DEFAULT_ASSISTANT_AVATAR)
     const legacy = TestRenderer.create(React.createElement(AssistantAvatar, { avatar: 'ring', role: 'landlord' }))
-    expect(legacy.root.findByType('svg').props['data-avatar']).toBe('panda')
+    expect(legacy.root.findByType('span').props['data-avatar']).toBe('panda')
     const sql = read('supabase/migrations/20260925_avatar_pets.sql')
     for (const k of old) expect(sql, k).toContain(`when '${k}' then '${LEGACY_AVATARS[k]}'`)
   })

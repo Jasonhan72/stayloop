@@ -2204,13 +2204,18 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
   **顺带修的一个旧问题**：每个 `useAuth()` 实例各持一份 role 状态，`setRole` 只更新自己那个实例——生产实测原地切换后 Header 菜单仍写「当前：房东」。
   现在 `setRole` 广播 `sl-role-changed`（`ROLE_CHANGED_EVENT`），所有实例监听并同步；localStorage 写入也挪到 updater 之外（调用方在同一次事件里卸载时
   updater 不会执行）。
-- **头像换成 20 个卡通宠物 + 名字字体（用户「头像名字也用这种字体，另外设计 20 个类似的可爱卡通宠物的形象的头像给用户选择，替换掉现在的这些选项」）**：
-  `lib/agent/avatars.tsx` 重写——兔子 / 小猫 / 小狗 / 小熊 / 熊猫 / 狐狸 / 考拉 / 企鹅 / 猫头鹰 / 青蛙 / 仓鼠 / 小猪 / 奶牛 / 小鸡 / 绵羊 / 老虎 / 狮子 / 猴子 / 海豹 / 老鼠，
-  全部用 SVG 在代码里画（viewBox 100：圆脸 + 点眼高光 + 腮红 + 小嘴，坐在一个淡色圆盘上；共用 `Eyes / Blush / Smile / CatMouth / NoseTri / Shine / Whiskers`
-  绘图件），无图片文件；默认宠物 `DEFAULT_ASSISTANT_AVATAR = 'bunny'`；原来 11 个光泽形状经 `LEGACY_AVATARS` 映射到宠物（`resolveAvatarKey`），
-  `assistant_profiles.avatar` 的存量值由迁移 `20260925_avatar_pets.sql` 同步改写（已应用 prod：jasonhan72 的 ring → panda、agent-test 的 cube → bear）。
-  选择格改为每行 5 个、48px 格 / 40px 头像。**名字**改成 Muse 那种：面板 26px / 对话头部 17–19px、`font-medium`（站点字体 Inter Tight）、
-  纯文字无胶囊。守卫 `tests/petAvatars20260925.spec.ts`（用 react-test-renderer 逐个渲染 20 个宠物）。
+- **头像换成 20 只毛绒玩具宠物 + 名字字体（用户「头像名字也用这种字体，另外设计 20 个类似的可爱卡通宠物的形象的头像给用户选择，替换掉现在的这些选项」→
+  「要做成 3D 的头像，毛绒玩具的样子的」）**：第一版用 SVG 手绘的扁平 kawaii 脸被否决，改为**图像模型生成的 3D 毛绒渲染图**：OpenAI `gpt-image-1`
+  （`.env.local` 的 `OPENAI_API_KEY`，medium 质量、1024²、`background: transparent`、WebP），统一提示词模板「A cute plush toy {animal}, soft fluffy fur,
+  chubby round head, tiny black bead eyes with a bright highlight, gentle smile, rosy blush cheeks, front-facing bust portrait, perfectly centered,
+  kawaii style, 3D render, soft studio lighting, subtle rim light, no text, no props」+ 每种动物一句特征；20 张各约 1056 个图像 token，合计约 1 美元。
+  缩到 512px（`magick -quality 82`，每张 27–50 KB，共 800 KB）存 `public/avatars/pets/<key>.webp`：兔子 / 小猫 / 小狗 / 小熊 / 熊猫 / 狐狸 / 考拉 / 企鹅 /
+  猫头鹰 / 青蛙 / 仓鼠 / 小猪 / 奶牛 / 小鸡 / 绵羊 / 老虎 / 狮子 / 猴子 / 海豹 / 老鼠。`lib/agent/avatars.tsx`：`AVATAR_PRESETS` 每项带 `disc`（淡色圆盘色），
+  `AssistantAvatar` = 圆盘 `<span>` + `<img object-contain>`；默认 `DEFAULT_ASSISTANT_AVATAR = 'bunny'`；原来 11 个光泽形状经 `LEGACY_AVATARS` 映射
+  到宠物（`resolveAvatarKey`），`assistant_profiles.avatar` 存量值由迁移 `20260925_avatar_pets.sql` 改写（已应用 prod：jasonhan72 的 ring → panda、
+  agent-test 的 cube → bear）。选择格每行 5 个、48px 格 / 40px 头像。**名字**改成 Muse 那种：面板 26px / 对话头部 17–19px、`font-medium`
+  （站点字体 Inter Tight）、纯文字无胶囊。守卫 `tests/petAvatars20260925.spec.ts`（20 个文件存在且 ≤160 KB、逐个渲染成 `<img>` + 圆盘）。
+  再生成某只：同一模板改动物描述，透明 WebP，`magick` 缩到 512px 放回同名文件即可。
 - **最后一轮（用户「把所有这里的角色标记（房东/租客/经纪）都去掉吧」）**：助手头像区一律不显示身份——面板头部、对话头部（工作台手机端与首页 hero
   卡）、面板收起后的重开胶囊都只剩头像 + 名字；`components/agent/HatChip.tsx` 删除。**换身份只在 Header 的身份菜单**（「当前：房东 / 切换 / 开通」），
   首页 hero 按 `auth.role` 跟随。`useAuth.setRole` 的广播与 updater 外写入保留。
