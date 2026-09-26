@@ -117,7 +117,7 @@ export default function AssistantSettings({ role, name, live, memoryCount, onOpe
       )}
 
       <section className="rounded-2xl bg-surface-chip p-4">
-        <div className="text-[17px] font-extrabold tracking-tight">{name}</div>
+        <div className="text-[19px] font-medium tracking-tight text-ink">{name}</div>
         <div className="mt-0.5 text-[12.5px] text-body-3">{vibe || (zh ? '还没有设定风格' : 'No style set yet')}</div>
 
         <div className="mt-3.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '风格' : 'Vibe'}</div>

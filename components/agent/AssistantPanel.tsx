@@ -154,13 +154,14 @@ export default function AssistantPanel({ role, agentName, pendingActions, memori
         {picking && (
           <div data-testid="avatar-picker" className="mx-auto mt-3 max-w-[300px] rounded-xl border border-line-divider bg-white p-2.5 shadow-lg">
             <div className="mb-1.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '选一个头像' : 'Pick an avatar'}</div>
-            <div className="grid grid-cols-6 gap-1.5">
-              <button type="button" onClick={() => void chooseAvatar(null)} title={zh ? '默认' : 'Default'} aria-label={zh ? '默认头像' : 'Default avatar'} className={`flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-chip ${!avatar || avatar === 'default' ? 'ring-2 ring-brand ring-offset-1' : ''}`}>
-                <AssistantAvatar avatar={null} role={role} className="h-8 w-8" fallback={live ? 'brand' : 'role'} />
+            {/* Twenty cartoon pets (user 2026-09-25) — five to a row so each face reads. */}
+            <div className="grid grid-cols-5 gap-1.5">
+              <button type="button" onClick={() => void chooseAvatar(null)} title={zh ? '默认' : 'Default'} aria-label={zh ? '默认头像' : 'Default avatar'} className={`flex h-12 w-12 items-center justify-center rounded-full transition hover:bg-surface-chip ${!avatar || avatar === 'default' ? 'ring-2 ring-brand ring-offset-1' : ''}`}>
+                <AssistantAvatar avatar={null} role={role} className="h-10 w-10" fallback={live ? 'brand' : 'role'} />
               </button>
               {AVATAR_PRESETS.map((p) => (
-                <button key={p.key} type="button" onClick={() => void chooseAvatar(p.key)} title={zh ? p.zh : p.en} aria-label={zh ? p.zh : p.en} className={`flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-chip ${avatar === p.key ? 'ring-2 ring-brand ring-offset-1' : ''}`}>
-                  <AssistantAvatar avatar={p.key} role={role} className="h-8 w-8" />
+                <button key={p.key} type="button" onClick={() => void chooseAvatar(p.key)} title={zh ? p.zh : p.en} aria-label={zh ? p.zh : p.en} className={`flex h-12 w-12 items-center justify-center rounded-full transition hover:bg-surface-chip ${avatar === p.key ? 'ring-2 ring-brand ring-offset-1' : ''}`}>
+                  <AssistantAvatar avatar={p.key} role={role} className="h-10 w-10" />
                 </button>
               ))}
             </div>
@@ -168,11 +169,12 @@ export default function AssistantPanel({ role, agentName, pendingActions, memori
         )}
         {renaming ? (
           <form onSubmit={(e) => { e.preventDefault(); void saveName() }} className="mx-auto mt-2.5 flex max-w-[220px] items-center gap-1.5">
-            <input autoFocus value={nameDraft} maxLength={20} onChange={(e) => setNameDraft(e.target.value)} onBlur={() => void saveName()} aria-label={zh ? '助手名字' : 'Assistant name'} className="min-w-0 flex-1 rounded-lg border border-line-strong px-2.5 py-1 text-center text-[15px] font-bold" />
+            <input autoFocus value={nameDraft} maxLength={20} onChange={(e) => setNameDraft(e.target.value)} onBlur={() => void saveName()} aria-label={zh ? '助手名字' : 'Assistant name'} className="min-w-0 flex-1 rounded-lg border border-line-strong px-2.5 py-1 text-center text-[18px] font-medium" />
             <button type="submit" className="rounded-lg px-2.5 py-1 text-[12px] font-bold text-white" style={{ background: '#1B1B3C' }}>{zh ? '好' : 'OK'}</button>
           </form>
         ) : (
-          <div className="mt-2.5 text-[18px] font-extrabold tracking-tight">{name}</div>
+          /* Set like Muse's name under the avatar (user 2026-09-25): plain, larger, medium weight. */
+          <div className="mt-3 text-[26px] font-medium leading-tight tracking-tight text-ink">{name}</div>
         )}
         {/* The hat, as text, right under the name (user 2026-09-25: "角色的标记可以放在
             avatar 这里，不用图标，就是文字标记就可以了") — the rail's emoji chip is gone. */}

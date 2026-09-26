@@ -195,7 +195,7 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
   it('3D avatar presets render in code, are picked in the panel, and show everywhere the assistant appears', async () => {
     const { AVATAR_PRESETS, isAvatarPreset } = await import('@/lib/agent/avatars')
     expect(AVATAR_PRESETS.length).toBeGreaterThanOrEqual(8)
-    expect(isAvatarPreset('cube')).toBe(true)
+    expect(isAvatarPreset('panda')).toBe(true) // pets since 2026-09-25 evening; the old shapes map onto them
     expect(isAvatarPreset('nope')).toBe(false)
     const panel = read('components/agent/AssistantPanel.tsx')
     expect(panel).toContain('data-testid="avatar-picker"')

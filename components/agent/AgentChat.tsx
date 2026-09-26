@@ -203,7 +203,8 @@ export default function AgentChat({
           {/* Workspace page below lg (where the AssistantPanel is not shown): the
               hat as a text label beside the name (user 2026-09-25) — on the same
               row, so the phone header stays as short as before. */}
-          <div className={`max-w-full truncate rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:text-[14px] ${compactHeader ? 'mt-1' : 'mt-1.5 md:mt-2'}`}>{agentName}</div>
+          {/* Plain, medium-weight name like Muse's — no pill (user 2026-09-25). */}
+          <div className={`max-w-full truncate text-[17px] font-medium leading-tight tracking-tight text-ink md:text-[19px] ${compactHeader ? 'mt-1.5' : 'mt-2'}`}>{agentName}</div>
           {/* No hat label by the name (user 2026-09-25, final round: "把所有这里的角色标记都去掉") —
               hats switch in the Header's identity menu. Homepage (compactHeader): avatar · name,
               no status line; the workspace header keeps its status line — it opens the activity log. */}
