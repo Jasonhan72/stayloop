@@ -230,9 +230,9 @@ export default function HomeNext() {
 
           {/* role switch + live assistant */}
           <div ref={heroRef} id="assistant" className="mx-auto mt-2.5 min-w-0 max-w-[920px] scroll-mt-24 sm:mt-6">
-            {/* Signed in: no hat line above the card (user 2026-09-25) — the hat is the text
-                label under the assistant's name inside the card, as in the assistant panel,
-                and switches in place. Visitors keep the three pills (the demo switcher). */}
+            {/* Signed in: no hat line above the card and no hat label in it (user 2026-09-25:
+                "把所有这里的角色标记都去掉") — hats switch in the Header's identity menu; the
+                hero follows auth.role. Visitors keep the three pills (the demo switcher). */}
             {!signedIn && (
             <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5 sm:mb-2.5 sm:gap-2">
               {(['tenant', 'landlord', 'agent'] as AgentRole[]).map((r) => (
@@ -258,7 +258,7 @@ export default function HomeNext() {
             <div className={signedIn
               ? 'h-[max(360px,calc(100vh-230px))] supports-[height:100dvh]:h-[max(360px,calc(100dvh-230px))] sm:h-[max(400px,calc(100vh-345px))]'
               : 'h-[max(360px,calc(100vh-270px))] supports-[height:100dvh]:h-[max(360px,calc(100dvh-270px))] sm:h-[max(400px,calc(100vh-390px))]'}>
-              <AssistantPanel key={role} role={role} name={names[role]} queued={queued} onQueuedSent={() => setQueued(null)} onHatSwitch={setRole} />
+              <AssistantPanel key={role} role={role} name={names[role]} queued={queued} onQueuedSent={() => setQueued(null)} />
             </div>
             <div className="mt-3 flex flex-col items-center justify-between gap-2 text-[12px] text-body-3 sm:flex-row">
               <span>{zh ? '免注册体验 · 每小时有次数上限 · 登录后它才会记住你' : 'Try without signing up · hourly limit · it only remembers you after you sign in'}</span>
@@ -372,7 +372,7 @@ export default function HomeNext() {
 }
 
 // One live session per role; remounted (key=role) when the role switches.
-function AssistantPanel({ role, name, queued, onQueuedSent, onHatSwitch }: { role: AgentRole; name: string | null; queued: { role: AgentRole; prompt: string } | null; onQueuedSent: () => void; onHatSwitch: (r: AgentRole) => void }) {
+function AssistantPanel({ role, name, queued, onQueuedSent }: { role: AgentRole; name: string | null; queued: { role: AgentRole; prompt: string } | null; onQueuedSent: () => void }) {
   const { loading, live, data, status, messages, sendMessage, markListingsShown } = useAgentSession(role)
   const sentRef = useRef<string | null>(null)
   useEffect(() => {
@@ -386,7 +386,7 @@ function AssistantPanel({ role, name, queued, onQueuedSent, onHatSwitch }: { rol
   if (loading || !data) {
     return <div className="h-full animate-pulse rounded-2xl border border-line-divider bg-white" />
   }
-  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} avatar={data.agent.avatar ?? null} avatarFallback={live ? 'brand' : 'role'} status={status} messages={messages} onSend={sendMessage} onListingsShown={markListingsShown} fill compactHeader hatChip={live} onHatSwitch={onHatSwitch} />
+  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} avatar={data.agent.avatar ?? null} avatarFallback={live ? 'brand' : 'role'} status={status} messages={messages} onSend={sendMessage} onListingsShown={markListingsShown} fill compactHeader />
 }
 
 function Pain({ who, text, onTry, tryLabel }: { who: string; text: string; onTry: () => void; tryLabel: string }) {

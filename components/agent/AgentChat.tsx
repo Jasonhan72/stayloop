@@ -5,7 +5,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useT } from '@/lib/i18n'
 import AgentInputBar, { type ComposerDraft } from './AgentInputBar'
-import HatChip, { HAT_LABEL } from './HatChip'
 import DraftListingChatCard from './DraftListingChatCard'
 import ListingChatCard from './ListingChatCard'
 import CommercialCompareTable from './CommercialCompareTable'
@@ -87,8 +86,6 @@ export default function AgentChat({
   onOpenThread,
   compactHeader = false,
   avatarFallback = 'role',
-  hatChip = false,
-  onHatSwitch,
 }: {
   role: AgentRole
   agentName: string
@@ -137,10 +134,6 @@ export default function AgentChat({
   compactHeader?: boolean
   /** 'brand' = the signed-in user's one assistant (same face under every hat); 'role' = a demo persona's orb. */
   avatarFallback?: 'role' | 'brand'
-  /** The current hat as a text label by the name (workspace page and signed-in homepage). */
-  hatChip?: boolean
-  /** Homepage: switch the hat in place (re-target the hero) instead of going to that hat's page. */
-  onHatSwitch?: (r: AgentRole) => void
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -210,15 +203,10 @@ export default function AgentChat({
           {/* Workspace page below lg (where the AssistantPanel is not shown): the
               hat as a text label beside the name (user 2026-09-25) — on the same
               row, so the phone header stays as short as before. */}
-          <div className={`flex max-w-full items-center gap-1.5 ${compactHeader ? 'mt-1' : 'mt-1.5 md:mt-2'}`}>
-            <div className="truncate rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:text-[14px]">{agentName}</div>
-            {hatChip && !compactHeader && <HatChip role={role} />}
-          </div>
-          {/* Homepage (compactHeader): the assistant panel's arrangement — avatar · name ·
-              hat label under the name, no status line (user 2026-09-25); the hat switches
-              in place there ('stay'). The workspace header keeps its status line: it is
-              the button that opens the activity log. */}
-          {hatChip && compactHeader && <HatChip role={role} onSwitch={onHatSwitch} className="mt-1.5" />}
+          <div className={`max-w-full truncate rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:text-[14px] ${compactHeader ? 'mt-1' : 'mt-1.5 md:mt-2'}`}>{agentName}</div>
+          {/* No hat label by the name (user 2026-09-25, final round: "把所有这里的角色标记都去掉") —
+              hats switch in the Header's identity menu. Homepage (compactHeader): avatar · name,
+              no status line; the workspace header keeps its status line — it opens the activity log. */}
           {!compactHeader && (
             <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`mt-1 flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
               <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>

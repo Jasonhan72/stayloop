@@ -4,7 +4,7 @@
 // beside it (default open, closable, remembered), approvals in the thread,
 // and the three role pages built the same way.
 import { describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
 import { actionTypeLabel, activityGroups, activityIcon, buildActivity, fmtRowTime, itemIcon, shortNote, type ThreadItem } from '@/lib/agent/activityLog'
 import type { ThreadListRow } from '@/lib/agent/threads'
@@ -173,33 +173,18 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     expect(shell).toContain("window.dispatchEvent(new Event('sl-new-thread'))")
     expect(read('lib/agent/useAgentSession.ts')).toContain("window.addEventListener('sl-new-thread', h)")
   })
-  it('the hat is a text label beside the assistant’s avatar (HatChip), not a chip on the rail (user 2026-09-25, third round: "不用图标，就是文字标记")', () => {
+  it('no role marker anywhere around the assistant — rail, panel head, chat header, reopen pill, homepage card (user 2026-09-25, final round); hats switch in the Header menu only', () => {
     const shell = read('components/WorkspaceShell.tsx')
-    // no text label between "+" and the assistant icons, and no role chip above settings any more
     const rail = shell.slice(shell.indexOf('aria-label={en ? \'New conversation\' : \'新会话\'}'), shell.indexOf('{assistant.map((it) => link(it'))
     expect(rail).not.toContain('ROLE_LABEL[role]')
     expect(shell).not.toContain('RoleBadge')
-    expect(shell).not.toContain('ROLE_LABEL')
     expect(shell).toContain('<div className="mt-auto" />\n      {link(settingsItem)}')
-    const chip = read('components/agent/HatChip.tsx')
-    // text only — no emoji, no icon glyph, no role orb
-    expect(chip).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
-    expect(chip).not.toContain('avatarGradient')
-    expect(chip).toContain("tenant: { zh: '租客', en: 'Tenant' }, landlord: { zh: '房东', en: 'Landlord' }, agent: { zh: '经纪', en: 'Agent' }")
-    expect(chip).toContain('style={{ background: ROLE_THEME[role].lightRgba, color: ROLE_THEME[role].accent }}')
-    // same rules as the header: held hats switch in place, missing ones link to their door
-    expect(chip).toContain("const held = (r: AgentRole) => (r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)")
-    expect(chip).toContain("href={r === 'landlord' ? '/onboarding/name?role=landlord' : '/agent/verify'}")
-    expect(chip).toContain('aria-haspopup="menu"')
-    // under the name: in the panel (lg+), in the chat header below lg on the workspace page, and in the
-    // pill that reopens a closed panel; the homepage keeps its own hat line and passes nothing
-    expect(read('components/agent/AssistantPanel.tsx')).toContain('<HatChip role={role} className="mt-1.5" />')
-    const chat = read('components/agent/AgentChat.tsx')
-    expect(chat).toContain('{hatChip && !compactHeader && <HatChip role={role} />}') // same row as the name pill: the phone header keeps its height
-    const page = read('components/agent/AgentWorkspacePage.tsx')
-    expect(page).toMatch(/avatarFallback=\{live \? 'brand' : 'role'\}\n\s+hatChip\n/)
-    expect(page).toContain("{agent.agent_name} · {zh ? HAT_LABEL[role].zh : HAT_LABEL[role].en}")
-    expect(read('components/home/HomeNext.tsx')).toContain('hatChip={live} onHatSwitch={onHatSwitch}') // signed-in homepage: same label, switches in place
+    expect(existsSync('components/agent/HatChip.tsx')).toBe(false)
+    for (const f of ['components/agent/AssistantPanel.tsx', 'components/agent/AgentChat.tsx', 'components/agent/AgentWorkspacePage.tsx', 'components/home/HomeNext.tsx']) {
+      expect(read(f), f).not.toMatch(/HatChip|hatChip|HAT_LABEL|onHatSwitch/)
+    }
+    expect(read('components/agent/AgentWorkspacePage.tsx')).toContain("{agent.agent_name}{pendingCount > 0 ? (zh ? ` · 等你点头 ${pendingCount} 件` : ` · ${pendingCount} waiting`) : ''}")
+    expect(read('components/Header.tsx')).toContain('handleRoleSwitch')
   })
   it('a ↓ button appears once the thread is scrolled up and jumps to the newest message', () => {
     const chat = read('components/agent/AgentChat.tsx')

@@ -385,8 +385,9 @@ function Rail({ role }: { role: WorkspaceRole }) {
       {/* "+" = new conversation (user 2026-09-25, as on claude.ai): on the
           assistant page it starts one in place; elsewhere it opens the page
           with ?new=1. The role avatar that used to sit here is gone, and so
-          is the text label under it; the hat is a text label beside the
-          assistant's avatar now (HatChip, user 2026-09-25), not a rail chip. */}
+          is the text label under it — hats switch in the Header's identity
+          menu only (user 2026-09-25, final round: no role marker anywhere
+          around the assistant). */}
       <Link
         href={`/${role}/agent?new=1`}
         onClick={(e) => { if (path === `/${role}/agent`) { e.preventDefault(); window.dispatchEvent(new Event('sl-new-thread')) } }}

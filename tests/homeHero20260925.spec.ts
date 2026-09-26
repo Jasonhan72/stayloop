@@ -16,8 +16,8 @@ describe('homepage hero: same layout, tighter, the chat runs to the fold', () =>
     expect(home).not.toContain('sm:text-[52px]')
     expect(home).toContain('sm:px-7 sm:pt-9 lg:pt-11')
     expect(home).toContain('mt-3 hidden max-w-[640px] text-[16px] leading-relaxed text-body-2 sm:block')
-    // Signed in: no hat line above the card (user 2026-09-25, later the same day) — the hat is the
-    // text label under the assistant's name inside the card and switches in place; visitors keep the pills
+    // Signed in: no hat line above the card and no hat label in it (user 2026-09-25, later the same day) —
+    // hats switch in the Header's identity menu; visitors keep the pills
     expect(home).not.toContain('换身份在右上角菜单')
     expect(home).toMatch(/\{!signedIn && \(\s*<div className="mb-2 flex flex-wrap items-center justify-center gap-1\.5 sm:mb-2\.5 sm:gap-2">/)
     expect(home).not.toContain('headerNote')
@@ -27,19 +27,18 @@ describe('homepage hero: same layout, tighter, the chat runs to the fold', () =>
     expect(home).toContain('sm:h-[max(400px,calc(100vh-345px))]') // signed in: no hat line, the card gets the room
     expect(home).not.toContain('sm:h-[600px]')
     expect(home).toContain('h-[max(360px,calc(100vh-270px))]')
-    expect(home).toContain('onListingsShown={markListingsShown} fill compactHeader hatChip={live} onHatSwitch={onHatSwitch} />')
-    expect(home).toContain('onQueuedSent={() => setQueued(null)} onHatSwitch={setRole} />') // the label re-targets the hero in place
+    expect(home).toContain('onListingsShown={markListingsShown} fill compactHeader />')
+    expect(home).not.toMatch(/HatChip|hatChip|onHatSwitch/)
   })
-  it('compactHeader keeps the centred avatar · name block, only smaller — hat label under the name, no status line (2026-09-25); the assistant pages keep the original metrics', () => {
+  it('compactHeader keeps the centred avatar · name block, only smaller — no hat label, no status line (2026-09-25); the assistant pages keep the original metrics', () => {
     expect(chat).toContain('compactHeader?: boolean')
-    expect(chat).toContain('{hatChip && compactHeader && <HatChip role={role} onSwitch={onHatSwitch} className="mt-1.5" />}')
+    expect(chat).not.toMatch(/HatChip|hatChip/)
     expect(chat).toMatch(/\{!compactHeader && \(\s*<button type="button" onClick=\{\(\) => canOpenSheet && setSheet\(true\)\}/)
-    expect(read('components/agent/HatChip.tsx')).toContain('if (onSwitch) onSwitch(r); else router.push(`/${r}/agent`)')
     // one useAuth() instance's setRole reaches every other instance (Header menu, hero) — before this the hero and the menu disagreed
     const auth = read('lib/useAuth.ts')
     expect(auth).toContain("window.dispatchEvent(new CustomEvent(ROLE_CHANGED_EVENT, { detail: r }))")
     expect(auth).toContain('window.addEventListener(ROLE_CHANGED_EVENT, onChanged)')
-    // the remembered hat is written outside the state updater — the hat label that called setRole unmounts in the same event
+    // the remembered hat is written outside the state updater — the component that called setRole may unmount in the same event
     expect(auth).toMatch(/const setRole = \(r: Role\) => \{[\s\S]*?if \(typeof window !== 'undefined' && state\.user\) \{[\s\S]*?\}\s*setState\(\(prev\) => \(prev\.role === r \? prev : \{ \.\.\.prev, role: r \}\)\)/)
     expect(chat).not.toContain('headerNote')
     expect(chat).toContain("compactHeader ? 'flex flex-none flex-col items-center px-4 pb-1.5 pt-2.5 md:border-b md:border-line-divider md:px-5 md:pb-2 md:pt-3'")

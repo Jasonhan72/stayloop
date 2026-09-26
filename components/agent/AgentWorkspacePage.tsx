@@ -21,7 +21,6 @@ import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
 import { useAssistantPanel } from '@/lib/agent/useAssistantPanel'
 import { AssistantAvatar, getStoredAvatar, setStoredAvatar } from '@/lib/agent/avatars'
-import { HAT_LABEL } from '@/components/agent/HatChip'
 import { usePromptDeepLink } from '@/lib/agent/usePromptDeepLink'
 import { useT } from '@/lib/i18n'
 import type { AgentRole } from '@/lib/agent/types'
@@ -83,7 +82,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
           {!panelOpen && (
             <button type="button" onClick={() => setPanelOpen(true)} aria-label={zh ? '打开助手面板' : 'Open the assistant panel'} className="absolute right-4 top-3 z-10 hidden items-center gap-2 rounded-full border border-line-divider bg-white py-1 pl-1 pr-3 text-[12.5px] font-bold text-body-2 shadow-sm transition hover:border-line-strong lg:flex">
               <AssistantAvatar avatar={avatar} role={role} className="h-6 w-6" fallback={live ? 'brand' : 'role'} />
-              {agent.agent_name} · {zh ? HAT_LABEL[role].zh : HAT_LABEL[role].en}{pendingCount > 0 ? (zh ? ` · 等你点头 ${pendingCount} 件` : ` · ${pendingCount} waiting`) : ''}
+              {agent.agent_name}{pendingCount > 0 ? (zh ? ` · 等你点头 ${pendingCount} 件` : ` · ${pendingCount} waiting`) : ''}
             </button>
           )}
           <div className="min-h-0 flex-1">
@@ -94,7 +93,6 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
               phaseLabel={stageLabel || null}
               avatar={avatar}
               avatarFallback={live ? 'brand' : 'role'}
-              hatChip
               threadLoading={threadLoading} currentThreadId={threadId} onOpenThread={openThread}
               role={role}
               agentName={agent.agent_name}

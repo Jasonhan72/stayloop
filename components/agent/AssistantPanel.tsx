@@ -28,7 +28,6 @@ import { invalidateAiName } from '@/lib/aiName'
 const HAT: Record<string, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'tenant' }, landlord: { zh: '房东', en: 'landlord' }, agent: { zh: '经纪', en: 'agent' } }
 import type { AgentRole, MemoryItem, PendingAction } from '@/lib/agent/types'
 import PrivateMemorySnapshot from './PrivateMemorySnapshot'
-import HatChip from './HatChip'
 import AssistantSettings from './AssistantSettings'
 import { AvatarIcon, FingerprintIcon, ListIcon, MemoryIcon, PencilIcon, ShieldIcon } from './panelIcons'
 
@@ -177,9 +176,9 @@ export default function AssistantPanel({ role, agentName, pendingActions, memori
         )}
         {/* The hat, as text, right under the name (user 2026-09-25: "角色的标记可以放在
             avatar 这里，不用图标，就是文字标记就可以了") — the rail's emoji chip is gone. */}
-        {/* No status line under the name (user 2026-09-25: "空闲 · 当前阶段 … · 记得 N 条 这个可以去掉了"):
-            the 待办 badge and the activity tab carry that information. */}
-        <HatChip role={role} className="mt-1.5" />
+        {/* Nothing under the name (user 2026-09-25): no status line ("空闲 · 当前阶段 … · 记得 N 条"),
+            no hat label ("把所有这里的角色标记都去掉") — hats switch in the Header's identity menu,
+            the 待办 badge and the activity tab carry the rest. */}
       </div>
 
       {/* Segmented control as on Muse (user 2026-09-25 "包含用小图标，鼠标划过会有注释文字"):

@@ -1,7 +1,7 @@
 // Code + module review of the 2026-09-25 work (user: "做一下代码review和模块关系的
 // review，包含网页端和手机端"). Each block pins one confirmed finding.
 import { describe, expect, it } from 'vitest'
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 
@@ -153,8 +153,9 @@ describe('phone: one safe-area-aware bottom bar; sample pages say they are sampl
     expect((rp.match(/<PreviewNote zh=\{zh\}/g) || []).length).toBe(3)
     expect(rp).toContain('data-testid="preview-note"')
   })
-  it('the hat menu contains only menu items (the switcher lives in HatChip since the third round)', () => {
-    expect(read('components/agent/HatChip.tsx')).toContain('role="menuitem" aria-disabled="true" aria-current="true"')
+  it('the identity menu (the only hat switcher since the final round) is made of menu items', () => {
+    expect(read('components/Header.tsx')).toMatch(/role="menuitem"/)
+    expect(existsSync('components/agent/HatChip.tsx')).toBe(false)
   })
 })
 
