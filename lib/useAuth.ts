@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { clearCachedAiNames } from '@/lib/aiName'
+import { clearStoredAvatar } from '@/lib/agent/avatars'
 import { rememberableRoleFromPath, roleFromPath } from '@/lib/activeRole'
 export { roleFromPath }
 import { getSupabaseBrowser } from './supabase'
@@ -129,6 +130,7 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
 
   const signOut = async () => {
     clearCachedAiNames()
+    clearStoredAvatar()
     const supabase = getSupabaseBrowser()
     await supabase.auth.signOut()
     setRole(null)

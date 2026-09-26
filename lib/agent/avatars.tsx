@@ -119,6 +119,10 @@ export function getStoredAvatar(): string | null {
     return resolveAvatarKey(v) ?? (v === 'default' ? 'default' : null)
   } catch { return null }
 }
+/** Sign-out: the cached face belongs to the account that just left (2026-09-26). */
+export function clearStoredAvatar(): void {
+  try { localStorage.removeItem(STORE_KEY) } catch { /* private mode */ }
+}
 export function setStoredAvatar(key: string | null): void {
   try { if (key) localStorage.setItem(STORE_KEY, key); else localStorage.removeItem(STORE_KEY) } catch { /* private mode */ }
 }

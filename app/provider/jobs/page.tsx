@@ -3,6 +3,7 @@
 // /provider/jobs — the provider's job list (services marketplace §4.3):
 // invitations, in progress, done. Mobile first; every action goes through
 // the shared WorkOrderCard → /api/work-orders/[id]/act.
+import { WORK_ORDER_COLUMNS } from '@/lib/marketplace/workOrders'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -32,8 +33,8 @@ export default function ProviderJobsPage() {
     const { data: p } = await supabase.from('service_providers').select('id, status, legal_name, trade_name').eq('auth_id', auth.user.id).maybeSingle()
     setProv((p as typeof prov) ?? null)
     if (!p) return
-    const { data } = await supabase.from('work_orders').select('*').eq('provider_id', (p as { id: string }).id).order('updated_at', { ascending: false }).limit(100)
-    const list = (data ?? []) as Row[]
+    const { data } = await supabase.from('work_orders').select(WORK_ORDER_COLUMNS).eq('provider_id', (p as { id: string }).id).order('updated_at', { ascending: false }).limit(100)
+    const list = (data ?? []) as unknown as Row[]
     setRows(list)
     // Address / title come from a definer RPC scoped to this provider's live
     // work orders (no table access to households or tickets; review 2026-09-23).

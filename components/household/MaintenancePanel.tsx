@@ -5,6 +5,7 @@
 // review → done), the work order under each ticket, the landlord's 指派
 // button and the tenant's "确认已解决". Everything reads through RLS; every
 // transition is a server call.
+import { WORK_ORDER_COLUMNS } from '@/lib/marketplace/workOrders'
 import { notifyTicket } from '@/lib/household/notifyTicket'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -52,7 +53,7 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
   const load = useCallback(async () => {
     const [{ data: t }, { data: w }] = await Promise.all([
       supabase.from('maintenance_tickets').select('id, title, description, category, priority, status, created_at, resolved_at, opened_by, photos').eq('household_id', householdId).order('created_at', { ascending: false }),
-      supabase.from('work_orders').select('*').eq('household_id', householdId).order('created_at', { ascending: false }),
+      supabase.from('work_orders').select(WORK_ORDER_COLUMNS).eq('household_id', householdId).order('created_at', { ascending: false }),
     ])
     const ticketRows = (t ?? []) as Ticket[]
     setTickets(ticketRows)
@@ -63,7 +64,7 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
       for (const x of signed ?? []) if (x.path && x.signedUrl) m[x.path] = x.signedUrl
       setPhotoUrls(m)
     }
-    const wos = (w ?? []) as Wo[]
+    const wos = (w ?? []) as unknown as Wo[]
     setOrders(wos)
     const pids = Array.from(new Set(wos.map((x) => x.provider_id).filter(Boolean))) as string[]
     if (pids.length) {

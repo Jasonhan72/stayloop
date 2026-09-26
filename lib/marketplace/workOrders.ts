@@ -1,6 +1,23 @@
 // Work-order state machine (services marketplace §3). Pure: who may take
 // which action from which status, and what the transition writes. The
 // server (routes / executors) is the only writer; this module is the rule.
+/**
+ * Every work_orders column a signed-in client may read. The table has COLUMN-level
+ * grants for `authenticated` (review 2026-09-23 took `token` back — it is the
+ * external contact's capability URL), and Postgres refuses `select *` unless the
+ * role can read every column: a `select('*')` from the browser was a 403
+ * "permission denied for table work_orders" for tenants, landlords and providers
+ * alike (three-role walkthrough 2026-09-26). Read this list, never `*`.
+ */
+export const WORK_ORDER_COLUMNS = [
+  'id', 'ticket_id', 'household_id', 'landlord_auth_id', 'provider_id', 'external_email', 'external_name', 'trade', 'scope', 'emergency', 'status',
+  'quote_amount', 'quote_type', 'quote_note', 'quote_valid_until', 'quoted_at', 'approved_amount', 'approved_at',
+  'schedule_start', 'schedule_end', 'entry_permission', 'entry_notice_sent_at', 'arrived_at',
+  'completed_at', 'completion_note', 'completion_photos', 'invoice_amount', 'invoice_note',
+  'tenant_confirmed_at', 'accepted_at', 'accepted_by', 'resolution_note', 'dispute_reason', 'disputed_at', 'disputed_by',
+  'paid_at', 'payment_mode', 'cancel_reason', 'created_at', 'updated_at',
+].join(', ')
+
 export type WorkOrderStatus = 'offered' | 'declined' | 'quoted' | 'scheduled' | 'in_progress' | 'completed' | 'accepted' | 'rework' | 'disputed' | 'paid' | 'closed' | 'cancelled' | 'expired'
 export type ActorKind = 'landlord' | 'tenant' | 'provider' | 'external' | 'system' | 'admin'
 export type WoAction = 'accept' | 'decline' | 'quote' | 'approve_quote' | 'reject_quote' | 'arrive' | 'complete' | 'tenant_confirm' | 'accept_completion' | 'request_rework' | 'dispute' | 'resolve_dispute' | 'mark_paid' | 'close' | 'cancel'

@@ -504,7 +504,7 @@ export async function POST(req: Request) {
 ## 你的房源（Stayloop 数据库实时记录，共 ${myListings.length} 套 —— 回答房源相关问题时以此为准）
 ` +
           myListings.map(line).join('\n') +
-          '\n（只有当用户问到的房源不在上表时才说没有记录。缺的字段就是库里没有——如实说明并告诉用户到 /dashboard/listings 补充，不要臆测。诊断文案/照片时：直接引用并点评上面的实际标题与描述（长度、语言、是否有租客视角卖点），照片按张数评估数量是否足够；照片内容库里看不到，需要用户发图才能逐张点评。）'
+          '\n（只有当用户问到的房源不在上表时才说没有记录。缺的字段就是库里没有——如实说明并告诉用户到 /dashboard（房源管理）补充，不要臆测。诊断文案/照片时：直接引用并点评上面的实际标题与描述（长度、语言、是否有租客视角卖点），照片按张数评估数量是否足够；照片内容库里看不到，需要用户发图才能逐张点评。）'
       }
     } catch (e) {
       console.warn('[agent/turn] landlord listings lookup failed', (e as Error).message)

@@ -2255,3 +2255,17 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
 - **记忆**：记忆标签可「+ 让它记住一条」（insert `user_memories`，memory_type profile、source user_edit，key = `user_<label>_<时间戳>`）；`getUserMemories`
   现在带 `source`，提示词把 `source='user_edit'` 的条目标成【用户亲自写的】并说明「以它为准；别的记忆或你的推断与它冲突时听它的」。
 - 每项写入都有审计事件（`memory_edited` 带 field / added，`memory_forgotten`）。
+
+## 三角色测试账号登录走查 · 第二轮（2026-09-26 · 用户「分 3 个角色用测试账号登录做测试」）
+
+做法同 09-24：service role 铸魔法链接、退出上一个号再登录下一个；每个号看首页 hero、助手页四个标签与设置项、身份菜单、各角色页面、手机宽度，并在页面里
+挂 `fetch` 钩子记录所有非 2xx 响应（Supabase REST 请求不进浏览器面板的网络列表，只能这样抓）。守卫 `tests/threeRoleWalkthrough20260926.spec.ts`。
+- **`work_orders` 对所有登录用户都 403（真 bug）**：09-23 收回 `token` 列后表上只剩列级 SELECT 授权，而 `MaintenancePanel`（租客与房东的报修面板、
+  `/h/[id]` 报修标签、`/landlord/maintenance` 看板）和 `/provider/jobs` 仍 `select('*')`——Postgres 对 `*` 要求全列权限 → `42501 permission denied`，
+  三方都看不到工单（服务商页显示 邀请 0 / 进行中 0）。修法：`lib/marketplace/workOrders.ts WORK_ORDER_COLUMNS`（40 列、不含 token）作唯一列清单，
+  两处改读它；守卫禁止任何客户端文件对 work_orders `select('*')`。**凡是做了列级授权的表，客户端一律显式列名。**
+- **`/dashboard/listings` 是 404**：这个页从来不存在（房源管理在 `/dashboard`，其下只有 `/new` 与 `/[id]/edit`），但房东提示词让模型「告诉用户到
+  /dashboard/listings 补充」。中间件加 308 → `/dashboard`，提示词改为 `/dashboard（房源管理）`。
+- **退出登录不清头像缓存**：`sl-avatar` 是账号级缓存，退出后留给下一个号首屏闪一下（DB 优先，不会写错）；`signOut` 现在连带 `clearStoredAvatar()`。
+- 三个号其余检查全部通过：首页 hero 按各自帽子显示同一助理（经纪号显示自己起的 Ember + 小熊）、面板四标签与设置项齐全、身份菜单「当前：租客 / 房东 / 经纪」
+  且经纪号多一项服务商入口、租客 6 个业务页 / 房东 10 个页 / 经纪 9 个页无报错无横向溢出、375px 助手页输入条在底栏之上。
