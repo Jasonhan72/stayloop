@@ -16,6 +16,8 @@ import Footer from '@/components/Footer'
 import { useT, type Lang } from '@/lib/i18n'
 
 type LS = Record<Lang, string>
+/** A feature line; `href` adds a small "了解 →" link (the repairs network page, 2026-09-26). */
+type Feature = LS & { href?: string }
 
 type Tier = {
   name: LS
@@ -28,7 +30,7 @@ type Tier = {
   ctaInWindow?: LS
   hrefInWindow?: string
   includesLabel: LS
-  features: LS[]
+  features: Feature[]
   highlight?: boolean
 }
 
@@ -83,7 +85,7 @@ const PLANS: RolePlan[] = [
           { zh: '每月 5 次租客筛查（含取证与信用分析）', en: '5 tenant screenings a month (forensics + credit analysis included)' },
           { zh: '深度核查按次解锁 $14.99', en: 'Deep checks unlock per applicant at $14.99' },
           { zh: '接收在线申请', en: 'Receive online applications' },
-          { zh: '维修工单 + 派给你自己的联系人', en: 'Repair tickets + dispatch to your own contacts' },
+          { zh: '维修工单 + 派给你自己的联系人', en: 'Repair tickets + dispatch to your own contacts', href: '/services' },
         ],
       },
       {
@@ -101,7 +103,7 @@ const PLANS: RolePlan[] = [
           { zh: 'AI Agent 全功能', en: 'Full AI agent' },
           { zh: '验证 / 筛查全含', en: 'Verification / screening included' },
           { zh: '租约起草 + 一键续约', en: 'Lease drafting + 1-click renewals' },
-          { zh: '维修派单：已核验服务商网络 + 派单策略（紧急件自动派、预授权）· 不抽成，付款你与服务商直接结算', en: 'Repairs: verified provider network + dispatch policy (auto-dispatch emergencies, pre-approval) · no commission, you pay the provider directly' },
+          { zh: '维修派单：已核验服务商网络 + 派单策略（紧急件自动派、预授权）· 不抽成，付款你与服务商直接结算', en: 'Repairs: verified provider network + dispatch policy (auto-dispatch emergencies, pre-approval) · no commission, you pay the provider directly', href: '/services' },
           { zh: '财务面板（即将推出）', en: 'Finance dashboard (coming soon)' },
         ],
         highlight: true,
@@ -245,7 +247,7 @@ function RolePlansSection({ lang, zh, inWindow }: { lang: Lang; zh: boolean; inW
                 {t.features.map((f) => (
                   <li key={f.zh} className="flex items-start gap-2">
                     <span className="mt-[3px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[10px]" style={{ background: `${plan.accent}22`, color: plan.accent }}>✓</span>
-                    <span className="leading-snug">{f[lang]}</span>
+                    <span className="leading-snug">{f[lang]}{f.href && <> <Link href={f.href} className="whitespace-nowrap text-brand underline underline-offset-2">{lang === 'zh' ? '了解 →' : 'Learn →'}</Link></>}</span>
                   </li>
                 ))}
               </ul>

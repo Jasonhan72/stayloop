@@ -47,6 +47,7 @@ const STAGES: Stage[] = [
       { t: { zh: '在管租约 · 双方确认的共享中心', en: 'Managed tenancy · a shared hub both sides confirmed' }, href: '/leases/import' },
       { t: { zh: '租金记录 · 持续迟付法定定义提示', en: 'Rent ledger · statutory persistent-late flag' }, href: '/leases/import' },
       { t: { zh: '报修工单', en: 'Maintenance tickets' }, href: '/tenant/maintenance' },
+      { t: { zh: '维修派单 · 已核验服务商或自己的联系人 · 报价须批准 · RTA s.27 进入通知 · 验收', en: 'Repair dispatch · verified providers or your own contacts · quotes need approval · RTA s.27 entry notice · acceptance' }, href: '/services' },
       { t: { zh: '租金提醒 · 批准后才发', en: 'Rent reminders · sent only after approval' }, href: '/landlord/todo' },
       { t: { zh: '在线收租', en: 'Online rent collection' }, href: '/tenant/payments', status: 'demo' },
     ],

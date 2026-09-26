@@ -16,6 +16,7 @@ const GROUPS: Group[] = [
     links: [
       { key: 'foot.platform', href: '/platform' },
       { key: 'foot.stayloopApi', href: '/stayloop-api' },
+      { key: 'foot.services', href: '/services' },
       { key: 'foot.pricing', href: '/pricing' },
       { key: 'foot.screening', href: '/screening' },
       { key: 'foot.passport', href: '/tenant/passport' },

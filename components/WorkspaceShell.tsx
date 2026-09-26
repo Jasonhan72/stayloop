@@ -44,7 +44,9 @@ interface Props {
 // /landlord/leases and /landlord/applicants self-manage (real rows render
 // once any exist).
 type GateNote = { zh: string; en: string }
-const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: string; href: string; note?: GateNote }> = {
+/** An optional second, quieter link under the CTA (e.g. the repairs network page). */
+type GateMore = { zh: string; en: string; href: string }
+const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: string; href: string; note?: GateNote; more?: GateMore }> = {
   '/notifications': {
     zh: '还没有通知。你的 AI 与各方产生的动态会出现在这里。', en: 'No notifications yet — activity from your AI and counterparties lands here.',
     ctaZh: '回到工作台', ctaEn: 'Back to workspace', href: '/dashboard',
@@ -54,8 +56,9 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
   },
   '/landlord/maintenance': {
-    zh: '还没有报修工单。工单来自你的在管租约——导入后租客可直接在站内报修。', en: 'No tickets yet. Tickets come from your managed tenancies — import a lease and tenants file them here.',
+    zh: '还没有报修工单。工单来自你的在管租约——导入后租客可直接在站内报修，你可派给已核验的服务商或自己的联系人。', en: 'No tickets yet. Tickets come from your managed tenancies — import a lease and tenants file them here; you dispatch to a verified provider or your own contact.',
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
+    more: { zh: '维修与服务网络是怎么运作的 →', en: 'How the repairs network works →', href: '/services' },
   },
   '/tenant/applications': {
     zh: '还没有租房申请。让助手按你的预算和区域先找几套,再一键申请。', en: 'No applications yet. Let your assistant shortlist homes for your budget and area first.',
@@ -74,8 +77,9 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
   },
   '/tenant/maintenance': {
-    zh: '还没有报修记录。加入你的在管租约后,报修、进度、留痕都在这里。', en: 'No maintenance yet. Join your managed tenancy and repairs live here.',
+    zh: '还没有报修记录。加入你的在管租约后,报修、进度、留痕都在这里；房东可把工单派给资质已核的服务商。', en: 'No maintenance yet. Join your managed tenancy and repairs live here; your landlord can dispatch a credential-checked provider.',
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
+    more: { zh: '维修与服务网络是怎么运作的 →', en: 'How the repairs network works →', href: '/services' },
   },
   '/agent/tasks': {
     zh: '任务由你的客户表自动生成：缺代表协议 / Information Guide 的日期、超过 7 天没联系、看房中要备带看包、已申请要跟进结果。先在客户表里加第一位客户。', en: 'Tasks come from your client table: missing agreement / Information Guide dates, 7+ days quiet, a showing pack to prepare, an application to follow up. Add your first client in the client table.',
@@ -196,6 +200,7 @@ function GateEmptyState({ gate, zh, setShowDemo, hasLive }: { gate: NonNullable<
           {zh ? '查看产品演示' : 'View product demo'}
         </button>
       </div>
+      {gate.more && <p className="mt-4 text-[12.5px]"><Link href={gate.more.href} className="text-body-3 underline underline-offset-2 hover:text-brand">{zh ? gate.more.zh : gate.more.en}</Link></p>}
     </div>
   )
 }

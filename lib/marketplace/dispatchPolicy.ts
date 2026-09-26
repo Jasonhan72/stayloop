@@ -16,6 +16,12 @@ import type { Trade } from './trades'
 export type DispatchMode = 'suggest' | 'auto_emergency' | 'auto_all'
 export const DISPATCH_MODES: readonly DispatchMode[] = ['suggest', 'auto_emergency', 'auto_all']
 export const EMERGENCY_CAP_MAX = 2000
+/** One label per mode — the settings card and the maintenance board's policy strip both read it. */
+export const MODE_LABEL: Record<DispatchMode, { zh: string; en: string }> = {
+  suggest: { zh: '只建议', en: 'Suggest only' },
+  auto_emergency: { zh: '紧急件自动派', en: 'Auto-dispatch emergencies' },
+  auto_all: { zh: '全部自动派', en: 'Auto-dispatch everything' },
+}
 
 export type DispatchPolicy = {
   mode: DispatchMode

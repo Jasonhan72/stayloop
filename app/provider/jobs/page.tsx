@@ -9,6 +9,7 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import WorkOrderCard, { type WorkOrderLite } from '@/components/marketplace/WorkOrderCard'
+import { CREDENTIAL_LABEL, earliestExpiry, type CredentialKind, type CredentialLite } from '@/lib/marketplace/trades'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
@@ -28,11 +29,17 @@ export default function ProviderJobsPage() {
   const [prov, setProv] = useState<{ id: string; status: string; legal_name: string; trade_name: string | null } | null | 'loading'>('loading')
   const [rows, setRows] = useState<Row[]>([])
   const [ctx, setCtx] = useState<Record<string, Ctx>>({})
+  // Earliest credential expiry: an expired credential silently drops the
+  // trade from coverage and dispatch skips the provider, so the jobs page
+  // says so ≤30 days ahead (entry proposal 2026-09-26).
+  const [expiry, setExpiry] = useState<{ kind: string; days: number } | null>(null)
   const load = useCallback(async () => {
     if (!auth.user) { setProv(null); return }
     const { data: p } = await supabase.from('service_providers').select('id, status, legal_name, trade_name').eq('auth_id', auth.user.id).maybeSingle()
     setProv((p as typeof prov) ?? null)
     if (!p) return
+    const { data: creds } = await supabase.from('provider_credentials').select('kind, expires_at, verified_at').eq('provider_id', (p as { id: string }).id)
+    setExpiry(earliestExpiry((creds ?? []) as CredentialLite[]))
     const { data } = await supabase.from('work_orders').select(WORK_ORDER_COLUMNS).eq('provider_id', (p as { id: string }).id).order('updated_at', { ascending: false }).limit(100)
     const list = (data ?? []) as unknown as Row[]
     setRows(list)
@@ -64,6 +71,18 @@ export default function ProviderJobsPage() {
           <p className="mt-1 text-[12.5px] text-body-3">{prov.status === 'verified' ? (zh ? '资质已核 · 可接收派单' : 'Verified · eligible for dispatch') : (zh ? `状态：${PROVIDER_STATUS[prov.status]?.zh ?? prov.status} · 核验通过前不会收到派单` : `Status: ${PROVIDER_STATUS[prov.status]?.en ?? prov.status} · no dispatch until verified`)} · <Link href="/provider/onboard" className="underline">{zh ? '资料与资质' : 'Profile & credentials'}</Link></p>
         </div>
       </div>
+      {expiry && expiry.days <= 30 && (
+        <div className={'mt-4 rounded-xl border px-4 py-3 text-[13px] ' + (expiry.days < 0 ? 'border-red-200 bg-red-50 text-red-900' : 'border-amber-200 bg-amber-50 text-amber-900')} role="status" data-testid="credential-expiry">
+          <b>{zh ? (CREDENTIAL_LABEL[expiry.kind as CredentialKind]?.zh ?? expiry.kind) : (CREDENTIAL_LABEL[expiry.kind as CredentialKind]?.en ?? expiry.kind)}</b>
+          {' '}
+          {expiry.days < 0
+            ? (zh ? `已于 ${-expiry.days} 天前到期——过期资质不再计入工种覆盖，派单会跳过你。` : `expired ${-expiry.days} day(s) ago — an expired credential no longer counts toward coverage and dispatch skips you.`)
+            : expiry.days === 0
+              ? (zh ? '今天到期——明天起不再计入工种覆盖。' : 'expires today — from tomorrow it no longer counts toward coverage.')
+              : (zh ? `还有 ${expiry.days} 天到期——到期后不再计入工种覆盖，请在到期前更新。` : `expires in ${expiry.days} day(s) — after that it no longer counts toward coverage; renew before then.`)}
+          {' '}<Link href="/provider/onboard" className="font-bold underline">{zh ? '更新资质 →' : 'Update credentials →'}</Link>
+        </div>
+      )}
       {groups.map((g) => {
         const list = rows.filter(g.filter)
         return (

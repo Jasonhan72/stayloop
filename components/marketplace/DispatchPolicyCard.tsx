@@ -9,15 +9,15 @@ import { useEffect, useState } from 'react'
 import { SectionCard } from '@/components/workspace'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
-import { DEFAULT_POLICY, EMERGENCY_CAP_MAX, normalizePolicy, type DispatchMode, type DispatchPolicy } from '@/lib/marketplace/dispatchPolicy'
+import { DEFAULT_POLICY, EMERGENCY_CAP_MAX, normalizePolicy, type DispatchMode, type DispatchPolicy, MODE_LABEL } from '@/lib/marketplace/dispatchPolicy'
 import { TRADES, type Trade } from '@/lib/marketplace/trades'
 
 export type PolicyProvider = { id: string; name: string; coveredTrades: Trade[] }
 
 const MODES: { key: DispatchMode; zh: string; en: string; zhSub: string; enSub: string }[] = [
-  { key: 'suggest', zh: '只建议', en: 'Suggest only', zhSub: '每张报修都给你一张派单卡，你点了才派。', enSub: 'Every ticket becomes a dispatch card; nothing is sent until you approve.' },
-  { key: 'auto_emergency', zh: '紧急件自动派', en: 'Auto-dispatch emergencies', zhSub: '无暖气、停水、燃气、门锁这类紧急件立即派给排第一的服务商；其余仍给你卡片。', enSub: 'No heat, water, gas or locks go straight to the top provider; everything else is a card.' },
-  { key: 'auto_all', zh: '全部自动派', en: 'Auto-dispatch everything', zhSub: '每张报修都立即派给排第一的服务商，你会收到通知，可在工单页取消或改派。', enSub: 'Every ticket goes to the top provider at once; you are notified and can cancel or reassign.' },
+  { key: 'suggest', ...MODE_LABEL.suggest, zhSub: '每张报修都给你一张派单卡，你点了才派。', enSub: 'Every ticket becomes a dispatch card; nothing is sent until you approve.' },
+  { key: 'auto_emergency', ...MODE_LABEL.auto_emergency, zhSub: '无暖气、停水、燃气、门锁这类紧急件立即派给排第一的服务商；其余仍给你卡片。', enSub: 'No heat, water, gas or locks go straight to the top provider; everything else is a card.' },
+  { key: 'auto_all', ...MODE_LABEL.auto_all, zhSub: '每张报修都立即派给排第一的服务商，你会收到通知，可在工单页取消或改派。', enSub: 'Every ticket goes to the top provider at once; you are notified and can cancel or reassign.' },
 ]
 
 export default function DispatchPolicyCard({ providers, zh }: { providers: PolicyProvider[]; zh: boolean }) {

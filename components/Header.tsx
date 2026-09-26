@@ -31,6 +31,9 @@ const PRODUCT_ITEMS = [
   { key: 'nav.tenants', href: '/tenant', color: ROLE_THEME.tenant.accent, tag: { zh: '让 AI 替你找到家', en: 'AI finds you home' } },
   { key: 'nav.landlords', href: '/landlord', color: ROLE_THEME.landlord.accent, tag: { zh: '租得快,选得准', en: 'Rent faster, choose right' } },
   { key: 'nav.agents', href: '/agent', color: ROLE_THEME.agent.accent, tag: { zh: '杂活交给 AI', en: 'Busywork goes to AI' } },
+  // Fourth door (services marketplace entry, 2026-09-26): the repairs network's
+  // public page — landlords dispatch there, providers apply to join.
+  { key: 'nav.services', href: '/services', color: '#00ACE4', tag: { zh: '维修与服务网络 · 入驻', en: 'Repairs network · join' } },
 ]
 
 export default function Header({ variant = 'solid', mobileNav = true }: HeaderProps) {
@@ -336,7 +339,18 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       if (held) return <button key={r} onClick={() => handleRoleSwitch(r)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">{inner}</button>
                       return <Link key={r} href={r === 'landlord' ? '/onboarding/name?role=landlord' : '/agent/verify'} onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">{inner}</Link>
                     })}
-                    {/* Fifth hat (services marketplace 2026-09-23): shown only once a provider row exists */}
+                    {/* Fifth hat (services marketplace 2026-09-23): the jobs door once a provider row
+                        exists; otherwise the onboarding door (entry proposal 2026-09-26). */}
+                    {!hats.loading && !hats.provider && (
+                      <Link href="/provider/onboard" onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem" data-testid="become-provider">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00ACE414] text-[15px]">🔧</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 text-[14px] font-semibold text-[#222]"><span>{lang === 'zh' ? '服务商' : 'Provider'}</span><span className="rounded-full border border-[#E5E5E5] px-2 py-[1px] text-[11px] font-semibold text-[#717171]">{lang === 'zh' ? '开通' : 'add'}</span></div>
+                          <div className="text-[12px] text-[#717171]">{lang === 'zh' ? '成为服务商 · 需资质核验' : 'Become a provider · credentials checked'}</div>
+                        </div>
+                        <span className="text-[#717171]">›</span>
+                      </Link>
+                    )}
                     {hats.provider && (
                       <Link href="/provider/jobs" onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">
                         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00ACE414] text-[15px]">🔧</span>

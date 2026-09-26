@@ -281,12 +281,14 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
                     <li>· 工单立刻出现在房东的维修看板与在管租约页，房东可自己处理或派给服务商</li>
                     <li>· 类别与紧急程度会被记录；RTA s.20 要求房东保持房屋处于良好维修状态</li>
                     <li>· 状态变化、派单与完工都留痕，争议时可溯</li>
+                    <li>· 派给服务商时，服务商的资质已对照公开注册库核验；进入前你会收到通知。<Link href="/services" className="underline" onClick={onClose}>了解维修与服务网络 →</Link></li>
                   </>
                 ) : (
                   <>
                     <li>· The ticket appears at once on the landlord’s maintenance board and the tenancy page; they can handle it or dispatch a provider</li>
                     <li>· Category and urgency are recorded; RTA s.20 requires the landlord to keep the unit in good repair</li>
                     <li>· Every status change, dispatch and completion is logged, traceable if a dispute arises</li>
+                    <li>· A dispatched provider’s credentials were checked against the public registers; you get a notice before anyone enters. <Link href="/services" className="underline" onClick={onClose}>About the repairs network →</Link></li>
                   </>
                 )}
               </ul>

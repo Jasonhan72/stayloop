@@ -314,7 +314,7 @@ export default function HomeNext() {
         <div className="mt-8 grid gap-4 md:grid-cols-4">
           {[
             { k: '01', h: { zh: '租前', en: 'Before' }, p: { zh: '对话找房 · 房源发布 · 看房与提问 · 申请 · 租客筛查 · 决定通知', en: 'Search · publish · showings · applications · screening · decision notice' }, href: '/platform#lifecycle' },
-            { k: '02', h: { zh: '租中', en: 'During' }, p: { zh: '安省标准租约 · 电子签 · 在管租约 · 租金记录 · 报修', en: 'Ontario standard lease · e-sign · managed tenancy · rent ledger · maintenance' }, href: '/platform#lifecycle' },
+            { k: '02', h: { zh: '租中', en: 'During' }, p: { zh: '安省标准租约 · 电子签 · 在管租约 · 租金记录 · 报修 · 维修派单', en: 'Ontario standard lease · e-sign · managed tenancy · rent ledger · maintenance · repair dispatch' }, href: '/platform#lifecycle' },
             { k: '03', h: { zh: '租后', en: 'After' }, p: { zh: '续约 90/60/30 天触点 · 指导比例 · N 表 · 退租 · 租客护照', en: 'Renewal touchpoints · guideline · N-forms · move-out · tenant passport' }, href: '/platform#lifecycle' },
             { k: 'API', h: { zh: 'Stayloop API', en: 'Stayloop API' }, p: { zh: '合规检查 · 申请人出示的核验结论 · 发起筛查——三个端点给合作方', en: 'Compliance · applicant-presented verification · screening — three endpoints for partners' }, href: '/stayloop-api' },
           ].map((c) => (

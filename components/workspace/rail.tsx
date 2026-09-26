@@ -12,6 +12,7 @@ import { usePathname } from 'next/navigation'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
+import { useHats } from '@/lib/useHats'
 
 export type WorkspaceRole = 'tenant' | 'landlord' | 'agent'
 
@@ -41,6 +42,7 @@ export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
     { key: 'screen',    href: '/screening/app',    icon: <ScreenIcon />,  label: { zh: '筛查', en: 'Screen' } , desc: { zh: '租客筛查报告', en: 'Tenant screening reports' } },
     { key: 'lease',     href: '/landlord/leases',  icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '租约管理与续约', en: 'Leases and renewals' } },
     { key: 'maint',     href: '/landlord/maintenance', icon: <ToolIcon />,label: { zh: '维修', en: 'Maint.' } , desc: { zh: '维修工单处理', en: 'Handle maintenance tickets' } },
+    { key: 'providers', href: '/landlord/providers', icon: <UsersIcon />, label: { zh: '服务商', en: 'Providers' } , desc: { zh: '维修服务商目录与派单策略', en: 'Repair providers and your dispatch policy' } },
     { key: 'fin',       href: '/landlord/finance', icon: <CashIcon />,    label: { zh: '财务', en: 'Finance' } , desc: { zh: '收租与财务面板', en: 'Rent collection and finances' } },
     { key: 'audit',     href: '/landlord/audit',   icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '操作审计记录', en: 'Your audit trail' } },
   ],
@@ -61,6 +63,7 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
   const { lang } = useI18n()
   const zh = lang === 'zh'
   const auth = useAuth()
+  const hats = useHats()
   const [more, setMore] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   useEffect(() => {
@@ -126,6 +129,10 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
                 )
               })}
               <Link href="/listings" className={'flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-[11.5px] font-medium ' + (path.startsWith('/listings') ? 'bg-brand/10 text-brand' : 'bg-surface text-body-2')}><HomeIcon /><span>{zh ? '房源' : 'Listings'}</span></Link>
+              {/* Fifth hat: a provider account reaches its jobs from every role's drawer (entry proposal 2026-09-26). */}
+              {hats.provider && (
+                <Link href="/provider/jobs" data-testid="drawer-provider-jobs" className={'flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-[11.5px] font-medium ' + (path.startsWith('/provider') ? 'bg-brand/10 text-brand' : 'bg-surface text-body-2')}><BriefcaseIcon /><span>{zh ? '工单' : 'Jobs'}</span></Link>
+              )}
               <Link href="/notifications" className="flex flex-col items-center gap-1.5 rounded-xl bg-surface px-2 py-3 text-[11.5px] font-medium text-body-2"><BellSmall /><span>{zh ? '通知' : 'Alerts'}</span></Link>
               <Link href="/settings" className="flex flex-col items-center gap-1.5 rounded-xl bg-surface px-2 py-3 text-[11.5px] font-medium text-body-2"><GearIcon /><span>{zh ? '设置' : 'Settings'}</span></Link>
             </div>
@@ -195,4 +202,6 @@ export function ToolIcon()  { return I('M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 
 export function CashIcon()  { return I('M12 1v22|M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6') }
 export function ScreenIcon() { return I('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z|M14 2v6h6|M9 15l2 2 4-4') }
 export function AuditIcon() { return I('M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z|M9 12l2 2 4-4') }
+export function UsersIcon() { return I('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2|M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8|M23 21v-2a4 4 0 0 0-3-3.87|M16 3.13a4 4 0 0 1 0 7.75') }
+export function BriefcaseIcon() { return I('M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z|M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16') }
 export function GearIcon()  { return I('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z') }

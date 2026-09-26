@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import MaintenancePanel from '@/components/household/MaintenancePanel'
+import { MODE_LABEL, normalizePolicy, type DispatchPolicy } from '@/lib/marketplace/dispatchPolicy'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useReportLiveRows } from '@/lib/liveRows'
@@ -19,7 +20,18 @@ export default function LiveMaintenanceBoard({ zh }: { zh: boolean }) {
   const [hhs, setHhs] = useState<Hh[] | null>(null)
   const [counts, setCounts] = useState<Counts>({ open: 0, assigned: 0, review: 0, done: 0 })
   const [sel, setSel] = useState<string | null>(null)
+  // The dispatch policy is set on /landlord/providers; the board shows which
+  // mode is live so a landlord knows what happens to the next ticket without
+  // leaving the page (entry proposal 2026-09-26). null = not loaded yet.
+  const [policy, setPolicy] = useState<DispatchPolicy | null>(null)
   useReportLiveRows('maintenance', hhs ? hhs.length : null)
+  useEffect(() => {
+    if (auth.loading || !auth.user) return
+    let cancelled = false
+    supabase.from('dispatch_policies').select('mode, emergency_auto_approve, emergency_cap, preferred').eq('landlord_auth_id', auth.user.id).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setPolicy(normalizePolicy(data as Parameters<typeof normalizePolicy>[0])) })
+    return () => { cancelled = true }
+  }, [auth.loading, auth.user])
   useEffect(() => {
     if (auth.loading || !auth.user) { setHhs([]); return }
     let cancelled = false
@@ -43,6 +55,17 @@ export default function LiveMaintenanceBoard({ zh }: { zh: boolean }) {
   return (
     <div className="mb-6" data-testid="live-maintenance-board">
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '维修工单 · 真实记录' : 'MAINTENANCE · LIVE'}</div>
+      {policy && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-divider bg-white px-3 py-2 text-[12.5px]" data-testid="dispatch-policy-strip">
+          <span className="font-semibold">{zh ? '派单策略：' : 'Dispatch policy: '}{zh ? MODE_LABEL[policy.mode].zh : MODE_LABEL[policy.mode].en}</span>
+          <span className="text-body-3">
+            {policy.emergency_auto_approve
+              ? (zh ? `紧急报价 ≤ $${policy.emergency_cap} 自动批准` : `emergency quotes ≤ $${policy.emergency_cap} auto-approved`)
+              : (zh ? '每张报价都等你批准' : 'every quote waits for you')}
+          </span>
+          <Link href="/landlord/providers" className="ml-auto text-brand underline underline-offset-2">{zh ? '服务商与策略 →' : 'Providers & policy →'}</Link>
+        </div>
+      )}
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {([['open', zh ? '待指派' : 'To dispatch'], ['assigned', zh ? '已派 / 处理中' : 'Dispatched / in progress'], ['review', zh ? '待验收' : 'To accept'], ['done', zh ? '已完成' : 'Done']] as const).map(([k, label]) => (
           <div key={k} className="rounded-xl border border-line-divider bg-white px-3 py-2"><div className="text-[20px] font-extrabold leading-none">{counts[k]}</div><div className="mt-1 text-[11px] text-body-3">{label}</div></div>
