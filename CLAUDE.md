@@ -2492,3 +2492,25 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   （自动进下一步）→ I must be present（自动）→ None → 跳过照片 → 预览整句 → 发送。助手**一轮**就给出 `maintenance_request` 待批卡，库里 metadata
   `category plumbing · location Bathroom · priority high · entry_permission tenant_present · pets no · thread_id`，没有任何追问。**顺带修的一个旧问题**：
   `HomeNext` 挂 `AgentChat` 时从没传 `live`，登录后的首页 hero 一直在把示例句原样发出（09-23 禁止的事）——现在传 `live={live}`，登录后首页也是引导卡，匿名首页仍是演示。
+
+## 首页结构优化：四种身份 · 角色→模块 · FAQ（2026-09-27 · 用户拿 Muse 生成的 `~/Downloads/stayloop-homepage-final.html` 与两张 Muse 建议截图问「方案是不是合适」→ 我给出取舍 → 用户「连 4 一起，都按照你的建议开始做」）
+
+**取舍（记住，别再被同类方案带偏）**：Muse 的结构建议是对的——按角色分流、模块按「角色 → 模块」映射、保留免注册的真实对话、补上第四个角色；
+但那份 HTML 终稿本身不能照搬：indigo→violet 渐变与圆角「S」标（09-05 全站换成 Flinks 蓝、09-22 定为 wordmark 时都已退役）、62px 标题（09-25 刚压到 44）、
+写死的剧本对话（「综合评分 82/100」「到访确认短信已发」，把真 demo 退回假 demo）、悬浮通知卡（编造事实）、首页定价区（$39 团队版 / 14 天试用 /
+多成员协作 / 成交看板都不存在，且测试月免费到 10-14，定价只有 `/pricing` 一个来源）、模块文案里不存在或已决定不做的功能（在线收租、自动对账、
+佣金对账、路线规划、保险 / 法律服务商、工单大厅、在线结算）、「服务商即将上线 / 内测邀约」（实际已在多伦多试点）、「Anthropic Claude 驱动」（默认对话模型
+已是 Gemini，多厂商可选）。**首页仍以 `components/home/HomeNext.tsx` 为准，不引入新蓝本。** 守卫 `tests/homeRoles20260927.spec.ts`（6 条）。落地：
+- **四种身份**：`ROLES` 的 key 扩为 `HomeRole = AgentRole | 'provider'`，第四个 tab「服务商 · 试点」——没有助手人设，所以右栏不是例句而是「现状 · 如实写」
+  四条事实（试点 · 多伦多及周边 / 没有公开目录 / 「已核」只表示核验日有效 / 付款线下不经手资金），左栏三条收益全部对应已上线能力（资质核验与到期阶梯、
+  报价 → 到场 → 完工 → 验收一条时间线 + RTA s.27、线下结算 + CPA 10% + 回执），CTA「申请入驻」→ `/provider/onboard`。区块标题「三种角色，各自的 Agent」→
+  「四种身份，各自的入口」。hero 的三枚访客 pill 旁加一条文字入口「服务商 · 维修与服务网络 →」（`/services`；不加第四枚 pill，因为对话没有服务商人设）。
+- **角色 → 模块**：每个身份三张模块卡链到真实页面（房东：`/screening` · `/dashboard/listings/new` · `/landlord/leases`；租客：`/listings` · `/tenant/applications` ·
+  `/tenant/passport`；经纪：`/agent/clients` · `/agent/agent` · `/rules`；服务商：`/provider/onboard` · `/provider/jobs` · `/services`），守卫逐个检查
+  `app/<route>/page.tsx` 存在，文案只写已兑现的事（守卫列了禁用词）。
+- **tab 选中态改为一枚滑动的墨蓝胶囊**（按当前按钮量位置，`ease .25s`，无弹簧；量到之前由按钮自己上色，首帧不空；手机换行后位置也对）。
+- **FAQ 五问**（放在数字带之后、末尾 CTA 之前，`<details>` 手风琴 + FAQPage JSON-LD）：房源与行情来源 / 筛查会不会一票否决（OHRC 无硬性截止线、s.10(7)）/
+  AI 会不会替我做决定（待批卡 + 60 秒撤销 + 审计）/ 数据在哪谁能看（蒙特利尔、行级权限、可删可导出、AI 服务商见隐私页）/ 服务商怎么加入要不要付费
+  （试点、不抽成、不经手资金）；每条末尾链到能核对的页面；**不写任何价格**。
+- **信任条**「技术 Anthropic Claude」→「模型 Claude · GPT · Gemini · 可自选」（与实际一致）。
+- **有意不做**：hero 网格 / 光晕背景（我建议只做 FAQ，用户按建议）、定价区、改色、脚本化对话、悬浮卡、数字滚动动画。

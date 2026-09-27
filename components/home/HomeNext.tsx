@@ -53,13 +53,24 @@ function withName(b: Bi, lang: Lang, name: string | null): string {
 
 // Per-role sections. Copy follows the approved homepage; the landlord's
 // second benefit and the agent's list are rewritten to what is live today.
+// The fourth role (2026-09-27): providers have no assistant persona, so their
+// panel shows facts instead of chips; every role maps to three REAL pages.
+type HomeRole = AgentRole | 'provider'
+type Module = { h: Bi; s: Bi; href: string }
 const ROLES: {
-  key: AgentRole
+  key: HomeRole
   tag: Bi
+  /** small mono tag on the tab — the provider network is a pilot */
+  pilot?: boolean
   h2: Bi
   lead: Bi
   benefits: { b: Bi; s: Bi; soon?: boolean }[]
+  /** example sentences that send into the hero conversation (roles with an assistant) */
   chips: { label: Bi; prompt: Bi }[]
+  /** role → module map: three real pages; the copy names only what ships */
+  modules: Module[]
+  /** shown instead of chips when the role has no assistant persona */
+  facts?: Bi[]
   cta: Bi
   href: string
 }[] = [
@@ -83,6 +94,11 @@ const ROLES: {
       { label: { zh: '合规检查', en: 'Compliance check' }, prompt: { zh: '帮我检查我的房源和租约有没有 RTA 合规风险。', en: 'Check my listings and leases for RTA compliance risks.' } },
       { label: { zh: '发布房源', en: 'List a property' }, prompt: { zh: '我要发布一个新房源，你来帮我整理信息。', en: 'I want to list a new property — help me put it together.' } },
     ],
+    modules: [
+      { h: { zh: '租客筛查', en: 'Tenant screening' }, s: { zh: '六维核验 · 文件取证 · LTB 判令与法院记录', en: 'Six dimensions · document forensics · LTB orders and court records' }, href: '/screening' },
+      { h: { zh: '发布房源与申请队列', en: 'Listing and applications' }, s: { zh: '五步向导 · 一键导入 Realtor.ca 链接 · 核验后上线 · 申请一键筛查', en: 'Five-step wizard · import from a Realtor.ca link · live after verification · one-tap screening from an application' }, href: '/dashboard/listings/new' },
+      { h: { zh: '租约、续约与维修', en: 'Leases, renewals and repairs' }, s: { zh: '安省标准租约电子签 · 续约 90 / 60 / 30 天 · 报修派给已核验服务商', en: 'Ontario standard lease e-sign · renewal at 90 / 60 / 30 days · repairs dispatched to verified providers' }, href: '/landlord/leases' },
+    ],
     cta: { zh: '让 {ai} 协助管理房源 →', en: 'Let {ai} help manage your rentals →' },
     href: '/landlord',
   },
@@ -105,6 +121,11 @@ const ROLES: {
       { label: { zh: '解读租约', en: 'Explain my lease' }, prompt: { zh: '帮我逐条解释租约里最需要注意的条款。', en: 'Walk me through the lease clauses I should watch out for.' } },
       { label: { zh: '发起报修', en: 'Report a repair' }, prompt: { zh: '厨房水槽漏水，帮我整理成报修工单发给房东。', en: 'The kitchen sink is leaking — turn this into a repair ticket for my landlord.' } },
     ],
+    modules: [
+      { h: { zh: '找房', en: 'Find a home' }, s: { zh: '真实挂牌 · 地图 · 交通与行情 · 看房与提问', en: 'Real listings · map · transit and market · showings and questions' }, href: '/listings' },
+      { h: { zh: '申请与追踪', en: 'Apply and track' }, s: { zh: '已提交 → 房东已查看 → 筛查 → 决定 → 租约 → 在管租约', en: 'Submitted → viewed → screened → decision → lease → tenancy' }, href: '/tenant/applications' },
+      { h: { zh: '租客护照', en: 'Tenant passport' }, s: { zh: '四枚章 · 分享链接 · API 可读范围由你勾选', en: 'Four stamps · share link · you choose what the API may read' }, href: '/tenant/passport' },
+    ],
     cta: { zh: '让 {ai} 开始找 →', en: 'Let {ai} start searching →' },
     href: '/tenant',
   },
@@ -126,8 +147,72 @@ const ROLES: {
       { label: { zh: '挂牌定价', en: 'Price the listing' }, prompt: { zh: '帮客户的房源定租金：拉这个区域同户型的实时挂牌和 TRREB 官方成交数据做比价。', en: "Price my client's unit: pull live listings for the same area and unit type plus the TRREB benchmark for comparison." } },
       { label: { zh: '合规边界', en: 'Compliance boundaries' }, prompt: { zh: '带看和收申请时：哪些问题不能问（人权法）、哪些话不能替房东答、TRESA 要我先给客户什么文件？', en: 'At showings and intake: which questions are off-limits (Human Rights Code), what must I not answer for the landlord, and what does TRESA require me to give a client first?' } },
     ],
+    modules: [
+      { h: { zh: '客户表与委托', en: 'Client book and delegations' }, s: { zh: 'TRESA 两个日期 · 委托由客户确认 · 有效委托下代客筛查', en: 'Two TRESA dates · delegation confirmed by the client · screen for a client under a live delegation' }, href: '/agent/clients' },
+      { h: { zh: '挂牌定价与带看准备', en: 'Pricing and showing prep' }, s: { zh: '实时挂牌 + TRREB 比价 · 带看准备包 · 租约与押金规则', en: 'Live listings + TRREB benchmark · showing prep pack · lease and deposit rules' }, href: '/agent/agent' },
+      { h: { zh: '规则与合规边界', en: 'Rules and boundaries' }, s: { zh: 'RTA · OHRC · TRESA 条文与编号 · 发布与租约保存前自动检查', en: 'RTA · OHRC · TRESA clauses with ids · checked before a listing or lease is saved' }, href: '/rules' },
+    ],
     cta: { zh: '让 {ai} 安排工作 →', en: 'Let {ai} run your day →' },
     href: '/agent',
+  },
+  {
+    key: 'provider',
+    pilot: true,
+    tag: { zh: '服务商', en: 'Provider' },
+    h2: { zh: '想接多伦多租房市场的维修工单？先把资质核了。', en: 'Want repair work orders from Toronto rentals? Get your credentials verified first.' },
+    lead: {
+      zh: '房东在 Stayloop 里给报修派单，只会派给资质已核验的服务商，或自己的联系人。入驻填工种与资质，管理员对照公开注册库核验后，你就会出现在派单候选里。',
+      en: 'Landlords dispatch repairs inside Stayloop only to providers whose credentials were verified, or to their own contacts. Enter your trades and credentials; an admin checks them against the public registries, and you appear among the dispatch candidates.',
+    },
+    benefits: [
+      { b: { zh: '资质一次核验，覆盖一目了然', en: 'Credentials verified once, coverage at a glance' }, s: { zh: 'STO / ESA / TSSA / WSIB / 责任险 / 企业注册按工种要求；到期前 90 / 60 / 30 / 7 天提醒。', en: 'STO / ESA / TSSA / WSIB / liability insurance / business registration as each trade requires; reminders 90 / 60 / 30 / 7 days before expiry.' } },
+      { b: { zh: '报价 · 到场 · 完工 · 验收，一条时间线', en: 'Quote · arrive · complete · accept, one timeline' }, s: { zh: '报价须房东批准，进入前租客收到通知（RTA s.27）；三方在同一条工单对话里。', en: 'Quotes need the landlord’s approval and tenants are notified before entry (RTA s.27); all three parties share one work-order thread.' } },
+      { b: { zh: '线下结算，不抽成', en: 'Settle offline, no commission' }, s: { zh: '账单对照批准报价（CPA 10%），验收后房东标记付款，可导出结算回执。', en: 'The invoice is checked against the approved quote (CPA 10%); after acceptance the landlord marks payment and a receipt can be exported.' } },
+    ],
+    chips: [],
+    facts: [
+      { zh: '试点阶段 · 多伦多及周边', en: 'Pilot · Toronto and nearby' },
+      { zh: '没有公开目录：只有正在派单的房东看得到你', en: 'No public directory: only a landlord dispatching a job sees you' },
+      { zh: '「已核」只表示核验日在公开注册库上有效，到期即不计入覆盖', en: '“Verified” means valid on the public registry on the day of the check; an expired credential stops counting' },
+      { zh: '付款线下 · Stayloop 不经手资金', en: 'Payment offline · Stayloop handles no money' },
+    ],
+    modules: [
+      { h: { zh: '入驻与资质', en: 'Onboarding and credentials' }, s: { zh: '填工种与资质 · 管理员对照公开注册库核验', en: 'Trades and credentials · verified against the public registries' }, href: '/provider/onboard' },
+      { h: { zh: '我的工单', en: 'My work orders' }, s: { zh: '新邀请 · 已报价 · 进行中 · 待验收 · 待结算', en: 'Invitations · quoted · in progress · awaiting acceptance · to settle' }, href: '/provider/jobs' },
+      { h: { zh: '运作规则', en: 'How it works' }, s: { zh: '六步工单流 · 工种与必需资质表 · 现状与边界', en: 'The six-step flow · trades and required credentials · scope and limits' }, href: '/services' },
+    ],
+    cta: { zh: '申请入驻 →', en: 'Apply to join →' },
+    href: '/provider/onboard',
+  },
+]
+
+// Homepage FAQ (2026-09-27): five cross-role questions; every answer names only
+// what is live and checkable on the site. Also emitted as FAQPage JSON-LD.
+const FAQ: { q: Bi; a: Bi; href: string; more: Bi }[] = [
+  {
+    q: { zh: '房源和行情从哪里来？', en: 'Where do the listings and market numbers come from?' },
+    a: { zh: '公开房源有两类：房东在 Stayloop 发布、经管理员核验后上线的；以及从 Realtor.ca 导入并标明来源的（目前是示范阶段，TRREB 数据库尚未接入）。行情对照用 TRREB 官方按季度公布的成交数据，页面会写明季度与来源。', en: 'Two kinds of public listings: ones landlords publish on Stayloop and an admin verifies before they go live, and ones imported from Realtor.ca with the source shown (a demonstration stage; the TRREB database is not connected yet). Market comparisons use TRREB’s official quarterly transaction data, with the quarter and source stated on the page.' },
+    href: '/listings', more: { zh: '看房源 →', en: 'Browse listings →' },
+  },
+  {
+    q: { zh: '筛查报告会不会一票否决申请人？', en: 'Can the screening report reject an applicant on its own?' },
+    a: { zh: '不会。报告列出可核验的事实——材料真伪、收入佐证、LTB 判令与法院记录——每条结论注明依据；按 OHRC 租房政策，租金收入比和信用分不设硬性截止线，只作参考。录取或婉拒由房东本人决定，通知信附《消费者报告法》s.10(7) 的说明。', en: 'No. The report lists checkable facts, document authenticity, income corroboration, LTB orders and court records, and every conclusion cites its evidence; following the OHRC rental policy there is no hard cut-off on rent-to-income ratio or credit score, they are context only. Admitting or declining is the landlord’s own decision, and the notice letter carries the Consumer Reporting Act s.10(7) statement.' },
+    href: '/screening', more: { zh: '筛查怎么做 →', en: 'How screening works →' },
+  },
+  {
+    q: { zh: 'AI 会不会替我做决定？', en: 'Will the AI decide things for me?' },
+    a: { zh: '不会。发消息、签署、派单、发通知这类会影响到别人的动作，先变成一张等你批准的卡片；批准后有 60 秒可撤销，批准与拒绝都写入审计记录，随时可回查。', en: 'No. Anything that reaches another person, sending a message, signing, dispatching a repair, issuing a notice, first becomes a card awaiting your approval; after approval there is a 60-second undo, and approvals and rejections are both written to the audit log.' },
+    href: '/platform', more: { zh: '看产品结构 →', en: 'See the product structure →' },
+  },
+  {
+    q: { zh: '我的数据放在哪里，谁能看到？', en: 'Where is my data, and who can see it?' },
+    a: { zh: '数据库在加拿大（AWS 蒙特利尔）。租客、房东、经纪、服务商各自只能读到与自己有关的记录，这是数据库层面的权限，不只是页面上的隐藏；筛查记录房东可随时删除，租赁事务可导出带内容指纹的证据包。AI 服务商及其所在地在隐私页逐家列明。', en: 'The database is in Canada (AWS Montréal). Tenants, landlords, agents and providers can each read only the records that concern them, enforced at the database rather than hidden in the page. A landlord can delete a screening at any time; a rental matter can be exported as a fingerprinted evidence pack. The AI providers and where they run are listed one by one on the privacy page.' },
+    href: '/privacy', more: { zh: '隐私页 →', en: 'Privacy page →' },
+  },
+  {
+    q: { zh: '服务商怎么加入，要付费吗？', en: 'How does a provider join, and does it cost anything?' },
+    a: { zh: '在入驻页填工种与资质（STO / ESA / TSSA / WSIB / 责任险 / 企业注册，按工种要求），管理员对照公开注册库核验后，你会进入房东的派单候选：报价须房东批准，进入前租客会收到通知，验收后线下结算。目前是多伦多及周边的试点阶段，Stayloop 不抽成、不经手资金。', en: 'Fill in your trades and credentials on the onboarding page (STO / ESA / TSSA / WSIB / liability insurance / business registration, as each trade requires). Once an admin has checked them against the public registries you appear among the landlords’ dispatch candidates: quotes need the landlord’s approval, tenants are notified before entry, and settlement is offline after acceptance. It is a pilot in Toronto and nearby; Stayloop takes no commission and handles no money.' },
+    href: '/services', more: { zh: '维修与服务网络 →', en: 'Repair and service network →' },
   },
 ]
 
@@ -194,6 +279,8 @@ export default function HomeNext() {
 
   // Any chip on the page: switch the assistant to that role, send the prompt,
   // bring the conversation into view.
+  const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: pick(f.q, lang), acceptedAnswer: { '@type': 'Answer', text: pick(f.a, lang) } })) }
+
   const ask = useCallback((r: AgentRole, prompt: string) => {
     setRole(r)
     setQueued({ role: r, prompt })
@@ -246,6 +333,8 @@ export default function HomeNext() {
                   {pick(ROLE_LABEL[r], lang)}
                 </button>
               ))}
+              {/* the fourth role has no assistant persona — a text entry to its public page (2026-09-27) */}
+              <Link href="/services" className="ml-1 text-[12.5px] font-semibold text-brand hover:underline sm:text-[13px]">{zh ? '服务商 · 维修与服务网络 →' : 'Providers · repair network →'}</Link>
             </div>
             )}
             {/* Phone height = viewport − (header 67 + title/lead/pills ≈ 120 +
@@ -275,7 +364,7 @@ export default function HomeNext() {
       {/* ================= trust strip ================= */}
       <section className="border-y border-line-divider" style={{ background: '#F3F8FC' }}>
         <div className="mx-auto grid max-w-[1100px] grid-cols-2 gap-x-6 gap-y-3 px-5 py-4 text-[13px] text-body-3 sm:px-7 md:grid-cols-4">
-          <div>{zh ? '技术' : 'Model'} <b className="text-body">Anthropic Claude</b></div>
+          <div>{zh ? '模型' : 'Models'} <b className="text-body">Claude · GPT · Gemini</b> · {zh ? '可自选' : 'your choice'}</div>
           <div>{zh ? '行情' : 'Market'} <b className="text-body">TRREB · Realtor.ca</b></div>
           <div>{zh ? '合规' : 'Compliance'} <b className="text-body">RTA · OHRC · PIPEDA</b></div>
           <div><b className="text-body">Proudly Canadian</b> · {zh ? '数据库驻加' : 'database hosted in Canada'}</div>
@@ -295,8 +384,8 @@ export default function HomeNext() {
       <section id="roles" className="border-t border-line-divider" style={{ background: '#F3F8FC' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-16 sm:px-7">
           <div className="max-w-[640px]">
-            <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '三种角色，各自的 Agent' : 'Three roles, each with its own agent'}</h2>
-            <p className="mt-2 text-[16px] text-body-2">{zh ? '不是同一个客服机器人——是三个立场不同、只对你负责的 AI。每个板块的例句都能直接发给它。' : 'Not one shared support bot — three AIs with different loyalties, each answering only to you. Every example below sends straight to it.'}</p>
+            <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '四种身份，各自的入口' : 'Four roles, each with its own entry'}</h2>
+            <p className="mt-2 text-[16px] text-body-2">{zh ? '租客、房东、经纪各有一个立场不同、只对你负责的 AI；服务商有自己的工单工作台。例句直接发给上面的对话，模块卡直接进真实页面。' : 'Tenant, landlord and agent each get an AI with its own loyalty, answering only to you; providers get a work-order desk. Examples send straight to the conversation above; module cards open the real pages.'}</p>
           </div>
           <RoleTabs lang={lang} names={names} onAsk={ask} />
         </div>
@@ -356,6 +445,30 @@ export default function HomeNext() {
         </div>
       </section>
 
+      {/* ================= FAQ (2026-09-27) ================= */}
+      <section id="faq" className="mx-auto max-w-[1100px] px-5 pb-16 sm:px-7">
+        <div className="grid gap-8 lg:grid-cols-[4fr_7fr] lg:gap-12">
+          <div>
+            <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '你可能想问' : 'You may be wondering'}</h2>
+            <p className="mt-2 text-[16px] text-body-2">{zh ? '答案只写已经上线、能在页面上核对的事；各身份更细的问题在角色页。' : 'Answers name only what is live and checkable; role-specific questions live on the role pages.'}</p>
+          </div>
+          <div data-testid="home-faq">
+            {FAQ.map((f, i) => (
+              <details key={f.q.en} className="group border-t border-line-divider py-4 last:border-b" open={i === 0}>
+                <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-[17px] font-semibold leading-snug text-body [&::-webkit-details-marker]:hidden">
+                  <span>{pick(f.q, lang)}</span>
+                  <span className="mt-0.5 flex-none font-mono text-[18px] leading-none text-body-3 transition-transform group-open:rotate-45">+</span>
+                </summary>
+                <p className="mt-3 max-w-[640px] text-[14.5px] leading-relaxed text-body-2">
+                  {pick(f.a, lang)} <Link href={f.href} className="font-semibold text-brand hover:underline">{pick(f.more, lang)}</Link>
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
+      </section>
+
       {/* ================= FINAL ================= */}
       <section className="mx-auto max-w-[1100px] px-5 pb-20 text-center sm:px-7">
         <h2 className="text-[30px] font-extrabold leading-tight tracking-tight sm:text-[40px]">{zh ? <>下一个家，<br />从一句话开始。</> : <>Your next home<br />starts with one sentence.</>}</h2>
@@ -409,56 +522,117 @@ function Fact({ n, s }: { n: string; s: ReactNode }) {
 }
 
 function RoleTabs({ lang, names, onAsk }: { lang: Lang; names: Record<AgentRole, string | null>; onAsk: (r: AgentRole, prompt: string) => void }) {
-  const [tab, setTab] = useState<AgentRole>('landlord')
+  const [tab, setTab] = useState<HomeRole>('landlord')
   const zh = lang === 'zh'
   const r = ROLES.find((x) => x.key === tab)!
-  const nm = names[r.key]
+  const nameFor = (k: HomeRole): string | null => (k === 'provider' ? null : names[k])
+  const nm = nameFor(r.key)
+  const chatRole: AgentRole | null = r.key === 'provider' ? null : r.key
+  // The selected state is one pill that slides to the active tab (2026-09-27):
+  // measured from the button, eased, no spring. Until measured, the active
+  // button paints its own background so the first frame is never empty.
+  const rowRef = useRef<HTMLDivElement>(null)
+  const [ind, setInd] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
+  useEffect(() => {
+    const measure = () => {
+      const btn = rowRef.current?.querySelector<HTMLButtonElement>(`button[data-role="${tab}"]`)
+      if (!btn) return
+      setInd({ left: btn.offsetLeft, top: btn.offsetTop, width: btn.offsetWidth, height: btn.offsetHeight })
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [tab, lang])
   return (
     <div className="mt-8">
-      <div className="flex flex-wrap gap-2">
-        {ROLES.map((x) => (
-          <button key={x.key} type="button" onClick={() => setTab(x.key)} className="rounded-full px-4 py-2 text-[13.5px] font-bold transition"
-            style={tab === x.key ? { background: '#1B1B3C', color: '#fff' } : { background: '#fff', color: '#1B1B3C', border: '1px solid #D3E3EF' }}>
-            {withName(x.tag, lang, names[x.key] ? names[x.key]!.toUpperCase() : null)}
-          </button>
-        ))}
+      <div ref={rowRef} role="tablist" aria-label={zh ? '身份' : 'Roles'} className="relative flex flex-wrap gap-2">
+        {ind && (
+          <span aria-hidden data-testid="role-tab-indicator" className="pointer-events-none absolute rounded-full"
+            style={{ left: ind.left, top: ind.top, width: ind.width, height: ind.height, background: '#1B1B3C', transition: 'left .25s ease, top .25s ease, width .25s ease' }} />
+        )}
+        {ROLES.map((x) => {
+          const on = tab === x.key
+          const label = nameFor(x.key)
+          return (
+            <button key={x.key} type="button" role="tab" aria-selected={on} data-role={x.key} onClick={() => setTab(x.key)}
+              className="relative z-[1] rounded-full px-4 py-2 text-[13.5px] font-bold transition-colors"
+              style={on ? { background: ind ? 'transparent' : '#1B1B3C', color: '#fff', border: '1px solid transparent' } : { background: '#fff', color: '#1B1B3C', border: '1px solid #D3E3EF' }}>
+              {withName(x.tag, lang, label ? label.toUpperCase() : null)}
+              {x.pilot && <span className="ml-2 rounded-full px-1.5 py-[1px] font-mono text-[10px] font-bold" style={on ? { background: 'rgba(255,255,255,0.18)', color: '#fff' } : { background: '#EEF5FA', color: '#6E6E8A' }}>{zh ? '试点' : 'PILOT'}</span>}
+            </button>
+          )
+        })}
       </div>
-      <div className="mt-6 grid min-w-0 gap-8 rounded-2xl border border-line-divider bg-white p-6 sm:p-8 lg:grid-cols-[5fr_6fr] lg:gap-12">
-        <div className="min-w-0">
-          <h3 className="text-[24px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{withName(r.h2, lang, nm)}</h3>
-          <p className="mt-3 text-[15px] leading-relaxed text-body-2">{withName(r.lead, lang, nm)}</p>
-          <ul className="mt-6 space-y-4">
-            {r.benefits.map((b) => (
-              <li key={b.b.en} className="flex gap-3">
-                <span className="mt-[7px] h-2 w-2 flex-none rounded-full" style={{ background: b.soon ? '#9FBBD0' : '#00ACE4' }} />
-                <div>
-                  <div className="text-[15px] font-bold">
-                    {withName(b.b, lang, nm)}
-                    {b.soon && <span className="ml-2 rounded-full px-2 py-[2px] font-mono text-[10px] font-bold" style={{ background: '#EEF0F4', color: '#6E6E8A' }}>{zh ? '即将' : 'SOON'}</span>}
+      <div className="mt-6 rounded-2xl border border-line-divider bg-white p-6 sm:p-8">
+        <div className="grid min-w-0 gap-8 lg:grid-cols-[5fr_6fr] lg:gap-12">
+          <div className="min-w-0">
+            <h3 className="text-[24px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{withName(r.h2, lang, nm)}</h3>
+            <p className="mt-3 text-[15px] leading-relaxed text-body-2">{withName(r.lead, lang, nm)}</p>
+            <ul className="mt-6 space-y-4">
+              {r.benefits.map((b) => (
+                <li key={b.b.en} className="flex gap-3">
+                  <span className="mt-[7px] h-2 w-2 flex-none rounded-full" style={{ background: b.soon ? '#9FBBD0' : '#00ACE4' }} />
+                  <div>
+                    <div className="text-[15px] font-bold">
+                      {withName(b.b, lang, nm)}
+                      {b.soon && <span className="ml-2 rounded-full px-2 py-[2px] font-mono text-[10px] font-bold" style={{ background: '#EEF0F4', color: '#6E6E8A' }}>{zh ? '即将' : 'SOON'}</span>}
+                    </div>
+                    <div className="mt-0.5 text-[13.5px] leading-relaxed text-body-2">{pick(b.s, lang)}</div>
                   </div>
-                  <div className="mt-0.5 text-[13.5px] leading-relaxed text-body-2">{pick(b.s, lang)}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <Link href={r.href} className="sl-btn-secondary mt-7 inline-flex">{withName(r.cta, lang, nm)}</Link>
-        </div>
-        <div className="min-w-0 rounded-xl p-5" style={{ background: '#F3F8FC' }}>
-          <div className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-body-3">{zh ? '对它说 · 点一下就发到上面的对话里' : 'Say it · one tap sends it to the conversation above'}</div>
-          <div className="mt-3 grid gap-2">
-            {r.chips.map((c) => (
-              <button key={c.label.en} type="button" onClick={() => onAsk(r.key, pick(c.prompt, lang))}
-                className="group flex min-w-0 items-center justify-between gap-3 overflow-hidden rounded-xl border border-line-divider bg-white px-4 py-3 text-left transition hover:border-[#00ACE4]">
-                <span className="min-w-0">
-                  <span className="block text-[13.5px] font-bold">{pick(c.label, lang)}</span>
-                  <span className="block truncate text-[12px] text-body-3">{pick(c.prompt, lang)}</span>
-                </span>
-                <span className="flex-none text-[13px] font-bold" style={{ color: '#00ACE4' }}>→</span>
-              </button>
-            ))}
+                </li>
+              ))}
+            </ul>
+            <Link href={r.href} className="sl-btn-secondary mt-7 inline-flex">{withName(r.cta, lang, nm)}</Link>
           </div>
-          <div className="mt-4 text-[12px] leading-relaxed text-body-3">
-            {zh ? '回答来自真实房源与官方行情；登录后它才读取你的申请、租约与记忆。' : 'Answers come from real listings and official market data; it reads your applications, leases and memory only after you sign in.'}
+          <div className="min-w-0 rounded-xl p-5" style={{ background: '#F3F8FC' }}>
+            {chatRole ? (
+              <>
+                <div className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-body-3">{zh ? '对它说 · 点一下就发到上面的对话里' : 'Say it · one tap sends it to the conversation above'}</div>
+                <div className="mt-3 grid gap-2">
+                  {r.chips.map((c) => (
+                    <button key={c.label.en} type="button" onClick={() => onAsk(chatRole, pick(c.prompt, lang))}
+                      className="group flex min-w-0 items-center justify-between gap-3 overflow-hidden rounded-xl border border-line-divider bg-white px-4 py-3 text-left transition hover:border-[#00ACE4]">
+                      <span className="min-w-0">
+                        <span className="block text-[13.5px] font-bold">{pick(c.label, lang)}</span>
+                        <span className="block truncate text-[12px] text-body-3">{pick(c.prompt, lang)}</span>
+                      </span>
+                      <span className="flex-none text-[13px] font-bold" style={{ color: '#00ACE4' }}>→</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-4 text-[12px] leading-relaxed text-body-3">
+                  {zh ? '回答来自真实房源与官方行情；登录后它才读取你的申请、租约与记忆。' : 'Answers come from real listings and official market data; it reads your applications, leases and memory only after you sign in.'}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-body-3">{zh ? '现状 · 如实写' : 'Where it stands'}</div>
+                <ul className="mt-3 space-y-2.5" data-testid="provider-facts">
+                  {(r.facts ?? []).map((f) => (
+                    <li key={f.en} className="flex gap-2 text-[13.5px] leading-relaxed text-body">
+                      <span className="mt-[8px] h-1.5 w-1.5 flex-none rounded-full" style={{ background: '#00ACE4' }} />
+                      <span>{pick(f, lang)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/services" className="mt-4 inline-block text-[13px] font-bold text-brand hover:underline">{zh ? '看它怎么运作 →' : 'See how it works →'}</Link>
+              </>
+            )}
+          </div>
+        </div>
+        {/* role → module map: three real pages per role (Muse advice 2026-09-27: link modules by role, not as a catalogue) */}
+        <div className="mt-8 border-t border-line-divider pt-6">
+          <div className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-body-3">{zh ? '模块 · 直接进真实页面' : 'Modules · open the real page'}</div>
+          <div className="mt-3 grid gap-3 md:grid-cols-3" data-testid="role-modules">
+            {r.modules.map((m) => (
+              <Link key={m.href} href={m.href} className="group flex min-w-0 items-start justify-between gap-3 rounded-xl border border-line-divider bg-white px-4 py-3.5 transition hover:border-[#00ACE4]">
+                <span className="min-w-0">
+                  <span className="block text-[14px] font-bold">{pick(m.h, lang)}</span>
+                  <span className="mt-0.5 block text-[12.5px] leading-relaxed text-body-3">{pick(m.s, lang)}</span>
+                </span>
+                <span className="flex-none text-[13px] font-bold transition-transform group-hover:translate-x-0.5" style={{ color: '#00ACE4' }}>→</span>
+              </Link>
+            ))}
           </div>
         </div>
       </div>
