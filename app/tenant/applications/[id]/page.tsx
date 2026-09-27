@@ -1,5 +1,7 @@
 'use client'
 
+export const runtime = 'edge'
+
 // /tenant/applications/[id] — one application's own page (节点 2 · 清楚,
 // 2026-09-26). The list had a tracker but nowhere to open; the applicant
 // could not see what they had submitted, what the landlord had done, or

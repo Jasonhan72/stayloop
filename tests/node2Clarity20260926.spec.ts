@@ -2,7 +2,8 @@
 // account holds; every key task has a door; booleans and internal names never
 // reach the screen. Pure-function tests plus source guards.
 import { describe, expect, it } from 'vitest'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { homeForHats } from '@/lib/landlordHat'
 import { agentLifecycle } from '@/lib/lifecycle/stages'
 
@@ -155,5 +156,25 @@ describe('copy and access', () => {
     expect(s).toContain('E2E_TEST_PASSWORD')
     expect(s).not.toMatch(/Test1234/)
     expect(s).toContain('lifecycle_facts_landlord')
+  })
+})
+
+// ship40 (2026-09-26) failed at the next-on-pages step: the new
+// /tenant/applications/[id] page had no `export const runtime = 'edge'`, and
+// only dynamic segments need it, so tsc and vitest were both green. Every
+// dynamic page and every API route must declare the edge runtime.
+describe('every dynamic page and API route runs on the edge', () => {
+  const walk = (dir: string, out: string[] = []): string[] => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name)
+      if (e.isDirectory()) walk(p, out)
+      else if (e.name === 'page.tsx' || e.name === 'route.ts') out.push(p)
+    }
+    return out
+  }
+  it('no dynamic segment page or route.ts is missing the export', () => {
+    const files = walk('app').filter((p) => p.endsWith('route.ts') || /\[[^/]+\]\/page\.tsx$/.test(p))
+    const missing = files.filter((p) => !read(p).includes("export const runtime = 'edge'"))
+    expect(missing).toEqual([])
   })
 })
