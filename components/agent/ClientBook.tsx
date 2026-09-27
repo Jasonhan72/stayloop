@@ -173,7 +173,7 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
                           {live && allows(d, 'screen')
                             ? <Link href={`/screening/app?as=agent&delegation=${d.id}`} className="rounded-[8px] border border-agent/40 bg-agent/[0.06] px-2.5 py-[5px] text-[11.5px] font-semibold text-agent">{zh ? '发起筛查' : 'Screen'}</Link>
                             : d?.status === 'pending'
-                              ? <span className="rounded-[8px] border border-line-divider px-2.5 py-[5px] text-[11.5px] text-body-3">{zh ? '等客户确认委托' : 'Awaiting the client'}</span>
+                              ? <span className="rounded-[8px] border border-line-divider px-2.5 py-[5px] text-[11.5px] text-body-3" title={zh ? '确认链接已发到客户邮箱；客户用该邮箱登录后确认' : 'The confirmation link went to the client’s email; they confirm while signed in with it'}>{zh ? `链接已发到 ${c.email || '客户邮箱'}` : `Link sent to ${c.email || 'the client'}`}</span>
                               : paper && c.email
                                 ? <button type="button" onClick={() => setProposeFor(c.id)} className="rounded-[8px] border border-brand/40 bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-brand" data-testid="propose-delegation-button">{zh ? '发起委托' : 'Propose delegation'}</button>
                                 : <span className="rounded-[8px] border border-line-divider px-2.5 py-[5px] text-[11.5px] text-body-3" title={zh ? '先记录代表协议与 Information Guide，并填客户邮箱' : 'Record the agreement and Information Guide dates and an email first'}>{zh ? '委托（缺文件 / 邮箱）' : 'Delegation (paperwork / email)'}</span>}

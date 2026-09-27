@@ -2439,3 +2439,11 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
 - **维修动作从卡片直接完成**：`ApprovalActionCard` 对带 `work_order_id` 的房东卡内嵌 `WorkOrderInline`（实时 `WorkOrderCard` + 工单对话），批准报价 / 验收 /
   返工 / 争议 / 标记已付都在待办页完成，服务端照旧让对应待批卡过期，客户端 `notifyPendingChanged()` 刷新红点。
 - **未做**：委托到期的定时转 `expired`（查询里一律按 `expires_at > now()` 判定，界面显示「已到期」）；经纪代客在对话里发言（`message` 动作已定义，线程方仍按本人身份）。
+- **生产实跑（2026-09-27 凌晨）**：给 agent-test 建了房东客户行 `[TEST] 房东客户 · Test Landlord`（邮箱 landlord-test@，两个 TRESA 日期齐）→ 经纪在 `/agent/clients`
+  点「Propose delegation」→ 表单默认 出租 + 事务、四个动作、6 个月 → 「Send confirmation link」→ 行 pending、审计 `delegation_proposed`（acting_role agent，
+  emailed:true），客户表标「链接已发到 …」；匿名打开 `/delegate/<token>` 能看到经纪名 / RECO 号 / 经纪公司 / 范围 / 动作 / 到期 / 依据版本，只有登录按钮；
+  房东号登录后同页出现「确认委托」→ 点击后 `/settings` 的委托块显示 **Active · confirmed 2026-09-27**，`/landlord/progress` 三张事务卡都带「受托经纪：[TEST] Agent
+  Person · listing, matter · until 2027-03-26」；经纪号 `/agent/agent` 顶部出现「Representing: … · until 2027-03-26」，客户表标「Delegated until …」+「Screen」链接
+  （带 delegation id），`/screening/app?as=agent&delegation=…` 顶部绿色「正在代表：…」，不带 delegation 参数则琥珀提示且拒绝创建；房东在设置里 Revoke →
+  经纪侧条幅消失、标「Revoked」、筛查链接消失、可重新发起。租客 `/tenant/progress` 两张事务卡（申请 → 在管租约链完整，工单 2 开放 / 11），无筛查链接。
+  以经纪身份 `select to_jsonb(delegations)` 报 42501——`confirm_token` 列级 grant 生效。
