@@ -51,19 +51,33 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   const endRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // Open (get or create) the thread — the RPC refuses non-parties.
+  // Look the thread up (read-only, party-checked). Viewing never creates a
+  // thread — a tenant scrolling ten old work orders must not mint ten empty
+  // threads (production 2026-09-27); open_thread runs on the first write.
+  const [looked, setLooked] = useState(false)
   useEffect(() => {
     if (auth.loading || !auth.user) return
     let on = true
-    supabase.rpc('open_thread', { p_kind: kind, p_ref: refId }).then(({ data, error }) => {
+    supabase.rpc('find_thread', { p_kind: kind, p_ref: refId }).then(({ data, error }) => {
       if (!on) return
-      if (error || !data) setDenied(error?.message || 'not_a_party'); else setTid(String(data))
+      if (error) setDenied(error.message)
+      else setTid(data ? String(data) : null)
+      setLooked(true)
     })
     return () => { on = false }
   }, [auth.loading, auth.user, kind, refId])
+  /** The thread id, creating the thread on first use (the RPC refuses non-parties). */
+  const ensureThreadId = useCallback(async (): Promise<string | null> => {
+    if (tid) return tid
+    const { data, error } = await supabase.rpc('open_thread', { p_kind: kind, p_ref: refId })
+    if (error || !data) { setErr(error?.message === 'not_a_party' || /not_a_party/.test(error?.message || '') ? (zh ? '你不是这件事的当事人，不能在这里留言。' : 'You are not a party to this matter and cannot post here.') : (error?.message || 'thread unavailable')); return null }
+    const id = String(data)
+    setTid(id)
+    return id
+  }, [tid, kind, refId, zh])
 
   const load = useCallback(async () => {
-    if (!tid) return
+    if (!tid) { setMsgs([]); return }
     const [{ data: m }, { data: r }] = await Promise.all([
       supabase.from('thread_messages').select(SELECT).eq('thread_id', tid).order('id', { ascending: true }).limit(400),
       supabase.from('message_reads').select('user_id, last_delivered_id, last_opened_id, last_acknowledged_id').eq('thread_id', tid),
@@ -76,8 +90,11 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   useEffect(() => {
     if (!tid) return
     void load()
+    // Poll while visible; a hidden tab pauses and catches up the moment it is shown again.
     const iv = setInterval(() => { if (document.visibilityState === 'visible') void load() }, 8000)
-    return () => clearInterval(iv)
+    const onVis = () => { if (document.visibilityState === 'visible') void load() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVis) }
   }, [tid, load])
 
   // Read marks: delivered when fetched, opened while the panel is open, acknowledged on click. Monotonic (the trigger also enforces it).
@@ -108,14 +125,16 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   }
   async function send() {
     const body = draft.trim()
-    if (!tid || !me || (!body && pending.length === 0)) return
+    if (!me || (!body && pending.length === 0)) return
     setBusy(true); setErr(null)
+    const id = await ensureThreadId()
+    if (!id) { setBusy(false); return }
     const senderKind = viewer === 'admin' ? 'admin' : viewer
-    const { error } = await supabase.from('thread_messages').insert({ thread_id: tid, sender_id: me, sender_kind: senderKind, acting_role: viewer, kind: 'message', body: body || (zh ? '（附件）' : '(attachment)'), attachments: pending })
+    const { error } = await supabase.from('thread_messages').insert({ thread_id: id, sender_id: me, sender_kind: senderKind, acting_role: viewer, kind: 'message', body: body || (zh ? '（附件）' : '(attachment)'), attachments: pending })
     if (error) { setErr(error.message); setBusy(false); return }
     setDraft(''); setPending([])
     await load()
-    void notify(tid)
+    void notify(id)
     setBusy(false)
   }
   async function retract(m: ThreadMessage) {
@@ -125,11 +144,13 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
     if (error) setErr(error.message); else await load()
   }
   async function upload(files: FileList | null) {
-    if (!files || !tid) return
+    if (!files) return
     setUploading(true); setErr(null)
+    const id = await ensureThreadId()
+    if (!id) { setUploading(false); return }
     const token = await jwt()
     for (const f of Array.from(files).slice(0, 6 - pending.length)) {
-      const fd = new FormData(); fd.append('thread_id', tid); fd.append('file', f)
+      const fd = new FormData(); fd.append('thread_id', id); fd.append('file', f)
       const res = await fetch('/api/threads/upload', { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd })
       const j = (await res.json().catch(() => ({}))) as { attachment?: Attachment; error?: string }
       if (!res.ok || !j.attachment) { setErr(j.error === 'file_type' ? (zh ? '只支持图片、PDF、Word 与文本文件。' : 'Images, PDF, Word and text files only.') : j.error === 'file_size' ? (zh ? '单个文件不能超过 25 MB。' : 'Files must be under 25 MB.') : (j.error || `HTTP ${res.status}`)); break }
@@ -150,7 +171,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   }
 
   if (denied) return null
-  if (!tid) return compact ? null : <div className="text-[12.5px] text-body-3">…</div>
+  if (!looked) return compact ? null : <div className="text-[12.5px] text-body-3">…</div>
 
   const view = applyRetractions(msgs)
   const visible = view.length

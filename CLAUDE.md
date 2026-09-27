@@ -2403,3 +2403,13 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
 - **通知只做提醒**：`POST /api/threads/notify`（发送者两分钟内的消息才算，60/小时）→ 有账号的当事人推送（按其推送档位），没有账号的（外部联系人、申请人）
   一封邮件带回对话链接；发送者自己不收。旧的 `/api/household/notify-message` 与 `lib/household/readMarks.ts` 已删。
 - **未做（节点 6）**：消息时间线 + 附件校验的 PDF 证据包导出；争议线程的管理员介入界面（kind 已预留）。
+- **生产实跑（2026-09-27 凌晨，四个测试号）**：房东批准派单卡 → offer 给 Northline，工单对话自动出现第一条系统行「已派单给 … · 请在 48 小时内报价」；
+  房东在 `/h/<id>?tab=maintenance` 的工单卡下展开对话留言（状态「已发送」）→ 服务商号 `/provider/jobs` 卡下折叠头显示未读 2，展开后点「确认收到」、回复
+  （房东侧随即变「已确认收到」）、接单报价 $150（系统行「服务商接单并报价 $150.00（第 1 版）」）→ 房东在 hub 批准报价 → 系统行「房东批准了报价」+ 琥珀色
+  「正式通知副本」（进入通知全文 + 免责句，`meta.sent=true`）→ 租客号看到同一条 7 行的时间线并确认收到；`/tenant/messages` 列出工单对话 / 租约对话；
+  租客在 `/tenant/applications/<id>` 的申请对话留言成功（申请人按 JWT 邮箱判定为当事人）。附件走 `scratchpad/e2e-threads.sh`：上传 favicon-32.png
+  服务器算出的 SHA-256 与本机 `shasum` 一致；用房东 JWT 直插消息时伪造的 `sender_kind:'tenant'`、`name:'forged.png'`、假哈希全部被触发器改回登记值；
+  签名 URL 返回 image 并写审计 `thread_attachment_viewed`（acting_role landlord · matter work_order）。回滚事务探针：房东插入被改成服务器时间与 landlord 身份、
+  UPDATE 报 42501、外人连线程行都看不到。**发现并修的一处**：面板在挂载时就 `open_thread`，租客滚一遍报修标签给十张旧工单各造了一条空线程、收件箱全是
+  「还没有消息」——现在挂载只 `find_thread`（只读、当事人校验），第一次写入才 `open_thread`；收件箱只列有消息的线程；已删空线程（迁移 `20260927_find_thread.sql`）。
+  内置浏览器面板处于 hidden 时不轮询（设计如此），补了 `visibilitychange` 回到可见即刷新。

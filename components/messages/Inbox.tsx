@@ -59,7 +59,8 @@ export default function Inbox({ role }: { role: 'tenant' | 'landlord' }) {
         if (!latest.has(m.thread_id)) latest.set(m.thread_id, m)
         if (m.sender_id !== user.id && m.id > (opened.get(m.thread_id) ?? 0)) unread.set(m.thread_id, (unread.get(m.thread_id) ?? 0) + 1)
       }
-      const list: Item[] = threads.map((t) => ({ t, latest: latest.get(t.id) ?? null, unread: unread.get(t.id) ?? 0 }))
+      // A thread with no message yet is not a conversation (viewing never creates one since 2026-09-27; older empties were removed).
+      const list: Item[] = threads.map((t) => ({ t, latest: latest.get(t.id) ?? null, unread: unread.get(t.id) ?? 0 })).filter((i) => i.latest)
       list.sort((a, b) => (b.latest?.id ?? 0) - (a.latest?.id ?? 0))
       setItems(list)
       setIntents(((intentsRes as { data: unknown }).data ?? []) as Intent[])

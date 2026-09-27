@@ -88,7 +88,11 @@ describe('surfaces and hooks', () => {
   })
   it('the panel writes through RLS only (open_thread RPC, thread_messages insert, message_reads upsert) and never updates a message', () => {
     const p = read('components/threads/ThreadPanel.tsx')
+    // Viewing looks up; only the first write creates (production 2026-09-27: one empty thread per viewed work order).
+    expect(p).toContain("supabase.rpc('find_thread', { p_kind: kind, p_ref: refId })")
     expect(p).toContain("supabase.rpc('open_thread', { p_kind: kind, p_ref: refId })")
+    expect(p.indexOf("rpc('open_thread'")).toBeGreaterThan(p.indexOf('const ensureThreadId'))
+    expect(read('components/messages/Inbox.tsx')).toContain('.filter((i) => i.latest)')
     expect(p).toContain("from('thread_messages').insert(")
     expect(p).toContain("from('message_reads').upsert(row, { onConflict: 'thread_id,user_id' })")
     expect(p).not.toMatch(/from\('thread_messages'\)\.(update|delete)/)
