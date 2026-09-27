@@ -18,6 +18,7 @@
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { isEmergencyMaintenance, MAINTENANCE_CATEGORIES, triageLines } from '@/lib/agent/maintenanceTriage'
 import { NextResponse } from 'next/server'
+import { matterRef } from '@/lib/agent/audit'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail, renderRentReminderEmail } from '@/lib/email'
@@ -122,7 +123,7 @@ async function releaseClaim(admin: Admin, actionId: string, error?: string): Pro
 async function finalizeExecution(
   admin: Admin,
   userId: string,
-  action: Pick<ActionRow, 'id' | 'metadata'>,
+  action: Pick<ActionRow, 'id' | 'metadata'> & { role?: string | null },
   auditAction: string,
   executionResult: Record<string, unknown>,
   auditMetadata: Record<string, unknown>,
@@ -132,12 +133,18 @@ async function finalizeExecution(
     .update({ execution_result: executionResult })
     .eq('id', actionId)
 
+  // The receipt names the hat and the matter (节点 2 2026-09-26): which ids the
+  // executor put in its metadata decide the matter reference.
+  const ref = matterRef({ ...(action.metadata as Record<string, unknown> | null), ...auditMetadata })
   const { error: auditErr } = await admin.from('agent_audit_events').insert({
     actor_id: userId,
     actor_type: 'agent',
     action: auditAction,
     target_type: 'agent_pending_action',
     target_id: actionId,
+    acting_role: action.role ?? null,
+    matter_type: ref.matterType,
+    matter_id: ref.matterId,
     // thread_id = the conversation the card was proposed in (null for cron /
     // to-do-page cards) — the activity log folds the execution into that row.
     metadata: { ...auditMetadata, thread_id: (action.metadata as Record<string, unknown> | null)?.thread_id ?? null },

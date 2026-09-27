@@ -73,7 +73,10 @@ export default function MyApplications({ zh }: { zh: boolean }) {
                     {r.move_in_date ? (zh ? ` · 期望入住 ${r.move_in_date}` : ` · move-in ${r.move_in_date}`) : ''}
                   </div>
                 </div>
-                <span className={'flex-none rounded-full px-2.5 py-[3px] text-[11px] font-bold ' + (s.tone === 'ok' ? 'bg-success/10 text-success' : s.tone === 'bad' ? 'bg-danger/10 text-danger' : 'bg-surface-chip text-body-3')}>{s.text}</span>
+                <span className="flex flex-none items-center gap-2">
+                  <span className={'rounded-full px-2.5 py-[3px] text-[11px] font-bold ' + (s.tone === 'ok' ? 'bg-success/10 text-success' : s.tone === 'bad' ? 'bg-danger/10 text-danger' : 'bg-surface-chip text-body-3')}>{s.text}</span>
+                  <Link href={`/tenant/applications/${r.id}`} className="text-[12.5px] font-semibold text-brand underline underline-offset-2" data-testid="application-detail-link">{zh ? '详情 →' : 'Details →'}</Link>
+                </span>
               </div>
               <Tracker steps={steps} zh={zh} />
               {(lease?.status === 'sent' || hh) && (

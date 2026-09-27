@@ -117,7 +117,7 @@ const TYPE_ICON: Record<string, string> = {
 const TYPE_LABEL: Record<string, { zh: string; en: string }> = {
   showing: { zh: '带看', en: 'Showing' },
   screening: { zh: '筛查复核', en: 'Screening' },
-  package: { zh: 'brief 包', en: 'Brief pack' },
+  package: { zh: '带看准备包', en: 'Showing pack' },
   lease: { zh: '租约', en: 'Lease' },
 }
 

@@ -135,6 +135,12 @@ export default function SettingsPage() {
             {shellRole === 'landlord' && auth.user && (
               <SubscriptionCard userId={auth.user.id} zh={zh} />
             )}
+            {shellRole === 'agent' && auth.user && (
+              <div className="sl-card p-5" data-testid="agent-plan-note">
+                <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '套餐 · 经纪' : 'PLAN · AGENT'}</div>
+                <p className="mt-2 text-[13.5px] text-body-2">{zh ? '经纪套餐即将推出，现在全部免费：客户表、任务、带看准备包、挂牌定价与筛查交接（有代表协议记录后）。Stayloop 不做经纪业务、不收佣金。' : 'The agent plan is coming; everything is free for now: client table, tasks, showing packs, pricing and the screening hand-off (once a representation agreement is recorded). Stayloop is not a brokerage and takes no commission.'}</p>
+              </div>
+            )}
             {/* Push notifications — per device, all roles (2026-09-22). */}
             {auth.user && <PushSettingsCard live />}
 

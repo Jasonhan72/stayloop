@@ -7,9 +7,11 @@ export const runtime = 'edge'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await readJsonBody<{ path?: string }>(req)
+    const body = await readJsonBody<{ path?: string; download?: unknown }>(req)
     if (!body) return NextResponse.json(INVALID_BODY, { status: 400 })
     const { path } = body
+    // download=true mints an attachment URL and is audited as a download, not a view (节点 2 2026-09-26).
+    const download = body.download === true
     if (!path || typeof path !== 'string') {
       return NextResponse.json({ error: 'path required' }, { status: 400 })
     }
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
     if (error || !app) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 
     const { data: signed, error: signErr } = await supabase
-      .storage.from('tenant-files').createSignedUrl(path, 600)
+      .storage.from('tenant-files').createSignedUrl(path, 600, download ? { download: true } : undefined)
     if (signErr || !signed?.signedUrl) {
       console.error('file-url sign failed:', signErr?.message)
       return NextResponse.json({ error: 'sign failed' }, { status: 500 })
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
     // (three-role test report 2026-09-24, SL-L-01). Best effort — never blocks the view.
     if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
       const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
-      await admin.from('agent_audit_events').insert({ actor_id: user.id, actor_type: 'user', action: 'application_file_viewed', target_type: 'application', target_id: application_id, metadata: { kind: segs[1], file: segs[2].slice(0, 120) } }).then(() => undefined, () => undefined)
+      await admin.from('agent_audit_events').insert({ actor_id: user.id, actor_type: 'user', action: download ? 'application_file_downloaded' : 'application_file_viewed', target_type: 'application', target_id: application_id, metadata: { kind: segs[1], file: segs[2].slice(0, 120) } }).then(() => undefined, () => undefined)
     }
     const ext = (segs[2].split('.').pop() || '').toLowerCase()
     const kind = ext === 'pdf' ? 'pdf' : ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? 'image' : ['heic', 'heif'].includes(ext) ? 'heic' : 'other'

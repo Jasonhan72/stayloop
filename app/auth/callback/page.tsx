@@ -68,6 +68,7 @@ export default function AuthCallback() {
           tenant: '/tenant/agent',
           landlord: '/landlord/agent',
           agent: '/agent/agent',
+          provider: '/provider/jobs', // the fifth hat lands on its workbench (external review 2026-09-26, P1-1)
         }
         // Honor an explicit ?next= destination (set by AuthModal) when it's a
         // safe same-origin path — otherwise fall back to role-based routing.

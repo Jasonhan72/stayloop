@@ -36,6 +36,20 @@ export default function FilePreviewModal({ path, name, zh, onClose }: { path: st
     return () => { cancelled = true }
   }, [path, nonce])
 
+  // Download = a second signed URL minted with the attachment disposition, so the
+  // route records application_file_downloaded separately from a view (external
+  // review 2026-09-26). Navigating to an attachment URL does not leave the page.
+  const download = async () => {
+    try {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      if (!token) return
+      const res = await fetch('/api/file-url', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ path, download: true }) })
+      const j = (await res.json().catch(() => ({}))) as { url?: string }
+      if (res.ok && j.url) window.location.assign(j.url)
+    } catch { /* the view stays open; the user can retry */ }
+  }
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -55,7 +69,10 @@ export default function FilePreviewModal({ path, name, zh, onClose }: { path: st
         <div className="flex flex-none items-center gap-3 border-b border-line-divider px-4 py-3">
           <span className="min-w-0 flex-1 truncate text-[14px] font-bold">{name}</span>
           {st.phase === 'ready' && (
-            <a href={st.url} target="_blank" rel="noopener noreferrer" className="flex-none rounded-lg border border-line-divider px-3 py-1.5 text-[12.5px] font-semibold">{zh ? '新标签打开 ↗' : 'Open in new tab ↗'}</a>
+            <>
+              <button type="button" onClick={() => void download()} className="flex-none rounded-lg border border-line-divider px-3 py-1.5 text-[12.5px] font-semibold" data-testid="file-download">{zh ? '下载 ↓' : 'Download ↓'}</button>
+              <a href={st.url} target="_blank" rel="noopener noreferrer" className="flex-none rounded-lg border border-line-divider px-3 py-1.5 text-[12.5px] font-semibold">{zh ? '新标签打开 ↗' : 'Open in new tab ↗'}</a>
+            </>
           )}
           <button onClick={onClose} aria-label={zh ? '关闭' : 'Close'} className="flex h-9 w-9 flex-none items-center justify-center rounded-lg text-[20px] text-body-2 hover:bg-surface-chip">×</button>
         </div>

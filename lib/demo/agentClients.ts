@@ -44,7 +44,7 @@ export const CLIENTS = (aiName: string): CrmClient[] => [
     stage: 'searching',
     silent: 5,
     next: { zh: `${aiName} 在筛选 5 套备选`, en: `${aiName} shortlisting 5 options` },
-    last: { zh: '5/4 给了 brief 包', en: 'Brief pack delivered 5/4' },
+    last: { zh: '5/4 给了带看准备包', en: 'Showing pack delivered 5/4' },
   },
   {
     name: 'Lisa W.',

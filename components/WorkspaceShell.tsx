@@ -5,7 +5,7 @@ import { ReactNode, useEffect, useState } from 'react'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useHats } from '@/lib/useHats'
+import { useHats, bestHat } from '@/lib/useHats'
 import Header from './Header'
 import { useI18n } from '@/lib/i18n'
 import { LiveRowsProvider, useLiveRowsTotal } from '@/lib/liveRows'
@@ -150,12 +150,13 @@ function useDemoGate() {
   return { gate, sampleNote, showDemo, setShowDemo }
 }
 
-function DemoGate({ children, gate, showDemo, setShowDemo, liveSlot }: {
+function DemoGate({ children, gate, showDemo, setShowDemo, liveSlot, role }: {
   children: React.ReactNode
   gate: (typeof DEMO_GATE)[string] | null
   showDemo: boolean
   setShowDemo: (v: boolean) => void
   liveSlot?: ReactNode
+  role: WorkspaceRole
 }) {
   const { lang } = useI18n()
   const zh = lang === 'zh'
@@ -175,13 +176,16 @@ function DemoGate({ children, gate, showDemo, setShowDemo, liveSlot }: {
   return (
     <LiveRowsProvider>
       {liveSlot}
-      <GateEmptyState gate={gate} zh={zh} setShowDemo={setShowDemo} hasLive={!!liveSlot} />
+      <GateEmptyState gate={gate} zh={zh} setShowDemo={setShowDemo} hasLive={!!liveSlot} role={role} />
     </LiveRowsProvider>
   )
 }
 
-function GateEmptyState({ gate, zh, setShowDemo, hasLive }: { gate: NonNullable<(typeof DEMO_GATE)[string]>; zh: boolean; setShowDemo: (v: boolean) => void; hasLive: boolean }) {
+function GateEmptyState({ gate, zh, setShowDemo, hasLive, role }: { gate: NonNullable<(typeof DEMO_GATE)[string]>; zh: boolean; setShowDemo: (v: boolean) => void; hasLive: boolean; role: WorkspaceRole }) {
   const live = useLiveRowsTotal()
+  // A neutral page's CTA ("回到工作台") must lead to THIS hat's home — /dashboard sent a
+  // tenant or provider into the landlord gate (external review 2026-09-26).
+  const ctaHref = gate.href === '/dashboard' && role !== 'landlord' ? `/${role}/agent` : gate.href
   // Real rows are on screen: the "nothing yet" copy would contradict them.
   const copy = hasLive && live > 0
     ? (zh ? '以上是你的真实记录。这一页的其余部分仍是产品演示。' : 'Those are your real records. The rest of this page is still a product demo.')
@@ -190,7 +194,7 @@ function GateEmptyState({ gate, zh, setShowDemo, hasLive }: { gate: NonNullable<
     <div className="rounded-2xl border border-line-divider bg-white px-6 py-16 text-center">
       <p className="mx-auto max-w-[420px] text-[14px] leading-relaxed text-body-2">{copy}</p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-        <Link href={gate.href} className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#00ACE4' }}>
+        <Link href={ctaHref} className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#00ACE4' }}>
           {zh ? gate.ctaZh : gate.ctaEn}
         </Link>
         <button
@@ -281,9 +285,14 @@ function useLandlordHatGuard(role: WorkspaceRole): boolean {
   const blocked = role === 'landlord' && signedIn && !hats.loading && !hats.landlord
   useEffect(() => {
     if (!blocked) return
+    // Visiting /landlord/* remembered "landlord" for this account before the bounce,
+    // and every neutral page (/notifications, /settings) then opened in the landlord
+    // shell and bounced too (external review 2026-09-26, provider P1-2). Put the
+    // remembered hat back to one the account holds.
+    auth.setRole(bestHat(hats))
     const q = typeof window !== 'undefined' ? window.location.search : ''
     router.replace('/landlord/become?next=' + encodeURIComponent(path + q))
-  }, [blocked, path, router])
+  }, [blocked, path, router, auth, hats])
   return blocked
 }
 
@@ -298,7 +307,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
   const asideHidden = hideAside || (gate != null && !showDemo)
   return (
     <>
-      <Header variant="solid" mobileNav={false} />
+      <Header variant="solid" mobileNav={false} appShell />
       <main style={{ background: '#F3F8FC' }}>
         {/* mobile: stacked (Rail becomes a fixed bottom tab bar); md+: navy
             sidebar left · content · aside right (2026-09 console redesign,
@@ -316,7 +325,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
               ? <div className="py-24 text-center font-mono text-[13px] text-body-3">…</div>
               : role === 'agent' && agentStatus !== 'loading' && !isRegistrationLive(agentStatus) && isAgentOnlyRoute(shellPath)
               ? <AgentLockedState status={agentStatus} zh={lang === 'zh'} />
-              : <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo} liveSlot={liveSlot}>{children}</DemoGate>}
+              : <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo} liveSlot={liveSlot} role={role}>{children}</DemoGate>}
           </div>
           {!asideHidden && (
             <aside className="border-t border-line-divider bg-white px-5 py-6 md:w-[320px] md:flex-none md:overflow-y-auto md:border-l md:border-t-0 md:p-6">

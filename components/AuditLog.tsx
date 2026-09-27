@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import WorkspaceShell, { WorkspaceRole } from '@/components/WorkspaceShell'
+import LiveAuditLog from '@/components/audit/LiveAuditLog'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
 
@@ -163,7 +164,7 @@ export default function AuditLog({ role }: { role: WorkspaceRole }) {
   })).filter((d) => d.events.length > 0)
 
   return (
-    <WorkspaceShell role={role} aside={<Aside />}>
+    <WorkspaceShell role={role} aside={<Aside />} liveSlot={<LiveAuditLog role={role} />}>
       {/* Heading */}
       <div className="mb-7 max-w-[760px]">
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">

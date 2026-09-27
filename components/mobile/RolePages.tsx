@@ -16,6 +16,7 @@ import RecommendationDeck from '@/components/agent/RecommendationDeck'
 import LifecycleRail from '@/components/lifecycle/LifecycleRail'
 import TodayCard from '@/components/lifecycle/TodayCard'
 import BulkApproveBar from '@/components/agent/BulkApproveBar'
+import ClientTasks from '@/components/agent/ClientTasks'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
@@ -73,6 +74,8 @@ export function TodoPage({ role }: { role: AgentRole }) {
       <PageHead eyebrow="TO-DO" title={zh ? '等你点头的' : 'Waiting on you'} sub={zh ? `${data.agent.agent_name} 不会替你决定；这里的每一件都要你批准才执行。` : `${data.agent.agent_name} never decides for you; nothing here runs until you approve.`} />
       {!live && <PreviewNote zh={zh} what={zh ? '待办' : 'to-dos'} />}
       {live && <div className="mb-4"><TodayCard lifecycle={lifecycle} pending={pending.map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref={`/${role}/todo`} lang={lang} omitPending /></div>}
+      {/* Agents: the to-do tab is not only approval cards — the client table's real tasks live here too (external review 2026-09-26). */}
+      {live && role === 'agent' && <ClientTasks zh={zh} />}
       {waiting.length > 0 && (
         <div className="mb-4 space-y-2">
           {waiting.map(([id, w]) => (

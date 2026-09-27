@@ -600,6 +600,12 @@ export default function NewListingPage() {
                     {submitting ? (lang === 'zh' ? '发布中…' : 'Publishing…') : (lang === 'zh' ? '✓ 用这版发布' : '✓ Publish this version')}
                   </button>
                 </div>
+                {(photos.length === 0 || !form.address.trim() || !form.monthly_rent.trim()) && (
+                  <p className="text-[12.5px] text-amber-800" data-testid="publish-missing">
+                    {lang === 'zh' ? '还不能发布，缺：' : 'Cannot publish yet — missing: '}
+                    {[photos.length === 0 ? (lang === 'zh' ? '照片（第 2 步）' : 'photos (step 2)') : null, !form.address.trim() ? (lang === 'zh' ? '地址（第 1 步）' : 'address (step 1)') : null, !form.monthly_rent.trim() ? (lang === 'zh' ? '月租（第 3 步）' : 'monthly rent (step 3)') : null].filter(Boolean).join(lang === 'zh' ? '、' : ', ')}
+                  </p>
+                )}
               </div>
             )}
           </div>

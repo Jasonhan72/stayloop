@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
+import { activeHat, useHats } from '@/lib/useHats'
+import LiveNotifications from '@/components/notifications/LiveNotifications'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 
@@ -125,10 +127,14 @@ const ICON_STYLE: Record<Icon['role'], string> = {
 export default function NotificationsPage() {
   const { lang } = useT()
   const { role } = useAuth()
-  const shellRole = (role || 'tenant') as 'tenant' | 'landlord' | 'agent'
+  const hats = useHats()
+  // Only a hat the account holds may frame this page: a remembered "landlord" that the
+  // account never activated used to open the landlord shell here and bounce a provider
+  // into the onboarding page (external review 2026-09-26, P1-2).
+  const shellRole = activeHat(hats, role)
   const aiNames = useAIName() // one assistant per account (2026-09-25)
   return (
-    <WorkspaceShell role={shellRole} hideAside>
+    <WorkspaceShell role={shellRole} hideAside liveSlot={<LiveNotifications role={shellRole} />}>
       <div className="mx-auto max-w-[920px]">
           <div className="text-center">
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">

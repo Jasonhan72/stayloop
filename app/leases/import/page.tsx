@@ -16,6 +16,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import WorkspaceShell from '@/components/WorkspaceShell'
+import { activeHat, useHats } from '@/lib/useHats'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
@@ -43,7 +45,9 @@ const EMPTY_FORM: FormState = {
 }
 
 export default function LeaseImportPage() {
-  const { user, loading } = useAuth()
+  const { user, loading, role: rememberedRole } = useAuth()
+  const hats = useHats()
+  const shellRole = activeHat(hats, rememberedRole)
   const { lang } = useT()
   const zh = lang === 'zh'
   const router = useRouter()
@@ -190,10 +194,11 @@ export default function LeaseImportPage() {
   const input = 'w-full rounded-lg border border-line-divider bg-white px-3 py-2.5 text-[14px]'
   const label = 'mb-1 mt-4 block text-[12px] font-semibold text-body-2'
 
+  // Signed in: the import is a workbench task, framed by the hat the account is acting as
+  // (external review 2026-09-26: the page was a bare marketing layout).
   return (
-    <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
-      <Header variant="transparent" />
-      <div className="mx-auto w-full max-w-[680px] flex-1 px-5 py-12">
+    <WorkspaceShell role={shellRole} hideAside>
+      <div className="mx-auto w-full max-w-[680px]">
         <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#00ACE4' }}>
           {zh ? '在管租约 · 导入' : 'MANAGED TENANCY · IMPORT'}
         </div>
@@ -236,6 +241,7 @@ export default function LeaseImportPage() {
             </button>
             <input
               ref={fileInput}
+              aria-label={zh ? '选择租约文件' : 'Choose lease file(s)'}
               type="file"
               accept="application/pdf,image/*"
               multiple
@@ -380,7 +386,6 @@ export default function LeaseImportPage() {
           </div>
         )}
       </div>
-      <Footer />
-    </div>
+    </WorkspaceShell>
   )
 }

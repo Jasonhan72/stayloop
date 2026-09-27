@@ -449,8 +449,8 @@ export default function ApplyPage() {
             <Section tag="04" title={zh ? '家庭' : 'Household'}>
               <Grid cols="grid-cols-2 sm:grid-cols-3">
                 <Field label={zh ? '入住人数' : 'Occupants'}><Input type="number" min="1" value={form.num_occupants} onChange={(e: any) => set('num_occupants', e.target.value)} /></Field>
-                <Field label={zh ? '是否养宠物?' : 'Any pets?'}><Select value={form.has_pets} onChange={(e: any) => set('has_pets', e.target.value)} options={['false', 'true']} /></Field>
-                <Field label={zh ? '是否吸烟?' : 'Smoker?'}><Select value={form.is_smoker} onChange={(e: any) => set('is_smoker', e.target.value)} options={['false', 'true']} /></Field>
+                <Field label={zh ? '是否养宠物?' : 'Any pets?'}><Select value={form.has_pets} onChange={(e: any) => set('has_pets', e.target.value)} options={[{ value: 'false', label: zh ? '否' : 'No' }, { value: 'true', label: zh ? '是' : 'Yes' }]} /></Field>
+                <Field label={zh ? '是否吸烟?' : 'Smoker?'}><Select value={form.is_smoker} onChange={(e: any) => set('is_smoker', e.target.value)} options={[{ value: 'false', label: zh ? '否' : 'No' }, { value: 'true', label: zh ? '是' : 'Yes' }]} /></Field>
                 <Field label={zh ? '期望入住' : 'Desired move-in'}><Input type="date" value={form.move_in_date} onChange={(e: any) => set('move_in_date', e.target.value)} /></Field>
               </Grid>
             </Section>
@@ -593,11 +593,13 @@ function Input(props: any) {
 }
 
 function Select({ value, onChange, options }: any) {
+  // Options are strings or { value, label } — a boolean never reaches the screen as
+  // "true / false" (external review 2026-09-26).
   return (
     <select value={value} onChange={onChange} className="sl-input" style={{ fontSize: 16 }}>
-      {options.map((o: string) => (
-        <option key={o} value={o}>
-          {o}
+      {options.map((o: string | { value: string; label: string }) => (
+        <option key={typeof o === 'string' ? o : o.value} value={typeof o === 'string' ? o : o.value}>
+          {typeof o === 'string' ? o : o.label}
         </option>
       ))}
     </select>

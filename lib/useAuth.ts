@@ -150,9 +150,17 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
   useEffect(() => {
     // Gate pages (/landlord/become, /agent/verify, the screening app) carry a
     // prefix without being a choice — review 2026-09-25.
-    const r = rememberableRoleFromPath(pathname)
-    if (!r || !state.user || typeof window === 'undefined') return
+    if (!state.user || typeof window === 'undefined') return
     const key = roleStorageKey(state.user.id)
+    // The provider workbench is a hat too (external review 2026-09-26, P1-1):
+    // remember it for the login landing, but it is not a UI role (Role type),
+    // so the in-memory role is left alone.
+    if (pathname && pathname.startsWith('/provider/')) {
+      if (window.localStorage.getItem(key) !== 'provider') window.localStorage.setItem(key, 'provider')
+      return
+    }
+    const r = rememberableRoleFromPath(pathname)
+    if (!r) return
     if (window.localStorage.getItem(key) !== r) window.localStorage.setItem(key, r)
     if (state.role !== r) setState((prev) => ({ ...prev, role: r }))
   }, [pathname, state.user, state.role])

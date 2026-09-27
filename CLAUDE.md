@@ -2318,3 +2318,31 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
 - **硬约束层 `lib/agent/hardConstraints.ts`**：从当前消息 + 记忆确定性推导预算 / 户型 / 宠物（消息 > 记忆；模型只能收紧不能放宽；「预算不限」时不套记忆预算），
   合并进 `searchListings` 的条件；`searchListings` 多返回 `overBudget`（样本里被预算砍掉的套数）；回复末尾由系统写「（已按 预算 ≤ $2,800 · 2 房以上 过滤（预算来自你之前
   告诉我的）；另有 N 套超预算未列）」；追问芯片按合并后的条件判断缺什么；`search_used` 带 `hard_constraints`。
+
+## 分阶段改进 · 节点 2「清楚」（2026-09-26 · 报告第 2 · 5 · 6 · 10 项）
+
+守卫 `tests/node2Clarity20260926.spec.ts`（19 条）；迁移 `20260926_node2_identity_audit.sql`、`20260926_facts_v2b_tenant_app_detail.sql` 已应用 prod；
+跨帽子探针 `scripts/e2e/hat-probes.sh`（四个测试号各自的 JWT，10 条：无帽子的账号读不到房东行 / 租约 / 房东事实、`work_orders.token` 对任何人 403、服务商直读不到
+household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生产 10/10。
+- **服务商是一顶可落地的帽子**：`homeForHats` 认识 `provider`（纯服务商号登录直达 `/provider/jobs`；记住的 `provider` 优先；其余顺序不变），`useAuth` 在 `/provider/*` 把
+  `provider` 写进「上次身份」（不进 Role 类型），回调页 `AGENT_HOME` 与登录页都改读原始记住值。**根因修复**：`/notifications` 等中性页用未经帽子校验的 `useAuth().role`
+  取壳，而访问过 `/landlord/agent` 会把 landlord 记成上次身份 → 服务商点通知被送进房东开通页。现在 `/notifications` 用 `activeHat`，`WorkspaceShell` 的房东守卫在
+  拦下时先 `auth.setRole(bestHat(hats))` 把记住的身份放回持有的帽子，DEMO_GATE 的「回到工作台」按帽子跳转（`/dashboard` 只给房东）。
+- **应用壳**：`Header appShell`（`WorkspaceShell` 与 `/provider/*` 传）——桌面端不再显示「我是 / 产品 / 房源 / 定价 / 租客筛查」，换成「当前身份：房东」芯片 + 「切换」
+  （打开身份菜单并展开）；营销链接进头像菜单「浏览 Stayloop」（手机原本就这样）。
+- **通知页有真内容**：`components/notifications/LiveNotifications.tsx`（liveSlot）——当前帽子的待批卡（→ 待办）、有服务商行的账号看到工单动态（`work_order_events`，
+  RLS 本人）、最近审计事件（`auditActionLabel`）。
+- **审计页有真内容**：`components/audit/LiveAuditLog.tsx`（`AuditLog` 的 liveSlot）——本人 `agent_audit_events` 按「时间 · 身份 · 动作 · 对象 · 结果」列出，对话轮次不算审计；
+  `agent_audit_events` 加 `acting_role / matter_type / matter_id / delegation_id`（delegation 节点 5 才填），`writeAuditEvent` 与执行回执 `finalizeExecution` 都填
+  （`matterRef()` 从 metadata 里的 lease_id / application_id / household_id / work_order_id / ticket_id / listing_id / screening_id 推导）；**开通帽子写审计**：
+  `audit_hat_activation()` 触发器（definer）挂在 landlords / agent_profiles / service_providers 的 AFTER INSERT，记 `hat_activated`（谁、哪顶、经哪条路、是否本人）。
+  agent-test 那行 09-25 03:54 误开通的房东行已删；现在只有 landlord-test 有房东帽子。
+- **关键任务入口**：租客申请详情页 `/tenant/applications/[id]`（进度步骤 + 「轮到房东 / 你」+ 下一步说明 + 材料份数 + 租约 / 在管租约入口 + 婉拒时的 s.10(7) 提示，
+  **永不显示分数**；`applicant_applications` 视图加 `files_count` / `decision_reason`，租客事实 RPC 带出）；列表每行「详情 →」。经纪待办页并入客户表任务
+  （`ClientTasks`），rail 的 RECO 步骤在注册 ≤30 天到期时变「更新注册信息」并带时钟（`agentLifecycle` 新入参 `profileExpiresAt`）。房东归档改为表格：
+  申请人 · 决定 · 通知（未发标琥珀）· 租约（`leaseStateDetail`）· 入住（在管租约已确认 / 等租客确认）· 归档日 · 取消归档。
+- **「租客筛查」按帽子分流**：`components/screening/ScreeningCta.tsx`——已登录且只有租客帽子时，CTA 变「我是租客 · 先备好我的材料包 →」（护照）+
+  「我也是房东 · 开通后开始筛查」（`/landlord/become?next=/screening/app`），并说明筛查由房东 / 有代表协议的经纪发起；匿名、房东、注册有效的经纪照旧进 `/screening/app`。
+- **文案与可访问性**：`/apply` 宠物 / 吸烟下拉改「否 / 是」（`Select` 接受 `{value,label}`）；「brief 包」→「带看准备包」；材料预览多一个「下载 ↓」（`/api/file-url`
+  `download:true` → 附件式签名 URL + 审计 `application_file_downloaded`，与查看分开）；发布向导按钮旁明写缺什么（照片 / 地址 / 月租）；经纪的设置页显示
+  「套餐 · 经纪 · 即将推出，现在全部免费」；`/leases/import` 登录后放进 `WorkspaceShell`（按当前帽子），文件输入有 aria-label。

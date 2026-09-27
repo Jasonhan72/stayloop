@@ -22,7 +22,7 @@ type Cred = { id: string; kind: CredentialKind; number: string | null; holder_na
 const STATUS_LABEL: Record<string, { zh: string; en: string }> = { pending: { zh: '待核验', en: 'pending verification' }, verified: { zh: '已核验', en: 'verified' }, rejected: { zh: '未通过', en: 'rejected' }, suspended: { zh: '已暂停', en: 'suspended' }, expired: { zh: '已过期', en: 'expired' } }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-screen flex-col bg-surface"><Header /><main className="mx-auto w-full max-w-[760px] flex-1 px-5 py-8">{children}</main><Footer /></div>
+  return <div className="flex min-h-screen flex-col bg-surface"><Header appShell /><main className="mx-auto w-full max-w-[760px] flex-1 px-5 py-8">{children}</main><Footer /></div>
 }
 
 export default function ProviderOnboardPage() {

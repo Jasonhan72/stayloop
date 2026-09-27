@@ -25,6 +25,9 @@ interface HeaderProps {
   variant?: 'transparent' | 'solid'
   /** Phone bottom tab bar for public pages (WorkspaceShell turns it off — it has its own rail). */
   mobileNav?: boolean
+  /** Signed-in workbench pages (节点 2 2026-09-26): the marketing nav gives way to a
+   *  "current identity" chip; the marketing links live in the menu's 浏览 Stayloop. */
+  appShell?: boolean
 }
 
 const PRODUCT_ITEMS = [
@@ -36,7 +39,7 @@ const PRODUCT_ITEMS = [
   { key: 'nav.services', href: '/services', color: '#00ACE4', tag: { zh: '维修与服务网络 · 入驻', en: 'Repairs network · join' } },
 ]
 
-export default function Header({ variant = 'solid', mobileNav = true }: HeaderProps) {
+export default function Header({ variant = 'solid', mobileNav = true, appShell = false }: HeaderProps) {
   const pathname = usePathname() || '/'
   const router = useRouter()
   const { lang, t } = useI18n()
@@ -148,7 +151,23 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
       <div className="mx-auto flex h-14 max-w-[1240px] items-center justify-between px-5 sm:px-8 md:h-[66px] lg:px-12">
         <Logo size="md" />
 
-        {/* Desktop nav */}
+        {/* App shell: which hat is acting, always visible (external review 2026-09-26). */}
+        {appShell && auth.user && (() => {
+          const onProvider = pathname.startsWith('/provider/')
+          const label = onProvider ? (lang === 'zh' ? '服务商' : 'Provider') : lang === 'zh' ? ROLE_META[currentRole].label : ROLE_META[currentRole].labelEn
+          const color = onProvider ? '#00ACE4' : ROLE_META[currentRole].color
+          return (
+            <div className="hidden items-center gap-2 lg:flex" data-testid="app-shell-identity">
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-bold" style={{ background: color + '14', color }}>
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+                {lang === 'zh' ? `当前身份：${label}` : `Acting as: ${label}`}
+              </span>
+              <button type="button" onClick={() => { setMenuOpen(true); setHatsOpen(true) }} className="text-[12.5px] text-[#717171] underline underline-offset-2">{lang === 'zh' ? '切换' : 'Switch'}</button>
+            </div>
+          )
+        })()}
+        {/* Desktop nav (marketing pages) */}
+        {!(appShell && auth.user) && (
         <nav className="hidden items-center gap-[26px] lg:flex">
           {/* Product dropdown */}
           <div className="relative" ref={productRef}>
@@ -191,6 +210,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
           <NavLink i18nKey="nav.pricing" href="/pricing" active={isActive('/pricing')} />
           <NavLink i18nKey="nav.screening" href="/screening" active={isActive('/screening')} />
         </nav>
+        )}
 
         {/* Right side — minimal: avatar + hamburger only */}
         <div className="flex items-center gap-[10px]">
@@ -403,8 +423,8 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       {lang === 'zh' ? '语言和货币' : 'Language and currency'}
                     </button>
 
-                    {/* Phone only: the public pages, folded into one row */}
-                    <div className="lg:hidden">
+                    {/* Phone (and the app shell on desktop): the public pages, folded into one row */}
+                    <div className={appShell ? '' : 'lg:hidden'}>
                       <button
                         onClick={() => setBrowseOpen((v) => !v)}
                         className="flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] text-[#222] transition hover:bg-[#F7F7F7]"

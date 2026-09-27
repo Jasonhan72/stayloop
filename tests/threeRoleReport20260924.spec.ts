@@ -31,7 +31,8 @@ describe('SL-L-01 · applicant documents open in-page and the view is audited', 
     expect(modal).toMatch(/code === 403/)
   })
   it('/api/file-url writes the audit row the page promises', () => {
-    expect(read('app/api/file-url/route.ts')).toContain("action: 'application_file_viewed'")
+    // 节点 2 (2026-09-26): a download is recorded as its own action, a view as before.
+    expect(read('app/api/file-url/route.ts')).toContain("action: download ? 'application_file_downloaded' : 'application_file_viewed'")
   })
 })
 
@@ -59,7 +60,7 @@ describe('SL-A-01 / SL-T-06 / SL-T-08 · the landlord hat is explicit', () => {
     expect(homeForHats('landlord', { landlord: true })).toBe('/landlord/agent')
     expect(homeForHats('tenant', { landlord: true })).toBe('/tenant/agent')
     expect(homeForHats(null, { landlord: true })).toBe('/landlord/agent')
-    expect(read('app/login/page.tsx')).toContain('homeForHats(role, data as HatsLite)')
+    expect(read('app/login/page.tsx')).toContain('homeForHats(remembered, data as HatsLite)') // 节点 2: the raw remembered hat (may be 'provider')
     const cb = read('app/auth/callback/page.tsx')
     expect(cb).toContain('homeForHats(candidate, hats as HatsLite)')
     // agent_configs / signup role are candidates too — never a landing page on their own

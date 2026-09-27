@@ -7,7 +7,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
-import { useAuth } from '@/lib/useAuth'
+import { useAuth, roleStorageKey } from '@/lib/useAuth'
 import { ROLE_HOME } from '@/lib/useOnboarding'
 import { homeForHats, type HatsLite } from '@/lib/landlordHat'
 
@@ -49,7 +49,9 @@ export default function LoginPage() {
     const safe = redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\') ? redirect : null
     if (safe) { router.replace(safe); return }
     // Land on a workspace this account actually holds (SL-T-08).
-    void Promise.resolve(getSupabaseBrowser().rpc('my_hats')).then(({ data }) => router.replace(homeForHats(role, data as HatsLite)), () => router.replace(role ? ROLE_HOME[role] : '/tenant/agent'))
+    // The remembered hat is read raw: 'provider' is a landing hat that the Role type does not carry (2026-09-26).
+    const remembered = (typeof window !== 'undefined' ? window.localStorage.getItem(roleStorageKey(user.id)) : null) ?? role
+    void Promise.resolve(getSupabaseBrowser().rpc('my_hats')).then(({ data }) => router.replace(homeForHats(remembered, data as HatsLite)), () => router.replace(role ? ROLE_HOME[role] : '/tenant/agent'))
   }, [authLoading, user, role, router])
 
   const [tab, setTab] = useState<AuthTab>('password')

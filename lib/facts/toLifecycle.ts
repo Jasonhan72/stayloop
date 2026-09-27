@@ -37,12 +37,12 @@ export function tenantFactsToLifecycle(f: TenantFactsRaw, today = new Date()): L
   }, today)
 }
 
-export function agentFactsToLifecycle(f: AgentFactsRaw): Lifecycle {
-  return agentLifecycle({ profileStatus: f.profile?.status ?? null, pendingCards: f.pending, clients: f.clients })
+export function agentFactsToLifecycle(f: AgentFactsRaw, today = new Date()): Lifecycle {
+  return agentLifecycle({ profileStatus: f.profile?.status ?? null, profileExpiresAt: f.profile?.expires_at ?? null, pendingCards: f.pending, clients: f.clients }, today)
 }
 
 export function factsToLifecycle(role: AgentRole, f: AnyFacts, today = new Date()): Lifecycle {
   if (role === 'landlord') return landlordFactsToLifecycle(f as LandlordFactsRaw, today)
   if (role === 'tenant') return tenantFactsToLifecycle(f as TenantFactsRaw, today)
-  return agentFactsToLifecycle(f as AgentFactsRaw)
+  return agentFactsToLifecycle(f as AgentFactsRaw, today)
 }

@@ -26,6 +26,8 @@ import type { ApplicationFile } from '@/types'
 import { downloadCsv, toCsv } from '@/lib/csv'
 import { applicantStage, STAGE_SECTIONS, type ApplicantStage } from '@/lib/landlord/applicantStages'
 import ApplicantCompare from '@/components/landlord/ApplicantCompare'
+import { useFacts } from '@/lib/facts/useFacts'
+import { leaseStateDetail } from '@/lib/matters/states'
 
 type Decision = 'approve' | 'review' | 'decline'
 
@@ -214,6 +216,8 @@ function exportCsv(apps: Applicant[], zh: boolean) {
 export default function LandlordApplicantsPage() {
   const { lang } = useT()
   const aiName = useAIName()
+  // Archive follow-ups (租约 / 入住) come from the shared facts (节点 2 2026-09-26).
+  const { facts: llFacts } = useFacts('landlord')
   const { user, loading: authLoading } = useAuth()
   const [rows, setRows] = useState<AppRow[] | null>(null)
 
@@ -511,14 +515,33 @@ export default function LandlordApplicantsPage() {
       {liveMode && archivedRows.length > 0 && (
         <SectionCard className="mb-3" title={<button type="button" onClick={() => setShowArchived((v) => !v)} className="text-left">{showArchived ? '▾' : '▸'} {lang === 'zh' ? '已归档' : 'Archived'}</button>} meta={<span className="font-mono">{archivedRows.length}</span>}>
           {showArchived && (
-            <div data-testid="archived-applications" className="divide-y divide-line-divider">
-              {archivedRows.map((r) => { const a = toApplicant(r, 0); return (
-                <div key={r.id} className="flex flex-wrap items-center gap-2 py-2 text-[13px]">
-                  <Link href={`/landlord/applicants/${r.id}`} className="min-w-0 flex-1 font-semibold hover:underline">{a.name}{a.unitLabel ? <span className="font-normal text-body-3"> · {a.unitLabel}</span> : null}</Link>
-                  <span className="font-mono text-[11px] text-body-3">{r.archived_at!.slice(0, 10)}</span>
-                  <button type="button" disabled={archiving} onClick={() => setArchived([r.id], false)} className="rounded-lg border border-line-divider px-2.5 py-1 text-[12px] font-semibold">{lang === 'zh' ? '取消归档' : 'Unarchive'}</button>
-                </div>
-              ) })}
+            <div className="overflow-x-auto" data-testid="archived-applications">
+              {/* An archive is a record with follow-ups, not a bulk bin (external review 2026-09-26):
+                  decision · notice sent · lease · move-in, each from the shared facts. */}
+              <table className="w-full min-w-[720px] text-left text-[12.5px]">
+                <thead className="font-mono text-[10.5px] uppercase tracking-eyebrowLg text-body-3">
+                  <tr>{[lang === 'zh' ? '申请人 · 房源' : 'Applicant · listing', lang === 'zh' ? '决定' : 'Decision', lang === 'zh' ? '通知' : 'Notice', lang === 'zh' ? '租约' : 'Lease', lang === 'zh' ? '入住' : 'Move-in', lang === 'zh' ? '归档' : 'Archived', ''].map((h, i) => <th key={i} className="py-2 pr-3 font-bold">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-line-divider">
+                  {archivedRows.map((r) => {
+                    const a = toApplicant(r, 0)
+                    const lease = llFacts?.leases.find((l) => l.application_id === r.id) ?? null
+                    const hh = lease ? llFacts?.households.find((h) => h.current_lease_id === lease.id) ?? null : null
+                    const decision = r.status === 'approved' ? (lang === 'zh' ? '录取' : 'Approved') : r.status === 'declined' || r.status === 'rejected' ? (lang === 'zh' ? '婉拒' : 'Declined') : r.status === 'withdrawn' ? (lang === 'zh' ? '已撤回' : 'Withdrawn') : (lang === 'zh' ? '未决定' : 'Undecided')
+                    return (
+                      <tr key={r.id}>
+                        <td className="py-2 pr-3"><Link href={`/landlord/applicants/${r.id}`} className="font-semibold hover:underline">{a.name}</Link>{a.unitLabel ? <div className="text-[11.5px] text-body-3">{a.unitLabel}</div> : null}</td>
+                        <td className="py-2 pr-3">{decision}</td>
+                        <td className="py-2 pr-3">{r.decision_notified_at ? r.decision_notified_at.slice(0, 10) : <span className="text-amber-800">{lang === 'zh' ? '未发通知' : 'Not sent'}</span>}</td>
+                        <td className="py-2 pr-3">{lease ? leaseStateDetail(lease, lang === 'zh') : r.status === 'approved' ? <span className="text-amber-800">{lang === 'zh' ? '尚未起草' : 'Not drafted'}</span> : '—'}</td>
+                        <td className="py-2 pr-3">{hh ? (hh.verified ? (lang === 'zh' ? '在管租约已确认' : 'Tenancy confirmed') : (lang === 'zh' ? '等租客确认' : 'Awaiting tenant')) : '—'}</td>
+                        <td className="py-2 pr-3 font-mono text-[11px] text-body-3">{r.archived_at!.slice(0, 10)}</td>
+                        <td className="py-2"><button type="button" disabled={archiving} onClick={() => setArchived([r.id], false)} className="rounded-lg border border-line-divider px-2.5 py-1 text-[12px] font-semibold">{lang === 'zh' ? '取消归档' : 'Unarchive'}</button></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </SectionCard>

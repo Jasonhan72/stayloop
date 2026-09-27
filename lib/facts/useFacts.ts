@@ -43,6 +43,7 @@ export type TenantApplicationRow = {
   id: string; status: string | null; created_at: string; move_in_date: string | null
   viewed_at: string | null; screened_at: string | null; decision_notified_at: string | null; listing_id: string | null
   listing_slug: string | null; listing_address: string | null; listing_unit: string | null; listing_active: boolean | null
+  files_count?: number | null; decision_reason?: string | null
 }
 export type TenantFactsRaw = {
   tier: number | null

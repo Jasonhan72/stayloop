@@ -11,6 +11,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useT } from '@/lib/i18n'
 import { COMPARISON, FAQS, PRINCIPLES, SOURCES, STEPS } from './copy'
+import ScreeningCta from '@/components/screening/ScreeningCta'
 
 export default function LandingBody() {
   const { lang } = useT()
@@ -39,13 +40,7 @@ export default function LandingBody() {
               : 'Upload what the applicant submitted — AI extracts the facts, deterministic rules compute the score, and court and LTB public records are actually searched by name. Every number in the report can answer "where did this come from".'}
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/screening/app"
-              className="rounded-full px-7 py-3.5 text-[15px] font-bold text-white shadow-lg"
-              style={{ background: '#00ACE4' }}
-            >
-              {zh ? '开始筛查 · 注册即免费试用 →' : 'Start a screening — free with a quick signup →'}
-            </Link>
+            <ScreeningCta zh={zh} variant="hero" />
             <Link href="/pricing" className="rounded-full border border-line-divider bg-white px-6 py-3.5 text-[14px] font-semibold text-body-2">
               {zh ? '查看定价' : 'See pricing'}
             </Link>
@@ -176,13 +171,7 @@ export default function LandingBody() {
           <p className="mx-auto mt-2 max-w-[460px] text-[13.5px] text-body-2">
             {zh ? '注册免费账号即可开始筛查(免费档每月 5 单);历史记录云端保留,并可解锁深度核验。' : 'Create a free account to start screening (5 free per month); your history is saved to your account, and deep verification unlocks.'}
           </p>
-          <Link
-            href="/screening/app"
-            className="mt-6 inline-block rounded-full px-8 py-4 text-[15px] font-bold text-white shadow-lg"
-            style={{ background: '#00ACE4' }}
-          >
-            {zh ? '开始筛查 →' : 'Start a screening →'}
-          </Link>
+          <ScreeningCta zh={zh} variant="footer" />
         </section>
       </main>
 
