@@ -1544,7 +1544,20 @@ export default function ScreenPage() {
   // account that holds both hats.
   const hats = useHats()
   const [asAgent, setAsAgent] = useState(false)
-  useEffect(() => { try { setAsAgent(new URLSearchParams(window.location.search).get('as') === 'agent') } catch { /* no window */ } }, [])
+  // 节点 5: an agent screens for a client only under that client's live delegation (?delegation=<id> from the client table).
+  const [delegationId, setDelegationId] = useState<string | null>(null)
+  const [delegation, setDelegation] = useState<{ principal: string; scope: string[]; expires_at: string; live: boolean } | null | 'none'>(null)
+  useEffect(() => { try { const q = new URLSearchParams(window.location.search); setAsAgent(q.get('as') === 'agent'); const d = q.get('delegation'); setDelegationId(d && /^[0-9a-f-]{36}$/i.test(d) ? d : null) } catch { /* no window */ } }, [])
+  useEffect(() => {
+    if (!delegationId) { setDelegation('none'); return }
+    let on = true
+    supabase.from('delegations').select('principal_name, principal_email, scope, expires_at, status, allowed_actions').eq('id', delegationId).maybeSingle().then(({ data }) => {
+      if (!on) return
+      const d = data as { principal_name: string | null; principal_email: string; scope: string[]; expires_at: string; status: string; allowed_actions: string[] } | null
+      setDelegation(d ? { principal: d.principal_name || d.principal_email, scope: d.scope, expires_at: d.expires_at, live: d.status === 'active' && new Date(d.expires_at).getTime() > Date.now() && d.allowed_actions.includes('screen') } : 'none')
+    })
+    return () => { on = false }
+  }, [delegationId])
   const agentLive = isRegistrationLive(hats.agent)
   const shellRole: WorkspaceRole = authRole === 'tenant'
     ? 'tenant'
@@ -2503,6 +2516,13 @@ export default function ScreenPage() {
       for (const timer of progressTimers) clearInterval(timer)
     }
 
+    // 节点 5: agent mode needs a live delegation that allows screening; nothing is created without it.
+    if (shellRole === 'agent' && !(delegation && delegation !== 'none' && delegation.live)) {
+      stopProgressTracking()
+      setError('代客筛查需要客户已确认、允许筛查的委托——请从客户表的「发起筛查」进入。 / Screening for a client needs a confirmed delegation that allows it — start from the client table.')
+      setAnalyzing(false)
+      return
+    }
     try {
       // 1. Create screening row
       let screeningId: string
@@ -2514,6 +2534,7 @@ export default function ScreenPage() {
         .from('screenings')
         .insert({
           landlord_id: landlord.authId,
+          delegation_id: shellRole === 'agent' ? delegationId : null, // 节点 5: the principal can read it; the agent keeps access while the delegation is live
           tenant_name: applicantName || null,
           monthly_rent: targetRent ? Number(targetRent) : null,
           status: 'uploading',
@@ -2736,6 +2757,9 @@ export default function ScreenPage() {
   return (
     <WorkspaceShell role={shellRole} hideAside>
       <section className="mx-auto max-w-[960px]">
+      {shellRole === 'agent' && delegation && (delegation !== 'none' && delegation.live
+        ? <div className="mb-4 rounded-xl border border-agent/30 bg-agent/[0.06] px-4 py-2.5 text-[12.5px]" data-testid="screening-delegation">{`正在代表：${delegation.principal} · ${delegation.scope.join('、')} · 到期 ${delegation.expires_at.slice(0, 10)} / Representing ${delegation.principal} · until ${delegation.expires_at.slice(0, 10)}`}<span className="ml-2 text-body-3">· 这次筛查会记在客户名下并标注该委托 / recorded under the client with this delegation</span></div>
+        : <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12.5px] text-amber-900" data-testid="screening-delegation-missing">代客筛查需要客户已确认、允许筛查的委托。请到 <a className="font-bold underline" href="/agent/clients">客户表</a> 发起委托，客户确认后从那里进入。 / Screening for a client needs a confirmed delegation; propose it from the <a className="font-bold underline" href="/agent/clients">client table</a> and start from there once confirmed.</div>)}
       <div className="screen-app">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
         <style>{`

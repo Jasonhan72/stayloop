@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
 import { FORMAL_COPY_NOTE, threadHref, type MessageKind, type SenderKind, type ThreadKind } from './shared'
+import { ensureMatter, matterKindOfThread } from '@/lib/matters/server'
 
 type Admin = SupabaseClient
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')
@@ -16,7 +17,9 @@ export type ThreadRow = { id: string; kind: ThreadKind; ref_id: string; househol
 export async function ensureThread(admin: Admin, kind: ThreadKind, refId: string, opts: { householdId?: string | null; title?: string | null; createdBy?: string | null } = {}): Promise<ThreadRow | null> {
   const { data: hit } = await admin.from('threads').select('id, kind, ref_id, household_id, title').eq('kind', kind).eq('ref_id', refId).maybeSingle()
   if (hit) return hit as ThreadRow
-  const { data, error } = await admin.from('threads').insert({ kind, ref_id: refId, household_id: opts.householdId ?? null, title: (opts.title || '').slice(0, 200) || null, created_by: opts.createdBy ?? null }).select('id, kind, ref_id, household_id, title').maybeSingle()
+  // 节点 5: every thread hangs off the rental matter of its ref (derived from the chain; null when there is none yet).
+  const matterId = await ensureMatter(admin, matterKindOfThread(kind), refId)
+  const { data, error } = await admin.from('threads').insert({ kind, ref_id: refId, household_id: opts.householdId ?? null, title: (opts.title || '').slice(0, 200) || null, created_by: opts.createdBy ?? null, matter_id: matterId }).select('id, kind, ref_id, household_id, title').maybeSingle()
   if (error) {
     // Lost a race: read the winner.
     const { data: again } = await admin.from('threads').select('id, kind, ref_id, household_id, title').eq('kind', kind).eq('ref_id', refId).maybeSingle()

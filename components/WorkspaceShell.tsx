@@ -1,6 +1,7 @@
 'use client'
 
 import { isRegistrationLive } from '@/lib/agentProfile'
+import RepresentingStrip from '@/components/delegations/RepresentingStrip'
 import { ReactNode, useEffect, useState } from 'react'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import Link from 'next/link'
@@ -319,6 +320,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
               <div className={phoneApp ? 'px-5 pt-4 md:px-8 md:pt-4' : ''}>
                 {sampleNote && <SampleBanner zh={lang === 'zh'} note={sampleNote} />}
                 {role === 'agent' && <AgentVerificationBanner status={agentStatus} zh={lang === 'zh'} />}
+                {role === 'agent' && <RepresentingStrip zh={lang === 'zh'} />}
               </div>
             )}
             {hatBlocked

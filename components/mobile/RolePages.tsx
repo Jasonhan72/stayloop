@@ -21,6 +21,7 @@ import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
 import PushSettingsCard from '@/components/mobile/PushSettingsCard'
+import MattersPanel from '@/components/matters/MattersPanel'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
 import { buildIdeas } from '@/lib/agent/ideas'
 import { useT } from '@/lib/i18n'
@@ -178,6 +179,8 @@ export function ProgressPage({ role }: { role: AgentRole }) {
         ) : (
           <WorkflowStatusPanel role={role} workflow={data.workflow} />
         )}
+        {/* 节点 5: the progress page is the matter page — one card per tenancy from application to move-out. */}
+        {live && <MattersPanel role={role} zh={zh} />}
         <div>
           <div className="mb-2 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '你的事' : 'YOUR NUMBERS'}</div>
           <StatusOverview role={role} live={live} pendingCount={pending} />

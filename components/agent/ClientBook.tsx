@@ -12,6 +12,8 @@ import { STAGES, daysQuiet, paperworkComplete, type ClientRole, type ClientStage
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useReportLiveRows } from '@/lib/liveRows'
+import ProposeDelegation from '@/components/delegations/ProposeDelegation'
+import { allows, isDelegationLive, STATUS_LABEL, type DelegationRow } from '@/lib/delegations/shared'
 
 export type ClientRow = {
   id: string
@@ -38,14 +40,25 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // 节点 5: delegations per client (own rows as the delegate); the screening hand-off needs a live one with 'screen'.
+  const [delegs, setDelegs] = useState<DelegationRow[]>([])
+  const [proposeFor, setProposeFor] = useState<string | null>(null)
   useReportLiveRows('agent_clients', rows ? rows.length : null)
   const load = useCallback(async () => {
     if (!user) { setRows([]); return }
-    const { data } = await supabase.from('agent_clients').select('*').eq('agent_auth_id', user.id).order('updated_at', { ascending: false }).limit(200)
+    const [{ data }, { data: dl }] = await Promise.all([
+      supabase.from('agent_clients').select('*').eq('agent_auth_id', user.id).order('updated_at', { ascending: false }).limit(200),
+      supabase.from('delegations').select('id, principal_auth_id, principal_email, principal_name, delegate_auth_id, client_id, scope, allowed_actions, starts_at, expires_at, basis_version, status, confirmed_at, revoked_at, created_at').eq('delegate_auth_id', user.id).order('created_at', { ascending: false }).limit(200),
+    ])
     const list = (data ?? []) as ClientRow[]
     setRows(list)
+    setDelegs((dl ?? []) as DelegationRow[])
     onRows?.(list.length)
   }, [user, onRows])
+  const delegFor = (clientId: string): DelegationRow | null => {
+    const mine = delegs.filter((d) => d.client_id === clientId)
+    return mine.find((d) => isDelegationLive(d)) ?? mine.find((d) => d.status === 'pending') ?? mine[0] ?? null
+  }
   useEffect(() => { if (!loading) void load() }, [loading, load])
 
   async function add() {
@@ -112,6 +125,7 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
             </div>
           </div>
         )}
+        {proposeFor && (() => { const c = rows.find((r) => r.id === proposeFor); return c ? <ProposeDelegation client={{ id: c.id, name: c.name, email: c.email, client_role: c.client_role }} zh={zh} onDone={load} onCancel={() => setProposeFor(null)} /> : null })()}
         {rows.length === 0 ? (
           <div className="px-4 py-8 text-center text-[13px] text-body-3">{zh ? '还没有客户记录。加第一位客户，并记录代表协议与 Information Guide 的日期。' : 'No clients yet. Add the first one and record the agreement and Information Guide dates.'}</div>
         ) : (
@@ -149,9 +163,22 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
                   <Td>
                     <div className="flex flex-wrap gap-1.5">
                       <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `客户 ${c.name}（${c.client_role === 'landlord' ? '房东' : '租客'}，${c.budget || '预算未填'}，${c.area || '区域未填'}）：` : `Client ${c.name} (${c.client_role}, ${c.budget || 'no budget'}, ${c.area || 'no area'}): `)}`} className="rounded-[8px] border border-line-strong bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-body hover:border-brand hover:text-brand">{zh ? '交给助手' : 'To the assistant'}</Link>
-                      {c.client_role === 'tenant' && (paper
-                        ? <Link href="/screening/app?as=agent" className="rounded-[8px] border border-agent/40 bg-agent/[0.06] px-2.5 py-[5px] text-[11.5px] font-semibold text-agent">{zh ? '发起筛查' : 'Screen'}</Link>
-                        : <span className="rounded-[8px] border border-line-divider px-2.5 py-[5px] text-[11.5px] text-body-3" title={zh ? '先记录代表协议与 Information Guide' : 'Record the agreement and Information Guide first'}>{zh ? '筛查（缺文件）' : 'Screen (paperwork)'}</span>)}
+                      {(() => {
+                        // 节点 5: screening for a client needs a LIVE delegation that allows it; the delegation needs the TRESA dates + an email.
+                        const d = delegFor(c.id)
+                        const live = !!d && isDelegationLive(d)
+                        const st = d ? STATUS_LABEL[d.status] : null
+                        return (<>
+                          {d && st && <span data-testid="delegation-chip" className={'rounded-[8px] px-2 py-[5px] font-mono text-[10.5px] font-bold ' + (live ? 'bg-success/10 text-success' : st.tone === 'warn' ? 'bg-amber-50 text-amber-800' : st.tone === 'danger' ? 'bg-danger/10 text-danger' : 'bg-surface-chip text-body-3')}>{live ? (zh ? `委托有效至 ${d.expires_at.slice(0, 10)}` : `Delegated until ${d.expires_at.slice(0, 10)}`) : (zh ? st.zh : st.en)}</span>}
+                          {live && allows(d, 'screen')
+                            ? <Link href={`/screening/app?as=agent&delegation=${d.id}`} className="rounded-[8px] border border-agent/40 bg-agent/[0.06] px-2.5 py-[5px] text-[11.5px] font-semibold text-agent">{zh ? '发起筛查' : 'Screen'}</Link>
+                            : d?.status === 'pending'
+                              ? <span className="rounded-[8px] border border-line-divider px-2.5 py-[5px] text-[11.5px] text-body-3">{zh ? '等客户确认委托' : 'Awaiting the client'}</span>
+                              : paper && c.email
+                                ? <button type="button" onClick={() => setProposeFor(c.id)} className="rounded-[8px] border border-brand/40 bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-brand" data-testid="propose-delegation-button">{zh ? '发起委托' : 'Propose delegation'}</button>
+                                : <span className="rounded-[8px] border border-line-divider px-2.5 py-[5px] text-[11.5px] text-body-3" title={zh ? '先记录代表协议与 Information Guide，并填客户邮箱' : 'Record the agreement and Information Guide dates and an email first'}>{zh ? '委托（缺文件 / 邮箱）' : 'Delegation (paperwork / email)'}</span>}
+                        </>)
+                      })()}
                     </div>
                   </Td>
                 </Tr>
@@ -160,7 +187,7 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
           </Table>
         )}
       </SectionCard>
-      <p className="mb-4 text-[11px] text-body-3">{zh ? 'TRESA s.32 / O. Reg. 567/05：为客户做租赁工作前须有书面代表协议并交付 RECO Information Guide。备注里不要记录 OHRC 受保护特征。Stayloop 不做经纪业务、不结算佣金。' : 'TRESA s.32 / O. Reg. 567/05: a written representation agreement and the RECO Information Guide come before any leasing work. Keep OHRC-protected characteristics out of notes. Stayloop is not a brokerage and settles no commission.'}</p>
+      <p className="mb-4 text-[11px] text-body-3">{zh ? 'TRESA s.32 / O. Reg. 567/05：为客户做租赁工作前须有书面代表协议并交付 RECO Information Guide；在 Stayloop 上代客操作还需要客户确认的委托（范围 · 期限 · 可随时撤销）。备注里不要记录 OHRC 受保护特征。Stayloop 不做经纪业务、不结算佣金。' : 'TRESA s.32 / O. Reg. 567/05: a written representation agreement and the RECO Information Guide come before any leasing work. Keep OHRC-protected characteristics out of notes. Stayloop is not a brokerage and settles no commission.'}</p>
     </div>
   )
 }

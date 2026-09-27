@@ -10,6 +10,7 @@ import { clampGraceDays, providerEligible, tradeForCategory, TRADES, type Trade 
 import { declineText, quoteDueAt, validateDecline } from './sla'
 import { ensureThread, noteOnWorkOrder, postSystemMessage } from '@/lib/threads/server'
 import { workOrderSystemLine } from '@/lib/threads/shared'
+import { ensureMatter } from '@/lib/matters/server'
 import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 import { normalizePolicy, rankCandidates, rankReason, shouldAutoApprove, shouldAutoDispatch, type Candidate, type DispatchPolicy } from './dispatchPolicy'
@@ -138,6 +139,7 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   }).select('*').single()
   if (error || !wo) return { ok: false, error: error?.message || 'insert failed', status: 500 }
   await event(admin, wo.id, i.actor ?? 'landlord', i.landlordAuthId, 'offered', { provider_id: provider?.id ?? null, external_email: wo.external_email, trade, emergency })
+  void ensureMatter(admin, 'work_order', wo.id) // 节点 5: hangs off the household's rental matter
   await setTicketStatus(admin, i.ticketId, 'offered')
   // 节点 4: the tri-party thread (tenant · landlord · contractor) opens with the offer.
   {

@@ -302,7 +302,8 @@ describe('found while walking the agent test account (2026-09-24)', () => {
   it('a live-registered agent screens for clients inside the agent workspace, no landlord hat needed', () => {
     const s = read('app/screening/app/page.tsx')
     expect(s).toContain("agentLive && (!hats.landlord || asAgent) ? 'agent' : 'landlord'")
-    expect(read('components/agent/ClientBook.tsx')).toContain('href="/screening/app?as=agent"')
+    // 节点 5 (2026-09-27): the hand-off carries the client's live delegation.
+    expect(read('components/agent/ClientBook.tsx')).toContain('href={`/screening/app?as=agent&delegation=${d.id}`}')
     const become = read('app/landlord/become/page.tsx')
     expect(become).not.toContain('经纪代客筛查会在代表协议记录上线后开放')
     expect(become).toContain('从客户那一行点「发起筛查」')

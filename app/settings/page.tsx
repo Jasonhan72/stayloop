@@ -12,6 +12,7 @@ import { getSupabaseBrowser } from '@/lib/supabase'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import SubscriptionCard from '@/components/settings/SubscriptionCard'
 import PushSettingsCard from '@/components/mobile/PushSettingsCard'
+import MyDelegations from '@/components/delegations/MyDelegations'
 
 const ROLE_COLORS: Record<string, string> = {
   tenant: ROLE_THEME.tenant.accent,
@@ -143,6 +144,8 @@ export default function SettingsPage() {
             )}
             {/* Push notifications — per device, all roles (2026-09-22). */}
             {auth.user && <PushSettingsCard live />}
+            {/* 节点 5: delegations given (as landlord / tenant) and received (as agent). */}
+            {auth.user && <MyDelegations zh={zh} />}
 
             {/* Quick actions */}
             <div className="space-y-2">

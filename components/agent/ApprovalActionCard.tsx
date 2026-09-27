@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { useT } from '@/lib/i18n'
 import type { PendingAction } from '@/lib/agent/types'
 import { supabase } from '@/lib/supabase'
+import WorkOrderInline from '@/components/agent/WorkOrderInline'
 
 const RISK: Record<PendingAction['risk_level'], { label: { zh: string; en: string }; cls: string }> = {
   low: { label: { zh: '低风险', en: 'LOW RISK' }, cls: 'text-success bg-success/10' },
@@ -76,6 +77,11 @@ export default function ApprovalActionCard({
       <h3 className={`mt-2 font-bold tracking-tight ${compact ? 'text-[15.5px] leading-snug' : 'text-[18px]'}`}>{action.title}</h3>
       {action.summary && (
         <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{action.summary}</p>
+      )}
+
+      {/* 节点 5: work-order cards carry the live work order + its thread — act here, no hub detour. */}
+      {action.role === 'landlord' && typeof (action.metadata as { work_order_id?: unknown } | null)?.work_order_id === 'string' && /^[0-9a-f-]{36}$/i.test(String((action.metadata as { work_order_id?: string }).work_order_id)) && (
+        <WorkOrderInline workOrderId={String((action.metadata as { work_order_id?: string }).work_order_id)} zh={zh} />
       )}
 
       {action.recipient_label && (

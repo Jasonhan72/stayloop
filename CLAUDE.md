@@ -2413,3 +2413,29 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   UPDATE 报 42501、外人连线程行都看不到。**发现并修的一处**：面板在挂载时就 `open_thread`，租客滚一遍报修标签给十张旧工单各造了一条空线程、收件箱全是
   「还没有消息」——现在挂载只 `find_thread`（只读、当事人校验），第一次写入才 `open_thread`；收件箱只列有消息的线程；已删空线程（迁移 `20260927_find_thread.sql`）。
   内置浏览器面板处于 hidden 时不轮询（设计如此），补了 `visibilitychange` 回到可见即刷新。
+
+## 分阶段改进 · 节点 5「租赁事务主记录与经纪委托」（2026-09-27 · 报告 31–60 天段）
+
+守卫 `tests/node5Matters20260927.spec.ts`；迁移 `20260927_node5_matters_delegations.sql`（已应用 prod；**`language sql` 的函数在定义时校验列，所引用的新列必须先 ALTER**——
+第一次应用因 `threads.matter_id` 排在 `matter_summary()` 之后整体回滚）。
+- **租赁事务主记录**：`rental_matters`（房东 authId / 租客 authId 或邮箱 / 房源 / 地址）+ `rental_matter_links(kind ∈ listing|application|screening|lease|household|work_order, ref_id)`
+  唯一——不搬任何表，把已有的行钉到一个事务 id 上。**唯一写入者** `ensure_matter(kind, ref)`（service_role）沿着现有链推导：申请 → 房源/房东；租约 → `application_id`；
+  在管租约 → `current_lease_id`；工单 → household；`my_matters()`（authenticated，SECURITY DEFINER）先把调用者链上缺的事务补出来再返回本人的摘要
+  （申请状态 / 筛查有无 / 租约状态与起止 / 在管租约 / 工单开放数 / 对话数 / 受托经纪——**没有分数**）；`matter_party(mid)` = landlord · tenant（authId 或 JWT 邮箱）·
+  agent（有效委托）· admin，是 `rental_matters` / `rental_matter_links` 唯一的读策略。`threads.matter_id`（`ensureThread` 写）、`agent_audit_events.rental_matter_id`
+  （`finalizeExecution` 写）随行；`createWorkOrder` 顺手挂。界面：`components/matters/MattersPanel.tsx` 在 `/x/progress`（进度页 = 事务页）：每件事一张卡，
+  七个阶段（已申请 → 已筛查 → 已决定 → 租约待签 → 已签约 → 在管租约 → 已结束，`matterStage` 只看状态）、各部分入口、受托经纪一行。
+- **经纪委托 `delegations`**：委托人（房东 / 租客，按 authId 或邮箱）→ 受托人（经纪）· `scope ⊆ {listing, search, matter}` · `allowed_actions ⊆ {screen, message,
+  view_documents, draft_lease}` · 期限（1–12 个月）· `basis_version = TRESA-2024-representation-v1` · 状态 pending → active → revoked/expired。**只有服务端写**：
+  `POST /api/delegations`（经纪从客户表发起：RECO 注册有效 + 客户行有邮箱 + 代表协议与 Information Guide 两个日期都在，否则 403/422；同一客户只能有一份待确认或有效的）
+  → 给委托人发一次性确认链接 `/delegate/<token>`（页面公开可看内容，**确认必须用该邮箱登录**，`POST /api/delegations/confirm` 校验 JWT 邮箱、消费 token、写
+  `principal_auth_id`）；`POST /api/delegations/<id> {action:'revoke'}` 双方任一即时撤销并通知对方。`confirm_token` 列对 authenticated **不可读**（列级 grant，
+  受托经纪不能替客户确认）。审计 `delegation_proposed / confirmed / revoked` 带 `delegation_id`。
+  界面：客户表每行一枚委托状态标（`ProposeDelegation` 内联表单）；经纪工作台所有页顶部 `RepresentingStrip`「正在代表：X · 范围 · 到期 …」；`/settings` 的
+  `MyDelegations`（我委托的经纪 / 客户对我的委托，撤销 · 撤回）；事务卡上的「受托经纪」行。
+- **代客筛查在有效委托下开放**：客户表的「发起筛查」只在委托有效且含 `screen` 时出现，带 `?as=agent&delegation=<id>`；`/screening/app` 经纪模式没有有效委托
+  即拒绝创建（琥珀提示 → 客户表）；筛查行写 `screenings.delegation_id`——触发器 `guard_screening_delegation` 只接受调用者自己有效且允许 screen 的委托、更新时冻结；
+  委托人经 `screenings_delegation_principal_read` 可读，经纪经 **RESTRICTIVE** 策略 `screenings_delegation_gate` 只在委托仍有效时可读（撤销即时失去访问）。
+- **维修动作从卡片直接完成**：`ApprovalActionCard` 对带 `work_order_id` 的房东卡内嵌 `WorkOrderInline`（实时 `WorkOrderCard` + 工单对话），批准报价 / 验收 /
+  返工 / 争议 / 标记已付都在待办页完成，服务端照旧让对应待批卡过期，客户端 `notifyPendingChanged()` 刷新红点。
+- **未做**：委托到期的定时转 `expired`（查询里一律按 `expires_at > now()` 判定，界面显示「已到期」）；经纪代客在对话里发言（`message` 动作已定义，线程方仍按本人身份）。

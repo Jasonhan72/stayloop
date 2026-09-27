@@ -27,6 +27,7 @@ import { decisionNoticeFooter, guidelineFor } from '@/lib/ontario/rules'
 import { notifyUser } from '@/lib/push/notify'
 import { actOnWorkOrder, createWorkOrder, suggestDispatch } from '@/lib/marketplace/server'
 import { ensureThread, postSystemMessage } from '@/lib/threads/server'
+import { matterOfRef } from '@/lib/matters/server'
 
 export const runtime = 'edge'
 
@@ -137,6 +138,8 @@ async function finalizeExecution(
   // The receipt names the hat and the matter (节点 2 2026-09-26): which ids the
   // executor put in its metadata decide the matter reference.
   const ref = matterRef({ ...(action.metadata as Record<string, unknown> | null), ...auditMetadata })
+  // 节点 5: the receipt also carries the rental matter (one id from application to move-out).
+  const rentalMatterId = await matterOfRef(admin, ref.matterType, ref.matterId)
   const { error: auditErr } = await admin.from('agent_audit_events').insert({
     actor_id: userId,
     actor_type: 'agent',
@@ -146,6 +149,7 @@ async function finalizeExecution(
     acting_role: action.role ?? null,
     matter_type: ref.matterType,
     matter_id: ref.matterId,
+    rental_matter_id: rentalMatterId,
     // thread_id = the conversation the card was proposed in (null for cron /
     // to-do-page cards) — the activity log folds the execution into that row.
     metadata: { ...auditMetadata, thread_id: (action.metadata as Record<string, unknown> | null)?.thread_id ?? null },
