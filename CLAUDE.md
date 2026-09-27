@@ -2518,3 +2518,14 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   五问；匿名访客：三枚 pill + 服务商文字入口、四个 tab、点「服务商 · 试点」→ 四条事实 + 三张模块卡（`/provider/onboard` · `/provider/jobs` · `/services`）+
   「申请入驻」；租客测试号登录态同样四个 tab 与 FAQ（pill 行按 09-25 决定不显示，服务商文字入口随之只给访客）；375px 零横向溢出，四个 tab 换成两行、
   滑动胶囊落在换行后的正确位置。
+
+## 手机端也能换助手头像、改名（2026-09-27 · 用户看桌面面板的铅笔菜单后问「手机端头像能不能修改？」）
+
+不能——头像选择格与「换头像 / 改名」铅笔菜单只在 `AssistantPanel`（lg 起才渲染）里，`/settings` 只有改名没有头像。现在（守卫 `tests/phoneAvatar20260927.spec.ts`）：
+- **一个选择格三处用**：`components/agent/AvatarPicker.tsx`（20 宠物 + 20 人物、每行 5 个、分组可滚），面板、手机活动弹层、`/settings` 都渲染它；持久化仍由调用方做
+  （`assistant_profiles.avatar` + `localStorage sl-avatar`），三处写法一致。`petAvatars` / `museWeb` 里钉住选择格的断言改指向新组件。
+- **手机活动弹层**（点对话头部的头像打开的 `ActivitySheet`）：头部改为「头像 + 铅笔 · 名字 · 一行说明」，铅笔弹出同一套「换头像 / 改名」菜单（外点 / Esc 关闭），
+  选择格在弹层内展开，改名内联输入；保存与面板同一路径（`saveAssistantAvatar` / `saveAssistantName` + `setAIName(owner)` + `invalidateAiName`）。
+  只在登录且页面持有头像状态时可编辑（`canEdit = live && !!onAvatarChange`），匿名预览只看。状态经 `AgentChat` 新 prop `onAvatarChange` 从
+  `AgentWorkspacePage`（`setAvatar`）传下来，改完对话头部立即换脸。
+- **`/settings` 新增「修改 AI 助手头像」快捷块**（在「修改 AI 助手名字」之下）：读 `assistant_profiles` 当前值，点一个即保存，任何设备都能到。

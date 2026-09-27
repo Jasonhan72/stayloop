@@ -90,6 +90,7 @@ export default function AgentChat({
   onOpenThread,
   compactHeader = false,
   avatarFallback = 'role',
+  onAvatarChange,
 }: {
   role: AgentRole
   agentName: string
@@ -138,6 +139,8 @@ export default function AgentChat({
   compactHeader?: boolean
   /** 'brand' = the signed-in user's one assistant (same face under every hat); 'role' = a demo persona's orb. */
   avatarFallback?: 'role' | 'brand'
+  /** Phone: the activity sheet's pencil changes the avatar / name (2026-09-27); the workspace page owns the state. */
+  onAvatarChange?: (key: string | null) => void
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -228,7 +231,7 @@ export default function AgentChat({
           )}
         </div>
       </div>
-      {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} currentThreadId={currentThreadId} onOpenThread={onOpenThread} onClose={() => setSheet(false)} />}
+      {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} currentThreadId={currentThreadId} onOpenThread={onOpenThread} avatar={avatar} avatarFallback={avatarFallback} onAvatarChange={onAvatarChange} onClose={() => setSheet(false)} />}
 
       {/* thread */}
       <div className="relative flex min-h-0 flex-1 flex-col">

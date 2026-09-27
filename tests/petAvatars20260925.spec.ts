@@ -32,8 +32,10 @@ describe('pet avatars', () => {
     expect(avatarImageSrc('bunny')).toBe('/avatars/pets/bunny.webp')
     expect(avatarImageSrc('f-mia')).toBe('/avatars/people/f-mia.webp')
     // the picker shows both groups, labelled
-    expect(read('components/agent/AssistantPanel.tsx')).toContain('{AVATAR_GROUPS.map((g) => (')
-    expect(read('components/agent/AssistantPanel.tsx')).toContain("{AVATAR_PRESETS.filter((p) => p.group === g.key).map((p) => (")
+    // one shared grid since 2026-09-27 (panel · phone sheet · /settings)
+    expect(read('components/agent/AvatarPicker.tsx')).toContain('{AVATAR_GROUPS.map((g) => (')
+    expect(read('components/agent/AvatarPicker.tsx')).toContain("{AVATAR_PRESETS.filter((p) => p.group === g.key).map((p) => (")
+    expect(read('components/agent/AssistantPanel.tsx')).toContain('<AvatarPicker ')
   })
   it('every preset ships as a WebP render under public/avatars/{pets,people} (≤ 160 KB) and renders as an <img> on its disc', () => {
     for (const p of AVATAR_PRESETS) {
@@ -69,7 +71,7 @@ describe('pet avatars', () => {
   it('the name under the avatar is plain, medium weight and larger — no pill; the picker shows five pets to a row', () => {
     const panel = read('components/agent/AssistantPanel.tsx')
     expect(panel).toContain('mt-3 text-[26px] font-medium leading-tight tracking-tight text-ink')
-    expect(panel).toContain('grid grid-cols-5 gap-1.5')
+    expect(read('components/agent/AvatarPicker.tsx')).toContain('grid grid-cols-5 gap-1.5')
     const chat = read('components/agent/AgentChat.tsx')
     expect(chat).toContain('max-w-full truncate text-[17px] font-medium leading-tight tracking-tight text-ink md:text-[19px]')
     expect(chat).not.toContain('rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold')

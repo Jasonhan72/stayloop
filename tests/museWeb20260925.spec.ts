@@ -198,7 +198,8 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     expect(isAvatarPreset('panda')).toBe(true) // pets since 2026-09-25 evening; the old shapes map onto them
     expect(isAvatarPreset('nope')).toBe(false)
     const panel = read('components/agent/AssistantPanel.tsx')
-    expect(panel).toContain('data-testid="avatar-picker"')
+    expect(panel).toContain('<AvatarPicker ')
+    expect(read('components/agent/AvatarPicker.tsx')).toContain('data-testid="avatar-picker"')
     expect(panel).toContain("saveAssistantAvatar(supabase, auth.user.id, key)")
     const chat = read('components/agent/AgentChat.tsx')
     expect(chat).not.toContain('style={{ background: ORB[role] }}')

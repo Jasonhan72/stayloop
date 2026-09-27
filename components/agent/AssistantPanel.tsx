@@ -21,7 +21,8 @@ import { useT } from '@/lib/i18n'
 import { setAIName } from '@/lib/aiName'
 import { auditActionLabel } from '@/lib/agent/ideas'
 import { activityGroups, fmtRowTime, itemIcon, itemNote, useActivityLog, type ActivityItem } from '@/lib/agent/useActivityLog'
-import { AVATAR_GROUPS, AVATAR_PRESETS, AssistantAvatar, setStoredAvatar } from '@/lib/agent/avatars'
+import { AssistantAvatar, setStoredAvatar } from '@/lib/agent/avatars'
+import AvatarPicker from './AvatarPicker'
 import { saveAssistantAvatar, saveAssistantName } from '@/lib/agent/assistantProfile'
 import { invalidateAiName } from '@/lib/aiName'
 
@@ -151,32 +152,7 @@ export default function AssistantPanel({ role, agentName, pendingActions, memori
             )}
           </div>
         </div>
-        {picking && (
-          <div data-testid="avatar-picker" className="mx-auto mt-3 max-w-[300px] rounded-xl border border-line-divider bg-white p-2.5 shadow-lg">
-            <div className="mb-1.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '选一个头像' : 'Pick an avatar'}</div>
-            {/* Twenty plush pets + twenty young people (user 2026-09-25), five to a row so each face reads;
-                the two groups are labelled and the whole grid scrolls inside the head. */}
-            <div className="max-h-[340px] overflow-y-auto pr-1">
-              {AVATAR_GROUPS.map((g) => (
-                <div key={g.key} className="mb-2">
-                  <div className="mb-1 text-left text-[11px] font-bold text-body-3">{zh ? g.zh : g.en}</div>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {g.key === 'pet' && (
-                      <button type="button" onClick={() => void chooseAvatar(null)} title={zh ? '默认' : 'Default'} aria-label={zh ? '默认头像' : 'Default avatar'} className={`flex h-12 w-12 items-center justify-center rounded-full transition hover:bg-surface-chip ${!avatar || avatar === 'default' ? 'ring-2 ring-brand ring-offset-1' : ''}`}>
-                        <AssistantAvatar avatar={null} role={role} className="h-10 w-10" fallback={live ? 'brand' : 'role'} />
-                      </button>
-                    )}
-                    {AVATAR_PRESETS.filter((p) => p.group === g.key).map((p) => (
-                      <button key={p.key} type="button" onClick={() => void chooseAvatar(p.key)} title={zh ? p.zh : p.en} aria-label={zh ? p.zh : p.en} className={`flex h-12 w-12 items-center justify-center rounded-full transition hover:bg-surface-chip ${avatar === p.key ? 'ring-2 ring-brand ring-offset-1' : ''}`}>
-                        <AssistantAvatar avatar={p.key} role={role} className="h-10 w-10" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {picking && <AvatarPicker role={role} avatar={avatar} live={live} zh={zh} onPick={(k) => void chooseAvatar(k)} className="mx-auto mt-3 max-w-[300px]" />}
         {renaming ? (
           <form onSubmit={(e) => { e.preventDefault(); void saveName() }} className="mx-auto mt-2.5 flex max-w-[220px] items-center gap-1.5">
             <input autoFocus value={nameDraft} maxLength={20} onChange={(e) => setNameDraft(e.target.value)} onBlur={() => void saveName()} aria-label={zh ? '助手名字' : 'Assistant name'} className="min-w-0 flex-1 rounded-lg border border-line-strong px-2.5 py-1 text-center text-[18px] font-medium" />

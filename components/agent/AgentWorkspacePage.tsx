@@ -93,6 +93,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
               phaseLabel={stageLabel || null}
               avatar={avatar}
               avatarFallback={live ? 'brand' : 'role'}
+              onAvatarChange={setAvatar}
               threadLoading={threadLoading} currentThreadId={threadId} onOpenThread={openThread}
               role={role}
               agentName={agent.agent_name}

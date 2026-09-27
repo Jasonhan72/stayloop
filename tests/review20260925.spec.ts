@@ -117,7 +117,7 @@ describe('conversation threads: loading is not a change; a reply lands in the th
     const panel = read('components/agent/AssistantPanel.tsx')
     expect(panel).toContain("window.matchMedia('(min-width: 1024px)')")
     expect(panel).toContain('useActivityLog(live, 30, visible)')
-    expect(panel).toContain("!avatar || avatar === 'default'")
+    expect(read('components/agent/AvatarPicker.tsx')).toContain("!avatar || avatar === 'default'") // the grid moved to the shared picker (2026-09-27)
     expect(read('lib/agent/pendingCount.ts')).toContain("import { ACTIVITY_CHANGED_EVENT } from './useActivityLog'")
     expect(read('lib/agent/pendingCount.ts')).not.toContain("new Event('sl-activity-changed')")
   })

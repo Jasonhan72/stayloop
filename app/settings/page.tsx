@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { activeHat, useHats } from '@/lib/useHats'
-import { readAssistantProfile, sanitizeVibe, saveAssistantName, saveAssistantVibe, VIBE_MAX } from '@/lib/agent/assistantProfile'
+import { readAssistantProfile, sanitizeVibe, saveAssistantAvatar, saveAssistantName, saveAssistantVibe, VIBE_MAX } from '@/lib/agent/assistantProfile'
+import AvatarPicker from '@/components/agent/AvatarPicker'
+import { AssistantAvatar, getStoredAvatar, setStoredAvatar } from '@/lib/agent/avatars'
 import Link from 'next/link'
 import WorkspaceShell, { type WorkspaceRole } from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
@@ -156,6 +158,12 @@ export default function SettingsPage() {
                 <AssistantNameEditor role={shellRole} zh={zh} user={auth.user} color={color} />
               </QuickAction>
               <QuickAction
+                label={zh ? '修改 AI 助手头像' : 'Change AI assistant avatar'}
+                desc={zh ? '二十只毛绒宠物、二十个年轻人；手机上也在这里改' : 'Twenty plush pets and twenty young people; on phones this is the place'}
+              >
+                <AssistantAvatarEditor role={shellRole} zh={zh} user={auth.user} />
+              </QuickAction>
+              <QuickAction
                 label={zh ? '助手的说话风格' : 'How your assistant speaks'}
                 desc={zh ? '一句话，只影响语气与措辞（助手面板的「助手设置」里也能改）' : 'One line — tone and wording only (also in the assistant panel)'}
               >
@@ -257,6 +265,37 @@ function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: bool
           </button>
         )}
       </div>
+    </div>
+  )
+}
+
+// The assistant's face (assistant_profiles.avatar). The web panel's pencil does
+// this from lg up; phones reach it here and in the activity sheet (2026-09-27).
+function AssistantAvatarEditor({ role, zh, user }: { role: WorkspaceRole; zh: boolean; user: any }) {
+  const [avatar, setAvatar] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  useEffect(() => {
+    const cached = getStoredAvatar()
+    setAvatar(cached === 'default' ? null : cached)
+    if (!user) return
+    let on = true
+    readAssistantProfile(getSupabaseBrowser()).then((p) => { if (on && p) setAvatar(p.avatar) }).catch(() => {})
+    return () => { on = false }
+  }, [user])
+  const pick = async (key: string | null) => {
+    setAvatar(key)
+    setStoredAvatar(key ?? 'default')
+    if (user) { try { await saveAssistantAvatar(getSupabaseBrowser(), user.id, key) } catch {} }
+    setSaved(true)
+    setTimeout(() => setSaved(false), 1500)
+  }
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <AssistantAvatar avatar={avatar} role={role} className="h-14 w-14" fallback="brand" />
+        <div className="text-[12.5px] text-body-3">{saved ? (zh ? '已保存 ✓' : 'Saved ✓') : (zh ? '点一个即保存；所有身份下都是同一张脸。' : 'Tap one to save; the same face under every hat.')}</div>
+      </div>
+      <AvatarPicker role={role} avatar={avatar} live={!!user} zh={zh} onPick={(k) => void pick(k)} className="max-w-[320px] shadow-none" />
     </div>
   )
 }
