@@ -8,7 +8,7 @@ import Logo from './Logo'
 import MobileBottomNav from './MobileBottomNav'
 import LanguageCurrencyModal from './LanguageCurrencyModal'
 import { useI18n } from '@/lib/i18n'
-import { useAuth } from '@/lib/useAuth'
+import { useAuth, roleFromPath, roleStorageKey } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { activeHat, useHats } from '@/lib/useHats'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
@@ -53,6 +53,14 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
   const hats = useHats()
   // The remembered role only counts when the account holds that hat (review 2026-09-25).
   const currentRole = activeHat(hats, auth.role)
+  // The provider hat is remembered in storage, not in auth.role (it is not a UI
+  // role); on neutral pages the chip must still say 服务商 when that is what the
+  // account came from (节点 3 verification 2026-09-26: /notifications said 租客).
+  const [rememberedProvider, setRememberedProvider] = useState(false)
+  useEffect(() => {
+    if (!auth.user) { setRememberedProvider(false); return }
+    try { setRememberedProvider(window.localStorage.getItem(roleStorageKey(auth.user.id)) === 'provider') } catch { setRememberedProvider(false) }
+  }, [auth.user, pathname])
   const heldRoles = (['tenant', 'landlord', 'agent'] as const).filter((r) =>
     r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)
 
@@ -153,7 +161,7 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
 
         {/* App shell: which hat is acting, always visible (external review 2026-09-26). */}
         {appShell && auth.user && (() => {
-          const onProvider = pathname.startsWith('/provider/')
+          const onProvider = pathname.startsWith('/provider/') || (rememberedProvider && !!hats.provider && !roleFromPath(pathname))
           const label = onProvider ? (lang === 'zh' ? '服务商' : 'Provider') : lang === 'zh' ? ROLE_META[currentRole].label : ROLE_META[currentRole].labelEn
           const color = onProvider ? '#00ACE4' : ROLE_META[currentRole].color
           return (

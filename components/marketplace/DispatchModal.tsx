@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { CREDENTIAL_LABEL, coverageFor, providerEligible, tradeForCategory, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
+import { useMarketplaceConfig } from '@/lib/marketplace/config'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; status: string; verified_at: string | null }
 type Cred = { provider_id: string; kind: string; expires_at: string | null; verified_at: string | null }
@@ -31,6 +32,8 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
+  // Coverage chips use the same grace rule the server enforces (节点 3).
+  const { graceDays } = useMarketplaceConfig()
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -44,10 +47,10 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
   }, [])
   const candidates = useMemo(() => providers.map((p) => {
     const pc = creds.filter((c) => c.provider_id === p.id)
-    const e = providerEligible(p, pc, trade, city)
-    const cov = coverageFor(trade, pc)
+    const e = providerEligible(p, pc, trade, city, new Date(), graceDays)
+    const cov = coverageFor(trade, pc, new Date(), graceDays)
     return { p, ok: e.ok, reason: e.reason, cov }
-  }).sort((a, b) => Number(b.ok) - Number(a.ok)), [providers, creds, trade, city])
+  }).sort((a, b) => Number(b.ok) - Number(a.ok)), [providers, creds, trade, city, graceDays])
   useEffect(() => { if (!pick && candidates.some((c) => c.ok)) setPick(candidates.find((c) => c.ok)!.p.id) }, [candidates, pick])
   // Only fall back to "own contact" once the directory has actually loaded —
   // on first paint there are no candidates yet (first production run 2026-09-23

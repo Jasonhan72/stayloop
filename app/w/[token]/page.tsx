@@ -11,9 +11,10 @@ import Footer from '@/components/Footer'
 import { useParams } from 'next/navigation'
 import { useT } from '@/lib/i18n'
 import { WO_STATUS_LABEL, type WorkOrderStatus } from '@/lib/marketplace/workOrders'
+import { DECLINE_CODES, DECLINE_LABEL, declineText, slaLabel, slaState, type DeclineCode } from '@/lib/marketplace/sla'
 
 type View = {
-  work_order: { id: string; status: WorkOrderStatus; trade: string | null; scope: string | null; emergency: boolean; entry_permission: string | null; quote_amount: number | null; quote_type: string | null; approved_amount: number | null; schedule_start: string | null; schedule_end: string | null; arrived_at: string | null; completed_at: string | null; invoice_amount: number | null; accepted_at: string | null; paid_at: string | null; external_name: string | null; created_at: string }
+  work_order: { id: string; status: WorkOrderStatus; trade: string | null; scope: string | null; emergency: boolean; entry_permission: string | null; quote_amount: number | null; quote_type: string | null; approved_amount: number | null; schedule_start: string | null; schedule_end: string | null; arrived_at: string | null; completed_at: string | null; invoice_amount: number | null; accepted_at: string | null; paid_at: string | null; external_name: string | null; created_at: string; quote_due_at?: string | null; quote_version?: number | null; quote_valid_until?: string | null; decline_code?: string | null; cancel_reason?: string | null }
   ticket: { title: string; description: string | null; category: string | null; priority: string }
   address: { city: string | null; full: string | null }
   landlord_email: string | null
@@ -29,7 +30,7 @@ export default function ExternalJobPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
   const [v, setV] = useState<View | null | 'loading' | 'missing'>('loading')
-  const [form, setForm] = useState({ amount: '', type: 'fixed', note: '', schedule_start: '', schedule_end: '', invoice_amount: '', reason: '' })
+  const [form, setForm] = useState({ amount: '', type: 'fixed', note: '', schedule_start: '', schedule_end: '', valid_until: '', invoice_amount: '', reason: '', code: 'no_capacity' as DeclineCode })
   const [open, setOpen] = useState<null | 'quote' | 'complete' | 'decline'>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -63,13 +64,15 @@ export default function ExternalJobPage() {
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-surface-chip px-2.5 py-[3px] font-mono text-[11px] font-bold text-body-2">{zh ? st.zh : st.en}</span>
         {w.emergency && <span className="rounded-full bg-danger/10 px-2.5 py-[3px] font-mono text-[11px] font-bold text-danger">{zh ? '紧急' : 'URGENT'}</span>}
+        {w.status === 'offered' && (() => { const sla = slaState(w.quote_due_at); return sla ? <span data-testid="sla-countdown" className={'rounded-full px-2.5 py-[3px] font-mono text-[11px] font-bold ' + (sla.kind === 'overdue' ? 'bg-danger/10 text-danger' : sla.kind === 'soon' ? 'bg-amber-50 text-amber-800' : 'bg-surface-chip text-body-2')}>{slaLabel(sla, zh)}</span> : null })()}
       </div>
       <div className="mt-4 space-y-1.5 rounded-2xl border border-line-divider bg-white p-4 text-[13.5px]">
         {v.ticket.description && <p className="text-body-2">{v.ticket.description}</p>}
         <div><b>{zh ? '位置' : 'Location'}:</b> {v.address.full || `${v.address.city || '—'}（${zh ? '接单后显示完整地址' : 'full address after you accept'}）`}</div>
         <div><b>{zh ? '进入方式' : 'Entry'}:</b> {w.entry_permission === 'tenant_present' ? (zh ? '须租客在场' : 'tenant must be present') : w.entry_permission === 'call_first' ? (zh ? '进入前先电话联系租客' : 'call the tenant before entering') : (zh ? '房东会给租客发 24 小时进入通知' : 'the landlord sends the tenant a 24-hour notice')}</div>
         {v.landlord_email && <div><b>{zh ? '房东' : 'Landlord'}:</b> <a className="underline" href={`mailto:${v.landlord_email}`}>{v.landlord_email}</a></div>}
-        {w.quote_amount != null && <div><b>{zh ? '你的报价' : 'Your quote'}:</b> {money(w.quote_amount)}{w.approved_amount != null ? ` · ${zh ? '已批准' : 'approved'}` : ''}</div>}
+        {w.quote_amount != null && <div><b>{zh ? '你的报价' : 'Your quote'}:</b> {money(w.quote_amount)}{(w.quote_version ?? 0) > 1 ? (zh ? ` · 第 ${w.quote_version} 版` : ` · v${w.quote_version}`) : ''}{w.quote_valid_until ? (zh ? ` · 有效期至 ${w.quote_valid_until}` : ` · valid until ${w.quote_valid_until}`) : ''}{w.approved_amount != null ? ` · ${zh ? '已批准' : 'approved'}` : ''}</div>}
+        {w.status === 'declined' && <div className="text-body-3">{zh ? '婉拒原因' : 'Declined'}: {declineText(w.decline_code, w.cancel_reason, zh)}</div>}
         {w.schedule_start && <div><b>{zh ? '到场时间' : 'Window'}:</b> {when(w.schedule_start)}{w.schedule_end ? ` – ${when(w.schedule_end)}` : ''}</div>}
         {w.arrived_at && <div>✓ {zh ? '已到场' : 'Arrived'} {when(w.arrived_at)}</div>}
         {w.completed_at && <div>✓ {zh ? '已完工' : 'Completed'} {when(w.completed_at)} · {zh ? '账单' : 'invoice'} {money(w.invoice_amount)}</div>}
@@ -95,7 +98,8 @@ export default function ExternalJobPage() {
           <label className="block text-[12px] text-body-3">{zh ? '可到场 从' : 'Window from'}<input type="datetime-local" className={input + ' mt-1'} value={form.schedule_start} onChange={(e) => setForm({ ...form, schedule_start: e.target.value })} /></label>
           <label className="block text-[12px] text-body-3">{zh ? '到' : 'to'}<input type="datetime-local" className={input + ' mt-1'} value={form.schedule_end} onChange={(e) => setForm({ ...form, schedule_end: e.target.value })} /></label>
           <input className={input} placeholder={zh ? '范围说明（可选）' : 'Scope note (optional)'} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-          <button className={big + ' bg-brand text-white'} disabled={busy || form.amount === ''} onClick={() => void act('accept', { amount: Number(form.amount), type: form.type, note: form.note, schedule_start: form.schedule_start ? new Date(form.schedule_start).toISOString() : undefined, schedule_end: form.schedule_end ? new Date(form.schedule_end).toISOString() : undefined })}>{zh ? '发送报价' : 'Send quote'}</button>
+          <label className="block text-[12px] text-body-3">{zh ? '报价有效期至（可选）' : 'Quote valid until (optional)'}<input type="date" className={input + ' mt-1'} value={form.valid_until} onChange={(e) => setForm({ ...form, valid_until: e.target.value })} /></label>
+          <button className={big + ' bg-brand text-white'} disabled={busy || form.amount === ''} onClick={() => void act('accept', { amount: Number(form.amount), type: form.type, note: form.note, valid_until: form.valid_until || undefined, schedule_start: form.schedule_start ? new Date(form.schedule_start).toISOString() : undefined, schedule_end: form.schedule_end ? new Date(form.schedule_end).toISOString() : undefined })}>{zh ? '发送报价' : 'Send quote'}</button>
           <p className="text-[11.5px] text-body-3">{zh ? '报价一经房东批准，最终账单不得超出 10%，除非增项经房东再次批准（安省《消费者保护法》）。费用由房东承担。' : 'Once approved, the invoice may not exceed the quote by more than 10% unless extras are re-approved (Ontario CPA). The landlord pays.'}</p>
         </div>
       )}
@@ -107,9 +111,11 @@ export default function ExternalJobPage() {
         </div>
       )}
       {open === 'decline' && (
-        <div className="mt-3 space-y-2 rounded-2xl bg-surface-chip p-4">
-          <input className={input} placeholder={zh ? '原因（可选）' : 'Reason (optional)'} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
-          <button className={big + ' border border-danger/40 bg-white text-danger'} disabled={busy} onClick={() => void act('decline', { reason: form.reason })}>{zh ? '确认婉拒' : 'Confirm decline'}</button>
+        <div className="mt-3 space-y-2 rounded-2xl bg-surface-chip p-4" data-testid="decline-form">
+          <select className={input} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value as DeclineCode })}>{DECLINE_CODES.map((c) => <option key={c} value={c}>{zh ? DECLINE_LABEL[c].zh : DECLINE_LABEL[c].en}</option>)}</select>
+          <input className={input} placeholder={form.code === 'other' ? (zh ? '请说明原因（必填）' : 'Please say why (required)') : (zh ? '补充说明（可选）' : 'Note (optional)')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+          <button className={big + ' border border-danger/40 bg-white text-danger'} disabled={busy || (form.code === 'other' && form.reason.trim().length < 2)} onClick={() => void act('decline', { code: form.code, reason: form.reason })}>{zh ? '确认婉拒' : 'Confirm decline'}</button>
+          <p className="text-[11.5px] text-body-3">{zh ? '原因会告知房东，系统随即为房东推荐下一位。' : 'The reason goes to the landlord and the next contractor is suggested at once.'}</p>
         </div>
       )}
       {err && <p className="mt-3 text-[12.5px] text-danger">{err}</p>}

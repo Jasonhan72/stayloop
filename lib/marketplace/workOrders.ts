@@ -16,6 +16,8 @@ export const WORK_ORDER_COLUMNS = [
   'completed_at', 'completion_note', 'completion_photos', 'invoice_amount', 'invoice_note',
   'tenant_confirmed_at', 'accepted_at', 'accepted_by', 'resolution_note', 'dispute_reason', 'disputed_at', 'disputed_by',
   'paid_at', 'payment_mode', 'cancel_reason', 'created_at', 'updated_at',
+  // 节点 3 (2026-09-26): SLA, versions, decline reason — granted column by column in 20260926_node3_execution.sql.
+  'quote_due_at', 'sla_overdue_at', 'quote_version', 'decline_code',
 ].join(', ')
 
 export type WorkOrderStatus = 'offered' | 'declined' | 'quoted' | 'scheduled' | 'in_progress' | 'completed' | 'accepted' | 'rework' | 'disputed' | 'paid' | 'closed' | 'cancelled' | 'expired'
@@ -115,13 +117,20 @@ export function entryNoticeText(i: { unit: string; scheduleStart?: string | null
 
 /** Six pilot metrics from the event log (services marketplace §7). */
 export type WoRow = { status: WorkOrderStatus; created_at: string; quoted_at: string | null; approved_amount: number | null; invoice_amount: number | null; schedule_start: string | null; arrived_at: string | null; accepted_at: string | null; emergency: boolean }
-export function providerMetrics(rows: WoRow[]): { offered: number; acceptRate: number | null; arrivalMinutesMedian: number | null; quoteVariance: number | null; reworkRate: number | null; disputeRate: number | null } {
+export type ProviderMetrics = { offered: number; acceptRate: number | null; arrivalMinutesMedian: number | null; quoteVariance: number | null; reworkRate: number | null; disputeRate: number | null; responseHoursMedian: number | null; onTimeRate: number | null; firstTimeFixRate: number | null }
+export function providerMetrics(rows: WoRow[]): ProviderMetrics {
   const offered = rows.length
   const accepted = rows.filter((r) => r.quoted_at).length
   const arrivals = rows.filter((r) => r.schedule_start && r.arrived_at).map((r) => (new Date(r.arrived_at!).getTime() - new Date(r.schedule_start!).getTime()) / 60_000).sort((a, b) => a - b)
   const vars = rows.filter((r) => r.approved_amount && r.invoice_amount).map((r) => r.invoice_amount! / r.approved_amount! - 1)
   const done = rows.filter((r) => ['accepted', 'paid', 'closed', 'rework', 'disputed'].includes(r.status))
   const med = (a: number[]) => (a.length ? a[Math.floor((a.length - 1) / 2)] : null)
+  // 节点 3 (2026-09-26): response time (offer → quote), punctuality (arrived within
+  // 15 min of the window start) and first-time fix (finished without rework or dispute).
+  const responses = rows.filter((r) => r.quoted_at).map((r) => (new Date(r.quoted_at!).getTime() - new Date(r.created_at).getTime()) / 3_600_000).sort((a, b) => a - b)
+  const timed = rows.filter((r) => r.schedule_start && r.arrived_at)
+  const onTime = timed.filter((r) => new Date(r.arrived_at!).getTime() <= new Date(r.schedule_start!).getTime() + 15 * 60_000).length
+  const fixed = done.filter((r) => ['accepted', 'paid', 'closed'].includes(r.status)).length
   return {
     offered,
     acceptRate: offered ? Math.round((accepted / offered) * 100) / 100 : null,
@@ -129,6 +138,9 @@ export function providerMetrics(rows: WoRow[]): { offered: number; acceptRate: n
     quoteVariance: vars.length ? Math.round((vars.reduce((s, v) => s + v, 0) / vars.length) * 1000) / 1000 : null,
     reworkRate: done.length ? Math.round((rows.filter((r) => r.status === 'rework').length / done.length) * 100) / 100 : null,
     disputeRate: done.length ? Math.round((rows.filter((r) => r.status === 'disputed').length / done.length) * 100) / 100 : null,
+    responseHoursMedian: med(responses) == null ? null : Math.round(med(responses)! * 10) / 10,
+    onTimeRate: timed.length ? Math.round((onTime / timed.length) * 100) / 100 : null,
+    firstTimeFixRate: done.length ? Math.round((fixed / done.length) * 100) / 100 : null,
   }
 }
 

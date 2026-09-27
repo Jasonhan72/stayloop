@@ -136,6 +136,7 @@ const ACTION_TYPE: Record<string, { zh: string; en: string }> = {
   dispatch_work_order: { zh: '派单', en: 'Dispatch a work order' },
   approve_quote: { zh: '批准报价', en: 'Approve a quote' },
   accept_completion: { zh: '验收完工', en: 'Accept completion' },
+  work_order_overdue: { zh: '服务商逾期未报价 · 改派', en: 'Contractor overdue · reassign' },
   payment_authorization: { zh: '付款授权', en: 'Payment authorization' },
   publish_listing: { zh: '发布房源', en: 'Publish a listing' },
 }

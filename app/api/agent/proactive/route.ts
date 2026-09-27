@@ -26,6 +26,7 @@ import { isoDate, todayUtc } from '@/lib/dates'
 import { WINDOW_DAYS, marketFromRows, planRenewalActions, type ExistingRenewalAction, type MarketLine } from '@/lib/agent/renewalStages'
 import { buildInviteReminderProposal, buildRelistProposal, inviteNeedsReminder, leaseNeedsRelist, RELIST_LOOKBACK_DAYS, type EndedLeaseRow, type InviteRow } from '@/lib/agent/proactiveExtras'
 import { notifyUser } from '@/lib/push/notify'
+import { runMarketplaceSweep } from '@/lib/marketplace/sweep'
 
 export const runtime = 'edge'
 
@@ -103,7 +104,7 @@ function buildRentReminderProposal(userId: string, l: LeaseRow, dueDate: string)
 // ---------------------------------------------------------------------------
 // Cron mode — service role, all landlords, dual-ID resolved
 // ---------------------------------------------------------------------------
-async function runCronSweep(): Promise<NextResponse> {
+async function runRenewalSweep(): Promise<NextResponse> {
   const admin: SupabaseClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -315,6 +316,21 @@ async function runCronSweep(): Promise<NextResponse> {
     })
   }))
   return NextResponse.json({ created: inserts.length, pushed, mode: 'cron' })
+}
+
+// Cron mode = the renewal / reminder sweep above + the marketplace sweep
+// (overdue quotes, credential expiry ladder; 节点 3 2026-09-26). The two are
+// independent: a failure in one is reported, not allowed to hide the other.
+async function runCronSweep(): Promise<NextResponse> {
+  const admin: SupabaseClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  )
+  const marketplace = await runMarketplaceSweep(admin).catch((e: Error) => ({ error: e.message }))
+  const res = await runRenewalSweep()
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+  return NextResponse.json({ ...body, marketplace }, { status: res.status })
 }
 
 // ---------------------------------------------------------------------------

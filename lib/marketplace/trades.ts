@@ -43,26 +43,44 @@ export function tradeForCategory(category: string | null | undefined): Trade {
 
 export type CredentialLite = { kind: string; expires_at: string | null; verified_at: string | null }
 
-/** A trade is "covered" when every required credential exists, is verified and not expired. */
-export function coverageFor(trade: Trade, creds: CredentialLite[], today = new Date()): { ok: boolean; missing: CredentialKind[]; expired: CredentialKind[]; unverified: CredentialKind[] } {
+/**
+ * Credentials that are paperwork (a clearance certificate, an insurance
+ * certificate, a registry renewal) may be granted a few days of grace after
+ * their printed expiry by a Stayloop admin (app_config 'marketplace' →
+ * credential_grace_days, 0–14). Statutory licences (STO C of Q, ESA, TSSA,
+ * MECP) never get grace: an expired licence is no licence.
+ */
+export const GRACE_ELIGIBLE_KINDS: readonly CredentialKind[] = ['wsib_clearance', 'liability_insurance', 'business_registration']
+export const GRACE_DAYS_MAX = 14
+export function clampGraceDays(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.min(Math.max(Math.round(n), 0), GRACE_DAYS_MAX) : 0
+}
+
+/** A trade is "covered" when every required credential exists, is verified and not expired (grace only for GRACE_ELIGIBLE_KINDS). */
+export function coverageFor(trade: Trade, creds: CredentialLite[], today = new Date(), graceDays = 0): { ok: boolean; missing: CredentialKind[]; expired: CredentialKind[]; unverified: CredentialKind[]; inGrace: CredentialKind[] } {
   const def = TRADES.find((t) => t.key === trade)
-  const missing: CredentialKind[] = []; const expired: CredentialKind[] = []; const unverified: CredentialKind[] = []
+  const missing: CredentialKind[] = []; const expired: CredentialKind[] = []; const unverified: CredentialKind[] = []; const inGrace: CredentialKind[] = []
   const t = today.toISOString().slice(0, 10)
+  const g = clampGraceDays(graceDays)
+  const graceCut = new Date(today.getTime() - g * 86_400_000).toISOString().slice(0, 10)
   for (const k of def?.required ?? []) {
     const c = creds.filter((x) => x.kind === k)
     if (!c.length) { missing.push(k); continue }
     const live = c.filter((x) => !x.expires_at || x.expires_at >= t)
-    if (!live.length) { expired.push(k); continue }
-    if (!live.some((x) => x.verified_at)) unverified.push(k)
+    const graced = !live.length && g > 0 && GRACE_ELIGIBLE_KINDS.includes(k) ? c.filter((x) => x.expires_at && x.expires_at >= graceCut) : []
+    if (!live.length && !graced.length) { expired.push(k); continue }
+    if (graced.length) inGrace.push(k)
+    if (![...live, ...graced].some((x) => x.verified_at)) unverified.push(k)
   }
-  return { ok: !missing.length && !expired.length && !unverified.length, missing, expired, unverified }
+  return { ok: !missing.length && !expired.length && !unverified.length, missing, expired, unverified, inGrace }
 }
 
 /** Dispatch eligibility: verified provider + trade listed + trade covered + city served. */
-export function providerEligible(p: { status: string; trades: string[]; service_cities: string[] }, creds: CredentialLite[], trade: Trade, city: string | null, today = new Date()): { ok: boolean; reason?: 'not_verified' | 'trade_not_listed' | 'credentials' | 'city' } {
+export function providerEligible(p: { status: string; trades: string[]; service_cities: string[] }, creds: CredentialLite[], trade: Trade, city: string | null, today = new Date(), graceDays = 0): { ok: boolean; reason?: 'not_verified' | 'trade_not_listed' | 'credentials' | 'city' } {
   if (p.status !== 'verified') return { ok: false, reason: 'not_verified' }
   if (!p.trades.includes(trade)) return { ok: false, reason: 'trade_not_listed' }
-  if (!coverageFor(trade, creds, today).ok) return { ok: false, reason: 'credentials' }
+  if (!coverageFor(trade, creds, today, graceDays).ok) return { ok: false, reason: 'credentials' }
   if (city && p.service_cities.length && !p.service_cities.some((c) => cityMatch(c, city))) return { ok: false, reason: 'city' }
   return { ok: true }
 }
@@ -87,4 +105,16 @@ export function earliestExpiry(creds: CredentialLite[], today = new Date()): { k
     if (!best || d < best.days) best = { kind: c.kind, days: d }
   }
   return best
+}
+
+/** One line per trade for the onboarding / jobs pages: covered, or what is missing and that dispatch skips it. */
+export function coverageLabel(trade: Trade, creds: CredentialLite[], zh: boolean, today = new Date(), graceDays = 0): { ok: boolean; text: string } {
+  const cov = coverageFor(trade, creds, today, graceDays)
+  if (cov.ok) return { ok: true, text: zh ? (cov.inGrace.length ? '已覆盖 · 宽限期内' : '已覆盖 · 可接派单') : (cov.inGrace.length ? 'Covered · in grace' : 'Covered · eligible for dispatch') }
+  const name = (k: CredentialKind) => (zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en)
+  const parts: string[] = []
+  if (cov.missing.length) parts.push((zh ? '缺 ' : 'missing ') + cov.missing.map(name).join(zh ? '、' : ', '))
+  if (cov.expired.length) parts.push((zh ? '已过期 ' : 'expired ') + cov.expired.map(name).join(zh ? '、' : ', '))
+  if (cov.unverified.length) parts.push((zh ? '待核验 ' : 'unverified ') + cov.unverified.map(name).join(zh ? '、' : ', '))
+  return { ok: false, text: (zh ? '未覆盖 · 不会收到派单 — ' : 'Not covered · no dispatch — ') + parts.join(zh ? '；' : '; ') }
 }

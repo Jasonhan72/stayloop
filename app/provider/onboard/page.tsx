@@ -14,7 +14,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { invalidateHats } from '@/lib/useHats'
-import { CITIES, CREDENTIAL_LABEL, TRADES, coverageFor, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
+import { CITIES, CREDENTIAL_LABEL, TRADES, coverageFor, coverageLabel, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
+import { useMarketplaceConfig } from '@/lib/marketplace/config'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; business_number: string | null; service_cities: string[]; trades: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; website: string | null; status: string; review_note: string | null; verified_at: string | null; attested_at: string | null }
 type Cred = { id: string; kind: CredentialKind; number: string | null; holder_name: string | null; expires_at: string | null; verified_at: string | null }
@@ -36,6 +37,7 @@ export default function ProviderOnboardPage() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const { graceDays } = useMarketplaceConfig()
 
   const load = useCallback(async () => {
     if (!auth.user) { setRow(null); return }
@@ -99,7 +101,14 @@ export default function ProviderOnboardPage() {
         <label className={label}>{zh ? '商号（对房东显示）' : 'Trade name (shown to landlords)'}<input className={input} value={f.trade_name} onChange={(e) => setF({ ...f, trade_name: e.target.value })} /></label>
         <label className={label}>{zh ? '企业注册号 / BN' : 'Business number / BN'}<input className={input} value={f.business_number} onChange={(e) => setF({ ...f, business_number: e.target.value })} /></label>
         <label className={label}>{zh ? '网站（可选）' : 'Website (optional)'}<input className={input} value={f.website} onChange={(e) => setF({ ...f, website: e.target.value })} /></label>
-        <div className="sm:col-span-2"><div className={label}>{zh ? '工种' : 'Trades'}</div><div className="mt-1 flex flex-wrap gap-1.5">{TRADES.map((t) => <button key={t.key} type="button" onClick={() => setF({ ...f, trades: toggle(f.trades, t.key) })} className={'rounded-full border px-3 py-1 text-[12.5px] ' + (f.trades.includes(t.key) ? 'border-brand bg-brand/10 font-bold text-brand' : 'border-line-divider')}>{zh ? t.zh : t.en}</button>)}</div></div>
+        <div className="sm:col-span-2"><div className={label}>{zh ? '工种' : 'Trades'}</div><div className="mt-1 flex flex-wrap gap-1.5">{TRADES.map((t) => <button key={t.key} type="button" onClick={() => setF({ ...f, trades: toggle(f.trades, t.key) })} className={'rounded-full border px-3 py-1 text-[12.5px] ' + (f.trades.includes(t.key) ? 'border-brand bg-brand/10 font-bold text-brand' : 'border-line-divider')}>{zh ? t.zh : t.en}</button>)}</div>
+          {row && f.trades.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5" data-testid="trade-coverage">
+              {f.trades.map((t) => { const d = TRADES.find((x) => x.key === t); const c = coverageLabel(t as Trade, creds, zh, new Date(), graceDays); return <span key={t} className={'rounded-full px-2.5 py-[3px] text-[11.5px] ' + (c.ok ? 'bg-success/10 text-success' : 'bg-amber-50 text-amber-800')}>{d ? (zh ? d.zh : d.en) : t} · {c.text}</span> })}
+            </div>
+          )}
+          <p className="mt-1 text-[11.5px] text-body-3">{zh ? '每个工种要求的资质：' : 'Required per trade: '}{f.trades.map((t) => { const d = TRADES.find((x) => x.key === t); return d ? `${zh ? d.zh : d.en} → ${d.required.map((k) => (zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en)).join(zh ? '、' : ', ')}` : '' }).filter(Boolean).join('；') || (zh ? '先选工种。' : 'pick a trade first.')}</p>
+        </div>
         <div className="sm:col-span-2"><div className={label}>{zh ? '服务城市' : 'Service cities'}</div><div className="mt-1 flex flex-wrap gap-1.5">{CITIES.map((c) => <button key={c} type="button" onClick={() => setF({ ...f, service_cities: toggle(f.service_cities, c) })} className={'rounded-full border px-3 py-1 text-[12.5px] ' + (f.service_cities.includes(c) ? 'border-brand bg-brand/10 font-bold text-brand' : 'border-line-divider')}>{c}</button>)}</div></div>
         <label className={label}>{zh ? '定价方式' : 'Pricing'}<select className={input} value={f.pricing_mode} onChange={(e) => setF({ ...f, pricing_mode: e.target.value })}><option value="hourly">{zh ? '按工时' : 'Hourly'}</option><option value="fixed">{zh ? '固定报价' : 'Fixed quotes'}</option></select></label>
         <div className="grid grid-cols-2 gap-2">
@@ -111,14 +120,17 @@ export default function ProviderOnboardPage() {
         <label className={label}>{zh ? '电话' : 'Phone'}<input className={input} type="tel" value={f.contact_phone} onChange={(e) => setF({ ...f, contact_phone: e.target.value })} /></label>
         <label className="flex items-start gap-2 text-[13px] sm:col-span-2"><input type="checkbox" className="mt-[3px]" checked={f.attest} onChange={(e) => setF({ ...f, attest: e.target.checked })} /><span>{zh ? '我确认以上信息属实；持证工种的工作只由持有效资格证的人员完成；接受工单即与房东直接订立服务合同；账单不超出经批准报价的 10%（安省《消费者保护法》）；资质变更或到期后 7 天内更新。' : 'I confirm the above is true; licensed-trade work is done only by holders of a valid certificate; accepting a job forms a direct contract with the landlord; invoices stay within 10% of the approved quote (Ontario CPA); I update within 7 days of any credential change or expiry.'}</span></label>
         {err && <div className="text-[12.5px] font-semibold text-danger sm:col-span-2">⚠ {err}</div>}
-        {saved && !err && <div className="text-[12.5px] font-semibold text-success sm:col-span-2">✓ {zh ? '已保存。下一步：添加资质。' : 'Saved. Next: add credentials.'}</div>}
+        {saved && !err && (() => {
+          const gaps = f.trades.map((t) => { const d = TRADES.find((x) => x.key === t); const cov = coverageFor(t as Trade, creds, new Date(), graceDays); return d && !cov.ok ? `${zh ? d.zh : d.en} → ${[...cov.missing, ...cov.expired, ...cov.unverified].map((k) => (zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en)).join(zh ? '、' : ', ')}` : null }).filter(Boolean) as string[]
+          return <div className="text-[12.5px] font-semibold text-success sm:col-span-2" data-testid="save-coverage-hint">✓ {zh ? '已保存。' : 'Saved.'} {gaps.length ? <span className="text-amber-800">{zh ? `还缺（缺了就不会收到该工种的派单）：${gaps.join('；')}` : `Still missing (no dispatch for that trade until complete): ${gaps.join('; ')}`}</span> : <span>{zh ? '所有工种的资质都已登记。' : 'Every trade has its credentials on file.'}</span>}</div>
+        })()}
         <div className="sm:col-span-2"><button onClick={() => void submit()} disabled={busy} className="sl-btn-primary !py-[10px] disabled:opacity-50">{row ? (zh ? '更新（改注册事实会重新核验）' : 'Update (changing facts re-verifies)') : (zh ? '提交入驻' : 'Submit')}</button></div>
       </div>
 
       {row && (
         <div className="mt-5 rounded-2xl border border-line-divider bg-white p-5">
           <h2 className="text-[15px] font-extrabold">{zh ? '资质' : 'Credentials'}</h2>
-          <p className="mt-1 text-[12px] text-body-3">{zh ? '每个工种要求的资质：' : 'Required per trade: '}{f.trades.map((t) => { const d = TRADES.find((x) => x.key === t); const cov = coverageFor(t as Trade, creds); return d ? `${zh ? d.zh : d.en}（${cov.ok ? '✓' : [...cov.missing, ...cov.expired, ...cov.unverified].map((k) => (zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en)).join(zh ? '、' : ', ')}）` : '' }).join(' · ')}</p>
+          <p className="mt-1 text-[12px] text-body-3">{zh ? '到期提醒会在 90 / 60 / 30 / 7 天各发一次邮件与推送；过期的资质不再计入覆盖，派单会跳过你。' : 'Expiry reminders go out at 90 / 60 / 30 / 7 days by email and push; an expired credential drops out of coverage and dispatch skips you.'}</p>
           <div className="mt-3 divide-y divide-line-divider">
             {creds.map((c) => (
               <div key={c.id} className="flex flex-wrap items-center gap-2 py-2 text-[12.5px]">

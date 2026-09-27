@@ -41,6 +41,7 @@ const WO_EVENT_LABEL: Record<string, { zh: string; en: string }> = {
   close: { zh: '工单已关闭', en: 'Job closed' },
   cancel: { zh: '工单已取消', en: 'Job cancelled' },
   decline: { zh: '已婉拒', en: 'Declined' },
+  quote_overdue: { zh: '报价已逾期（系统提醒）', en: 'Quote overdue (system reminder)' },
 }
 
 const NOT_NOTIFICATIONS = /session|turn$|memory_|thread/

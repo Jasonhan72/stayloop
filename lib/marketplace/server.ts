@@ -6,7 +6,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
 import { canAct, entryNoticeText, entryWindowProblem, invoiceWithinEstimate, TICKET_STATUS_FOR, validateQuote, type ActorKind, type WoAction, type WorkOrderStatus } from './workOrders'
-import { providerEligible, tradeForCategory, TRADES, type Trade } from './trades'
+import { clampGraceDays, providerEligible, tradeForCategory, TRADES, type Trade } from './trades'
+import { declineText, quoteDueAt, validateDecline } from './sla'
 import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 import { normalizePolicy, rankCandidates, rankReason, shouldAutoApprove, shouldAutoDispatch, type Candidate, type DispatchPolicy } from './dispatchPolicy'
@@ -24,6 +25,8 @@ export type WorkOrderRow = {
   invoice_amount: number | null; invoice_note: string | null; tenant_confirmed_at: string | null; accepted_at: string | null; accepted_by: string | null
   paid_at: string | null; payment_mode: string | null; dispute_reason: string | null; disputed_at: string | null; resolution_note: string | null; cancel_reason: string | null
   status: WorkOrderStatus; created_at: string; updated_at: string
+  // 节点 3 (2026-09-26)
+  quote_due_at: string | null; sla_overdue_at: string | null; quote_version: number; decline_code: string | null
 }
 
 const mintToken = () => (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '')
@@ -56,6 +59,14 @@ export async function ticketContext(admin: Admin, ticketId: string, callerId?: s
     if (data?.user?.email) emails.push(data.user.email)
   }
   return { ticket: t as never, household: hh as never, landlordAuthId: landlord?.user_id ?? null, tenantEmails: emails, tenantAuthIds: tenantIds }
+}
+
+/** Admin-configurable marketplace rules (app_config key 'marketplace'); defaults when the row is missing. */
+export type MarketplaceConfig = { credentialGraceDays: number }
+export async function loadMarketplaceConfig(admin: Admin): Promise<MarketplaceConfig> {
+  const { data } = await admin.from('app_config').select('value').eq('key', 'marketplace').maybeSingle()
+  const v = (data?.value && typeof data.value === 'object' ? data.value : {}) as Record<string, unknown>
+  return { credentialGraceDays: clampGraceDays(v.credential_grace_days) }
 }
 
 export type CreateInput = {
@@ -105,7 +116,8 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
     // verified, unexpired credentials; every trade must be listed; the city served.
     const { data: full } = await admin.from('service_providers').select('status, trades, service_cities').eq('id', provider.id).maybeSingle()
     const { data: creds } = await admin.from('provider_credentials').select('kind, expires_at, verified_at').eq('provider_id', provider.id)
-    const e = providerEligible((full as { status: string; trades: string[]; service_cities: string[] }) ?? { status: 'pending', trades: [], service_cities: [] }, (creds ?? []) as { kind: string; expires_at: string | null; verified_at: string | null }[], trade, ctx.household.city)
+    const cfg = await loadMarketplaceConfig(admin)
+    const e = providerEligible((full as { status: string; trades: string[]; service_cities: string[] }) ?? { status: 'pending', trades: [], service_cities: [] }, (creds ?? []) as { kind: string; expires_at: string | null; verified_at: string | null }[], trade, ctx.household.city, new Date(), cfg.credentialGraceDays)
     if (!e.ok) return { ok: false, error: `provider_not_eligible:${e.reason}`, status: 422 }
   } else if (!i.externalEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(i.externalEmail)) {
     return { ok: false, error: 'provider_id or a valid external_email required', status: 400 }
@@ -113,10 +125,14 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   const emergency = i.emergency ?? ctx.ticket.priority === 'high'
   // The token is the external contact's credential; account holders reach the job through /provider/jobs.
   const token = provider ? null : mintToken()
+  // 节点 3: the contractor's clock starts now — the landlord's policy says how long (24–72 h, default 48).
+  const policy = await loadDispatchPolicy(admin, i.landlordAuthId)
+  const dueAt = quoteDueAt(new Date(), policy.quote_hours)
   const { data: wo, error } = await admin.from('work_orders').insert({
     ticket_id: i.ticketId, household_id: ctx.household.id, landlord_auth_id: i.landlordAuthId,
     provider_id: provider?.id ?? null, external_email: provider ? null : i.externalEmail!.trim().toLowerCase(), external_name: provider ? null : (i.externalName || '').trim().slice(0, 120) || null,
     token, trade, scope: (i.scope || ctx.ticket.title).slice(0, 2000), emergency, entry_permission: i.entryPermission ?? null, status: 'offered',
+    quote_due_at: dueAt,
   }).select('*').single()
   if (error || !wo) return { ok: false, error: error?.message || 'insert failed', status: 500 }
   await event(admin, wo.id, i.actor ?? 'landlord', i.landlordAuthId, 'offered', { provider_id: provider?.id ?? null, external_email: wo.external_email, trade, emergency })
@@ -128,8 +144,8 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   const link = provider ? `${SITE()}/provider/jobs` : `${SITE()}/w/${token}`
   const subject = `${emergency ? '【紧急】' : ''}维修派单 · ${ctx.household.city || ''} · ${ctx.ticket.title} / ${emergency ? 'URGENT ' : ''}Work order`
   const body =
-    `您好${provider ? `，${provider.trade_name || provider.legal_name}` : i.externalName ? `，${i.externalName}` : ''}，\n\n房东通过 Stayloop 向您派了一张维修工单：\n\n  • 问题：${ctx.ticket.title}\n  • 说明：${ctx.ticket.description || '（无）'}\n  • 位置：${ctx.household.city || ''}（详细地址接单后可见）\n  • 紧急程度：${emergency ? '紧急' : '一般'}\n  • 进入方式：${i.entryPermission === 'tenant_present' ? '须租客在场' : i.entryPermission === 'call_first' ? '进入前先电话' : '按 24 小时通知进入'}\n\n请打开链接接单并报价，或婉拒：\n${link}\n\n费用由房东承担；报价一经房东批准，最终账单不得超出报价 10%（安省《消费者保护法》）。\n\n` +
-    `Hi${provider ? ` ${provider.trade_name || provider.legal_name}` : i.externalName ? ` ${i.externalName}` : ''},\n\nA landlord sent you a work order on Stayloop:\n\n  • Issue: ${ctx.ticket.title}\n  • Details: ${ctx.ticket.description || '(none)'}\n  • Location: ${ctx.household.city || ''} (full address after you accept)\n  • Urgency: ${emergency ? 'urgent' : 'normal'}\n\nOpen the link to accept with a quote, or decline:\n${link}\n\nThe landlord pays; once a quote is approved the invoice may not exceed it by more than 10% (Ontario Consumer Protection Act).`
+    `您好${provider ? `，${provider.trade_name || provider.legal_name}` : i.externalName ? `，${i.externalName}` : ''}，\n\n房东通过 Stayloop 向您派了一张维修工单：\n\n  • 问题：${ctx.ticket.title}\n  • 说明：${ctx.ticket.description || '（无）'}\n  • 位置：${ctx.household.city || ''}（详细地址接单后可见）\n  • 紧急程度：${emergency ? '紧急' : '一般'}\n  • 进入方式：${i.entryPermission === 'tenant_present' ? '须租客在场' : i.entryPermission === 'call_first' ? '进入前先电话' : '按 24 小时通知进入'}\n  • 请在 ${policy.quote_hours} 小时内回应（截止 ${new Date(dueAt).toLocaleString('zh-CN', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })}）——逾期房东可能改派\n\n请打开链接接单并报价，或婉拒（婉拒请选原因）：\n${link}\n\n费用由房东承担；报价一经房东批准，最终账单不得超出报价 10%（安省《消费者保护法》）。\n\n` +
+    `Hi${provider ? ` ${provider.trade_name || provider.legal_name}` : i.externalName ? ` ${i.externalName}` : ''},\n\nA landlord sent you a work order on Stayloop:\n\n  • Issue: ${ctx.ticket.title}\n  • Details: ${ctx.ticket.description || '(none)'}\n  • Location: ${ctx.household.city || ''} (full address after you accept)\n  • Urgency: ${emergency ? 'urgent' : 'normal'}\n  • Please answer within ${policy.quote_hours} h (by ${new Date(dueAt).toLocaleString('en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })}) — after that the landlord may reassign\n\nOpen the link to accept with a quote, or decline (with a reason):\n${link}\n\nThe landlord pays; once a quote is approved the invoice may not exceed it by more than 10% (Ontario Consumer Protection Act).`
   const to = provider ? (provider.contact_email || null) : wo.external_email
   if (to) {
     const { html, text } = renderAgentMessageEmail({ subject, body })
@@ -171,11 +187,20 @@ export async function actOnWorkOrder(admin: Admin, i: ActInput): Promise<{ ok: t
     case 'quote': {
       const q = validateQuote({ amount: Number(p.amount), type: p.type as never, note: String(p.note || ''), valid_until: p.valid_until ? String(p.valid_until) : undefined, schedule_start: p.schedule_start ? String(p.schedule_start) : undefined, schedule_end: p.schedule_end ? String(p.schedule_end) : undefined })
       if (!q.ok) return { ok: false, error: `quote_${q.reason}`, status: 400 }
-      Object.assign(patch, { quote_amount: q.value!.amount, quote_type: q.value!.type, quote_note: q.value!.note ?? null, quote_valid_until: q.value!.valid_until ?? null, quoted_at: now, schedule_start: q.value!.schedule_start ?? null, schedule_end: q.value!.schedule_end ?? null })
-      Object.assign(evPayload, q.value)
+      // 节点 3: every accept / quote is a version; the events table keeps each one, the row keeps the count.
+      const version = (Number(wo.quote_version) || 0) + 1
+      Object.assign(patch, { quote_amount: q.value!.amount, quote_type: q.value!.type, quote_note: q.value!.note ?? null, quote_valid_until: q.value!.valid_until ?? null, quoted_at: now, schedule_start: q.value!.schedule_start ?? null, schedule_end: q.value!.schedule_end ?? null, quote_version: version })
+      Object.assign(evPayload, q.value, { version })
       break
     }
-    case 'decline':
+    case 'decline': {
+      // 节点 3: a decline needs a reason (code; a note when the code is "other").
+      const d = validateDecline({ code: p.code, reason: p.reason })
+      if (!d.ok) return { ok: false, error: d.reason, status: 400 }
+      Object.assign(patch, { decline_code: d.value.code, cancel_reason: d.value.note })
+      Object.assign(evPayload, { code: d.value.code, reason: d.value.note })
+      break
+    }
     case 'cancel':
       patch.cancel_reason = String(p.reason || '').slice(0, 1000) || null
       evPayload.reason = patch.cancel_reason
@@ -250,7 +275,7 @@ async function landlordEmail(admin: Admin, wo: WorkOrderRow): Promise<string | n
   return data?.user?.email ?? null
 }
 
-async function providerLabel(admin: Admin, wo: WorkOrderRow): Promise<{ name: string; email: string | null; authId: string | null }> {
+export async function providerLabel(admin: Admin, wo: WorkOrderRow): Promise<{ name: string; email: string | null; authId: string | null }> {
   if (wo.provider_id) {
     const { data } = await admin.from('service_providers').select('legal_name, trade_name, contact_email, auth_id').eq('id', wo.provider_id).maybeSingle()
     if (data) return { name: data.trade_name || data.legal_name, email: data.contact_email, authId: data.auth_id }
@@ -303,7 +328,10 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
       void notifyUser(admin, wo.landlord_auth_id, { kind: 'approval', title: `报价 ${money(wo.quote_amount)} · ${ctx.ticket.title}`, body: prov.name, url: '/landlord/todo' })
     }
     if (i.action === 'decline') {
-      void notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `服务商婉拒 · ${ctx.ticket.title}`, body: prov.name, url: landlordUrl })
+      void notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `服务商婉拒 · ${ctx.ticket.title}`, body: `${prov.name} · ${declineText(wo.decline_code, wo.cancel_reason, true)}`, url: landlordUrl })
+      // 节点 3: a decline is not a dead end — the landlord gets the next candidate at once
+      // (a card, or an auto-dispatch under their policy), never the one who declined.
+      await suggestDispatch(admin, wo.landlord_auth_id, wo.ticket_id, { excludeProviderIds: wo.provider_id ? [wo.provider_id] : [], because: 'declined' })
     }
     if (i.action === 'approve_quote') {
       // Entry notice to the tenant (RTA s.27 / s.26) + tell the contractor.
@@ -403,17 +431,29 @@ async function candidateStats(admin: Admin, landlordAuthId: string, cands: Candi
 /** Services marketplace step ③: after a ticket lands, suggest the dispatch to
  *  the landlord as a card. Never auto-dispatches. Shared by the maintenance
  *  executor and /api/maintenance/notify. */
-export async function suggestDispatch(admin: Admin, landlordAuthId: string, ticketId: string): Promise<void> {
+export type SuggestOptions = {
+  /** providers not to offer again (the one who declined / went overdue) */
+  excludeProviderIds?: string[]
+  /** why the ticket is back on the landlord's desk — named in the card */
+  because?: 'declined' | 'overdue'
+}
+export async function suggestDispatch(admin: Admin, landlordAuthId: string, ticketId: string, opts: SuggestOptions = {}): Promise<void> {
   try {
     const ctx = await ticketContext(admin, ticketId)
     if (!ctx) return
+    // A ticket with an open work order needs no suggestion (createWorkOrder would refuse anyway).
+    const { data: openWo } = await admin.from('work_orders').select('id').eq('ticket_id', ticketId).in('status', ['offered', 'quoted', 'scheduled', 'in_progress', 'completed', 'rework', 'disputed']).limit(1)
+    if (openWo && openWo.length) return
     const trade = tradeForCategory(ctx.ticket.category)
+    const exclude = new Set(opts.excludeProviderIds ?? [])
     const { data: provs } = await admin.from('service_providers').select('id, legal_name, trade_name, status, trades, service_cities').eq('status', 'verified').contains('trades', [trade]).limit(20)
     const network = await networkDispatchAllowed(admin, landlordAuthId)
+    const cfg = await loadMarketplaceConfig(admin)
     const eligible: Candidate[] = []
     if (network) for (const p of (provs ?? []) as { id: string; legal_name: string; trade_name: string | null; status: string; trades: string[]; service_cities: string[] }[]) {
+      if (exclude.has(p.id)) continue
       const { data: creds } = await admin.from('provider_credentials').select('kind, expires_at, verified_at').eq('provider_id', p.id)
-      if (providerEligible(p, (creds ?? []) as { kind: string; expires_at: string | null; verified_at: string | null }[], trade, ctx.household.city).ok) eligible.push({ provider_id: p.id, name: p.trade_name || p.legal_name })
+      if (providerEligible(p, (creds ?? []) as { kind: string; expires_at: string | null; verified_at: string | null }[], trade, ctx.household.city, new Date(), cfg.credentialGraceDays).ok) eligible.push({ provider_id: p.id, name: p.trade_name || p.legal_name })
     }
     // P2 (V0.6): rank by the landlord's preference and track record, then
     // follow their dispatch policy. Auto-dispatch goes through createWorkOrder,
@@ -435,10 +475,11 @@ export async function suggestDispatch(admin: Admin, landlordAuthId: string, tick
       }
       console.warn('[marketplace] auto-dispatch failed, falling back to a card:', r.error)
     }
+    if (opts.because) await admin.from('agent_pending_actions').update({ status: 'expired' }).eq('status', 'pending').eq('action_type', 'dispatch_work_order').contains('metadata', { ticket_id: ticketId })
     await admin.from('agent_pending_actions').insert({
       user_id: landlordAuthId, role: 'landlord', action_type: 'dispatch_work_order',
       title: `派单：${ctx.ticket.title} · ${unit}`,
-      summary: `租客的报修「${ctx.ticket.title}」需要${tradeLabel?.zh ?? '维修'}。` + (candidates.length ? `精选网络里有 ${candidates.length} 家资质在有效期内的服务商可派，排第一的是 ${candidates[0].name}（${candidates[0].reason}）${candidates.length > 1 ? `，其余：${candidates.slice(1).map((c) => c.name).join('、')}` : ''}。批准 = 向第一位发出派单邀请（可在工单页改派或派给自己的联系人）。` : (network ? '精选网络里暂时没有覆盖这个工种与区域的已核验服务商——请在工单页把它派给你自己的联系人（只需一个邮箱）。' : '已核验服务商网络是 Pro 功能——请在工单页把它派给你自己的联系人（只需一个邮箱，所有计划都可用），或升级 Pro。')) + (emergency ? ' 紧急件：进入按 RTA s.26 可不提前通知。' : ' 非紧急：批准报价时我会给租客发 24 小时进入通知（RTA s.27）。'),
+      summary: (opts.because === 'declined' ? '上一位服务商婉拒了这张工单，' : opts.because === 'overdue' ? '上一位服务商逾期未报价、派单已撤回，' : '') + `租客的报修「${ctx.ticket.title}」需要${tradeLabel?.zh ?? '维修'}。` + (candidates.length ? `精选网络里有 ${candidates.length} 家资质在有效期内的服务商可派，排第一的是 ${candidates[0].name}（${candidates[0].reason}）${candidates.length > 1 ? `，其余：${candidates.slice(1).map((c) => c.name).join('、')}` : ''}。批准 = 向第一位发出派单邀请（可在工单页改派或派给自己的联系人）。` : (network ? '精选网络里暂时没有覆盖这个工种与区域的已核验服务商——请在工单页把它派给你自己的联系人（只需一个邮箱）。' : '已核验服务商网络是 Pro 功能——请在工单页把它派给你自己的联系人（只需一个邮箱，所有计划都可用），或升级 Pro。')) + (emergency ? ' 紧急件：进入按 RTA s.26 可不提前通知。' : ' 非紧急：批准报价时我会给租客发 24 小时进入通知（RTA s.27）。'),
       recipient_label: candidates[0]?.name ?? null, data_scope: ['工单内容', '地址（接单后）'], excluded_data: ['租约', '筛查报告', '租金记录'], risk_level: 'low', status: 'pending', requires_approval: true,
       metadata: { ticket_id: ticketId, household_id: ctx.household.id, candidates, provider_id: candidates[0]?.provider_id ?? null, source: 'work_order' },
     })

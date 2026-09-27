@@ -98,6 +98,11 @@ describe('key task doors', () => {
     expect(p).toContain('leaseStateDetail(lease, lang === \'zh\')')
     expect(p).toContain("lang === 'zh' ? '在管租约已确认' : 'Tenancy confirmed'")
   })
+  it('the screening landing forwards only landlords and registered agents; a signed-in tenant sees the landing', () => {
+    const a = read('app/screening/AutoEnter.tsx')
+    expect(a).toContain('if (hats.landlord || isRegistrationLive(hats.agent)) router.replace(\'/screening/app\')')
+    expect(a).not.toContain('if (!cancelled && data.session) router.replace')
+  })
   it('the screening landing CTA is hat-aware: tenants get their own door', () => {
     const c = read('components/screening/ScreeningCta.tsx')
     expect(c).toContain('data-testid="screening-cta-tenant"')

@@ -14,6 +14,7 @@ import { useT } from '@/lib/i18n'
 import { CITIES, coverageFor, TRADES, type Trade } from '@/lib/marketplace/trades'
 import { providerMetrics, type WoRow } from '@/lib/marketplace/workOrders'
 import DispatchPolicyCard, { type PolicyProvider } from '@/components/marketplace/DispatchPolicyCard'
+import { useMarketplaceConfig } from '@/lib/marketplace/config'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; contact_email: string | null; contact_phone: string | null; website: string | null; verified_at: string | null }
 type Cred = { provider_id: string; kind: string; expires_at: string | null; verified_at: string | null }
@@ -29,6 +30,7 @@ export default function LandlordProvidersPage() {
   const [mine, setMine] = useState<{ external_email: string | null; external_name: string | null; provider_id: string | null; status: string; created_at: string; quoted_at: string | null; approved_amount: number | null; invoice_amount: number | null; schedule_start: string | null; arrived_at: string | null; accepted_at: string | null; emergency: boolean }[]>([])
   const [trade, setTrade] = useState<Trade | 'all'>('all')
   const [city, setCity] = useState<string>('all')
+  const { graceDays } = useMarketplaceConfig()
   useEffect(() => {
     if (auth.loading || !auth.user) return
     let cancelled = false
@@ -51,16 +53,16 @@ export default function LandlordProvidersPage() {
 
   const rows = useMemo(() => providers.filter((p) => (trade === 'all' || p.trades.includes(trade)) && (city === 'all' || p.service_cities.includes(city))).map((p) => {
     const pc = creds.filter((c) => c.provider_id === p.id)
-    const cov = p.trades.map((t) => ({ t: t as Trade, ok: coverageFor(t as Trade, pc).ok }))
+    const cov = p.trades.map((t) => ({ t: t as Trade, ok: coverageFor(t as Trade, pc, new Date(), graceDays).ok }))
     const rv = reviews.filter((r) => r.provider_id === p.id)
     const avg = rv.length ? Math.round((rv.reduce((s, r) => s + r.overall, 0) / rv.length) * 10) / 10 : null
     const myJobs = mine.filter((m) => m.provider_id === p.id)
     return { p, cov, avg, n: rv.length, metrics: providerMetrics(myJobs as WoRow[]) }
-  }), [providers, creds, reviews, mine, trade, city])
+  }), [providers, creds, reviews, mine, trade, city, graceDays])
   const policyProviders = useMemo<PolicyProvider[]>(() => providers.map((p) => {
     const pc = creds.filter((c) => c.provider_id === p.id)
-    return { id: p.id, name: p.trade_name || p.legal_name, coveredTrades: (p.trades as Trade[]).filter((t) => coverageFor(t, pc).ok) }
-  }), [providers, creds])
+    return { id: p.id, name: p.trade_name || p.legal_name, coveredTrades: (p.trades as Trade[]).filter((t) => coverageFor(t, pc, new Date(), graceDays).ok) }
+  }), [providers, creds, graceDays])
   const contacts = useMemo(() => {
     const m = new Map<string, { name: string | null; jobs: number; last: string }>()
     for (const w of mine) { if (!w.external_email) continue; const cur = m.get(w.external_email); m.set(w.external_email, { name: w.external_name || cur?.name || null, jobs: (cur?.jobs ?? 0) + 1, last: cur?.last ?? w.created_at }) }
@@ -84,7 +86,7 @@ export default function LandlordProvidersPage() {
                   <span className="font-bold">{p.trade_name || p.legal_name}</span>
                   <StatusPill tone="ok">{zh ? '资质已核' : 'verified'}{p.verified_at ? ` · ${p.verified_at.slice(0, 10)}` : ''}</StatusPill>
                   {avg != null && <span className="text-[12px] text-body-2">★ {avg} ({n})</span>}
-                  {metrics.offered > 0 && <span className="text-[11.5px] text-body-3">{zh ? `你派过 ${metrics.offered} 次 · 接单率 ${metrics.acceptRate == null ? '—' : Math.round(metrics.acceptRate * 100) + '%'}` : `${metrics.offered} dispatched · accept ${metrics.acceptRate == null ? '—' : Math.round(metrics.acceptRate * 100) + '%'}`}</span>}
+                  {metrics.offered > 0 && <span className="text-[11.5px] text-body-3" data-testid="provider-track-record">{zh ? `你派过 ${metrics.offered} 次 · 接单率 ${metrics.acceptRate == null ? '—' : Math.round(metrics.acceptRate * 100) + '%'}${metrics.responseHoursMedian != null ? ` · 响应中位 ${metrics.responseHoursMedian} 小时` : ''}${metrics.onTimeRate != null ? ` · 准时 ${Math.round(metrics.onTimeRate * 100)}%` : ''}` : `${metrics.offered} dispatched · accept ${metrics.acceptRate == null ? '—' : Math.round(metrics.acceptRate * 100) + '%'}${metrics.responseHoursMedian != null ? ` · median response ${metrics.responseHoursMedian} h` : ''}${metrics.onTimeRate != null ? ` · on time ${Math.round(metrics.onTimeRate * 100)}%` : ''}`}</span>}
                 </div>
                 <div className="mt-1 flex flex-wrap gap-1.5">{cov.map((c) => { const d = TRADES.find((x) => x.key === c.t); return <span key={c.t} className={'rounded-full px-2 py-[2px] text-[11px] ' + (c.ok ? 'bg-success/10 text-success' : 'bg-amber-50 text-amber-800')}>{d ? (zh ? d.zh : d.en) : c.t}{c.ok ? ' ✓' : (zh ? ' · 资质待补' : ' · credentials pending')}</span> })}</div>
                 <div className="mt-1 text-[12px] text-body-3">{p.service_cities.join(' · ')} · {p.pricing_mode === 'fixed' ? (zh ? '固定报价' : 'fixed quotes') : `${p.hourly_rate != null ? `$${p.hourly_rate}/h` : (zh ? '按工时' : 'hourly')}${p.call_out_fee != null ? ` · ${zh ? '上门费' : 'call-out'} $${p.call_out_fee}` : ''}`}{p.contact_phone ? ` · ${p.contact_phone}` : ''}{p.website ? ` · ${p.website}` : ''}</div>

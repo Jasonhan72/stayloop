@@ -460,6 +460,35 @@ async function executeWorkOrderDecision(admin: Admin, userId: string, action: Ac
   return finalizeExecution(admin, userId, action, `executed_${kind}`, { ok: true, kind, work_order_id: woId, status: r.wo.status }, { work_order_id: woId, status: r.wo.status })
 }
 
+// ---------------------------------------------------------------------------
+// Executor: work_order_overdue (节点 3 2026-09-26)
+// metadata: { work_order_id, ticket_id }. The daily sweep found an offer past
+// its quote deadline with no answer. Approval = withdraw the offer (cancel as
+// the row's landlord, reason on the timeline) and put the ticket back through
+// suggestDispatch without the contractor who went silent — a fresh card, or an
+// auto-dispatch under the landlord's policy. If the contractor answered in the
+// meantime, nothing is cancelled and the card says so.
+// ---------------------------------------------------------------------------
+async function executeWorkOrderOverdue(admin: Admin, userId: string, action: ActionRow, preview = false): Promise<NextResponse> {
+  const m = action.metadata || {}
+  const woId = typeof m.work_order_id === 'string' ? m.work_order_id : ''
+  if (!/^[0-9a-f-]{36}$/i.test(woId)) return NextResponse.json({ executed: false, reason: 'work_order_id missing' }, { status: 422 })
+  if (preview) return PREVIEW({ subject: action.title, body: action.summary || '', to: action.recipient_label || null })
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
+  const { data: wo } = await admin.from('work_orders').select('id, status, ticket_id, provider_id, landlord_auth_id').eq('id', woId).maybeSingle()
+  if (!wo) { await releaseClaim(admin, action.id, 'work_order_not_found'); return NextResponse.json({ executed: false, reason: 'work_order_not_found' }, { status: 404 }) }
+  if ((wo as { status: string }).status !== 'offered') {
+    // The contractor answered after the card was written: nothing to withdraw.
+    await admin.from('agent_pending_actions').update({ status: 'expired', execution_result: { ok: false, reason: 'work_order_already_answered', status: (wo as { status: string }).status } }).eq('id', action.id)
+    return NextResponse.json({ executed: false, reason: 'work_order_already_answered' }, { status: 409 })
+  }
+  const r = await actOnWorkOrder(admin, { woId, action: 'cancel', by: 'landlord', actorId: userId, payload: { reason: '逾期未报价，房东改派 / Quote overdue — reassigned by the landlord' } })
+  if (!r.ok) { await releaseClaim(admin, action.id, r.error); return NextResponse.json({ executed: false, reason: r.error }, { status: r.status }) }
+  const row = wo as { ticket_id: string; provider_id: string | null }
+  await suggestDispatch(admin, userId, row.ticket_id, { excludeProviderIds: row.provider_id ? [row.provider_id] : [], because: 'overdue' })
+  return finalizeExecution(admin, userId, action, 'executed_work_order_overdue', { ok: true, kind: 'reassign', work_order_id: woId, cancelled: true }, { work_order_id: woId, ticket_id: row.ticket_id })
+}
+
 async function executeSendMessage(
   admin: Admin,
   userId: string,
@@ -845,6 +874,8 @@ export async function POST(req: Request) {
       return executeWorkOrderDecision(admin, userId, action, 'approve_quote', preview)
     case 'accept_completion':
       return executeWorkOrderDecision(admin, userId, action, 'accept_completion', preview)
+    case 'work_order_overdue':
+      return executeWorkOrderOverdue(admin, userId, action, preview)
     case 'showing_request':
     case 'listing_inquiry':
       return executeShowingRequest(admin, userId, action, ud.user.email ?? null, preview)

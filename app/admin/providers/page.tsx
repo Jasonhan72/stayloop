@@ -10,7 +10,7 @@ import Header from '@/components/Header'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
-import { CREDENTIAL_LABEL, TRADES, coverageFor, earliestExpiry, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
+import { CREDENTIAL_LABEL, GRACE_DAYS_MAX, GRACE_ELIGIBLE_KINDS, TRADES, clampGraceDays, coverageFor, earliestExpiry, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 import { actOn } from '@/components/marketplace/WorkOrderCard'
 
 type Provider = { id: string; auth_id: string; legal_name: string; trade_name: string | null; business_number: string | null; service_cities: string[]; trades: string[]; contact_email: string | null; contact_phone: string | null; website: string | null; status: string; review_note: string | null; verified_at: string | null; updated_at: string; created_at: string }
@@ -32,6 +32,9 @@ export default function AdminProvidersPage() {
   const [tab, setTab] = useState<'pending' | 'all' | 'disputes'>('pending')
   const [busy, setBusy] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
+  // 节点 3: the one admin-configurable rule — grace days after expiry for paperwork-lag credentials.
+  const [grace, setGrace] = useState<number | null>(null)
+  const [graceMsg, setGraceMsg] = useState<string | null>(null)
 
   useEffect(() => {
     if (auth.loading) return
@@ -53,6 +56,21 @@ export default function AdminProvidersPage() {
     setDisputes((d ?? []) as Dispute[])
   }, [tab])
   useEffect(() => { if (adminRole && adminRole !== 'loading') void load() }, [adminRole, load])
+  useEffect(() => {
+    if (!adminRole || adminRole === 'loading') return
+    supabase.from('app_config').select('value').eq('key', 'marketplace').maybeSingle().then(({ data }) => {
+      const v = (data?.value && typeof data.value === 'object' ? data.value : {}) as Record<string, unknown>
+      setGrace(clampGraceDays(v.credential_grace_days))
+    })
+  }, [adminRole])
+  async function saveGrace(n: number) {
+    if (!auth.user) return
+    const v = clampGraceDays(n)
+    setGrace(v); setGraceMsg(null)
+    const { error } = await supabase.from('app_config').upsert({ key: 'marketplace', value: { credential_grace_days: v }, updated_at: new Date().toISOString(), updated_by: auth.user.id })
+    setGraceMsg(error ? error.message : (zh ? '已保存 · 生效于下一次派单 / 页面刷新' : 'Saved · applies to the next dispatch / page load'))
+    if (!error) await supabase.from('agent_audit_events').insert({ actor_id: auth.user.id, actor_type: 'user', action: 'marketplace_config_changed', target_type: 'app_config', target_id: null, acting_role: 'admin', metadata: { credential_grace_days: v, role: 'admin' } })
+  }
 
   async function decide(p: Provider, status: 'verified' | 'rejected' | 'suspended' | 'expired') {
     if (!auth.user) return
@@ -98,6 +116,16 @@ export default function AdminProvidersPage() {
         </div>
       </div>
 
+      <div className="mt-5 rounded-2xl border border-line-divider bg-white p-4 text-[13px]" data-testid="marketplace-rules">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-bold">{zh ? '过期宽限' : 'Grace after expiry'}</span>
+          <input type="number" min={0} max={GRACE_DAYS_MAX} value={grace ?? 0} disabled={grace == null} onChange={(e) => setGrace(clampGraceDays(e.target.value))} onBlur={() => grace != null && void saveGrace(grace)} className="w-20 rounded-lg border border-line-divider px-2 py-1 text-[16px] md:text-[13px]" />
+          <span className="text-body-3">{zh ? `天（0–${GRACE_DAYS_MAX}）` : `day(s) (0–${GRACE_DAYS_MAX})`}</span>
+          {graceMsg && <span className="text-[12px] text-body-3">{graceMsg}</span>}
+        </div>
+        <p className="mt-1 text-[12px] leading-relaxed text-body-3">{zh ? `只适用于文书类资质（${GRACE_ELIGIBLE_KINDS.map((k) => CREDENTIAL_LABEL[k].zh).join('、')}）：到期后这些天内仍计入工种覆盖，给续保 / 续证的文书留时间。法定执照（STO 资格证、ESA、TSSA、MECP）永不宽限——过期即无照。` : `Applies only to paperwork credentials (${GRACE_ELIGIBLE_KINDS.map((k) => CREDENTIAL_LABEL[k].en).join(', ')}): they still count toward coverage for this many days after expiry, leaving time for renewal paperwork. Statutory licences (STO C of Q, ESA, TSSA, MECP) never get grace — expired means unlicensed.`}</p>
+      </div>
+
       {tab === 'disputes' ? (
         <div className="mt-5 space-y-3">
           {disputes.length === 0 && <div className="rounded-xl border border-line-divider bg-white p-6 text-[13px] text-body-3">{zh ? '没有争议单。' : 'No disputes.'}</div>}
@@ -124,7 +152,7 @@ export default function AdminProvidersPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-[15px] font-bold">{p.trade_name || p.legal_name} {p.trade_name && <span className="text-[12px] font-normal text-body-3">({p.legal_name})</span>}{p.business_number && <span className="ml-2 font-mono text-[12px] text-body-3">#{p.business_number}</span>}</div>
-                    <div className="text-[12.5px] text-body-2">{p.trades.map((t) => { const d = TRADES.find((x) => x.key === t); const cov = coverageFor(t as Trade, pc); return `${d ? (zh ? d.zh : d.en) : t}${cov.ok ? ' ✓' : ' ✗'}` }).join(' · ')} · {p.service_cities.join(', ')}</div>
+                    <div className="text-[12.5px] text-body-2">{p.trades.map((t) => { const d = TRADES.find((x) => x.key === t); const cov = coverageFor(t as Trade, pc, new Date(), grace ?? 0); return `${d ? (zh ? d.zh : d.en) : t}${cov.ok ? (cov.inGrace.length ? ' ✓(宽限)' : ' ✓') : ' ✗'}` }).join(' · ')} · {p.service_cities.join(', ')}</div>
                     <div className="text-[11.5px] text-body-3">{p.contact_email || '—'} · {p.contact_phone || '—'}{p.website ? ` · ${p.website}` : ''} · {zh ? '提交于' : 'submitted'} {p.created_at.slice(0, 10)}{exp ? ` · ${zh ? '最早到期' : 'earliest expiry'} ${(zh ? CREDENTIAL_LABEL[exp.kind as CredentialKind]?.zh : CREDENTIAL_LABEL[exp.kind as CredentialKind]?.en) ?? exp.kind} ${exp.days}d` : ''}</div>
                   </div>
                   <span className="rounded-full px-2 py-[2px] text-[11px] font-bold" style={p.status === 'verified' ? { background: '#E4EEE3', color: '#065F46' } : p.status === 'pending' ? { background: '#FEF3E2', color: '#B45309' } : { background: '#FEF2F2', color: '#B91C1C' }}>{p.status}</span>

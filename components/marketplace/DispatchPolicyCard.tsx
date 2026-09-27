@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { DEFAULT_POLICY, EMERGENCY_CAP_MAX, normalizePolicy, type DispatchMode, type DispatchPolicy, MODE_LABEL } from '@/lib/marketplace/dispatchPolicy'
 import { TRADES, type Trade } from '@/lib/marketplace/trades'
+import { QUOTE_HOURS_DEFAULT } from '@/lib/marketplace/sla'
 
 export type PolicyProvider = { id: string; name: string; coveredTrades: Trade[] }
 
@@ -29,7 +30,7 @@ export default function DispatchPolicyCard({ providers, zh }: { providers: Polic
 
   useEffect(() => {
     if (auth.loading || !auth.user) return
-    supabase.from('dispatch_policies').select('mode, emergency_auto_approve, emergency_cap, preferred').eq('landlord_auth_id', auth.user.id).maybeSingle()
+    supabase.from('dispatch_policies').select('mode, emergency_auto_approve, emergency_cap, preferred, quote_hours').eq('landlord_auth_id', auth.user.id).maybeSingle()
       .then(({ data }) => { setPolicy(normalizePolicy(data as never)); setLoaded(true) })
   }, [auth.loading, auth.user])
 
@@ -72,6 +73,16 @@ export default function DispatchPolicyCard({ providers, zh }: { providers: Polic
               className="w-28 rounded-lg border border-line-divider px-2 py-1 text-[16px] md:text-[13px]" />
             <span className="text-[11.5px] text-body-3">{zh ? `最高 $${EMERGENCY_CAP_MAX}` : `max $${EMERGENCY_CAP_MAX}`}</span>
           </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-line-divider p-3 text-[13px]" data-testid="quote-hours">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bold">{zh ? '报价时限' : 'Quote deadline'}</span>
+            <select value={policy.quote_hours} disabled={!loaded} onChange={(e) => save({ ...policy, quote_hours: Number(e.target.value) })} className="rounded-lg border border-line-divider bg-white px-2 py-1 text-[16px] md:text-[13px]">
+              {[24, 36, 48, 60, 72].map((h) => <option key={h} value={h}>{h} {zh ? '小时' : 'h'}{h === QUOTE_HOURS_DEFAULT ? (zh ? '（默认）' : ' (default)') : ''}</option>)}
+            </select>
+          </div>
+          <p className="mt-1 text-[12px] leading-relaxed text-body-3">{zh ? '服务商收到派单后要在这段时间内接单报价或选原因婉拒。逾期：系统提醒服务商，并给你一张「改派」卡——批准 = 撤回派单、推荐下一位（不再派给同一家）。' : 'A contractor must accept with a quote or decline (with a reason) within this window. Overdue: the contractor is reminded and you get a “reassign” card — approving withdraws the offer and suggests the next candidate (never the same one).'}</p>
         </div>
 
         <div className="mt-4 text-[13px]">

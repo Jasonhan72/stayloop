@@ -2346,3 +2346,27 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
 - **文案与可访问性**：`/apply` 宠物 / 吸烟下拉改「否 / 是」（`Select` 接受 `{value,label}`）；「brief 包」→「带看准备包」；材料预览多一个「下载 ↓」（`/api/file-url`
   `download:true` → 附件式签名 URL + 审计 `application_file_downloaded`，与查看分开）；发布向导按钮旁明写缺什么（照片 / 地址 / 月租）；经纪的设置页显示
   「套餐 · 经纪 · 即将推出，现在全部免费」；`/leases/import` 登录后放进 `WorkspaceShell`（按当前帽子），文件输入有 aria-label。
+
+## 分阶段改进 · 节点 3「可执行」（2026-09-26 · 报告 7 · 8 · 服务商经营视图与证照规则）
+
+守卫 `tests/node3Execution20260926.spec.ts`；迁移 `20260926_node3_execution.sql`（已应用 prod）。规则全部在纯模块 `lib/marketplace/sla.ts`，
+服务端 `lib/marketplace/server.ts` + 日扫 `lib/marketplace/sweep.ts`（挂在 `/api/agent/proactive` 的 cron 模式里，与续约扫描并列、互不遮蔽）。
+- **SLA**：`dispatch_policies.quote_hours`（24–72，默认 48，`DispatchPolicyCard` 可选）→ `createWorkOrder` 写 `work_orders.quote_due_at`，派单邮件写明截止时刻；
+  工单卡与 `/w/[token]` 显示倒计时（≤12 小时琥珀、逾期红）。日扫把逾期未回应的 offer 盖一次 `sla_overdue_at`、写系统事件 `quote_overdue`、
+  邮件 + 推送提醒服务商，并给房东一张 **`work_order_overdue`** 卡：批准 = 以房东身份 `cancel`（原因写在时间线）+ `suggestDispatch(…, { excludeProviderIds, because: 'overdue' })`
+  （新卡或按策略自动派给下一位，**永不派回同一家**）；服务商已回应则卡片过期并说明。审计 `work_order_quote_overdue` / `executed_work_order_overdue`。
+- **婉拒必须带原因**：`DECLINE_CODES`（排不开 / 不在范围 / 非本工种 / 描述不清 / 价格 / 其他须备注）→ `work_orders.decline_code` + `cancel_reason`，
+  服务端 `validateDecline` 拒绝无原因（400 `decline_reason_required`）；婉拒后**立即**为房东重新建议（排除该服务商），旧派单卡过期。
+- **报价成版本**：`work_orders.quote_version` 每次 accept / quote +1（事件 payload 带 version），卡片显示「第 N 版 · 有效期至」，报价表单可填有效期。
+- **服务商工作台 `/provider/jobs`**：六格（新邀请（含临近 / 已过截止数）· 已报价等房东 · 进行中 · 待验收 · 待结算（金额）· 今年收入 + 评分），
+  每个工种一枚覆盖标签「已覆盖 · 可接派单 / 未覆盖 · 不会收到派单 — 缺 X」（`coverageLabel`），到期横幅按 90 / 60 / 30 / 7 / 过期分级变色（`expiryTone`），
+  空工作台写明第一张工单怎么来。**新页 `/provider/history`**：响应时长中位 / 准时率（窗口开始 15 分钟内）/ 接单率 / 一次解决率 / 返工率 / 争议率
+  （`providerMetrics` 新增三项）、按月线下结算记录（以房东「标记已付」为准，不是发票）、收到的评价、历史工单含婉拒原因。
+  纯视图函数在 `lib/marketplace/providerView.ts`——**page.tsx 不能导出多余符号**（Next 会在构建时拒绝）。
+- **证照提醒分级**：`provider_credentials.reminders_sent integer[]` 记录已发的档（90 / 60 / 30 / 7 / 0 = 已过期）；`dueReminder` 每份资质每档一次、
+  只发最低的到期档并把更高档一并标记（补录的资质不会连发两封），过期 30 天后不再提醒；每家服务商每轮一封邮件 + 一条推送 + 审计 `credential_expiry_reminder`。
+  守卫触发器让自助写入碰不到 `reminders_sent`，改到期日则重置阶梯。入驻页每个工种旁有覆盖标签，保存后提示还缺哪张。
+- **管理员可配的宽限**：`app_config.marketplace.credential_grace_days`（0–14，`/admin/providers` 顶部「过期宽限」）——**只适用于文书类资质**
+  （WSIB 清关 / 责任险 / 企业注册，`GRACE_ELIGIBLE_KINDS`），法定执照（STO / ESA / TSSA / MECP）永不宽限。服务端 `loadMarketplaceConfig` 在每次资格判断时读它，
+  页面经 `GET /api/config/marketplace`（`useMarketplaceConfig`）读同一个值，所以覆盖标签与派单资格永远一致。
+- **顺带**：`Header` 应用壳的身份芯片在中性页（/notifications、/settings）对来自服务商工作台的账号显示「服务商」（此前显示租客）。

@@ -10,7 +10,7 @@ const R = '33333333-3333-3333-3333-333333333333'
 
 describe('normalizePolicy', () => {
   it('defaults to suggest with auto-approve off', () => {
-    expect(normalizePolicy(null)).toEqual({ mode: 'suggest', emergency_auto_approve: false, emergency_cap: 500, preferred: {} })
+    expect(normalizePolicy(null)).toEqual({ mode: 'suggest', emergency_auto_approve: false, emergency_cap: 500, preferred: {}, quote_hours: 48 })
   })
   it('clamps the cap, rejects unknown modes and non-uuid preferences', () => {
     const p = normalizePolicy({ mode: 'yolo', emergency_auto_approve: true, emergency_cap: 99999, preferred: { plumbing: P, electrical: 'nope' } })

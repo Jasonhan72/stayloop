@@ -25,7 +25,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
   if (!v) return NextResponse.json({ error: 'not found' }, { status: 404, headers: { 'Referrer-Policy': 'no-referrer' } })
   const w = v.wo
   return NextResponse.json({
-    work_order: { id: w.id, status: w.status, trade: w.trade, scope: w.scope, emergency: w.emergency, entry_permission: w.entry_permission, quote_amount: w.quote_amount, quote_type: w.quote_type, quote_note: w.quote_note, approved_amount: w.approved_amount, schedule_start: w.schedule_start, schedule_end: w.schedule_end, arrived_at: w.arrived_at, completed_at: w.completed_at, invoice_amount: w.invoice_amount, accepted_at: w.accepted_at, paid_at: w.paid_at, external_name: w.external_name, created_at: w.created_at },
+    work_order: { id: w.id, status: w.status, trade: w.trade, scope: w.scope, emergency: w.emergency, entry_permission: w.entry_permission, quote_amount: w.quote_amount, quote_type: w.quote_type, quote_note: w.quote_note, approved_amount: w.approved_amount, schedule_start: w.schedule_start, schedule_end: w.schedule_end, arrived_at: w.arrived_at, completed_at: w.completed_at, invoice_amount: w.invoice_amount, accepted_at: w.accepted_at, paid_at: w.paid_at, external_name: w.external_name, created_at: w.created_at, quote_due_at: w.quote_due_at, quote_version: w.quote_version, quote_valid_until: w.quote_valid_until, decline_code: w.decline_code, cancel_reason: w.cancel_reason },
     ticket: v.ticket, address: v.address, landlord_email: v.landlordEmail,
   }, { headers: { 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store' } })
 }

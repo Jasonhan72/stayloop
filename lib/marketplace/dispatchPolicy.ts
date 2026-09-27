@@ -12,6 +12,7 @@
 // emergency quote up to a cap. The quote still has to be > 0 and the CPA 10%
 // rule still binds the invoice to it; non-emergency quotes always need a click.
 import type { Trade } from './trades'
+import { clampQuoteHours, QUOTE_HOURS_DEFAULT } from './sla'
 
 export type DispatchMode = 'suggest' | 'auto_emergency' | 'auto_all'
 export const DISPATCH_MODES: readonly DispatchMode[] = ['suggest', 'auto_emergency', 'auto_all']
@@ -29,9 +30,11 @@ export type DispatchPolicy = {
   emergency_cap: number
   /** trade → provider id the landlord wants tried first */
   preferred: Partial<Record<Trade, string>>
+  /** hours a contractor has to answer an offer (节点 3): 24–72, default 48 */
+  quote_hours: number
 }
 
-export const DEFAULT_POLICY: DispatchPolicy = { mode: 'suggest', emergency_auto_approve: false, emergency_cap: 500, preferred: {} }
+export const DEFAULT_POLICY: DispatchPolicy = { mode: 'suggest', emergency_auto_approve: false, emergency_cap: 500, preferred: {}, quote_hours: QUOTE_HOURS_DEFAULT }
 
 export function normalizePolicy(row: Partial<Record<keyof DispatchPolicy, unknown>> | null | undefined): DispatchPolicy {
   if (!row) return { ...DEFAULT_POLICY, preferred: {} }
@@ -42,7 +45,7 @@ export function normalizePolicy(row: Partial<Record<keyof DispatchPolicy, unknow
   if (row.preferred && typeof row.preferred === 'object') {
     for (const [k, v] of Object.entries(row.preferred as Record<string, unknown>)) if (typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v)) preferred[k as Trade] = v
   }
-  return { mode, emergency_auto_approve: row.emergency_auto_approve === true, emergency_cap: cap, preferred }
+  return { mode, emergency_auto_approve: row.emergency_auto_approve === true, emergency_cap: cap, preferred, quote_hours: row.quote_hours == null ? QUOTE_HOURS_DEFAULT : clampQuoteHours(row.quote_hours) }
 }
 
 export type Candidate = {

@@ -125,13 +125,13 @@ describe('provider side', () => {
     expect(rail).toContain('data-testid="drawer-provider-jobs"')
     expect(rail).toContain('href="/provider/jobs"')
   })
-  it('/provider/jobs warns ≤30 days before the earliest required credential expires, red once expired', () => {
+  it('/provider/jobs warns about the earliest required credential expiry, coloured by tier (节点 3: 90 / 60 / 30 / 7 / expired)', () => {
     const j = read('app/provider/jobs/page.tsx')
     expect(j).toContain('earliestExpiry(')
     expect(j).toContain("from('provider_credentials').select('kind, expires_at, verified_at')")
-    expect(j).toContain('expiry.days <= 30')
+    expect(j).toContain('expiryTone(expiry.days)')
     expect(j).toContain('data-testid="credential-expiry"')
-    expect(j).toContain("expiry.days < 0 ? 'border-red-200")
+    expect(j).toContain("tone === 'expired' || tone === 'critical' ? 'border-red-200")
     expect(j).toContain('href="/provider/onboard" className="font-bold underline"')
   })
 })
