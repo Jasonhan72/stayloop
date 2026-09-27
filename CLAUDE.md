@@ -2463,3 +2463,9 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   与服务商历史页；审计 `work_order_receipt_generated`（matter = 工单 + rental_matter_id）。
 - **正式通知与提醒的分流**在节点 4 已成形（邮件 = 正式通知；线程 = 副本 + 免责句；推送 = 提醒）；证据包把三者分栏呈现。
 - **按既定决定不做**：CASL 营销同意管理（没有营销邮件）、保险 / 法律服务商类型（FSRA / LSO 资质形态未定）、组织成员。
+- **生产实跑（2026-09-27 凌晨，`scratchpad/e2e-export.sh`）**：房东 JWT 对 100 Test Ave 的事务 `0b93ea2f` 导出 → HTTP 200、26 KB、8 个章节、2 份正式通知副本、
+  9 条对话块、1 条附件 SHA-256、0 处分数、响应头带指纹；同一房东对已付款工单 `fcbcfcf1` 生成回执 → 200、「线下结算回执」「不经手资金」在文中；服务商号
+  （非当事人）导出同一事务 → 403；审计 `matter_export_generated` / `work_order_receipt_generated` 各一行带 `rental_matter_id`。界面：`/landlord/progress` 三张事务卡
+  各有「Evidence pack ↗」，hub 报修标签的已验收 / 已付款工单卡分别显示「Acceptance record ↗」「Settlement receipt ↗」（内置浏览器对脚本触发的 `window.open`
+  不开新标签，属自动化环境限制；路由本身已由 curl 验证）。
+- **六个节点至此全部落地**（可信 → 清楚 → 可执行 → 连贯 → 事务主记录与经纪委托 → 可收口），每个节点一次部署 + 四个测试号核对，记录在本文件各节。
