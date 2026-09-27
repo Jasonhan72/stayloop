@@ -2529,3 +2529,7 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   只在登录且页面持有头像状态时可编辑（`canEdit = live && !!onAvatarChange`），匿名预览只看。状态经 `AgentChat` 新 prop `onAvatarChange` 从
   `AgentWorkspacePage`（`setAvatar`）传下来，改完对话头部立即换脸。
 - **`/settings` 新增「修改 AI 助手头像」快捷块**（在「修改 AI 助手名字」之下）：读 `assistant_profiles` 当前值，点一个即保存，任何设备都能到。
+- **生产实跑（2026-09-27 晚，ship53，租客测试号，375px）**：`/tenant/agent` 点头像 → 弹层头部有头像 + 铅笔 → 菜单「Change avatar / Edit name」→ 选择格 41 个按钮
+  （默认 + 40）→ 点熊猫 → 弹层与对话头部立即换脸；「Edit name」→ 输入 Pixel 提交 → 名字即换；库里 `assistant_profiles` 变为 `avatar=panda · name=Pixel`
+  （之后已还原为空）；`/settings` 的「Change AI assistant avatar」快捷块展开同一选择格，无横向溢出。匿名预览的弹层只显示头像 + 名字，没有铅笔。
+  部署门禁曾被 `review20260925` 里钉在面板文件上的「默认头像高亮」断言拦下一次，已改指向 `AvatarPicker`。
