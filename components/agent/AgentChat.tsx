@@ -18,6 +18,8 @@ import { WORKFLOW_STAGES, stageIndex } from '@/lib/agent/orchestrator'
 import { LISTINGS_PAGE, nextBatchPrompt, pageListings } from '@/lib/agent/listingPaging'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
 import { AssistantAvatar } from '@/lib/agent/avatars'
+import IntakeCard from './IntakeCard'
+import { intakeFor, type IntakeSpec } from '@/lib/agent/intake'
 
 export const ACCENT: Record<AgentRole, string> = {
   tenant: ROLE_THEME.tenant.accent,
@@ -25,26 +27,28 @@ export const ACCENT: Record<AgentRole, string> = {
   agent: ROLE_THEME.agent.accent,
 }
 
-// Quick-start prompts shown while the thread is empty — one tap sends the
-// prompt, so the blank console teaches what the agent can do.
-// `prompt` is the demo sentence (sent as-is on the anonymous homepage hero).
-// `template` is what a SIGNED-IN user gets: it is put into the composer with
-// 【…】 placeholders selected, never sent by itself — the specifics are theirs
-// to type (user report 2026-09-23: the「发起报修」example was sent verbatim and
-// the assistant treated "厨房水槽漏水" as the real problem).
-const SUGGESTIONS: Record<AgentRole, { icon: string; label: { zh: string; en: string }; prompt: { zh: string; en: string }; template?: { zh: string; en: string } }[]> = {
+// Quick-start cards shown while the thread is empty.
+// `key` names the guided intake in lib/agent/intake.ts: on the workspace page
+// (signed in or preview) and the signed-in homepage a tap opens a step-by-step
+// card in the thread — one question at a time, chips + free text, a review of
+// the composed sentence — instead of dropping a 【…】 fill-in into the composer
+// (user 2026-09-27: "不是简单复制这个标题内容到输入，要有一个一步步引导的过程").
+// `prompt` is the demo sentence the ANONYMOUS homepage hero still sends as-is.
+// The 2026-09-23 lesson stands: an example is never sent as the user's fact
+// once they are signed in.
+const SUGGESTIONS: Record<AgentRole, { key: string; icon: string; label: { zh: string; en: string }; prompt: { zh: string; en: string } }[]> = {
   tenant: [
-    { icon: '🔍', label: { zh: '帮我找房', en: 'Find me a home' }, prompt: { zh: '帮我找市中心 $2,500 以内的一居室,最好离地铁近。', en: 'Find me a downtown 1-bed under $2,500, close to the subway.' }, template: { zh: '帮我找【区域】、预算【$金额】以内的【户型】，【其他要求，如离地铁近 / 可养猫 / 入住日期】。', en: 'Find me a 【unit type】 in 【area】 under 【$budget】, 【other needs — near transit / cat OK / move-in date】.' } },
-    { icon: '📄', label: { zh: '解读租约', en: 'Explain my lease' }, prompt: { zh: '帮我逐条解释租约里最需要注意的条款。', en: 'Walk me through the lease clauses I should watch out for.' } },
-    { icon: '🔧', label: { zh: '发起报修', en: 'Report a repair' }, prompt: { zh: '厨房水槽漏水,帮我整理成报修工单发给房东。', en: 'The kitchen sink is leaking — turn this into a repair ticket for my landlord.' }, template: { zh: '我要报修：【哪里，如厨房 / 卫生间】【什么问题】，【从什么时候开始】，【是否紧急】。请整理成报修工单发给房东。', en: 'Repair request: 【where — kitchen / bathroom】【what is wrong】, 【since when】, 【urgent or not】. Turn it into a ticket for my landlord.' } },
-    { icon: '⭐', label: { zh: '盖下一枚章', en: 'Earn my next stamp' }, prompt: { zh: '我现在盖了几枚章?下一枚怎么盖,能解锁什么?', en: 'How many stamps do I have? How do I earn the next one, and what does it unlock?' } },
+    { key: 'find_home', icon: '🔍', label: { zh: '帮我找房', en: 'Find me a home' }, prompt: { zh: '帮我找市中心 $2,500 以内的一居室,最好离地铁近。', en: 'Find me a downtown 1-bed under $2,500, close to the subway.' } },
+    { key: 'explain_lease', icon: '📄', label: { zh: '解读租约', en: 'Explain my lease' }, prompt: { zh: '帮我逐条解释租约里最需要注意的条款。', en: 'Walk me through the lease clauses I should watch out for.' } },
+    { key: 'repair', icon: '🔧', label: { zh: '发起报修', en: 'Report a repair' }, prompt: { zh: '厨房水槽漏水,帮我整理成报修工单发给房东。', en: 'The kitchen sink is leaking — turn this into a repair ticket for my landlord.' } },
+    { key: 'stamps', icon: '⭐', label: { zh: '盖下一枚章', en: 'Earn my next stamp' }, prompt: { zh: '我现在盖了几枚章?下一枚怎么盖,能解锁什么?', en: 'How many stamps do I have? How do I earn the next one, and what does it unlock?' } },
   ],
   landlord: [
-    { icon: '🔎', label: { zh: '租客筛查', en: 'Tenant screening' }, prompt: { zh: '我要筛查一位申请人：告诉我报告会查什么、需要准备哪些材料，然后带我开始。', en: 'I want to screen an applicant: tell me what the report checks, what documents I need, then take me to start.' } },
-    { icon: '🏠', label: { zh: '发布房源', en: 'List a property' }, prompt: { zh: '我要发布一个新房源,你来帮我整理信息。', en: 'I want to list a new property — help me put it together.' } },
-    { icon: '📥', label: { zh: '看看新申请', en: 'Review applications' }, prompt: { zh: '帮我看看最新的申请,按质量排序并说明理由。', en: 'Review my latest applications, rank them and explain why.' } },
-    { icon: '📝', label: { zh: '续约方案', en: 'Renewal options' }, prompt: { zh: '帮我看看哪些租约快到期了,给我续约方案和合规涨幅。', en: 'Which leases are coming up? Give me renewal options with the legal increase.' } },
-    { icon: '⚖️', label: { zh: '合规检查', en: 'Compliance check' }, prompt: { zh: '帮我检查我的房源和租约有没有 RTA 合规风险。', en: 'Check my listings and leases for RTA compliance risks.' } },
+    { key: 'screen', icon: '🔎', label: { zh: '租客筛查', en: 'Tenant screening' }, prompt: { zh: '我要筛查一位申请人：告诉我报告会查什么、需要准备哪些材料，然后带我开始。', en: 'I want to screen an applicant: tell me what the report checks, what documents I need, then take me to start.' } },
+    { key: 'list', icon: '🏠', label: { zh: '发布房源', en: 'List a property' }, prompt: { zh: '我要发布一个新房源,你来帮我整理信息。', en: 'I want to list a new property — help me put it together.' } },
+    { key: 'applications', icon: '📥', label: { zh: '看看新申请', en: 'Review applications' }, prompt: { zh: '帮我看看最新的申请,按质量排序并说明理由。', en: 'Review my latest applications, rank them and explain why.' } },
+    { key: 'renewal', icon: '📝', label: { zh: '续约方案', en: 'Renewal options' }, prompt: { zh: '帮我看看哪些租约快到期了,给我续约方案和合规涨幅。', en: 'Which leases are coming up? Give me renewal options with the legal increase.' } },
+    { key: 'compliance', icon: '⚖️', label: { zh: '合规检查', en: 'Compliance check' }, prompt: { zh: '帮我检查我的房源和租约有没有 RTA 合规风险。', en: 'Check my listings and leases for RTA compliance risks.' } },
   ],
   // Agent cards follow the Ontario leasing-agent workflow (research
   // 2026-09-13: RECO/TRESA leasing obligations, RTA s.106/s.134, OHRC
@@ -53,11 +57,11 @@ const SUGGESTIONS: Record<AgentRole, { icon: string; label: { zh: string; en: st
   // stay inside the rules. Each card is backed by a real capability of
   // /api/agent/turn — no card promises what Brief cannot do.
   agent: [
-    { icon: '🔎', label: { zh: '租客筛查', en: 'Tenant screening' }, prompt: { zh: '我替房东客户收到一份租房申请。帮我筛查这位申请人：告诉我报告会查什么、要申请人提交哪些材料，然后带我开始。', en: 'I have a rental application for my landlord client. Screen the applicant: tell me what the report checks, what the applicant must submit, then take me to start.' } },
-    { icon: '📊', label: { zh: '挂牌定价', en: 'Price the listing' }, prompt: { zh: '帮客户的房源定租金：拉这个区域同户型的实时挂牌和 TRREB 官方成交数据做比价。', en: "Price my client's unit: pull live listings for the same area and unit type plus the TRREB benchmark for comparison." } },
-    { icon: '📋', label: { zh: '带看准备包', en: 'Showing prep pack' }, prompt: { zh: '帮我为下一场带看准备材料包：房东授权回答与不授权回答的清单、现场 checklist、要向申请人收的材料。', en: 'Prep my next showing: what the landlord authorised me to answer and what not, an on-site checklist, and the documents to collect from applicants.' } },
-    { icon: '📝', label: { zh: '租约与押金', en: 'Lease & deposit' }, prompt: { zh: '客户要签约了：安省标准租约和 OREA Form 400 各管什么、押金最多收多少、哪些费用不能收、签后几天内要给租客副本？', en: 'My client is ready to sign: what do the Ontario Standard Lease and OREA Form 400 each cover, how much deposit is allowed, which charges are prohibited, and when must the tenant get a copy?' } },
-    { icon: '🛡️', label: { zh: '合规边界', en: 'Compliance boundaries' }, prompt: { zh: '带看和收申请时：哪些问题不能问（人权法）、哪些话不能替房东答、TRESA 要我先给客户什么文件？', en: 'At showings and intake: which questions are off-limits (Human Rights Code), what must I not answer for the landlord, and what does TRESA require me to give a client first?' } },
+    { key: 'agent_screen', icon: '🔎', label: { zh: '租客筛查', en: 'Tenant screening' }, prompt: { zh: '我替房东客户收到一份租房申请。帮我筛查这位申请人：告诉我报告会查什么、要申请人提交哪些材料，然后带我开始。', en: 'I have a rental application for my landlord client. Screen the applicant: tell me what the report checks, what the applicant must submit, then take me to start.' } },
+    { key: 'pricing', icon: '📊', label: { zh: '挂牌定价', en: 'Price the listing' }, prompt: { zh: '帮客户的房源定租金：拉这个区域同户型的实时挂牌和 TRREB 官方成交数据做比价。', en: "Price my client's unit: pull live listings for the same area and unit type plus the TRREB benchmark for comparison." } },
+    { key: 'showing', icon: '📋', label: { zh: '带看准备包', en: 'Showing prep pack' }, prompt: { zh: '帮我为下一场带看准备材料包：房东授权回答与不授权回答的清单、现场 checklist、要向申请人收的材料。', en: 'Prep my next showing: what the landlord authorised me to answer and what not, an on-site checklist, and the documents to collect from applicants.' } },
+    { key: 'lease_deposit', icon: '📝', label: { zh: '租约与押金', en: 'Lease & deposit' }, prompt: { zh: '客户要签约了：安省标准租约和 OREA Form 400 各管什么、押金最多收多少、哪些费用不能收、签后几天内要给租客副本？', en: 'My client is ready to sign: what do the Ontario Standard Lease and OREA Form 400 each cover, how much deposit is allowed, which charges are prohibited, and when must the tenant get a copy?' } },
+    { key: 'boundaries', icon: '🛡️', label: { zh: '合规边界', en: 'Compliance boundaries' }, prompt: { zh: '带看和收申请时：哪些问题不能问（人权法）、哪些话不能替房东答、TRESA 要我先给客户什么文件？', en: 'At showings and intake: which questions are off-limits (Human Rights Code), what must I not answer for the landlord, and what does TRESA require me to give a client first?' } },
   ],
 }
 
@@ -141,6 +145,11 @@ export default function AgentChat({
   // Quick-action templates land here; the page's deep-link draft wins when newer.
   const [chipDraft, setChipDraft] = useState<ComposerDraft | null>(null)
   const composerDraft = draft && (!chipDraft || draft.nonce > chipDraft.nonce) ? draft : chipDraft
+  // Guided intake (2026-09-27): the open step-by-step card, if any. Workspace
+  // page (hero) and any signed-in chat open one; the anonymous homepage demo
+  // still sends the example sentence.
+  const [intake, setIntake] = useState<{ spec: IntakeSpec; icon: string } | null>(null)
+  const guided = live || hero
   const [sheet, setSheet] = useState(false)
   // Cards the user decided in this session collapse to one line instead of
   // vanishing (the session hook drops them from pendingActions).
@@ -172,10 +181,14 @@ export default function AgentChat({
   // offsets (message ids repeat across threads) and an unsent chip template
   // belong to the thread they were made in (review 2026-09-25).
   useEffect(() => {
+    setIntake(null)
     setDecided([])
     setListingOffset({})
     setChipDraft(null)
   }, [currentThreadId])
+  useEffect(() => {
+    if (messages.length > 1) setIntake(null)
+  }, [messages.length])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -425,16 +438,16 @@ export default function AgentChat({
         {threadLoading && (
           <div className="py-6 text-center font-mono text-[11px] text-body-3">{zh ? '读取对话…' : 'Loading the conversation…'}</div>
         )}
-        {messages.length <= 1 && !thinking && !threadLoading && (
+        {messages.length <= 1 && !thinking && !threadLoading && !intake && (
           <div className={`pl-9 pt-1 ${hero ? 'md:pl-0' : ''}`}>
             <div className="mb-2.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">
-              {lang === 'zh' ? '试试这些 · 一句话开工' : 'Try one — a single sentence starts the work'}
+              {guided ? (lang === 'zh' ? '从这里开始 · 我一步步问清楚，你只需要选' : 'Start here — I ask step by step, you tap') : (lang === 'zh' ? '试试这些 · 一句话开工' : 'Try one — a single sentence starts the work')}
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {SUGGESTIONS[role].map((s) => (
                 <button
                   key={s.label.en}
-                  onClick={() => { if (live && s.template) setChipDraft({ text: s.template[lang], nonce: Date.now() }); else void onSend(s.prompt[lang]) }}
+                  onClick={() => { const spec = guided ? intakeFor(s.key) : null; if (spec) setIntake({ spec, icon: s.icon }); else void onSend(s.prompt[lang]) }}
                   className="group flex items-center gap-3 rounded-xl border border-line-divider bg-white px-3.5 py-3 text-left transition hover:shadow-sm"
                   style={{ borderColor: undefined }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = accent }}
@@ -445,11 +458,24 @@ export default function AgentChat({
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[13px] font-bold">{s.label[lang]}</span>
-                    <span className="block truncate text-[11.5px] text-body-3">{live && s.template ? s.template[lang] : s.prompt[lang]}</span>
+                    <span className="block truncate text-[11.5px] text-body-3">{guided && intakeFor(s.key) ? intakeFor(s.key)!.outline[lang] : s.prompt[lang]}</span>
                   </span>
                 </button>
               ))}
             </div>
+          </div>
+        )}
+        {intake && messages.length <= 1 && (
+          <div className={`pt-1 ${hero ? 'md:pl-0' : 'pl-9'}`}>
+            <IntakeCard
+              spec={intake.spec}
+              icon={intake.icon}
+              lang={lang}
+              accent={accent}
+              onClose={() => setIntake(null)}
+              onDraft={(text) => { setIntake(null); setChipDraft({ text, nonce: Date.now() }) }}
+              onSend={async (text, atts) => { setIntake(null); await onSend(text, atts) }}
+            />
           </div>
         )}
         {thinking && (

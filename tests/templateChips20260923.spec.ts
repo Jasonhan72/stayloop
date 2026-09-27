@@ -12,11 +12,12 @@ describe('quick-action templates are edited by the user, not sent as facts', () 
     expect(hasUnfilledTemplate('我要报修：【哪里】【什么问题】')).toBe(true)
     expect(hasUnfilledTemplate('我要报修：厨房水槽漏水，昨天开始，不紧急')).toBe(false)
   })
-  it('tenant chips with specifics carry a template and live sessions prefill instead of sending', () => {
+  it('quick-start cards never send their example once signed in: since 2026-09-27 they open a guided intake (tests/guidedIntake20260927.spec.ts) whose sentences carry no placeholder', () => {
     const src = readFileSync('components/agent/AgentChat.tsx', 'utf8')
-    expect(src).toMatch(/label: \{ zh: '发起报修'[^\n]*template: \{ zh: '我要报修：【/)
-    expect(src).toMatch(/label: \{ zh: '帮我找房'[^\n]*template: \{ zh: '帮我找【区域】/)
-    expect(src).toMatch(/if \(live && s\.template\) setChipDraft\(/)
+    expect(src).toMatch(/key: 'repair', icon: '🔧', label: \{ zh: '发起报修'/)
+    expect(src).toMatch(/key: 'find_home', icon: '🔍', label: \{ zh: '帮我找房'/)
+    expect(src).not.toMatch(/template: \{ zh:/)
+    expect(src).toMatch(/const spec = guided \? intakeFor\(s\.key\) : null; if \(spec\) setIntake\(/)
   })
   it('deep links prefill by default; only real-row links opt into send=1; no fabricated names in demo links', () => {
     const hook = readFileSync('lib/agent/usePromptDeepLink.ts', 'utf8')

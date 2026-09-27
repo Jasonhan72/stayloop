@@ -12,10 +12,7 @@ import { useAuth } from '@/lib/useAuth'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import type { AgentRole, ChatAttachment } from '@/lib/agent/types'
 import { ROLE_THEME } from '@/lib/roleTheme'
-
-
-const MAX_FILES = 3
-const MAX_BYTES = 4 * 1024 * 1024 // 4MB
+import { ATTACH_ACCEPT, ATTACH_MAX_FILES, readFilesAsAttachments } from '@/lib/agent/attachments'
 
 type TurnModelState = {
   options: { id: string; label: string }[]
@@ -161,28 +158,9 @@ export default function AgentInputBar({
   }
 
   const addFiles = async (files: FileList | null) => {
-    if (!files) return
-    // Read every accepted file to completion, then commit once — reading them
-    // in parallel and calling setAtts per-callback raced and dropped files.
-    const accepted = Array.from(files).filter((f) => f.size <= MAX_BYTES)
-    const read = await Promise.all(
-      accepted.map(
-        (f) =>
-          new Promise<{ name: string; mediaType: string; dataUrl: string; isImage: boolean }>((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onload = () =>
-              resolve({
-                name: f.name,
-                mediaType: f.type || 'application/octet-stream',
-                dataUrl: String(reader.result),
-                isImage: f.type.startsWith('image/'),
-              })
-            reader.onerror = () => reject(reader.error)
-            reader.readAsDataURL(f)
-          })
-      )
-    ).catch(() => [])
-    if (read.length) setAtts((prev) => [...prev, ...read].slice(0, MAX_FILES))
+    // Same reader and limits as the guided-intake card (lib/agent/attachments.ts).
+    const read = await readFilesAsAttachments(files)
+    if (read.length) setAtts((prev) => [...prev, ...read].slice(0, ATTACH_MAX_FILES))
   }
 
   const toggleVoice = () => {
@@ -273,7 +251,7 @@ export default function AgentInputBar({
       <input
         ref={fileRef}
         type="file"
-        accept="image/*,.pdf"
+        accept={ATTACH_ACCEPT}
         multiple
         className="hidden"
         onChange={(e) => {

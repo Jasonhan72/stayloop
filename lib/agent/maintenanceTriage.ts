@@ -26,7 +26,7 @@ export const ENTRY_LABEL: Record<(typeof ENTRY_PERMISSIONS)[number], { zh: strin
   tenant_present: { zh: '须租客在场', en: 'Tenant must be present' },
 }
 
-const EMERGENCY_RE = /(gas|燃气|煤气|no heat|没有暖气|暖气(停|坏|不)|没暖|no water|停水|没水|flood|淹|漏水严重|水漫|sewage|污水|lock(ed)? out|锁坏|门锁(坏|失效)|无法锁|carbon monoxide|一氧化碳|smoke|冒烟|火|fire|electrical spark|漏电|no power|停电)/i
+const EMERGENCY_RE = /(gas|燃气|煤气|no heat|没有暖气|暖气(停|坏|不)|没暖|no water|停水|没水|flood|淹|漏水严重|水漫|sewage|污水|lock(ed)? out|lock (?:failed|broken|will not lock|won't lock)|cannot lock|can't lock|锁坏|门锁(坏|失效)|无法锁|carbon monoxide|一氧化碳|smoke|冒烟|火|fire|electrical spark|漏电|no power|停电)/i
 
 export function sanitizeActionMetadata(raw: unknown): Record<string, string> {
   const out: Record<string, string> = {}
