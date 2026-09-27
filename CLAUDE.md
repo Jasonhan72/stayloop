@@ -2488,3 +2488,7 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   问清楚，你只需要选」；换线程 / 线程里出现真实消息即关闭。深链的 `【…】` 预填与服务端 `hasUnfilledTemplate` 闸门不动。
 - **不做**：模型逐轮追问（成本与延迟）、独立表单页、在引导里问受保护特征（带看只问「房东授权回答什么」，筛查只问材料与 Form 410 同意状态，目标租金标明
   「只作参考不是门槛」，新申请只按「材料齐全 / 是否已筛查 / 递交时间」整理、不按「质量」排）。
+- **生产实跑（2026-09-27，租客测试号，英文界面）**：`/tenant/agent?new=1` → 「Report a repair · 7 steps …」→ Bathroom → No hot water + 一句细节 → Today → Soon
+  （自动进下一步）→ I must be present（自动）→ None → 跳过照片 → 预览整句 → 发送。助手**一轮**就给出 `maintenance_request` 待批卡，库里 metadata
+  `category plumbing · location Bathroom · priority high · entry_permission tenant_present · pets no · thread_id`，没有任何追问。**顺带修的一个旧问题**：
+  `HomeNext` 挂 `AgentChat` 时从没传 `live`，登录后的首页 hero 一直在把示例句原样发出（09-23 禁止的事）——现在传 `live={live}`，登录后首页也是引导卡，匿名首页仍是演示。

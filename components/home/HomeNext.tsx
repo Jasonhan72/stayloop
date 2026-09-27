@@ -386,7 +386,7 @@ function AssistantPanel({ role, name, queued, onQueuedSent }: { role: AgentRole;
   if (loading || !data) {
     return <div className="h-full animate-pulse rounded-2xl border border-line-divider bg-white" />
   }
-  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} avatar={data.agent.avatar ?? null} avatarFallback={live ? 'brand' : 'role'} status={status} messages={messages} onSend={sendMessage} onListingsShown={markListingsShown} fill compactHeader />
+  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} avatar={data.agent.avatar ?? null} avatarFallback={live ? 'brand' : 'role'} live={live} status={status} messages={messages} onSend={sendMessage} onListingsShown={markListingsShown} fill compactHeader />
 }
 
 function Pain({ who, text, onTry, tryLabel }: { who: string; text: string; onTry: () => void; tryLabel: string }) {

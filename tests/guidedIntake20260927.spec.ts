@@ -238,6 +238,10 @@ describe('wiring', () => {
     expect(chat).toContain('<IntakeCard')
     expect(chat).toContain("onDraft={(text) => { setIntake(null); setChipDraft({ text, nonce: Date.now() }) }}")
     expect(chat).toMatch(/intakeFor\(s\.key\)!\.outline\[lang\]/) // the card subtitle is the step outline, not a placeholder string
+    // The homepage hero must tell the chat whether the visitor is signed in:
+    // without `live` the signed-in homepage kept sending the example sentence
+    // verbatim (production check 2026-09-27) — the very thing 09-23 forbade.
+    expect(read('components/home/HomeNext.tsx')).toMatch(/<AgentChat role=\{role\}[^\n]*live=\{live\}[^\n]*compactHeader \/>/)
   })
   it('the card and the composer share one file reader and limits; inputs use .sl-input (≥16px on phones); a noted choice never auto-advances', () => {
     const card = read('components/agent/IntakeCard.tsx')
