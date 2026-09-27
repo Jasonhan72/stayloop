@@ -2370,3 +2370,14 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   （WSIB 清关 / 责任险 / 企业注册，`GRACE_ELIGIBLE_KINDS`），法定执照（STO / ESA / TSSA / MECP）永不宽限。服务端 `loadMarketplaceConfig` 在每次资格判断时读它，
   页面经 `GET /api/config/marketplace`（`useMarketplaceConfig`）读同一个值，所以覆盖标签与派单资格永远一致。
 - **顺带**：`Header` 应用壳的身份芯片在中性页（/notifications、/settings）对来自服务商工作台的账号显示「服务商」（此前显示租客）。
+- **生产实跑（2026-09-26 晚，`[TEST]` 数据保留）**：房东测试号在 `/h/<id>?tab=maintenance` 把「厨房水槽下方接头滴水」派给 Northline（quote_due_at = +48h，卡片
+  「请在 48 小时内报价」）→ service role 把截止时刻拨到 3 小时前（卡片即显示「报价已逾期 3 小时 · 房东可能改派」）→ 用 SQL `net.http_post` 带 Vault 里的
+  `cron_secret` 触发 `/api/agent/proactive`（**不要把密钥取出来打印**：`select net.http_post(url:=…, headers:=jsonb_build_object('x-cron-secret',(select decrypted_secret
+  from vault.decrypted_secrets where name='cron_secret'),…))`，几秒后到 `net._http_response` 读响应）→ 200 `{marketplace:{overdue:1,cards:1,reminder_providers:1,
+  reminder_credentials:1}}`：工单盖 `sla_overdue_at`、时间线多一条系统 `quote_overdue`、房东待办出现「Northline 逾期 3 小时未报价 · 改派？」、审计
+  `work_order_quote_overdue`（acting_role landlord · matter work_order）；同一轮把 Northline 拨到 20 天后到期的 WSIB 清关标成 `reminders_sent={90,60,30}` 并写
+  `credential_expiry_reminder`。房东在 `/landlord/todo` 批准（60 秒撤销窗）→ 执行器把工单 `cancel`（原因「逾期未报价，房东改派」）并给出新派单卡
+  「上一位服务商逾期未报价、派单已撤回 …」，候选只剩 Maple；批准 → 新 offer 给 Maple → agent-test 在 `/provider/jobs`（六格「1 新邀请」、卡片「Quote within 48 h」、
+  覆盖标签「Plumbing · Covered」）选「不在服务范围」婉拒 → `decline_code=out_of_area`、事件 payload 带 code、房东再得一张「上一位服务商婉拒了这张工单」卡，候选只剩
+  Northline，ticket 回到 new；`/provider/history` 列出「Declined: Outside my service area」与六项指标。**四个节点 2 核对项也在同一晚过了**：服务商登录落到
+  `/provider/jobs`、应用壳身份芯片、租客申请详情页 / 真实审计页、经纪待办的客户任务与设置页计划说明、房东申请队列的跟进列。

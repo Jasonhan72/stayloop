@@ -76,7 +76,7 @@ export default function ProviderHistoryPage() {
       <p className="mt-1 text-[12.5px] text-body-3"><Link href="/provider/jobs" className="underline">{zh ? '← 工单' : '← Jobs'}</Link> · {zh ? '这里的每个数字都从你自己的工单行算出来；房东也按同一规则看到你的接单率、响应时长和准时率。' : 'Every number here is computed from your own work-order rows; landlords see your acceptance, response time and punctuality by the same rule.'}</p>
 
       <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" data-testid="provider-metrics">
-        {stat(metrics.responseHoursMedian == null ? '—' : `${metrics.responseHoursMedian}h`, zh ? '响应时长（中位）' : 'Response (median)', zh ? '派单 → 报价' : 'offer → quote')}
+        {stat(metrics.responseHoursMedian == null ? '—' : metrics.responseHoursMedian < 1 ? '<1h' : `${metrics.responseHoursMedian}h`, zh ? '响应时长（中位）' : 'Response (median)', zh ? '派单 → 报价' : 'offer → quote')}
         {stat(pct(metrics.onTimeRate), zh ? '准时到场' : 'On time', zh ? '窗口开始 15 分钟内' : 'within 15 min of the window')}
         {stat(pct(metrics.acceptRate), zh ? '接单率' : 'Acceptance', zh ? `共 ${metrics.offered} 次派单` : `${metrics.offered} offers`)}
         {stat(pct(metrics.firstTimeFixRate), zh ? '一次解决' : 'First-time fix', zh ? '无返工、无争议' : 'no rework, no dispute')}
