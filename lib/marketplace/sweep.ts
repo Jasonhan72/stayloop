@@ -18,6 +18,7 @@ import { notifyUser } from '@/lib/push/notify'
 import { dueReminder, type ReminderTier } from './sla'
 import { CREDENTIAL_LABEL, type CredentialKind } from './trades'
 import { providerLabel, SITE, ticketContext, type Admin, type WorkOrderRow } from './server'
+import { noteOnWorkOrder } from '@/lib/threads/server'
 
 const fmt = (iso: string, zh: boolean) => new Date(iso).toLocaleString(zh ? 'zh-CN' : 'en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })
 
@@ -34,6 +35,7 @@ export async function sweepOverdueQuotes(admin: Admin, now = new Date()): Promis
     if (!ctx) continue
     const prov = await providerLabel(admin, wo)
     const hours = wo.quote_due_at ? Math.max(1, Math.round((now.getTime() - new Date(wo.quote_due_at).getTime()) / 3_600_000)) : 0
+    await noteOnWorkOrder(admin, { id: wo.id, household_id: wo.household_id, scope: wo.scope, landlord_auth_id: wo.landlord_auth_id }, `报价已逾期 ${hours} 小时 · 已提醒服务商，房东可改派 / Quote overdue by ${hours} h · contractor reminded, the landlord may reassign`, { event: 'quote_overdue' })
     const link = wo.provider_id ? `${SITE()}/provider/jobs` : wo.token ? `${SITE()}/w/${wo.token}` : SITE()
     // Remind the contractor: this is their own obligation, no approval involved.
     if (prov.email) {

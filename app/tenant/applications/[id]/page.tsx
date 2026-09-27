@@ -15,6 +15,7 @@ import { useFacts } from '@/lib/facts/useFacts'
 import { useT } from '@/lib/i18n'
 import { applicationTrack, trackSummary, type TrackStep } from '@/lib/lifecycle/applicationTrack'
 import { leaseStateDetail } from '@/lib/matters/states'
+import ThreadPanel from '@/components/threads/ThreadPanel'
 
 const OWNER: Record<string, { zh: string; en: string }> = {
   viewed: { zh: '房东', en: 'the landlord' },
@@ -113,6 +114,11 @@ export default function TenantApplicationPage({ params }: { params: Promise<{ id
                   <p className="mt-2 text-[12.5px] text-body-3">{zh ? '录取后房东会从这份申请起草租约，进度会显示在这里。' : 'After approval the landlord drafts the lease from this application; it shows up here.'}</p>
                 )}
               </div>
+            </section>
+            <section className="mt-4 rounded-2xl border border-line-divider bg-white p-5" data-testid="application-thread">
+              <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '与房东的对话' : 'THREAD WITH THE LANDLORD'}</div>
+              <p className="mt-1 text-[12.5px] text-body-3">{zh ? '补充材料、问进度都在这里；房东发出的决定通知会留一份副本（正式通知以邮件为准）。' : 'Ask about progress or add context here; a copy of any decision notice lands here (the email is the notice).'}</p>
+              <div className="mt-3"><ThreadPanel kind="application" refId={app.id} viewer="tenant" zh={zh} title={zh ? '申请对话' : 'Application thread'} /></div>
             </section>
             <p className="mt-4 text-[11.5px] text-body-3">{zh ? '「房东已查看」「筛查已发起」来自房东的真实操作；筛查结果只有房东能看到，决定以邮件通知为准。' : '"Landlord opened it" and "screening started" reflect the landlord’s real actions; only the landlord sees the screening result; the decision arrives by e-mail.'}</p>
           </>

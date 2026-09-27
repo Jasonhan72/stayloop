@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import WorkOrderCard, { type WorkOrderLite } from '@/components/marketplace/WorkOrderCard'
 import DispatchModal from '@/components/marketplace/DispatchModal'
+import ThreadPanel from '@/components/threads/ThreadPanel'
 import { CATEGORY_LABEL, MAINTENANCE_CATEGORIES } from '@/lib/agent/maintenanceTriage'
 
 export type Ticket = { id: string; title: string; description: string | null; category: string | null; priority: string; status: string; created_at: string; resolved_at: string | null; opened_by: string | null; photos: string[] | null }
@@ -148,8 +149,17 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
               {isLandlord && !open && !['done', 'cancelled'].includes(t.status) && <button disabled={busy} onClick={() => void setStatus(t, 'cancelled')} className="rounded-full px-3 py-1.5 text-[12px] text-body-3 underline">{zh ? '取消工单' : 'Cancel'}</button>}
             </div>
             {wos.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {wos.map((w) => <WorkOrderCard key={w.id} wo={w} viewer={isLandlord ? 'landlord' : myRole === 'tenant' ? 'tenant' : 'system'} zh={zh} providerName={w.provider_id ? names[w.provider_id] : null} onChange={load} compact />)}
+              <div className="mt-3 space-y-3">
+                {wos.map((w) => {
+                  const who = w.provider_id ? (names[w.provider_id] || (zh ? '服务商' : 'provider')) : (w.external_name || w.external_email || (zh ? '服务商' : 'contractor'))
+                  return (
+                    <div key={w.id} className="space-y-2">
+                      <WorkOrderCard wo={w} viewer={isLandlord ? 'landlord' : myRole === 'tenant' ? 'tenant' : 'system'} zh={zh} providerName={w.provider_id ? names[w.provider_id] : null} onChange={load} compact />
+                      {/* 节点 4: the tri-party thread of this work order — tenant · landlord · contractor read one timeline. */}
+                      <ThreadPanel kind="work_order" refId={w.id} viewer={isLandlord ? 'landlord' : myRole === 'tenant' ? 'tenant' : 'agent'} zh={zh} compact title={zh ? '工单对话' : 'Work-order thread'} participants={zh ? `租客 · 房东 · ${who}` : `tenant · landlord · ${who}`} />
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

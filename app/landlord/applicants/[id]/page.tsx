@@ -4,6 +4,7 @@ export const runtime = 'edge'
 
 import { summaryFor } from '@/lib/screening/summaryText'
 import FilePreviewModal from '@/components/landlord/FilePreviewModal'
+import ThreadPanel from '@/components/threads/ThreadPanel'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -520,6 +521,12 @@ function RealApplicantDetail({ id }: { id: string }) {
               {app.archived_at ? (zh ? '取消归档' : 'Unarchive') : (zh ? '归档这份申请' : 'Archive this application')}
             </button>
             {preview && <FilePreviewModal path={preview.path} name={preview.name} zh={zh} onClose={() => setPreview(null)} />}
+          </div>
+
+          <div className="sl-card p-6" data-testid="application-thread">
+            <h3 className="text-[15px] font-bold tracking-tight">{zh ? '与申请人的对话' : 'Thread with the applicant'}</h3>
+            <p className="mt-1 text-[12px] text-body-3">{zh ? '申请人用申请时的邮箱登录后能看到并回复；决定通知的副本也留在这里。记录只追加、带服务器时间。' : 'The applicant sees and replies once signed in with the application email; copies of decision notices land here too. Append-only, server-timed.'}</p>
+            <div className="mt-3"><ThreadPanel kind="application" refId={app.id} viewer="landlord" zh={zh} title={zh ? '申请对话' : 'Application thread'} /></div>
           </div>
         </div>
       </div>

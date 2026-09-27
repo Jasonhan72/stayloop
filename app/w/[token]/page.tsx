@@ -12,12 +12,14 @@ import { useParams } from 'next/navigation'
 import { useT } from '@/lib/i18n'
 import { WO_STATUS_LABEL, type WorkOrderStatus } from '@/lib/marketplace/workOrders'
 import { DECLINE_CODES, DECLINE_LABEL, declineText, slaLabel, slaState, type DeclineCode } from '@/lib/marketplace/sla'
+import ExternalThread, { type ExternalMessage } from '@/components/threads/ExternalThread'
 
 type View = {
   work_order: { id: string; status: WorkOrderStatus; trade: string | null; scope: string | null; emergency: boolean; entry_permission: string | null; quote_amount: number | null; quote_type: string | null; approved_amount: number | null; schedule_start: string | null; schedule_end: string | null; arrived_at: string | null; completed_at: string | null; invoice_amount: number | null; accepted_at: string | null; paid_at: string | null; external_name: string | null; created_at: string; quote_due_at?: string | null; quote_version?: number | null; quote_valid_until?: string | null; decline_code?: string | null; cancel_reason?: string | null }
   ticket: { title: string; description: string | null; category: string | null; priority: string }
   address: { city: string | null; full: string | null }
   landlord_email: string | null
+  thread?: { id: string | null; messages: ExternalMessage[] }
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -119,6 +121,7 @@ export default function ExternalJobPage() {
         </div>
       )}
       {err && <p className="mt-3 text-[12.5px] text-danger">{err}</p>}
+      {!['declined', 'cancelled', 'expired'].includes(w.status) && <ExternalThread token={token} messages={v.thread?.messages ?? []} zh={zh} onSent={load} />}
       <p className="mt-6 text-[11px] leading-relaxed text-body-3">{zh ? '这个链接就是你的凭证，请勿转发。Stayloop 只做撮合与记录：服务合同在你与房东之间，付款由房东线下完成。' : 'This link is your credential — do not forward it. Stayloop only brokers and records: the contract is between you and the landlord, who pays you directly.'}</p>
     </Shell>
   )

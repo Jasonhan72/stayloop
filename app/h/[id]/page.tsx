@@ -7,8 +7,7 @@ export const runtime = 'edge'
 // messages, rent, maintenance. Everything reads through RLS — membership is
 // the only key that opens this page.
 
-import { setReadMark } from '@/lib/household/readMarks'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
@@ -22,6 +21,7 @@ import { tenancyClock } from '@/lib/household/clock'
 import MoveInChecklist from '@/components/household/MoveInChecklist'
 import MaintenancePanel from '@/components/household/MaintenancePanel'
 import PaymentPlanDraft from '@/components/household/PaymentPlanDraft'
+import ThreadPanel from '@/components/threads/ThreadPanel'
 
 // Tenant's answer to the 30-day touchpoint (renewal_intents, P1 2026-09-23).
 type Intent = { id: string; intent: string; note: string | null; tenant_user_id: string; created_at: string }
@@ -41,7 +41,6 @@ interface Household {
 }
 interface Member { user_id: string; role: string; status: string; joined_at: string }
 interface Invite { id: string; invited_email: string; invited_role: string; accepted_at: string | null; declined_at: string | null; revoked_at: string | null; expires_at: string }
-interface Msg { id: number; sender_id: string; body: string; created_at: string }
 interface Payment { id: string; due_date: string; paid_at: string | null; amount: number | null; status: string }
 
 const ROLE_ZH: Record<string, string> = { landlord: '房东', tenant: '租客', agent: '经纪', property_manager: '物业' }
@@ -58,16 +57,13 @@ export default function HouseholdHub() {
   const [household, setHousehold] = useState<Household | null>(null)
   const [members, setMembers] = useState<Member[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
-  const [msgs, setMsgs] = useState<Msg[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [intents, setIntents] = useState<Intent[]>([])
   const [intentPick, setIntentPick] = useState<string | null>(null)
   const [intentNote, setIntentNote] = useState('')
   const [notFound, setNotFound] = useState(false)
-  const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [writeError, setWriteError] = useState<string | null>(null)
-  const msgEndRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
     const { data: h } = await supabase.from('households').select('*').eq('id', id).maybeSingle()
@@ -88,25 +84,10 @@ export default function HouseholdHub() {
     }
   }, [id])
 
-  const loadMsgs = useCallback(async () => {
-    const { data } = await supabase.from('household_messages')
-      .select('*').eq('household_id', id).order('id', { ascending: true }).limit(200)
-    setMsgs((data as Msg[]) ?? [])
-  }, [id])
-
   useEffect(() => {
     if (!user || !id) return
     void load()
-    void loadMsgs()
-    const iv = setInterval(() => { void loadMsgs() }, 8000)
-    return () => clearInterval(iv)
-  }, [user?.id, id, load, loadMsgs]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (tab === 'messages') msgEndRef.current?.scrollIntoView({ block: 'end' })
-    // Opening the conversation marks it read for the inbox (/tenant|landlord/messages).
-    if (tab === 'messages' && msgs.length) setReadMark(id, Math.max(...msgs.map((m) => Number((m as { id: number | string }).id) || 0)))
-  }, [msgs.length, tab]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, id, load]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ?intent=renew|leave|negotiate from the 30-day email: preselect, the
   // tenant confirms with one click (read in an effect — never on first paint).
@@ -128,23 +109,6 @@ export default function HouseholdHub() {
     if (!error) { setIntentPick(null); setIntentNote(''); try { const q = new URLSearchParams(window.location.search); q.delete('intent'); window.history.replaceState(null, '', window.location.pathname + (q.toString() ? `?${q}` : '')) } catch { /* noop */ } }
     await load()
     setBusy(false)
-  }
-
-  async function send() {
-    const body = draft.trim()
-    if (!body || !user) return
-    // Review 2026-09-14: the draft was cleared BEFORE the insert and the
-    // error discarded — a denied write (household not active) vanished.
-    const { error } = await supabase.from('household_messages').insert({ household_id: id, sender_id: user.id, body })
-    if (error) { setWriteError(error.message); return }
-    setWriteError(null)
-    setDraft('')
-    void loadMsgs()
-    // Tell the other side (push only; /api/household/notify-message).
-    void supabase.auth.getSession().then(({ data }) => {
-      const token = data.session?.access_token
-      if (token) void fetch('/api/household/notify-message', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ household_id: id }) }).catch(() => undefined)
-    })
   }
 
   async function markPaid(due: string) {
@@ -335,33 +299,9 @@ export default function HouseholdHub() {
       )}
 
       {tab === 'messages' && (
-        <div className="mt-6 rounded-xl border border-line-divider bg-white">
-          <div className="max-h-[420px] min-h-[240px] overflow-y-auto p-5">
-            {msgs.length === 0 && <p className="py-10 text-center text-[13px] text-body-3">{zh ? '还没有消息——说点什么吧。' : 'No messages yet — say something.'}</p>}
-            {msgs.map((m) => {
-              const mine = m.sender_id === user?.id
-              const role = members.find((x) => x.user_id === m.sender_id)?.role
-              return (
-                <div key={m.id} className={`mb-3 flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] rounded-xl px-4 py-2.5 text-[13.5px] leading-relaxed ${mine ? 'text-white' : 'bg-surface-chip text-body'}`}
-                    style={mine ? { background: '#00ACE4' } : undefined}>
-                    {!mine && <div className="mb-0.5 font-mono text-[10px] font-bold opacity-70">{zh ? ROLE_ZH[role ?? ''] ?? '成员' : role ?? 'member'}</div>}
-                    <div className="whitespace-pre-wrap break-words">{m.body}</div>
-                    <div className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-body-3'}`}>{new Date(m.created_at).toLocaleString()}</div>
-                  </div>
-                </div>
-              )
-            })}
-            <div ref={msgEndRef} />
-          </div>
-          <div className="flex gap-2 border-t border-line-divider p-3">
-            <input className={input} value={draft} placeholder={zh ? '输入消息…' : 'Type a message…'}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send() } }} />
-            <button onClick={() => void send()} className="rounded-lg px-5 text-[13px] font-bold text-white" style={{ background: '#00ACE4' }}>
-              {zh ? '发送' : 'Send'}
-            </button>
-          </div>
+        <div className="mt-6">
+          {/* 节点 4: the tenancy thread (threads / thread_messages) replaced the per-household message table; the old rows were migrated in. */}
+          <ThreadPanel kind="tenancy" refId={id} viewer={myRole === 'landlord' || myRole === 'property_manager' ? 'landlord' : myRole === 'agent' ? 'agent' : 'tenant'} zh={zh} title={zh ? '租约对话（房东 · 租客）' : 'Tenancy thread (landlord · tenant)'} />
         </div>
       )}
 

@@ -12,6 +12,7 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import WorkOrderCard, { type WorkOrderLite } from '@/components/marketplace/WorkOrderCard'
+import ThreadPanel from '@/components/threads/ThreadPanel'
 import { providerMetrics, WORK_ORDER_COLUMNS, WO_STATUS_LABEL, type WoRow, type WorkOrderStatus } from '@/lib/marketplace/workOrders'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -120,6 +121,7 @@ export default function ProviderHistoryPage() {
               <div key={r.id}>
                 <div className="mb-1 text-[12.5px] text-body-2"><b>{r.scope}</b> · <span className="text-body-3">{zh ? WO_STATUS_LABEL[r.status].zh : WO_STATUS_LABEL[r.status].en}</span></div>
                 <WorkOrderCard wo={r} viewer="provider" zh={zh} providerName={prov.trade_name || prov.legal_name} compact />
+                <div className="mt-2"><ThreadPanel kind="work_order" refId={r.id} viewer="provider" zh={zh} compact title={zh ? '工单对话（记录）' : 'Work-order thread (record)'} allowAttachments={false} /></div>
               </div>
             ))}
           </div>

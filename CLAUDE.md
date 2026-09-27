@@ -2381,3 +2381,25 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   覆盖标签「Plumbing · Covered」）选「不在服务范围」婉拒 → `decline_code=out_of_area`、事件 payload 带 code、房东再得一张「上一位服务商婉拒了这张工单」卡，候选只剩
   Northline，ticket 回到 new；`/provider/history` 列出「Declined: Outside my service area」与六项指标。**四个节点 2 核对项也在同一晚过了**：服务商登录落到
   `/provider/jobs`、应用壳身份芯片、租客申请详情页 / 真实审计页、经纪待办的客户任务与设置页计划说明、房东申请队列的跟进列。
+
+## 分阶段改进 · 节点 4「连贯」（2026-09-26 · 报告 9 · 消息 thread 最小版）
+
+守卫 `tests/node4Threads20260926.spec.ts`；迁移 `20260926_node4_threads.sql`（已应用 prod）。**每件事一条对话**：`threads(kind ∈ work_order | application | tenancy | dispute, ref_id)`
+唯一，`thread_messages` **只追加**（authenticated 只有 select/insert；触发器对所有角色拒绝 UPDATE，直连客户端不能 DELETE；撤回 = 新增一行 kind `retraction`
+指向原消息，原文永远留在记录里，界面显示「已撤回 · 原文保留」）；直连插入时触发器写 **服务器时间**、`sender_id = auth.uid()`、`sender_kind = thread_party()`
+（这个人在这条对话里的角色，定义函数按 kind 查 household_members / work_orders / applications+listings，申请人按 JWT email 匹配），`acting_role` 是当时的帽子快照；
+`message_reads` 每人每对话一行三个高水位 `last_delivered_id / last_opened_id / last_acknowledged_id`（送达 · 打开 · 确认，只能前进，只写自己的行），发送方看到
+对方的 已送达 / 已读 / 已确认收到。**附件**：`POST /api/threads/upload`（multipart）由服务器算 SHA-256、存 `tenancy-files/<household|thread>/threads/<thread>/`、
+登记 `thread_attachments`；消息里的附件只能引用登记过的路径，哈希由触发器从登记表复制（客户端伪造不了）；查看 / 下载走 `POST /api/threads/attachment-url`
+（签名 URL 600 秒 + 审计 `thread_attachment_viewed / downloaded`，带 acting_role 与 matter）。
+- **界面** `components/threads/ThreadPanel.tsx`（`open_thread(kind, ref)` RPC 取 / 建线程，非当事人被拒；8 秒轮询；折叠态显示未读数；Enter 发送；撤回 10 分钟窗口）：
+  `/h/[id]` 对话标签 = 租约对话（`household_messages` 已整表迁入，旧表只读保留一版）；`/h/[id]` 报修标签与 `/landlord/maintenance` 每张工单卡下、`/provider/jobs`
+  与 `/provider/history` 每张卡下 = **三方工单对话**（租客 · 房东 · 服务商）；`/landlord/applicants/[id]` 与 `/tenant/applications/[id]` = 申请对话（申请人须用申请邮箱登录）。
+  `/w/[token]` 外部联系人用 `components/threads/ExternalThread.tsx` 经 token 门读写（`GET` 带 `thread.messages`，`POST action:'message'`），身份记为
+  「服务商（邮件链接）」，无附件、无已读标记。`/x/messages` 收件箱改为列出全部线程（种类标签 + 最新一条 + 未读数来自 `message_reads`，不再用 localStorage）。
+- **系统行**：`createWorkOrder` 与 `actOnWorkOrder` 的每次流转、日扫的 `quote_overdue` 都往工单对话写一条双语系统行（`workOrderSystemLine`），三方看到同一条时间线。
+- **正式通知只留副本**：进入通知（批准报价时）→ 工单对话、决定通知 → 申请对话、续约函 → 租约对话（按 `households.current_lease_id` 找），都是 kind `formal_copy`，
+  正文末尾固定一句「正式通知副本 · 以邮件送达为准 · 不构成 RTA 法定送达」；邮件仍是正式通知本体。
+- **通知只做提醒**：`POST /api/threads/notify`（发送者两分钟内的消息才算，60/小时）→ 有账号的当事人推送（按其推送档位），没有账号的（外部联系人、申请人）
+  一封邮件带回对话链接；发送者自己不收。旧的 `/api/household/notify-message` 与 `lib/household/readMarks.ts` 已删。
+- **未做（节点 6）**：消息时间线 + 附件校验的 PDF 证据包导出；争议线程的管理员介入界面（kind 已预留）。

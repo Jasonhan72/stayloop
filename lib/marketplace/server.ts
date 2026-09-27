@@ -8,6 +8,8 @@ import { notifyUser } from '@/lib/push/notify'
 import { canAct, entryNoticeText, entryWindowProblem, invoiceWithinEstimate, TICKET_STATUS_FOR, validateQuote, type ActorKind, type WoAction, type WorkOrderStatus } from './workOrders'
 import { clampGraceDays, providerEligible, tradeForCategory, TRADES, type Trade } from './trades'
 import { declineText, quoteDueAt, validateDecline } from './sla'
+import { ensureThread, noteOnWorkOrder, postSystemMessage } from '@/lib/threads/server'
+import { workOrderSystemLine } from '@/lib/threads/shared'
 import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 import { normalizePolicy, rankCandidates, rankReason, shouldAutoApprove, shouldAutoDispatch, type Candidate, type DispatchPolicy } from './dispatchPolicy'
@@ -137,6 +139,11 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   if (error || !wo) return { ok: false, error: error?.message || 'insert failed', status: 500 }
   await event(admin, wo.id, i.actor ?? 'landlord', i.landlordAuthId, 'offered', { provider_id: provider?.id ?? null, external_email: wo.external_email, trade, emergency })
   await setTicketStatus(admin, i.ticketId, 'offered')
+  // 节点 4: the tri-party thread (tenant · landlord · contractor) opens with the offer.
+  {
+    const who = provider ? (provider.trade_name || provider.legal_name) : (i.externalName || wo.external_email || 'contractor')
+    await noteOnWorkOrder(admin, { id: wo.id, household_id: ctx.household.id, scope: ctx.ticket.title, landlord_auth_id: i.landlordAuthId }, `已派单给 ${who} · 请在 ${policy.quote_hours} 小时内报价 / Offered to ${who} · quote within ${policy.quote_hours} h`, { event: 'offered', quote_due_at: dueAt })
+  }
   // A suggestion card for this ticket is now moot (the landlord dispatched by hand or via another card).
   await admin.from('agent_pending_actions').update({ status: 'expired' }).eq('status', 'pending').eq('action_type', 'dispatch_work_order').contains('metadata', { ticket_id: i.ticketId })
 
@@ -260,6 +267,8 @@ export async function actOnWorkOrder(admin: Admin, i: ActInput): Promise<{ ok: t
   const { data: updated, error } = await q.select('*').maybeSingle<WorkOrderRow>()
   if (error || !updated) return { ok: false, error: error?.message || 'state changed, retry', status: 409 }
   await event(admin, wo.id, i.by, i.actorId, i.action, evPayload)
+  // 节点 4: every transition is one system line on the work-order thread, so all three parties read the same timeline.
+  await noteOnWorkOrder(admin, { id: wo.id, household_id: wo.household_id, scope: wo.scope, landlord_auth_id: wo.landlord_auth_id }, workOrderSystemLine(i.action, evPayload), { event: i.action })
   if (gate.to !== wo.status) await setTicketStatus(admin, wo.ticket_id, gate.to!)
   // A decision taken directly on the hub supersedes the matching pending card
   // (otherwise approving it later would fail with not_from_<status>).
@@ -340,6 +349,9 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
         const { html, text } = renderAgentMessageEmail({ subject: notice.subject, body: notice.body })
         const r = await sendEmail({ to: ctx.tenantEmails, subject: notice.subject, html, text, replyTo })
         if (r.ok) await admin.from('work_orders').update({ entry_notice_sent_at: new Date().toISOString() }).eq('id', wo.id)
+        // 节点 4: a copy of the formal notice in the thread — the email is the notice, the copy is the record.
+        const th = await ensureThread(admin, 'work_order', wo.id, { householdId: wo.household_id, title: ctx.ticket.title, createdBy: wo.landlord_auth_id })
+        if (th) await postSystemMessage(admin, th.id, { kind: 'formal_copy', senderKind: 'landlord', senderId: wo.landlord_auth_id, actingRole: 'landlord', senderLabel: '房东 · 进入通知 / Landlord · notice of entry', body: `${notice.subject}\n\n${notice.body}`, meta: { notice: 'entry', rule: wo.emergency ? 'RTA-26-emergency-entry' : 'RTA-27-entry-notice', sent_to: ctx.tenantEmails, sent: r.ok } })
         await admin.from('compliance_events').insert({ user_id: wo.landlord_auth_id, role: 'landlord', source: 'work_order', rule_id: wo.emergency ? 'RTA-26-emergency-entry' : 'RTA-27-entry-notice', severity: 'info', target_type: 'work_order', target_id: wo.id, metadata: { household_id: wo.household_id, notice_sent: true } }).then(() => undefined, () => undefined)
       }
       for (const uid of ctx.tenantAuthIds) void notifyUser(admin, uid, { kind: 'event', title: `进入通知 · ${ctx.ticket.title}`, body: notice.subject, url: `/h/${wo.household_id}` })

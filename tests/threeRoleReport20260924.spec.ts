@@ -149,8 +149,9 @@ describe('round 2 (user: 改成 V0.6，其余按建议全部修)', () => {
     const rail = read('components/workspace/rail.tsx') // the role page lists moved out of WorkspaceShell on 2026-09-25
     expect(rail).toContain("href: '/tenant/messages'")
     expect(rail).toContain("href: '/landlord/messages'")
-    expect(read('components/messages/Inbox.tsx')).toContain("from('household_messages')")
-    expect(read('app/h/[id]/page.tsx')).toContain('setReadMark(id,')
+    // 节点 4 (2026-09-26): the inbox lists threads; the hub's messages tab is the tenancy thread.
+    expect(read('components/messages/Inbox.tsx')).toContain("from('threads')")
+    expect(read('app/h/[id]/page.tsx')).toContain('<ThreadPanel kind="tenancy"')
   })
 })
 
@@ -276,9 +277,11 @@ describe('found while walking the landlord test account (2026-09-24)', () => {
     expect(s).not.toContain('接受其他 offer')
     expect(s).toContain('rows={activeRows.map(')
   })
-  it('hub messages push the other side, and the inbox says what actually happens', () => {
-    expect(read('app/h/[id]/page.tsx')).toContain("fetch('/api/household/notify-message'")
-    const route = read('app/api/household/notify-message/route.ts')
+  it('thread messages push the other side (account holders), and the inbox says what actually happens', () => {
+    // 节点 4 (2026-09-26): /api/threads/notify replaced /api/household/notify-message; the route itself never emails —
+    // only parties without an account (external contractor, applicant) get one email from notifyThreadParties.
+    expect(read('components/threads/ThreadPanel.tsx')).toContain("fetch('/api/threads/notify'")
+    const route = read('app/api/threads/notify/route.ts')
     expect(route).toContain(".eq('sender_id', ud.user.id)")
     expect(route).not.toMatch(/sendEmail/)
     expect(read('components/messages/Inbox.tsx')).not.toContain('回复会同时发到对方邮箱')

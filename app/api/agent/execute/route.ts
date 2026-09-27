@@ -26,6 +26,7 @@ import { sendLeaseInvitation, leaseSendPreflight, buildLeaseInvite, type LeaseFo
 import { decisionNoticeFooter, guidelineFor } from '@/lib/ontario/rules'
 import { notifyUser } from '@/lib/push/notify'
 import { actOnWorkOrder, createWorkOrder, suggestDispatch } from '@/lib/marketplace/server'
+import { ensureThread, postSystemMessage } from '@/lib/threads/server'
 
 export const runtime = 'edge'
 
@@ -256,6 +257,15 @@ Reply to this email to accept, discuss, or ask questions. Under Ontario's Reside
     return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
   }
 
+  // 节点 4: a copy of the letter in the tenancy thread (household by lease); the email is the letter.
+  {
+    const { data: hhRow } = await admin.from('households').select('id, address, unit').eq('current_lease_id', String(m.lease_id)).maybeSingle()
+    const hh = hhRow as { id: string; address: string; unit: string | null } | null
+    if (hh) {
+      const th = await ensureThread(admin, 'tenancy', hh.id, { householdId: hh.id, title: `${hh.address}${hh.unit ? ` #${hh.unit}` : ''}`, createdBy: userId })
+      if (th) await postSystemMessage(admin, th.id, { kind: 'formal_copy', senderKind: 'landlord', senderId: userId, actingRole: 'landlord', senderLabel: '房东 · 续约函 / Landlord · renewal letter', body: `${subject}\n\n${text}`, meta: { notice: 'renewal_letter', lease_id: m.lease_id, sent_to: m.tenant_email, option } })
+    }
+  }
   const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: m.tenant_email, option, rent }
   return finalizeExecution(admin, userId, action, 'executed_send_renewal_letter', executionResult, {
     lease_id: m.lease_id,
@@ -754,6 +764,11 @@ async function executeSendDecision(admin: Admin, userId: string, action: ActionR
   const newStatus = decision === 'approved' ? 'approved' : decision === 'declined' ? 'declined' : 'reviewing'
   await admin.from('applications').update({ status: newStatus, decision_notified_at: new Date().toISOString(), decision_reason: reason || null }).eq('id', app.id)
   await admin.from('compliance_events').insert({ user_id: userId, role: 'landlord', source: 'decision_notice', rule_id: 'CRA-10-7-notice', severity: 'info', target_type: 'application', target_id: app.id, metadata: { decision } })
+  // 节点 4: a copy of the decision notice in the application thread; the email is the notice.
+  {
+    const th = await ensureThread(admin, 'application', app.id, { title: addr, createdBy: userId })
+    if (th) await postSystemMessage(admin, th.id, { kind: 'formal_copy', senderKind: 'landlord', senderId: userId, actingRole: 'landlord', senderLabel: '房东 · 决定通知 / Landlord · decision notice', body: `${subject}\n\n${body}`, meta: { notice: 'decision', decision, sent_to: to, rule: 'CRA-10-7-notice' } })
+  }
   const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: to, decision }
   return finalizeExecution(admin, userId, action, 'executed_send_decision', executionResult, { application_id: app.id, decision, sent_to: to, email_id: result.id, reason_given: !!reason })
 }
