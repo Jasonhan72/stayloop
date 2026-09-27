@@ -133,6 +133,16 @@ describe('every workspace surface reads the one facts source', () => {
     expect(sql).toMatch(/role in \('landlord','property_manager'\)/) // the board's household route is part of the landlord facts
     expect(sql).not.toMatch(/ai_score/)
   })
+  it('the rail excludes a not-yet-started lease from the renewal window, like the tiles and the scans', async () => {
+    const { landlordFactsToLifecycle } = await import('@/lib/facts/toLifecycle')
+    const lc = landlordFactsToLifecycle({
+      listings: [], cards: [], households: [], applications: [], rent: [], rent_month: [], tickets: [], intents: [], screenings: [],
+      leases: [{ id: 'L1', status: 'signed_both', start_date: '2026-11-01', end_date: '2026-12-19', unit_label: '#1' }],
+    }, T)
+    const post = lc.phases.find((p) => p.key === 'post')!
+    expect(post.state).toBe('idle')
+    expect(post.steps.find((s) => s.key === 'window')?.state).toBe('todo')
+  })
   it('the lease page, the tiles and the proactive scans agree on "in force"', () => {
     expect(read('app/landlord/leases/page.tsx')).toContain('leaseDisplayState(row)')
     expect(read('app/landlord/leases/page.tsx')).toContain("upcoming: { tone: 'info', label: 'SIGNED · UPCOMING' }")

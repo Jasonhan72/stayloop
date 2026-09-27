@@ -11,9 +11,10 @@ describe('lifecycle stages are derived from rows, not from the model', () => {
       showingsPending: 0,
       applications: [{ id: 'A1', listing_id: 'L1', status: 'approved', decision_notified_at: '2026-09-23T02:25:05Z' }],
       screenings: [{ application_id: 'A1', status: 'scored' }],
-      leases: [{ id: 'LE1', status: 'signed_both', start_date: '2026-11-01', end_date: '2026-12-19', unit_label: 'Unit 1 · 100 Test Ave' }],
+      // In force today (节点 1 2026-09-26: a lease that has not started has no renewal window — see node1Facts spec).
+      leases: [{ id: 'LE1', status: 'signed_both', start_date: '2026-06-01', end_date: '2026-12-19', unit_label: 'Unit 1 · 100 Test Ave' }],
       households: [{ id: 'H1', current_lease_id: 'LE1', verified: true, status: 'active', end_date: '2026-12-19' }],
-      rent: [{ lease_id: 'LE1', due_date: '2026-11-01', status: 'due' }],
+      rent: [{ lease_id: 'LE1', due_date: '2026-10-01', status: 'due' }],
       tickets: [{ household_id: 'H1', status: 'new' }],
       renewalCards: [{ action_type: 'send_renewal_letter', status: 'approved', lease_id: 'LE1', stage: '90d' }],
     }, today)

@@ -9,6 +9,7 @@
 //   • no scores, no percentages, no rankings in the rail;
 //   • each phase states what the AI does and what the person decides.
 import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
+import { isLeaseInForce } from '@/lib/matters/states'
 import { n1DeadlineFor } from '@/lib/ontario/rules'
 import { RELIST_LOOKBACK_DAYS } from '@/lib/agent/proactiveExtras'
 import type { AgentRole } from '@/lib/agent/types'
@@ -132,7 +133,9 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
   const unconfirmedHh = f.households.filter((h) => !h.verified)
   const rentDue = f.rent.filter((r) => r.status === 'due' || r.status === 'late')
   const openTickets = f.tickets.filter((t) => t.status && !['done', 'cancelled'].includes(t.status))
-  const inWindow = signedLeases.filter((l) => l.end_date && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) <= RENEWAL_WINDOW_DAYS && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) >= 0)
+  // Only a lease that is IN FORCE has a renewal window — a signed lease that has not
+  // started yet is 已签待起租 (lib/matters/states, 节点 1 2026-09-26), whatever its end date.
+  const inWindow = signedLeases.filter((l) => isLeaseInForce(l, today) && l.end_date && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) <= RENEWAL_WINDOW_DAYS && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) >= 0)
   // "退租 → 重新挂牌" only for a term that ended within the lookback window,
   // with no newer signed lease on the same unit and no verified household
   // still attached (a continued tenancy is month-to-month under RTA s.38, not a
@@ -257,7 +260,7 @@ export function tenantLifecycle(f: TenantFacts, today = new Date()): Lifecycle {
   const openTickets = f.tickets.filter((t) => t.status && !['done', 'cancelled'].includes(t.status))
   const endIso = hh?.end_date || lease?.end_date || null
   const daysToEnd = endIso ? daysBetween(todayUtc(today), parseDateOnly(endIso) ?? today) : null
-  const inWindow = daysToEnd != null && daysToEnd >= 0 && daysToEnd <= RENEWAL_WINDOW_DAYS
+  const inWindow = daysToEnd != null && daysToEnd >= 0 && daysToEnd <= RENEWAL_WINDOW_DAYS && (!lease || isLeaseInForce(lease, today))
 
   pre.steps = [
     { key: 'search', label: { zh: '对话找房', en: 'Search by chat' }, state: apps.length || showings.length ? 'done' : 'current', href: '/tenant/agent', prompt: { zh: '帮我找【区域】、预算【$金额】以内的【户型】。', en: 'Find me a 【unit type】 in 【area】 under 【$budget】.' } },
