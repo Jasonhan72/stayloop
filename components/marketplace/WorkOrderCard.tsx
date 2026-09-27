@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { canAct, invoiceWithinEstimate, WO_STATUS_LABEL, type ActorKind, type WoAction, type WorkOrderStatus } from '@/lib/marketplace/workOrders'
 import { TRADES } from '@/lib/marketplace/trades'
 import { DECLINE_CODES, DECLINE_LABEL, declineText, slaLabel, slaState, type DeclineCode } from '@/lib/marketplace/sla'
+import { openHtmlFromPost } from '@/lib/export/openHtml'
 
 export type WorkOrderLite = {
   id: string; status: WorkOrderStatus; trade: string | null; scope: string | null; emergency: boolean; entry_permission: string | null
@@ -140,6 +141,10 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
         </>)}
         {viewer === 'tenant' && can('tenant_confirm') && !wo.tenant_confirmed_at && (
           <button className={primary} disabled={!!busy} onClick={() => void run('tenant_confirm')}>{zh ? '确认问题已解决' : 'Confirm it is fixed'}</button>
+        )}
+        {['accepted', 'paid', 'closed'].includes(wo.status) && viewer !== 'tenant' && viewer !== 'system' && (
+          // 节点 6: the settlement / acceptance record — both sides’ actions and times, fingerprinted, not an invoice.
+          <button type="button" className={secondary} disabled={!!busy} data-testid="work-order-receipt" onClick={async () => { setBusy('receipt'); const r = await openHtmlFromPost(`/api/work-orders/${wo.id}/receipt`, { lang: zh ? 'zh' : 'en', acting_role: viewer }); if (!r.ok) setErr(r.error || 'receipt failed'); setBusy(null) }}>{wo.paid_at ? (zh ? '结算回执 ↗' : 'Settlement receipt ↗') : (zh ? '验收回执 ↗' : 'Acceptance record ↗')}</button>
         )}
         <button className="ml-auto min-h-[36px] px-2 text-[11.5px] text-body-3 underline underline-offset-2" onClick={() => setShowEvents((v) => !v)}>{showEvents ? (zh ? '收起记录' : 'Hide log') : (zh ? '时间线' : 'Timeline')}</button>
       </div>

@@ -10,10 +10,20 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { matterLinks, matterStage, matterTitle, STAGE_LABEL, STAGE_ORDER, type MatterSummary } from '@/lib/matters/shared'
+import { openHtmlFromPost } from '@/lib/export/openHtml'
 
 export default function MattersPanel({ role, zh }: { role: 'tenant' | 'landlord' | 'agent'; zh: boolean }) {
   const auth = useAuth()
   const [rows, setRows] = useState<MatterSummary[] | null>(null)
+  const [exporting, setExporting] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  // 节点 6: the evidence pack — the whole record of the matter, printable, fingerprinted, audited.
+  async function exportPack(id: string) {
+    setExporting(id); setErr(null)
+    const r = await openHtmlFromPost('/api/matters/export', { matter_id: id, lang: zh ? 'zh' : 'en', acting_role: role })
+    if (!r.ok) setErr(r.error === 'not_a_party' ? (zh ? '你不是这件事的当事人。' : 'You are not a party to this matter.') : r.error || 'export failed')
+    setExporting(null)
+  }
   useEffect(() => {
     if (auth.loading || !auth.user) return
     let on = true
@@ -44,6 +54,7 @@ export default function MattersPanel({ role, zh }: { role: 'tenant' | 'landlord'
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12.5px]">
                   {links.map((l) => <Link key={l.key} href={l.href} className="font-semibold text-brand underline underline-offset-2">{zh ? l.zh : l.en}</Link>)}
                   <span className="text-body-3">{zh ? `对话 ${m.threads}` : `${m.threads} thread(s)`}</span>
+                  <button type="button" onClick={() => void exportPack(m.id)} disabled={exporting === m.id} className="ml-auto rounded-full border border-line-strong bg-white px-2.5 py-[3px] text-[11.5px] font-semibold text-body hover:border-brand hover:text-brand disabled:opacity-50" data-testid="export-evidence-pack">{exporting === m.id ? '…' : (zh ? '导出证据包 ↗' : 'Evidence pack ↗')}</button>
                 </div>
                 {m.delegation && role !== 'agent' && <div className="mt-2 rounded-lg bg-agent/[0.06] px-2.5 py-1.5 text-[12px] text-body" data-testid="matter-delegation">{zh ? `受托经纪：${m.delegation.delegate_name || '—'} · ${m.delegation.scope.join('、')} · 到期 ${m.delegation.expires_at.slice(0, 10)}` : `Delegated agent: ${m.delegation.delegate_name || '—'} · ${m.delegation.scope.join(', ')} · until ${m.delegation.expires_at.slice(0, 10)}`}</div>}
                 {role === 'agent' && <div className="mt-2 text-[11.5px] text-body-3">{zh ? `委托人：${m.tenant_email || '房东'}` : `Principal: ${m.tenant_email || 'landlord'}`}</div>}
@@ -52,7 +63,8 @@ export default function MattersPanel({ role, zh }: { role: 'tenant' | 'landlord'
           })}
         </div>
       )}
-      <p className="mt-2 text-[11px] text-body-3">{zh ? '一件事一个编号：申请、筛查、租约、在管租约、工单、对话与文件都挂在它上面；审计与导出也带它。这里只有状态，没有分数。' : 'One id per matter: application, screening, lease, tenancy, work orders, threads and files hang off it; audit rows and exports carry it. States only, never scores.'}</p>
+      {err && <p className="mt-2 text-[12px] text-danger">{err}</p>}
+      <p className="mt-2 text-[11px] text-body-3">{zh ? '一件事一个编号：申请、筛查、租约、在管租约、工单、对话与文件都挂在它上面；审计与导出也带它。「导出证据包」= 对话时间线（服务器时间 · 身份 · 撤回）+ 附件 SHA-256 + 工单时间线 + 正式通知副本 + 审计，带内容指纹；这里只有状态，没有分数。' : 'One id per matter: application, screening, lease, tenancy, work orders, threads and files hang off it; audit rows and exports carry it. “Evidence pack” = thread timelines (server time · hat · retractions) + attachment SHA-256 + work-order timelines + formal-notice copies + audit, fingerprinted. States only, never scores.'}</p>
     </div>
   )
 }

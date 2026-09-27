@@ -2447,3 +2447,19 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   （带 delegation id），`/screening/app?as=agent&delegation=…` 顶部绿色「正在代表：…」，不带 delegation 参数则琥珀提示且拒绝创建；房东在设置里 Revoke →
   经纪侧条幅消失、标「Revoked」、筛查链接消失、可重新发起。租客 `/tenant/progress` 两张事务卡（申请 → 在管租约链完整，工单 2 开放 / 11），无筛查链接。
   以经纪身份 `select to_jsonb(delegations)` 报 42501——`confirm_token` 列级 grant 生效。
+
+## 分阶段改进 · 节点 6「可收口」（2026-09-27 · 报告 61–90 天段）
+
+守卫 `tests/node6Export20260927.spec.ts`。无新表——导出与回执都是**按平台记录现算**的可打印 HTML（与筛查报告同一做法：浏览器打印存 PDF），每份带**内容指纹**
+（结构化记录 JSON 键排序后的 SHA-256，印在文末并放在响应头 `X-Content-Fingerprint`）；生成本身写审计并带 `rental_matter_id` 与帽子。
+- **事务证据包** `POST /api/matters/export {matter_id, lang, acting_role}`：调用者先用自己的 JWT 过 `matter_party`（非当事人 403），服务端汇总：事务链（申请 / 筛查
+  **只有状态** / 租约 / 在管租约 + 租金记录）、正式通知副本（进入通知 / 决定通知 / 续约函）、工单（报价版本 · 批准 · 账单 · 事件时间线）、全部对话（每条带服务器时间
+  UTC + 多伦多、发送者在该事务中的身份与当时帽子、**撤回的消息仍在并标注撤回时间**、附件名 / 大小 / SHA-256）、附件清单、委托（含已撤销）、审计（帽子 · 谁 · 动作 · 委托）。
+  开头一段固定声明：只追加、正式通知以邮件送达为准、**不含任何筛查分数**。渲染器 `lib/export/evidencePack.ts` 是纯函数，全部用户字符串经 `esc()`。
+  入口：`/x/progress` 事务卡上的「导出证据包 ↗」（`lib/export/openHtml.ts`：先同步 `window.open` 再带 JWT fetch，再把 blob URL 交给新标签——绕开弹窗拦截）。
+  审计 `matter_export_generated`。
+- **结算回执 / 验收回执** `POST /api/work-orders/<id>/receipt`：当事人（RLS 读到行即可）对 accepted / paid / closed 的工单生成：地址、房东、服务商（含 BN）、报价版本、
+  批准金额、到场 / 完工、账单 + CPA 10% 判定、验收、付款（线下 · 房东标记时间）、事件时间线；明写「Stayloop 不经手资金 · 不是发票」。入口：工单卡（房东 / 服务商可见）
+  与服务商历史页；审计 `work_order_receipt_generated`（matter = 工单 + rental_matter_id）。
+- **正式通知与提醒的分流**在节点 4 已成形（邮件 = 正式通知；线程 = 副本 + 免责句；推送 = 提醒）；证据包把三者分栏呈现。
+- **按既定决定不做**：CASL 营销同意管理（没有营销邮件）、保险 / 法律服务商类型（FSRA / LSO 资质形态未定）、组织成员。
