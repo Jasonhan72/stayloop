@@ -112,7 +112,9 @@ describe('tenant walk-through (tenant test account on production, 2026-09-25)', 
     expect(sql).toContain('revoke insert, update, delete, truncate, references, trigger on public.applicant_applications from authenticated, anon, public')
     expect(sql).toContain('l.is_active as listing_active')
     const tracker = read('components/tenant/MyApplications.tsx')
-    expect(tracker).toContain('listing_slug, listing_address, listing_unit, listing_active')
+    // 节点 1 (2026-09-26): the snapshot columns arrive through the facts RPC, not a query in the component.
+    expect(read('supabase/migrations/20260926_facts_v2.sql')).toContain('listing_slug, listing_address, listing_unit, listing_active')
+    expect(tracker).toContain('r.listing_address')
     expect(tracker).not.toContain('listing:listings(slug, address, unit)')
     expect(tracker).toContain("{zh ? '已下架' : 'Off market'}")
     const showings = read('components/tenant/MyShowings.tsx')
@@ -134,7 +136,7 @@ describe('tenant walk-through (tenant test account on production, 2026-09-25)', 
   it('/tenant/payments lists the tenant’s real rent records; the household member row does not print a uuid; no stale stamp-threshold copy', () => {
     expect(read('app/tenant/payments/page.tsx')).toContain('liveSlot={<MyRent />}')
     const rent = read('components/tenant/MyRent.tsx')
-    expect(rent).toContain("from('rent_payments')")
+    expect(rent).toContain('facts.rent_all') // 节点 1 (2026-09-26): rows from the facts RPC
     expect(rent).toContain("useReportLiveRows('rent', rows?.length)")
     expect(read('app/h/[id]/page.tsx')).not.toContain('m.user_id.slice(0, 8)')
     expect(read('lib/agent/orchestrator.ts')).not.toContain('盖章门槛过滤')

@@ -2299,3 +2299,22 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
   （租客 / 房东 / 经纪 / 服务商），整个菜单撑满一屏。现在折成一行「切换身份 · N 个 ›」（`hatsOpen`，每次打开菜单都是收起的；顶部身份行本来就写着
   「当前：租客」），点开才展开原来的「身份」列表（三顶帽子 + 服务商的两种门都在里面，`id="sl-identity-list"`）。守卫在 `tests/museMobile20260922.spec.ts`
   「signed-in homepage + identity menu」段。
+
+## 分阶段改进 · 节点 1「可信」（2026-09-26 · 依据 `design/phased-improvement-response-2026-09.md`，用户「按照你的理解和推荐来修改…按工作节点连续推进」）
+
+外部第二版报告（`~/Downloads/stayloop-phased-improvement-plan 2.pdf`）26 条实测发现逐条核实后，21 条属实、2 条根因与报告不同、3 条已完成或未复现（对照表在设计稿一节）。
+节点 1 落地（守卫 `tests/node1Facts20260926.spec.ts`，24 条；迁移 `20260926_facts_v2.sql` 已应用 prod）：
+- **一个事实源**：`lifecycle_facts_tenant / landlord`（扩）+ 新 `lifecycle_facts_agent`（都是 SECURITY INVOKER、anon 无权）一次返回瓦片 / 看板 / 今日卡 / rail /
+  我的租金 / 我的申请要的全部行——租客租约同时按登录邮箱与 tenants 行找、房东 household 同时按 created_by / 租约 / 房东成员三条路找、`rent_all`（租客侧全部账期）、
+  `rent_month`（房东本月）、`member_roles`、`tier`、`city`。客户端 `lib/facts/useFacts.ts`（每页一次、2 秒共享缓存、`sl-facts-changed` 事件刷新）+
+  `lib/facts/toLifecycle.ts`（→ rail）+ `lib/facts/stats.ts`（→ 瓦片，纯函数）。`useLifecycle` 变成 useFacts 的视图，**逐表回退加载器已删**；
+  `StatusOverview` / `LiveMaintenanceBoard` / `MyRent` / `MyApplications` 不再直接查任何业务表（守卫）。报告说的「进度页上有租约下无租约」「维修三处计数不一致」
+  「待付租金 todo/payments 有而 progress 无」「审计…」的前三条根因就是三条取数路径，现在只剩一条。
+- **状态词表 `lib/matters/states.ts`**：租约展示态由 status + 日期推导——`signed_both / active / imported` 且起租日在未来 = **已签 · 待起租**（`upcoming`），到期日已过 = 已结束；
+  `isLeaseInForce` 是「生效中」的唯一定义。申请 / 工单 / 房源 / 筛查 / 账期各一张表 + 中英标签；`yesNo()` 供表单用（布尔永不裸露）。`/landlord/leases` 多一段
+  「已签 · 待起租」（L-46B5 不再显示 ACTIVE）；`proactive` 三处扫描加 `start_date ≤ 今天` 门——未起租的租约不再进续约 / 催租扫描（该租约此前已在 90 天窗口内）。
+- **`/listings` 的「92% 匹配」「仅限 Tier 4 申请」是库数据残留**：8 Colvestone Road 等 3 行带着设计样例的 `badge / match_score / luna_note`（Realtor 导入时照样例行写的），
+  没有任何代码在算它。三列已清空，页面与详情页不再选取 / 渲染 / 按它排序（默认排序改最新）；结果条一个数 + 说明「共 M 套，已按条件筛 / 只计地图范围内」（报告的 7 vs 12）。
+- **硬约束层 `lib/agent/hardConstraints.ts`**：从当前消息 + 记忆确定性推导预算 / 户型 / 宠物（消息 > 记忆；模型只能收紧不能放宽；「预算不限」时不套记忆预算），
+  合并进 `searchListings` 的条件；`searchListings` 多返回 `overBudget`（样本里被预算砍掉的套数）；回复末尾由系统写「（已按 预算 ≤ $2,800 · 2 房以上 过滤（预算来自你之前
+  告诉我的）；另有 N 套超预算未列）」；追问芯片按合并后的条件判断缺什么；`search_used` 带 `hard_constraints`。

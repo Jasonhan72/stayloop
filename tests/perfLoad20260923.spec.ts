@@ -32,23 +32,25 @@ describe('page-load round trips', () => {
     expect(read('components/WorkspaceShell.tsx')).toContain('fetchPendingCount(role)')
     for (const f of ['components/Header.tsx', 'components/WorkspaceShell.tsx']) expect(read(f)).not.toContain("from('agent_pending_actions').select('id', { count: 'exact', head: true })")
   })
-  it('tenant lifecycle loads in two dependent batches', () => {
+  it('tenant lifecycle is one RPC round trip shared with the tiles (节点 1 2026-09-26)', () => {
     const s = read('lib/lifecycle/useLifecycle.ts')
-    const body = s.slice(s.indexOf('async function loadTenant'), s.indexOf('async function loadAgent'))
-    expect((body.match(/await Promise\.all\(/g) || []).length).toBe(2)
-    expect(body).not.toMatch(/const \{ data: tenantRow \} = await supabase/)
+    expect(s).not.toMatch(/await Promise\.all\(|supabase\.from\(/)
+    const f = read('lib/facts/useFacts.ts')
+    expect((f.match(/supabase\.rpc\(/g) || []).length).toBe(1)
   })
   it('agent session reads run alongside the bootstrap RPC', () => {
     const s = read('lib/agent/session-loader.ts')
     expect(s).toContain("const [{ data: sessRow, error: bootErr }, { data: cfgByRole }, { data: task }, memories, pendingActions, profile] =")
     expect(s).toContain('(cfgByRole as { id: string }).id === session.agent_config_id')
   })
-  it('tenants row lookup is shared and the status tiles start on user, not on live', () => {
-    expect(read('lib/lifecycle/useLifecycle.ts')).toContain('getTenantRow(uid)')
+  it('the status tiles and the rail share one facts fetch that starts on user, not on live (节点 1 2026-09-26)', () => {
+    expect(read('lib/lifecycle/useLifecycle.ts')).toContain('useFacts(role)')
     const so = read('components/agent/StatusOverview.tsx')
-    expect(so).toContain('const t = await getTenantRow(uid)')
-    expect(so).toContain('}, [user, role])')
-    expect(so).not.toContain('}, [live, user, role])')
+    expect(so).toContain('useFacts(role)')
+    expect(so).not.toMatch(/from\('(lease_documents|maintenance_tickets|rent_payments|applications|showing_intents|agent_clients)'\)/)
+    const f = read('lib/facts/useFacts.ts')
+    expect(f).toContain('const TTL_MS = 2_000')
+    expect(f).toContain('if (auth.loading) return')
   })
   it('model catalogue is cached per user for the session', () => {
     const s = read('components/agent/AgentInputBar.tsx')

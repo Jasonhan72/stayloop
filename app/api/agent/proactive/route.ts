@@ -117,6 +117,8 @@ async function runCronSweep(): Promise<NextResponse> {
     .from('lease_documents')
     .select('id, landlord_id, tenant_name, tenant_email, unit_label, monthly_rent, end_date')
     .in('status', ['active', 'signed_both'])
+    // Not yet started = not in force: no renewal touchpoints for it (节点 1 2026-09-26).
+    .or(`start_date.is.null,start_date.lte.${iso(todayUtc(today))}`)
     .gte('end_date', iso(todayUtc(today)))
     .lte('end_date', iso(horizon))
     .order('end_date', { ascending: true })
@@ -139,6 +141,8 @@ async function runCronSweep(): Promise<NextResponse> {
       .from('lease_documents')
       .select('id, landlord_id, tenant_name, tenant_email, unit_label, monthly_rent, end_date')
       .in('status', ['active', 'signed_both'])
+      // Rent is only due once the term has begun (节点 1 2026-09-26).
+      .or(`start_date.is.null,start_date.lte.${dueDate}`)
       .gte('end_date', dueDate)
       .not('tenant_email', 'is', null)
       .limit(CRON_SCAN_LIMIT)
@@ -364,6 +368,8 @@ export async function POST(req: Request) {
     .select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status')
     .in('landlord_id', landlordIds)
     .in('status', ['active', 'signed_both'])
+    // Not yet started = not in force: no renewal touchpoints for it (节点 1 2026-09-26).
+    .or(`start_date.is.null,start_date.lte.${iso(todayUtc(today))}`)
     .gte('end_date', iso(todayUtc(today)))
     .lte('end_date', iso(horizon))
     .order('end_date', { ascending: true })

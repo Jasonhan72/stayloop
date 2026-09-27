@@ -111,7 +111,9 @@ describe('round 2 (user: 改成 V0.6，其余按建议全部修)', () => {
     expect(read('components/mobile/RolePages.tsx')).toContain('omitPending')
   })
   it('SL-A-04 · client counts and tasks come from the client table', async () => {
-    expect(read('components/agent/StatusOverview.tsx')).toMatch(/from\('agent_clients'\)[^\n]*neq\('stage', 'closed'\)/)
+    // 节点 1 (2026-09-26): the tile reads the client table through the one facts RPC.
+    expect(read('lib/facts/stats.ts')).toContain("f.clients.filter((c) => c.stage !== 'closed')")
+    expect(read('supabase/migrations/20260926_facts_v2.sql')).toMatch(/from agent_clients where agent_auth_id/)
     const { clientTasks } = await import('@/lib/agent/clientBook')
     const base = { client_role: 'tenant' as const, last_contact_at: new Date().toISOString(), updated_at: new Date().toISOString() }
     const t = clientTasks([

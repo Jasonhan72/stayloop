@@ -224,13 +224,16 @@ describe('tenant / landlord walk-through fixes (review C)', () => {
   it('the application tracker matches its lease by application_id first; the dead status helper is gone', () => {
     const s = read('components/tenant/MyApplications.tsx')
     expect(s).toContain('const exact = leases.find((x) => x.application_id === r.id)')
-    expect(s).toContain("select('id, application_id, status, unit_label, sent_at, signed_at, created_at')")
+    // 节点 1 (2026-09-26): the lease rows come from the facts RPC, which carries application_id / sent_at / signed_at.
+    expect(read('supabase/migrations/20260926_facts_v2.sql')).toMatch(/unit_label, tenant_name, monthly_rent, application_id, sent_at, signed_at, created_at\n            from lease_documents/)
     expect(s).not.toContain('applicationStatusLabel')
   })
   it('my rent lists tenant-side tenancies only, with the real status vocabulary; showings use the inbox words', () => {
     const rent = read('components/tenant/MyRent.tsx')
-    expect(rent).toContain(".eq('role', 'tenant')")
-    expect(rent).toContain("failed: { zh: '失败', en: 'Failed' }")
+    // 节点 1 (2026-09-26): tenant-side tenancies only, via the facts' member_roles; labels from the shared state table.
+    expect(rent).toContain("m.role === 'tenant'")
+    expect(rent).toContain('RENT_STATE_LABEL')
+    expect(read('lib/matters/states.ts')).toContain("failed: { zh: '失败', en: 'Failed', tone: 'danger' }")
     expect(rent).not.toContain("partial: '部分'")
     const sh = read('components/tenant/MyShowings.tsx')
     expect(sh).toContain("s === 'declined' ? (zh ? '房东婉拒' : 'Declined')")

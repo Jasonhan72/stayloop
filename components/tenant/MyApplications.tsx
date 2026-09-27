@@ -1,38 +1,19 @@
 'use client'
 
-// The tenant's own rental applications — real rows from `applications` under
-// the applicant self-read policy (20260923_applications_applicant_select),
-// matched by the login email. Shown above the demo fixtures on
-// /tenant/applications and inside the honest empty state (e2e 2026-09-23:
-// an account that had applied saw "还没有租房申请").
+// The tenant's own rental applications — real rows from the applicant view
+// (20260923_applications_applicant_select), matched by the login email. Shown
+// above the demo fixtures on /tenant/applications and inside the honest empty
+// state. Since 节点 1 (2026-09-26) the rows, the leases and the households
+// come from lib/facts/useFacts — one payload shared with the progress tiles
+// and the lifecycle rail.
 //
 // P1 2026-09-23: each row is a tracker — 已提交 → 房东已查看 → 筛查已发起 →
 // 决定 → 租约待签 → 在管租约 (lib/lifecycle/applicationTrack). The tenant
 // sees that the landlord looked and that screening started, never the score.
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/lib/useAuth'
 import { useReportLiveRows } from '@/lib/liveRows'
+import { useFacts, type LeaseRow, type TenantApplicationRow } from '@/lib/facts/useFacts'
 import { applicationTrack, trackSummary, type TrackStep } from '@/lib/lifecycle/applicationTrack'
-
-type Row = {
-  id: string
-  status: string | null
-  created_at: string
-  move_in_date: string | null
-  viewed_at: string | null
-  screened_at: string | null
-  decision_notified_at: string | null
-  listing_id: string | null
-  // Listing snapshot carried by the view (the public listings RLS hides an inactive listing from the applicant — it used to render as "—").
-  listing_slug: string | null
-  listing_address: string | null
-  listing_unit: string | null
-  listing_active: boolean | null
-}
-type LeaseRow = { id: string; application_id: string | null; status: string | null; unit_label: string | null; sent_at: string | null; signed_at: string | null; created_at: string }
-type HhRow = { id: string; current_lease_id: string | null; address: string | null }
 
 function Tracker({ steps, zh }: { steps: TrackStep[]; zh: boolean }) {
   return (
@@ -53,46 +34,21 @@ function Tracker({ steps, zh }: { steps: TrackStep[]; zh: boolean }) {
 }
 
 export default function MyApplications({ zh }: { zh: boolean }) {
-  const auth = useAuth()
-  const [rows, setRows] = useState<Row[] | null>(null)
-  const [leases, setLeases] = useState<LeaseRow[]>([])
-  const [households, setHouseholds] = useState<HhRow[]>([])
-  const [joined, setJoined] = useState<Set<string>>(new Set())
+  const { facts } = useFacts('tenant')
+  const rows: TenantApplicationRow[] | null = facts ? facts.applications : null
+  const leases: LeaseRow[] = facts ? facts.leases : []
+  const households = facts ? facts.households : []
+  const joined = new Set(facts ? facts.members : [])
   useReportLiveRows('applications', rows ? rows.length : null)
-  useEffect(() => {
-    if (auth.loading || !auth.user) { setRows([]); return }
-    let cancelled = false
-    const uid = auth.user.id
-    const email = auth.user.email ?? ''
-    ;(async () => {
-      const [{ data: apps }, { data: ls }, { data: hh }, { data: mem }] = await Promise.all([
-        supabase.from('applicant_applications').select('id, status, created_at, move_in_date, viewed_at, screened_at, decision_notified_at, listing_id, listing_slug, listing_address, listing_unit, listing_active').order('created_at', { ascending: false }).limit(20),
-        email ? supabase.from('lease_documents').select('id, application_id, status, unit_label, sent_at, signed_at, created_at').ilike('tenant_email', email).order('created_at', { ascending: false }).limit(20) : Promise.resolve({ data: [] as LeaseRow[] }),
-        supabase.from('households').select('id, current_lease_id, address').limit(20),
-        supabase.from('household_members').select('household_id').eq('user_id', uid).limit(20),
-      ])
-      if (cancelled) return
-      setRows((apps ?? []) as Row[])
-      setLeases((ls ?? []) as LeaseRow[])
-      setHouseholds((hh ?? []) as HhRow[])
-      setJoined(new Set(((mem ?? []) as { household_id: string }[]).map((m) => m.household_id)))
-    })()
-    return () => { cancelled = true }
-  }, [auth.loading, auth.user])
   if (!rows || rows.length === 0) return null
-  // A lease "belongs" to an application when it names the same unit / address
-  // (the e-sign flow drafts the lease from the application). Approved
-  // applications without a match fall back to the newest lease so the
-  // tracker never shows a blank step after 已录取.
-  const leaseFor = (r: Row, l: { address: string; unit: string | null } | null): LeaseRow | null => {
+  // A lease "belongs" to an application when it names it (lease_documents.application_id);
+  // the address heuristic is only for leases that predate the column, and never for a lease
+  // that names another application (review 2026-09-25).
+  const leaseFor = (r: TenantApplicationRow, l: { address: string; unit: string | null } | null): LeaseRow | null => {
     if (r.status !== 'approved') return null
-    // The lease drafted from this application names it (lease_documents.application_id) — exact match first.
-    // The address heuristic is only for leases that predate the column, and never for a lease that names
-    // another application (review 2026-09-25: two units in one building both matched the first lease).
     const exact = leases.find((x) => x.application_id === r.id)
     if (exact) return exact
     const key = l ? `${l.address} ${l.unit ?? ''}`.toLowerCase() : ''
-    // No fallback to "the newest lease": two approved applications would otherwise both claim it (review 2026-09-23).
     return leases.find((x) => !x.application_id && x.unit_label && key && (key.includes(x.unit_label.toLowerCase()) || x.unit_label.toLowerCase().includes(l!.address.toLowerCase()))) ?? null
   }
   return (
@@ -103,7 +59,7 @@ export default function MyApplications({ zh }: { zh: boolean }) {
           const l = r.listing_address ? { slug: r.listing_slug ?? '', address: r.listing_address, unit: r.listing_unit, active: r.listing_active !== false } : null
           const lease = leaseFor(r, l)
           const hh = lease ? households.find((h) => h.current_lease_id === lease.id) ?? null : null
-          const steps = applicationTrack({ ...r, lease, household: hh ? { id: hh.id, joined: joined.has(hh.id) } : null })
+          const steps = applicationTrack({ ...r, lease: lease ? { status: lease.status, sent_at: lease.sent_at ?? null, signed_at: lease.signed_at ?? null } : null, household: hh ? { id: hh.id, joined: joined.has(hh.id) } : null })
           const s = trackSummary(steps, zh)
           return (
             <div key={r.id} className="py-3 text-[13.5px]">

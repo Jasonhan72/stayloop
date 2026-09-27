@@ -14,6 +14,7 @@ import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, type TurnOut
 import { flattenMarkdown, isProviderCapacityError } from '@/lib/agent/turnHelpers'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
+import { applyHardConstraints, constraintsNote } from '@/lib/agent/hardConstraints'
 import { commercialKind, summarizeCommercial } from '@/lib/agent/commercialSearch'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { buildUserContext, parseLookup, runLookup } from '@/lib/agent/userContext'
@@ -807,14 +808,26 @@ export async function POST(req: Request) {
         keywords: typeof search.keywords === 'string' ? search.keywords : null,
         min_beds: typeof search.min_beds === 'number' ? search.min_beds : null,
       })
+      // Hard constraints (节点 1 · 可信, 2026-09-26): what the person said in THIS
+      // message wins, a remembered budget / bedrooms / pets applies when the
+      // model left the field empty, and the model can only tighten — a $13,800
+      // house never sits in a $2,800 search because the model forgot the cap.
+      const hc = role === 'tenant' && !commercialAsk
+        ? applyHardConstraints(message, memories, {
+            max_price: typeof search.max_price === 'number' ? search.max_price : null,
+            min_beds: typeof search.min_beds === 'number' ? search.min_beds : null,
+            pets: typeof search.pets === 'boolean' ? search.pets : null,
+          })
+        : null
+      if (hc) Object.assign(searchObj, { max_price: hc.search.max_price, min_beds: hc.search.min_beds ?? null, pets: hc.search.pets, hard_constraints: hc.constraints })
       const result = await searchListings({
         area: typeof search.area === 'string' ? search.area.slice(0, 200) : null,
         area_candidates: Array.isArray(search.area_candidates)
           ? (search.area_candidates as unknown[]).filter((s): s is string => typeof s === 'string' && !!s.trim()).map((s) => s.slice(0, 80)).slice(0, commercialAsk ? 8 : 3)
           : null,
-        max_price: typeof search.max_price === 'number' ? search.max_price : null,
-        min_beds: typeof search.min_beds === 'number' ? search.min_beds : null,
-        pets: typeof search.pets === 'boolean' ? search.pets : null,
+        max_price: hc ? hc.search.max_price ?? null : typeof search.max_price === 'number' ? search.max_price : null,
+        min_beds: hc ? hc.search.min_beds ?? null : typeof search.min_beds === 'number' ? search.min_beds : null,
+        pets: hc ? hc.search.pets ?? null : typeof search.pets === 'boolean' ? search.pets : null,
         property_type: typeof search.property_type === 'string' ? search.property_type : null,
         keywords: typeof search.keywords === 'string' ? search.keywords : null,
         count: typeof search.count === 'number' ? search.count : null,
@@ -877,6 +890,8 @@ export async function POST(req: Request) {
             ? '\n\n这次没能拿到符合条件的实时房源（Stayloop 库里没有匹配，Realtor.ca 抓取也没返回结果）。你可以换个说法再让我搜一次，或放宽预算/区域试试 —— 我不会拿编造的房源充数。'
             : "\n\nI couldn't pull any real listings matching this just now (no Stayloop match, and the Realtor.ca fetch returned nothing). Try rephrasing or widening the budget/area — I won't pad the results with made-up listings.")
       }
+      // The system, not the model, says what was filtered and how many the cap removed.
+      if (hc && (result.listings.length || (result.overBudget ?? 0) > 0)) out.reply += constraintsNote(hc.constraints, uiLang !== 'en' || /[\u4e00-\u9fff]/.test(message), result.overBudget ?? 0)
       // Proactive market context — real prices from the area sample, computed
       // server-side (never by the model).
       if (result.market) market = result.market as unknown as Record<string, unknown>
@@ -902,19 +917,19 @@ export async function POST(req: Request) {
               : { question: 'What kind of space?', options: ['Warehouse / industrial', 'Retail storefront', 'Office', 'Any'] }
           )
       }
-      if (!isCommercial && search.max_price == null)
+      if (!isCommercial && (hc ? hc.search.max_price == null : search.max_price == null))
         fq.push(
           cjk
             ? { question: '预算大概多少?', options: ['预算 $2,000 以内', '预算 $2,500 以内', '预算 $3,000 以内', '预算不限'] }
             : { question: "What's your budget?", options: ['Under $2,000', 'Under $2,500', 'Under $3,000', 'No limit'] }
         )
-      if (!isCommercial && search.min_beds == null)
+      if (!isCommercial && (hc ? hc.search.min_beds == null : search.min_beds == null))
         fq.push(
           cjk
             ? { question: '想要几居室?', options: ['Studio 就行', '一居室', '两居室', '三居以上'] }
             : { question: 'How many bedrooms?', options: ['Studio is fine', '1 bedroom', '2 bedrooms', '3+'] }
         )
-      if (!isCommercial && search.pets == null)
+      if (!isCommercial && (hc ? hc.search.pets == null : search.pets == null))
         fq.push(
           cjk
             ? { question: '有宠物吗?', options: ['要养宠物', '不养宠物'] }

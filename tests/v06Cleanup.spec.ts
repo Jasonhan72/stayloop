@@ -65,10 +65,12 @@ describe('lifecycle facts in one round trip', () => {
     expect(sql).toContain('from applicant_applications')
     expect(sql).not.toMatch(/ai_score/)
   })
-  it('the hook calls the RPC first and keeps the per-table loaders as fallback', () => {
+  it('the rail is a view over the one facts fetch; the per-table fallback loaders are gone (节点 1 2026-09-26)', () => {
     const hook = read('lib/lifecycle/useLifecycle.ts')
-    expect(hook).toContain("supabase.rpc('lifecycle_facts_landlord')")
-    expect(hook).toContain('return loadLandlordLegacy(uid)')
-    expect(hook).toContain('return loadTenantLegacy(uid, email)')
+    expect(hook).toContain('useFacts(role)')
+    expect(hook).toContain('factsToLifecycle(role, facts)')
+    expect(hook).not.toMatch(/Legacy|from\('/)
+    const facts = read('lib/facts/useFacts.ts')
+    expect(facts).toContain("landlord: 'lifecycle_facts_landlord', tenant: 'lifecycle_facts_tenant', agent: 'lifecycle_facts_agent'")
   })
 })

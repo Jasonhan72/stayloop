@@ -1,300 +1,31 @@
 'use client'
 
-// 状态总览 — the at-a-glance panel at the top of the agent-workspace right
-// rail. A compact icon+number tile grid (3 per row), one tile per real-world
-// fact (applications, lease, tickets, rent, passport / clients, showings,
-// commission…), each tile linking to the page where the user acts on it.
-// Long statuses compress to a 2-4 char word; the full sentence lives in a
-// dark hover tooltip (same pattern as the WorkspaceShell rail). Live sessions
-// read real RLS-scoped tables in a single mount-time sweep (silent empty
-// state on failure/timeout — never blocks the page); demo sessions show the
+// 状态总览 — the at-a-glance tile grid on the progress page: one tile per
+// real-world fact (applications, lease, tickets, rent, passport / clients,
+// commission…), each linking to the page where the user acts on it. Since
+// 节点 1 (2026-09-26) every number comes from lib/facts/useFacts — the same
+// RPC payload the lifecycle rail, the today card and the boards read — and
+// the tile logic is the pure lib/facts/stats. Demo sessions show the
 // design-canon sample numbers with the usual 示范数据 tag.
-import { useEffect, useState } from 'react'
-import { getTenantRow } from '@/lib/tenantRow'
 import Link from 'next/link'
-import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT, type Lang } from '@/lib/i18n'
 import type { AgentRole } from '@/lib/agent/types'
-
-// ---------------------------------------------------------------- types --
-
-type Stats = {
-  // tenant
-  apps?: number | null
-  leaseStatus?: string | null // lease_documents.status, or null = no lease
-  openTickets?: number | null
-  nextRent?: { date: string; amount: number; late: boolean } | null
-  passportTier?: number | null
-  // landlord
-  pendingApps?: number | null
-  activeLeases?: number | null
-  expiringLeases?: number | null
-  renewal?: { d90: number; d60: number; d30: number } | null
-  rentMonth?: { collected: number; expected: number } | null
-  // agent
-  showingsToday?: number | null
-  activeClients?: number | null
-  unsettled?: { count: number; amount: number } | null
-}
+import { useFacts } from '@/lib/facts/useFacts'
+import { statsFromFacts, type Stats } from '@/lib/facts/stats'
+import { LEASE_STATE_LABEL } from '@/lib/matters/states'
 
 // Design-canon sample numbers — mirror the demo fixtures already shown on
-// the destination pages (applications/leases/maintenance/payments/passport,
-// finance, tasks/clients/earnings) so the rail and the pages agree.
+// the destination pages so the rail and the pages agree.
 function demoStats(role: AgentRole): Stats {
   if (role === 'tenant')
-    return {
-      apps: 2,
-      leaseStatus: 'signed_tenant',
-      openTickets: 2,
-      nextRent: { date: '2026-06-01', amount: 2800, late: false },
-      passportTier: 2,
-    }
+    return { apps: 2, leaseState: 'awaiting_landlord', openTickets: 2, nextRent: { date: '2026-06-01', amount: 2800, late: false }, passportTier: 2 }
   if (role === 'landlord')
-    return {
-      pendingApps: 6,
-      activeLeases: 2,
-      expiringLeases: 1,
-      renewal: { d90: 1, d60: 0, d30: 0 },
-      openTickets: 3,
-      rentMonth: { collected: 10590, expected: 10590 },
-    }
-  return { showingsToday: 5, activeClients: 7, unsettled: { count: 1, amount: 1475 } }
-}
-
-// ------------------------------------------------------------- live load --
-
-function withTimeout<T>(p: Promise<T>, ms = 6000): Promise<T | null> {
-  return Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]).catch(() => null)
-}
-
-type Sb = ReturnType<typeof getSupabaseBrowser>
-
-const OPEN_TICKETS = '(done,cancelled)' // maintenance statuses that count as closed
-
-async function loadTenantStats(sb: Sb, uid: string): Promise<Stats> {
-  // Every tenant-side row here hangs off a `tenants` record, and nothing in the
-  // product writes that table — 0 rows against 96 accounts — so in practice this
-  // returns the empty shape for everyone. That is the correct output (show
-  // nothing rather than invent a tier), but it means the queries below are
-  // currently unreachable; they stay because they are right for when the tenant
-  // profile is actually created.
-  const t = await getTenantRow(uid)
-  if (!t) return { apps: 0, leaseStatus: null, openTickets: 0, nextRent: null, passportTier: null }
-  const tid = t.id
-
-  const [intents, leases, maint, passport] = await Promise.all([
-    sb.from('showing_intents').select('id', { count: 'exact', head: true }).eq('tenant_id', tid).eq('status', 'pending'),
-    sb
-      .from('lease_documents')
-      .select('id, status')
-      .eq('tenant_id', tid)
-      .order('created_at', { ascending: false })
-      .limit(20),
-    sb
-      .from('maintenance_tickets')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tid)
-      .not('status', 'in', OPEN_TICKETS),
-    // `rental_passports` does NOT exist in this database. Left in place it would
-    // reject this whole Promise.all the moment a tenants row makes this branch
-    // reachable, taking the lease/maintenance/rent panels down with it. The
-    // stamp tier on the tenants row is the only source that exists.
-    Promise.resolve({ data: { tier: t.tier } as { tier: number | null } }),
-  ])
-
-  // The lease that matters most: an in-force one first, else the freshest
-  // in-flight one, else (only ended leases) the ended state.
-  const rows = (leases.data ?? []) as { id: string; status: string | null }[]
-  const lease =
-    rows.find((l) => l.status === 'active' || l.status === 'signed_both') ??
-    rows.find((l) => l.status !== 'ended') ??
-    rows[0]
-
-  // Next rent: earliest unpaid instalment across this tenant's leases.
-  let nextRent: Stats['nextRent'] = null
-  const leaseIds = rows.map((l) => l.id)
-  if (leaseIds.length) {
-    const { data: pays } = await sb
-      .from('rent_payments')
-      .select('due_date, amount, status')
-      .in('lease_id', leaseIds)
-      .in('status', ['due', 'late'])
-      .order('due_date', { ascending: true })
-      .limit(1)
-    const p = pays?.[0]
-    if (p) nextRent = { date: p.due_date as string, amount: Number(p.amount) || 0, late: p.status === 'late' }
-  }
-
-  return {
-    apps: intents.count ?? 0,
-    leaseStatus: lease?.status ?? null,
-    openTickets: maint.count ?? 0,
-    nextRent,
-    passportTier: (passport.data?.tier as number | undefined) ?? (t.tier as number | undefined) ?? 1,
-  }
-}
-
-function monthBounds(): { start: string; end: string } {
-  const now = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const start = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`
-  const n2 = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-  const end = `${n2.getFullYear()}-${pad(n2.getMonth() + 1)}-01`
-  return { start, end }
-}
-
-async function loadLandlordStats(sb: Sb, uid: string): Promise<Stats> {
-  // Dual-ID invariant: landlords.id (profileId) ≠ auth.users.id — resolve
-  // profile rows with the .or() pattern, never assume one equals the other.
-  const { data: lls } = await sb.from('landlords').select('id').or(`id.eq.${uid},auth_id.eq.${uid}`)
-  const llIds = (lls ?? []).map((r) => r.id as string)
-
-  // Applications are RLS-scoped ("Landlords see own applications") — no hard
-  // owner filter here, per the dual-ID rule.
-  const appsQ = sb
-    .from('applications')
-    .select('id', { count: 'exact', head: true })
-    .not('status', 'in', '(approved,declined,rejected,withdrawn)')
-
-  const leasesQ = llIds.length
-    ? sb.from('lease_documents').select('id, status, end_date').in('landlord_id', llIds).limit(200)
-    : Promise.resolve({ data: [] as { id: string; status: string | null; end_date: string | null }[] })
-
-  const listingsQ = llIds.length
-    ? sb.from('listings').select('id').in('landlord_id', llIds).limit(200)
-    : Promise.resolve({ data: [] as { id: string }[] })
-
-  const [apps, leases, listings] = await Promise.all([appsQ, leasesQ, listingsQ])
-
-  const leaseRows = (leases.data ?? []) as { id: string; status: string | null; end_date: string | null }[]
-  const active = leaseRows.filter((l) => l.status === 'active' || l.status === 'signed_both')
-  const now = Date.now()
-  // Renewal window with the 90 / 60 / 30-day touchpoints of
-  // lib/agent/renewalStages.ts (2026-09-22): the tile says how many leases
-  // are in each stage so the landlord sees what is due, not just a count.
-  const stageOf = (l: { end_date: string | null }) => {
-    if (!l.end_date) return null
-    const days = (new Date(l.end_date).getTime() - now) / 86_400_000
-    if (days < 0 || days > 120) return null
-    return days <= 30 ? '30d' : days <= 60 ? '60d' : '90d'
-  }
-  const stages = active.map(stageOf)
-  const expiring = stages.filter(Boolean).length
-  const renewal = {
-    d90: stages.filter((s) => s === '90d').length,
-    d60: stages.filter((s) => s === '60d').length,
-    d30: stages.filter((s) => s === '30d').length,
-  }
-
-  const listingIds = ((listings.data ?? []) as { id: string }[]).map((r) => r.id)
-  let openTickets = 0
-  if (listingIds.length) {
-    const { count } = await sb
-      .from('maintenance_tickets')
-      .select('id', { count: 'exact', head: true })
-      .in('listing_id', listingIds)
-      .not('status', 'in', OPEN_TICKETS)
-    openTickets = count ?? 0
-  }
-
-  // This month's rent roll across the landlord's leases.
-  let rentMonth: Stats['rentMonth'] = null
-  const leaseIds = leaseRows.map((l) => l.id)
-  if (leaseIds.length) {
-    const { start, end } = monthBounds()
-    const { data: pays } = await sb
-      .from('rent_payments')
-      .select('amount, status')
-      .in('lease_id', leaseIds)
-      .gte('due_date', start)
-      .lt('due_date', end)
-      .limit(200)
-    if (pays && pays.length) {
-      const expected = pays.reduce((s, p) => s + (Number(p.amount) || 0), 0)
-      const collected = pays.filter((p) => p.status === 'paid').reduce((s, p) => s + (Number(p.amount) || 0), 0)
-      rentMonth = { collected, expected }
-    }
-  }
-
-  return {
-    pendingApps: apps.count ?? 0,
-    activeLeases: active.length,
-    expiringLeases: expiring,
-    renewal,
-    openTickets,
-    rentMonth,
-  }
-}
-
-async function loadAgentStats(sb: Sb, uid: string): Promise<Stats> {
-  const { data: fas } = await sb.from('field_agents').select('id').eq('auth_id', uid)
-  const faIds = (fas ?? []).map((r) => r.id as string)
-
-  let showingsToday = 0
-  let activeClients = 0
-  if (faIds.length) {
-    const dayStart = new Date()
-    dayStart.setHours(0, 0, 0, 0)
-    const dayEnd = new Date(dayStart)
-    dayEnd.setDate(dayEnd.getDate() + 1)
-    const [showings, tasks] = await Promise.all([
-      sb
-        .from('agent_tasks')
-        .select('id', { count: 'exact', head: true })
-        .in('agent_id', faIds)
-        .eq('kind', 'showing')
-        .in('status', ['scheduled', 'in_progress'])
-        .gte('scheduled_at', dayStart.toISOString())
-        .lt('scheduled_at', dayEnd.toISOString()),
-      sb
-        .from('agent_tasks')
-        .select('client_tenant_id')
-        .in('agent_id', faIds)
-        .in('status', ['scheduled', 'in_progress'])
-        .not('client_tenant_id', 'is', null)
-        .limit(200),
-    ])
-    showingsToday = showings.count ?? 0
-    activeClients = new Set((tasks.data ?? []).map((t) => t.client_tenant_id as string)).size
-  }
-  // The client table (agent_clients) is the source of truth for "clients" —
-  // the same rows the lifecycle rail counts (non-archived). The legacy
-  // agent_tasks count said 0 while the rail said "1 位客户" (three-role test
-  // report 2026-09-24, SL-A-04).
-  {
-    const { count } = await sb.from('agent_clients').select('id', { count: 'exact', head: true }).eq('agent_auth_id', uid).neq('stage', 'closed')
-    activeClients = Math.max(activeClients, count ?? 0)
-  }
-
-  // Referral-fee ledger (RLS: brokerage owner) — unsettled = no transfer yet.
-  const { data: coms } = await sb.from('commission').select('fee_amount, stripe_transfer_id').limit(200)
-  const open = (coms ?? []).filter((c) => !c.stripe_transfer_id)
-  const unsettled = open.length
-    ? { count: open.length, amount: open.reduce((s, c) => s + (Number(c.fee_amount) || 0), 0) }
-    : null
-
-  return { showingsToday, activeClients, unsettled }
-}
-
-function loadStats(role: AgentRole, uid: string): Promise<Stats> {
-  const sb = getSupabaseBrowser()
-  if (role === 'tenant') return loadTenantStats(sb, uid)
-  if (role === 'landlord') return loadLandlordStats(sb, uid)
-  return loadAgentStats(sb, uid)
+    return { pendingApps: 6, activeLeases: 2, upcomingLeases: 0, expiringLeases: 1, renewal: { d90: 1, d60: 0, d30: 0 }, openTickets: 3, rentMonth: { collected: 10590, expected: 10590 } }
+  return { clientsToFollowUp: 2, activeClients: 7, unsettled: { count: 1, amount: 1475 } }
 }
 
 // ------------------------------------------------------------ formatting --
-
-// Full sentence (tooltip) + 2-4 char short form (tile) per lease status.
-const LEASE_LABEL: Record<string, { zh: string; en: string; shortZh: string; shortEn: string; tone: Tone }> = {
-  draft: { zh: '草拟中', en: 'Draft', shortZh: '草拟中', shortEn: 'Draft', tone: 'muted' },
-  sent: { zh: '待你签署', en: 'Awaiting your signature', shortZh: '待你签', shortEn: 'To sign', tone: 'warn' },
-  signed_tenant: { zh: '待房东签', en: 'Awaiting landlord', shortZh: '待房东签', shortEn: 'Waiting', tone: 'default' },
-  signed_both: { zh: '生效中', en: 'Active', shortZh: '生效中', shortEn: 'Active', tone: 'ok' },
-  active: { zh: '生效中', en: 'Active', shortZh: '生效中', shortEn: 'Active', tone: 'ok' },
-  ended: { zh: '已结束', en: 'Ended', shortZh: '已结束', shortEn: 'Ended', tone: 'muted' },
-}
 
 function fmtDate(iso: string, lang: Lang): string {
   const d = new Date(iso + (iso.length === 10 ? 'T12:00:00' : ''))
@@ -307,7 +38,7 @@ const money = (n: number) => `$${n.toLocaleString()}`
 
 // -------------------------------------------------------------- rendering --
 
-type Tone = 'ok' | 'warn' | 'muted' | 'default'
+type Tone = 'ok' | 'warn' | 'muted' | 'default' | 'danger'
 
 type TileSpec = {
   key: string
@@ -322,8 +53,6 @@ type TileSpec = {
 }
 
 function Ic({ d, bg, fg }: { d: string; bg: string; fg: string }) {
-  // Colored chip behind each icon — differentiates the overview tiles from the
-  // monochrome left rail (which uses bare stroke icons on the surface).
   return (
     <span className="flex h-9 w-9 items-center justify-center rounded-[10px]" style={{ background: bg, color: fg }} aria-hidden>
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -349,15 +78,23 @@ const TONE_CLASS: Record<Tone, string> = {
   warn: 'text-[#B45309]',
   muted: 'text-body-4',
   default: 'text-body',
+  danger: 'text-danger',
 }
 
-function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: number): TileSpec[] {
+export function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: number): TileSpec[] {
   const zh = lang === 'zh'
   const n = (v: number | null | undefined) => (v == null ? '—' : String(v))
   const zeroTone = (v: number | null | undefined): Tone => (v == null ? 'muted' : v === 0 ? 'muted' : 'default')
 
   if (role === 'tenant') {
-    const lease = s.leaseStatus ? LEASE_LABEL[s.leaseStatus] : null
+    const lease = s.leaseState ? LEASE_STATE_LABEL[s.leaseState] : null
+    const leaseFull = lease
+      ? s.leaseState === 'upcoming' && s.leaseDetail?.start
+        ? (zh ? `已签 · ${s.leaseDetail.start} 起租` : `Signed · starts ${s.leaseDetail.start}`)
+        : s.leaseState === 'active' && s.leaseDetail?.end
+          ? (zh ? `生效中 · ${s.leaseDetail.end} 到期` : `In force · ends ${s.leaseDetail.end}`)
+          : (zh ? lease.zh : lease.en)
+      : zh ? '暂无租约' : 'No lease yet'
     return [
       {
         key: 'apps',
@@ -373,7 +110,7 @@ function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: number)
         icon: IC.home,
         label: zh ? '当前租约' : 'Current lease',
         value: lease ? (zh ? lease.shortZh : lease.shortEn) : zh ? '暂无' : 'None',
-        full: lease ? (zh ? lease.zh : lease.en) : zh ? '暂无租约' : 'No lease yet',
+        full: leaseFull,
         tone: lease ? lease.tone : 'muted',
         href: '/tenant/lease',
       },
@@ -394,12 +131,8 @@ function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: number)
         full: s.nextRent ? undefined : zh ? '暂无待付' : 'Nothing due',
         sub: s.nextRent
           ? s.nextRent.late
-            ? zh
-              ? `已逾期 · 应付 ${fmtDate(s.nextRent.date, lang)}`
-              : `Overdue · was due ${fmtDate(s.nextRent.date, lang)}`
-            : zh
-              ? `下次缴租 ${fmtDate(s.nextRent.date, lang)}`
-              : `Next payment ${fmtDate(s.nextRent.date, lang)}`
+            ? zh ? `已逾期 · 应付 ${fmtDate(s.nextRent.date, lang)}` : `Overdue · was due ${fmtDate(s.nextRent.date, lang)}`
+            : zh ? `下次缴租 ${fmtDate(s.nextRent.date, lang)}` : `Next payment ${fmtDate(s.nextRent.date, lang)}`
           : undefined,
         tone: s.nextRent ? (s.nextRent.late ? 'warn' : 'default') : 'muted',
         href: '/tenant/payments',
@@ -431,18 +164,16 @@ function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: number)
       {
         key: 'leases',
         icon: IC.home,
-        label: zh ? '活跃租约' : 'Active leases',
+        label: zh ? '生效中的租约' : 'Leases in force',
         value: n(s.activeLeases),
         sub:
-          (s.expiringLeases ?? 0) > 0
-            ? zh
-              ? `${s.expiringLeases} 份进入续约窗口`
-              : `${s.expiringLeases} in the renewal window`
-            : s.activeLeases === 0
-              ? zh
-                ? '还没有生效中的租约'
-                : 'No active leases yet'
-              : undefined,
+          (s.upcomingLeases ?? 0) > 0
+            ? zh ? `另有 ${s.upcomingLeases} 份已签待起租` : `${s.upcomingLeases} more signed, starting later`
+            : (s.expiringLeases ?? 0) > 0
+              ? zh ? `${s.expiringLeases} 份进入续约窗口` : `${s.expiringLeases} in the renewal window`
+              : s.activeLeases === 0
+                ? zh ? '还没有生效中的租约' : 'No lease in force yet'
+                : undefined,
         tone: zeroTone(s.activeLeases),
         href: '/landlord/leases',
       },
@@ -452,14 +183,10 @@ function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: number)
         label: zh ? '续约窗口' : 'Renewal window',
         value: n(s.expiringLeases),
         full: s.renewal
-          ? zh
-            ? `90 天触点 ${s.renewal.d90} · 60 天 ${s.renewal.d60} · 30 天 ${s.renewal.d30}`
-            : `90-day ${s.renewal.d90} · 60-day ${s.renewal.d60} · 30-day ${s.renewal.d30}`
+          ? zh ? `90 天触点 ${s.renewal.d90} · 60 天 ${s.renewal.d60} · 30 天 ${s.renewal.d30}` : `90-day ${s.renewal.d90} · 60-day ${s.renewal.d60} · 30-day ${s.renewal.d30}`
           : undefined,
         sub: s.renewal && (s.renewal.d30 > 0 || s.renewal.d60 > 0)
-          ? zh
-            ? `${s.renewal.d30 > 0 ? `${s.renewal.d30} 份 ≤30 天` : `${s.renewal.d60} 份 ≤60 天`}`
-            : `${s.renewal.d30 > 0 ? `${s.renewal.d30} within 30 days` : `${s.renewal.d60} within 60 days`}`
+          ? zh ? `${s.renewal.d30 > 0 ? `${s.renewal.d30} 份 ≤30 天` : `${s.renewal.d60} 份 ≤60 天`}` : `${s.renewal.d30 > 0 ? `${s.renewal.d30} within 30 days` : `${s.renewal.d60} within 60 days`}`
           : (s.expiringLeases ?? 0) === 0
             ? zh ? '120 天内没有到期的租约' : 'Nothing ending within 120 days'
             : undefined,
@@ -481,12 +208,8 @@ function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: number)
         label: zh ? '本月收租' : "This month's rent",
         value: rm ? money(rm.collected) : zh ? '暂无' : 'None',
         full: rm
-          ? zh
-            ? `已收 ${money(rm.collected)} / 应收 ${money(rm.expected)}`
-            : `${money(rm.collected)} collected of ${money(rm.expected)}`
-          : zh
-            ? '本月暂无账单'
-            : 'No rent due this month',
+          ? zh ? `已收 ${money(rm.collected)} / 应收 ${money(rm.expected)}` : `${money(rm.collected)} collected of ${money(rm.expected)}`
+          : zh ? '本月暂无账单' : 'No rent due this month',
         sub: rentFull ? (zh ? '已收齐' : 'Fully collected') : undefined,
         tone: rm ? (rentFull ? 'ok' : 'default') : 'muted',
         href: '/landlord/finance',
@@ -506,12 +229,13 @@ function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: number)
 
   return [
     {
-      key: 'showings',
+      key: 'followup',
       icon: IC.calendar,
-      label: zh ? '今日带看' : "Today's showings",
-      value: n(s.showingsToday),
-      sub: s.showingsToday === 0 ? (zh ? '今天没有排带看' : 'No showings scheduled today') : undefined,
-      tone: zeroTone(s.showingsToday),
+      label: zh ? '待跟进的客户' : 'Clients to follow up',
+      value: n(s.clientsToFollowUp),
+      full: zh ? '缺代表协议 / Information Guide 日期，或 7 天以上没联系' : 'Missing agreement / Information Guide dates, or quiet for 7+ days',
+      sub: s.clientsToFollowUp === 0 ? (zh ? '客户表里没有待跟进的' : 'Nothing to follow up') : undefined,
+      tone: zeroTone(s.clientsToFollowUp),
       href: '/agent/tasks',
     },
     {
@@ -537,8 +261,6 @@ function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: number)
 }
 
 function Tile({ tile }: { tile: TileSpec }) {
-  // Full semantics live in the aria-label + hover tooltip; the tile itself
-  // only shows the icon and the compact value.
   const fullValue = tile.full ?? tile.value
   const desc = [tile.full, tile.sub].filter(Boolean).join(' · ')
   const aria = `${tile.label}：${fullValue}${tile.sub ? `（${tile.sub}）` : ''}`
@@ -548,70 +270,32 @@ function Tile({ tile }: { tile: TileSpec }) {
       <span className={`max-w-full truncate text-[16px] font-semibold leading-tight ${TONE_CLASS[tile.tone ?? 'default']}`}>
         {tile.value}
       </span>
-      {/* hover tooltip — same dark pattern as the WorkspaceShell rail */}
       <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 flex-col whitespace-nowrap rounded-lg bg-ink px-3 py-2 text-left shadow-lg md:group-hover:flex">
         <span className="text-[12px] font-bold text-white">{tile.label}</span>
         {desc && <span className="text-[11px] text-white/70">{desc}</span>}
       </span>
     </>
   )
-  const cls =
-    'group relative flex w-full flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-3 text-center transition hover:bg-surface-muted'
-
-  if (tile.dead)
-    return (
-      <div className={cls} aria-label={aria}>
-        {body}
-      </div>
-    )
+  const cls = 'group relative flex w-full flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-3 text-center transition hover:bg-surface-muted'
+  if (tile.dead) return <div className={cls} aria-label={aria}>{body}</div>
   if (tile.href.startsWith('#')) {
     return (
-      <button
-        type="button"
-        className={cls}
-        aria-label={aria}
-        onClick={() => document.getElementById(tile.href.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-      >
+      <button type="button" className={cls} aria-label={aria} onClick={() => document.getElementById(tile.href.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
         {body}
       </button>
     )
   }
-  return (
-    <Link href={tile.href} className={cls} aria-label={aria}>
-      {body}
-    </Link>
-  )
+  return <Link href={tile.href} className={cls} aria-label={aria}>{body}</Link>
 }
 
-export default function StatusOverview({
-  role,
-  live,
-  pendingCount = 0,
-}: {
-  role: AgentRole
-  live: boolean
-  pendingCount?: number
-}) {
+export default function StatusOverview({ role, live, pendingCount = 0 }: { role: AgentRole; live: boolean; pendingCount?: number }) {
   const { lang } = useT()
   const { user } = useAuth()
   const zh = lang === 'zh'
-  // Real tiles load as soon as the user is known — not after the agent
-  // session has settled (that made them the last two round trips on the page;
-  // perf review 2026-09-23). `live` only decides what is shown.
-  const [loaded, setLoaded] = useState<Stats | null>(null)
-  useEffect(() => {
-    if (!user) { setLoaded(null); return }
-    let cancelled = false
-    ;(async () => {
-      const s = await withTimeout(loadStats(role, user.id))
-      // Silent empty state on failure — rows render with '—', never an error.
-      if (!cancelled) setLoaded(s ?? {})
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [user, role])
-  const stats: Stats | null = live && user ? loaded : demoStats(role)
+  // Real tiles come from the shared facts (one RPC per page, cached across the
+  // rail / today card / tiles); `live` only decides what is shown.
+  const { facts, loading } = useFacts(role)
+  const stats: Stats | null = live && user ? (loading && !facts ? null : facts ? statsFromFacts(role, facts) : {}) : demoStats(role)
 
   return (
     <div className="sl-card p-6">

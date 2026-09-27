@@ -25,6 +25,7 @@ import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 import { downloadCsv, toCsv } from '@/lib/csv'
 import { daysBetween, monthsBetween, parseDateOnly, todayUtc } from '@/lib/dates'
+import { leaseDisplayState } from '@/lib/matters/states'
 
 // Tenant's answer to the 30-day touchpoint (renewal_intents, P1 2026-09-23).
 const INTENT_LABEL: Record<string, { zh: string; en: string }> = {
@@ -41,7 +42,7 @@ type LeaseItem = {
   rent: number
   start: string
   end: string
-  status: 'active' | 'pending' | 'expired'
+  status: 'active' | 'upcoming' | 'pending' | 'expired'
   onTime: string
   monthsLeft: number
   nextRenewal: { zh: string; en: string }
@@ -52,10 +53,10 @@ function mapDbLease(row: {
   unit_label: string | null; monthly_rent: number | null
   start_date: string | null; end_date: string | null; status: string | null
 }, aiName: string, intent?: { intent: string; created_at: string } | null): LeaseItem {
-  const status: LeaseItem['status'] =
-    row.status === 'active' || row.status === 'signed_both' ? 'active'
-    : row.status === 'ended' ? 'expired'
-    : 'pending'
+  // One state vocabulary (lib/matters/states, 节点 1 2026-09-26): a signed lease whose
+  // start date is still ahead is 已签待起租, never ACTIVE (external review: L-46B5).
+  const display = leaseDisplayState(row)
+  const status: LeaseItem['status'] = display === 'active' ? 'active' : display === 'ended' ? 'expired' : display === 'upcoming' ? 'upcoming' : 'pending'
   const end = parseDateOnly(row.end_date)
   const now = todayUtc()
   const monthsLeft = end ? monthsBetween(now, end) : 0
@@ -282,6 +283,7 @@ export default function LandlordLeasesPage() {
   const active = rows.filter((l) => l.status === 'active')
   const pending = rows.filter((l) => l.status === 'pending')
   const expired = rows.filter((l) => l.status === 'expired')
+  const upcoming = rows.filter((l) => l.status === 'upcoming')
   const now = todayUtc()
   const expiringSoon = active.filter((l) => {
     const end = parseDateOnly(l.end)
@@ -289,7 +291,7 @@ export default function LandlordLeasesPage() {
   }).length
   // Leases that still bill going forward — the basis for the annualized rent
   // and the average remaining term (ended / month-to-month rows are excluded).
-  const billing = [...active, ...pending]
+  const billing = [...active, ...upcoming, ...pending]
   const avgMonthsLeft = billing.length
     ? (billing.reduce((s, l) => s + l.monthsLeft, 0) / billing.length).toFixed(1)
     : '0.0'
@@ -397,6 +399,17 @@ export default function LandlordLeasesPage() {
         items={active}
         lang={lang}
       />
+
+      {upcoming.length > 0 && (
+        <LeaseSection
+          title={lang === 'zh' ? '已签 · 待起租' : 'Signed · starting later'}
+          eyebrow="SIGNED · UPCOMING"
+          count={upcoming.length}
+          right={lang === 'zh' ? '起租日未到，不计提醒与催租' : 'Not started — no reminders yet'}
+          items={upcoming}
+          lang={lang}
+        />
+      )}
 
       <LeaseSection
         title={lang === 'zh' ? '等待签字' : 'Awaiting signature'}
@@ -788,6 +801,7 @@ function ExpiryTimeline({ lang, leases, liveMode }: { lang: Lang; leases: LeaseI
 // Lease status → the shared status vocabulary. Labels are unchanged.
 const LEASE_STATUS: Record<LeaseItem['status'], { tone: PillTone; label: string }> = {
   active: { tone: 'ok', label: 'ACTIVE' },
+  upcoming: { tone: 'info', label: 'SIGNED · UPCOMING' },
   pending: { tone: 'pending', label: 'PENDING' },
   expired: { tone: 'neutral', label: 'EXPIRED' },
 }

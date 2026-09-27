@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/lib/useAuth'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import { PromoBadge, VerificationBadge } from '@/components/ListingBadges'
+import { VerificationBadge } from '@/components/ListingBadges'
 import { AgentPicker } from '@/components/AgentPicker'
 import { ShowingRequestModal, type ShowingKind } from '@/components/ShowingRequestModal'
 import { supabase } from '@/lib/supabase'
@@ -428,7 +428,6 @@ export default function ListingDetailPage() {
                   onClick={() => { if (imgs.length) { setGalleryIdx(0); setGalleryOpen(true) } }}
                 >
                   {!lead && <div className="absolute inset-0 bg-black/10" />}
-                  <PromoBadge badge={listing.badge} variant="hero" />
                 </div>
                 {thumbs.map((url, i) => (
                   <div
@@ -472,23 +471,6 @@ export default function ListingDetailPage() {
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {tier != null && tierInfo && <span className={`tier-badge t${tier}`}>{tierInfo.name[lang]}</span>}
-                {listing.match_score && listing.match_score >= 85 && (
-                  <span
-                    className="font-mono"
-                    style={{
-                      background: 'linear-gradient(135deg,rgba(0,172,228,0.10),rgba(37,99,235,0.10))',
-                      color: '#5B21B6',
-                      border: '1px solid rgba(0,172,228,0.40)',
-                      borderRadius: 6,
-                      padding: '4px 10px',
-                      fontSize: 10.5,
-                      fontWeight: 700,
-                      letterSpacing: '0.08em',
-                    }}
-                  >
-                    {zh ? `AI · ${listing.match_score}% 匹配` : `AI · ${listing.match_score}% match`}
-                  </span>
-                )}
               </div>
 
               <div className="mt-3">

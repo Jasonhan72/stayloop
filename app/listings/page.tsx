@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Header from '@/components/Header'
 import { SampleBanner } from '@/components/SampleNotice'
 import FavHeart from '@/components/FavHeart'
-import { PromoBadge, VerificationBadge } from '@/components/ListingBadges'
+import { VerificationBadge } from '@/components/ListingBadges'
 import ListingsMap from '@/components/ListingsMap'
 import { favKey, useFavorites, type FavListing } from '@/lib/favorites'
 import { supabase } from '@/lib/supabase'
@@ -40,15 +40,12 @@ interface DBListing {
   trust_tier: number | null
   pet_policy: string | null
   amenities: string[] | null
-  match_score: number | null
   pin_x: number | null
   pin_y: number | null
   lat: number | null
   lng: number | null
   thumb_a: string | null
   thumb_b: string | null
-  luna_note: string | null
-  badge: string | null
   photo_count: number | null
   is_active: boolean
   created_at: string
@@ -137,7 +134,7 @@ export default function ListingsPage() {
       // Only the columns the browse cards + map + client filters read — not
       // select('*') (which shipped every image URL, description, price_history
       // and broker fields on the highest-traffic public page).
-      .select('id,slug,address,unit,city,province,monthly_rent,bedrooms,bathrooms,sqft,neighborhood,trust_tier,pet_policy,amenities,match_score,pin_x,pin_y,lat,lng,thumb_a,thumb_b,luna_note,badge,photo_count,is_active,created_at,images,available_date,has_den,source,verification_status')
+      .select('id,slug,address,unit,city,province,monthly_rent,bedrooms,bathrooms,sqft,neighborhood,trust_tier,pet_policy,amenities,pin_x,pin_y,lat,lng,thumb_a,thumb_b,photo_count,is_active,created_at,images,available_date,has_den,source,verification_status')
       .eq('is_active', true)
       // Public list shows verified listings; Realtor.ca-sourced ones show
       // without verification (they carry a source badge instead).
@@ -182,7 +179,8 @@ export default function ListingsPage() {
       case 'price_asc': out.sort((a, b) => a.monthly_rent - b.monthly_rent); break
       case 'price_desc': out.sort((a, b) => b.monthly_rent - a.monthly_rent); break
       case 'newest': out.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')); break
-      default: out.sort((a, b) => (b.match_score ?? -1) - (a.match_score ?? -1))
+      // No stored "match" exists (the column was a design-sample leftover, cleared 2026-09-26): default = newest.
+      default: out.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
     }
     return out
   }, [all, appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, favs])
@@ -197,7 +195,7 @@ export default function ListingsPage() {
   }, [favOnly, favs, all])
 
   const mapListings = useMemo(
-    () => items.map((l) => ({ id: l.id, slug: l.slug, lat: l.lat, lng: l.lng, monthly_rent: l.monthly_rent, match_score: l.match_score })),
+    () => items.map((l) => ({ id: l.id, slug: l.slug, lat: l.lat, lng: l.lng, monthly_rent: l.monthly_rent, match_score: null })),
     [items],
   )
   const shown = useMemo(
@@ -522,6 +520,13 @@ export default function ListingsPage() {
           <div style={{ fontSize: 18, fontWeight: 700 }}>
             <b style={{ color: '#047857' }}>{count}</b>
             {zh ? ' 套房源' : ' listings'}
+            {count !== all.length && (
+              <span style={{ fontWeight: 500, color: '#3F3F46' }} data-testid="listing-count-note">
+                {zh
+                  ? ` · 共 ${all.length} 套${items.length !== all.length ? '，已按条件筛' : ''}${viewportIds && shown.length !== items.length ? '，只计地图范围内' : ''}`
+                  : ` · ${all.length} in total${items.length !== all.length ? ', filtered' : ''}${viewportIds && shown.length !== items.length ? ', map area only' : ''}`}
+              </span>
+            )}
             {appliedQuery && <span style={{ fontWeight: 500, color: '#3F3F46' }}> · {appliedQuery}</span>}
           </div>
           <label style={{ fontSize: 13, color: '#3F3F46' }}>
@@ -843,7 +848,6 @@ function ListingCard({
           position: 'relative',
         }}
       >
-        <PromoBadge badge={l.badge} variant="card" />
         <VerificationBadge listing={l} variant="public-card" />
         <FavHeart
           fav={fav}
@@ -957,20 +961,6 @@ function ListingCard({
           </div>
         )}
       </div>
-      {l.luna_note && (
-        <div
-          style={{
-            background: 'rgba(0,172,228,0.06)',
-            borderTop: '1px solid rgba(0,172,228,0.15)',
-            padding: '8px 16px',
-            fontSize: 11.5,
-            color: '#5B21B6',
-            lineHeight: 1.45,
-          }}
-        >
-          <span>◐ {renderNote(l.luna_note)}</span>
-        </div>
-      )}
     </Link>
   )
 }

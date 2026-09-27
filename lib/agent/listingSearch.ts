@@ -207,7 +207,7 @@ export async function searchListings(
   c: SearchCriteria,
   exclude: string[] = [],
   opts: { anonymous?: boolean } = {},
-): Promise<{ listings: ListingCard[]; market?: MarketStats; notice?: string; noticeEn?: string; external: ExternalStatus; summary?: string; checked?: number }> {
+): Promise<{ listings: ListingCard[]; market?: MarketStats; notice?: string; noticeEn?: string; external: ExternalStatus; summary?: string; checked?: number; overBudget?: number }> {
   // The commercial path reads the RAW area: normalizeArea keeps only the
   // first city of "Markham/ Richmond Hill /Vaughan", which silently turned a
   // three-city ask into a Markham-only search whose Vaughan hits were then
@@ -283,6 +283,9 @@ export async function searchListings(
   const extRes = await extPromise
   const external = extRes.external
   let market = buildMarket(c, extRes.statRows)
+  // Distinct listings in the area sample that the budget cap removed — the
+  // reply states the number instead of silently showing fewer cards (节点 1).
+  const overBudget = c.max_price ? new Set(extRes.statRows.filter((r) => r.price > (c.max_price as number)).map((r) => r.address.toLowerCase())).size : 0
   const trreb = await trrebPromise
   if (market && trreb) market.trreb = trreb
   // The Realtor.ca sample was too thin (<3 clean prices) but the official
@@ -303,7 +306,7 @@ export async function searchListings(
   }
   if (stay.length >= pool) {
     const f = filterByStreetToken(stay, streetRef, areaLabel())
-    return { listings: f.listings.slice(0, pool), market, notice: f.notice, external }
+    return { listings: f.listings.slice(0, pool), market, notice: f.notice, external, overBudget }
   }
 
   // No synthetic fallback: when neither Stayloop nor Realtor.ca has a real
@@ -314,7 +317,7 @@ export async function searchListings(
   const seen = new Set(stay.map((l) => l.address.toLowerCase()))
   const filled = [...stay, ...ext.filter((l) => !seen.has(l.address.toLowerCase()))]
   const f = filterByStreetToken(filled, streetRef, areaLabel())
-  return { listings: f.listings.slice(0, pool), market, notice: f.notice, external }
+  return { listings: f.listings.slice(0, pool), market, notice: f.notice, external, overBudget }
 }
 
 // ---------- Stayloop's own listings ----------
