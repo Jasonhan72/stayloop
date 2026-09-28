@@ -214,7 +214,7 @@ export default function AssistantPanel({ role, agentName, pendingActions, memori
                   const body = (
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
-                        <span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>
+                        <span className="min-w-0 flex-1 truncate text-[14px] font-semibold leading-snug text-ink">{label}</span>
                         {current && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? '当前' : 'now'}</span>}
                         {it.kind === 'thread' && it.role !== role && HAT[it.role] && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? HAT[it.role].zh : HAT[it.role].en}</span>}
                       </span>

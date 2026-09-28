@@ -223,7 +223,8 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     // Rows read like Muse's (user, third round: "要有时间，要有标题和简短的注释"): title · one short note · time
     for (const f of ['components/agent/AssistantPanel.tsx', 'components/mobile/ActivitySheet.tsx']) {
       const c = read(f)
-      expect(c, f).toContain('<span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>')
+      // title in a heavier weight, like Muse's activity rows (user 2026-09-27); the note stays light
+      expect(c, f).toContain('<span className="min-w-0 flex-1 truncate text-[14px] font-semibold leading-snug text-ink">{label}</span>')
       expect(c, f).toContain('{note && <span className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-body-3">{note}</span>}')
       expect(c, f).toContain('{fmtRowTime(it.at, lang)}')
       expect(c, f).not.toContain('line-clamp-2 block') // display:block cancels the clamp — that was the wall of text the user saw
