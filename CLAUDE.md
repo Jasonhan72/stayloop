@@ -2554,3 +2554,9 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   「用照片 / 用文字」分段 + 四个风格芯片 + 照片选择（`lib/agent/avatarImage.ts downscalePhoto` 在设备上先缩到 ≤1024px JPEG）或 300 字描述 + 「生成头像」→
   预览 +「用这个」（回调 `onPick(key)`，与预设同一条保存路径）/「再来一次」；文案写明照片不保存、每小时 6 次、由 OpenAI 生成（美国）。面板、手机活动弹层、
   `/settings` 三处自动获得，因为它们都渲染同一个选择格。
+- **生产实跑（2026-09-27 晚，ship54，租客测试号）**：本地先经开发服务器真实调用两种模式（文字 19–24 秒 · 照片 20 秒，第一轮因 client-reference 存根报
+  「Bucket name invalid」，拆出 `avatarKeys.ts` 后通过；照片模式把预设人物图当照片输入，产出保住了眼镜 / 胡子 / 卫衣，黏土小狗也到位）；生产 375px：
+  活动弹层 → 铅笔 → 换头像 → 选择格顶部「Your own · ＋」→ 生成器（用照片 / 用文字 · 四种风格 · 隐私与限次说明）→ 用文字 + Memoji 风 + 「a smiling barista …」→
+  约 20 秒出图 → 「Use this one」→ 弹层与对话头部立即换成自制头像，`assistant_profiles.avatar = custom:<uid>/6e3137bf…`，本机缓存同值；桌面面板的选择格同样显示
+  「当前自制头像」+「＋」。`ai_usage` 有 6 行 slot=avatar（含最早两次存储失败的记录，ok=true + error）；测完已删除该账号桶内文件并把 avatar 还原为空。
+  活动日志里这类事件目前用默认「·」图标（`itemIcon` 未映射），无碍。
