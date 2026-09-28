@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Logo from './Logo'
 import { useI18n } from '@/lib/i18n'
 import { useAdmin } from '@/lib/useAdmin'
+import { useHomeHref } from '@/lib/useHomeHref'
 
 interface Group {
   titleKey: string
@@ -45,6 +46,7 @@ const GROUPS: Group[] = [
 ]
 
 export default function Footer() {
+  const home = useHomeHref()
   const { t } = useI18n()
   const { role: adminRole } = useAdmin()
   return (
@@ -52,7 +54,7 @@ export default function Footer() {
       <div className="mx-auto grid max-w-[1320px] grid-cols-2 gap-x-6 gap-y-10 px-5 py-12 sm:grid-cols-3 sm:px-7 sm:py-14 lg:grid-cols-[1.4fr_repeat(3,1fr)] lg:gap-14 lg:px-8">
         {/* phones: brand spans the row, the three link groups share two columns; tablets: three groups in a row */}
         <div className="col-span-2 sm:col-span-3 lg:col-span-1">
-          <Logo size="md" />
+          <Logo size="md" href={home.href} />
           <p className="mt-4 max-w-sm text-[13px] leading-relaxed text-body-2">
             {t('foot.tag')}
           </p>

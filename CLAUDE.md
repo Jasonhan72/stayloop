@@ -2572,3 +2572,9 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
 - **顺带**：`AgentChat` 的 `compactHeader`（只有首页在用）连同分支删除；页脚 `V0.6 → V0.7`（`threeRoleReport` 守卫同步）；`oneAssistant / museMobile / review20260925 / walkthrough20260922 / guidedIntake` 里钉住旧 hero 的断言改为新行为。**手机 375 的一个坑**：示例对话卡里 `truncate` 的占位句把单列 grid 的 min-content 撑到 450px，两张卡都要 `min-w-0`（与 08-24 的宽表规矩同一根因）。
 - **本地核对（dev）**：`/?role=landlord&ask=…` → 308 `/landlord/agent?prompt=…&send=1`；`/login` 200；预渲染 HTML 含 home-login / home-tiles / home-demo / home-rules / home-faq、不含 AgentChat；1280 与 375 截图与蓝本一致，控制台无错；tsc 通过，全套 1244 条测试通过。
 - **生产核对（2026-09-27 晚，ship55，smoke 9/9）**：预渲染 HTML 含登录卡 / 四格 / 示范段 / 规则段 / FAQ 与 `V0.7`，不含 AgentChat；`/?role=landlord&ask=…` → 308 `https://www.stayloop.ai/landlord/agent?prompt=…&send=1`，`/?role=landlord`（无 ask）仍 200；`/login`、`/tenant/agent` 200。内置浏览器（匿名）：登录卡、4 格、6 问、10 条规则、5 条房东例句、页脚 V0.7，控制台无错，375px 零横向溢出、输入框 16px。租客测试号用魔法链接登录 → 落 `/tenant/agent`；再打开 `/` → 3 秒内被送回 `/tenant/agent`（页头「Acting as: Tenant」）；清掉会话后 `/` 又是登录卡。**注意**：内置浏览器面板处于隐藏状态时页面 JS 不跑，第一次核对因此看到「已登录仍显示登录卡」——那是面板没在前台，不是代码问题；核对已登录跳转前先 `tabs_select` 把标签页调到前台。
+- **logo 去向 + 登录后保留菜单（2026-09-27 晚，用户「登录以后点击 logo 应该跳到哪里？」「客户如果想要去看房源呢？找不到 header 里的菜单也是不好的体验」）**：
+  ① logo：访客 → `/`；已登录 → 当前身份的助手页（服务商 → `/provider/jobs`），不再绕经 `/` 闪一下营销页。规则是纯函数 `lib/homeHref.ts homeHrefFor`
+  （auth 或帽子未加载完 → `/`，与预渲染一致），`lib/useHomeHref.ts` 收集输入（登录态、`activeHat`、服务商上下文——原 Header 里的 `rememberedProvider`
+  读取搬到这里），Header 与 Footer 的 `<Logo href={home.href}>` 共用；`/` 对已登录用户的自动跳转保留作兜底。② 应用壳的桌面 Header **保留公开菜单
+  产品 · 房源 · 定价 · 租客筛查**（节点 2 曾把它们全部收进头像菜单），只有「我是 ▾」下拉由「当前身份 · 切换」芯片顶替（同一位置）——登录后「我是租客」
+  这类营销页入口的功能已由身份芯片承担；手机汉堡菜单不变（「浏览 Stayloop ›」折叠行）。守卫 `tests/logoHome20260927.spec.ts`，`node2Clarity` 相应改写。

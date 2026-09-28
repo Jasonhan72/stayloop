@@ -8,9 +8,10 @@ import Logo from './Logo'
 import MobileBottomNav from './MobileBottomNav'
 import LanguageCurrencyModal from './LanguageCurrencyModal'
 import { useI18n } from '@/lib/i18n'
-import { useAuth, roleFromPath, roleStorageKey } from '@/lib/useAuth'
+import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { activeHat, useHats } from '@/lib/useHats'
+import { useHomeHref } from '@/lib/useHomeHref'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import { supabase } from '@/lib/supabase'
 import { ROLE_THEME, type RoleKey } from '@/lib/roleTheme'
@@ -56,11 +57,8 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
   // The provider hat is remembered in storage, not in auth.role (it is not a UI
   // role); on neutral pages the chip must still say 服务商 when that is what the
   // account came from (节点 3 verification 2026-09-26: /notifications said 租客).
-  const [rememberedProvider, setRememberedProvider] = useState(false)
-  useEffect(() => {
-    if (!auth.user) { setRememberedProvider(false); return }
-    try { setRememberedProvider(window.localStorage.getItem(roleStorageKey(auth.user.id)) === 'provider') } catch { setRememberedProvider(false) }
-  }, [auth.user, pathname])
+  // useHomeHref reads it now and also gives both logos their destination (V0.7, 2026-09-27).
+  const home = useHomeHref()
   const heldRoles = (['tenant', 'landlord', 'agent'] as const).filter((r) =>
     r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)
 
@@ -157,27 +155,25 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
       }
     >
       <div className="mx-auto flex h-14 max-w-[1240px] items-center justify-between px-5 sm:px-8 md:h-[66px] lg:px-12">
-        <Logo size="md" />
+        <Logo size="md" href={home.href} />
 
-        {/* App shell: which hat is acting, always visible (external review 2026-09-26). */}
-        {appShell && auth.user && (() => {
-          const onProvider = pathname.startsWith('/provider/') || (rememberedProvider && !!hats.provider && !roleFromPath(pathname))
-          const label = onProvider ? (lang === 'zh' ? '服务商' : 'Provider') : lang === 'zh' ? ROLE_META[currentRole].label : ROLE_META[currentRole].labelEn
-          const color = onProvider ? '#00ACE4' : ROLE_META[currentRole].color
-          return (
-            <div className="hidden items-center gap-2 lg:flex" data-testid="app-shell-identity">
-              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-bold" style={{ background: color + '14', color }}>
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
-                {lang === 'zh' ? `当前身份：${label}` : `Acting as: ${label}`}
-              </span>
-              <button type="button" onClick={() => { setMenuOpen(true); setHatsOpen(true) }} className="text-[12.5px] text-[#717171] underline underline-offset-2">{lang === 'zh' ? '切换' : 'Switch'}</button>
-            </div>
-          )
-        })()}
-        {/* Desktop nav (marketing pages) */}
-        {!(appShell && auth.user) && (
+        {/* Desktop nav. Marketing pages keep the「我是」dropdown; the app shell (signed in)
+            shows the acting identity in its place (external review 2026-09-26) and keeps the
+            four public links (user 2026-09-27: a signed-in customer must still find 房源 here). */}
         <nav className="hidden items-center gap-[26px] lg:flex">
-          {/* Product dropdown */}
+          {appShell && auth.user ? (() => {
+            const label = home.onProvider ? (lang === 'zh' ? '服务商' : 'Provider') : lang === 'zh' ? ROLE_META[currentRole].label : ROLE_META[currentRole].labelEn
+            const color = home.onProvider ? '#00ACE4' : ROLE_META[currentRole].color
+            return (
+              <div className="flex items-center gap-2" data-testid="app-shell-identity">
+                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-bold" style={{ background: color + '14', color }}>
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+                  {lang === 'zh' ? `当前身份：${label}` : `Acting as: ${label}`}
+                </span>
+                <button type="button" onClick={() => { setMenuOpen(true); setHatsOpen(true) }} className="text-[12.5px] text-[#717171] underline underline-offset-2">{lang === 'zh' ? '切换' : 'Switch'}</button>
+              </div>
+            )
+          })() : (
           <div className="relative" ref={productRef}>
             <button
               onClick={() => setProductOpen((v) => !v)}
@@ -212,13 +208,13 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
               </div>
             )}
           </div>
+          )}
 
           <NavLink i18nKey="nav.platform" href="/platform" active={isActive('/platform') || isActive('/stayloop-api')} />
           <NavLink i18nKey="nav.listings" href="/listings" active={isActive('/listings')} />
           <NavLink i18nKey="nav.pricing" href="/pricing" active={isActive('/pricing')} />
           <NavLink i18nKey="nav.screening" href="/screening" active={isActive('/screening')} />
         </nav>
-        )}
 
         {/* Right side — minimal: avatar + hamburger only */}
         <div className="flex items-center gap-[10px]">

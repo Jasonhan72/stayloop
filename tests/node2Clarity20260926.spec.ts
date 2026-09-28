@@ -37,8 +37,12 @@ describe('the provider is a landing hat', () => {
   it('the app shell shows the acting identity instead of the marketing nav', () => {
     const h = read('components/Header.tsx')
     expect(h).toContain('data-testid="app-shell-identity"')
-    expect(h).toContain("const onProvider = pathname.startsWith('/provider/')")
-    expect(h).toContain('{!(appShell && auth.user) && (')
+    // V0.7 (2026-09-27): the provider reading lives in the shared useHomeHref hook, and the
+    // identity chip takes the「我是」dropdown's slot while the four public links stay (a
+    // signed-in customer must still find 房源 in the header — user 2026-09-27)
+    expect(read('lib/useHomeHref.ts')).toContain("const onProvider = pathname.startsWith('/provider/')")
+    expect(h).toContain('{appShell && auth.user ? (() => {')
+    expect(h).not.toContain('{!(appShell && auth.user) && (')
     for (const f of ['app/provider/jobs/page.tsx', 'app/provider/onboard/page.tsx']) expect(read(f)).toContain('<Header appShell />')
   })
   it('real notifications: pending cards of the hat, provider job events, recent audit', () => {
