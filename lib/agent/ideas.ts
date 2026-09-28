@@ -234,6 +234,7 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     thread_attachment_downloaded: { zh: '你下载了对话里的一个附件', en: 'You downloaded a thread attachment' },
     matter_export_generated: { zh: '你导出了一份事务证据包', en: 'You exported a matter evidence pack' },
     work_order_receipt_generated: { zh: '你生成了一张工单结算回执', en: 'You generated a work-order settlement receipt' },
+    assistant_avatar_generated: { zh: '你为助手生成了一个新头像', en: 'You generated a new avatar for the assistant' },
     application_file_viewed: { zh: '你查看了一份申请材料', en: 'You viewed an application document' },
     screening_created_from_application: { zh: '你从申请一键发起了筛查', en: 'You started a screening from an application' },
     lease_sent_for_signature: { zh: '你发出了租约签署邀请', en: 'You sent a lease for signature' },

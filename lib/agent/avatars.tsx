@@ -96,10 +96,19 @@ export function isAvatarPreset(key: string | null | undefined): key is string {
   return !!key && AVATAR_PRESETS.some((p) => p.key === key)
 }
 
-/** A preset key as stored anywhere (current or legacy) → the pet to show, or null. */
+// A face the user made (2026-09-28): the generation route stores a transparent
+// WebP in the public `assistant-avatars` bucket under <uid>/<id>.webp and the
+// profile keeps only the short key. The URL is built here from our own storage
+// host, so a saved value can never point anywhere else.
+// The key helpers live in a plain module (lib/agent/avatarKeys.ts) so the
+// server route can import them as values; re-exported here for client code.
+import { CUSTOM_AVATAR_BUCKET, customAvatarUrl, isCustomAvatarKey } from './avatarKeys'
+export { CUSTOM_AVATAR_BUCKET, customAvatarUrl, isCustomAvatarKey }
+
+/** A key as stored anywhere (preset, legacy shape, or a made face) → the key to show, or null. */
 export function resolveAvatarKey(key: string | null | undefined): string | null {
   if (!key) return null
-  if (isAvatarPreset(key)) return key
+  if (isAvatarPreset(key) || isCustomAvatarKey(key)) return key
   return LEGACY_AVATARS[key] ?? null
 }
 
@@ -131,6 +140,15 @@ export function setStoredAvatar(key: string | null): void {
 export function AssistantAvatar({ avatar, role, className = '', style, fallback = 'role' }: { avatar?: string | null; role: AgentRole; className?: string; style?: CSSProperties; fallback?: 'role' | 'brand' }) {
   // 'brand' = the signed-in user's one assistant (same face under every hat); 'role' = a demo persona's orb.
   const key = resolveAvatarKey(avatar) ?? (fallback === 'brand' ? DEFAULT_ASSISTANT_AVATAR : null)
+  if (key && isCustomAvatarKey(key)) {
+    const url = customAvatarUrl(key)
+    return (
+      <span aria-hidden data-avatar="custom" className={`relative inline-block overflow-hidden rounded-full align-middle ${className}`} style={{ background: '#E9F5FD', ...style }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {url && <img src={url} alt="" draggable={false} className="absolute inset-0 h-full w-full object-contain p-[3%]" />}
+      </span>
+    )
+  }
   const pet = key ? AVATAR_PRESETS.find((p) => p.key === key) : undefined
   if (!pet) {
     return <span aria-hidden className={`inline-block rounded-full ${className}`} style={{ background: ROLE_THEME[role].avatarGradient, ...style }} />

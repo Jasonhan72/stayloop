@@ -2533,3 +2533,24 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   （默认 + 40）→ 点熊猫 → 弹层与对话头部立即换脸；「Edit name」→ 输入 Pixel 提交 → 名字即换；库里 `assistant_profiles` 变为 `avatar=panda · name=Pixel`
   （之后已还原为空）；`/settings` 的「Change AI assistant avatar」快捷块展开同一选择格，无横向溢出。匿名预览的弹层只显示头像 + 名字，没有铅笔。
   部署门禁曾被 `review20260925` 里钉在面板文件上的「默认头像高亮」断言拦下一次，已改指向 `AvatarPicker`。
+
+## 自己做助手头像：上传照片或一句描述生成（2026-09-28 · 用户「需要做一个自己做头像的功能…可以自己上传照片来生成，也可以按照用户的指令来生成」）
+
+守卫 `tests/avatarMaker20260928.spec.ts`；迁移 `20260928_assistant_avatars_bucket.sql`（已应用 prod：`assistant_profiles.avatar` 的长度 CHECK 40 → 400；公开桶 `assistant-avatars`，
+2 MB、只收 webp/png，**没有任何 authenticated 的 storage 策略**——只有生成路由用 service role 写）。
+- **路由 `POST /api/assistant/avatar`**（edge，须登录，匿名 401）：JSON `{mode:'prompt', prompt, style}` 走 OpenAI `gpt-image-1` 的 `images/generations`；
+  multipart `mode=photo, style, prompt?, image` 走 `images/edits`（`input_fidelity=high` 保住脸型、发型、眼镜、肤色；旧端点拒绝该参数时去掉重试一次）。
+  统一参数 1024² · quality medium · `background=transparent` · `output_format=webp` · **`output_compression=75`**（不压缩时照片模式出来 800 KB–1 MB，压缩后约 170 KB）。
+  提示词 = 四种风格之一（毛绒玩具 / 3D 卡通 / 黏土 / Memoji 风，`STYLE_WORDS`）+ 与 40 个预设同一段构图约束 `FRAME`（正面半身、居中、透明底、无文字无道具单主体）。
+  限流 **每用户每小时 6 次 + 全站每小时 240 次**，都 fail-closed（每次花钱：文字约 $0.043、照片约 $0.087，按 OpenAI 列价从 `usage` 算）。
+  结果存 `assistant-avatars/<uid>/<id>.webp`，返回短键 **`custom:<uid>/<id>`**；每次生成后清掉该用户文件夹里除「已保存的那张 + 刚生成的这张」以外的旧文件。
+  **上传的照片只进模型一次，不落任何地方**（守卫断言路由里唯一的 `.upload(` 传的是生成结果字节）。用量写 `ai_usage`（slot `avatar`，含失败），审计 `assistant_avatar_generated`。
+  OpenAI 的内容拒绝（moderation / safety）映射为 422 `blocked`，界面提示「换一个试试」。
+- **键与渲染**：`lib/agent/avatarKeys.ts`（纯模块）——`isCustomAvatarKey` 只认 `custom:<uuid>/<8–40 位小写字母数字>`，`customAvatarUrl` 只拼到我们自己的存储主机，
+  所以存进档案的值永远指不到别处；`lib/agent/avatars.tsx` 重导出并在 `AssistantAvatar` 里对自定义键渲染 `<img>`（`data-avatar="custom"`）。
+  **坑**：Route Handler 里 import 带 `'use client'` 的 `avatars.tsx`，常量会变成 client-reference 存根——第一次实跑报「Bucket name invalid」就是 `CUSTOM_AVATAR_BUCKET`
+  成了 undefined；所以键工具单独放在无指令的 `avatarKeys.ts`，守卫禁止路由再从 `avatars.tsx` 导入。
+- **界面**：`AvatarPicker` 顶部多一组「自己做的」（只对登录账号）：当前自制头像（若有）+「＋」；点「＋」整个选择格换成 `components/agent/AvatarMaker.tsx`——
+  「用照片 / 用文字」分段 + 四个风格芯片 + 照片选择（`lib/agent/avatarImage.ts downscalePhoto` 在设备上先缩到 ≤1024px JPEG）或 300 字描述 + 「生成头像」→
+  预览 +「用这个」（回调 `onPick(key)`，与预设同一条保存路径）/「再来一次」；文案写明照片不保存、每小时 6 次、由 OpenAI 生成（美国）。面板、手机活动弹层、
+  `/settings` 三处自动获得，因为它们都渲染同一个选择格。

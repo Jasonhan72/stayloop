@@ -5,8 +5,10 @@
 // people (2026-09-25), five to a row, the two groups labelled, the grid
 // scrolling inside its box. The caller persists the choice
 // (assistant_profiles.avatar + localStorage); this only shows and picks.
-import { AVATAR_GROUPS, AVATAR_PRESETS, AssistantAvatar } from '@/lib/agent/avatars'
+import { useState } from 'react'
+import { AVATAR_GROUPS, AVATAR_PRESETS, AssistantAvatar, isCustomAvatarKey } from '@/lib/agent/avatars'
 import type { AgentRole } from '@/lib/agent/types'
+import AvatarMaker from './AvatarMaker'
 
 export default function AvatarPicker({ role, avatar, live, zh, onPick, className = '' }: {
   role: AgentRole
@@ -17,10 +19,34 @@ export default function AvatarPicker({ role, avatar, live, zh, onPick, className
   onPick: (key: string | null) => void
   className?: string
 }) {
+  // 「自己做一个」(2026-09-28): the maker replaces the grid while it is open — the
+  // box is ~300px wide and the grid already scrolls. Signed-in accounts only
+  // (a generation costs money and the result is stored on the account).
+  const [making, setMaking] = useState(false)
+  if (making) {
+    return (
+      <div data-testid="avatar-picker" className={`rounded-xl border border-line-divider bg-white p-2.5 shadow-lg ${className}`}>
+        <AvatarMaker role={role} zh={zh} onDone={(k) => { setMaking(false); onPick(k) }} onCancel={() => setMaking(false)} />
+      </div>
+    )
+  }
   return (
     <div data-testid="avatar-picker" className={`rounded-xl border border-line-divider bg-white p-2.5 shadow-lg ${className}`}>
       <div className="mb-1.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '选一个头像' : 'Pick an avatar'}</div>
       <div className="max-h-[340px] overflow-y-auto pr-1">
+        {live && (
+          <div className="mb-2">
+            <div className="mb-1 text-left text-[11px] font-bold text-body-3">{zh ? '自己做的' : 'Your own'}</div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {isCustomAvatarKey(avatar) && (
+                <button type="button" onClick={() => onPick(avatar)} title={zh ? '当前的自制头像' : 'Your current made face'} aria-label={zh ? '当前的自制头像' : 'Your current made face'} className="flex h-12 w-12 items-center justify-center rounded-full ring-2 ring-brand ring-offset-1">
+                  <AssistantAvatar avatar={avatar} role={role} className="h-10 w-10" />
+                </button>
+              )}
+              <button type="button" onClick={() => setMaking(true)} data-testid="avatar-make" title={zh ? '用照片或一句描述生成' : 'Generate from a photo or a description'} aria-label={zh ? '自己做一个头像' : 'Make your own avatar'} className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-line-strong text-[20px] leading-none text-body-3 transition hover:border-brand hover:text-brand">＋</button>
+            </div>
+          </div>
+        )}
         {AVATAR_GROUPS.map((g) => (
           <div key={g.key} className="mb-2">
             <div className="mb-1 text-left text-[11px] font-bold text-body-3">{zh ? g.zh : g.en}</div>
