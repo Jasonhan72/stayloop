@@ -119,7 +119,7 @@ describe('signed-in homepage + identity menu', () => {
   const home = readFileSync('components/home/HomeNext.tsx', 'utf8')
   const header = readFileSync('components/Header.tsx', 'utf8')
   it('homepage: signed-in visitors go straight to the assistant of a hat they hold (V0.7, 2026-09-27) — no pills, no hero conversation', () => {
-    expect(home).toContain('homeForHats(remembered, hats)') // the login page's predicate: the remembered hat only when the account holds it
+    expect(home).toContain('landingForAccount(remembered, hats, named)') // homeForHats wrapped: a brand-new account goes to onboarding first (2026-09-27) // the login page's predicate: the remembered hat only when the account holds it
     expect(home).toContain('router.replace(target)')
     expect(home).not.toMatch(/setRole\(activeHat/)
     expect(home).not.toMatch(/换身份在右上角菜单/)

@@ -99,6 +99,20 @@ export function resolveAccountName(): Promise<{ uid: string | null; name: string
   return p
 }
 
+/**
+ * resolveAccountName for a KNOWN account. The shared promise may hold an
+ * answer computed before this account signed in (uid null, or a previous
+ * account on the same browser); such an answer is discarded once and the
+ * profile re-read for the session that is now live.
+ */
+export function resolveAccountNameFor(uid: string): Promise<{ uid: string | null; name: string | null }> {
+  return resolveAccountName().then((r) => {
+    if (r.uid === uid) return r
+    invalidateAiName()
+    return resolveAccountName()
+  })
+}
+
 /** Forget the resolved name so the next hook mount re-reads the profile (after a rename). */
 export function invalidateAiName() {
   nameResolve = null

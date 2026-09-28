@@ -28,7 +28,8 @@ import LoginCard from '@/components/home/LoginCard'
 import { useT, type Lang } from '@/lib/i18n'
 import { roleStorageKey, useAuth } from '@/lib/useAuth'
 import { useHats } from '@/lib/useHats'
-import { HOME, homeForHats } from '@/lib/landlordHat'
+import { HOME, landingForAccount } from '@/lib/landlordHat'
+import { getStoredAIName, resolveAccountNameFor } from '@/lib/aiName'
 import { assistantPromptHref } from '@/lib/homeDeepLink'
 import { GUIDELINE_TEXT, ONTARIO_RULES, ruleById, type Rule } from '@/lib/ontario/rules'
 import type { AgentRole } from '@/lib/agent/types'
@@ -288,21 +289,36 @@ export default function HomeNext() {
   const router = useRouter()
 
   // Signed in → straight to the assistant of the hat you wear (providers to
-  // the work-order desk); this page is for visitors. Same predicate as /login
-  // (homeForHats: the remembered hat only counts when the account holds it).
+  // the work-order desk; a brand-new account to onboarding); this page is for
+  // visitors. Same predicate as /login (homeForHats: the remembered hat only
+  // counts when the account holds it), wrapped by landingForAccount.
   // The first client render matches the server (auth still loading → the
   // marketing page), so nothing here branches during hydration.
   const auth = useAuth()
   const hats = useHats()
   const signedIn = !auth.loading && !!auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous
   const remembered = signedIn && typeof window !== 'undefined' ? (window.localStorage.getItem(roleStorageKey(auth.user!.id)) ?? auth.role) : auth.role
-  const target = signedIn && !hats.loading ? homeForHats(remembered, hats) : HOME.tenant
+  // Has this account ever named its assistant? A brand-new account (no hat,
+  // never named) must go through onboarding — its first landing can be `/`
+  // when the sign-in link's redirect was rewritten to the site root, so the
+  // auth callback never ran for it (V0.7 follow-up, 2026-09-27).
+  const [named, setNamed] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!signedIn) { setNamed(null); return }
+    const uid = auth.user!.id
+    if (getStoredAIName(uid)) { setNamed(true); return }
+    let cancelled = false
+    resolveAccountNameFor(uid).then(({ uid: u, name }) => { if (!cancelled) setNamed(u === uid && !!name) })
+    return () => { cancelled = true }
+  }, [signedIn, auth.user])
+  const ready = signedIn && !hats.loading && named !== null
+  const target = ready ? landingForAccount(remembered, hats, named) : HOME.tenant
   const redirected = useRef(false)
   useEffect(() => {
-    if (!signedIn || hats.loading || redirected.current) return
+    if (!ready || redirected.current) return
     redirected.current = true
     router.replace(target)
-  }, [signedIn, hats.loading, target, router])
+  }, [ready, target, router])
 
   useEffect(() => {
     if (signedIn) return

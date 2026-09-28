@@ -27,10 +27,10 @@ describe('the homepage no longer hosts the conversation', () => {
   })
   it('a signed-in visitor is redirected with the login page’s predicate; the first render never branches on auth', () => {
     expect(home).toMatch(/const signedIn = !auth\.loading && !!auth\.user && !\(auth\.user as \{ is_anonymous\?: boolean \}\)\.is_anonymous/)
-    expect(home).toContain('homeForHats(remembered, hats)')
+    expect(home).toContain('landingForAccount(remembered, hats, named)') // homeForHats wrapped: a brand-new account goes to onboarding first (2026-09-27)
     expect(home).toContain('router.replace(target)')
     expect(home).toContain('data-testid="home-redirect"')
-    expect(home).toMatch(/if \(!signedIn \|\| hats\.loading \|\| redirected\.current\) return/)
+    expect(home).toContain('if (!ready || redirected.current) return') // ready = signed in + hats loaded + name resolved (2026-09-27)
     // the marketing page renders while auth is still loading (matches the prerendered HTML); no useState reading window
     expect(home).not.toMatch(/useState\([^)]*window/)
   })

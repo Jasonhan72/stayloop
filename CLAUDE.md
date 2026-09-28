@@ -2604,3 +2604,10 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
 - **有意不动**：首次登录的房东仍落筛查页而不是助手页——那是有数据依据的显式决策（33 注册 / 3 活跃筛查），V0.7 的「登录后直达助手」针对的是回访用户的首页跳转；要改需用户拍板。
 - 本地核对（dev，英文界面）：匿名 `/onboarding/name` → 选择页四卡；点房东 → STEP 02/02、`Identity: landlord`、sessionStorage 写入、能力清单为新文案；「换身份」→ 回到选择页且记忆清空；
   点服务商 → `/provider/onboard`；`/onboarding/name?role=agent` 不出选择页；375px 四卡零横向溢出；控制台无报错。tsc 通过，全套 1255 条测试通过。
+- **第二个发现（同日，更要紧）：新账号的第一次落地很可能是 `/` 而不是回调页。** 用 Auth Admin `generate_link` 铸链接时，不论要求的 `redirect_to` 是什么，
+  返回的链接一律 `redirect_to=https://www.stayloop.ai`（站点根地址）——GoTrue 对不在跳转白名单里的地址会静默改回 Site URL；邮件里的一次性链接大概率同样如此
+  （实际白名单内容需要用户在 Supabase 后台 Auth → URL Configuration 里核对，管理 PAT 已过期我改不了）。落在 `/` 时 supabase-js 从 hash 里取到会话，首页的已登录跳转
+  用 `homeForHats` 把**没有任何帽子的全新账号**直接送到 `/tenant/agent`——回调页、选身份、起名全部不会出现。**修法不依赖白名单**：`lib/landlordHat.ts landingForAccount(stored, hats, named)`
+  = 「没有房东 / 经纪 / 服务商帽子 **且** 从未给助手起名（`assistant_profiles.name` 或本机该账号的缓存）」→ `/onboarding/name`，否则照 `homeForHats`；首页等 `my_hats` 与名字
+  都解析完（`ready`）再跳；`lib/aiName.ts resolveAccountNameFor(uid)` 丢弃登录前缓存的旧解析结果。密码登录与回调页路径不受影响（它们本来就到 `/auth/callback`）。
+  homeV10 / review20260925 / museMobile 三份守卫里钉住 `homeForHats(remembered, hats)` 的断言改为新谓词。

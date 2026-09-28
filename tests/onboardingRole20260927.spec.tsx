@@ -12,6 +12,7 @@ import React from 'react'
 import TestRenderer, { act } from 'react-test-renderer'
 import { ROLE_CHOICES, PROVIDER_ONBOARD, isAgentRole, isOnboardingRole } from '../lib/onboarding/roleChoices'
 import RoleChooser from '../components/onboarding/RoleChooser'
+import { isBrandNewAccount, landingForAccount } from '../lib/landlordHat'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 const page = read('app/onboarding/name/page.tsx')
@@ -84,5 +85,25 @@ describe('RoleChooser (react-test-renderer)', () => {
     act(() => { r = TestRenderer.create(React.createElement(RoleChooser, { zh: false, onPick: () => {} })) })
     const text = JSON.stringify(r.toJSON())
     for (const w of ['Tenant', 'Landlord', 'Agent', 'Provider', 'PILOT']) expect(text).toContain(w)
+  })
+})
+
+describe('a signed-in visitor to / who is brand new goes to onboarding, not straight to the tenant chat', () => {
+  it('landingForAccount: no hat + never named → /onboarding/name; anything else → the hat’s home', () => {
+    expect(landingForAccount(null, { landlord: false, agent: null, provider: null }, false)).toBe('/onboarding/name')
+    expect(landingForAccount(null, { landlord: false, agent: null, provider: null }, true)).toBe('/tenant/agent')
+    expect(landingForAccount(null, { landlord: true, agent: null, provider: null }, false)).toBe('/landlord/agent')
+    expect(landingForAccount('tenant', { landlord: true }, false)).toBe('/tenant/agent')
+    expect(landingForAccount(null, { provider: 'verified' }, false)).toBe('/provider/jobs')
+    expect(isBrandNewAccount({ landlord: false, agent: 'pending', provider: null }, false)).toBe(false)
+  })
+  it('HomeNext waits for hats AND the name before redirecting, through the shared predicate', () => {
+    const home = read('components/home/HomeNext.tsx')
+    expect(home).toContain('landingForAccount(remembered, hats, named)')
+    expect(home).toContain('resolveAccountNameFor(uid)')
+    expect(home).toContain("const ready = signedIn && !hats.loading && named !== null")
+    expect(home).not.toMatch(/homeForHats\(/)
+    // the resolver discards an answer cached for another (or no) session
+    expect(read('lib/aiName.ts')).toMatch(/export function resolveAccountNameFor\(uid: string\)[\s\S]*?if \(r\.uid === uid\) return r[\s\S]*?invalidateAiName\(\)/)
   })
 })

@@ -75,7 +75,7 @@ describe('active hat: the remembered role must be a hat the account holds', () =
     // visitor is redirected with the login page's predicate (the remembered hat only
     // when the account holds it), never with the raw remembered role
     const home = read('components/home/HomeNext.tsx')
-    expect(home).toContain('homeForHats(remembered, hats)')
+    expect(home).toContain('landingForAccount(remembered, hats, named)') // homeForHats wrapped: a brand-new account goes to onboarding first (2026-09-27)
     expect(home).not.toContain('auth.role || bestHat(hats)')
     const nav = read('components/MobileBottomNav.tsx')
     expect(nav).toContain('if (hats.loading) return null')
