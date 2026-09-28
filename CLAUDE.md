@@ -2621,3 +2621,9 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   即跳转发生在 RPC 返回之前、用的是 `useHats` 某个「已加载但全 false」的瞬时状态；随后把记住的身份改回房东连续两次重开都正确落到 `/landlord/agent`。
   硬化：`useHats.load()` 在发 RPC **之前**同步置 `loading:true`（原来「无用户 → 全 false 且 loading:false」之后用户出现时，直到 RPC 返回前都是这个陈旧状态；
   首页跳转和 `WorkspaceShell` 的房东守卫都是一次性决定，会被它骗到）。测试期间在页面里用错 key 调 `my_hats` 产生的三条 401 是我自己的实验，不是应用。
+- **生产核对（2026-09-27 晚，ship59 → ship60 → ship61，冒烟均绿；ship61 跳过的两条是匿名对话探针撞上每小时 8 次限流）**：用当晚新建的白纸测试号
+  `onboarding-test@stayloop.ai`（无任何帽子、未起名）走真实首次登录：一次性链接落在 `https://www.stayloop.ai`（根地址，证实 GoTrue 改写）→ 首页把它送到
+  `/onboarding/name` 选择页（STEP 01/02）→ 选房东 → 起名 Pilot（STEP 02/02、`Identity: landlord`）→ `claim_landlord` 200 + `assistant_profiles` 201 → 落 `/screening/app`，
+  名字缓存归属该 uid；再开 `/onboarding/name` 跳过起名直达 `/landlord/agent`。ship61 后以访客身份核对首页登录卡：「Sign in / Create account」两个 tab、登录 = 邮箱 + 密码、
+  注册 = 邮箱 + 两次密码 + Google、卡内无任何「链接」文案、375px 零溢出、输入框 16px；`/login` 无「邮箱链接」tab。测试号与其房东行 / 助手档案已删除。
+  Supabase 日志证实该时段浏览器侧的三条 401 全是我在页面里手调 `my_hats` 的实验（应用自身零 401）。
