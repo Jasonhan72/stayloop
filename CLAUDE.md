@@ -2575,9 +2575,7 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
 - **logo 去向 + 登录后保留菜单（2026-09-27 晚，用户「登录以后点击 logo 应该跳到哪里？」「客户如果想要去看房源呢？找不到 header 里的菜单也是不好的体验」）**：
   ① logo：访客 → `/`；已登录 → 当前身份的助手页（服务商 → `/provider/jobs`），不再绕经 `/` 闪一下营销页。规则是纯函数 `lib/homeHref.ts homeHrefFor`
   （auth 或帽子未加载完 → `/`，与预渲染一致），`lib/useHomeHref.ts` 收集输入（登录态、`activeHat`、服务商上下文——原 Header 里的 `rememberedProvider`
-  读取搬到这里），Header 与 Footer 的 `<Logo href={home.href}>` 共用；`/` 对已登录用户的自动跳转保留作兜底。② 应用壳的桌面 Header **保留公开菜单
-  产品 · 房源 · 定价 · 租客筛查**（节点 2 曾把它们全部收进头像菜单），只有「我是 ▾」下拉由「当前身份 · 切换」芯片顶替（同一位置）——登录后「我是租客」
-  这类营销页入口的功能已由身份芯片承担；手机汉堡菜单不变（「浏览 Stayloop ›」折叠行）。守卫 `tests/logoHome20260927.spec.ts`，`node2Clarity` 相应改写。
+  读取搬到这里），Header 与 Footer 的 `<Logo href={home.href}>` 共用；`/` 对已登录用户的自动跳转保留作兜底。② **Header 菜单在所有页面都一样、一直在顶部**（用户 2026-09-27 最终定：「header 的菜单就一直保留在顶部，各个模块都可以使用」；节点 2 的「应用壳只显示身份芯片 + 切换」与随后的中间方案都撤销，`appShell` prop 删除，WorkspaceShell 与 /provider 两页改为普通 `<Header />`）：桌面 `我是 ▾ · 产品 · 房源 · 定价 · 租客筛查` 在工作台各模块与营销页完全一致。**登录后「我是 ▾」就是身份切换器**——按钮文字变成「我是房东」（当前身份；服务商上下文为「我是服务商」），下拉列出与汉堡菜单折叠列表同一份 `identityRows`（租客 / 房东 / 经纪 / 服务商：当前 · 切换 · 开通），点一项就地切换或进开通页（`closeMenus` 同时关掉两处）；访客看到的仍是四个角色营销页。守卫 `tests/logoHome20260927.spec.ts`，`node2Clarity` 相应改写。
   **生产核对（ship56，1247 条测试、冒烟 9/9、路由审计 70/70）**：匿名首页 logo → `/`、菜单「我是 ▾ · 产品 · 房源 · 定价 · 租客筛查」原样；租客测试号登录后在
   `/tenant/agent` 的桌面 header 是「当前身份：租客 · 切换 · 产品 · 房源 · 定价 · 租客筛查」，logo href `/tenant/agent`；在 `/pricing`（营销壳）页头与页脚 logo 都指向
   `/tenant/agent`，点 logo 直接落到助手页；清会话后 logo 又回到 `/`。

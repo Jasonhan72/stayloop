@@ -26,9 +26,6 @@ interface HeaderProps {
   variant?: 'transparent' | 'solid'
   /** Phone bottom tab bar for public pages (WorkspaceShell turns it off — it has its own rail). */
   mobileNav?: boolean
-  /** Signed-in workbench pages (节点 2 2026-09-26): the marketing nav gives way to a
-   *  "current identity" chip; the marketing links live in the menu's 浏览 Stayloop. */
-  appShell?: boolean
 }
 
 const PRODUCT_ITEMS = [
@@ -40,7 +37,7 @@ const PRODUCT_ITEMS = [
   { key: 'nav.services', href: '/services', color: '#00ACE4', tag: { zh: '维修与服务网络 · 入驻', en: 'Repairs network · join' } },
 ]
 
-export default function Header({ variant = 'solid', mobileNav = true, appShell = false }: HeaderProps) {
+export default function Header({ variant = 'solid', mobileNav = true }: HeaderProps) {
   const pathname = usePathname() || '/'
   const router = useRouter()
   const { lang, t } = useI18n()
@@ -79,12 +76,14 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
 
   const handleRoleSwitch = (newRole: string) => {
     auth.setRole(newRole as 'tenant' | 'landlord' | 'agent')
-    setMenuOpen(false)
+    closeMenus()
     router.push(ROLE_META[newRole].home)
   }
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [productOpen, setProductOpen] = useState(false)
+  // Closes both surfaces that list the hats: the hamburger and the「我是」dropdown.
+  const closeMenus = () => { setMenuOpen(false); setProductOpen(false) }
   const [scrolled, setScrolled] = useState(false)
   const [langModalOpen, setLangModalOpen] = useState(false)
   // Phone menu: marketing links fold into one row once you are signed in
@@ -144,6 +143,66 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
   const avatarBg =
     (ROLE_THEME[currentRole as RoleKey] ?? ROLE_THEME.landlord).avatarGradient
 
+  // Signed in, the「我是」trigger names the acting hat (providers included).
+  const actingLabel = home.onProvider ? (lang === 'zh' ? '服务商' : 'Provider') : (lang === 'zh' ? ROLE_META[currentRole].label : ROLE_META[currentRole].labelEn)
+  const navIdentityLabel = lang === 'zh' ? `我是${actingLabel}` : `I’m ${/^[aeiou]/i.test(actingLabel) ? 'an' : 'a'} ${actingLabel.toLowerCase()}`
+  // The hat rows: the hamburger's folded list and the「我是」dropdown render the same set.
+  const identityRows = (
+    <>
+                    <div className="px-4 pb-1 pt-1 font-mono text-[10.5px] font-bold uppercase tracking-[.12em] text-[#717171]">{lang === 'zh' ? '身份' : 'Identity'}</div>
+                    {(['tenant', 'landlord', 'agent'] as const).map((r) => {
+                      const held = heldRoles.includes(r)
+                      const isCurrent = r === currentRole
+                      const pendingAgent = r === 'agent' && hats.agent && !isRegistrationLive(hats.agent)
+                      const sub = r === 'tenant'
+                        ? (lang === 'zh' ? '找房 · 申请 · 签约' : 'Search · Apply · Lease')
+                        : r === 'landlord'
+                          ? (held ? (lang === 'zh' ? '管房 · 筛查 · 续约' : 'Manage · Screen · Renew') : (lang === 'zh' ? '发布房源 · 筛查租客' : 'List a unit · screen tenants'))
+                          : (held ? (lang === 'zh' ? '客户 · 带看 · 经纪目录' : 'Clients · Showings · Directory') : (lang === 'zh' ? '需 RECO 注册核验' : 'Requires RECO registration check'))
+                      const inner = (
+                        <>
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full text-[15px]" style={{ background: ROLE_META[r].color + '14' }}>{ROLE_META[r].icon}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 text-[14px] font-semibold text-[#222]">
+                              <span>{lang === 'zh' ? ROLE_META[r].label : ROLE_META[r].labelEn}</span>
+                              {isCurrent && <span className="rounded-full px-2 py-[1px] text-[11px] font-bold" style={{ background: ROLE_META[r].color + '14', color: ROLE_META[r].color }}>{lang === 'zh' ? '当前' : 'current'}</span>}
+                              {!isCurrent && pendingAgent && <span className="rounded-full bg-amber-50 px-2 py-[1px] text-[11px] font-bold text-amber-800">{lang === 'zh' ? '待认证' : 'pending'}</span>}
+                              {!isCurrent && !held && <span className="rounded-full border border-[#E5E5E5] px-2 py-[1px] text-[11px] font-semibold text-[#717171]">{lang === 'zh' ? '开通' : 'add'}</span>}
+                            </div>
+                            <div className="text-[12px] text-[#717171]">{sub}</div>
+                          </div>
+                          {!isCurrent && <span className="text-[#717171]">›</span>}
+                        </>
+                      )
+                      if (isCurrent) return <div key={r} className="flex w-full items-center gap-3 px-4 py-2.5 text-left" aria-current="true">{inner}</div>
+                      if (held) return <button key={r} onClick={() => handleRoleSwitch(r)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">{inner}</button>
+                      return <Link key={r} href={r === 'landlord' ? '/onboarding/name?role=landlord' : '/agent/verify'} onClick={closeMenus} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">{inner}</Link>
+                    })}
+                    {/* Fifth hat (services marketplace 2026-09-23): the jobs door once a provider row
+                        exists; otherwise the onboarding door (entry proposal 2026-09-26). */}
+                    {!hats.loading && !hats.provider && (
+                      <Link href="/provider/onboard" onClick={closeMenus} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem" data-testid="become-provider">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00ACE414] text-[15px]">🔧</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 text-[14px] font-semibold text-[#222]"><span>{lang === 'zh' ? '服务商' : 'Provider'}</span><span className="rounded-full border border-[#E5E5E5] px-2 py-[1px] text-[11px] font-semibold text-[#717171]">{lang === 'zh' ? '开通' : 'add'}</span></div>
+                          <div className="text-[12px] text-[#717171]">{lang === 'zh' ? '成为服务商 · 需资质核验' : 'Become a provider · credentials checked'}</div>
+                        </div>
+                        <span className="text-[#717171]">›</span>
+                      </Link>
+                    )}
+                    {hats.provider && (
+                      <Link href="/provider/jobs" onClick={closeMenus} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00ACE414] text-[15px]">🔧</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 text-[14px] font-semibold text-[#222]"><span>{lang === 'zh' ? '服务商 · 工单' : 'Provider · Jobs'}</span>{hats.provider !== 'verified' && <span className="rounded-full bg-amber-50 px-2 py-[1px] text-[11px] font-bold text-amber-800">{({ pending: { zh: '待核验', en: 'pending' }, rejected: { zh: '未通过', en: 'rejected' }, suspended: { zh: '已暂停', en: 'suspended' }, expired: { zh: '已过期', en: 'expired' } } as Record<string, { zh: string; en: string }>)[hats.provider]?.[lang === 'zh' ? 'zh' : 'en'] ?? hats.provider}</span>}</div>
+                          <div className="text-[12px] text-[#717171]">{lang === 'zh' ? '接单 · 报价 · 完工' : 'Accept · Quote · Complete'}</div>
+                        </div>
+                        <span className="text-[#717171]">›</span>
+                      </Link>
+                    )}
+    </>
+  )
+
   return (
     <>
     <header
@@ -157,23 +216,11 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
       <div className="mx-auto flex h-14 max-w-[1240px] items-center justify-between px-5 sm:px-8 md:h-[66px] lg:px-12">
         <Logo size="md" href={home.href} />
 
-        {/* Desktop nav. Marketing pages keep the「我是」dropdown; the app shell (signed in)
-            shows the acting identity in its place (external review 2026-09-26) and keeps the
-            four public links (user 2026-09-27: a signed-in customer must still find 房源 here). */}
+        {/* Desktop nav — the same menu on every page, workbench included (user 2026-09-27:
+            "header 的菜单就一直保留在顶部，各个模块都可以使用"). Signed in, the「我是」
+            dropdown IS the identity switcher — its label names the acting hat and its rows
+            are the hamburger's — while visitors get the four role pages. */}
         <nav className="hidden items-center gap-[26px] lg:flex">
-          {appShell && auth.user ? (() => {
-            const label = home.onProvider ? (lang === 'zh' ? '服务商' : 'Provider') : lang === 'zh' ? ROLE_META[currentRole].label : ROLE_META[currentRole].labelEn
-            const color = home.onProvider ? '#00ACE4' : ROLE_META[currentRole].color
-            return (
-              <div className="flex items-center gap-2" data-testid="app-shell-identity">
-                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-bold" style={{ background: color + '14', color }}>
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
-                  {lang === 'zh' ? `当前身份：${label}` : `Acting as: ${label}`}
-                </span>
-                <button type="button" onClick={() => { setMenuOpen(true); setHatsOpen(true) }} className="text-[12.5px] text-[#717171] underline underline-offset-2">{lang === 'zh' ? '切换' : 'Switch'}</button>
-              </div>
-            )
-          })() : (
           <div className="relative" ref={productRef}>
             <button
               onClick={() => setProductOpen((v) => !v)}
@@ -182,11 +229,19 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
                 color: isProductActive ? '#171717' : '#3F3F46',
                 fontWeight: isProductActive ? 600 : 400,
               }}
+              aria-haspopup="menu"
+              aria-expanded={productOpen}
+              data-testid="nav-identity"
             >
-              <ReservedText text={t('nav.product')} bold={isProductActive} />
+              <ReservedText text={home.signedIn ? navIdentityLabel : t('nav.product')} bold={isProductActive} />
               <ChevronIcon open={productOpen} />
             </button>
-            {productOpen && (
+            {productOpen && home.signedIn && (
+              <div className="sl-card absolute left-0 mt-3 w-[300px] overflow-hidden p-1" role="menu" data-testid="nav-identity-menu">
+                {identityRows}
+              </div>
+            )}
+            {productOpen && !home.signedIn && (
               <div className="sl-card absolute left-1/2 mt-3 w-60 -translate-x-1/2 overflow-hidden p-1">
                 {PRODUCT_ITEMS.map((item) => (
                   <Link
@@ -208,7 +263,6 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
               </div>
             )}
           </div>
-          )}
 
           <NavLink i18nKey="nav.platform" href="/platform" active={isActive('/platform') || isActive('/stayloop-api')} />
           <NavLink i18nKey="nav.listings" href="/listings" active={isActive('/listings')} />
@@ -352,59 +406,7 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
                       {heldRoles.length > 1 && <span className="text-[12px] font-normal text-[#717171]">{lang === 'zh' ? `${heldRoles.length} 个身份` : `${heldRoles.length} identities`}</span>}
                       <span className={'text-[#717171] transition-transform ' + (hatsOpen ? 'rotate-90' : '')}>›</span>
                     </button>
-                    {hatsOpen && <div id="sl-identity-list" className="pb-1" data-testid="identity-list">
-                    <div className="px-4 pb-1 pt-1 font-mono text-[10.5px] font-bold uppercase tracking-[.12em] text-[#717171]">{lang === 'zh' ? '身份' : 'Identity'}</div>
-                    {(['tenant', 'landlord', 'agent'] as const).map((r) => {
-                      const held = heldRoles.includes(r)
-                      const isCurrent = r === currentRole
-                      const pendingAgent = r === 'agent' && hats.agent && !isRegistrationLive(hats.agent)
-                      const sub = r === 'tenant'
-                        ? (lang === 'zh' ? '找房 · 申请 · 签约' : 'Search · Apply · Lease')
-                        : r === 'landlord'
-                          ? (held ? (lang === 'zh' ? '管房 · 筛查 · 续约' : 'Manage · Screen · Renew') : (lang === 'zh' ? '发布房源 · 筛查租客' : 'List a unit · screen tenants'))
-                          : (held ? (lang === 'zh' ? '客户 · 带看 · 经纪目录' : 'Clients · Showings · Directory') : (lang === 'zh' ? '需 RECO 注册核验' : 'Requires RECO registration check'))
-                      const inner = (
-                        <>
-                          <span className="flex h-8 w-8 items-center justify-center rounded-full text-[15px]" style={{ background: ROLE_META[r].color + '14' }}>{ROLE_META[r].icon}</span>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 text-[14px] font-semibold text-[#222]">
-                              <span>{lang === 'zh' ? ROLE_META[r].label : ROLE_META[r].labelEn}</span>
-                              {isCurrent && <span className="rounded-full px-2 py-[1px] text-[11px] font-bold" style={{ background: ROLE_META[r].color + '14', color: ROLE_META[r].color }}>{lang === 'zh' ? '当前' : 'current'}</span>}
-                              {!isCurrent && pendingAgent && <span className="rounded-full bg-amber-50 px-2 py-[1px] text-[11px] font-bold text-amber-800">{lang === 'zh' ? '待认证' : 'pending'}</span>}
-                              {!isCurrent && !held && <span className="rounded-full border border-[#E5E5E5] px-2 py-[1px] text-[11px] font-semibold text-[#717171]">{lang === 'zh' ? '开通' : 'add'}</span>}
-                            </div>
-                            <div className="text-[12px] text-[#717171]">{sub}</div>
-                          </div>
-                          {!isCurrent && <span className="text-[#717171]">›</span>}
-                        </>
-                      )
-                      if (isCurrent) return <div key={r} className="flex w-full items-center gap-3 px-4 py-2.5 text-left" aria-current="true">{inner}</div>
-                      if (held) return <button key={r} onClick={() => handleRoleSwitch(r)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">{inner}</button>
-                      return <Link key={r} href={r === 'landlord' ? '/onboarding/name?role=landlord' : '/agent/verify'} onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">{inner}</Link>
-                    })}
-                    {/* Fifth hat (services marketplace 2026-09-23): the jobs door once a provider row
-                        exists; otherwise the onboarding door (entry proposal 2026-09-26). */}
-                    {!hats.loading && !hats.provider && (
-                      <Link href="/provider/onboard" onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem" data-testid="become-provider">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00ACE414] text-[15px]">🔧</span>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 text-[14px] font-semibold text-[#222]"><span>{lang === 'zh' ? '服务商' : 'Provider'}</span><span className="rounded-full border border-[#E5E5E5] px-2 py-[1px] text-[11px] font-semibold text-[#717171]">{lang === 'zh' ? '开通' : 'add'}</span></div>
-                          <div className="text-[12px] text-[#717171]">{lang === 'zh' ? '成为服务商 · 需资质核验' : 'Become a provider · credentials checked'}</div>
-                        </div>
-                        <span className="text-[#717171]">›</span>
-                      </Link>
-                    )}
-                    {hats.provider && (
-                      <Link href="/provider/jobs" onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00ACE414] text-[15px]">🔧</span>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 text-[14px] font-semibold text-[#222]"><span>{lang === 'zh' ? '服务商 · 工单' : 'Provider · Jobs'}</span>{hats.provider !== 'verified' && <span className="rounded-full bg-amber-50 px-2 py-[1px] text-[11px] font-bold text-amber-800">{({ pending: { zh: '待核验', en: 'pending' }, rejected: { zh: '未通过', en: 'rejected' }, suspended: { zh: '已暂停', en: 'suspended' }, expired: { zh: '已过期', en: 'expired' } } as Record<string, { zh: string; en: string }>)[hats.provider]?.[lang === 'zh' ? 'zh' : 'en'] ?? hats.provider}</span>}</div>
-                          <div className="text-[12px] text-[#717171]">{lang === 'zh' ? '接单 · 报价 · 完工' : 'Accept · Quote · Complete'}</div>
-                        </div>
-                        <span className="text-[#717171]">›</span>
-                      </Link>
-                    )}
-                    </div>}
+                    {hatsOpen && <div id="sl-identity-list" className="pb-1" data-testid="identity-list">{identityRows}</div>}
 
                     <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
 
@@ -428,7 +430,7 @@ export default function Header({ variant = 'solid', mobileNav = true, appShell =
                     </button>
 
                     {/* Phone (and the app shell on desktop): the public pages, folded into one row */}
-                    <div className={appShell ? '' : 'lg:hidden'}>
+                    <div className="lg:hidden">
                       <button
                         onClick={() => setBrowseOpen((v) => !v)}
                         className="flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] text-[#222] transition hover:bg-[#F7F7F7]"

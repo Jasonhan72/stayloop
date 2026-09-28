@@ -32,14 +32,25 @@ describe('where the logo goes', () => {
     expect(hook).toContain('hat: activeHat(hats, auth.role)') // the same held-hat predicate as the header chip
     expect(hook).toContain("!(auth.user as { is_anonymous?: boolean }).is_anonymous")
   })
-  it('signed in, the desktop header keeps the four public links and shows the acting identity in the「我是」slot', () => {
+  it('one menu everywhere (user 2026-09-27): the desktop nav is not gated on any prop; signed in, the「我是」dropdown lists the hats and its label names the acting hat', () => {
     const h = read('components/Header.tsx')
+    expect(h).not.toContain('appShell')
+    expect(h).not.toContain('onClick={() => { setMenuOpen(true); setHatsOpen(true) }}') // no chip, no「切换」that opened the hamburger
     const nav = h.slice(h.indexOf('<nav className="hidden items-center gap-[26px] lg:flex">'), h.indexOf('</nav>'))
-    expect(nav).toContain('{appShell && auth.user ? (() => {')
-    expect(nav).toContain('data-testid="app-shell-identity"')
-    expect(nav).toContain('ref={productRef}') // visitors / marketing pages keep the dropdown
+    expect(nav).toContain('ref={productRef}')
     for (const k of ['nav.platform', 'nav.listings', 'nav.pricing', 'nav.screening']) expect(nav).toContain(`i18nKey="${k}"`)
-    expect(h).not.toContain('{!(appShell && auth.user) && (')
+    expect(nav).toContain('{productOpen && home.signedIn && (')
+    expect(nav).toContain('data-testid="nav-identity-menu"')
+    expect(nav).toContain('{productOpen && !home.signedIn && (')
+    expect(nav).toContain('{PRODUCT_ITEMS.map((item) => (') // visitors still get the four role pages
+    expect(h).toContain("const navIdentityLabel = lang === 'zh' ? `我是${actingLabel}`")
+    // one set of rows, rendered by the dropdown and by the hamburger's folded list
+    expect((h.match(/\{identityRows\}/g) || []).length).toBe(2)
+    // switching a hat or opening a door closes both surfaces; Escape / outside click already close the dropdown
+    expect(h).toContain('const closeMenus = () => { setMenuOpen(false); setProductOpen(false) }')
+    const rows = h.slice(h.indexOf('const identityRows = ('), h.indexOf('\n  return ('))
+    expect(rows).not.toContain('setMenuOpen(false)')
+    expect((rows.match(/onClick=\{closeMenus\}/g) || []).length).toBeGreaterThanOrEqual(3)
     // the phone menu is untouched: visitors see the links, signed-in users the folded「浏览 Stayloop」row (2026-09-23)
     expect(h).toMatch(/浏览 Stayloop/)
   })

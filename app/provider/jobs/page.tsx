@@ -31,7 +31,7 @@ const money = (n: number | string | null | undefined) => (n == null || n === '' 
 const { IN_PROGRESS, AWAITING_ACCEPT } = PROVIDER_GROUPS
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-screen flex-col bg-surface"><Header appShell /><main className="mx-auto w-full max-w-[860px] flex-1 px-5 py-8">{children}</main><Footer /></div>
+  return <div className="flex min-h-screen flex-col bg-surface"><Header /><main className="mx-auto w-full max-w-[860px] flex-1 px-5 py-8">{children}</main><Footer /></div>
 }
 
 export default function ProviderJobsPage() {

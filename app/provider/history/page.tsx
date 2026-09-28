@@ -27,7 +27,7 @@ const money = (n: number | string | null | undefined) => (n == null || n === '' 
 const pct = (v: number | null) => (v == null ? '—' : `${Math.round(v * 100)}%`)
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-screen flex-col bg-surface"><Header appShell /><main className="mx-auto w-full max-w-[860px] flex-1 px-5 py-8">{children}</main><Footer /></div>
+  return <div className="flex min-h-screen flex-col bg-surface"><Header /><main className="mx-auto w-full max-w-[860px] flex-1 px-5 py-8">{children}</main><Footer /></div>
 }
 
 export default function ProviderHistoryPage() {

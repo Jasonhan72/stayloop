@@ -142,12 +142,15 @@ describe('signed-in homepage + identity menu', () => {
     expect(header).toContain('data-testid="identity-toggle"')
     expect(header).toContain("{lang === 'zh' ? '切换身份' : 'Switch identity'}")
     expect(header).toMatch(/\{hatsOpen && <div id="sl-identity-list"/)
-    // Every hat row (three roles + both provider doors) sits inside the folded list.
-    const listStart = header.indexOf('{hatsOpen && <div id="sl-identity-list"')
-    const listEnd = header.indexOf('</div>}', listStart)
-    const list = header.slice(listStart, listEnd)
+    // Every hat row (three roles + both provider doors) is rendered once (identityRows) and
+    // used by the folded list AND by the in-place「切换」dropdown of the app-shell chip (2026-09-27).
+    const rowsStart = header.indexOf('const identityRows = (')
+    const rowsEnd = header.indexOf('\n  return (', rowsStart)
+    const list = header.slice(rowsStart, rowsEnd)
+    expect(rowsStart).toBeGreaterThan(-1)
     expect(list).toMatch(/\(\['tenant', 'landlord', 'agent'\] as const\)\.map/)
     expect(list).toContain('data-testid="become-provider"')
     expect(list).toContain('href="/provider/jobs"')
+    expect(header).toContain('{hatsOpen && <div id="sl-identity-list" className="pb-1" data-testid="identity-list">{identityRows}</div>}')
   })
 })

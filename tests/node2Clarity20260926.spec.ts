@@ -32,18 +32,17 @@ describe('the provider is a landing hat', () => {
     const shell = read('components/WorkspaceShell.tsx')
     expect(shell).toContain('auth.setRole(bestHat(hats))')
     expect(shell).toContain("const ctaHref = gate.href === '/dashboard' && role !== 'landlord' ? `/${role}/agent` : gate.href")
-    expect(shell).toContain('<Header variant="solid" mobileNav={false} appShell />')
+    expect(shell).toContain('<Header variant="solid" mobileNav={false} />') // one header everywhere (user 2026-09-27)
   })
-  it('the app shell shows the acting identity instead of the marketing nav', () => {
+  it('one header everywhere (user 2026-09-27): the marketing nav stays on workbench pages too; the acting identity is the「我是」label', () => {
     const h = read('components/Header.tsx')
-    expect(h).toContain('data-testid="app-shell-identity"')
-    // V0.7 (2026-09-27): the provider reading lives in the shared useHomeHref hook, and the
-    // identity chip takes the「我是」dropdown's slot while the four public links stay (a
-    // signed-in customer must still find 房源 in the header — user 2026-09-27)
+    // the 节点 2 app-shell variant (identity chip instead of the nav) is retired
+    expect(h).not.toContain('appShell')
+    expect(h).not.toContain('app-shell-identity')
     expect(read('lib/useHomeHref.ts')).toContain("const onProvider = pathname.startsWith('/provider/')")
-    expect(h).toContain('{appShell && auth.user ? (() => {')
-    expect(h).not.toContain('{!(appShell && auth.user) && (')
-    for (const f of ['app/provider/jobs/page.tsx', 'app/provider/onboard/page.tsx']) expect(read(f)).toContain('<Header appShell />')
+    expect(h).toContain('data-testid="nav-identity"')
+    expect(h).toContain("<ReservedText text={home.signedIn ? navIdentityLabel : t('nav.product')} bold={isProductActive} />")
+    for (const f of ['app/provider/jobs/page.tsx', 'app/provider/onboard/page.tsx']) expect(read(f)).toContain('<Header />')
   })
   it('real notifications: pending cards of the hat, provider job events, recent audit', () => {
     const c = read('components/notifications/LiveNotifications.tsx')
