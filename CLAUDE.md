@@ -2604,25 +2604,27 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
 - **有意不动**：首次登录的房东仍落筛查页而不是助手页——那是有数据依据的显式决策（33 注册 / 3 活跃筛查），V0.7 的「登录后直达助手」针对的是回访用户的首页跳转；要改需用户拍板。
 - 本地核对（dev，英文界面）：匿名 `/onboarding/name` → 选择页四卡；点房东 → STEP 02/02、`Identity: landlord`、sessionStorage 写入、能力清单为新文案；「换身份」→ 回到选择页且记忆清空；
   点服务商 → `/provider/onboard`；`/onboarding/name?role=agent` 不出选择页；375px 四卡零横向溢出；控制台无报错。tsc 通过，全套 1255 条测试通过。
-- **第二个发现（同日，更要紧）：新账号的第一次落地很可能是 `/` 而不是回调页。** 用 Auth Admin `generate_link` 铸链接时，不论要求的 `redirect_to` 是什么，
-  返回的链接一律 `redirect_to=https://www.stayloop.ai`（站点根地址）——GoTrue 对不在跳转白名单里的地址会静默改回 Site URL；邮件里的一次性链接大概率同样如此
-  （实际白名单内容需要用户在 Supabase 后台 Auth → URL Configuration 里核对，管理 PAT 已过期我改不了）。落在 `/` 时 supabase-js 从 hash 里取到会话，首页的已登录跳转
-  用 `homeForHats` 把**没有任何帽子的全新账号**直接送到 `/tenant/agent`——回调页、选身份、起名全部不会出现。**修法不依赖白名单**：`lib/landlordHat.ts landingForAccount(stored, hats, named)`
+- **第二个发现（同日）：首页也要能接住「已登录但全新」的账号。** 起因是我用 Auth Admin `generate_link` 铸的测试链接一律落在站点根地址 `/` 而不是回调页——
+  当时判断成「GoTrue 把不在白名单里的 redirect_to 改回 Site URL」，**这个判断是错的**（2026-09-28 拿到管理 PAT 后核实：白名单本来就有 `https://www.stayloop.ai/auth/callback`
+  与 `https://www.stayloop.ai/**`；错在我的探测把 `redirect_to` 放进了请求体，而 GoTrue 只认 URL 查询参数，supabase-js 也是这么发的——改成查询参数后链接完整保留
+  `/auth/callback?next=…`）。所以真实用户的验证 / 重置邮件一直是正常到回调页的。**修法仍然保留，作为兜底**：一个全新账号可以不经回调页就以登录态到达 `/`（没带 redirect_to
+  的铸造链接、或者离开 onboarding 后手动回首页），原先会被 `homeForHats` 直接送进 `/tenant/agent`、跳过选身份与起名。`lib/landlordHat.ts landingForAccount(stored, hats, named)`
   = 「没有房东 / 经纪 / 服务商帽子 **且** 从未给助手起名（`assistant_profiles.name` 或本机该账号的缓存）」→ `/onboarding/name`，否则照 `homeForHats`；首页等 `my_hats` 与名字
-  都解析完（`ready`）再跳；`lib/aiName.ts resolveAccountNameFor(uid)` 丢弃登录前缓存的旧解析结果。密码登录与回调页路径不受影响（它们本来就到 `/auth/callback`）。
-  homeV10 / review20260925 / museMobile 三份守卫里钉住 `homeForHats(remembered, hats)` 的断言改为新谓词。
+  都解析完（`ready`）再跳；`lib/aiName.ts resolveAccountNameFor(uid)` 丢弃登录前缓存的旧解析结果。homeV10 / review20260925 / museMobile 三份守卫里钉住
+  `homeForHats(remembered, hats)` 的断言改为新谓词。**以后用 `generate_link` 铸测试链接要把 `redirect_to` 放在查询参数里**（`…/admin/generate_link?redirect_to=<urlencoded>`），
+  否则落点是站点根地址。
 - **同晚：登录方式回到常规（用户：「这个发送登录链接的功能早就不要了，改为常规的几个登录方式了」）。** 这条决定此前没进 CLAUDE.md，V0.7 的登录卡又把「邮箱一次性链接」做成了默认。
   现在 `lib/auth/useLoginForm.ts` 只有 Google / 邮箱 + 密码登录 / 邮箱 + 密码注册（`signUpWithPassword`，原 `/register` 的逻辑搬进 hook：≥8 位、两次一致、
   已注册防枚举、autoconfirm 时直进回调）/ 忘记密码 / 重发验证邮件，`sent ∈ verify | reset` 决定「查收邮箱」文案；`LoginCard`（「登录 / 注册」tab）、`/login`
   （去掉「邮箱链接」tab）、`/register`（改用同一 hook）三处共用；`/join/[token]` 的「输入邮箱免密码登录」改为「登录后接受」→ `/login?next=/join/<token>` + 「注册」；
   看房弹窗、设置页登录方式标签（「邮箱 + 密码」）、首页三步第一步、`/login` 的 metadata、i18n 里三条死字符串同步。**`signInWithOtp` 在 app / components / lib 里为零**
-  （守卫 `tests/loginMethods20260927.spec.ts`，homeV10 守卫改写）。注册后的验证邮件链接同样会被 GoTrue 改回站点根地址——上面的首页兜底（全新账号 → 起名页）正好接住这条路径。
+  （守卫 `tests/loginMethods20260927.spec.ts`，homeV10 守卫改写）。注册后的验证邮件链接落在回调页（白名单含 `/auth/callback`），由回调页送全新账号去起名；首页的兜底只是第二道保险。
 - **首页跳转出现过一次错误落点（未复现，已硬化）**：白纸账号开通房东、起名后重开 `/` 一次落到 `/tenant/agent`；日志证明那次 `my_hats` 返回 200（房东行已存在），
   即跳转发生在 RPC 返回之前、用的是 `useHats` 某个「已加载但全 false」的瞬时状态；随后把记住的身份改回房东连续两次重开都正确落到 `/landlord/agent`。
   硬化：`useHats.load()` 在发 RPC **之前**同步置 `loading:true`（原来「无用户 → 全 false 且 loading:false」之后用户出现时，直到 RPC 返回前都是这个陈旧状态；
   首页跳转和 `WorkspaceShell` 的房东守卫都是一次性决定，会被它骗到）。测试期间在页面里用错 key 调 `my_hats` 产生的三条 401 是我自己的实验，不是应用。
 - **生产核对（2026-09-27 晚，ship59 → ship60 → ship61，冒烟均绿；ship61 跳过的两条是匿名对话探针撞上每小时 8 次限流）**：用当晚新建的白纸测试号
-  `onboarding-test@stayloop.ai`（无任何帽子、未起名）走真实首次登录：一次性链接落在 `https://www.stayloop.ai`（根地址，证实 GoTrue 改写）→ 首页把它送到
+  `onboarding-test@stayloop.ai`（无任何帽子、未起名）走首次登录：管理接口铸的链接（未带查询参数 redirect_to）落在 `https://www.stayloop.ai` 根地址 → 首页把它送到
   `/onboarding/name` 选择页（STEP 01/02）→ 选房东 → 起名 Pilot（STEP 02/02、`Identity: landlord`）→ `claim_landlord` 200 + `assistant_profiles` 201 → 落 `/screening/app`，
   名字缓存归属该 uid；再开 `/onboarding/name` 跳过起名直达 `/landlord/agent`。ship61 后以访客身份核对首页登录卡：「Sign in / Create account」两个 tab、登录 = 邮箱 + 密码、
   注册 = 邮箱 + 两次密码 + Google、卡内无任何「链接」文案、375px 零溢出、输入框 16px；`/login` 无「邮箱链接」tab。测试号与其房东行 / 助手档案已删除。

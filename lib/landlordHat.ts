@@ -31,10 +31,11 @@ export function isBrandNewAccount(hats: HatsLite, named: boolean): boolean {
 }
 
 /** Where a signed-in visitor to the homepage goes (V0.7 follow-up, 2026-09-27).
- *  GoTrue rewrites a sign-in link's redirect_to to the site root when the path
- *  is not allow-listed, so a brand-new account's very first landing can be `/`
- *  with the tokens in the hash — never /auth/callback. Sending such an account
- *  to the tenant chat would skip「选身份，给助手起个名字」entirely; it goes to
+ *  A brand-new account can reach `/` signed in without ever passing the auth
+ *  callback — a link minted without a redirect_to (GoTrue then uses the site
+ *  URL; the allow-list itself does include /auth/callback), or a visitor who
+ *  left onboarding and typed the homepage. Sending such an account to the
+ *  tenant chat would skip「选身份，给助手起个名字」entirely; it goes to
  *  onboarding instead. Everyone else lands as homeForHats decides. */
 export function landingForAccount(stored: string | null | undefined, hats: HatsLite, named: boolean): string {
   return isBrandNewAccount(hats, named) ? '/onboarding/name' : homeForHats(stored, hats)

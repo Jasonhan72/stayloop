@@ -74,9 +74,9 @@ export function useLoginForm(initialTab: LoginTab = 'signin') {
   }
 
   /** Email + password registration. With email confirmation on, the account
-   *  becomes usable once the verification link is clicked; the link's landing
-   *  (the auth callback, or the homepage when the redirect is rewritten to the
-   *  site root) sends a brand-new account through onboarding. */
+   *  becomes usable once the verification link is clicked; the link lands on
+   *  the auth callback (allow-listed), which sends a brand-new account through
+   *  onboarding — and the homepage does the same should it land there. */
   const signUpWithPassword = async (e?: FormEvent) => {
     e?.preventDefault()
     setErr(null)

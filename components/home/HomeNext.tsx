@@ -299,9 +299,9 @@ export default function HomeNext() {
   const signedIn = !auth.loading && !!auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous
   const remembered = signedIn && typeof window !== 'undefined' ? (window.localStorage.getItem(roleStorageKey(auth.user!.id)) ?? auth.role) : auth.role
   // Has this account ever named its assistant? A brand-new account (no hat,
-  // never named) must go through onboarding — its first landing can be `/`
-  // when the sign-in link's redirect was rewritten to the site root, so the
-  // auth callback never ran for it (V0.7 follow-up, 2026-09-27).
+  // never named) must go through onboarding even when it reaches `/` signed
+  // in without the auth callback having run (a link that carried no
+  // redirect_to lands on the site URL) — V0.7 follow-up, 2026-09-27.
   const [named, setNamed] = useState<boolean | null>(null)
   useEffect(() => {
     if (!signedIn) { setNamed(null); return }
