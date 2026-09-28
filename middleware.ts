@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { homeAskRedirect } from '@/lib/homeDeepLink'
 
 // Security headers on every routed response. Full CSP is deliberately
 // omitted (Next inline scripts/styles would need nonces); frame-ancestors
@@ -69,6 +70,12 @@ export function middleware(request: NextRequest) {
       url.pathname = url.pathname.replace('/trust-api', '/stayloop-api')
       return withSecurityHeaders(NextResponse.redirect(url, 308))
     }
+    // `/?role=<r>&ask=<q>` used to feed a question into the homepage's hero
+    // conversation. The homepage is a marketing + login page since V0.7
+    // (2026-09-27); the same links land in that role's assistant page, which
+    // sends the question once (anonymous → preview, signed in → the real one).
+    const ask = homeAskRedirect(url)
+    if (ask) return withSecurityHeaders(NextResponse.redirect(ask, 308))
   }
   return withReferrerPolicy(withSecurityHeaders(NextResponse.next()), new URL(request.url).pathname)
 }

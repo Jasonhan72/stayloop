@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stayloop · 首页 V10 蓝本：营销 + 登录页（2026-09-27，待定稿）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#00ACE4; --brand-strong:#0094C6; --ink:#1B1B3C; --body:#1B1B3C; --body-2:#4A4A6A; --body-3:#6E6E8A;
+    --surface:#F3F8FC; --surface-2:#E3F2FC; --chip:#EEF5FA; --line:#D3E3EF; --line-2:#E4EEF6; --line-strong:#9FBBD0;
+    --ok:#6AB344; --amber:#B45309; --amber-bg:#FFFBEB; --amber-line:#FCD34D; --danger:#DC2626;
+    --w:1100px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:#E9EEF3;font-family:Inter,system-ui,-apple-system,"PingFang SC","Noto Sans SC",sans-serif;color:var(--body);font-size:16px;line-height:1.6}
+  a{color:var(--brand-strong);text-decoration:none}
+  h1,h2,h3,h4{font-family:"Inter Tight",Inter,sans-serif;margin:0;color:var(--ink);letter-spacing:-.02em}
+  h1{font-size:44px;font-weight:800;line-height:1.15}
+  h2{font-size:34px;font-weight:800;line-height:1.15}
+  h3{font-size:22px;font-weight:800;line-height:1.25}
+  p{margin:0}
+  .mono{font-family:"JetBrains Mono",monospace}
+  .wrap{max-width:var(--w);margin:0 auto;padding:0 28px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:999px;font-weight:700;font-size:15px;border:1px solid transparent;white-space:nowrap}
+  .btn-primary{background:var(--brand);color:#fff}
+  .btn-secondary{background:#fff;color:var(--ink);border-color:var(--line)}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:transparent;padding-left:14px;padding-right:14px}
+  .btn-dark{background:var(--ink);color:#fff}
+  .small{font-size:13px;color:var(--body-3)}
+  .tag{display:inline-block;padding:2px 8px;border-radius:999px;font:700 10.5px/1.6 "JetBrains Mono",monospace;letter-spacing:.06em}
+  .tag-soon{background:#EEF0F4;color:var(--body-3)}
+  .tag-pilot{background:var(--chip);color:var(--body-3)}
+  .tag-demo{background:var(--amber-bg);color:var(--amber)}
+
+  /* ---------- reviewer notes ---------- */
+  .legend{max-width:1280px;margin:28px auto 18px;padding:18px 22px;background:var(--amber-bg);border:1px solid var(--amber-line);border-radius:14px;font-size:14px;color:#7C2D12;line-height:1.7}
+  .legend h2{font-size:18px;color:#7C2D12;margin-bottom:6px;letter-spacing:0}
+  .legend ol{margin:8px 0 0 18px;padding:0}
+  .legend li{margin:2px 0}
+  .legend b.n{display:inline-block;min-width:22px;height:22px;border-radius:50%;background:#fff;border:1px solid var(--amber-line);color:var(--amber);font:700 12px/20px "JetBrains Mono",monospace;text-align:center;margin-right:6px}
+  .decisions{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:10px}
+  .decisions div{background:#fff;border:1px solid var(--amber-line);border-radius:10px;padding:12px 14px}
+  .decisions b{color:#7C2D12}
+  .note{position:relative}
+  .note::before{content:attr(data-n);position:absolute;left:-46px;top:2px;width:30px;height:30px;border-radius:50%;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-line);font:700 12px/28px "JetBrains Mono",monospace;text-align:center;z-index:5}
+  .frame{max-width:1280px;margin:0 auto;background:#fff;box-shadow:0 30px 80px rgba(27,27,60,.12);border-radius:8px;overflow:hidden}
+  .frame-label{max-width:1280px;margin:0 auto 8px;font:700 12px/1 "JetBrains Mono",monospace;letter-spacing:.1em;color:var(--body-3);text-transform:uppercase}
+
+  /* ---------- nav (production header, unchanged) ---------- */
+  .nav{height:66px;border-bottom:1px solid var(--line-2);background:rgba(255,255,255,.85);display:flex;align-items:center}
+  .nav .wrap{display:flex;align-items:center;gap:22px;width:100%}
+  .wordmark{font-family:"Inter Tight",Inter,sans-serif;font-weight:800;font-size:18px;letter-spacing:-.03em;color:var(--ink)}
+  .wordmark .accent{background:linear-gradient(90deg,#1B1B3C 0%,#00ACE4 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .nav-links{display:flex;gap:20px;font-size:14px;color:var(--body-2);font-weight:500;margin-left:14px}
+  .nav-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .nav-right .lang{font:600 12px/1 Inter;border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:var(--body-2)}
+
+  /* ---------- hero ---------- */
+  .hero{background:linear-gradient(180deg,#E9F5FD 0%,#fff 100%);padding:52px 0 44px}
+  .hero .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:48px;align-items:center}
+  .hero h1 em{font-style:normal;color:var(--brand)}
+  .hero .lead{margin-top:16px;font-size:17px;color:var(--body-2);max-width:560px}
+  .hero .cta{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap}
+  .login{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 20px 60px rgba(27,27,60,.08);padding:26px 26px 20px}
+  .login h3{font-size:20px}
+  .login .sub{margin-top:4px;font-size:13.5px;color:var(--body-2)}
+  .login .google{margin-top:18px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line-strong);border-radius:10px;padding:11px;font-weight:600;font-size:13.5px;background:#fff}
+  .login .or{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--body-3);font-size:12px}
+  .login .or::before,.login .or::after{content:"";flex:1;height:1px;background:var(--line-2)}
+  .login .eyebrow{font:700 10.5px/1 "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--body-3)}
+  .login input{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:400 14px Inter;color:var(--body);background:#fff}
+  .login .submit{margin-top:12px;width:100%;border-radius:999px;background:var(--brand);color:#fff;font-weight:700;font-size:15px;padding:13px;border:0}
+  .login .fine{margin-top:10px;font-size:12px;color:var(--body-3);text-align:center;line-height:1.6}
+  .login .fine a{font-weight:600}
+  .login .foot{margin-top:14px;padding-top:12px;border-top:1px solid var(--line-2);font-size:12px;color:var(--body-3);text-align:center}
+  .g{display:inline-block;width:16px;height:16px;border-radius:50%;background:conic-gradient(#4285F4 0 25%,#34A853 0 50%,#FBBC05 0 75%,#EA4335 0)}
+
+  /* ---------- landing map (4 tiles) ---------- */
+  .landing{padding:8px 0 40px}
+  .landing .line{font-size:14px;color:var(--body-3);font-weight:600;margin-bottom:12px}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .tile{background:var(--surface);border:1px solid var(--line-2);border-radius:16px;padding:18px 18px 16px;display:flex;flex-direction:column;gap:8px}
+  .tile .who{font-weight:800;font-size:16px;color:var(--ink);display:flex;align-items:center;gap:8px}
+  .tile .pain{font-size:14.5px;line-height:1.5;color:var(--body);font-weight:600}
+  .tile .to{margin-top:auto;font-size:13px;color:var(--body-2)}
+  .tile .to b{color:var(--brand-strong)}
+
+  /* ---------- system: propose / decide ---------- */
+  section.plain{padding:64px 0;border-top:1px solid var(--line-2)}
+  .sec-head{max-width:640px}
+  .sec-head p{margin-top:10px;font-size:16px;color:var(--body-2)}
+  .system{display:grid;grid-template-columns:6fr 5fr;gap:28px;margin-top:36px;align-items:start}
+  .chat{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 18px 16px}
+  .chat .cap{font:700 10.5px/1 "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--body-3);display:flex;justify-content:space-between}
+  .bubble{border-radius:16px;padding:12px 14px;font-size:14.5px;line-height:1.55;max-width:86%;margin-top:12px}
+  .bubble.u{background:var(--brand);color:#fff;margin-left:auto;border-bottom-right-radius:6px}
+  .bubble.a{background:var(--surface);color:var(--ink);border-bottom-left-radius:6px}
+  .chat .input{margin-top:14px;border:1px solid var(--line);border-radius:999px;padding:10px 14px;font-size:13.5px;color:var(--body-3);display:flex;justify-content:space-between;align-items:center}
+  .chat .input span.send{width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;display:inline-grid;place-items:center;font-size:13px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 24px 60px rgba(27,27,60,.10);margin-top:26px}
+  .card .risk{display:flex;justify-content:space-between;align-items:center;font:700 10.5px/1 "JetBrains Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--body-3)}
+  .card .risk .r{color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-line);border-radius:999px;padding:4px 8px}
+  .card h4{font-size:17px;margin-top:10px}
+  .card .to{font-size:13px;color:var(--body-2);margin-top:4px}
+  .scope{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  .scope .t{font:700 10.5px/1 "JetBrains Mono",monospace;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+  .scope .share .t{color:#2F7D32}.scope .hold .t{color:var(--body-3)}
+  .scope li{font-size:13px;line-height:1.5;list-style:none;position:relative;padding-left:14px;color:var(--body)}
+  .scope ul{margin:0;padding:0}
+  .scope li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:var(--ok)}
+  .scope .hold li::before{background:var(--line-strong)}
+  .card .acts{display:flex;gap:8px;margin-top:16px}
+  .card .acts .btn{padding:9px 14px;font-size:13.5px}
+  .card .foot{margin-top:12px;font-size:12px;color:var(--body-3)}
+  .flow4{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:34px;border-top:1px solid var(--line-2);padding-top:22px}
+  .flow4 div{padding:0 22px 0 0;position:relative}
+  .flow4 div+div{padding-left:22px;border-left:1px dashed var(--line)}
+  .flow4 .k{font:700 12px/1 "JetBrains Mono",monospace;color:var(--brand)}
+  .flow4 .h{font-weight:800;font-size:16px;margin-top:8px;color:var(--ink)}
+  .flow4 p{font-size:13.5px;color:var(--body-2);margin-top:4px;line-height:1.55}
+
+  /* ---------- lifecycle 4 cards (existing) ---------- */
+  .four{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:32px}
+  .four a{display:block;border:1px solid var(--line);border-radius:18px;padding:20px;background:#fff;color:var(--body)}
+  .four a.dark{background:var(--ink);border-color:transparent;color:#fff}
+  .four .k{font:700 11px/1 "JetBrains Mono",monospace;letter-spacing:.12em;color:var(--brand)}
+  .four a.dark .k{color:#7DD3FC}
+  .four .h{font-weight:800;font-size:18px;margin-top:8px}
+  .four p{font-size:13.5px;line-height:1.55;color:var(--body-2);margin-top:6px}
+  .four a.dark p{color:#B7C2D6}
+  .head-row{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+
+  /* ---------- role tabs (existing, retargeted) ---------- */
+  .roles-bg{background:var(--surface)}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:30px}
+  .tab{padding:9px 16px;border-radius:999px;font-weight:700;font-size:13.5px;background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .tab.on{background:var(--ink);color:#fff;border-color:transparent}
+  .panel{margin-top:22px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:30px}
+  .panel .g2{display:grid;grid-template-columns:5fr 6fr;gap:40px}
+  .panel .g2>*,.try>div,.mod>div{min-width:0}
+  .try span{max-width:100%}
+  .panel h3{font-size:26px}
+  .panel .lead{font-size:15px;color:var(--body-2);margin-top:10px;line-height:1.6}
+  .benefits{margin:22px 0 0;padding:0;list-style:none;display:grid;gap:14px}
+  .benefits li{display:flex;gap:12px}
+  .benefits li::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--brand);margin-top:8px}
+  .benefits b{display:block;font-size:15px}
+  .benefits span{font-size:13.5px;color:var(--body-2);line-height:1.55}
+  .try-box{background:var(--surface);border-radius:14px;padding:20px}
+  .try-box .cap{font:700 10.5px/1 "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--body-3)}
+  .try{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-top:8px}
+  .try b{display:block;font-size:13.5px}.try span{display:block;font-size:12px;color:var(--body-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px}
+  .try i{font-style:normal;color:var(--brand);font-weight:700}
+  .modules{margin-top:26px;border-top:1px solid var(--line-2);padding-top:20px}
+  .modules .cap{font:700 10.5px/1 "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--body-3)}
+  .mods{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+  .mod{display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+  .mod b{display:block;font-size:14px}.mod span{display:block;font-size:12.5px;color:var(--body-3);line-height:1.5;margin-top:2px}
+  .mod i{font-style:normal;color:var(--brand);font-weight:700}
+
+  /* ---------- rules ---------- */
+  .rules{display:grid;grid-template-columns:5fr 7fr;gap:40px;margin-top:8px;align-items:start}
+  .chips{display:flex;flex-wrap:wrap;gap:10px}
+  .chipx{display:inline-flex;align-items:baseline;gap:8px;border:1px solid var(--line);border-radius:999px;padding:9px 14px;background:#fff;font-size:13.5px}
+  .chipx .id{font:700 11px/1 "JetBrains Mono",monospace;color:var(--brand-strong);letter-spacing:.02em}
+  .rules .more{margin-top:14px;font-size:14px;font-weight:700}
+
+  /* ---------- steps ---------- */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:30px}
+  .step{border-top:2px solid var(--line);padding-top:18px}
+  .step .n{width:30px;height:30px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font:700 13px "JetBrains Mono",monospace}
+  .step .h{font-weight:800;font-size:17px;margin-top:12px}
+  .step p{font-size:14.5px;color:var(--body-2);margin-top:6px;line-height:1.6}
+  .step .ex{margin-top:10px;font-size:12.5px;color:var(--body-3);border-left:2px solid var(--line);padding-left:10px;line-height:1.6}
+
+  /* ---------- band ---------- */
+  .band{background:var(--ink);border-radius:20px;padding:44px 48px;color:#fff}
+  .band h2{color:#fff;font-size:30px}
+  .band .sub{color:#B7C2D6;font-size:15px;margin-top:8px}
+  .facts{display:grid;grid-template-columns:repeat(4,1fr);gap:28px;margin-top:32px}
+  .fact{border-top:1px solid rgba(255,255,255,.18);padding-top:18px}
+  .fact .n{font:700 34px/1 "JetBrains Mono",monospace;color:#33BCEA;font-variant-numeric:tabular-nums}
+  .fact p{font-size:13.5px;color:#D3E3EF;margin-top:12px;line-height:1.55}
+  .fact p i{color:#fff;font-style:normal}
+
+  /* ---------- faq ---------- */
+  .faq{display:grid;grid-template-columns:4fr 7fr;gap:48px}
+  .faq details{border-top:1px solid var(--line-2);padding:14px 0}
+  .faq details:last-of-type{border-bottom:1px solid var(--line-2)}
+  .faq summary{list-style:none;cursor:pointer;font-weight:600;font-size:17px;display:flex;justify-content:space-between;gap:16px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";font-family:"JetBrains Mono",monospace;color:var(--body-3)}
+  .faq details[open] summary::after{content:"×"}
+  .faq details p{margin-top:10px;font-size:14.5px;color:var(--body-2);max-width:620px}
+  .faq details p a{font-weight:600}
+
+  /* ---------- final + footer ---------- */
+  .final{text-align:center;padding:56px 0 72px}
+  .final h2{font-size:40px}
+  .final p{margin:12px auto 0;max-width:460px;font-size:15px;color:var(--body-2)}
+  .final .cta{display:flex;justify-content:center;gap:12px;margin-top:24px}
+  footer{border-top:1px solid var(--line-2);background:var(--surface);padding:40px 0 28px;font-size:13px;color:var(--body-3)}
+  footer .cols{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:24px}
+  footer b{display:block;color:var(--ink);margin-bottom:6px;font-size:13px}
+  footer .row{margin-top:26px;display:flex;justify-content:space-between;border-top:1px solid var(--line-2);padding-top:14px}
+
+  /* ---------- phone mockup ---------- */
+  .phones{max-width:1280px;margin:36px auto 0;display:grid;grid-template-columns:375px 1fr;gap:36px;align-items:start}
+  .phone{width:375px;border:1px solid var(--line);border-radius:28px;overflow:hidden;background:#fff;box-shadow:0 30px 80px rgba(27,27,60,.14)}
+  .phone .pnav{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--line-2)}
+  .phone .pnav .wordmark{font-size:16px}
+  .phone .ph{background:linear-gradient(180deg,#E9F5FD 0%,#fff 100%);padding:22px 16px 20px}
+  .phone h1{font-size:30px;line-height:1.15}
+  .phone .lead{font-size:14.5px;color:var(--body-2);margin-top:10px}
+  .phone .btn{width:100%;margin-top:14px}
+  .phone .tryline{text-align:center;margin-top:10px;font-size:13.5px;font-weight:700;color:var(--brand-strong)}
+  .phone .login{margin-top:18px;padding:20px 18px 16px;box-shadow:0 12px 40px rgba(27,27,60,.08)}
+  .phone .landing{padding:16px 16px 22px}
+  .phone .tiles{grid-template-columns:1fr 1fr;gap:10px}
+  .phone .tile{padding:14px;border-radius:14px}
+  .phone .tile .pain{font-size:13px}
+  .phone .tile .to{font-size:12px}
+  .phone .pbar{height:64px;border-top:1px solid var(--line-2);display:grid;grid-template-columns:repeat(4,1fr);align-items:center;text-align:center;font-size:10.5px;font-weight:700;color:var(--body-3)}
+  .phone .pbar span b{display:block;font-size:16px;color:var(--ink);font-weight:400}
+  .spec{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 24px;font-size:14px}
+  .spec h3{font-size:18px;margin-bottom:8px}
+  .spec table{width:100%;border-collapse:collapse;font-size:13.5px}
+  .spec td{padding:8px 10px 8px 0;vertical-align:top;border-top:1px solid var(--line-2)}
+  .spec td:first-child{width:180px;color:var(--body-3);font-weight:600}
+  .spec ul{margin:6px 0 0 18px;padding:0}
+  .spec li{margin:3px 0;color:var(--body-2)}
+
+  @media (max-width:960px){
+    .hero .grid,.system,.rules,.faq,.panel .g2{grid-template-columns:1fr}
+    .tiles,.four,.flow4,.facts,.steps,.mods{grid-template-columns:1fr 1fr}
+    .flow4 div+div{border-left:0;padding-left:0}
+    .phones{grid-template-columns:1fr}
+    h1{font-size:34px}h2{font-size:28px}
+    .note::before{display:none}
+  }
+  @media (max-width:640px){
+    .tiles,.four,.flow4,.facts,.steps,.mods{grid-template-columns:1fr}
+    .nav-links{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="legend">
+  <h2>首页 V10 蓝本 · 营销 + 登录页 · 待你定稿</h2>
+  <p>你要的三件事：① 首页说清楚 Stayloop 是什么；② 网页端首页去掉 AI 对话框（空间太小、看不出好处）；③ 四种身份登录后直接进入 AI 对话。
+  下面是我按这三条做的一版，页面里的琥珀色数字对应文末说明。<b>配色、页头、页脚、logo、字体全部沿用现行产线</b>，没有新的视觉语言；所有文案只写已上线的事，没有价格、没有编造的数字。</p>
+  <div class="decisions">
+    <div><b>决定 A · 首页去掉实时对话框</b><br>我同意。理由：对话框在营销页里只有半屏、匿名访客没有个人数据可用，展示不出「替你办事」的价值；改成一段<b>标注为示范的对话 + 一张真实样式的审批卡</b>，反而把「它提议，你决定」讲清楚了。免登录的真实体验不删，搬到助手预览页（整屏对话）。</div>
+    <div><b>决定 B · 已登录的人打开首页怎么办</b><br>建议：直接跳到当前身份的助手（服务商跳工单工作台），首页只给访客看。这正是「登录进去就是对话框」的字面含义，也和 Muse 一样。备选：仍显示营销页、把登录卡换成「打开我的助手」按钮。一行代码可切。</div>
+    <div><b>决定 C · Hero 右侧放登录卡</b><br>建议放：这就是「营销 + 登录页」。三种登录方式与现在的 /login 完全一致（Google · 邮箱链接 · 密码），首次登录即注册。/login 页保留，两处共用同一个组件。</div>
+    <div><b>决定 D · 保留什么、去掉什么</b><br>保留：四种身份 tab（09-27 刚上线）、租前租中租后四卡、可验证的数字带、FAQ、页头页脚。去掉：Hero 对话框、痛点三格（并进「登录后直达」四格）。新增：「它提议，你决定」示范段、「安省规则内置」一段、「不登录能试吗」一问。</div>
+  </div>
+</div>
+
+<div class="frame-label">桌面 · 1280px 画布 · 从上到下按真实顺序</div>
+<div class="frame">
+
+  <!-- ================= NAV (unchanged) ================= -->
+  <div class="nav note" data-n="13">
+    <div class="wrap">
+      <span class="wordmark">stay<span class="accent">loop.AI</span></span>
+      <nav class="nav-links"><span>我是 ▾</span><span>产品</span><span>房源</span><span>定价</span><span>租客筛查</span></nav>
+      <div class="nav-right"><span class="lang">EN</span><span class="btn btn-ghost" style="font-size:14px">登录</span><span class="btn btn-primary" style="padding:9px 18px;font-size:14px">注册</span></div>
+    </div>
+  </div>
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <div class="wrap grid">
+      <div class="note" data-n="1">
+        <h1>租房路上的每一步，<br>交给<em>你自己的 AI 助理</em>。</h1>
+        <p class="lead">找房、筛查、租约、维修、续约都由它去办；会影响到别人的动作先经你批准，安省规则内置，全程留痕。</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="#login">免费开始 →</a>
+          <a class="btn btn-secondary" href="#">先免登录试一试</a>
+        </div>
+      </div>
+      <div class="login note" data-n="2" id="login">
+        <h3>登录 · 免费开始</h3>
+        <p class="sub">一个账号，租客、房东、经纪、服务商四种身份随时切换。</p>
+        <div class="google"><span class="g"></span> 使用 Google 登录</div>
+        <div class="or">或用邮箱</div>
+        <div class="eyebrow">邮箱</div>
+        <input placeholder="you@example.com">
+        <button class="submit">发送登录链接</button>
+        <p class="fine">一次性链接，1 小时内有效 · <a href="#">已有密码？密码登录</a></p>
+        <div class="foot">首次登录即完成注册 · 租客永远免费</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LANDING MAP ================= -->
+  <section class="landing">
+    <div class="wrap">
+      <div class="line note" data-n="3">登录后，你会直接进入：</div>
+      <div class="tiles">
+        <div class="tile"><div class="who">租客</div><div class="pain">怕材料白填？交一次，处处通行。</div><div class="to">→ <b>助手对话</b> · 找房 · 申请 · 租约</div></div>
+        <div class="tile"><div class="who">房东</div><div class="pain">怕租错人？每份申请先查真伪和法庭记录。</div><div class="to">→ <b>助手对话</b> · 筛查 · 租约 · 维修</div></div>
+        <div class="tile"><div class="who">经纪</div><div class="pain">怕杂活吃掉专业？行政事务交给 AI。</div><div class="to">→ <b>助手对话</b> · 客户 · 定价 · 合规</div></div>
+        <div class="tile"><div class="who">服务商 <span class="tag tag-pilot">试点</span></div><div class="pain">想接多伦多的维修工单？先把资质核了。</div><div class="to">→ <b>工单工作台</b> · 邀请 · 报价 · 验收</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SYSTEM: propose / decide ================= -->
+  <section class="plain">
+    <div class="wrap">
+      <div class="sec-head note" data-n="4">
+        <h2>它提议，你决定。</h2>
+        <p>一条对话就是入口。发消息、签署、派单、发通知这类会影响到别人的事，先变成一张等你批准的卡片。</p>
+      </div>
+      <div class="system">
+        <div class="chat">
+          <div class="cap"><span>示例对话 · 房东</span><span>内容为示范</span></div>
+          <div class="bubble u">Unit 1207 收到 8 份申请，帮我看看哪些材料齐、哪些已经筛查过。</div>
+          <div class="bubble a">8 份里 3 份材料齐全并已完成筛查，1 份缺最近一张工资单，4 份还没提交材料。我按递交时间列好了；分数只在报告里看。要不要先给 Mia Chen 发录取通知？</div>
+          <div class="input"><span>说一句，或者点上面的卡片让它一步步问你…</span><span class="send">↑</span></div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="risk"><span>等你批准 · 对外发信</span><span class="r">RISK · HIGH</span></div>
+            <h4>把录取通知发给 Mia Chen？</h4>
+            <div class="to">收件人 Mia Chen · 申请人 · 正文固定附《消费者报告法》s.10(7) 说明</div>
+            <div class="scope">
+              <div class="share"><div class="t">将分享</div><ul><li>录取决定</li><li>起租日 6 月 1 日</li><li>下一步：租约草稿</li></ul></div>
+              <div class="hold"><div class="t">不会分享</div><ul><li>筛查分数与报告</li><li>其他申请人的资料</li><li>你的其他房源</li></ul></div>
+            </div>
+            <div class="acts"><span class="btn btn-secondary">预览正文</span><span class="btn btn-primary">批准</span><span class="btn btn-ghost">拒绝</span></div>
+            <div class="foot">批准后 60 秒内可撤销 · 批准与拒绝都写入审计</div>
+          </div>
+        </div>
+      </div>
+      <div class="flow4 note" data-n="5">
+        <div><div class="k">01</div><div class="h">你说一句</div><p>「多大附近、能养猫、4000 以内」——地标、预算、偏好都能理解；不会说也有一步步引导。</p></div>
+        <div><div class="k">02</div><div class="h">助手去办</div><p>查真实挂牌与 TRREB 行情、核材料真伪、查 LTB 与法院记录、起草租约与通知。</p></div>
+        <div><div class="k">03</div><div class="h">你来批准</div><p>影响到别人的动作先变成卡片：写明将分享什么、不分享什么，可预览正文。</p></div>
+        <div><div class="k">04</div><div class="h">执行并留痕</div><p>每一步写入审计；租赁事务可导出带内容指纹的证据包。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LIFECYCLE (existing) ================= -->
+  <section class="plain">
+    <div class="wrap">
+      <div class="head-row note" data-n="6">
+        <div class="sec-head">
+          <h2>租前 · 租中 · 租后，一条流程</h2>
+          <p>找房到续约，同一个房源、同一位申请人、同一份租约在每个阶段接力。</p>
+        </div>
+        <a href="#" style="font-weight:600;font-size:14px">看产品结构 →</a>
+      </div>
+      <div class="four">
+        <a href="#"><div class="k">01</div><div class="h">租前</div><p>对话找房 · 房源发布 · 看房与提问 · 申请 · 租客筛查 · 本人核验 <span class="tag tag-soon">即将</span> · 决定通知</p></a>
+        <a href="#"><div class="k">02</div><div class="h">租中</div><p>安省标准租约 · 电子签 · 在管租约 · 租金记录 · 报修与维修派单 · 在线收租 <span class="tag tag-demo">示范</span></p></a>
+        <a href="#"><div class="k">03</div><div class="h">租后</div><p>续约 90/60/30 天触点 · 指导比例与 N1 截止日 · N 表工具箱 · 退租 · 租客护照</p></a>
+        <a href="#" class="dark"><div class="k">API</div><div class="h">Stayloop API</div><p>合规检查 · 申请人出示的核验结论 · 发起筛查——三个端点给合作方</p></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ROLES (existing tabs, retargeted) ================= -->
+  <section class="plain roles-bg">
+    <div class="wrap">
+      <div class="sec-head note" data-n="7">
+        <h2>四种身份，各自的入口</h2>
+        <p>租客、房东、经纪的事同一个助手都会办，但立场只对你负责；服务商有自己的工单工作台。例句会打开助手预览（免登录、每小时限次），模块卡直接进真实页面。</p>
+      </div>
+      <div class="tabs"><span class="tab on">房东</span><span class="tab">租客</span><span class="tab">经纪</span><span class="tab">服务商 <span class="tag tag-pilot" style="background:rgba(255,255,255,.18);color:#fff">试点</span></span></div>
+      <div class="panel">
+        <div class="g2">
+          <div>
+            <h3>选对租客，按时收租，后台有支持。</h3>
+            <p class="lead">房东的难题，AI 接：把每份申请查完材料真伪和法庭记录，每一分写明理由，再排好序给你。</p>
+            <ul class="benefits">
+              <li><div><b>每份申请先过六维筛查</b><span>材料真伪、LTB 判令与法院记录都查过，伪造材料会被识别并拦下。</span></div></li>
+              <li><div><b>租约与续约由系统跟进</b><span>起草、电子签、到期前 120 天备好续约方案，批准就发。</span></div></li>
+              <li><div><b>AI 后台全天候在线</b><span>合规拦截、审计留痕、报修接待，你只需要确认。</span></div></li>
+            </ul>
+            <span class="btn btn-secondary" style="margin-top:22px">让 AI 协助管理房源 →</span>
+          </div>
+          <div class="try-box">
+            <div class="cap">试一试 · 打开助手预览，不用登录</div>
+            <div class="try"><div><b>租客筛查</b><span>我要筛查一位申请人：告诉我报告会查什么、需要准备哪些材料，然后带我开始。</span></div><i>→</i></div>
+            <div class="try"><div><b>看看新申请</b><span>帮我看看最新的申请，按材料是否齐全和递交时间整理。</span></div><i>→</i></div>
+            <div class="try"><div><b>续约方案</b><span>帮我看看哪些租约快到期了，给我续约方案和合规涨幅。</span></div><i>→</i></div>
+            <div class="try"><div><b>合规检查</b><span>帮我检查我的房源和租约有没有 RTA 合规风险。</span></div><i>→</i></div>
+            <div class="try"><div><b>发布房源</b><span>我要发布一个新房源，你来帮我整理信息。</span></div><i>→</i></div>
+            <p class="small" style="margin-top:12px">回答来自真实房源与官方行情；登录后它才读取你的申请、租约与记忆。</p>
+          </div>
+        </div>
+        <div class="modules">
+          <div class="cap">模块 · 直接进真实页面</div>
+          <div class="mods">
+            <div class="mod"><div><b>租客筛查</b><span>六维核验 · 文件取证 · LTB 判令与法院记录</span></div><i>→</i></div>
+            <div class="mod"><div><b>发布房源与申请队列</b><span>五步向导 · 一键导入 Realtor.ca 链接 · 核验后上线</span></div><i>→</i></div>
+            <div class="mod"><div><b>租约、续约与维修</b><span>安省标准租约电子签 · 续约 90 / 60 / 30 天 · 报修派给已核验服务商</span></div><i>→</i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= RULES (new) ================= -->
+  <section class="plain">
+    <div class="wrap rules">
+      <div class="sec-head note" data-n="8">
+        <h2>安省规则内置，每条有编号。</h2>
+        <p>发布房源、保存租约、发出通知之前自动检查；对话里的建议也受同一套规则约束。规则、法条与生效日期公开可查。</p>
+        <div class="more"><a href="#">全部 30 条规则 →</a></div>
+      </div>
+      <div class="chips">
+        <span class="chipx"><span class="id">RTA s.106</span>租金押金最多一个月</span>
+        <span class="chipx"><span class="id">RTA s.134</span>不得向租客收取申请费或筛查费</span>
+        <span class="chipx"><span class="id">RTA s.120</span>涨租指导 2026 年 2.1% · 2027 年 1.9%</span>
+        <span class="chipx"><span class="id">RTA s.116</span>涨租须提前 90 天送达 N1</span>
+        <span class="chipx"><span class="id">RTA s.59</span>N4 终止日不早于送达后 7 天（2026 年新规）</span>
+        <span class="chipx"><span class="id">RTA s.27</span>进入出租单元须提前 24 小时书面通知</span>
+        <span class="chipx"><span class="id">OHRC</span>租金收入比不得作为硬性截止线</span>
+        <span class="chipx"><span class="id">O. Reg. 9/18</span>住宅租约必须用安省标准租约</span>
+        <span class="chipx"><span class="id">TRESA s.32</span>经纪自己出租或求租须书面披露注册人身份</span>
+        <span class="chipx"><span class="id">CRA s.10(7)</span>婉拒通知须告知 60 天内可索取信息来源</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= STEPS ================= -->
+  <section class="plain">
+    <div class="wrap">
+      <div class="sec-head note" data-n="9">
+        <h2>三步开始</h2>
+        <p>没有表单迷宫。登录后就是对话。</p>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><div class="h">登录</div><p>Google 一键，或邮箱收一条一次性链接。首次登录即完成注册，不要信用卡。</p></div>
+        <div class="step"><div class="n">2</div><div class="h">选身份，给助手起个名字</div><p>租客 / 房东 / 经纪 / 服务商，之后随时在右上角切换。名字只起一次，四种身份共用同一个助手。</p></div>
+        <div class="step"><div class="n">3</div><div class="h">说第一句话</div><p>它会一步步问清楚，再去办。</p><div class="ex">租客：「多大附近两房，能养猫，预算 3000。」<br>房东：「帮我把这份申请筛查一下。」<br>经纪：「帮客户的房源定租金，拉同区挂牌和 TRREB 数据。」</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= BAND (existing) ================= -->
+  <section class="plain" style="border-top:0;padding-top:0">
+    <div class="wrap">
+      <div class="band note" data-n="10">
+        <h2>不给形容词，给可以验证的东西</h2>
+        <p class="sub">下面的每个数字都是此刻从线上数据库读出来的，不是写死的。</p>
+        <div class="facts">
+          <div class="fact"><div class="n">—</div><p>份筛查报告已生成，<i>每条结论注明所依据的数值</i></p></div>
+          <div class="fact"><div class="n">—</div><p>份 LTB 判令已入库可查，<i>姓名命中须地址佐证</i></p></div>
+          <div class="fact"><div class="n">—</div><p>个季度的 TRREB 官方成交数据，<i>行情有据</i></p></div>
+          <div class="fact"><div class="n">—</div><p>套公开房源，<i>平台核验或 Realtor.ca 实时</i></p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FAQ (existing + 1) ================= -->
+  <section class="plain" style="border-top:0;padding-top:8px">
+    <div class="wrap faq">
+      <div class="sec-head note" data-n="11">
+        <h2>你可能想问</h2>
+        <p>答案只写已经上线、能在页面上核对的事；各身份更细的问题在角色页。</p>
+      </div>
+      <div>
+        <details open><summary>不登录能试吗？</summary><p>能。助手预览页免注册、不记住你、每小时有次数上限；回答来自真实房源与官方行情。登录后它才读取你的申请、租约与记忆，也才能替你发出任何东西。 <a href="#">打开助手预览 →</a></p></details>
+        <details><summary>房源和行情从哪里来？</summary><p>房东在 Stayloop 发布、经管理员核验后上线的房源；以及从 Realtor.ca 导入并标明来源的（示范阶段，TRREB 数据库尚未接入）。行情对照用 TRREB 官方按季度公布的成交数据。 <a href="#">看房源 →</a></p></details>
+        <details><summary>筛查报告会不会一票否决申请人？</summary><p>不会。报告列出可核验的事实，每条结论注明依据；按 OHRC 租房政策，租金收入比和信用分不设硬性截止线。录取或婉拒由房东本人决定。 <a href="#">筛查怎么做 →</a></p></details>
+        <details><summary>AI 会不会替我做决定？</summary><p>不会。会影响到别人的动作先变成等你批准的卡片；批准后有 60 秒可撤销，批准与拒绝都写入审计。 <a href="#">看产品结构 →</a></p></details>
+        <details><summary>我的数据放在哪里，谁能看到？</summary><p>数据库在加拿大（AWS 蒙特利尔）。每种身份只能读到与自己有关的记录，这是数据库层面的权限。AI 服务商及其所在地在隐私页逐家列明。 <a href="#">隐私页 →</a></p></details>
+        <details><summary>服务商怎么加入，要付费吗？</summary><p>在入驻页填工种与资质，管理员对照公开注册库核验后进入房东的派单候选。多伦多及周边试点阶段，Stayloop 不抽成、不经手资金。 <a href="#">维修与服务网络 →</a></p></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FINAL ================= -->
+  <section class="final note" data-n="12" style="position:relative">
+    <div class="wrap">
+      <h2>下一个家，<br>从一句话开始。</h2>
+      <p>登录后就是对话。租客永远免费。</p>
+      <div class="cta"><a class="btn btn-primary" href="#login">免费开始 ↑</a><a class="btn btn-secondary" href="#">先免登录试一试</a></div>
+    </div>
+  </section>
+
+  <!-- ================= FOOTER (unchanged) ================= -->
+  <footer>
+    <div class="wrap">
+      <div class="cols">
+        <div><span class="wordmark">stay<span class="accent">loop.AI</span></span><p style="margin-top:8px;max-width:320px">安省租房的 AI 助理：租客、房东、经纪、服务商。</p></div>
+        <div><b>产品</b>租房全流程<br>Stayloop API<br>维修与服务网络<br>租客筛查</div>
+        <div><b>身份</b>我是租客<br>我是房东<br>我是经纪<br>服务商</div>
+        <div><b>公司</b>关于<br>数据来源<br>规则<br>隐私 · 条款</div>
+      </div>
+      <div class="row"><span>© 2026 Stayloop · Toronto</span><span>V0.6</span></div>
+    </div>
+  </footer>
+</div>
+
+<div class="frame-label" style="margin-top:36px">手机 · 375px · 首屏与登录卡（其余段落按单列堆叠）</div>
+<div class="phones">
+  <div class="phone">
+    <div class="pnav"><span class="wordmark">stay<span class="accent">loop.AI</span></span><span style="display:flex;gap:10px;align-items:center;font-size:13px;font-weight:600"><span>登录</span><span style="font-size:18px">≡</span></span></div>
+    <div class="ph">
+      <h1>租房路上的每一步，交给<em style="font-style:normal;color:var(--brand)">你自己的 AI 助理</em>。</h1>
+      <p class="lead">找房、筛查、租约、维修、续约都由它去办；影响到别人的动作先经你批准。</p>
+      <span class="btn btn-primary">免费开始 →</span>
+      <div class="tryline">先免登录试一试 →</div>
+      <div class="login">
+        <h3>登录 · 免费开始</h3>
+        <p class="sub">一个账号，四种身份随时切换。</p>
+        <div class="google"><span class="g"></span> 使用 Google 登录</div>
+        <div class="or">或用邮箱</div>
+        <input placeholder="you@example.com" style="font-size:16px">
+        <button class="submit">发送登录链接</button>
+        <p class="fine">已有密码？<a href="#">密码登录</a></p>
+        <div class="foot">首次登录即完成注册 · 租客永远免费</div>
+      </div>
+    </div>
+    <div class="landing">
+      <div class="line">登录后，你会直接进入：</div>
+      <div class="tiles">
+        <div class="tile"><div class="who">租客</div><div class="pain">交一次材料，处处通行。</div><div class="to">→ <b>助手对话</b></div></div>
+        <div class="tile"><div class="who">房东</div><div class="pain">每份申请先查真伪和法庭记录。</div><div class="to">→ <b>助手对话</b></div></div>
+        <div class="tile"><div class="who">经纪</div><div class="pain">行政事务交给 AI。</div><div class="to">→ <b>助手对话</b></div></div>
+        <div class="tile"><div class="who">服务商</div><div class="pain">资质核了，接维修工单。</div><div class="to">→ <b>工单工作台</b></div></div>
+      </div>
+    </div>
+    <div class="pbar"><span><b>◎</b>助手</span><span><b>⌂</b>房源</span><span><b>✓</b>筛查</span><span><b>→</b>登录</span></div>
+  </div>
+
+  <div class="spec">
+    <h3>规格与行为</h3>
+    <table>
+      <tr><td>字号</td><td>H1 44 / 800（手机 30）· 导语 17 · H2 34 · 正文 14.5–16 · 眉标 mono 10.5（全页只用在登录卡、示例对话、试一试三处，不再每段一枚）</td></tr>
+      <tr><td>配色</td><td>沿用 Flinks 蓝 #00ACE4 / 墨蓝 #1B1B3C / 蓝调浅灰；hero 底 #E9F5FD→#fff；深色带与 API 卡墨蓝。无紫色、无新渐变。</td></tr>
+      <tr><td>Hero</td><td>左 7 / 右 5；标题两行、导语一句、两个按钮，右侧登录卡；hero 里没有信任小字、没有眉标（信任事实下移到规则段与数字带）。首屏在 1280×800 内完整，CTA 不需滚动。</td></tr>
+      <tr><td>登录卡</td><td>与 /login 同一组件（抽成 <code>components/home/LoginCard.tsx</code>，/login 页也改用）：Google OAuth · 邮箱一次性链接（主按钮）· 「密码登录」展开密码框。发送后卡片原位变成「查收邮箱」态。</td></tr>
+      <tr><td>已登录访问 /</td><td><b>建议</b>：auth 解析完成后 <code>router.replace(homeForHats(记住的身份, my_hats))</code>——租客 / 房东 / 经纪 → 各自 <code>/x/agent</code>，服务商 → <code>/provider/jobs</code>。备选：不跳转，登录卡换成「打开我的助手」。</td></tr>
+      <tr><td>深链</td><td>角色页与筛查页现有的 <code>/?role=&lt;r&gt;&amp;ask=…</code> 全部 308 到 <code>/&lt;r&gt;/agent?prompt=…&amp;send=1</code>（中间件）；匿名进预览、已登录进真实助手。首页「试一试」例句与「先免登录试一试」也走这条。</td></tr>
+      <tr><td>手机</td><td>标题 → 导语 → 主按钮 → 「先免登录试一试」文字链 → 登录卡 → 2×2 身份格；输入框 16px（iOS 不放大）；底栏仍是匿名版 助手 · 房源 · 筛查 · 登录。</td></tr>
+      <tr><td>去掉的东西</td><td><code>HomeNext</code> 里的 <code>AgentChat / useAgentSession / ask 队列 / AssistantPanel / Pain 三格</code>；「对它说 · 点一下就发到上面的对话里」文案。</td></tr>
+      <tr><td>守卫要改</td><td><code>tests/homeHero20260925.spec.ts</code>（hero 对话与 compactHeader 相关断言退役）、<code>homeRoles20260927</code>（例句去向）、<code>eliseai20260922</code>（角色页「试一试」链接目标）、<code>guidedIntake</code> 里首页 hero 的引导卡断言；新增：登录卡三方式、已登录跳转、深链 308、预渲染 HTML 含四身份 + FAQ JSON-LD + 不含 AgentChat。</td></tr>
+      <tr><td>不动</td><td>Header / Footer / Logo、`/pricing` 单一价格来源（首页不出现价格）、四身份 tab 的收益与模块卡文案、数字带接口、FAQ 原五问、三个 <code>/x/agent</code> 页与手机端。</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="legend" style="margin-top:28px">
+  <h2>页面注释</h2>
+  <ol>
+    <li><b class="n">1</b>Hero 左：两行标题 + 一句导语 + 两个按钮。标题沿用「租房路上的…交给…」句式，「各自的 AI」按 09-25「一个用户一个 AI 助理」的决定改成「你自己的 AI 助理」。</li>
+    <li><b class="n">2</b>Hero 右：登录卡。三种方式与 /login 一致；「首次登录即完成注册 · 租客永远免费」是已批准口径。</li>
+    <li><b class="n">3</b>「登录后，你会直接进入」四格：把你要的「登录进去就是对话框」写成可见承诺；原痛点三句并入格内；服务商如实写「工单工作台」（没有助手人设）。</li>
+    <li><b class="n">4</b>「它提议，你决定」：左边一段标注为示范的对话（房东 · Unit 1207 · Mia Chen，沿用数据规范），右边是审批卡的真实样式（将分享 / 不会分享 / 预览正文 / 批准 / 拒绝 / 60 秒撤销 / 审计）。对话内容按 09-27 的规矩：申请只按材料齐全与递交时间整理，分数只在报告里。</li>
+    <li><b class="n">5</b>四步流：说一句 → 助手去办 → 你来批准 → 执行并留痕。第一步顺带说明「不会说也有一步步引导」（引导卡）。</li>
+    <li><b class="n">6</b>租前 · 租中 · 租后 + API：沿用现行四卡，状态如实（本人核验「即将」、在线收租「示范」）。</li>
+    <li><b class="n">7</b>四种身份 tab：沿用 09-27 上线的滑动胶囊、收益、模块卡；右栏例句的去向从「发到上面的对话」改为「打开助手预览」。</li>
+    <li><b class="n">8</b>安省规则内置（新）：十条真实规则编号与数字（全部来自 <code>lib/ontario/rules.ts</code>），链到 /rules 的全部 30 条。</li>
+    <li><b class="n">9</b>三步：改写为登录优先的流程，第三步给三种身份各一句真实例句。</li>
+    <li><b class="n">10</b>数字带：沿用，四个数字由 <code>/api/public/stats</code> 填入，蓝本里用「—」占位。</li>
+    <li><b class="n">11</b>FAQ：原五问 + 新增第一问「不登录能试吗？」，因为首页不再有对话框，要告诉访客去哪试。</li>
+    <li><b class="n">12</b>末尾 CTA：回到登录卡；「租客永远免费」沿用。</li>
+    <li><b class="n">13</b>页头与页脚原样不改（登录 / 注册按钮本来就在）。</li>
+  </ol>
+</div>
+
+</body>
+</html>

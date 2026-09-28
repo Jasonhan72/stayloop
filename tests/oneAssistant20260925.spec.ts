@@ -88,16 +88,18 @@ describe('one assistant per account', () => {
     expect(chat).toContain("avatarFallback?: 'role' | 'brand'")
     expect((chat.match(/fallback=\{avatarFallback\}/g) || []).length).toBe(3)
     expect(read('components/agent/AgentWorkspacePage.tsx')).toContain("avatarFallback={live ? 'brand' : 'role'}")
-    expect(read('components/home/HomeNext.tsx')).toContain("avatar={data.agent.avatar ?? null} avatarFallback={live ? 'brand' : 'role'}")
+    // V0.7: the homepage no longer renders a chat, so it has no avatar to fall back
+    expect(read('components/home/HomeNext.tsx')).not.toContain('avatarFallback')
   })
   it('no persona name in live copy: menus, workspace gates, rail, layouts, settings, platform, homepage', () => {
     for (const f of ['components/Header.tsx', 'components/WorkspaceShell.tsx', 'components/workspace/rail.tsx', 'app/tenant/layout.tsx', 'app/landlord/layout.tsx', 'app/agent/layout.tsx', 'app/settings/models/page.tsx', 'app/admin/models/page.tsx', 'app/platform/page.tsx', 'components/agent/ClientBook.tsx', 'components/agent/ClientTasks.tsx']) {
       expect(read(f), f).not.toMatch(PERSONA_NAMES)
     }
     const home = read('components/home/HomeNext.tsx')
-    expect(home).toContain('Stayloop 给你一个<b className="text-body">独立的 AI 助理</b>：租客、房东、经纪的事它都会办')
+    expect(home).not.toMatch(PERSONA_NAMES)
+    expect(home).toContain('你自己的 AI 助理') // one assistant per account, in the hero's own words
     expect(home).not.toContain('各提供一个')
-    expect(home).toContain('const assistantName = customName(useAIName())')
+    expect(home).not.toContain('useAIName') // signed-in users are redirected off the homepage; nothing here names their assistant (V0.7)
     expect(read('app/notifications/page.tsx')).toContain('const aiNames = useAIName()')
   })
 })

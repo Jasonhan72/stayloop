@@ -51,14 +51,14 @@ describe('EliseAI benchmark 2026-09-22 (additive items)', () => {
   const home = readFileSync('components/home/HomeNext.tsx', 'utf8')
   const listing = readFileSync('app/listings/[slug]/page.tsx', 'utf8')
 
-  it('homepage reads ?ask= and ?role= after mount only (no hydration-time branching)', () => {
-    expect(home).toMatch(/sp\.get\('ask'\)/)
-    expect(home).toMatch(/sp\.get\('role'\)/)
-    // must live inside an effect, never in a useState initialiser
-    const idx = home.indexOf("sp.get('ask')")
-    const before = home.slice(Math.max(0, idx - 600), idx)
-    expect(before).toMatch(/useEffect\(\(\) => \{/)
-    expect(before).not.toMatch(/useState\([^)]*window/)
+  it('the /?role=&ask= deep link lands in the role’s assistant page (V0.7, 2026-09-27): middleware 308 through one pure helper, nothing read on the homepage', async () => {
+    const { homeAskRedirect } = await import('../lib/homeDeepLink')
+    const t = homeAskRedirect(new URL('https://www.stayloop.ai/?role=landlord&ask=%E6%88%91%E7%9A%84%E6%88%BF%E6%BA%90'))
+    expect(t?.pathname).toBe('/landlord/agent')
+    expect(t?.searchParams.get('prompt')).toBe('我的房源')
+    expect(t?.searchParams.get('send')).toBe('1')
+    expect(readFileSync('middleware.ts', 'utf8')).toContain('const ask = homeAskRedirect(url)')
+    expect(home).not.toMatch(/sp\.get\('ask'\)/)
   })
 
   it('listing page shows the RTA move-in cost card with the banned-fee list and a deposit-over-cap warning', () => {

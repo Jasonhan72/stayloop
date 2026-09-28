@@ -59,7 +59,7 @@ export default function Footer() {
           <div className="mt-4 flex items-center gap-2">
             <span className="sl-eyebrow">EST. TORONTO</span>
             <span className="text-body-4">·</span>
-            <span className="font-mono text-[10.5px] text-body-3">V0.6</span>
+            <span className="font-mono text-[10.5px] text-body-3">V0.7</span>
           </div>
         </div>
         {GROUPS.map((g) => (

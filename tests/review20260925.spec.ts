@@ -67,10 +67,16 @@ describe('active hat: the remembered role must be a hat the account holds', () =
     expect(hats).toContain('export function heldHat(')
     expect(hats).toContain('export function activeHat(')
     expect(hats).toContain("if (role === 'agent') return !!h.agent && isRegistrationLive(h.agent)")
-    for (const f of ['components/Header.tsx', 'app/settings/page.tsx', 'app/settings/models/page.tsx', 'components/home/HomeNext.tsx', 'components/MobileBottomNav.tsx']) {
+    for (const f of ['components/Header.tsx', 'app/settings/page.tsx', 'app/settings/models/page.tsx', 'components/MobileBottomNav.tsx']) {
       expect(read(f), f).toContain('activeHat(hats, auth.role)')
       expect(read(f), f).not.toContain('auth.role || bestHat(hats)')
     }
+    // V0.7 (2026-09-27): the homepage has no hero to pin to a hat any more; a signed-in
+    // visitor is redirected with the login page's predicate (the remembered hat only
+    // when the account holds it), never with the raw remembered role
+    const home = read('components/home/HomeNext.tsx')
+    expect(home).toContain('homeForHats(remembered, hats)')
+    expect(home).not.toContain('auth.role || bestHat(hats)')
     const nav = read('components/MobileBottomNav.tsx')
     expect(nav).toContain('if (hats.loading) return null')
     expect(nav).not.toContain('hats.loading || hats.landlord') // loading was treated as "holds the hat"
