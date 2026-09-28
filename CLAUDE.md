@@ -8,7 +8,7 @@ AI-powered tenant screening SaaS for Ontario landlords. Live at **www.stayloop.a
 - **Hosting:** Cloudflare Pages (`@cloudflare/next-on-pages` v1.13.16)
 - **Auth:** Supabase JS v2, implicit flow (`lib/supabase.ts`, `lib/useAuth.ts`)
 - **AI:** Claude Sonnet via Anthropic API (Vision + text, edge runtime)
-- **Email:** Resend SMTP via Supabase Auth (magic links)
+- **Email:** Resend SMTP via Supabase Auth（注册验证邮件 / 重置密码邮件 / 应用通知；**一次性登录链接（magic link）已弃用**——用户 2026-09-27 重申「早就不要了，改为常规的几个登录方式」：Google、邮箱 + 密码登录、邮箱 + 密码注册、忘记密码。`signInWithOtp` 不得再出现在任何入口，守卫 `tests/loginMethods20260927.spec.ts`）
 - **Payments:** Stripe **LIVE mode**（2026-08-26 切换，见下「支付模块」节的切换记录）
 - **Maps:** Google Maps API
 - **DB:** Supabase (project `uotcczsfeiptnabamzcd`, **AWS ca-central-1 蒙特利尔**；**2026-09-22 起对外地址是自定义域名 `https://auth.stayloop.ai`**（Custom Domain 附加功能 $10/月，`NEXT_PUBLIC_SUPABASE_URL` 本地与 CF 都已换；原因：Google 登录页显示「继续前往 uotcc….supabase.co」太丑。DNS 在 Cloudflare：`auth` CNAME → 项目 + `_acme-challenge.auth` / `_cf-custom-hostname.auth` 两条 TXT，全部 DNS only；Google OAuth client 已由用户加回调 `https://auth.stayloop.ai/auth/v1/callback`。REST / Storage / Auth 全走该域名，原 `*.supabase.co` 仍可用——GitHub Actions 与 ingest 脚本没改。切换后所有人重新登录一次（supabase-js 的存储键由主机名首段推导）。要让 Google 显示「继续前往 Stayloop」而非域名，还需用户在 Google Console 完成 OAuth 品牌验证）；2026-09-16 从 us-east-1 的 `upbkcbicjjpznojkpqtg` 迁入；旧项目 2026-09-17 由用户拍板删除，SQL 转储留在 `~/stayloop-backup-2026-09-16/`)
@@ -2567,7 +2567,7 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
 蓝本 `design/homepage-v10-marketing-login-2026-09.html`（桌面 1280 + 手机 375 + 规格表 + 四个决定点，用户全部按建议采纳）。守卫 `tests/homeV10_20260927.spec.ts`（11 条）+ `tests/homeRoles20260927.spec.ts`（改写）；`tests/homeHero20260925.spec.ts` 退役（其中 useAuth 广播的断言搬进新 spec）。**Header / Footer / logo / 配色一律不动。**
 - **四个决定**：① 首页去掉实时对话框——三周实测里它只有半屏、匿名访客没有个人数据，展示不出「替你办事」，页面也没说清系统是什么；免登录的真实体验不删，搬到助手预览页（整屏对话）。② **已登录访客不看首页**：`HomeNext` 在 auth 解析后用登录页同一谓词 `homeForHats(记住的身份, my_hats)` 做 `router.replace`（租客 / 房东 / 经纪 → 各自 `/x/agent`，服务商 → `/provider/jobs`），期间显示「正在打开你的助手…」+ 兜底链接；首屏仍按匿名渲染（与预渲染 HTML 一致，不在水合期分支）。③ Hero 右侧是登录卡。④ 保留四身份 tab、租前租中租后四卡、数字带、FAQ、页头页脚；删掉 hero 对话与痛点三格（并进「登录后直达」四格）。
 - **页面顺序**（注释锚 `{/* ================= X`，守卫按顺序断言）：HERO: message + login card（44px 两行标题 · 一句导语 · 「免费开始 →」锚到 `#login` · 「先免登录试一试」→ `/tenant/agent`）→ LANDING MAP（「登录后，你会直接进入」四格，各链到自己的预览页，服务商链 `/services` 并标试点）→ PROPOSE / DECIDE（标注「示例对话 · 房东 · 内容为示范」的两句对话 + 审批卡真实样式：将分享 / 不会分享 / 预览正文 / 批准 / 拒绝 / 60 秒撤销 / 审计，按钮是 `<span>` 不是控件；下面四步流 说一句 → 助手去办 → 你来批准 → 执行并留痕）→ PRODUCTS: one flow（原四卡不变）→ ROLES（原滑动胶囊 tab；例句改为 `assistantPromptHref(role, prompt)` 打开助手预览，眉标「试一试 · 打开助手预览，不用登录」）→ RULES（新：`RULE_IDS` 十条经 `ruleById` 从 `lib/ontario/rules.ts` 取标题与法条号，指导比例数字来自 `GUIDELINE_TEXT`，「全部 N 条」= `ONTARIO_RULES.length`）→ STEPS（登录 → 选身份、起名 → 说第一句话，三种身份各一句例句）→ VERIFY（原数字带）→ FAQ（原五问之前加「不登录能试吗？」→ `/tenant/agent`；模型列表 Claude · GPT · Gemini 挪进「数据放在哪里」那问）→ FINAL。无价格、无照片、无编造数字、示例对话沿用数据规范（Unit 1207 · Mia Chen）且按 09-27 引导卡的规矩措辞（申请按材料齐全与递交时间整理、分数只在报告里）。
-- **登录卡** `components/home/LoginCard.tsx`：Google / 邮箱一次性链接（默认；首次登录即注册）/ 「已有密码？密码登录」展开密码框 + 忘记密码 + 重发确认邮件；发送后卡片原位变「查收你的邮箱」；脚注「首次登录即完成注册 · 租客永远免费」。三种方式的状态与处理器抽成 `lib/auth/useLoginForm.ts`（含 `callbackUrl`），`/login` 页改用同一 hook、界面一字不改；Google 图标抽成 `components/auth/GoogleIcon.tsx`。
+- **登录卡** `components/home/LoginCard.tsx`：~~Google / 邮箱一次性链接（默认；首次登录即注册）/ 「已有密码？密码登录」~~ → **2026-09-27 晚改为常规方式**（用户：「这个发送登录链接的功能早就不要了」）：「登录 / 注册」两个 tab + Google；登录 = 邮箱 + 密码（忘记密码、重发验证邮件），注册 = 邮箱 + 密码 + 确认（≥8 位、防枚举、发验证邮件后卡片原位变「验证你的邮箱」）；脚注「注册免费 · 不要信用卡 · 租客永远免费」。三种方式的状态与处理器抽成 `lib/auth/useLoginForm.ts`（含 `callbackUrl`），`/login` 页改用同一 hook、界面一字不改；Google 图标抽成 `components/auth/GoogleIcon.tsx`。
 - **深链**：`lib/homeDeepLink.ts`（`assistantPromptHref` / `homeAskRedirect`，纯函数）；`middleware.ts` 把 `/?ask=…` 308 到 `/<role>/agent?prompt=…&send=1`（role 不是三者之一 → tenant，ask 截 300 字）。角色页 `RoleLanding` 的 `/?role=&ask=` 链接原样保留（eliseai 守卫不变）：匿名落到预览、已登录落到真实助手，`usePromptDeepLink` 的 `send=1` 语义不变。
 - **顺带**：`AgentChat` 的 `compactHeader`（只有首页在用）连同分支删除；页脚 `V0.6 → V0.7`（`threeRoleReport` 守卫同步）；`oneAssistant / museMobile / review20260925 / walkthrough20260922 / guidedIntake` 里钉住旧 hero 的断言改为新行为。**手机 375 的一个坑**：示例对话卡里 `truncate` 的占位句把单列 grid 的 min-content 撑到 450px，两张卡都要 `min-w-0`（与 08-24 的宽表规矩同一根因）。
 - **本地核对（dev）**：`/?role=landlord&ask=…` → 308 `/landlord/agent?prompt=…&send=1`；`/login` 200；预渲染 HTML 含 home-login / home-tiles / home-demo / home-rules / home-faq、不含 AgentChat；1280 与 375 截图与蓝本一致，控制台无错；tsc 通过，全套 1244 条测试通过。
@@ -2611,3 +2611,13 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   = 「没有房东 / 经纪 / 服务商帽子 **且** 从未给助手起名（`assistant_profiles.name` 或本机该账号的缓存）」→ `/onboarding/name`，否则照 `homeForHats`；首页等 `my_hats` 与名字
   都解析完（`ready`）再跳；`lib/aiName.ts resolveAccountNameFor(uid)` 丢弃登录前缓存的旧解析结果。密码登录与回调页路径不受影响（它们本来就到 `/auth/callback`）。
   homeV10 / review20260925 / museMobile 三份守卫里钉住 `homeForHats(remembered, hats)` 的断言改为新谓词。
+- **同晚：登录方式回到常规（用户：「这个发送登录链接的功能早就不要了，改为常规的几个登录方式了」）。** 这条决定此前没进 CLAUDE.md，V0.7 的登录卡又把「邮箱一次性链接」做成了默认。
+  现在 `lib/auth/useLoginForm.ts` 只有 Google / 邮箱 + 密码登录 / 邮箱 + 密码注册（`signUpWithPassword`，原 `/register` 的逻辑搬进 hook：≥8 位、两次一致、
+  已注册防枚举、autoconfirm 时直进回调）/ 忘记密码 / 重发验证邮件，`sent ∈ verify | reset` 决定「查收邮箱」文案；`LoginCard`（「登录 / 注册」tab）、`/login`
+  （去掉「邮箱链接」tab）、`/register`（改用同一 hook）三处共用；`/join/[token]` 的「输入邮箱免密码登录」改为「登录后接受」→ `/login?next=/join/<token>` + 「注册」；
+  看房弹窗、设置页登录方式标签（「邮箱 + 密码」）、首页三步第一步、`/login` 的 metadata、i18n 里三条死字符串同步。**`signInWithOtp` 在 app / components / lib 里为零**
+  （守卫 `tests/loginMethods20260927.spec.ts`，homeV10 守卫改写）。注册后的验证邮件链接同样会被 GoTrue 改回站点根地址——上面的首页兜底（全新账号 → 起名页）正好接住这条路径。
+- **首页跳转出现过一次错误落点（未复现，已硬化）**：白纸账号开通房东、起名后重开 `/` 一次落到 `/tenant/agent`；日志证明那次 `my_hats` 返回 200（房东行已存在），
+  即跳转发生在 RPC 返回之前、用的是 `useHats` 某个「已加载但全 false」的瞬时状态；随后把记住的身份改回房东连续两次重开都正确落到 `/landlord/agent`。
+  硬化：`useHats.load()` 在发 RPC **之前**同步置 `loading:true`（原来「无用户 → 全 false 且 loading:false」之后用户出现时，直到 RPC 返回前都是这个陈旧状态；
+  首页跳转和 `WorkspaceShell` 的房东守卫都是一次性决定，会被它骗到）。测试期间在页面里用错 key 调 `my_hats` 产生的三条 401 是我自己的实验，不是应用。

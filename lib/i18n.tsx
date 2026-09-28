@@ -485,13 +485,10 @@ export const DICT = {
   'login.title': { en: 'Sign in to Stayloop', zh: '登录 Stayloop' },
   'login.sub': { en: 'Enter your email and password to access your account.', zh: '输入邮箱和密码登录您的账户。' },
   'login.email': { en: 'EMAIL ADDRESS', zh: '邮箱地址' },
-  'login.send': { en: 'Send magic link →', zh: '发送登录链接 →' },
-  'login.sent': { en: 'Check your inbox for the magic link.', zh: '请查收邮箱中的登录链接。' },
   'login.footer': { en: 'Encrypted · PIPEDA compliant · Built in Ontario', zh: '加密 · PIPEDA 合规 · 安省出品' },
   'login.emailLabel': { en: 'Email address', zh: '邮箱地址' },
-  'login.sending': { en: 'Sending magic link...', zh: '发送中...' },
+  'login.sending': { en: 'Sending...', zh: '发送中...' },
   'login.checkInbox': { en: 'Check your inbox', zh: '请查收邮箱' },
-  'login.sentDetail': { en: 'We sent a magic link to {email}. Click it to sign in.', zh: '我们已向 {email} 发送登录链接，点击即可登录。' },
 
   // Register page
   'register.badge': { en: '// CREATE ACCOUNT', zh: '// 创建账户' },

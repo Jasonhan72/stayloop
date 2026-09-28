@@ -107,3 +107,9 @@ describe('a signed-in visitor to / who is brand new goes to onboarding, not stra
     expect(read('lib/aiName.ts')).toMatch(/export function resolveAccountNameFor\(uid: string\)[\s\S]*?if \(r\.uid === uid\) return r[\s\S]*?invalidateAiName\(\)/)
   })
 })
+
+describe('useHats never reports a stale "loaded" answer while a fetch is in flight', () => {
+  it('load() marks loading synchronously before the RPC', () => {
+    expect(read('lib/useHats.ts')).toMatch(/async function load\(uid: string\) \{[\s\S]*?setHats\(\(h\) => \(h\.loading \? h : \{ \.\.\.h, loading: true \}\)\)\s*const next = await fetchHats\(uid\)/)
+  })
+})

@@ -1,15 +1,19 @@
 'use client'
 
-// The sign-in form's state and handlers, shared by the /login page and the
-// homepage's login card (V0.7, 2026-09-27) so the two never drift: Google
-// OAuth, a one-time email link (which also registers a new account), and
-// email + password, plus resend-confirmation and forgot-password. Rendering
-// is the caller's; this hook owns nothing visual.
+// The sign-in form's state and handlers, shared by /login, /register and the
+// homepage's login card (V0.7, 2026-09-27) so the entrances never drift.
+// Methods are the regular ones (user decision 2026-09-27: the one-time email
+// link was retired long ago —「改为常规的几个登录方式」): Google OAuth, email +
+// password sign-in, email + password registration (verification email),
+// forgot-password (reset email) and resend-verification. Rendering is the
+// caller's; this hook owns nothing visual.
 import { useState, type FormEvent } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 
-export type LoginTab = 'password' | 'magic-link'
+export type LoginTab = 'signin' | 'register'
+/** What the「查收你的邮箱」state is waiting for. */
+export type SentKind = 'verify' | 'reset'
 
 // Post-login destination: useLandlord/guards bounce logged-out users to
 // /login?redirect=<path>; the auth callback honors a `next` param. Bridge
@@ -27,19 +31,21 @@ export function callbackUrl(): string {
   return `${window.location.origin}/auth/callback${next}`
 }
 
-export function useLoginForm(initialTab: LoginTab = 'password') {
+export function useLoginForm(initialTab: LoginTab = 'signin') {
   const { lang } = useT()
   const zh = lang === 'zh'
   const [tab, setTabState] = useState<LoginTab>(initialTab)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [sent, setSent] = useState(false)
+  const [password2, setPassword2] = useState('')
+  const [sent, setSent] = useState<SentKind | null>(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [needsConfirm, setNeedsConfirm] = useState(false)
 
-  const setTab = (t: LoginTab) => { setTabState(t); setErr(null) }
+  const setTab = (t: LoginTab) => { setTabState(t); setErr(null); setNeedsConfirm(false) }
   const message = (e: unknown, fallback: string) => (e as { message?: string })?.message || fallback
+  const alreadyRegistered = () => new Error(zh ? '该邮箱已注册，请直接登录' : 'This email is already registered — please sign in')
 
   const signInWithPassword = async (e?: FormEvent) => {
     e?.preventDefault()
@@ -67,20 +73,41 @@ export function useLoginForm(initialTab: LoginTab = 'password') {
     }
   }
 
-  const sendMagicLink = async (e?: FormEvent) => {
+  /** Email + password registration. With email confirmation on, the account
+   *  becomes usable once the verification link is clicked; the link's landing
+   *  (the auth callback, or the homepage when the redirect is rewritten to the
+   *  site root) sends a brand-new account through onboarding. */
+  const signUpWithPassword = async (e?: FormEvent) => {
     e?.preventDefault()
-    setLoading(true)
     setErr(null)
+    if (password.length < 8) {
+      setErr(zh ? '密码至少 8 位' : 'Password must be at least 8 characters')
+      return
+    }
+    if (password !== password2) {
+      setErr(zh ? '两次密码不一致' : 'Passwords do not match')
+      return
+    }
+    setLoading(true)
     try {
       const supabase = getSupabaseBrowser()
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: typeof window !== 'undefined' ? callbackUrl() : undefined },
-      })
-      if (error) throw error
-      setSent(true)
+      const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: callbackUrl() } })
+      if (error) {
+        if (error.message?.includes('already registered')) throw alreadyRegistered()
+        throw error
+      }
+      // With email confirmation ON, signUp for an already-registered address
+      // returns success with an empty identities array (anti-enumeration).
+      if (data.user && data.user.identities?.length === 0) throw alreadyRegistered()
+      // A session comes back only when autoconfirm is on; otherwise the
+      // verification link must be clicked first.
+      if (data.session) {
+        window.location.href = callbackUrl()
+        return
+      }
+      setSent('verify')
     } catch (e: unknown) {
-      setErr(message(e, zh ? '发送失败' : 'Failed to send'))
+      setErr(message(e, zh ? '注册失败' : 'Registration failed'))
     } finally {
       setLoading(false)
     }
@@ -112,7 +139,7 @@ export function useLoginForm(initialTab: LoginTab = 'password') {
       })
       if (error) throw error
       setNeedsConfirm(false)
-      setSent(true)
+      setSent('verify')
     } catch (e: unknown) {
       setErr(message(e, zh ? '发送失败' : 'Failed to send'))
     } finally {
@@ -134,7 +161,7 @@ export function useLoginForm(initialTab: LoginTab = 'password') {
       })
       if (error) throw error
       setErr(null)
-      setSent(true)
+      setSent('reset')
     } catch (e: unknown) {
       setErr(message(e, zh ? '发送失败' : 'Failed to send'))
     } finally {
@@ -142,7 +169,7 @@ export function useLoginForm(initialTab: LoginTab = 'password') {
     }
   }
 
-  const back = () => setSent(false)
+  const back = () => setSent(null)
 
-  return { zh, tab, setTab, email, setEmail, password, setPassword, sent, back, loading, err, needsConfirm, signInWithPassword, sendMagicLink, signInWithGoogle, resendConfirm, forgotPassword }
+  return { zh, tab, setTab, email, setEmail, password, setPassword, password2, setPassword2, sent, back, loading, err, needsConfirm, signInWithPassword, signUpWithPassword, signInWithGoogle, resendConfirm, forgotPassword }
 }

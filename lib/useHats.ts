@@ -47,6 +47,10 @@ export function useHats(): Hats & { refresh: () => Promise<void> } {
   const [hats, setHats] = useState<Hats>(cache && cache.uid === auth.user?.id ? cache.hats : EMPTY)
 
   async function load(uid: string) {
+    // Loading is set before the RPC leaves: a consumer that decides once (the
+    // homepage redirect, the landlord guard) must never read a stale "loaded"
+    // answer while a fetch is in flight (V0.7 follow-up, 2026-09-27).
+    setHats((h) => (h.loading ? h : { ...h, loading: true }))
     const next = await fetchHats(uid)
     if (!next) { setHats((h) => ({ ...h, loading: true })); return }
     setHats(next)

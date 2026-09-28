@@ -75,22 +75,28 @@ describe('the login card and the shared sign-in hook', () => {
   const card = read('components/home/LoginCard.tsx')
   const hook = read('lib/auth/useLoginForm.ts')
   const page = read('app/login/page.tsx')
-  it('the card offers the same three methods as /login, defaults to the email link, and registers on first sign-in', () => {
-    expect(card).toContain("useLoginForm('magic-link')")
+  it('the card offers the regular methods only — Google, email + password sign-in, registration — and no one-time link (user, 2026-09-27)', () => {
+    expect(card).toContain("useLoginForm('signin')")
     expect(card).toContain('id="login"')
     expect(card).toContain('data-testid="home-login"')
-    for (const m of ['f.signInWithGoogle()', 'f.sendMagicLink(e)', 'f.signInWithPassword(e)', 'f.forgotPassword()', 'f.resendConfirm()']) expect(card, m).toContain(m)
-    expect(card).toContain('首次登录即完成注册 · 租客永远免费')
-    expect(card).toContain('已有密码？密码登录')
+    for (const m of ['f.signInWithGoogle()', 'f.signUpWithPassword(e)', 'f.signInWithPassword(e)', 'f.forgotPassword()', 'f.resendConfirm()']) expect(card, m).toContain(m)
+    expect(card).toContain("f.setTab('register')")
+    expect(card).toContain('注册免费 · 不要信用卡 · 租客永远免费')
+    expect(card).not.toMatch(/magic|一次性链接|sendMagicLink|signInWithOtp/)
     expect(card).not.toMatch(/\$\d/)
   })
-  it('one hook owns the handlers; /login renders the same hook and defines none of its own', () => {
-    for (const s of ['signInWithOtp', 'signInWithOAuth', 'signInWithPassword', 'auth.resend(', 'resetPasswordForEmail', 'export function callbackUrl']) expect(hook, s).toContain(s)
-    expect(page).toContain("useLoginForm('password')")
-    for (const s of ['signInWithOtp', 'signInWithOAuth', 'resetPasswordForEmail', 'function callbackUrl']) expect(page, s).not.toContain(s)
+  it('one hook owns the handlers; /login and /register render the same hook and define none of their own', () => {
+    for (const s of ['signInWithOAuth', 'signInWithPassword', 'auth.signUp(', 'auth.resend(', 'resetPasswordForEmail', 'export function callbackUrl']) expect(hook, s).toContain(s)
+    expect(hook).not.toContain('signInWithOtp')
+    expect(page).toContain("useLoginForm('signin')")
+    for (const s of ['signInWithOtp', 'signInWithOAuth', 'resetPasswordForEmail', 'function callbackUrl', 'magic-link']) expect(page, s).not.toContain(s)
     expect(page).toContain('homeForHats(remembered, data as HatsLite)') // the signed-in bounce is unchanged
     expect(page).toContain("import GoogleIcon from '@/components/auth/GoogleIcon'")
     expect(card).toContain("import GoogleIcon from '@/components/auth/GoogleIcon'")
+    const reg = read('app/register/page.tsx')
+    expect(reg).toContain("useLoginForm('register')")
+    expect(reg).toContain('f.signUpWithPassword(e)')
+    expect(reg).not.toContain('auth.signUp(')
   })
 })
 

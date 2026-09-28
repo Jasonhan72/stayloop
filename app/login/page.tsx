@@ -12,13 +12,14 @@ import { useLoginForm } from '@/lib/auth/useLoginForm'
 import { ROLE_HOME } from '@/lib/useOnboarding'
 import { homeForHats, type HatsLite } from '@/lib/landlordHat'
 
-// The state and the three sign-in methods live in useLoginForm (V0.7,
-// 2026-09-27) — the homepage's login card renders the same hook, so the two
-// entrances cannot drift apart.
+// The state and the sign-in methods live in useLoginForm (V0.7, 2026-09-27) —
+// the homepage's login card and /register render the same hook, so the
+// entrances cannot drift apart. Regular methods only: Google and email +
+// password (the one-time email link is retired — user decision 2026-09-27).
 export default function LoginPage() {
   const router = useRouter()
   const { loading: authLoading, user, role } = useAuth()
-  const f = useLoginForm('password')
+  const f = useLoginForm('signin')
   const zh = f.zh
 
   // Already signed in → don't show the login form. Honor an explicit
@@ -40,6 +41,7 @@ export default function LoginPage() {
   }, [authLoading, user, role, router])
 
   if (f.sent) {
+    const verify = f.sent === 'verify'
     return (
       <>
         <Header />
@@ -50,12 +52,12 @@ export default function LoginPage() {
                 <MailIcon />
               </span>
               <h1 className="mt-4 text-[22px] font-bold tracking-tight">
-                {zh ? '查收你的邮箱' : 'Check your email'}
+                {verify ? (zh ? '验证你的邮箱' : 'Verify your email') : (zh ? '查收你的邮箱' : 'Check your email')}
               </h1>
               <p className="mt-2 text-[14px] leading-relaxed text-body-2">
-                {zh ? '我们刚把链接发到 ' : 'We just sent a link to '}
+                {verify ? (zh ? '我们刚把验证链接发到 ' : 'We just sent a verification link to ') : (zh ? '我们刚把重置密码的链接发到 ' : 'We just sent a password-reset link to ')}
                 <b className="text-body">{f.email}</b>
-                {zh ? '。点击链接即可继续 — 链接 1 小时内有效。' : '. Click the link to continue — valid for 1 hour.'}
+                {verify ? (zh ? '。点击链接完成注册，然后回来登录。' : '. Click it to finish registering, then sign in.') : (zh ? '。点击链接设置新密码。' : '. Click it to set a new password.')}
               </p>
               <button
                 type="button"
@@ -100,138 +102,72 @@ export default function LoginPage() {
             {/* Divider */}
             <div className="my-5 flex items-center gap-3">
               <div className="h-px flex-1 bg-line-divider" />
-              <span className="text-[12px] text-body-3">{zh ? '或用邮箱' : 'or with email'}</span>
+              <span className="text-[12px] text-body-3">{zh ? '或用邮箱 + 密码' : 'or with email + password'}</span>
               <div className="h-px flex-1 bg-line-divider" />
             </div>
 
-            {/* Tab switch */}
-            <div className="flex rounded-lg bg-surface-chip p-1 mb-5">
-              <button
-                type="button"
-                onClick={() => f.setTab('password')}
-                className={
-                  'flex-1 rounded-md py-2 text-[13px] font-semibold transition ' +
-                  (f.tab === 'password'
-                    ? 'bg-white text-body shadow-sm'
-                    : 'text-body-3 hover:text-body-2')
-                }
-              >
-                {zh ? '密码登录' : 'Password'}
-              </button>
-              <button
-                type="button"
-                onClick={() => f.setTab('magic-link')}
-                className={
-                  'flex-1 rounded-md py-2 text-[13px] font-semibold transition ' +
-                  (f.tab === 'magic-link'
-                    ? 'bg-white text-body shadow-sm'
-                    : 'text-body-3 hover:text-body-2')
-                }
-              >
-                {zh ? '邮箱链接' : 'Magic link'}
-              </button>
-            </div>
-
-            {/* Password form */}
-            {f.tab === 'password' && (
-              <form onSubmit={(e) => void f.signInWithPassword(e)} className="space-y-4">
-                <label className="block">
-                  <span className="sl-eyebrow">{zh ? '邮箱' : 'Email'}</span>
-                  <input
-                    type="email"
-                    required
-                    value={f.email}
-                    onChange={(e) => f.setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    className="sl-input mt-1"
-                  />
-                </label>
-                <label className="block">
-                  <div className="flex items-center justify-between">
-                    <span className="sl-eyebrow">{zh ? '密码' : 'Password'}</span>
+            <form onSubmit={(e) => void f.signInWithPassword(e)} className="space-y-4">
+              <label className="block">
+                <span className="sl-eyebrow">{zh ? '邮箱' : 'Email'}</span>
+                <input
+                  type="email"
+                  required
+                  value={f.email}
+                  onChange={(e) => f.setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  className="sl-input mt-1"
+                />
+              </label>
+              <label className="block">
+                <div className="flex items-center justify-between">
+                  <span className="sl-eyebrow">{zh ? '密码' : 'Password'}</span>
+                  <button
+                    type="button"
+                    onClick={() => void f.forgotPassword()}
+                    className="text-[11.5px] font-semibold text-brand hover:underline"
+                  >
+                    {zh ? '忘记密码？' : 'Forgot password?'}
+                  </button>
+                </div>
+                <input
+                  type="password"
+                  required
+                  value={f.password}
+                  onChange={(e) => f.setPassword(e.target.value)}
+                  placeholder={zh ? '输入密码' : 'Enter password'}
+                  autoComplete="current-password"
+                  className="sl-input mt-1"
+                />
+              </label>
+              {f.err && (
+                <div className="rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">
+                  {f.err}
+                  {f.needsConfirm && (
                     <button
                       type="button"
-                      onClick={() => void f.forgotPassword()}
-                      className="text-[11.5px] font-semibold text-brand hover:underline"
+                      onClick={() => void f.resendConfirm()}
+                      className="mt-1 block font-semibold underline"
                     >
-                      {zh ? '忘记密码？' : 'Forgot password?'}
+                      {zh ? '重发验证邮件' : 'Resend verification email'}
                     </button>
-                  </div>
-                  <input
-                    type="password"
-                    required
-                    value={f.password}
-                    onChange={(e) => f.setPassword(e.target.value)}
-                    placeholder={zh ? '输入密码' : 'Enter password'}
-                    autoComplete="current-password"
-                    className="sl-input mt-1"
-                  />
-                </label>
-                {f.err && (
-                  <div className="rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">
-                    {f.err}
-                    {f.needsConfirm && (
-                      <button
-                        type="button"
-                        onClick={() => void f.resendConfirm()}
-                        className="mt-1 block font-semibold underline"
-                      >
-                        {zh ? '重发验证邮件' : 'Resend verification email'}
-                      </button>
-                    )}
-                  </div>
-                )}
-                <button
-                  type="submit"
-                  disabled={f.loading || !f.email || !f.password}
-                  className="sl-btn-primary w-full !py-[14px] disabled:opacity-50"
-                >
-                  {f.loading ? (zh ? '登录中…' : 'Signing in…') : (zh ? '登录' : 'Sign in')}
-                </button>
-              </form>
-            )}
-
-            {/* Magic link form */}
-            {f.tab === 'magic-link' && (
-              <form onSubmit={(e) => void f.sendMagicLink(e)} className="space-y-4">
-                <label className="block">
-                  <span className="sl-eyebrow">{zh ? '邮箱' : 'Email'}</span>
-                  <input
-                    type="email"
-                    required
-                    value={f.email}
-                    onChange={(e) => f.setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    className="sl-input mt-1"
-                  />
-                </label>
-                {f.err && (
-                  <div className="rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">
-                    {f.err}
-                  </div>
-                )}
-                <button
-                  type="submit"
-                  disabled={f.loading || !f.email}
-                  className="sl-btn-primary w-full !py-[14px] disabled:opacity-50"
-                >
-                  {f.loading ? (zh ? '发送中…' : 'Sending…') : (zh ? '发送登录链接' : 'Send sign-in link')}
-                </button>
-                <p className="text-center text-[12px] text-body-3">
-                  {zh
-                    ? '我们会发送一次性链接到你的邮箱，点击即可登录，无需密码。'
-                    : "We’ll send a one-time link to your email. Click it to sign in — no password needed."}
-                </p>
-              </form>
-            )}
+                  )}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={f.loading || !f.email || !f.password}
+                className="sl-btn-primary w-full !py-[14px] disabled:opacity-50"
+              >
+                {f.loading ? (zh ? '登录中…' : 'Signing in…') : (zh ? '登录' : 'Sign in')}
+              </button>
+            </form>
 
             {/* Register link */}
             <div className="mt-6 border-t border-line-divider pt-5 text-center text-[13px] text-body-2">
               {zh ? '还没有账号？' : "Don't have an account? "}{' '}
               <Link href="/register" className="font-semibold text-brand">
-                {zh ? '注册 →' : 'Register →'}
+                {zh ? '免费注册 →' : 'Register free →'}
               </Link>
             </div>
           </div>

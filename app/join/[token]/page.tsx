@@ -10,6 +10,7 @@ export const runtime = 'edge'
 // disputed so the uploader can't present it as an accepted tenancy).
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -39,8 +40,6 @@ export default function JoinInvitePage() {
   const zh = lang === 'zh'
 
   const [peek, setPeek] = useState<Peek | null>(null)
-  const [email, setEmail] = useState('')
-  const [magicSent, setMagicSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [declined, setDeclined] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -71,24 +70,6 @@ export default function JoinInvitePage() {
     try {
       await supabase.rpc('decline_household_invite', { p_token: token })
       setDeclined(true)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function sendMagicLink() {
-    if (!/\S+@\S+\.\S+/.test(email)) return
-    setBusy(true)
-    setError(null)
-    try {
-      const { error: err } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: { emailRedirectTo: `${window.location.origin}/join/${token}` },
-      })
-      if (err) throw new Error(err.message)
-      setMagicSent(true)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'failed')
     } finally {
       setBusy(false)
     }
@@ -155,24 +136,19 @@ export default function JoinInvitePage() {
                   {zh ? '拒绝' : 'Decline'}
                 </button>
               </div>
-            ) : magicSent ? (
-              <div className="mt-6 rounded-lg bg-emerald-50 px-4 py-3 text-[13px] text-emerald-800">
-                {zh ? '登录链接已发送到你的邮箱,点击后会回到本页。' : 'Check your email — the sign-in link brings you back here.'}
-              </div>
             ) : (
               <div className="mt-6">
-                <label className="mb-1 block text-[12px] font-semibold text-body-2">
-                  {zh ? '输入邮箱登录后接受(免密码)' : 'Enter your email to sign in (passwordless)'}
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    className="w-full rounded-lg border border-line-divider bg-white px-3 py-2.5 text-[14px]"
-                    type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
-                  />
-                  <button onClick={() => void sendMagicLink()} disabled={busy}
-                    className="rounded-lg px-4 text-[13px] font-bold text-white disabled:opacity-60" style={{ background: '#00ACE4' }}>
-                    {zh ? '发送' : 'Send'}
-                  </button>
+                <p className="text-[13px] leading-relaxed text-body-2">
+                  {zh ? '接受邀请需要先登录（Google 或邮箱 + 密码），登录后会回到本页。' : 'Sign in first to accept (Google or email + password); you come back to this page afterwards.'}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Link href={`/login?next=${encodeURIComponent(`/join/${token}`)}`}
+                    className="flex-1 rounded-lg py-3 text-center text-[14px] font-bold text-white" style={{ background: '#00ACE4' }}>
+                    {zh ? '登录后接受' : 'Sign in to accept'}
+                  </Link>
+                  <Link href="/register" className="rounded-lg border border-line-divider px-5 py-3 text-[13px] text-body-2">
+                    {zh ? '注册' : 'Create account'}
+                  </Link>
                 </div>
                 <button onClick={() => void decline()} disabled={busy} className="mt-3 text-[12.5px] text-body-3 underline">
                   {zh ? '不加入,拒绝此邀请(无需登录)' : 'Decline without signing in'}

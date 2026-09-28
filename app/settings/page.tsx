@@ -375,7 +375,7 @@ function signInMethods(user: unknown, zh: boolean): string {
   const u = user as { app_metadata?: { providers?: string[]; provider?: string }; identities?: { provider?: string }[] } | null
   const set = new Set<string>([...(u?.app_metadata?.providers ?? []), u?.app_metadata?.provider ?? '', ...((u?.identities ?? []).map((i) => i.provider ?? ''))].filter(Boolean))
   const out: string[] = []
-  if (set.has('email')) out.push(zh ? '邮箱（密码或登录链接）' : 'Email (password or sign-in link)')
+  if (set.has('email')) out.push(zh ? '邮箱 + 密码' : 'Email + password')
   if (set.has('google')) out.push('Google')
   for (const p of set) if (p !== 'email' && p !== 'google') out.push(p)
   return out.length ? out.join(' · ') : '—'

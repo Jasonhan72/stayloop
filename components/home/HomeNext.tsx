@@ -6,7 +6,7 @@
 // user's verdict after three weeks: the box was too small to show what the
 // assistant does, and the page never explained the system. So now:
 //   1. The hero explains Stayloop in one screen and carries the login card
-//      (Google / one-time email link / password — the same hook as /login).
+//      (Google / email + password sign-in and registration — the same hook as /login and /register).
 //   2. Signed-in visitors never see this page: they are sent straight to the
 //      assistant of the hat they wear (providers to their work-order desk),
 //      the same predicate the login page uses (homeForHats).
@@ -224,7 +224,7 @@ const RULE_CHIPS: Rule[] = RULE_IDS.map((id) => ruleById(id)).filter((r): r is R
 const statuteShort = (s: string) => s.split(' · ')[0]
 
 const STEPS: { h: Bi; p: Bi; ex?: Bi[] }[] = [
-  { h: { zh: '登录', en: 'Sign in' }, p: { zh: 'Google 一键，或邮箱收一条一次性链接。首次登录即完成注册，不要信用卡。', en: 'One tap with Google, or a one-time link by email. Your first sign-in creates the account; no credit card.' } },
+  { h: { zh: '登录', en: 'Sign in' }, p: { zh: '一键 Google，或邮箱 + 密码注册。不要信用卡。', en: 'One tap with Google, or email + password. No credit card.' } },
   { h: { zh: '选身份，给助手起个名字', en: 'Pick a role, name your assistant' }, p: { zh: '租客 / 房东 / 经纪 / 服务商，之后随时在右上角切换。名字只起一次，四种身份共用同一个助手。', en: 'Tenant / landlord / agent / provider, switchable any time from the top-right menu. You name it once; the four roles share one assistant.' } },
   {
     h: { zh: '说第一句话', en: 'Say the first sentence' },

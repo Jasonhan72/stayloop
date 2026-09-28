@@ -1,20 +1,25 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import { getSupabaseBrowser } from '@/lib/supabase'
+import GoogleIcon from '@/components/auth/GoogleIcon'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
+import { useLoginForm } from '@/lib/auth/useLoginForm'
 import { ROLE_HOME } from '@/lib/useOnboarding'
 
+// Email + password registration (plus Google). The handlers are the shared
+// useLoginForm hook's (V0.7 follow-up, 2026-09-27) — the homepage login card's
+//「注册」tab is the same form, so the two cannot drift.
 export default function RegisterPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
   const router = useRouter()
   const { loading: authLoading, user, role } = useAuth()
+  const f = useLoginForm('register')
 
   // Already signed in → no reason to see the register form; go to the
   // user's workspace (mirrors the /login behavior).
@@ -26,78 +31,8 @@ export default function RegisterPage() {
     if ((user as { is_anonymous?: boolean }).is_anonymous) return
     router.replace(role ? ROLE_HOME[role] : '/dashboard')
   }, [authLoading, user, role, router])
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [password2, setPassword2] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-  const [done, setDone] = useState(false)
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setErr(null)
-    if (password.length < 8) {
-      setErr(zh ? '密码至少 8 位' : 'Password must be at least 8 characters')
-      return
-    }
-    if (password !== password2) {
-      setErr(zh ? '两次密码不一致' : 'Passwords do not match')
-      return
-    }
-    setLoading(true)
-    try {
-      const supabase = getSupabaseBrowser()
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo:
-            typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined,
-        },
-      })
-      if (error) {
-        if (error.message?.includes('already registered')) {
-          throw new Error(zh ? '该邮箱已注册，请直接登录' : 'This email is already registered — please sign in')
-        }
-        throw error
-      }
-      // With email confirmation ON, signUp for an already-registered address
-      // returns success with an empty identities array (anti-enumeration).
-      if (data.user && data.user.identities?.length === 0) {
-        throw new Error(zh ? '该邮箱已注册，请直接登录' : 'This email is already registered — please sign in')
-      }
-      // Session returned only when autoconfirm is on; otherwise the user
-      // must click the verification link first.
-      if (data.session) {
-        window.location.href = '/auth/callback'
-        return
-      }
-      setDone(true)
-    } catch (e: unknown) {
-      setErr((e as { message?: string })?.message || (zh ? '注册失败' : 'Registration failed'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSocial = async (provider: 'google') => {
-    setErr(null)
-    try {
-      const supabase = getSupabaseBrowser()
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo:
-            typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined,
-        },
-      })
-      if (error) throw error
-    } catch (e: unknown) {
-      setErr((e as { message?: string })?.message || (zh ? '注册失败' : 'Registration failed'))
-    }
-  }
-
-  if (done) {
+  if (f.sent === 'verify') {
     return (
       <>
         <Header />
@@ -112,7 +47,7 @@ export default function RegisterPage() {
               </h1>
               <p className="mt-2 text-[14px] leading-relaxed text-body-2">
                 {zh ? '我们刚把验证链接发到 ' : 'We just sent a verification link to '}
-                <b className="text-body">{email}</b>
+                <b className="text-body">{f.email}</b>
                 {zh ? '。点击链接完成注册。' : '. Click the link to complete registration.'}
               </p>
               <Link
@@ -146,7 +81,7 @@ export default function RegisterPage() {
             <div className="mt-6">
               <button
                 type="button"
-                onClick={() => handleSocial('google')}
+                onClick={() => void f.signInWithGoogle()}
                 className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-line-strong bg-white px-4 py-[11px] text-[13.5px] font-semibold transition hover:border-body-3 hover:bg-surface-chip"
               >
                 <GoogleIcon />
@@ -162,14 +97,14 @@ export default function RegisterPage() {
             </div>
 
             {/* Email + password form */}
-            <form onSubmit={submit} className="space-y-4">
+            <form onSubmit={(e) => void f.signUpWithPassword(e)} className="space-y-4">
               <label className="block">
                 <span className="sl-eyebrow">{zh ? '邮箱' : 'Email'}</span>
                 <input
                   type="email"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={f.email}
+                  onChange={(e) => f.setEmail(e.target.value)}
                   placeholder="you@example.com"
                   autoComplete="email"
                   className="sl-input mt-1"
@@ -180,8 +115,8 @@ export default function RegisterPage() {
                 <input
                   type="password"
                   required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={f.password}
+                  onChange={(e) => f.setPassword(e.target.value)}
                   placeholder={zh ? '至少 8 位' : 'At least 8 characters'}
                   autoComplete="new-password"
                   className="sl-input mt-1"
@@ -192,24 +127,24 @@ export default function RegisterPage() {
                 <input
                   type="password"
                   required
-                  value={password2}
-                  onChange={(e) => setPassword2(e.target.value)}
+                  value={f.password2}
+                  onChange={(e) => f.setPassword2(e.target.value)}
                   placeholder={zh ? '再输入一次' : 'Enter again'}
                   autoComplete="new-password"
                   className="sl-input mt-1"
                 />
               </label>
-              {err && (
+              {f.err && (
                 <div className="rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">
-                  {err}
+                  {f.err}
                 </div>
               )}
               <button
                 type="submit"
-                disabled={loading || !email || !password}
+                disabled={f.loading || !f.email || !f.password || !f.password2}
                 className="sl-btn-primary w-full !py-[14px] disabled:opacity-50"
               >
-                {loading ? (zh ? '注册中…' : 'Creating…') : (zh ? '注册' : 'Create account')}
+                {f.loading ? (zh ? '注册中…' : 'Creating…') : (zh ? '注册' : 'Create account')}
               </button>
             </form>
 
@@ -240,17 +175,6 @@ function MailIcon() {
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <polyline points="3 7 12 13 21 7" />
-    </svg>
-  )
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 001 12c0 1.77.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
     </svg>
   )
 }

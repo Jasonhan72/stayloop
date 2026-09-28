@@ -91,8 +91,8 @@ export function ShowingRequestModal({
         {!signedIn ? (
           <div className="mt-5 rounded-xl border border-line-divider bg-surface-chip p-4 text-[13.5px] leading-relaxed text-body-2">
             {zh
-              ? '房东需要一个能回复你的邮箱。登录后（魔法链接，不用密码）再提交，房东的回复会发到你的邮箱。'
-              : 'The landlord needs an email to reply to. Sign in (magic link, no password) and the reply lands in your inbox.'}
+              ? '房东需要一个能回复你的邮箱。登录后再提交（Google 或邮箱 + 密码），房东的回复会发到你的邮箱。'
+              : 'The landlord needs an email to reply to. Sign in (Google or email + password) and the reply lands in your inbox.'}
             <div className="mt-3">
               <Link href={`/login?next=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/listings')}`} className="sl-btn-primary !px-5 !py-2 !text-[13.5px]">{zh ? '登录后继续 →' : 'Sign in to continue →'}</Link>
             </div>
