@@ -2669,8 +2669,19 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   `document.fonts.ready` 重新测量。**注意**：带 `captureBeyondViewport` 的整页截图会让胶囊处在滑动途中，看起来错位，不是真问题。
 - **登录块 `components/home/LoginCard.tsx`（Muse 式）**：无卡片、无选项卡，三小步——①「登录或创建账户」· 邮箱 ·「继续」（按钮常亮，空或格式不对在提交时提示）+ 下方
   「使用 Google 继续」；② 显示邮箱 +「更改」、密码 +「继续」（登录）、「忘记密码？」「第一次来？创建账户」；③ 创建账户：密码两次 +「创建账户」+ 服务条款与隐私。
-  登录方式不变，全部来自 `useLoginForm`。**有意不做**：两步之间不查「这个邮箱有没有账号」——那会让任何人都能探测某个邮箱是否在 Stayloop 注册过；如果要像 Muse 那样自动分流，
-  需要用户先拍板接受这个取舍。
+  登录方式不变，全部来自 `useLoginForm`。
+- **邮箱是否已注册的判断（同日，用户「当然要加上这个判断」，明确接受「任何人都能探测某个邮箱是否注册过」这个代价）**：「继续」先查一次再分流——
+  已有密码的账户 → 密码步（不再显示「第一次来？创建账户」；账户同时绑了 Google 时多一个「改用 Google 登录」）；新邮箱 → 直接进创建账户（标题「这个邮箱还没有注册 ·
+  免费创建账户」，不显示「已有账户？」）；没有密码的账户 → 只绑 Google 的给「使用 Google 继续」+「想用密码登录？发一封设置密码的邮件」，两者都没有的给「发送设置
+  密码的邮件」（重置密码流程也能给 OAuth 账户设密码）；**查不到（限流 / 网络 / 5 秒超时）→ 退回原来的手动路径**（密码步 +「第一次来？创建账户」）。
+  查询期间按钮显示「请稍候…」、邮箱框只读。三层：SQL `public.auth_email_status(p_email)`（迁移 `20260929_auth_email_status.sql`，已应用 prod；
+  SECURITY DEFINER、`search_path = ''`、按 `lower(email)` 匹配、排除软删除与匿名用户；**只回三个布尔值 exists / password / google**，不回 id、确认状态、时间；
+  `revoke all … from public, anon, authenticated` 后只 grant service_role——回滚事务验证过 anon / authenticated 都被拒）→ 边缘路由 `POST /api/auth/email-status`
+  （先校验格式，再与两个限流并行查询：每 IP 每小时 30 次 + 全站每小时 1500 次，**都 fail-closed**，限流不通过不返回结果；全部响应 `Cache-Control: no-store`；
+  只有 POST）→ 纯模块 `lib/auth/emailStatus.ts`（`normalizeLookupEmail / toEmailStatus / routeForEmail / lookupEmailStatus`，路由与登录块共用，无 'use client'）。
+  生产现状：有邮箱的账户要么有密码、要么有 Google（两个既无密码也无 Google 的是匿名用户，没有邮箱，查不到）。守卫 `tests/emailStatus20260929.spec.ts` +
+  `tests/homeCentered20260929.spec.tsx`（六种应答各走一遍真实点击流程）；路由审计多三条探针（格式错 400、GET 405、不存在的地址回三个布尔值或 429）。
+  `/login` 页没有改（仍是原来的选项卡式），等用户决定要不要对齐。
 
 ## 首页讲一个故事（2026-09-28 · 用户看到动画上线后：「动画和这个图片重复了…去掉这个图片，以及其他地方的重复内容。要整体检查一下这个营销首页，要把 stayloop 的故事讲清晰和简单」）
 
