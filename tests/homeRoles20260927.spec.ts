@@ -19,8 +19,8 @@ describe('four roles on the homepage', () => {
     expect(home).toContain("{zh ? '试点' : 'PILOT'}")
     expect(home).toContain("{zh ? '四种身份，各自的入口' : 'Four roles, each with its own entry'}")
     expect(home).not.toContain('三种角色')
-    // the four landing tiles under the hero name the provider's real destination (a work-order desk, not an assistant)
-    expect(home).toMatch(/key: 'provider', pilot: true, who: \{ zh: '服务商'[^\n]*to: \{ zh: '工单工作台'/)
+    // the provider has no assistant: the tab's modules open the work-order desk
+    expect(home).toContain("href: '/provider/jobs'")
   })
   it('every role maps to exactly three modules and every module opens a real page', () => {
     const blocks = [...home.matchAll(/modules: \[([\s\S]*?)\n    \],/g)].map((m) => m[1])
@@ -42,6 +42,14 @@ describe('four roles on the homepage', () => {
   })
   it('the copy names only what ships: no invented features, no "coming soon" for a live pilot, no vendor-only model claim', () => {
     for (const bad of ['在线收租', '自动对账', '佣金对账', '短信', '路线规划', '工单大厅', '在线结算', '即将上线', '内测邀约', '14 天', '$39', '82/100', 'Anthropic Claude']) expect(home, bad).not.toContain(bad)
+    // 2026-09-28 review: screening scores four dimensions, the passport's stamps are sample data,
+    // rent is not collected, the referral commission engine is frozen — none of it is promised here
+    for (const bad of ['六维', 'six-dimension', '四枚章', 'four stamps', '验证一次，处处通行', '按时收租', 'get paid on time', '佣金结算', 'commission settlement', 'soon: true']) expect(home, bad).not.toContain(bad)
+    // the footer slogan says the homepage's loop, not the passport promise (user 2026-09-28: 「页脚那句也换掉」)
+    const tag = readFileSync('lib/i18n.tsx', 'utf8').split('\n').find((l) => l.includes("'foot.tag'")) ?? ''
+    expect(tag).toContain('你说一句，它去办，你来批准。')
+    expect(tag).toContain('You say it, it does the work, you approve.')
+    expect(tag).not.toMatch(/验证一次|Verify once/)
     expect(home).toContain('Claude · GPT · Gemini')
     for (const fact of ['试点阶段 · 多伦多及周边', '付款线下 · Stayloop 不经手资金', '没有公开目录']) expect(home).toContain(fact)
   })
@@ -55,25 +63,33 @@ describe('four roles on the homepage', () => {
 })
 
 describe('homepage FAQ', () => {
-  it('six bilingual questions, each linking to the page that backs the answer, emitted as FAQPage JSON-LD; the first says where to try without an account', () => {
+  it('four bilingual questions the page does not answer elsewhere, each linking to the page that backs the answer, emitted as FAQPage JSON-LD; the first says where to try without an account', () => {
     const block = home.slice(home.indexOf('const FAQ:'), home.indexOf('export default function HomeNext'))
     const qs = [...block.matchAll(/q: \{ zh: '([^']+)', en: '([^']+)' \}/g)]
-    expect(qs.length).toBe(6)
+    expect(qs.length).toBe(4)
     expect(qs[0][1]).toBe('不登录能试吗？')
+    // 「AI 会不会替我做决定」is the four-step loop under the film; 「服务商怎么加入」is the provider tab
+    expect(qs.map((q) => q[1])).not.toContain('AI 会不会替我做决定？')
+    expect(qs.map((q) => q[1])).not.toContain('服务商怎么加入，要付费吗？')
     const hrefs = [...block.matchAll(/href: '([^']+)', more:/g)].map((m) => m[1])
-    expect(hrefs).toEqual(['/tenant/agent', '/listings', '/screening', '/platform', '/privacy', '/services'])
+    expect(hrefs).toEqual(['/tenant/agent', '/listings', '/screening', '/privacy'])
     for (const h of hrefs) expect(existsSync(`app${h}/page.tsx`), h).toBe(true)
     expect(home).toContain("'@type': 'FAQPage'")
     expect(home).toContain('<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />')
     expect(home).toContain('data-testid="home-faq"')
     // the facts the answers rest on — each one is a shipped, checkable behaviour
-    for (const s of ['60 秒可撤销', 'OHRC 租房政策', 's.10(7)', 'AWS 蒙特利尔', '不抽成、不经手资金', 'TRREB 数据库尚未接入', '每小时有次数上限']) expect(block, s).toContain(s)
+    for (const s of ['OHRC 租房政策', 's.10(7)', 'AWS 蒙特利尔', 'TRREB 数据库尚未接入', '每小时有次数上限']) expect(block, s).toContain(s)
     // never a pricing claim in the FAQ (pricing has one source: /pricing)
     expect(block).not.toMatch(/\$\d|每月|per month/)
   })
-  it('the section order is hero → landing map → how it works → propose/decide → flow → roles → rules → steps → numbers → FAQ → final', () => {
-    const order = ['HERO: message + login card', 'LANDING MAP', 'HOW IT WORKS', 'PROPOSE / DECIDE', 'PRODUCTS: one flow', 'ROLES', 'RULES', 'STEPS', 'VERIFY: live numbers', 'FAQ', 'FINAL'].map((k) => home.indexOf(`{/* ================= ${k}`))
+  it('one story, each point once: what it is → how it works → for each role → rules → numbers → questions → how to start (2026-09-28)', () => {
+    const order = ['HERO: message + login card', 'HOW IT WORKS', 'ROLES', 'RULES', 'VERIFY: live numbers', 'FAQ', 'START'].map((k) => home.indexOf(`{/* ================= ${k}`))
     for (const i of order) expect(i).toBeGreaterThan(-1)
     for (let i = 1; i < order.length; i++) expect(order[i], String(i)).toBeGreaterThan(order[i - 1])
+    // retired because each repeated something told elsewhere on the page
+    for (const gone of ['LANDING MAP', 'PROPOSE / DECIDE', 'PRODUCTS: one flow', '================= STEPS', '================= FINAL']) expect(home, gone).not.toContain(gone)
+    // the closing section carries the steps and both doors
+    const start = home.slice(home.indexOf('{/* ================= START'), home.indexOf('<Footer />'))
+    for (const s of ["{zh ? '三步开始' : 'Three steps to start'}", 'href="#login"', 'href={TRY_HREF}', 'STEPS.map']) expect(start, s).toContain(s)
   })
 })

@@ -285,29 +285,31 @@ describe('the cast', () => {
 })
 
 describe('on the homepage', () => {
-  it('is its own section, “How Stayloop works”, after the landing tiles — loaded lazily with a placeholder of the film’s size', () => {
+  it('is its own section, “How Stayloop works”, right after the hero — loaded lazily with a placeholder of the film’s size', () => {
     expect(home).toContain("const ThreeRoleFilm = dynamic(() => import('@/components/home/ThreeRoleFilm'), {")
     expect(home).toContain('ssr: false')
     for (const h of ['h-[600px]', 'lg:h-[660px]', 'h-[42px]', 'h-[74px] md:h-[52px]', 'h-[74px] md:h-[59px]']) expect(home, h).toContain(h)
     expect(film).toContain('h-[600px]')
     expect(film).toContain('min-h-[74px]')
     expect(film).toContain('md:min-h-[52px]')
-    // the landing tiles stay right under the login card they explain; the hero no longer carries the film
-    const hero = home.slice(home.indexOf('HERO: message + login card'), home.indexOf('LANDING MAP'))
+    // the hero (message + login card) is followed directly by the film's section; the hero itself carries no film
+    const hero = home.slice(home.indexOf('HERO: message + login card'), home.indexOf('{/* ================= HOW IT WORKS'))
     expect(hero).not.toContain('<ThreeRoleFilm />')
-    const section = home.slice(home.indexOf('{/* ================= HOW IT WORKS'), home.indexOf('{/* ================= PROPOSE / DECIDE'))
-    expect(home.indexOf('{/* ================= LANDING MAP')).toBeLessThan(home.indexOf('{/* ================= HOW IT WORKS'))
+    expect(hero).toContain('<LoginCard className="min-w-0" />')
+    const section = home.slice(home.indexOf('{/* ================= HOW IT WORKS'), home.indexOf('{/* ================= ROLES'))
     expect(section).toContain('<section id="how-it-works" className="border-t border-line-divider">')
     expect(section).toContain("{zh ? 'Stayloop 是怎么工作的' : 'How Stayloop works'}")
     expect(section).toContain('text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]') // the homepage's section heading
     expect(section.indexOf('<h2')).toBeLessThan(section.indexOf('<ThreeRoleFilm />'))
     expect(section).toContain('data-testid="home-film"')
-    // the lead says what the film shows, in the site's own promises — no numbers but the 60-second undo
+    // the lead only sets the scene; the approval rule is spelled out once, in the four-step loop under the film
     const pTag = section.slice(section.indexOf('<p '), section.indexOf('</p>'))
     const lead = pTag.slice(pTag.indexOf('>') + 1) // the text, not the tag's own classes
-    for (const w of ['各有自己的 AI 助理', '三个助理之间接力', '本人批准', '60 秒可以撤销', '从委托挂牌演到续约', 'own AI assistant', 'without your approval', '60 seconds to undo', 'from listing to renewal']) expect(lead, w).toContain(w)
-    expect(lead.replace(/60/g, '')).not.toMatch(/\d/)
+    for (const w of ['各有自己的 AI 助理', '三个助理之间接力', '从委托挂牌演到续约', 'own AI assistant', 'passes from one to the next', 'from listing to renewal']) expect(lead, w).toContain(w)
+    expect(lead).not.toMatch(/\d/)
     expect(lead).not.toContain('—')
+    expect(section.indexOf('<ThreeRoleFilm />')).toBeLessThan(section.indexOf('data-testid="home-flow"'))
+    expect(section).toContain('<Link href="/platform"')
     expect(existsSync('components/home/HeroShowcase.tsx')).toBe(false)
   })
   it('labelled as a sample with AI-made characters, right under the film', () => {

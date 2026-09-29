@@ -34,24 +34,19 @@ describe('the homepage no longer hosts the conversation', () => {
     // the marketing page renders while auth is still loading (matches the prerendered HTML); no useState reading window
     expect(home).not.toMatch(/useState\([^)]*window/)
   })
-  it('the four landing tiles and every「试一试」open real pages', () => {
-    const tiles = home.slice(home.indexOf('const TILES:'), home.indexOf('const ROLES:'))
-    const hrefs = [...tiles.matchAll(/href: '([^']+)'/g)].map((m) => m[1])
-    expect(hrefs).toEqual(['/tenant/agent', '/landlord/agent', '/agent/agent', '/services'])
-    for (const h of hrefs) expect(existsSync(`app${h}/page.tsx`), h).toBe(true)
-    expect(home).toContain('data-testid="home-tiles"')
+  it('every「试一试」opens the assistant preview; the landing tiles are gone — the role tabs are the one place roles are told (2026-09-28)', () => {
     expect(home).toContain('assistantPromptHref(chatRole, pick(c.prompt, lang))')
+    expect(home).not.toContain('const TILES')
+    expect(home).not.toContain('data-testid="home-tiles"')
+    expect(home).not.toContain('登录后，你会直接进入')
   })
-  it('the sample exchange is labelled as one, uses the data canon, and its buttons are not controls', () => {
-    expect(home).toContain("label: { zh: '示例对话 · 房东', en: 'Sample conversation · landlord' }")
-    expect(home).toContain("note: { zh: '内容为示范', en: 'Illustrative' }")
-    expect(home).toContain('Mia Chen')
-    const demo = home.slice(home.indexOf('data-testid="home-demo"'), home.indexOf('data-testid="home-flow"'))
-    expect(demo).not.toContain('<button')
-    expect(demo).toContain('RISK · HIGH')
-    for (const s of ['将分享', '不会分享', '预览正文', '批准', '拒绝']) expect(demo).toContain(s)
-    // the assistant's line follows the 09-27 intake rule: applications by completeness and time, scores only in the report
-    expect(home).toContain('分数只在报告里看')
+  it('the static sample exchange is gone — the film plays the real cards; the four-step loop sits under the film (user 2026-09-28: “动画和这个图片重复了”)', () => {
+    for (const gone of ['const DEMO', 'data-testid="home-demo"', '示例对话 · 房东', 'RISK · HIGH', 'PROPOSE / DECIDE']) expect(home, gone).not.toContain(gone)
+    const how = home.slice(home.indexOf('{/* ================= HOW IT WORKS'), home.indexOf('{/* ================= ROLES'))
+    expect(how.indexOf('<ThreeRoleFilm />')).toBeLessThan(how.indexOf('data-testid="home-flow"'))
+    expect(how).toContain("{zh ? '它提议，你决定。' : 'It proposes. You decide.'}")
+    const flow = home.slice(home.indexOf('const FLOW:'), home.indexOf('// ── Ontario rules'))
+    for (const s of ['你说一句', '它去办', '你来批准', '执行并留痕', '批准后 60 秒内可撤销', 'undone for 60 seconds']) expect(flow, s).toContain(s)
   })
   it('the rules section resolves real ids against the single source and counts them from it', () => {
     const ids = [...home.slice(home.indexOf('const RULE_IDS'), home.indexOf('] as const')).matchAll(/'([A-Za-z0-9-]+)'/g)].map((m) => m[1])

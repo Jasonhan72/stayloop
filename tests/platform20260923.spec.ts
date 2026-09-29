@@ -23,7 +23,11 @@ describe('product structure: lifecycle + Stayloop API', () => {
   it('header, footer and homepage all lead to the product structure', () => {
     expect(readFileSync('components/Header.tsx', 'utf8')).toMatch(/i18nKey="nav\.platform" href="\/platform"/)
     expect(readFileSync('components/Footer.tsx', 'utf8')).toMatch(/foot\.platform[\s\S]*foot\.stayloopApi/)
-    expect(readFileSync('components/home/HomeNext.tsx', 'utf8')).toMatch(/租前 · 租中 · 租后，一条流程/)
+    // 2026-09-28: the lifecycle cards were retired (the film plays before → during → after); the section links the full structure
+    const home = readFileSync('components/home/HomeNext.tsx', 'utf8')
+    const how = home.slice(home.indexOf('{/* ================= HOW IT WORKS'), home.indexOf('{/* ================= ROLES'))
+    expect(how).toContain('<Link href="/platform"')
+    expect(how).toContain("{zh ? '看完整产品结构 →' : 'See the full product →'}")
     const i18n = readFileSync('lib/i18n.tsx', 'utf8')
     expect(i18n).toMatch(/'nav\.platform': \{ en: 'Product', zh: '产品' \}/)
     expect(i18n).toMatch(/'foot\.stayloopApi': \{ en: 'Stayloop API', zh: 'Stayloop API' \}/)

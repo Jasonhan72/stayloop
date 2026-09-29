@@ -67,10 +67,11 @@ describe('site-wide links to /services', () => {
     const p = read('app/platform/page.tsx')
     expect(p).toMatch(/维修派单[^\n]*href: '\/services'/)
   })
-  it('homepage 租中 card mentions repair dispatch in both languages', () => {
+  it('the homepage names repair dispatch in both languages (landlord tab, since the lifecycle cards were retired on 2026-09-28)', () => {
     const h = read('components/home/HomeNext.tsx')
-    expect(h).toContain('租金记录 · 报修 · 维修派单')
-    expect(h).toContain('maintenance · repair dispatch')
+    expect(h).toContain('报修派给已核验服务商')
+    expect(h).toContain('repairs dispatched to verified providers')
+    expect(h).toContain('报修接待与派单')
   })
   it('the route audit probes the new public page', () => {
     expect(read('scripts/route-audit.mjs')).toContain("'/services',")
