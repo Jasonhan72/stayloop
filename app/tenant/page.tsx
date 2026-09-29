@@ -12,17 +12,17 @@ const CFG: RoleLandingConfig = {
     en: <>Describe the life you want —<br />your AI finds you home.</>,
   },
   sub: {
-    zh: '它记得你的每个偏好,替你翻遍全城、约看、比价、申请 —— 你睡觉时它也在工作。没有加拿大信用记录也没关系:验证一次,处处通行。每个关键决定,依然由你拍板。',
-    en: "It remembers every preference, combs the whole city, books viewings, compares and applies — working even while you sleep. No Canadian credit history? No problem: verify once, go anywhere. Every key decision stays yours.",
+    zh: '说出你想要的家,它从真实房源里替你找、替你比;看房、提问、申请、签约都在一处,英文租约逐条讲成中文。每个关键决定,依然由你拍板。',
+    en: 'Say what home you want and it searches and compares real listings for you; viewings, questions, applications and signing live in one place, and the lease is explained clause by clause. Every key decision stays yours.',
   },
   primaryCta: { label: { zh: '唤醒你的 AI 租房助手 →', en: 'Wake up your rental AI →' }, href: '/onboarding/name', authedHref: '/tenant/agent' },
   secondaryCta: { label: { zh: '先浏览房源', en: 'Browse listings first' }, href: '/listings' },
   ctaNote: { zh: '租客永远免费 · 是否授权查询征信由你决定', en: 'Always free for tenants · you decide whether to authorise a credit check' },
   agentPoints: [
     { zh: '对话找房,不填表', en: 'Chat to search, no forms' },
-    { zh: '资料验一次,处处通行', en: 'Verify once, go anywhere' },
-    { zh: '一键申请,尽调自动跑', en: 'One-tap apply, auto diligence' },
-    { zh: '入住后维修续约全托管', en: 'Repairs & renewals managed' },
+    { zh: '看房提问,直达房东', en: 'Viewings and questions go straight to the landlord' },
+    { zh: '申请进度,一步步看得到', en: 'Follow your application step by step' },
+    { zh: '报修续约,有人跟进', en: 'Repairs and renewals followed up' },
   ],
   demo: {
     ask: { zh: '预算 2800,能养猫,离 King 站走路 15 分钟。', en: 'Under $2,800, cats OK, 15-min walk to King station.' },
@@ -35,10 +35,10 @@ const CFG: RoleLandingConfig = {
   },
   journey: [
     { h: { zh: '为 AI 起名', en: 'Name your AI' }, b: { zh: '任何你喜欢的名字。从此 TA 只为你一个人。', en: 'Any name you like. From now on it works only for you.' } },
-    { h: { zh: '验证一次,处处通行', en: 'Verify once, go anywhere' }, b: { zh: '一次搞定,从此不再交一叠 PDF · 你自己决定是否授权查询征信。', en: 'Done once — never hand over a stack of PDFs again · you decide whether to authorise a credit check.' } },
-    { h: { zh: '说需求,收房源', en: 'Say it, get matches' }, b: { zh: '一句话,AI 替你翻遍全城,按你的偏好主动筛过。', en: 'One sentence and AI combs the city, pre-filtered to your taste.' } },
-    { h: { zh: '一键申请', en: 'Apply in one tap' }, b: { zh: 'Passport 直接复用,即出 Stayloop Score。', en: 'Reuse your Passport directly and get a Stayloop Score instantly.' } },
-    { h: { zh: '入住,安心长住', en: 'Move in, settle in' }, b: { zh: '缴租维修续约退租,AI 全程替你照看。', en: 'Rent, repairs, renewals and move-out — AI looks after it all.' } },
+    { h: { zh: '说需求,收房源', en: 'Say it, get matches' }, b: { zh: '一句话,它从 Stayloop 核验房源和 Realtor.ca 实时挂牌里替你筛,配 TRREB 官方行情。', en: 'One sentence and it filters Stayloop-verified listings and live Realtor.ca listings for you, with the official TRREB benchmark.' } },
+    { h: { zh: '看房与申请', en: 'View and apply' }, b: { zh: '在房源页预约看房、向房东提问、提交申请;每一步进度都看得到。', en: 'Request a viewing, ask the landlord and apply from the listing page; you can see each step as it moves.' } },
+    { h: { zh: '签约', en: 'Sign' }, b: { zh: '安省标准租约电子签,签之前逐条讲给你听。', en: 'E-sign the Ontario standard lease, explained clause by clause before you sign.' } },
+    { h: { zh: '入住之后', en: 'After you move in' }, b: { zh: '报修可附照片、续约方案提前送到,都在你和房东共享的在管租约里。', en: 'Repairs with photos and renewal options ahead of time, all in the managed tenancy you share with your landlord.' } },
   ],
   story: [
     {
@@ -51,13 +51,13 @@ const CFG: RoleLandingConfig = {
       file: 'mia-02-luna.jpg',
       fallback: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=700&q=80&fit=crop&auto=format',
       label: { zh: 'AI Agent 接手', en: 'The AI agent takes over' },
-      text: { zh: '一句话说清需求 —— 市中心、一居、能养猫。AI Agent 找房、约看、中文讲解租约、替她谈判。', en: 'One sentence — downtown, 1-bed, cats OK. The AI agent searches, books, explains the lease in Chinese and negotiates for her.' },
+      text: { zh: '一句话说清需求:市中心、一居、能养猫。AI Agent 找房、比价、中文讲解租约,替她起草给房东的消息。', en: 'One sentence: downtown, 1-bed, cats OK. The AI agent searches, compares, explains the lease in Chinese and drafts her messages to the landlord.' },
     },
     {
       file: 'mia-03-home.jpg',
       fallback: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=700&q=80&fit=crop&auto=format',
       label: { zh: '安心入住', en: 'Settled in' },
-      text: { zh: '当天电子签约,报修 2 小时响应。12/12 准时付租,Score 60 → 91 —— 第二次搬家,只说了一句话。', en: 'E-signed the same day; repairs answered in 2 hours. 12/12 on-time rent, Score 60 → 91 — her second move took one sentence.' },
+      text: { zh: '当天电子签约。入住后报修附上照片,房东那边马上收到;续约前,方案已经在她的在管租约里。', en: 'E-signed the same day. After move-in, a repair request with photos reached the landlord at once; before renewal, the options were already in her managed tenancy.' },
     },
   ],
   scenario: {
@@ -65,35 +65,35 @@ const CFG: RoleLandingConfig = {
     meta: { zh: '27 · 软件工程师 · 新移民', en: '27 · Software engineer · Newcomer' },
     quote: { zh: '没有加拿大信用记录,我到底该怎么租房?', en: 'With no Canadian credit history, how am I supposed to rent at all?' },
     before: { zh: '信用空白,已被拒 3 次,3 天后必须退房。每晚刷 5 个网站到深夜,同样的资料填了一遍又一遍。', en: 'No credit file, declined 3 times, 3 days to move out — grinding five listing sites every night, re-typing the same forms again and again.' },
-    after: { zh: 'AI 用她已验证的 Passport 直接申请,中文逐条讲解租约,当天签约入住。第二次搬家,她只说了一句话。', en: 'Her AI applied with her verified Passport, walked her through the lease in Chinese, and got her signed the same day. Her second move took a single sentence.' },
-    delta: { zh: 'Score 60 → 91', en: 'Score 60 → 91' },
+    after: { zh: '她说一句需求,AI 找到能养猫的房源;看房请求一键发给房东,租约逐条讲成中文,当天电子签约。', en: 'One sentence, and her AI found cat-friendly listings; the viewing request reached the landlord in one tap, the lease was explained in Chinese, and she e-signed the same day.' },
+    delta: { zh: '当天签约', en: 'Signed the same day' },
   },
   valueBand: {
     eyebrow: { zh: 'RENTAL PASSPORT · 你的护照能做什么', en: 'RENTAL PASSPORT · WHAT IT DOES' },
-    h2: { zh: '一本护照,打动所有房东。', en: 'One passport that wins over every landlord.' },
+    h2: { zh: '在 Stayloop 租过的房,记录跟着你走。', en: 'Rent through Stayloop, and the record goes with you.' },
     items: [
       {
         icon: '🛂',
-        h: { zh: '验证一次,处处通行', en: 'Verify once, go anywhere' },
+        h: { zh: '一个只读分享链接', en: 'One read-only share link' },
         b: {
-          zh: '四枚章盖在你的护照上,申请任何房源直接复用。不再一遍遍交同一叠 PDF。',
-          en: 'Four stamps, earned once, reused on every application. Never hand over the same stack of PDFs again.',
+          zh: '发给下一个房东:显示姓名缩写和按时付租记录(只看是否按时,没有金额),不含证件、证件号与联系方式。',
+          en: 'Send it to your next landlord: your initials and on-time rent record (on time or not, no amounts), never documents, ID numbers or contact details.',
         },
       },
       {
         icon: '🆓',
         h: { zh: '对租客永久免费', en: 'Free for tenants, always' },
         b: {
-          zh: '不按报告收费,也没有订阅。验证、分享、复用,都不花钱。',
-          en: 'No per-report fees, no subscription. Verifying, sharing and reusing cost nothing.',
+          zh: '不按报告收费,也没有订阅;找房、申请、签约、分享都不花钱。',
+          en: 'No per-report fees, no subscription; searching, applying, signing and sharing cost nothing.',
         },
       },
       {
         icon: '🧳',
-        h: { zh: '记录跟着你走', en: 'Your record travels with you' },
+        h: { zh: '只认双方确认的租约', en: 'Only confirmed leases count' },
         b: {
-          zh: '按时租金和履约历史写进护照,换房时它替你说话——只读分享页,站外房东也能看。',
-          en: 'On-time rent and rental history live in your Passport and speak for you — a read-only share page works even for landlords off Stayloop.',
+          zh: '付租记录只取自双方都确认过的在管租约、或双方电子签的租约;你自己导入、对方没确认的不算。',
+          en: 'Rent records come only from a tenancy both sides confirmed or a lease both sides e-signed; a lease you imported that the other side never confirmed does not count.',
         },
       },
       {

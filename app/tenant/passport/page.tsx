@@ -364,8 +364,8 @@ export default function TenantPassport() {
             <span className="font-mono text-[11px] uppercase tracking-eyebrow text-tenant">RENTAL PASSPORT</span>
             <span className="mx-1.5 text-body-3">·</span>
             {zh
-              ? '你的 Passport 是你向房东展示可信度的通行证。验证一次 · 处处通行，章越多，房东审批越快。'
-              : 'Your Passport proves trustworthiness to landlords. Verify once, travel everywhere — more stamps mean faster approvals.'}
+              ? '你的 Passport 是给下一个房东看的只读记录：姓名缩写和按时付租记录，只取自双方都确认过的租约；用一个分享链接出示，随时可撤销。'
+              : 'Your Passport is a read-only record for your next landlord: your initials and on-time rent record, drawn only from leases both sides confirmed, shown through one share link you can revoke any time.'}
           </>
         }
       />

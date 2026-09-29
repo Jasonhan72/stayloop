@@ -25,8 +25,8 @@ export default function OnboardingWelcomePage() {
     if (ready && onboarded && role) router.replace(home)
   }, [ready, onboarded, role, home, router])
   const benefits = [
-    { zh: '一个 AI Agent 记住你的偏好，每天为你筛新房', en: 'An AI agent that remembers your preferences and screens new listings for you daily' },
-    { zh: 'Rental Passport — 一次验证全城通用，不重复填表', en: 'Rental Passport — verify once, reuse across the city, no repeat forms' },
+    { zh: '一个 AI 助理记住你的偏好，对话里替你找房、比价', en: 'An AI assistant that remembers your preferences and searches and compares listings in the chat' },
+    { zh: '租客护照：双方确认过的租约里的按时付租记录，一个链接出示', en: 'Rental Passport: your on-time rent record from confirmed leases, shown through one link' },
     { zh: '租客永远免费，关键决策永远你按按钮', en: 'Always free for tenants, and you always make the key decisions' },
   ]
   return (
