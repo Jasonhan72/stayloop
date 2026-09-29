@@ -20,10 +20,10 @@ const STEPS: { n: string; title: Bi; desc: Bi; cta: Bi; href: string }[] = [
   },
   {
     n: '02',
-    title: { zh: '申请人提交材料，AI 跑六维尽调', en: 'Applicant submits docs, AI runs the check' },
+    title: { zh: '申请人提交材料，你一键筛查', en: 'Applicant submits docs, you screen in one click' },
     desc: {
-      zh: '身份、收入、法庭记录、材料真伪、一致性 — 几分钟出分，无需你动手。',
-      en: 'Identity, income, court records, document fraud, consistency — scored in minutes, hands-free.',
+      zh: '付款能力、信用、租务与司法历史、核验四项打分，附取证与法庭 / LTB 记录，几分钟出报告。',
+      en: 'Scores ability to pay, credit, rental and legal history, and verification, with forensics and court / LTB records — a report in minutes.',
     },
     cta: { zh: '也可自己发起筛查 →', en: 'Or run a screening yourself →' },
     href: '/screening',

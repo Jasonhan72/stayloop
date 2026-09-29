@@ -1,5 +1,6 @@
 'use client'
 
+import { LANDLORD_GO, LANDLORD_PRO, LANDLORD_PRO_PRICE } from '@/lib/billing/landlordPlans'
 import { useEffect, useRef, useState } from 'react'
 import { INTERNAL_TEST_FREE_UNTIL_LABEL, inInternalTestWindow } from '@/lib/billing/freeWindow'
 import Link from 'next/link'
@@ -575,7 +576,7 @@ export default function Dashboard() {
                         key={app.id}
                         className="cursor-pointer border-t border-line-divider transition hover:bg-surface-chip"
                         onClick={() => {
-                          window.location.href = `/dashboard/applications/${app.id}`
+                          window.location.href = `/landlord/applicants/${app.id}`
                         }}
                       >
                         <td className="px-6 py-4">
@@ -658,18 +659,14 @@ export default function Dashboard() {
                 }
               >
                 <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-body-3">
-                  Free
+                  {LANDLORD_GO.name[lang]}
                 </div>
                 <div className="mt-1 text-[32px] font-bold tracking-tight">
-                  $0<span className="text-[14px] font-medium text-body-3">/mo</span>
+                  $0<span className="text-[14px] font-medium text-body-3">{lang === 'zh' ? '/月' : '/mo'}</span>
                 </div>
+                {/* Same list as /pricing (lib/billing/landlordPlans.ts) — this dialog used to sell features that never existed. */}
                 <ul className="mt-4 space-y-1.5 text-[12.5px] text-body-2">
-                  <li>{lang === 'zh' ? '✓ 不限房源数' : '✓ Unlimited listings'}</li>
-                  <li>{lang === 'zh' ? '✓ AI 六维评分' : '✓ AI 6-dimension scoring'}</li>
-                  <li>✓ Vision OCR</li>
-                  <li>{lang === 'zh' ? '✓ CanLII LTB 查询' : '✓ CanLII LTB search'}</li>
-                  <li className="text-body-4">{lang === 'zh' ? '— Openroom 跨平台' : '— Openroom cross-platform'}</li>
-                  <li className="text-body-4">{lang === 'zh' ? '— 批量导出' : '— Bulk export'}</li>
+                  {LANDLORD_GO.features.map((f) => <li key={f.en}>✓ {f[lang]}</li>)}
                 </ul>
               </div>
               <div className="relative rounded-2xl border-2 border-brand bg-brand/5 p-5">
@@ -679,18 +676,14 @@ export default function Dashboard() {
                     : (lang === 'zh' ? '推荐' : 'RECOMMENDED')}
                 </div>
                 <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-brand">
-                  Pro
+                  {LANDLORD_PRO.name[lang]}
                 </div>
                 <div className="mt-1 text-[32px] font-bold tracking-tight">
-                  $19<span className="text-[14px] font-medium text-body-3">/mo</span>
+                  ${LANDLORD_PRO_PRICE}<span className="text-[14px] font-medium text-body-3">{lang === 'zh' ? '/月' : '/mo'}</span>
                 </div>
                 <ul className="mt-4 space-y-1.5 text-[12.5px] text-body">
-                  <li>{lang === 'zh' ? '✓ Free 全部功能' : '✓ Everything in Free'}</li>
-                  <li>{lang === 'zh' ? '✓ Openroom 房东数据库' : '✓ Openroom landlord database'}</li>
-                  <li>{lang === 'zh' ? '✓ 优先 AI 评分队列' : '✓ Priority AI scoring queue'}</li>
-                  <li>{lang === 'zh' ? '✓ 批量 CSV 导出' : '✓ Bulk CSV export'}</li>
-                  <li>{lang === 'zh' ? '✓ 自定义品牌 apply 页' : '✓ Custom-branded apply page'}</li>
-                  <li>{lang === 'zh' ? '✓ 邮件 + Slack 通知' : '✓ Email + Slack notifications'}</li>
+                  <li>{lang === 'zh' ? `✓ ${LANDLORD_GO.name.zh}的全部` : `✓ Everything in ${LANDLORD_GO.name.en}`}</li>
+                  {LANDLORD_PRO.features.map((f) => <li key={f.en}>✓ {f[lang]}</li>)}
                 </ul>
                 {(plan === 'pro' || plan === 'team') ? (
                   <div className="mt-5 space-y-2">

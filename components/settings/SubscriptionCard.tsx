@@ -14,6 +14,7 @@
 // Landlord-only: it is the only role with a plan store (landlords.plan,
 // written by the Stripe webhook). State resolution lives in
 // lib/billing/subscriptionState.ts (tested) — never re-derive it here.
+import { LANDLORD_PRO } from '@/lib/billing/landlordPlans'
 import { useCallback, useEffect, useState } from 'react'
 import { INTERNAL_TEST_FREE_UNTIL_LABEL, inInternalTestWindow } from '@/lib/billing/freeWindow'
 import { getSupabaseBrowser } from '@/lib/supabase'
@@ -196,10 +197,9 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
       {state === 'free' && (
         <div className="px-5 pb-[18px]">
           <div className="grid grid-cols-1 gap-x-5 gap-y-2 sm:grid-cols-2">
-            {(zh
-              ? ['无限房源发布', '无限次租客筛查', '深度核查（法庭 · 取证 · 雇主）', '报告导出与分享']
-              : ['Unlimited listings', 'Unlimited tenant screenings', 'Deep checks (courts · forensics · employer)', 'Report export & sharing']
-            ).map((t) => (
+            {/* What Pro actually adds — the same list as /pricing (lib/billing/landlordPlans.ts); this card used to
+                promise unlimited listings (every plan has them) and report sharing (not live). */}
+            {LANDLORD_PRO.features.slice(0, 4).map((f) => (f.short ?? f)[zh ? 'zh' : 'en']).map((t) => (
               <div key={t} className="flex items-start gap-2 text-[13px] text-body-2">
                 <span className="mt-[1px] grid h-[17px] w-[17px] flex-none place-items-center rounded-full text-[11px] font-extrabold" style={{ background: '#E4EEE3', color: GREEN }}>✓</span>
                 {t}

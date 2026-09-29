@@ -151,9 +151,10 @@ describe('tenant and pricing copy', () => {
     expect(gate).toContain("href: '/services'")
   })
   it('pricing: both repair lines link to /services through the optional feature href', () => {
-    const p = read('app/pricing/page.tsx')
-    expect(p).toContain("{ zh: '维修工单 + 派给你自己的联系人', en: 'Repair tickets + dispatch to your own contacts', href: '/services' }")
-    expect(p).toMatch(/维修派单：已核验服务商网络[^\n]*href: '\/services'/)
-    expect(p).toContain('f.href && ')
+    // the plan lists live in lib/billing/landlordPlans.ts since 2026-09-28; /pricing renders them with the same href support
+    const plans = read('lib/billing/landlordPlans.ts')
+    expect(plans).toContain("{ zh: '维修工单 + 派给你自己的联系人', en: 'Repair tickets + dispatch to your own contacts', href: '/services' }")
+    expect(plans).toMatch(/维修派单：已核验服务商网络[^\n]*href: '\/services'/)
+    expect(read('app/pricing/page.tsx')).toContain('f.href && ')
   })
 })

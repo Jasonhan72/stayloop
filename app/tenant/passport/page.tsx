@@ -119,7 +119,7 @@ const RENT_RECORD: Array<{ month: Bi; status: 'paid' | 'late' }> = [
 
 /**
  * Passport view log (demo) — makes good on the promise printed on the share
- * card: "every view lands in your audit log".
+ * card (sample data; a real share link only counts its opens).
  */
 const VIEWS: Array<{ when: string; who: Bi; saw: Bi; tone: 'info' | 'neutral' }> = [
   {
@@ -148,34 +148,6 @@ const TODO: Record<number, { need: Bi; status: Bi }> = {
   },
 }
 
-/** Decorative QR placeholder (demo — not scannable). */
-function QrPlaceholder() {
-  const cells: JSX.Element[] = []
-  // deterministic pseudo-random module pattern
-  for (let y = 0; y < 11; y++) {
-    for (let x = 0; x < 11; x++) {
-      const inFinder = (x < 4 && y < 4) || (x > 6 && y < 4) || (x < 4 && y > 6)
-      if (inFinder) continue
-      if ((x * 7 + y * 13 + ((x * y) % 5)) % 3 === 0) {
-        cells.push(<rect key={`${x}-${y}`} x={x * 6} y={y * 6} width={5} height={5} />)
-      }
-    }
-  }
-  const finder = (fx: number, fy: number) => (
-    <g key={`f${fx}${fy}`}>
-      <rect x={fx} y={fy} width={21} height={21} fill="none" stroke="currentColor" strokeWidth={4} />
-      <rect x={fx + 7} y={fy + 7} width={7} height={7} />
-    </g>
-  )
-  return (
-    <svg viewBox="-2 -2 70 70" className="h-full w-full" fill="currentColor" aria-hidden>
-      {finder(0, 0)}
-      {finder(45, 0)}
-      {finder(0, 45)}
-      {cells}
-    </svg>
-  )
-}
 
 export default function TenantPassport() {
   const { lang } = useT()
@@ -329,14 +301,14 @@ export default function TenantPassport() {
   const insights: AIInsight[] = [
     {
       text: {
-        zh: '盖上银行章（约 5 分钟）——连接一次银行流水，可解锁多 42% 的房源，房东审批也更快。',
-        en: 'Earn your bank stamp (~5 minutes) — one bank connection unlocks 42% more listings and faster approvals.',
+        zh: '房东发来本人核验链接时，银行那一步约 5 分钟；不想连银行，也可以在申请里上传 PDF 流水。',
+        en: 'When a landlord sends you a verification link, the bank step takes about 5 minutes; if you would rather not connect your bank, you can upload PDF statements with your application.',
       },
       action: {
-        label: { zh: '带我盖章', en: 'Walk me through it' },
+        label: { zh: '先了解一下', en: 'Tell me more' },
         prompt: {
-          zh: '帮我盖上银行章，告诉我需要做什么。',
-          en: 'Help me earn the bank stamp — what do I need to do?',
+          zh: '房东让我做本人核验，银行那一步要做什么？能不能用 PDF 流水代替？',
+          en: 'A landlord asked me to verify. What happens in the bank step, and can I send PDF statements instead?',
         },
       },
     },
@@ -380,7 +352,7 @@ export default function TenantPassport() {
           {
             label: zh ? '分享链接被查看' : 'Share link views',
             value: zh ? '7 次' : '7',
-            sub: zh ? '每次访问都进审计日志' : 'Every view lands in your audit log',
+            sub: zh ? '链接会记下被打开的次数' : 'The link counts how often it is opened',
           },
           {
             label: zh ? '有效授权' : 'Active authorizations',
@@ -528,7 +500,7 @@ export default function TenantPassport() {
                   </div>
                   <div className="mt-2 border-t border-dashed border-line-divider pt-1.5 text-[11.5px] leading-relaxed">
                     <span className="block font-mono text-[9px] tracking-wider text-body-3">
-                      {zh ? '解锁' : 'UNLOCKS'}
+                      {zh ? '房东看到' : 'LANDLORDS SEE'}
                     </span>
                     <span className={t.status === 'done' ? 'text-tenant' : 'text-body-2'}>
                       {zh ? stamp.gain_zh : stamp.gain_en}
@@ -554,8 +526,8 @@ export default function TenantPassport() {
               </h2>
               <p className="mt-1 max-w-[460px] text-[13px] leading-relaxed text-body-2">
                 {zh
-                  ? '房东不在 Stayloop？一条只读链接就够了——对方无需注册，打开即可看到你已盖的章。一本护照，打动所有房东。'
-                  : "Landlord not on Stayloop? One read-only link is all it takes — no sign-up needed on their side. One passport that wins over every landlord."}
+                  ? '房东不在 Stayloop？一条只读链接就够了——对方无需注册，打开即可看到你的姓名缩写和按时付租记录。'
+                  : "Landlord not on Stayloop? One read-only link is all it takes — no sign-up needed on their side; they see your initials and on-time rent record."}
               </p>
 
               {/* Link + copy — real token for logged-in tenants, demo otherwise */}
@@ -638,8 +610,8 @@ export default function TenantPassport() {
                     en: 'Served directly by Stayloop — landlords can verify authenticity, it cannot be forged',
                   },
                   {
-                    zh: '可随时失效 · 每次访问都进审计日志',
-                    en: 'Revoke any time · every view lands in your audit log',
+                    zh: '可随时撤销，撤销后立即失效',
+                    en: 'Revoke any time and it stops working at once',
                   },
                 ].map((b) => (
                   <li key={b.en} className="flex items-start gap-2">
@@ -650,16 +622,6 @@ export default function TenantPassport() {
                   </li>
                 ))}
               </ul>
-            </div>
-
-            {/* QR slot */}
-            <div className="shrink-0 self-center sm:self-start">
-              <div className="mx-auto flex h-[104px] w-[104px] items-center justify-center rounded-xl border border-line-divider bg-white p-3 text-body">
-                <QrPlaceholder />
-              </div>
-              <div className="mt-2 text-center font-mono text-[10px] tracking-wide text-body-3">
-                {zh ? '看房现场出示' : 'Show at viewings'}
-              </div>
             </div>
           </div>
         </SectionCard>
@@ -987,9 +949,9 @@ function Aside({ lang, insights }: { lang: Lang; insights: AIInsight[] }) {
 
       <AsideBlock title={zh ? '护照怎么用' : 'HOW TO USE IT'}>
         <ul className="space-y-2 text-[12.5px] leading-relaxed text-body-2">
-          <li>{zh ? '· 申请房源时自动附上，房东无需再要材料' : '· Attached automatically when you apply — landlords stop asking for documents'}</li>
-          <li>{zh ? '· 房东不在 Stayloop？发只读链接或现场出示二维码' : '· Landlord not on Stayloop? Send the read-only link or show the QR at the viewing'}</li>
-          <li>{zh ? '· 授权随时可撤回，每次访问都进审计日志' : '· Revoke any authorization at any time — every view lands in your audit log'}</li>
+          <li>{zh ? '· 在本页生成只读分享链接，发给下一个房东' : '· Create a read-only share link on this page and send it to your next landlord'}</li>
+          <li>{zh ? '· 房东不在 Stayloop 也能打开，只显示姓名缩写和按时付租记录' : '· Landlords who are not on Stayloop can open it too; it shows only your initials and on-time rent record'}</li>
+          <li>{zh ? '· 链接随时可撤销，撤销后立即失效' : '· Revoke the link any time and it stops working at once'}</li>
         </ul>
       </AsideBlock>
     </div>

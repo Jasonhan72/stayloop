@@ -23,30 +23,12 @@ import type { PendingAction } from '@/lib/agent/types'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-// Six-dimension display config — weights/colors match the scoring engine
-// (app/api/ai-score/route.ts WEIGHTS) and the design volumes.
-const DIM_META = [
-  { key: 'doc_authenticity', col: 'doc_authenticity_score', name: { zh: '证件真实性', en: 'ID authenticity' }, w: 20, color: '#00ACE4' },
-  { key: 'payment_ability', col: 'payment_ability_score', name: { zh: '支付能力', en: 'Ability to pay' }, w: 20, color: '#047857' },
-  { key: 'court_records', col: 'court_records_score', name: { zh: '法庭记录', en: 'Court records' }, w: 20, color: '#DC2626' },
-  { key: 'stability', col: 'stability_score', name: { zh: '稳定性', en: 'Stability' }, w: 15, color: '#2563EB' },
-  { key: 'behavior_signals', col: 'behavior_signals_score', name: { zh: '行为信号', en: 'Behavioral signals' }, w: 13, color: '#D97706' },
-  { key: 'info_consistency', col: 'info_consistency_score', name: { zh: '信息一致性', en: 'Information consistency' }, w: 12, color: '#0B0B0E' },
-] as const
-
 const FILE_KIND_LABEL: Record<string, string> = {
   id: 'ID',
   paystub: 'PAY',
   bank_statement: 'BANK',
   employment_letter: 'EMP',
   other: 'DOC',
-}
-
-// One-sentence AI advice for the report summary band. Splits on sentence
-// enders that can't be decimals ("4.2×" survives).
-function firstSentence(s: string): string {
-  const m = s.match(/^.*?(?:。|！|？|\.\s|!\s|\?\s)/)
-  return (m ? m[0] : s).trim()
 }
 
 function formatSize(bytes: number): string {
@@ -275,7 +257,6 @@ function RealApplicantDetail({ id }: { id: string }) {
   const linkedScored = !!linked && linked.status === 'scored' && typeof linked.ai_score === 'number'
   const scored = app.ai_score != null || linkedScored
   const overall = app.ai_score ?? (linkedScored ? linked!.ai_score : null)
-  const notes = (app.ai_dimension_notes ?? {}) as Record<string, unknown>
   const recommended = app.status === 'approved' || (overall != null && overall >= 75 && app.status !== 'declined')
   // Stamps mean applicant-authorised third-party verification (Veriff /
   // Flinks / Equifax on the linked screening) — never "files were uploaded".
@@ -333,31 +314,7 @@ function RealApplicantDetail({ id }: { id: string }) {
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        {app.ai_score != null ? (
-          <div className="self-start">
-            <ApplicantReport
-              lang={lang}
-              score={app.ai_score!}
-              dims={DIM_META.map(
-                (d): ReportDim => ({
-                  key: d.key,
-                  name: d.name,
-                  val: (app[d.col] as number | null) ?? 0,
-                  w: d.w,
-                  color: d.color,
-                  note: typeof notes[d.key] === 'string' ? (notes[d.key] as string) : null,
-                }),
-              )}
-              aiLine={summaryFor(linked ?? app, zh) || app.ai_summary ? firstSentence(summaryFor(linked ?? app, zh) || app.ai_summary || '') : null}
-              ltbCount={app.ltb_records_found}
-              incomeRatio={
-                app.monthly_income != null && app.listing?.monthly_rent
-                  ? app.monthly_income / app.listing.monthly_rent
-                  : null
-              }
-            />
-          </div>
-        ) : linkedScored && linked ? (
+        {linkedScored && linked ? (
           <div className="sl-card self-start p-7">
             <div className="flex items-baseline justify-between">
               <h2 className="text-[18px] font-bold tracking-tight">{zh ? '筛查评分' : 'Screening score'}</h2>
@@ -380,16 +337,18 @@ function RealApplicantDetail({ id }: { id: string }) {
         ) : (
           <div className="sl-card p-7">
             <div className="flex items-baseline justify-between">
-              <h2 className="text-[18px] font-bold tracking-tight">{zh ? '六维 AI 评分' : 'Six-dimension AI score'}</h2>
+              <h2 className="text-[18px] font-bold tracking-tight">{zh ? '筛查评分' : 'Screening score'}</h2>
               <div className="text-right">
                 <div className="font-mono text-[40px] font-extrabold leading-none text-brand">—</div>
                 <div className="font-mono text-[10.5px] uppercase text-body-3">/100</div>
               </div>
             </div>
             <p className="mt-6 rounded-lg bg-surface-chip px-4 py-6 text-center text-[13px] text-body-2">
-              {zh
-                ? 'AI 评分尚未完成 — 材料上传后会自动跑六维尽调，通常几分钟内出分。'
-                : 'AI scoring has not completed yet — the six-dimension check runs automatically after documents upload, usually within minutes.'}
+              {linked
+                ? (zh ? '筛查已经发起，还没有出分。点「查看筛查报告」看进度。' : 'A screening has started but has no score yet — open the screening report to see its progress.')
+                : zh
+                  ? '还没有筛查。点「一键筛查」，按付款能力、信用、租务与司法历史、核验四项打分，通常几分钟出报告。'
+                  : 'Not screened yet. Use “Screen with the submitted documents”: it scores ability to pay, credit, rental and legal history, and verification, usually within minutes.'}
             </p>
           </div>
         )}
@@ -536,19 +495,20 @@ function RealApplicantDetail({ id }: { id: string }) {
 
 // Design-canon walkthrough fixture (Mia Chen) — reachable only via the
 // non-UUID sample ids on the list page's zero-data fallback.
+// The four scored items of the real report (lib/screening/rubric.ts RUBRIC_WEIGHTS 42 / 26 / 20 / 12);
+// weighted, these values give the 92 shown. Until 2026-09-28 this sample had six V4 dimensions and
+// named identity and bank vendors the product does not use.
 const DIMS = [
-  { key: 'doc_authenticity', name: { zh: '证件真实性', en: 'ID authenticity' }, val: 96, w: 20, color: '#00ACE4', note: { zh: '护照 + 自拍均通过 · 与 Persona DB 100% 匹配', en: 'Passport + selfie both passed · 100% match against Persona DB' } },
-  { key: 'payment_ability', name: { zh: '支付能力', en: 'Ability to pay' },   val: 91, w: 20, color: '#047857', note: { zh: 'Flinks 直连 · DTI 30.8% · 6 个月最低存款 $18,400', en: 'Flinks linked · DTI 30.8% · 6-month low balance $18,400' } },
-  { key: 'court_records', name: { zh: '法庭记录', en: 'Court records' },   val: 100, w: 20, color: '#DC2626', note: { zh: 'CanLII / LTB 无任何相关记录', en: 'No related records on CanLII / LTB' } },
-  { key: 'stability', name: { zh: '稳定性', en: 'Stability' },     val: 87, w: 15, color: '#2563EB', note: { zh: 'RBC 工作 2.4 年 · 现地址 1.2 年', en: '2.4 yrs at RBC · 1.2 yrs at current address' } },
-  { key: 'behavior_signals', name: { zh: '行为信号', en: 'Behavioral signals' },   val: 88, w: 13, color: '#D97706', note: { zh: '上家房东评价 5/5 · 无违规', en: 'Prior landlord rating 5/5 · no violations' } },
-  { key: 'info_consistency', name: { zh: '信息一致性', en: 'Information consistency' }, val: 95, w: 12, color: '#0B0B0E', note: { zh: '所有字段在 4 份资料中一致 · 0 异常', en: 'All fields consistent across 4 documents · 0 anomalies' } },
+  { key: 'ability_to_pay', name: { zh: '付款能力', en: 'Ability to pay' }, val: 91, w: 42, color: '#047857', note: { zh: '工资单与在职信互证 · 流水里有稳定工资入账', en: 'Pay stubs and employment letter agree · steady payroll deposits on the statements' } },
+  { key: 'credit_health', name: { zh: '信用', en: 'Credit' }, val: 88, w: 26, color: '#00ACE4', note: { zh: '征信 742 · 无逾期 · 12 个月内 1 次硬查询', en: 'Credit 742 · no delinquencies · 1 hard inquiry in 12 months' } },
+  { key: 'rental_history', name: { zh: '租务与司法历史', en: 'Rental & legal history' }, val: 100, w: 20, color: '#DC2626', note: { zh: '安省法院门户与 LTB 判令目录均未查到 · 上任房东可致电', en: 'Nothing found on the Ontario courts portal or LTB order catalogue · previous landlord reachable' } },
+  { key: 'verification', name: { zh: '核验', en: 'Verification' }, val: 95, w: 12, color: '#2563EB', note: { zh: '证件由 Veriff 核实 · 4 份材料信息一致', en: 'ID checked by Veriff · 4 documents consistent' } },
 ]
 
 const FILES = [
   { name: 'passport.pdf',     type: 'ID',     size: '1.2 MB', date: { zh: '2 天前', en: '2 days ago' } },
   { name: 'paystub-may.pdf',  type: 'PAY',    size: '320 KB', date: { zh: '2 天前', en: '2 days ago' } },
-  { name: 'plaid-bank.pdf',   type: 'BANK',   size: '500 KB', date: { zh: '2 天前', en: '2 days ago' } },
+  { name: 'bank-statement.pdf', type: 'BANK',   size: '500 KB', date: { zh: '2 天前', en: '2 days ago' } },
   { name: 'rbc-letter.pdf',   type: 'EMP',    size: '180 KB', date: { zh: '2 天前', en: '2 days ago' } },
 ]
 
@@ -597,8 +557,8 @@ function DemoApplicantDetail({ id }: { id: string }) {
             dims={DIMS.map((d): ReportDim => ({ ...d, note: d.note[lang] }))}
             aiLine={
               lang === 'zh'
-                ? 'Mia 在六个维度全部超过你的政策门槛，收入约为租金的 4.0 倍，行为信号无负面记录。'
-                : 'Mia clears your policy threshold on all six dimensions, earns about 4.0× the rent, and shows no negative behavioural signals.'
+                ? 'Mia 的四项评分都在参考区间内，没有负面租务记录；收入约为租金的 4.0 倍（仅供参考，非拒绝依据）。'
+                : 'Mia’s four scores all sit in the reference range and there is no negative rental history; income is about 4.0× the rent (information only, never grounds to decline).'
             }
             ltbCount={0}
             incomeRatio={4.0}
@@ -610,20 +570,20 @@ function DemoApplicantDetail({ id }: { id: string }) {
             <h3 className="text-[15px] font-bold tracking-tight">{lang === 'zh' ? `${aiName} 建议` : `${aiName} recommends`}</h3>
             <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
               {lang === 'zh'
-                ? 'Mia 在六个维度全部超过你的政策门槛, 行为信号无负面记录, 与你过去 12 个月签的 7 位已盖银行章租客的 profile 高度相似 (88% 续签 / 0 投诉)。'
-                : 'Mia clears your policy threshold on all six dimensions, has no negative behavioral signals, and closely matches the profile of the 7 bank-stamped tenants you signed over the past 12 months (88% renewed / 0 complaints).'}
+                ? 'Mia 材料齐全，四项评分都在参考区间内，没有负面租务记录。录取与否由你决定。'
+                : 'Mia’s file is complete; all four scores sit in the reference range, with no negative rental history. The decision is yours.'}
             </p>
             <p className="mt-2 text-[13px] font-semibold text-brand">
               {lang === 'zh'
-                ? '建议: 批看房，看完后请她盖上银行章给你完整收入证据，再决定签约。'
-                : 'Suggestion: approve the showing, then ask her to earn the bank stamp for full income evidence before deciding on the lease.'}
+                ? '建议：先批看房；决定前可以请她完成本人核验（银行一步约 5 分钟），补齐收入证据。'
+                : 'Suggestion: approve the showing first; before you decide, you can ask her to complete the applicant verification (the bank step takes about 5 minutes).'}
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <Link
                 href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '批准【申请人】的看房请求，安排【时间】' : 'Approve 【applicant】’s showing request for 【time】')}`}
                 className="sl-btn-primary !py-[12px] text-center"
               >
-                {lang === 'zh' ? '✓ 批准看房 · 派 David' : '✓ Approve showing · assign David'}
+                {lang === 'zh' ? '✓ 批准看房' : '✓ Approve showing'}
               </Link>
               <Link href={`/landlord/leases/new?application_id=${id}`} className="sl-btn-secondary text-center">
                 {lang === 'zh' ? '📄 起草租约' : '📄 Draft lease'}
@@ -631,7 +591,7 @@ function DemoApplicantDetail({ id }: { id: string }) {
               <Link
                 href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '请【申请人】补充【材料，如银行流水 / 在职信】' : 'Ask 【applicant】 to provide 【documents — bank statements / employment letter】')}`}
                 className="sl-btn-secondary text-center"
-              >{lang === 'zh' ? '★★★ 请她盖银行章' : '★★★ Ask her to earn the bank stamp'}</Link>
+              >{lang === 'zh' ? '请她完成本人核验' : 'Ask her to verify'}</Link>
               <Link
                 href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我给【申请人】写一封邮件，问【入住时间 / 材料】' : 'Draft an email to 【applicant】 about 【move-in timing / documents】')}`}
                 className="sl-btn-secondary text-center"

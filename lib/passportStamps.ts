@@ -18,7 +18,8 @@ export interface StampDef {
   /** 验了什么 */
   what_zh: string
   what_en: string
-  /** 解锁什么 */
+  /** 房东看到什么 — what the landlord sees once this step is verified (2026-09-28: was 「解锁」, but a stamp
+   *  gates no listing and no queue; the 42% figure had no source) */
   gain_zh: string
   gain_en: string
   /** 预计耗时（用于「下一枚」提示） */
@@ -38,8 +39,8 @@ export const STAMPS: StampDef[] = [
     en: 'Identity stamp',
     what_zh: '法定姓名 · 证件 · 联系方式',
     what_en: 'Legal name · ID · contact',
-    gain_zh: '可申请全部公开房源',
-    gain_en: 'Apply to all public listings',
+    gain_zh: '经 Veriff 核实的姓名与证件（只留证件末四位）',
+    gain_en: 'Name and ID checked by Veriff (only the last four digits kept)',
     est_zh: '约 90 秒',
     est_en: '~90 seconds',
   },
@@ -51,8 +52,8 @@ export const STAMPS: StampDef[] = [
     en: 'Income stamp',
     what_zh: '月收入 · 雇主 · 工作年限',
     what_en: 'Monthly income · employer · tenure',
-    gain_zh: '申请卡直接展示收入可信度',
-    gain_en: 'Income credibility shown on your application card',
+    gain_zh: '收入与雇主来自文件互证，不是自述',
+    gain_en: 'Income and employer from cross-checked documents, not self-reported',
   },
   {
     key: 'bank',
@@ -62,8 +63,8 @@ export const STAMPS: StampDef[] = [
     en: 'Bank stamp',
     what_zh: '现金流稳定性 · 退款记录',
     what_en: 'Cash-flow stability · NSF history',
-    gain_zh: '多 42% 房源 · 房东审批更快',
-    gain_en: '42% more listings · faster landlord approvals',
+    gain_zh: '入账与退票记录的摘要，不含原始流水',
+    gain_en: 'A summary of deposits and NSFs, never the raw statements',
     est_zh: '约 5 分钟',
     est_en: '~5 minutes',
   },
@@ -75,8 +76,8 @@ export const STAMPS: StampDef[] = [
     en: 'Credit + court stamp',
     what_zh: '信用分 · LTB 记录',
     what_en: 'Credit score · LTB records',
-    gain_zh: '竞争房源的快速通道',
-    gain_en: 'Fast lane on competitive listings',
+    gain_zh: '信用分档与 LTB 判令目录检索结果',
+    gain_en: 'Credit band and the LTB order catalogue result',
   },
 ]
 

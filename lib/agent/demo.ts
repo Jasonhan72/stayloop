@@ -50,9 +50,9 @@ const DEMO_ZH: Record<AgentRole, RoleDemo> = {
     stage: 'decision',
     completed: ['intake', 'review_inbox', 'screening'],
     memories: [
-      { key: 'min_tier', label: '盖章门槛', value: { value: '默认 需收入章 起申 · Unit 1207 提至 需银行章' }, confidence: 1, memory_type: 'preference' },
-      { key: 'min_credit', label: 'CREDIT', value: { value: '最低 720 · 低于自动降级提示' }, confidence: 1, memory_type: 'constraint' },
-      { key: 'dti', label: 'DTI', value: { value: '租金 / 收入 ≤ 35%' }, confidence: 1, memory_type: 'constraint' },
+      { key: 'review_order', label: '看申请的顺序', value: { value: '先看材料齐全的，再按递交时间' }, confidence: 1, memory_type: 'preference' },
+      { key: 'decide_self', label: '决定', value: { value: '录取与婉拒都由我本人决定，理由写清楚' }, confidence: 1, memory_type: 'constraint' },
+      { key: 'income_note', label: '收入', value: { value: '收入倍数只作参考，不设门槛（OHRC）' }, confidence: 1, memory_type: 'constraint' },
       { key: 'pets', label: 'PETS', value: { value: '猫 ✓ · 狗仅小型（宠物押金在 Ontario 违法）' }, confidence: 0.9, memory_type: 'preference' },
       { key: 'term', label: 'TERM', value: { value: '12 个月起 · 拒绝 < 6 个月' }, confidence: 1, memory_type: 'preference' },
     ],
@@ -73,7 +73,7 @@ const DEMO_ZH: Record<AgentRole, RoleDemo> = {
     ],
     result: {
       title: 'Unit 1207 收到 8 份询盘,我建议先看 3 份',
-      body: '已按你设的 需银行章 / 信用 ≥ 720 / DTI ≤ 35% 筛过:3 份完整匹配,1 份只盖到收入章但材料齐全可破例,4 份不达标。',
+      body: '按材料齐全和递交时间整理好了:3 份材料齐全,可以先筛查;4 份还缺在职信或流水;1 份刚递交。录取与否由你决定。',
     },
   },
 
@@ -147,9 +147,9 @@ const DEMO_EN: Record<AgentRole, RoleDemo> = {
     stage: 'decision',
     completed: ['intake', 'review_inbox', 'screening'],
     memories: [
-      { key: 'min_tier', label: 'Stamp threshold', value: { value: 'Default: income stamp to apply · Unit 1207 raised to bank stamp' }, confidence: 1, memory_type: 'preference' },
-      { key: 'min_credit', label: 'CREDIT', value: { value: 'Min 720 · below triggers auto-downgrade notice' }, confidence: 1, memory_type: 'constraint' },
-      { key: 'dti', label: 'DTI', value: { value: 'Rent / income ≤ 35%' }, confidence: 1, memory_type: 'constraint' },
+      { key: 'review_order', label: 'Review order', value: { value: 'Complete files first, then by submission time' }, confidence: 1, memory_type: 'preference' },
+      { key: 'decide_self', label: 'Decisions', value: { value: 'I decide every approval and decline myself, with the reason written down' }, confidence: 1, memory_type: 'constraint' },
+      { key: 'income_note', label: 'Income', value: { value: 'Income multiple is information only, never a cutoff (OHRC)' }, confidence: 1, memory_type: 'constraint' },
       { key: 'pets', label: 'PETS', value: { value: 'Cats ✓ · small dogs only (pet deposits are illegal in Ontario)' }, confidence: 0.9, memory_type: 'preference' },
       { key: 'term', label: 'TERM', value: { value: '12 months minimum · reject < 6 months' }, confidence: 1, memory_type: 'preference' },
     ],
@@ -170,7 +170,7 @@ const DEMO_EN: Record<AgentRole, RoleDemo> = {
     ],
     result: {
       title: 'Unit 1207 got 8 inquiries — I suggest starting with 3',
-      body: 'Filtered by your bank-stamp / credit ≥ 720 / DTI ≤ 35% rules: 3 full matches, 1 with only the income stamp but complete enough for an exception, 4 below the bar.',
+      body: 'Sorted by completeness and submission time: 3 complete files ready to screen, 4 still missing an employment letter or statements, 1 just in. The decision is yours.',
     },
   },
 

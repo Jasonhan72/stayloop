@@ -81,7 +81,9 @@ describe('Pro gate on the curated network', () => {
     expect(server).toMatch(/if \(network\) for \(const p of/)
   })
   it('pricing page says so, and that Stayloop takes no commission', () => {
-    const pricing = readFileSync('app/pricing/page.tsx', 'utf8')
+    // the plan lists live in lib/billing/landlordPlans.ts since 2026-09-28 (one list for /pricing, the dashboard dialog and /settings)
+    const pricing = readFileSync('lib/billing/landlordPlans.ts', 'utf8')
+    expect(readFileSync('app/pricing/page.tsx', 'utf8')).toContain('features: LANDLORD_PRO.features')
     expect(pricing).toContain('维修工单 + 派给你自己的联系人')
     expect(pricing).toMatch(/已核验服务商网络 \+ 派单策略[^']*不抽成/)
   })

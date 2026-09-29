@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     monthlyRent: listing?.monthly_rent ?? null,
     monthlyIncome: app.monthly_income ?? null,
     fileCount: files.length,
-    dashboardUrl: `${siteUrl}/dashboard/applications/${app.id}`,
+    dashboardUrl: `${siteUrl}/landlord/applicants/${app.id}`,
   })
 
   const result = await sendEmail({

@@ -41,7 +41,7 @@ import {
 
 const SLOT_META: Record<ModelSlot, { zh: string; en: string; descZh: string; descEn: string }> = {
   turn: { zh: '对话推理', en: 'Agent reasoning', descZh: 'AI 助理的每轮对话（/api/agent/turn）', descEn: 'Every AI Agent turn (/api/agent/turn)' },
-  screening: { zh: '筛查评分', en: 'Screening score', descZh: '六维评分 + 整体一致性审查（/api/screen-score）', descEn: 'Six-dimension scoring + coherence review (/api/screen-score)' },
+  screening: { zh: '筛查评分', en: 'Screening score', descZh: '四项评分 + 整体一致性审查（/api/screen-score）', descEn: 'Four scored items + coherence review (/api/screen-score)' },
   classify: { zh: '材料分类', en: 'File classification', descZh: '上传材料分类与租金抽取（/api/classify-files）', descEn: 'Upload classification + rent extraction (/api/classify-files)' },
   forensics: { zh: '取证抽取', en: 'Forensics extraction', descZh: '工资单数学核验 / 图片 OCR / 信用报告真伪判别（lib/forensics）', descEn: 'Paystub math, image OCR, credit-report judge (lib/forensics)' },
 }

@@ -106,7 +106,7 @@ export function buildRecommendations(
   switch (role) {
     case 'tenant':
       return [
-        { id: 'passport', title: { zh: '盖上收入章解锁更多房源', en: 'Earn your income stamp to unlock more homes' }, description: { zh: '上传一张工资单或连接 Flinks 银行直连,约 5 分钟。', en: 'Upload a pay stub or connect your bank via Flinks — about 5 minutes.' }, href: '/tenant/passport', badge: 'NUDGE' },
+        { id: 'passport', title: { zh: '备好收入材料', en: 'Get your income documents ready' }, description: { zh: '工资单、在职信和近 3 个月流水放在一起，房东要时一次交齐。', en: 'Keep pay stubs, the employment letter and 3 months of statements together so you can send them in one go.' }, href: '/tenant/passport', badge: 'NUDGE' },
         { id: 'browse', title: { zh: '看 AI 今天筛的房源', en: "See today's AI-screened listings" }, description: { zh: '已按你的预算与区域过滤。', en: 'Filtered by your budget and area.' }, href: '/listings', badge: 'SHORTLIST' },
         { id: 'apps', title: { zh: '查看申请进度', en: 'Track application progress' }, description: { zh: '跟踪每份意向与房东回应。', en: 'Follow each application and landlord response.' }, href: '/tenant/applications', badge: 'STATUS' },
       ]

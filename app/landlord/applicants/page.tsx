@@ -380,8 +380,8 @@ export default function LandlordApplicantsPage() {
                 ? '按阶段分组：待筛查 → 待决定 → 已决定。评分仅供参考，录取由你决定。'
                 : 'Grouped by stage: to screen → scored, your decision → decided. The score is information only; you decide. Open any application for the documents and the full report.'
               : lang === 'zh'
-                ? '按你的 需银行章 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。'
-                : 'Sorted into 3 groups by your policy (bank stamp required / credit ≥ 720 / DTI ≤ 35%). Open any application to see the full six-dimension score and documents.'}
+                ? '按你的 需银行章 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整评分报告与文件。'
+                : 'Sorted into 3 groups by your policy (bank stamp required / credit ≥ 720 / DTI ≤ 35%). Open any application to see the full screening report and documents.'}
             {!liveMode && rows !== null && (
               <span className="ml-2 font-mono text-[11px] uppercase tracking-wider text-body-3">
                 {lang === 'zh' ? '样本数据 · 收到真实申请后自动替换' : 'Sample data · replaced when real applications arrive'}

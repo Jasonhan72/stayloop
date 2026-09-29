@@ -364,8 +364,8 @@ const STAMPS: IntakeSpec = {
     const all = q.has('which', 'all') || !q.pick('which')
     const which = q.said('which')
     const why = q.said('why')
-    if (zh) return `我现在盖了几枚章？${all ? '每一枚' : `我想先盖「${which}」`}：怎么盖、要准备什么、盖上后能解锁什么？${why ? `我${why}。` : ''}`
-    return `How many stamps do I have? ${all ? 'For each stamp' : `For the ${which}`}: how do I earn it, what do I need, and what does it unlock?${why ? ` I am ${why.toLowerCase()}.` : ''}`
+    if (zh) return `我现在盖了几枚章？${all ? '每一枚' : `我想先盖「${which}」`}：怎么盖、要准备什么、盖上后房东能看到什么？${why ? `我${why}。` : ''}`
+    return `How many stamps do I have? ${all ? 'For each stamp' : `For the ${which}`}: how do I earn it, what do I need, and what will a landlord see?${why ? ` I am ${why.toLowerCase()}.` : ''}`
   },
 }
 

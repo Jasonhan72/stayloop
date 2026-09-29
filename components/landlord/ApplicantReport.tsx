@@ -1,11 +1,13 @@
 'use client'
 
-// SingleKey-style sectioned screening report for the landlord applicant
-// detail page: summary band first (big score + verdict + one-line AI
-// advice + red-flag chips), then named section blocks (identity / income /
-// court / stability / consistency) each with a conclusion phrase and
-// expandable per-dimension detail. Pure presentation — feeds off the
-// existing six-dimension scores + ai_dimension_notes.
+// SingleKey-style sectioned screening report, used by the sample applicant
+// page: summary band first (big score + verdict + one-line AI advice +
+// red-flag chips), then one block per scored item. The items are the real
+// report's four (lib/screening/rubric.ts — ability to pay, credit, rental and
+// legal history, verification); until 2026-09-28 this showed six V4
+// dimensions, flagged income under 3× rent as a red flag (a cutoff the OHRC
+// rental policy rules out) and called the court check a "CanLII search"
+// (CanLII cannot be searched by name).
 
 type Bi = { zh: string; en: string }
 
@@ -19,11 +21,10 @@ export type ReportDim = {
 }
 
 const SECTIONS: { id: string; icon: string; title: Bi; keys: string[] }[] = [
-  { id: 'identity',    icon: '🪪', title: { zh: '身份与材料真伪', en: 'Identity & document authenticity' }, keys: ['doc_authenticity'] },
-  { id: 'income',      icon: '💰', title: { zh: '收入与支付能力', en: 'Income & ability to pay' },          keys: ['payment_ability'] },
-  { id: 'court',       icon: '⚖️', title: { zh: '法庭记录',       en: 'Court records' },                    keys: ['court_records'] },
-  { id: 'stability',   icon: '📈', title: { zh: '稳定性与行为',   en: 'Stability & behaviour' },            keys: ['stability', 'behavior_signals'] },
-  { id: 'consistency', icon: '🔍', title: { zh: '信息一致性',     en: 'Information consistency' },          keys: ['info_consistency'] },
+  { id: 'income',       icon: '💰', title: { zh: '付款能力',       en: 'Ability to pay' },         keys: ['ability_to_pay'] },
+  { id: 'credit',       icon: '📊', title: { zh: '信用',           en: 'Credit' },                 keys: ['credit_health'] },
+  { id: 'rental',       icon: '⚖️', title: { zh: '租务与司法历史', en: 'Rental & legal history' }, keys: ['rental_history'] },
+  { id: 'verification', icon: '🪪', title: { zh: '核验',           en: 'Verification' },           keys: ['verification'] },
 ]
 
 function band(score: number): { label: Bi; cls: string } {
@@ -72,23 +73,21 @@ export default function ApplicantReport({
     if (d.val < 60) flags.push({ zh: `${d.name.zh}偏低 · ${d.val}/100`, en: `${d.name.en} low · ${d.val}/100` })
   }
   if (ltbCount != null && ltbCount > 0) {
-    flags.push({ zh: `LTB 法庭记录 ${ltbCount} 起`, en: `${ltbCount} LTB court record${ltbCount > 1 ? 's' : ''}` })
+    flags.push({ zh: `LTB 判令 ${ltbCount} 条`, en: `${ltbCount} LTB order${ltbCount > 1 ? 's' : ''}` })
   }
-  if (incomeRatio != null && incomeRatio < 3) {
-    flags.push({ zh: `收入仅 ${incomeRatio.toFixed(1)}× 租金 · 建议 ≥ 3×`, en: `Income only ${incomeRatio.toFixed(1)}× rent · 3× recommended` })
-  }
+  // No income-to-rent flag: the ratio is shown as information only (OHRC rental policy).
 
   // Section-level extra fact lines beyond the dimension notes.
   const extras: Record<string, Bi | null> = {
     income:
       incomeRatio != null
-        ? { zh: `月收入约为租金的 ${incomeRatio.toFixed(1)} 倍`, en: `Monthly income is about ${incomeRatio.toFixed(1)}× the rent` }
+        ? { zh: `月收入约为租金的 ${incomeRatio.toFixed(1)} 倍（仅供参考，非拒绝依据）`, en: `Monthly income is about ${incomeRatio.toFixed(1)}× the rent (information only, never grounds to decline)` }
         : null,
-    court:
+    rental:
       ltbCount != null
         ? ltbCount === 0
-          ? { zh: 'CanLII / LTB 检索：0 起相关记录', en: 'CanLII / LTB search: 0 related records' }
-          : { zh: `CanLII / LTB 检索：${ltbCount} 起相关记录`, en: `CanLII / LTB search: ${ltbCount} related record${ltbCount > 1 ? 's' : ''}` }
+          ? { zh: '安省法院门户与 LTB 判令目录：未查到', en: 'Ontario courts portal and LTB order catalogue: nothing found' }
+          : { zh: `LTB 判令目录：${ltbCount} 条同名判令，请打开报告核对`, en: `LTB order catalogue: ${ltbCount} order${ltbCount > 1 ? 's' : ''} under this name — open the report to check` }
         : null,
   }
 
@@ -97,7 +96,7 @@ export default function ApplicantReport({
       {/* Summary band — conclusion before detail (SingleKey report order). */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h2 className="text-[18px] font-bold tracking-tight">{zh ? '六维尽调报告' : 'Six-dimension screening report'}</h2>
+          <h2 className="text-[18px] font-bold tracking-tight">{zh ? '筛查报告 · 四项评分' : 'Screening report · four scores'}</h2>
           <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{aiLine || fallbackAdvice(score)[lang]}</p>
         </div>
         <div className="flex items-center gap-3">
@@ -118,7 +117,7 @@ export default function ApplicantReport({
         </span>
         {flags.length === 0 ? (
           <span className="rounded-md bg-success/10 px-2.5 py-1 text-[11.5px] font-semibold text-success">
-            {zh ? '✓ 未发现红旗 · 六维均过阈值' : '✓ No red flags · all six dimensions clear'}
+            {zh ? '✓ 未发现红旗 · 四项评分都在参考区间' : '✓ No red flags · all four scores in the reference range'}
           </span>
         ) : (
           flags.map((f) => (
