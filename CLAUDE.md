@@ -2718,6 +2718,19 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   `PROVIDER_ACCENT = #C2410C`（橙，`lib/roleTheme.ts`），页头、芯片、身份列表里服务商两行的图标底色、`/onboarding/name` 身份选择卡都用它；未认证的经纪行显示
   「当前 · 未认证」，未入驻的服务商行显示「当前 · 未入驻」。
 
+## 租客筛查只给房东或经纪用（2026-09-29 · 用户「租客筛选功能需要房东或者经纪的角色才可以使用，这个你研究一下怎么做？」）
+
+**研究结论**：页面层早就分流了——`/screening` 的按钮按帽子分（纯租客看到「先备好材料包」+「我也是房东 · 开通后开始筛查」），`/screening/app` 对没有房东帽子的账号
+送去 `/landlord/become`，经纪模式没有客户确认、允许筛查的委托就不建记录。**漏的是服务端**：`screenings` 的插入策略只查 `auth.uid() = landlord_id`，任何登录账号都能直接
+经接口建自己的筛查并送去评分；测试月里 `/api/deep-check` 对任何登录账号开放、还能只凭输入的姓名跑。生产 234 份筛查里 47 份属于既无房东帽子又无委托的账号
+（40 份的账号已不存在、1 份是租客测试号、6 份属于 2 个只有租客身份的真实账号，0 份属于经纪）——**存量不动**，只拦新的。
+**规则（`lib/screening/roleGate.ts` 一处）**：房东帽子（landlords 行，`/landlord/become` 免费显式开通）、或在客户委托下的经纪（委托只为 RECO 注册有效的经纪建立，
+建记录时由 `guard_screening_delegation` 校验，RLS 只在委托有效期内让经纪读到该记录）、或管理员。**四处服务端执行**：① 表触发器 `guard_screening_role`
+（迁移 `20260929_screening_role_gate.sql`，已应用 prod；BEFORE INSERT、SECURITY INVOKER、`is_direct_client_write()` 才检查，service role 写入与管理员放行，
+带 `delegation_id` 的交给委托守卫，否则要求 `my_hats().landlord`，拒绝时抛 `screening_requires_landlord_or_agent`）——回滚事务实测：纯租客拒、房东过、无委托经纪拒、
+有效委托经纪过、service role 过；② `/api/screen-score` 读到记录后、任何写入之前（合作方密钥与委托记录放行）；③ `/api/deep-check` 的门里、**测试月放行之前**；
+④ `/api/verify/create` 在计划检查之前。筛查页把表的拒绝翻成人话（开通房东身份的指引）。守卫 `tests/screeningRoleGate20260929.spec.ts`。
+
 ## 首页讲一个故事（2026-09-28 · 用户看到动画上线后：「动画和这个图片重复了…去掉这个图片，以及其他地方的重复内容。要整体检查一下这个营销首页，要把 stayloop 的故事讲清晰和简单」）
 
 动画上线后同一件事在首页讲了好几遍：「会影响到别人的动作先经你批准」讲了 6 遍（hero 导语、动画导语、「它提议，你决定」一节的导语 + 静态审批卡 + 四步、

@@ -48,6 +48,7 @@ import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 import { underHourlyLimit } from '@/lib/rateLimit'
+import { callerHats, mayScreen, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
 
 function makeServiceClient() {
   return createClient(
@@ -458,6 +459,20 @@ async function enforceProGate(req: Request, screeningId: string | null): Promise
   // the product down). Applies inside and outside the free window.
   if (!(await underHourlyLimit(`deep-check:${userData.user.id}`, 20, true))) {
     return bad('Too many deep checks this hour — please try again later', '本小时深度核查次数已达上限，请稍后再试', 429)
+  }
+
+  // Screening is for landlords and agents (2026-09-29, lib/screening/roleGate.ts): the landlord
+  // hat, an admin, or an agent on a client's delegated screening (RLS lets the agent read that row
+  // only while the delegation is live). Before the free-month bypass: during the test month any
+  // signed-in account — a tenant too — could run deep checks on names it typed in.
+  {
+    const hats = await callerHats(rlsClient)
+    let delegated = false
+    if (!mayScreen(hats, false) && screeningId) {
+      const { data: row } = await rlsClient.from('screenings').select('delegation_id').eq('id', screeningId).maybeSingle()
+      delegated = !!(row as { delegation_id?: string | null } | null)?.delegation_id
+    }
+    if (!mayScreen(hats, delegated)) return bad(SCREENING_ROLE_MESSAGE.en, SCREENING_ROLE_MESSAGE.zh, 403)
   }
 
   // Internal test month: the plan gate is open for every signed-in user.

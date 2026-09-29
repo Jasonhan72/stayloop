@@ -5,6 +5,7 @@ import { hasProAccess } from '@/lib/billing/access'
 import { newVerifyToken } from '@/lib/verify/token'
 import { adminClient } from '@/lib/verify/store'
 import { escapeHtml, sendEmail } from '@/lib/email'
+import { callerHats, mayScreen, SCREENING_ROLE_CODE, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
 
 export const runtime = 'edge'
 
@@ -29,8 +30,12 @@ export async function POST(req: NextRequest) {
     if (!screeningId) return NextResponse.json({ error: 'screening_id required' }, { status: 400 })
 
     // Ownership through RLS: a screening the caller cannot read does not exist.
-    const { data: screening } = await rls.from('screenings').select('id, tenant_name, ai_extracted_name').eq('id', screeningId).maybeSingle()
+    const { data: screening } = await rls.from('screenings').select('id, tenant_name, ai_extracted_name, delegation_id').eq('id', screeningId).maybeSingle()
     if (!screening) return NextResponse.json({ error: 'screening not found' }, { status: 404 })
+    // Screening is for landlords and agents (2026-09-29, lib/screening/roleGate.ts).
+    if (!mayScreen(await callerHats(rls), !!screening.delegation_id)) {
+      return NextResponse.json({ code: SCREENING_ROLE_CODE, error: SCREENING_ROLE_MESSAGE.en, error_zh: SCREENING_ROLE_MESSAGE.zh }, { status: 403 })
+    }
 
     const access = await hasProAccess(rls, user.id, screeningId)
     if (!access.ok) {

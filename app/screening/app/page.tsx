@@ -17,6 +17,7 @@ import { useAuth } from '@/lib/useAuth'
 import { generateScreeningReport } from '@/lib/generateReport'
 import { registryLinks } from '@/lib/forensics/registry-links'
 import { RUBRIC_WEIGHTS } from '@/lib/screening/rubric'
+import { SCREENING_ROLE_DB_ERROR, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
 import type { CanLIIMatch, OntarioPortalMatch, CourtQuery, AiFlag, ScoreResult, V3DimKey } from '@/lib/screening-types'
 
 // ───────────────────────────────────────────────────────── Types ──
@@ -2557,7 +2558,12 @@ export default function ScreenPage() {
         })
         .select('id')
         .single()
-      if (insertErr || !row) throw new Error(insertErr?.message || 'Failed to create screening record')
+      if (insertErr || !row) {
+        // The table refuses accounts that are neither landlords nor agents under a client delegation
+        // (guard_screening_role, 2026-09-29) — say so in words instead of the raw code.
+        if (insertErr?.message?.includes(SCREENING_ROLE_DB_ERROR)) throw new Error(`${SCREENING_ROLE_MESSAGE.zh} / ${SCREENING_ROLE_MESSAGE.en}`)
+        throw new Error(insertErr?.message || 'Failed to create screening record')
+      }
       screeningId = row.id
       setProgress(2)
 

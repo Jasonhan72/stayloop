@@ -42,6 +42,7 @@ import { runCoherenceReview, coherenceToPromptBlock, coherenceToFlags, type Cohe
 import { courtDefendantHitsFromGates, scoreRubric, type RubricFacts, type RubricResult } from '@/lib/screening/rubric'
 import { courtHistoryQualifier, gateCapFor, identityNameVerdict, missingRequiredSections, stringFlags } from '@/lib/screening/scoreGuards'
 import { searchCanliiViaIndex } from '@/lib/screening/canliiIndex'
+import { callerHats, mayScreen, SCREENING_ROLE_CODE, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
 import { V3_WEIGHTS } from '@/lib/screening-types'
 
 export const runtime = 'edge'
@@ -816,6 +817,13 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     }
     if (partnerLandlordId && screening.landlord_id !== partnerLandlordId) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+    // Screening is for landlords and agents (2026-09-29, lib/screening/roleGate.ts). A delegated
+    // row is readable here only by its parties while the delegation is live (RLS), so it passes;
+    // any other row needs the landlord hat. The table refuses new rows from other accounts
+    // (guard_screening_role) — this covers rows made before that rule. Checked before any write.
+    if (!partnerLandlordId && !mayScreen(await callerHats(supabase), !!screening.delegation_id)) {
+      return NextResponse.json({ code: SCREENING_ROLE_CODE, error: `${SCREENING_ROLE_MESSAGE.zh} / ${SCREENING_ROLE_MESSAGE.en}` }, { status: 403 })
     }
     loadedScreeningId = screening.id
     // In-flight guard: a second call for the same row (double click, retry
