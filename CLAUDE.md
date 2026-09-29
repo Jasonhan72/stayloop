@@ -2698,6 +2698,13 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   `LoginCard` 里邮箱那一步的提交函数改名 `continueWithEmail`（原名 `next` 与新 prop 冲突）。
 - **取代** 2026-09-22 外部走查那条「匿名房东起名后去 `/landlord/agent` 预览」与 V0.7「首次登录先选身份」一节里的 `STEP 01/02 · 02/02` 编号：匿名访客现在走不到起名按钮。
   `lib/aiName` 的「未认领」缓存逻辑保留（老浏览器里可能还留着）。
+- **同日跟进：`/login` 与 `/register` 也统一成这一页（用户「把汉堡菜单里的登录，注册页面也统一成刚修改过的登录，注册页面一样的」）**。守卫
+  `tests/authPages20260929.spec.tsx`（真实渲染两页、已登录跳转、匿名会话、注册页的回退）。三处共用 `components/auth/SignInBlock.tsx`（标题 + 一句导语 + 可选备注 +
+  `LoginCard` + 「先不登录，看看预览 →」）；两个路由只剩一行 `<AuthPage mode="signin|register" />`（`components/auth/AuthPage.tsx`：已登录跳转——安全的
+  `?next=` / `?redirect=` 优先，否则 `homeForHats`；匿名会话仍显示表单）。**页头菜单保留**（用户 09-27：找不到页头菜单是坏体验）：`OnboardingStage` 新 prop
+  `bare` 去掉自带的 logo / 步数条，页面上方是站点 Header、下方 Footer。两页只差标题（「登录 Stayloop」/「创建你的 Stayloop 账户」）和**邮箱查询失败时的回退**：
+  `LoginCard` 新 prop `intent`，`/register` 回退到创建账户、其余回退到输密码。旧的「欢迎回来」表单与三栏注册表单已删。顺带：在管租约邀请页 `/join/<token>`
+  的「注册」链接原来不带 `next`，新用户注册后回不到邀请——现在是 `/register?next=/join/<token>`。
 
 ## 首页讲一个故事（2026-09-28 · 用户看到动画上线后：「动画和这个图片重复了…去掉这个图片，以及其他地方的重复内容。要整体检查一下这个营销首页，要把 stayloop 的故事讲清晰和简单」）
 

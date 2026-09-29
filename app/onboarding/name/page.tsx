@@ -2,10 +2,9 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
-import Link from 'next/link'
 import OnboardingStage from '@/components/OnboardingStage'
 import RoleChooser from '@/components/onboarding/RoleChooser'
-import LoginCard from '@/components/home/LoginCard'
+import SignInBlock from '@/components/auth/SignInBlock'
 import { GENERIC_AI_NAME, setAIName, displayAiName, genericAiName, isGenericAiName } from '@/lib/aiName'
 import { saveAssistantName } from '@/lib/agent/assistantProfile'
 import { useAuth } from '@/lib/useAuth'
@@ -221,27 +220,22 @@ function NamePageInner() {
     const next = role ? `/onboarding/name?role=${role}` : '/onboarding/name'
     return (
       <OnboardingStage step={1} totalSteps={total} eyebrow={zh ? 'SIGN IN · 登录' : 'SIGN IN'}>
-        <h1 style={{ fontSize: 'clamp(24px, 6.5vw, 30px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.18 }}>
-          {zh ? '先登录，再设置你的 AI 助理' : 'Sign in to set up your AI Agent'}
-        </h1>
-        <p style={{ fontSize: 14.5, color: '#3F3F46', lineHeight: 1.6, margin: '12px 0 8px' }}>
-          {zh
-            ? '它的名字、记忆和待办都记在你的账户里，换一台设备也还在。第一次来就用邮箱或 Google 免费创建一个账户。'
-            : 'Its name, memory and to-dos live in your account, so they follow you to any device. New here? Create a free account with your email or Google.'}
-        </p>
-        <p style={{ fontSize: 12.5, color: '#71717A', lineHeight: 1.55, margin: '0 0 22px' }} data-testid="onboarding-next-step">
-          {role
-            ? (zh ? `身份：${ROLE_WORD.zh[role]} · 登录后接着给 AI 助理起名` : `Identity: ${ROLE_WORD.en[role]} · naming your AI Agent comes right after`)
-            : (zh ? '登录后选身份，再给 AI 助理起名' : 'After signing in: pick your identity, then name your AI Agent')}
-        </p>
-        <LoginCard next={next} className="mx-auto w-full max-w-[400px]" />
-        <p style={{ fontSize: 12.5, color: '#71717A', lineHeight: 1.6, marginTop: 24 }}>
-          <Link href={ROLE_HOME[role ?? 'tenant']} data-testid="onboarding-preview" style={{ color: '#00ACE4', fontWeight: 600 }}>
-            {zh ? '先不登录，看看预览 →' : 'Look at a preview first →'}
-          </Link>
-          <br />
-          {zh ? '预览不用账户，但不会记住你，也不能替你办事。' : 'The preview needs no account, but it won’t remember you or act for you.'}
-        </p>
+        <SignInBlock
+          zh={zh}
+          next={next}
+          previewHref={ROLE_HOME[role ?? 'tenant']}
+          title={zh ? '先登录，再设置你的 AI 助理' : 'Sign in to set up your AI Agent'}
+          lead={
+            zh
+              ? '它的名字、记忆和待办都记在你的账户里，换一台设备也还在。第一次来就用邮箱或 Google 免费创建一个账户。'
+              : 'Its name, memory and to-dos live in your account, so they follow you to any device. New here? Create a free account with your email or Google.'
+          }
+          note={
+            role
+              ? (zh ? `身份：${ROLE_WORD.zh[role]} · 登录后接着给 AI 助理起名` : `Identity: ${ROLE_WORD.en[role]} · naming your AI Agent comes right after`)
+              : (zh ? '登录后选身份，再给 AI 助理起名' : 'After signing in: pick your identity, then name your AI Agent')
+          }
+        />
       </OnboardingStage>
     )
   }

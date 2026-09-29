@@ -20,7 +20,7 @@ describe('the provider is a landing hat', () => {
   })
   it('the callback and the login page hand the raw remembered hat to homeForHats', () => {
     expect(read('app/auth/callback/page.tsx')).toContain("provider: '/provider/jobs'")
-    expect(read('app/login/page.tsx')).toContain('homeForHats(remembered, data as HatsLite)')
+    expect(read('components/auth/AuthPage.tsx')).toContain('homeForHats(remembered, data as HatsLite)') // /login and /register since 2026-09-29
     const auth = read('lib/useAuth.ts')
     expect(auth).toContain("pathname.startsWith('/provider/')")
     expect(auth).toContain("window.localStorage.setItem(key, 'provider')")

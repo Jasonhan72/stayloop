@@ -146,7 +146,7 @@ export default function JoinInvitePage() {
                     className="flex-1 rounded-lg py-3 text-center text-[14px] font-bold text-white" style={{ background: '#00ACE4' }}>
                     {zh ? '登录后接受' : 'Sign in to accept'}
                   </Link>
-                  <Link href="/register" className="rounded-lg border border-line-divider px-5 py-3 text-[13px] text-body-2">
+                  <Link href={`/register?next=${encodeURIComponent(`/join/${token}`)}`} className="rounded-lg border border-line-divider px-5 py-3 text-[13px] text-body-2">
                     {zh ? '注册' : 'Create account'}
                   </Link>
                 </div>

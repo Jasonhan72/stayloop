@@ -37,7 +37,8 @@ describe('no one-time sign-in link anywhere in the UI', () => {
   it('the invite landing sends people to the regular sign-in, not a link', () => {
     const s = read('app/join/[token]/page.tsx')
     expect(s).toContain('/login?next=')
-    expect(s).toContain('href="/register"')
+    // registering from the invite comes back to it too (2026-09-29)
+    expect(s).toContain('`/register?next=${encodeURIComponent(`/join/${token}`)}`')
     expect(s).not.toMatch(/magicSent|sendMagicLink|免密码|passwordless|登录链接/)
   })
   it('no copy promises a sign-in link', () => {
@@ -45,6 +46,8 @@ describe('no one-time sign-in link anywhere in the UI', () => {
       ['components/home/HomeNext.tsx', /一次性链接|one-time link|登录链接/],
       ['components/home/LoginCard.tsx', /链接登录|sign-in link|magic/i],
       ['app/login/page.tsx', /一次性链接|one-time link|Magic link|邮箱链接/],
+      ['components/auth/AuthPage.tsx', /一次性链接|one-time link|Magic link|邮箱链接|登录链接/],
+      ['components/auth/SignInBlock.tsx', /一次性链接|one-time link|Magic link|邮箱链接|登录链接/],
       ['app/login/layout.tsx', /魔法链接/],
       ['components/ShowingRequestModal.tsx', /魔法链接|magic link/],
       ['app/settings/page.tsx', /登录链接）|sign-in link\)/],

@@ -16,49 +16,53 @@ interface Props {
   children: ReactNode
   /** Optional back link rendered top-left */
   back?: { href: string; label: string }
+  /** The page renders the site Header above (/login, /register): no logo / step bar here. */
+  bare?: boolean
 }
 
-export default function OnboardingStage({ step, totalSteps, eyebrow, children, back }: Props) {
+export default function OnboardingStage({ step, totalSteps, eyebrow, children, back, bare = false }: Props) {
   return (
     <main
       className="px-4 sm:px-6"
       style={{
         background: 'linear-gradient(180deg,#F3F8FC 0%,#E4EEE3 100%)',
-        minHeight: '100vh',
+        minHeight: bare ? 'calc(100vh - 66px)' : '100vh',
         position: 'relative',
-        paddingTop: 60,
+        paddingTop: bare ? 48 : 60,
         paddingBottom: 80,
       }}
     >
       {/* Top bar */}
-      <div
-        className="mx-auto flex max-w-[1320px] items-center"
-        style={{ paddingBottom: 36 }}
-      >
-        <Logo size="md" />
+      {!bare && (
+        <div
+          className="mx-auto flex max-w-[1320px] items-center"
+          style={{ paddingBottom: 36 }}
+        >
+          <Logo size="md" />
 
-        {step && totalSteps && (
-          <div
-            className="ml-auto flex items-center gap-2 font-mono"
-            style={{ fontSize: 11, color: '#71717A', letterSpacing: '0.10em' }}
-          >
-            <span>STEP {String(step).padStart(2, '0')} / {String(totalSteps).padStart(2, '0')}</span>
-            <span className="flex gap-1">
-              {Array.from({ length: totalSteps }).map((_, i) => (
-                <span
-                  key={i}
-                  className="w-4 sm:w-7"
-                  style={{
-                    height: 3,
-                    borderRadius: 2,
-                    background: i < step ? '#00ACE4' : '#E4EEF6',
-                  }}
-                />
-              ))}
-            </span>
-          </div>
-        )}
-      </div>
+          {step && totalSteps && (
+            <div
+              className="ml-auto flex items-center gap-2 font-mono"
+              style={{ fontSize: 11, color: '#71717A', letterSpacing: '0.10em' }}
+            >
+              <span>STEP {String(step).padStart(2, '0')} / {String(totalSteps).padStart(2, '0')}</span>
+              <span className="flex gap-1">
+                {Array.from({ length: totalSteps }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="w-4 sm:w-7"
+                    style={{
+                      height: 3,
+                      borderRadius: 2,
+                      background: i < step ? '#00ACE4' : '#E4EEF6',
+                    }}
+                  />
+                ))}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Card */}
       <div className="mx-auto flex justify-center">

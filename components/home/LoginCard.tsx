@@ -21,7 +21,10 @@
 //
 // Also the sign-in gate of the naming step (/onboarding/name, 2026-09-29):
 // `next` is where every method lands afterwards — the password sign-in, the
-// verification link in the sign-up email, and Google.
+// verification link in the sign-up email, and Google. And /login and
+// /register render it too (via components/auth/SignInBlock); `intent` only
+// decides where a FAILED email lookup falls back to — create-account on
+// /register, the password everywhere else.
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import GoogleIcon from '@/components/auth/GoogleIcon'
@@ -30,7 +33,7 @@ import { EMAIL_RE, lookupEmailStatus, routeForEmail } from '@/lib/auth/emailStat
 
 type Step = 'email' | 'password' | 'create' | 'nopassword'
 
-export default function LoginCard({ className = '', next }: { className?: string; next?: string }) {
+export default function LoginCard({ className = '', next, intent = 'signin' }: { className?: string; next?: string; intent?: 'signin' | 'register' }) {
   const f = useLoginForm('signin', { next })
   const zh = f.zh
   const [step, setStep] = useState<Step>('email')
@@ -65,7 +68,7 @@ export default function LoginCard({ className = '', next }: { className?: string
     setChecking(false)
     setKnown(route.known)
     setGoogle(route.google)
-    if (route.step === 'create') toCreate()
+    if (route.step === 'create' || (!route.known && intent === 'register')) toCreate()
     else if (route.step === 'nopassword') { f.setTab('signin'); setStep('nopassword') }
     else toPassword()
   }

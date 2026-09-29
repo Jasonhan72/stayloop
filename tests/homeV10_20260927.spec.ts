@@ -84,15 +84,14 @@ describe('the login card and the shared sign-in hook', () => {
   it('one hook owns the handlers; /login and /register render the same hook and define none of their own', () => {
     for (const s of ['signInWithOAuth', 'signInWithPassword', 'auth.signUp(', 'auth.resend(', 'resetPasswordForEmail', 'export function callbackUrl']) expect(hook, s).toContain(s)
     expect(hook).not.toContain('signInWithOtp')
-    expect(page).toContain("useLoginForm('signin')")
-    for (const s of ['signInWithOtp', 'signInWithOAuth', 'resetPasswordForEmail', 'function callbackUrl', 'magic-link']) expect(page, s).not.toContain(s)
-    expect(page).toContain('homeForHats(remembered, data as HatsLite)') // the signed-in bounce is unchanged
-    expect(page).toContain("import GoogleIcon from '@/components/auth/GoogleIcon'")
+    // /login and /register render the card itself since 2026-09-29 (tests/authPages20260929.spec.tsx)
+    expect(page).toContain('<AuthPage mode="signin" />')
+    expect(read('app/register/page.tsx')).toContain('<AuthPage mode="register" />')
+    const shell = read('components/auth/AuthPage.tsx') + read('components/auth/SignInBlock.tsx')
+    for (const s of ['signInWithOtp', 'signInWithOAuth', 'resetPasswordForEmail', 'function callbackUrl', 'magic-link', 'auth.signUp(']) expect(shell, s).not.toContain(s)
+    expect(shell).toContain('homeForHats(remembered, data as HatsLite)') // the signed-in bounce is unchanged
+    expect(shell).toContain('<LoginCard next={next} intent={intent}')
     expect(card).toContain("import GoogleIcon from '@/components/auth/GoogleIcon'")
-    const reg = read('app/register/page.tsx')
-    expect(reg).toContain("useLoginForm('register')")
-    expect(reg).toContain('f.signUpWithPassword(e)')
-    expect(reg).not.toContain('auth.signUp(')
   })
 })
 

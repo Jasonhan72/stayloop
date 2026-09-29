@@ -41,7 +41,7 @@ function render(query: string, user: { id: string } | null, loading = false) {
   return r
 }
 const logins = (r: TestRenderer.ReactTestRenderer) => r.root.findAllByType(LoginCard)
-const preview = (r: TestRenderer.ReactTestRenderer) => r.root.findAll((n) => n.props['data-testid'] === 'onboarding-preview')[0]
+const preview = (r: TestRenderer.ReactTestRenderer) => r.root.findAll((n) => n.props['data-testid'] === 'signin-preview')[0]
 
 describe('/onboarding/name: sign in before setting up the AI Agent', () => {
   afterEach(() => { auth.state = { user: null, loading: false, role: null, setRole: () => {} } })
@@ -132,6 +132,7 @@ describe('the pages under「我是」send people through the sign-in step', () =
     expect(page.indexOf('if (!role) {')).toBeGreaterThan(gate)
     expect(page.lastIndexOf('useState(')).toBeLessThan(page.indexOf('if (authLoading) {'))
     expect(page).toContain("const next = role ? `/onboarding/name?role=${role}` : '/onboarding/name'")
-    expect(page).toContain('<LoginCard next={next}')
+    // the same block as /login and /register (components/auth/SignInBlock.tsx, 2026-09-29)
+    expect(page).toMatch(/<SignInBlock\s+zh=\{zh\}\s+next=\{next\}/)
   })
 })
