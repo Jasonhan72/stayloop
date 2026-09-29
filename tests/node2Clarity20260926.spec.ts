@@ -41,7 +41,8 @@ describe('the provider is a landing hat', () => {
     expect(h).not.toContain('app-shell-identity')
     expect(read('lib/useHomeHref.ts')).toContain("const onProvider = pathname.startsWith('/provider/')")
     expect(h).toContain('data-testid="nav-identity"')
-    expect(h).toContain("<ReservedText text={home.signedIn ? navIdentityLabel : t('nav.product')} bold={isProductActive} />")
+    // signed in, the label is bold and in the acting hat's colour (tests/headerIdentityColor20260929.spec.ts)
+    expect(h).toContain("<ReservedText text={home.signedIn ? navIdentityLabel : t('nav.product')} bold={!!identityColor || isProductActive} />")
     for (const f of ['app/provider/jobs/page.tsx', 'app/provider/onboard/page.tsx']) expect(read(f)).toContain('<Header />')
   })
   it('real notifications: pending cards of the hat, provider job events, recent audit', () => {

@@ -145,6 +145,11 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
 
   // Signed in, the「我是」trigger names the acting hat (providers included).
   const actingLabel = home.onProvider ? (lang === 'zh' ? '服务商' : 'Provider') : (lang === 'zh' ? ROLE_META[currentRole].label : ROLE_META[currentRole].labelEn)
+  // …in that hat's colour, the same one as the「当前：房东」chip in the avatar menu, so the
+  // acting role reads at a glance (user 2026-09-29:「我是房东这个菜单文字的颜色也改成…一样的
+  // 绿色」): landlord green, tenant purple, agent blue. The provider context has no identity
+  // colour of its own (and the chip still names the underlying hat), so it stays neutral.
+  const identityColor = home.signedIn && !home.onProvider ? ROLE_META[currentRole].color : null
   const navIdentityLabel = lang === 'zh' ? `我是${actingLabel}` : `I’m ${/^[aeiou]/i.test(actingLabel) ? 'an' : 'a'} ${actingLabel.toLowerCase()}`
   // The hat rows: the hamburger's folded list and the「我是」dropdown render the same set.
   const identityRows = (
@@ -226,14 +231,14 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
               onClick={() => setProductOpen((v) => !v)}
               className="group inline-flex items-center gap-1 text-[14px] transition"
               style={{
-                color: isProductActive ? '#171717' : '#3F3F46',
-                fontWeight: isProductActive ? 600 : 400,
+                color: identityColor ?? (isProductActive ? '#171717' : '#3F3F46'),
+                fontWeight: identityColor || isProductActive ? 600 : 400,
               }}
               aria-haspopup="menu"
               aria-expanded={productOpen}
               data-testid="nav-identity"
             >
-              <ReservedText text={home.signedIn ? navIdentityLabel : t('nav.product')} bold={isProductActive} />
+              <ReservedText text={home.signedIn ? navIdentityLabel : t('nav.product')} bold={!!identityColor || isProductActive} />
               <ChevronIcon open={productOpen} />
             </button>
             {productOpen && home.signedIn && (
