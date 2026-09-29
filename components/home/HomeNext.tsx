@@ -202,8 +202,8 @@ const RULE_CHIPS: Rule[] = RULE_IDS.map((id) => ruleById(id)).filter((r): r is R
 const statuteShort = (s: string) => s.split(' · ')[0]
 
 const STEPS: { h: Bi; p: Bi }[] = [
-  { h: { zh: '登录', en: 'Sign in' }, p: { zh: '一键 Google，或邮箱 + 密码注册，不要信用卡。登录后直接进入你自己的助手。', en: 'One tap with Google, or email + password; no credit card. After sign-in you land in your own assistant.' } },
-  { h: { zh: '选身份，给助手起个名字', en: 'Pick a role, name your assistant' }, p: { zh: '租客 / 房东 / 经纪 / 服务商，之后随时在右上角切换。名字只起一次，租客、房东、经纪共用同一个助手。', en: 'Tenant / landlord / agent / provider, switchable any time from the top-right menu. You name it once; tenant, landlord and agent share one assistant.' } },
+  { h: { zh: '登录', en: 'Sign in' }, p: { zh: '一键 Google，或邮箱 + 密码注册，不要信用卡。登录后直接进入你的个人 AI Agent。', en: 'One tap with Google, or email + password; no credit card. After sign-in you land in your personal AI agent.' } },
+  { h: { zh: '选身份，给个人 AI Agent 起个名字', en: 'Pick a role, name your personal AI agent' }, p: { zh: '租客 / 房东 / 经纪 / 服务商，之后随时在右上角切换。名字只起一次，租客、房东、经纪用的都是它。', en: 'Tenant / landlord / agent / provider, switchable any time from the top-right menu. You name it once; as tenant, landlord or agent, it is the same one.' } },
   { h: { zh: '说第一句话', en: 'Say the first sentence' }, p: { zh: '它会一步步问清楚，再去办。', en: 'It asks what it needs, step by step, then gets to work.' } },
 ]
 
@@ -462,7 +462,7 @@ export default function HomeNext() {
               <div key={s.h.en} className="border-t-2 border-line-divider pt-5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full font-mono text-[13px] font-bold text-white" style={{ background: '#00ACE4' }}>{i + 1}</div>
                 <div className="mt-3 text-[17px] font-bold">{pick(s.h, lang)}</div>
-                <p className="mt-1.5 text-[14.5px] leading-relaxed text-body-2">{pick(s.p, lang)}</p>
+                <p className="mt-1.5 text-[14.5px] leading-relaxed text-body-2 [text-wrap:pretty]">{pick(s.p, lang)}</p>
               </div>
             ))}
           </div>

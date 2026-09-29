@@ -1,6 +1,6 @@
 // First sign-in asks which identity (V0.7 homepage, step 2 · 2026-09-27).
 //
-// The homepage's「三步开始」says「选身份，给助手起个名字」. An account created from
+// The homepage's「三步开始」says「选身份，给个人 AI Agent 起个名字」. An account created from
 // the homepage login card carries no ?role=, and /onboarding/name used to
 // default it to tenant without asking. Now the page asks with the four
 // identities of the homepage (tenant / landlord / agent / provider), the
@@ -22,7 +22,7 @@ describe('the identity choice matches the homepage promise', () => {
     expect(ROLE_CHOICES.map((c) => c.key)).toEqual(['tenant', 'landlord', 'agent', 'provider'])
     const home = read('components/home/HomeNext.tsx')
     expect(home).toContain('租客 / 房东 / 经纪 / 服务商')
-    expect(home).toContain('选身份，给助手起个名字')
+    expect(home).toContain('选身份，给个人 AI Agent 起个名字')
     expect(ROLE_CHOICES.find((c) => c.key === 'provider')?.pilot).toBe(true)
   })
   it('every blurb names only what ships', () => {
