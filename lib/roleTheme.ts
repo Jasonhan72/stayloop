@@ -17,6 +17,12 @@
 
 export type RoleKey = 'tenant' | 'landlord' | 'agent'
 
+/** The fifth hat (the services marketplace) has no workspace theme — only an identity
+ *  colour for the header's「我是服务商」, the avatar menu's「当前：服务商」and the
+ *  identity chooser (2026-09-29, user:「我是经纪，我是服务商，也是要一样的处理下」).
+ *  Orange: apart from tenant purple, landlord green, agent blue and the brand sky blue. */
+export const PROVIDER_ACCENT = '#C2410C'
+
 export interface RoleTheme {
   /** Base brand color (buttons, active tiles, eyebrow text). */
   accent: string

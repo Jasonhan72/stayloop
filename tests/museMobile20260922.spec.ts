@@ -126,9 +126,10 @@ describe('signed-in homepage + identity menu', () => {
     expect(home).not.toContain('AgentChat')
   })
   it('menu: identity row, the hat\'s workspace (no quick chips — user 2026-09-22; no assistant names — user 2026-09-25), three hats with 当前 / 待认证 / 开通, red dot only when something waits', () => {
-    expect(header).toMatch(/当前：\$\{ROLE_META\[currentRole\]\.label\}`/)
+    // the chip and the workspace link name the identity of the area you are in (tests/headerIdentityColor20260929.spec.ts)
+    expect(header).toMatch(/当前：\$\{ROLE_META\[displayRole\]\.label\}`/)
     expect(header).not.toMatch(/\/\$\{currentRole\}\/\$\{k\}/)
-    expect(header).toMatch(/\$\{ROLE_META\[currentRole\]\.label\}工作台/)
+    expect(header).toMatch(/\$\{ROLE_META\[displayRole\]\.label\}工作台/)
     // 「Atlas · Nova · Brief」 made it unclear who the user is — the menu names hats only
     expect(header).not.toMatch(/aiNames|useAIName|的工作台/)
     expect(header).toMatch(/<span>\{lang === 'zh' \? ROLE_META\[r\]\.label : ROLE_META\[r\]\.labelEn\}<\/span>/)

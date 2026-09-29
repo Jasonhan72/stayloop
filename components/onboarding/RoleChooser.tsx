@@ -5,15 +5,16 @@
 // the guards read one list. Picking a tile reports it; the page decides where
 // that identity goes (naming, or the provider onboarding form).
 import { ROLE_CHOICES, type OnboardingRole } from '@/lib/onboarding/roleChoices'
-import { ROLE_THEME } from '@/lib/roleTheme'
+import { PROVIDER_ACCENT, ROLE_THEME } from '@/lib/roleTheme'
 
 export default function RoleChooser({ zh, onPick }: { zh: boolean; onPick: (r: OnboardingRole) => void }) {
   const lang = zh ? 'zh' : 'en'
   return (
     <div data-testid="role-chooser" className="grid gap-2.5 text-left sm:grid-cols-2">
       {ROLE_CHOICES.map((c) => {
-        // identity colours are the role colours (avatar / badge use only); the provider has none → ink
-        const dot = c.key === 'provider' ? '#1B1B3C' : ROLE_THEME[c.key].accent
+        // identity colours are the role colours (avatar / badge use only); the provider's is its
+        // own orange since 2026-09-29 (the header's「我是服务商」uses the same one)
+        const dot = c.key === 'provider' ? PROVIDER_ACCENT : ROLE_THEME[c.key].accent
         return (
           <button
             key={c.key}
