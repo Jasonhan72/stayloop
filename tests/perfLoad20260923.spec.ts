@@ -28,7 +28,7 @@ describe('page-load round trips', () => {
     expect(s).not.toContain("from('agent_configs')")
   })
   it('Header and phone tabs read the pending badge through the shared fetch', () => {
-    expect(read('components/Header.tsx')).toContain('fetchPendingCount(currentRole)')
+    expect(read('components/Header.tsx')).toContain('fetchPendingCount(countRole)') // the displayed hat's cards (2026-09-29)
     expect(read('components/WorkspaceShell.tsx')).toContain('fetchPendingCount(role)')
     for (const f of ['components/Header.tsx', 'components/WorkspaceShell.tsx']) expect(read(f)).not.toContain("from('agent_pending_actions').select('id', { count: 'exact', head: true })")
   })
