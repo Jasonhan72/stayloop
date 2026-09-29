@@ -202,8 +202,8 @@ const RULE_CHIPS: Rule[] = RULE_IDS.map((id) => ruleById(id)).filter((r): r is R
 const statuteShort = (s: string) => s.split(' · ')[0]
 
 const STEPS: { h: Bi; p: Bi }[] = [
-  { h: { zh: '登录', en: 'Sign in' }, p: { zh: '一键 Google，或邮箱 + 密码注册，不要信用卡。登录后直接进入你的个人 AI Agent。', en: 'One tap with Google, or email + password; no credit card. After sign-in you land in your personal AI agent.' } },
-  { h: { zh: '选身份，给个人 AI Agent 起个名字', en: 'Pick a role, name your personal AI agent' }, p: { zh: '租客 / 房东 / 经纪 / 服务商，之后随时在右上角切换。名字只起一次，租客、房东、经纪用的都是它。', en: 'Tenant / landlord / agent / provider, switchable any time from the top-right menu. You name it once; as tenant, landlord or agent, it is the same one.' } },
+  { h: { zh: '登录', en: 'Sign in' }, p: { zh: '一键 Google，或邮箱 + 密码注册，不要信用卡。登录后直接进入你的 AI 助理。', en: 'One tap with Google, or email + password; no credit card. After sign-in you land in your AI Agent.' } },
+  { h: { zh: '选身份，给 AI 助理起个名字', en: 'Pick a role, name your AI Agent' }, p: { zh: '租客 / 房东 / 经纪 / 服务商，之后随时在右上角切换。名字只起一次，租客、房东、经纪共用同一个 AI 助理。', en: 'Tenant / landlord / agent / provider, switchable any time from the top-right menu. You name it once; tenant, landlord and agent share one AI Agent.' } },
   { h: { zh: '说第一句话', en: 'Say the first sentence' }, p: { zh: '它会一步步问清楚，再去办。', en: 'It asks what it needs, step by step, then gets to work.' } },
 ]
 
@@ -215,8 +215,8 @@ const STEPS: { h: Bi; p: Bi }[] = [
 const FAQ: { q: Bi; a: Bi; href: string; more: Bi }[] = [
   {
     q: { zh: '不登录能试吗？', en: 'Can I try it without signing in?' },
-    a: { zh: '能。助手预览页免注册、不记住你、每小时有次数上限；回答来自真实房源与官方行情。登录后它才读取你的申请、租约与记忆，也才能替你发出任何东西。', en: 'Yes. The assistant preview needs no account, remembers nothing and has an hourly limit; answers come from real listings and official market data. Only after you sign in does it read your applications, leases and memory, or send anything on your behalf.' },
-    href: '/tenant/agent', more: { zh: '打开助手预览 →', en: 'Open the preview →' },
+    a: { zh: '能。AI 助理预览页免注册、不记住你、每小时有次数上限；回答来自真实房源与官方行情。登录后它才读取你的申请、租约与记忆，也才能替你发出任何东西。', en: 'Yes. The AI Agent preview needs no account, remembers nothing and has an hourly limit; answers come from real listings and official market data. Only after you sign in does it read your applications, leases and memory, or send anything on your behalf.' },
+    href: '/tenant/agent', more: { zh: '打开 AI 助理预览 →', en: 'Open the preview →' },
   },
   {
     q: { zh: '房源和行情从哪里来？', en: 'Where do the listings and market numbers come from?' },
@@ -315,7 +315,7 @@ export default function HomeNext() {
         <Header variant="transparent" />
         <main className="mx-auto flex max-w-[1100px] flex-col items-center px-5 py-28 text-center" data-testid="home-redirect">
           <span className="h-10 w-10 animate-pulse rounded-full" style={{ background: '#00ACE4' }} aria-hidden />
-          <p className="mt-5 text-[15px] text-body-2">{zh ? '正在打开你的助手…' : 'Opening your assistant…'}</p>
+          <p className="mt-5 text-[15px] text-body-2">{zh ? '正在打开你的 AI 助理…' : 'Opening your AI Agent…'}</p>
           <Link href={target} className="mt-3 text-[13px] font-semibold text-brand hover:underline">{zh ? '没有自动跳转？点这里' : 'Not redirected? Tap here'}</Link>
         </main>
       </div>
@@ -333,7 +333,7 @@ export default function HomeNext() {
             <h1 className="text-[30px] font-extrabold leading-[1.15] tracking-tight sm:text-[44px]">
               {zh
                 ? <>租房路上的每一步，<br className="hidden sm:block" />交给<em className="not-italic" style={{ color: '#00ACE4' }}>你自己的 AI 助理</em>。</>
-                : <>Every step of renting,<br className="hidden sm:block" />handled by <em className="not-italic" style={{ color: '#00ACE4' }}>your own AI assistant</em>.</>}
+                : <>Every step of renting,<br className="hidden sm:block" />handled by <em className="not-italic" style={{ color: '#00ACE4' }}>your own AI Agent</em>.</>}
             </h1>
             <p className="mt-3 max-w-[560px] text-[15px] leading-relaxed text-body-2 sm:mt-4 sm:text-[17px]">
               {zh
@@ -358,7 +358,7 @@ export default function HomeNext() {
               <p className="mt-2 text-[16px] leading-relaxed text-body-2 [text-wrap:pretty]">
                 {zh
                   ? '租客、房东、经纪各有自己的 AI 助理，事情在三个助理之间接力。下面用同一套房，从委托挂牌演到续约。'
-                  : 'Tenants, landlords and agents each have their own AI assistant, and work passes from one to the next. Below, one unit from listing to renewal.'}
+                  : 'Tenants, landlords and agents each have their own AI Agent, and work passes from one to the next. Below, one unit from listing to renewal.'}
               </p>
             </div>
             <Link href="/platform" className="text-[14px] font-semibold text-brand hover:underline">{zh ? '看完整产品结构 →' : 'See the full product →'}</Link>
@@ -387,7 +387,7 @@ export default function HomeNext() {
         <div className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7 sm:py-16">
           <div className="max-w-[640px]">
             <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '四种身份，各自的入口' : 'Four roles, each with its own entry'}</h2>
-            <p className="mt-2 text-[16px] text-body-2">{zh ? '同一个助手按你的身份办事，立场只对你负责；服务商用自己的工单工作台。' : 'One assistant works in whichever role you are in and answers only to you; providers use their own work-order desk.'}</p>
+            <p className="mt-2 text-[16px] text-body-2">{zh ? '同一个 AI 助理按你的身份办事，立场只对你负责；服务商用自己的工单工作台。' : 'One AI Agent works in whichever role you are in and answers only to you; providers use their own work-order desk.'}</p>
           </div>
           <RoleTabs lang={lang} />
         </div>
@@ -398,7 +398,7 @@ export default function HomeNext() {
         <div className="mx-auto grid max-w-[1100px] gap-8 px-5 py-14 sm:px-7 sm:py-16 lg:grid-cols-[5fr_7fr] lg:items-start lg:gap-10">
           <div>
             <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '安省规则内置，每条有编号。' : 'Ontario rules built in, each with an id.'}</h2>
-            <p className="mt-2 text-[16px] text-body-2">{zh ? '发布房源、保存租约、发出通知之前自动检查；对话里的建议也受同一套规则约束。规则、法条与生效日期公开可查。' : 'Checked before a listing is published, a lease is saved or a notice goes out; the assistant’s advice is bound by the same set. Rules, statutes and effective dates are public.'}</p>
+            <p className="mt-2 text-[16px] text-body-2">{zh ? '发布房源、保存租约、发出通知之前自动检查；对话里的建议也受同一套规则约束。规则、法条与生效日期公开可查。' : 'Checked before a listing is published, a lease is saved or a notice goes out; the AI Agent’s advice is bound by the same set. Rules, statutes and effective dates are public.'}</p>
             <Link href="/rules" className="mt-4 inline-block text-[14px] font-bold text-brand hover:underline">{zh ? `全部 ${ONTARIO_RULES.length} 条规则 →` : `All ${ONTARIO_RULES.length} rules →`}</Link>
           </div>
           <div className="flex flex-wrap gap-2.5" data-testid="home-rules">
@@ -550,7 +550,7 @@ function RoleTabs({ lang }: { lang: Lang }) {
           <div className="min-w-0 rounded-xl p-5" style={{ background: '#F3F8FC' }}>
             {chatRole ? (
               <>
-                <div className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-body-3">{zh ? '试一试 · 打开助手预览，不用登录' : 'Try it · opens the assistant preview, no account'}</div>
+                <div className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-body-3">{zh ? '试一试 · 打开 AI 助理预览，不用登录' : 'Try it · opens the AI Agent preview, no account'}</div>
                 <div className="mt-3 grid gap-2">
                   {r.chips.map((c) => (
                     <Link key={c.label.en} href={assistantPromptHref(chatRole, pick(c.prompt, lang))}

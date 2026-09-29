@@ -305,7 +305,7 @@ describe('on the homepage', () => {
     // the lead only sets the scene; the approval rule is spelled out once, in the four-step loop under the film
     const pTag = section.slice(section.indexOf('<p '), section.indexOf('</p>'))
     const lead = pTag.slice(pTag.indexOf('>') + 1) // the text, not the tag's own classes
-    for (const w of ['各有自己的 AI 助理', '三个助理之间接力', '从委托挂牌演到续约', 'own AI assistant', 'passes from one to the next', 'from listing to renewal']) expect(lead, w).toContain(w)
+    for (const w of ['各有自己的 AI 助理', '三个助理之间接力', '从委托挂牌演到续约', 'own AI Agent', 'passes from one to the next', 'from listing to renewal']) expect(lead, w).toContain(w)
     expect(lead).not.toMatch(/\d/)
     expect(lead).not.toContain('—')
     expect(section.indexOf('<ThreeRoleFilm />')).toBeLessThan(section.indexOf('data-testid="home-flow"'))

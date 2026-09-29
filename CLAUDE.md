@@ -2679,9 +2679,12 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   守卫禁止这些说法回来（`六维 / 四枚章 / 验证一次，处处通行 / 按时收租 / 佣金结算 / soon: true`）。
 - **页脚 slogan 也换了（用户同日：「页脚那句也换掉」）**：`lib/i18n.tsx foot.tag`「验证一次，处处通行」→「你说一句，它去办，你来批准。」
   （英文 "You say it, it does the work, you approve."），与首页四步同一句话。
-- **「三步开始」改称「个人 AI Agent」（用户同日：「把这个助手，改为个人 AI Agent」）**：第 1 步「登录后直接进入你的个人 AI Agent」、第 2 步标题「选身份，给个人
-  AI Agent 起个名字」、正文「名字只起一次，租客、房东、经纪用的都是它」（英文 personal AI agent）；步骤正文加 `[text-wrap:pretty]` 避免末行只剩一个字。
-  `tests/onboardingRole20260927.spec.tsx` 钉住新标题。首页其他位置仍叫「AI 助理 / 助手」（hero「你自己的 AI 助理」、动画导语、身份选项卡导语、FAQ 的「助手预览页」），未改。
+- **首页统一叫「AI 助理」/ 英文「AI Agent」（用户同日：先让「三步开始」改成「个人 AI Agent」，随后改口「还是改回 AI 助理吧，不叫个人 AI Agent，
+  英文就叫 AI Agent」）**：三步开始（「登录后直接进入你的 AI 助理」「选身份，给 AI 助理起个名字」「租客、房东、经纪共用同一个 AI 助理」）、身份选项卡导语
+  「同一个 AI 助理按你的身份办事」、试一试眉标与 FAQ「AI 助理预览」、已登录跳转提示「正在打开你的 AI 助理…」；英文版 hero「your own AI Agent」、动画导语、
+  规则导语、身份导语、FAQ、眉标、三步与动画字幕 / 屏幕阅读器摘要里的 assistant 一律改为 AI Agent（动画中文字幕原本就叫「助理」，未动）。**不要再用「个人 AI Agent」**。
+  只改了首页（`HomeNext.tsx` + `lib/home/film.ts`）；其他页面与工作台里的「助手 / assistant」未动。步骤正文带 `[text-wrap:pretty]`。守卫：onboardingRole 钉
+  「选身份，给 AI 助理起个名字」、homeRoles 钉眉标、threeRoleFilm 钉「own AI Agent」。
 - **全站不再有「验证一次，处处通行」（用户同日：「也一起改掉」）**：租客唯一能带走的是只读分享链接 `/p/<token>`——姓名缩写 + 按时付租记录（只有按时与否、
   没有金额），而且只取自双方都确认过的在管租约或双方电子签的租约（`households.verified` / `signed_both`）；每一笔付租是任何一方都能「标记已付」的，所以文案
   只说「租约双方确认」，不说「租金记录经双方确认」。改动：/tenant 角色页（导语、四条要点、旅程五步、故事与场景、护照一节四条——`Score 60 → 91`、「报修

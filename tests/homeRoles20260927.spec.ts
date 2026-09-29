@@ -38,7 +38,7 @@ describe('four roles on the homepage', () => {
   it('the example sentences open the role’s assistant preview (V0.7) — one helper spells the URL', () => {
     expect(home).toContain('assistantPromptHref(chatRole, pick(c.prompt, lang))')
     expect(home).not.toContain('点一下就发到上面的对话里')
-    expect(home).toContain("'试一试 · 打开助手预览，不用登录'")
+    expect(home).toContain("'试一试 · 打开 AI 助理预览，不用登录'")
   })
   it('the copy names only what ships: no invented features, no "coming soon" for a live pilot, no vendor-only model claim', () => {
     for (const bad of ['在线收租', '自动对账', '佣金对账', '短信', '路线规划', '工单大厅', '在线结算', '即将上线', '内测邀约', '14 天', '$39', '82/100', 'Anthropic Claude']) expect(home, bad).not.toContain(bad)

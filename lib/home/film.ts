@@ -221,7 +221,7 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
     } })
     w.push({ k: 'status', lane: 'mia', status: 'result' })
     w.wait(1700)
-    w.push({ k: 'caption', text: L({ zh: '她在房源页点「预约看房」，请求变成 Sarah 助理里的一张卡片。', en: 'She taps “Book a showing” on the listing; the request becomes a card in Sarah’s assistant.' }) })
+    w.push({ k: 'caption', text: L({ zh: '她在房源页点「预约看房」，请求变成 Sarah 助理里的一张卡片。', en: 'She taps “Book a showing” on the listing; the request becomes a card in Sarah’s AI Agent.' }) })
     w.push({ k: 'handoff', from: 'mia', to: 'sarah', label: L({ zh: '看房请求', en: 'Showing request' }) })
     w.wait(800)
     // /api/showing-intent: the card, then the push to the landlord.
@@ -304,7 +304,7 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
     const w = writer(lang)
     w.push({ k: 'focus', lanes: ['sarah', 'mia'], shots: { mia: 'mia-cafe', sarah: 'sarah-couch', david: 'david-lobby' } })
     w.push({ k: 'strip', lane: 'david', ...strip })
-    w.push({ k: 'caption', text: L({ zh: 'Sarah 从这份申请生成安省标准租约，交给助理发给 Mia 签。', en: 'Sarah turns the application into an Ontario Standard Lease and has her assistant send it to Mia.' }) })
+    w.push({ k: 'caption', text: L({ zh: 'Sarah 从这份申请生成安省标准租约，交给助理发给 Mia 签。', en: 'Sarah turns the application into an Ontario Standard Lease and has her AI Agent send it to Mia.' }) })
     w.wait(600)
     w.ask('sarah', L({ zh: '把租约发给 Mia 签', en: 'Send the lease to Mia to sign' }))
     const lease = card({
@@ -342,7 +342,7 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
     const w = writer(lang)
     w.push({ k: 'focus', lanes: ['sarah', 'mia'], shots: { mia: 'mia-cat', sarah: 'sarah-tea', david: 'david-lobby' } })
     w.push({ k: 'strip', lane: 'david', ...strip })
-    w.push({ k: 'caption', text: L({ zh: '一年后，离到期还有 91 天：Sarah 的助理按指导比例备好了续约方案。', en: 'A year on, 91 days before the term ends: Sarah’s assistant has renewal options within the guideline.' }) })
+    w.push({ k: 'caption', text: L({ zh: '一年后，离到期还有 91 天：Sarah 的助理按指导比例备好了续约方案。', en: 'A year on, 91 days before the term ends: Sarah’s AI Agent has renewal options within the guideline.' }) })
     w.wait(800)
     // The card the 90-day sweep builds — the product's own builder, run on the film's date.
     const p = buildRenewalProposal('film', { id: 'film-lease', tenant_name: 'Mia Chen', tenant_email: MIA_EMAIL, unit_label: UNIT, monthly_rent: RENT, end_date: D.leaseEnd }, D.renewalDay, null)
@@ -370,7 +370,7 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
     w.wait(700)
     w.push({ k: 'notify', lane: 'mia', kind: 'mail', title: `Lease renewal offer — ${UNIT}` })
     w.wait(1500)
-    w.push({ k: 'caption', text: L({ zh: 'Mia 在在管租约里点「续约」，意向回到 Sarah 那里。三个人，三个助理，一条线办完。', en: 'Mia taps “Renew” in the managed tenancy and her intent goes back to Sarah. Three people, three assistants, one thread.' }) })
+    w.push({ k: 'caption', text: L({ zh: 'Mia 在在管租约里点「续约」，意向回到 Sarah 那里。三个人，三个助理，一条线办完。', en: 'Mia taps “Renew” in the managed tenancy and her intent goes back to Sarah. Three people, three AI Agents, one thread.' }) })
     w.push({ k: 'handoff', from: 'mia', to: 'sarah', label: L({ zh: '续约意向', en: 'Renewal intent' }) })
     w.wait(3000)
     chapters.push({ key: 'renew', stage: L({ zh: '租后', en: 'After' }), title: L({ zh: '续约', en: 'Renew' }), beats: w.beats, end: w.t, keyAt: w.keyAt })
@@ -383,5 +383,5 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
 export function filmSummary(lang: Lang): string {
   return lang === 'zh'
     ? '示范动画，三个人物由 AI 生成：租客 Mia Chen、房东 Sarah Wang、经纪 David Park，各有自己的 AI 助理，围绕同一套房 Unit 1207。一，Sarah 请 David 代办出租并在邮件链接里确认委托，David 按实时挂牌和 TRREB 官方数据定价，房源经核验上线。二，Mia 一句话找到这套房，在房源页预约看房，请求变成 Sarah 助理里的一张卡片，Sarah 批准后 Mia 收到确认邮件。三，Mia 提交申请，David 在委托范围内替 Sarah 发起筛查，报告交给 Sarah，Sarah 自己批准录取通知。四，Sarah 发送安省标准租约，Mia 签字、Sarah 回签，两人共享在管租约。五，一年后到期前 91 天，Sarah 的助理按指导比例给出续约方案，Sarah 选定后续约函发给 Mia，Mia 点续约。每一张卡都要本人批准，批准后 60 秒内可撤销，执行后写入审计。'
-    : 'Sample animation with three AI-generated characters: tenant Mia Chen, landlord Sarah Wang and agent David Park, each with their own AI assistant, around one unit, Unit 1207. One: Sarah asks David to lease the unit and confirms his delegation from an email link; David prices it from live listings and official TRREB data, and the listing goes live after verification. Two: Mia finds the unit with one sentence and books a showing; the request becomes a card in Sarah’s assistant, and after Sarah approves, Mia gets a confirmation email. Three: Mia applies, David starts the screening for Sarah within his delegation, the report goes to Sarah, and Sarah approves the admission notice herself. Four: Sarah sends the Ontario Standard Lease, Mia signs and Sarah countersigns, and both share the managed tenancy. Five: a year on, 91 days before the end, Sarah’s assistant proposes renewal options within the guideline; after Sarah picks one, the renewal letter goes to Mia and Mia taps renew. Every card needs its owner’s approval, can be undone for 60 seconds, and is written to the audit log.'
+    : 'Sample animation with three AI-generated characters: tenant Mia Chen, landlord Sarah Wang and agent David Park, each with their own AI Agent, around one unit, Unit 1207. One: Sarah asks David to lease the unit and confirms his delegation from an email link; David prices it from live listings and official TRREB data, and the listing goes live after verification. Two: Mia finds the unit with one sentence and books a showing; the request becomes a card in Sarah’s AI Agent, and after Sarah approves, Mia gets a confirmation email. Three: Mia applies, David starts the screening for Sarah within his delegation, the report goes to Sarah, and Sarah approves the admission notice herself. Four: Sarah sends the Ontario Standard Lease, Mia signs and Sarah countersigns, and both share the managed tenancy. Five: a year on, 91 days before the end, Sarah’s AI Agent proposes renewal options within the guideline; after Sarah picks one, the renewal letter goes to Mia and Mia taps renew. Every card needs its owner’s approval, can be undone for 60 seconds, and is written to the audit log.'
 }
