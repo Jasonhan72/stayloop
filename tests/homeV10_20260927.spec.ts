@@ -18,8 +18,9 @@ describe('the homepage no longer hosts the conversation', () => {
   it('no chat, no agent session, no ?ask= reader; the hero is message + login card', () => {
     for (const gone of ['AgentChat', 'useAgentSession', "sp.get('ask')", 'AssistantPanel', 'function Pain', 'useAIName', 'compactHeader']) expect(home, gone).not.toContain(gone)
     expect(home).toContain("import LoginCard from '@/components/home/LoginCard'")
-    expect(home).toContain('<LoginCard className="min-w-0" />')
-    expect(home).toContain('href="#login"') // both CTAs scroll to the card
+    // 2026-09-29: one centered column, the sign-in block under the headline (Muse-style)
+    expect(home).toContain('<LoginCard className="mx-auto mt-8 w-full max-w-[400px] scroll-mt-24 sm:mt-10" />')
+    expect(home).toContain('href="#login"') // the closing「免费开始 ↑」scrolls back up to it
     expect(home).toContain("const TRY_HREF = '/tenant/agent'") // the free, no-account demo lives on the preview page
     expect(home).toContain('租房路上的每一步，')
     expect(home).toContain('你自己的 AI 助理')
