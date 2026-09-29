@@ -302,11 +302,12 @@ describe('found while walking the agent test account (2026-09-24)', () => {
   it('a live-registered agent screens for clients inside the agent workspace, no landlord hat needed', () => {
     const s = read('app/screening/app/page.tsx')
     expect(s).toContain("agentLive && (!hats.landlord || asAgent) ? 'agent' : 'landlord'")
-    // 节点 5 (2026-09-27): the hand-off carries the client's live delegation.
-    expect(read('components/agent/ClientBook.tsx')).toContain('href={`/screening/app?as=agent&delegation=${d.id}`}')
+    // 节点 5 (2026-09-27): the hand-off carries the client's live delegation when there is one;
+    // since 2026-09-29 the agent screens directly without one.
+    expect(read('components/agent/ClientBook.tsx')).toContain("const screenHref = shared ? `/screening/app?as=agent&delegation=${d.id}` : '/screening/app?as=agent'")
     const become = read('app/landlord/become/page.tsx')
     expect(become).not.toContain('经纪代客筛查会在代表协议记录上线后开放')
-    expect(become).toContain('从客户那一行点「发起筛查」')
+    expect(become).toContain('RECO 注册核验通过后即可直接筛查')
   })
   it('client-table task text spaces CJK and Latin', async () => {
     const { clientTasks } = await import('@/lib/agent/clientBook')

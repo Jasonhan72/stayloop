@@ -3,8 +3,11 @@
 // The agent's real client table (P2 2026-09-23): rows in agent_clients,
 // own-only RLS. TRESA hygiene is the point of the two date columns — a
 // written representation agreement and the RECO Information Guide are
-// what RECO expects before any leasing work — so "发起筛查" stays disabled
-// until both are recorded (prompts.ts SCREENING_RULES_AGENT precondition).
+// what RECO expects before any leasing work. "发起筛查" is on every row: a
+// verified agent screens directly (user 2026-09-29:「经纪可以直接筛选，这个
+// 本来就是经纪的工作，客户默认委托了这个的」). A confirmed delegation is
+// optional — it records the screening under the client too, so the landlord
+// sees the report in their own account.
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { SectionCard, StatusPill, Table, Td, Tr } from '@/components/workspace'
@@ -164,18 +167,23 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
                     <div className="flex flex-wrap gap-1.5">
                       <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `客户 ${c.name}（${c.client_role === 'landlord' ? '房东' : '租客'}，${c.budget || '预算未填'}，${c.area || '区域未填'}）：` : `Client ${c.name} (${c.client_role}, ${c.budget || 'no budget'}, ${c.area || 'no area'}): `)}`} className="rounded-[8px] border border-line-strong bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-body hover:border-brand hover:text-brand">{zh ? '交给 AI 助理' : 'To the AI Agent'}</Link>
                       {(() => {
-                        // 节点 5: screening for a client needs a LIVE delegation that allows it; the delegation needs the TRESA dates + an email.
+                        // Screening is always available to the (verified) agent; a live delegation that allows it also records
+                        // the screening under the client. The delegation itself needs the TRESA dates + an email.
                         const d = delegFor(c.id)
                         const live = !!d && isDelegationLive(d)
                         const st = d ? STATUS_LABEL[d.status] : null
+                        const shared = live && allows(d, 'screen')
+                        const screenHref = shared ? `/screening/app?as=agent&delegation=${d.id}` : '/screening/app?as=agent'
                         return (<>
+                          {/* screening is of a landlord client's applicants; for a tenant client the agent is on the other side */}
+                          {c.client_role === 'landlord' && <Link href={screenHref} data-testid="client-screen" className="rounded-[8px] border border-agent/40 bg-agent/[0.06] px-2.5 py-[5px] text-[11.5px] font-semibold text-agent">{zh ? '发起筛查' : 'Screen'}</Link>}
                           {d && st && <span data-testid="delegation-chip" className={'rounded-[8px] px-2 py-[5px] font-mono text-[10.5px] font-bold ' + (live ? 'bg-success/10 text-success' : st.tone === 'warn' ? 'bg-amber-50 text-amber-800' : st.tone === 'danger' ? 'bg-danger/10 text-danger' : 'bg-surface-chip text-body-3')}>{live ? (zh ? `委托有效至 ${d.expires_at.slice(0, 10)}` : `Delegated until ${d.expires_at.slice(0, 10)}`) : (zh ? st.zh : st.en)}</span>}
-                          {live && allows(d, 'screen')
-                            ? <Link href={`/screening/app?as=agent&delegation=${d.id}`} className="rounded-[8px] border border-agent/40 bg-agent/[0.06] px-2.5 py-[5px] text-[11.5px] font-semibold text-agent">{zh ? '发起筛查' : 'Screen'}</Link>
+                          {shared
+                            ? null
                             : d?.status === 'pending'
                               ? <span className="rounded-[8px] border border-line-divider px-2.5 py-[5px] text-[11.5px] text-body-3" title={zh ? '确认链接已发到客户邮箱；客户用该邮箱登录后确认' : 'The confirmation link went to the client’s email; they confirm while signed in with it'}>{zh ? `链接已发到 ${c.email || '客户邮箱'}` : `Link sent to ${c.email || 'the client'}`}</span>
                               : paper && c.email
-                                ? <button type="button" onClick={() => setProposeFor(c.id)} className="rounded-[8px] border border-brand/40 bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-brand" data-testid="propose-delegation-button">{zh ? '发起委托' : 'Propose delegation'}</button>
+                                ? <button type="button" onClick={() => setProposeFor(c.id)} title={zh ? '客户确认后，筛查报告也会出现在客户自己的账号里' : 'Once the client confirms, screening reports also appear in their own account'} className="rounded-[8px] border border-brand/40 bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-brand" data-testid="propose-delegation-button">{zh ? '发起委托' : 'Propose delegation'}</button>
                                 : <span className="rounded-[8px] border border-line-divider px-2.5 py-[5px] text-[11.5px] text-body-3" title={zh ? '先记录代表协议与 Information Guide，并填客户邮箱' : 'Record the agreement and Information Guide dates and an email first'}>{zh ? '委托（缺文件 / 邮箱）' : 'Delegation (paperwork / email)'}</span>}
                         </>)
                       })()}
@@ -187,7 +195,7 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
           </Table>
         )}
       </SectionCard>
-      <p className="mb-4 text-[11px] text-body-3">{zh ? 'TRESA s.32 / O. Reg. 567/05：为客户做租赁工作前须有书面代表协议并交付 RECO Information Guide；在 Stayloop 上代客操作还需要客户确认的委托（范围 · 期限 · 可随时撤销）。备注里不要记录 OHRC 受保护特征。Stayloop 不做经纪业务、不结算佣金。' : 'TRESA s.32 / O. Reg. 567/05: a written representation agreement and the RECO Information Guide come before any leasing work. Keep OHRC-protected characteristics out of notes. Stayloop is not a brokerage and settles no commission.'}</p>
+      <p className="mb-4 text-[11px] text-body-3">{zh ? 'TRESA s.32 / O. Reg. 567/05：为客户做租赁工作前须有书面代表协议并交付 RECO Information Guide。筛查可以直接发起；客户确认委托后（范围 · 期限 · 可随时撤销），报告也会出现在客户自己的账号里。备注里不要记录 OHRC 受保护特征。Stayloop 不做经纪业务、不结算佣金。' : 'TRESA s.32 / O. Reg. 567/05: a written representation agreement and the RECO Information Guide come before any leasing work. Screening can start directly; once the client confirms a delegation (scope · term · revocable), reports also appear in their own account. Keep OHRC-protected characteristics out of notes. Stayloop is not a brokerage and settles no commission.'}</p>
     </div>
   )
 }

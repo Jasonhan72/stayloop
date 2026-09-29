@@ -1538,14 +1538,14 @@ export default function ScreenPage() {
   const { role: authRole } = useAuth()
   // Which rail wraps the screening app (three-role walk-through 2026-09-24):
   // landlords get the landlord workspace; an agent whose RECO registration is
-  // live screens for clients inside the AGENT workspace (no landlord hat
-  // needed — the client table gates it on the representation agreement and
-  // Information Guide dates); anyone else is sent to /landlord/become by the
-  // shell. `?as=agent` (from the client table) picks the agent rail for an
-  // account that holds both hats.
+  // live screens inside the AGENT workspace, directly (no landlord hat, no
+  // client delegation needed — user 2026-09-29); anyone else is sent to
+  // /landlord/become by the shell. `?as=agent` (from the client table) picks
+  // the agent rail for an account that holds both hats.
   const hats = useHats()
   const [asAgent, setAsAgent] = useState(false)
-  // 节点 5: an agent screens for a client only under that client's live delegation (?delegation=<id> from the client table).
+  // ?delegation=<id> (from the client table): when that client delegation is live and allows screening, the
+  // screening is also recorded under the client, who then sees it in their own account (节点 5). Optional.
   const [delegationId, setDelegationId] = useState<string | null>(null)
   const [delegation, setDelegation] = useState<{ principal: string; scope: string[]; expires_at: string; live: boolean } | null | 'none'>(null)
   useEffect(() => { try { const q = new URLSearchParams(window.location.search); setAsAgent(q.get('as') === 'agent'); const d = q.get('delegation'); setDelegationId(d && /^[0-9a-f-]{36}$/i.test(d) ? d : null) } catch { /* no window */ } }, [])
@@ -2517,13 +2517,8 @@ export default function ScreenPage() {
       for (const timer of progressTimers) clearInterval(timer)
     }
 
-    // 节点 5: agent mode needs a live delegation that allows screening; nothing is created without it.
-    if (shellRole === 'agent' && !(delegation && delegation !== 'none' && delegation.live)) {
-      stopProgressTracking()
-      setError('代客筛查需要客户已确认、允许筛查的委托——请从客户表的「发起筛查」进入。 / Screening for a client needs a confirmed delegation that allows it — start from the client table.')
-      setAnalyzing(false)
-      return
-    }
+    // A verified agent screens directly (user 2026-09-29:「经纪可以直接筛选，这个本来就是经纪的工作，
+    // 客户默认委托了这个的」); a live client delegation is optional and only adds the client as a reader.
     try {
       // 1. Create screening row
       let screeningId: string
@@ -2535,7 +2530,9 @@ export default function ScreenPage() {
         .from('screenings')
         .insert({
           landlord_id: landlord.authId,
-          delegation_id: shellRole === 'agent' ? delegationId : null, // 节点 5: the principal can read it; the agent keeps access while the delegation is live
+          // only a live delegation that allows screening is recorded (the principal can then read the report; the
+          // agent keeps access while it is live); without one the screening is the agent's own
+          delegation_id: shellRole === 'agent' && delegation && delegation !== 'none' && delegation.live ? delegationId : null,
           tenant_name: applicantName || null,
           monthly_rent: targetRent ? Number(targetRent) : null,
           status: 'uploading',
@@ -2765,7 +2762,9 @@ export default function ScreenPage() {
       <section className="mx-auto max-w-[960px]">
       {shellRole === 'agent' && delegation && (delegation !== 'none' && delegation.live
         ? <div className="mb-4 rounded-xl border border-agent/30 bg-agent/[0.06] px-4 py-2.5 text-[12.5px]" data-testid="screening-delegation">{`正在代表：${delegation.principal} · ${delegation.scope.join('、')} · 到期 ${delegation.expires_at.slice(0, 10)} / Representing ${delegation.principal} · until ${delegation.expires_at.slice(0, 10)}`}<span className="ml-2 text-body-3">· 这次筛查会记在客户名下并标注该委托 / recorded under the client with this delegation</span></div>
-        : <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12.5px] text-amber-900" data-testid="screening-delegation-missing">代客筛查需要客户已确认、允许筛查的委托。请到 <a className="font-bold underline" href="/agent/clients">客户表</a> 发起委托，客户确认后从那里进入。 / Screening for a client needs a confirmed delegation; propose it from the <a className="font-bold underline" href="/agent/clients">client table</a> and start from there once confirmed.</div>)}
+        : delegation !== 'none'
+          ? <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12.5px] text-amber-900" data-testid="screening-delegation-invalid">这个委托已失效或不允许筛查：这次筛查只记在你名下，客户在自己的账号里看不到。 / This delegation has ended or does not allow screening: this screening stays in your account only.</div>
+          : <div className="mb-4 rounded-xl border border-line-divider bg-white px-4 py-2.5 text-[12.5px] text-body-3" data-testid="screening-agent-direct">这次筛查记在你（经纪）名下。想让房东客户在自己的账号里也看到报告：在 <a className="font-semibold text-brand underline" href="/agent/clients">客户表</a> 发起委托，客户确认后从那一行进入。 / This screening is recorded in your account. For the landlord client to see the report in theirs, propose a delegation from the <a className="font-semibold text-brand underline" href="/agent/clients">client table</a> and start from that row once confirmed.</div>)}
       <div className="screen-app">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
         <style>{`

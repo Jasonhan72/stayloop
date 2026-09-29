@@ -82,12 +82,12 @@ describe('schema: one writer, party-scoped reads, delegation-gated screenings', 
 })
 
 describe('surfaces and routes', () => {
-  it('the agent proposes from the client table only with paperwork + email; the hand-off needs a live delegation with screen', () => {
+  it('the agent proposes from the client table only with paperwork + email; a live delegation with screen rides along on the hand-off', () => {
     const c = read('components/agent/ClientBook.tsx')
     expect(c).toContain('data-testid="propose-delegation-button"')
-    expect(c).toContain("live && allows(d, 'screen')")
-    expect(c).toContain('href={`/screening/app?as=agent&delegation=${d.id}`}')
-    expect(c).not.toContain('href="/screening/app?as=agent"')
+    expect(c).toContain("const shared = live && allows(d, 'screen')")
+    // since 2026-09-29 a verified agent screens directly; the delegation only adds the client as a reader
+    expect(c).toContain("const screenHref = shared ? `/screening/app?as=agent&delegation=${d.id}` : '/screening/app?as=agent'")
   })
   it('the server re-checks registration, ownership, email and both TRESA dates before proposing; confirm needs the principal’s email; revoke is either party', () => {
     const r = read('app/api/delegations/route.ts')
@@ -99,11 +99,12 @@ describe('surfaces and routes', () => {
     expect(v).toContain('if (!asPrincipal && !asDelegate) return NextResponse.json({ error: \'not a party\' }, { status: 403 })')
     expect(v).toContain("action: 'delegation_revoked'")
   })
-  it('the screening app refuses agent-mode screening without a live delegation and stamps delegation_id on the row', () => {
+  it('the screening app stamps delegation_id only for a live delegation; without one the agent screens directly (2026-09-29)', () => {
     const s = read('app/screening/app/page.tsx')
-    expect(s).toContain("if (shellRole === 'agent' && !(delegation && delegation !== 'none' && delegation.live))")
-    expect(s).toContain("delegation_id: shellRole === 'agent' ? delegationId : null")
-    expect(s).toContain('data-testid="screening-delegation-missing"')
+    expect(s).not.toContain("if (shellRole === 'agent' && !(delegation && delegation !== 'none' && delegation.live))")
+    expect(s).toContain("delegation_id: shellRole === 'agent' && delegation && delegation !== 'none' && delegation.live ? delegationId : null")
+    expect(s).toContain('data-testid="screening-delegation-invalid"')
+    expect(s).toContain('data-testid="screening-agent-direct"')
   })
   it('the agent shell shows who it is representing; settings lists delegations both ways; the progress page is the matter page; work-order cards act inline', () => {
     expect(read('components/WorkspaceShell.tsx')).toContain("{role === 'agent' && <RepresentingStrip zh={lang === 'zh'} />}")
