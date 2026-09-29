@@ -104,7 +104,7 @@ describe('assistant name cache is bound to its account', () => {
     expect(hook).toContain("getStoredAIName(isLive && user?.id ? user.id : null)")
     expect(read('components/agent/AssistantPanel.tsx')).toContain('setAIName(next, live && auth.user ? auth.user.id : null)')
     expect(read('app/settings/page.tsx')).toContain('setAIName(trimmed, user?.id ?? null)')
-    expect(read('app/settings/page.tsx')).toContain('getAIName(auth.user?.id ?? null)')
+    expect(read('app/settings/page.tsx')).toContain('getStoredAIName(auth.user?.id ?? null)')
     expect(read('app/onboarding/name/page.tsx')).toContain('setAIName(chosen, user?.id ?? null)')
     expect(read('lib/useOnboarding.ts')).toContain('resolveAccountName().then(({ uid, name }) => { if (!cancelled && uid === user.id && name) setNamed(true) })')
     const lib = read('lib/aiName.ts')

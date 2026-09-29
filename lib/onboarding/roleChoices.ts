@@ -27,7 +27,7 @@ export const ROLE_CHOICES: RoleChoice[] = [
     key: 'tenant',
     label: { zh: '租客', en: 'Tenant' },
     blurb: { zh: '找房、看房、申请、签约，每一步进度都看得到。', en: 'Search, view, apply and sign, and see each step as it moves.' },
-    lands: { zh: '助手对话 · 找房 · 申请 · 租约', en: 'assistant chat · search · apply · lease' },
+    lands: { zh: 'AI 助理对话 · 找房 · 申请 · 租约', en: 'AI Agent chat · search · apply · lease' },
   },
   {
     key: 'landlord',

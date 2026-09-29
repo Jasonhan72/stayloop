@@ -58,7 +58,7 @@ export const DICT = {
   'common.pro': { en: 'Pro', zh: '订阅版' },
 
   // Onboarding · Tier 1 (身份章 · 90 秒身份验证)
-  'onb.hi': { en: "Hi, I'm your AI agent.", zh: '嗨，我是你的 AI Agent。' },
+  'onb.hi': { en: "Hi, I'm your AI Agent.", zh: '嗨，我是你的 AI 助理。' },
   'onb.line2': { en: "Here is how identity verification will work — a preview.", zh: '先看看身份核验是怎么回事 —— 这是一个预览。' },
   'onb.body': {
     en: 'The identity stamp is the first of four. Real verification runs through Veriff (passport or licence plus a selfie) when a landlord sends you a secure verification link with a screening. This page only previews the steps — nothing is uploaded.',

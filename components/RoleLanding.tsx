@@ -15,6 +15,7 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useT } from '@/lib/i18n'
+import { displayAiName } from '@/lib/agent/assistantName'
 import { useOnboarded } from '@/lib/useOnboarding'
 
 type Bi = { zh: string; en: string }
@@ -106,6 +107,7 @@ const V8_CSS = `
 export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const agentName = displayAiName(cfg.agentName, lang)
   const c = cfg.color
   const { onboarded } = useOnboarded(cfg.role)
   // One verifiable number per page — counted from the database, never a
@@ -217,7 +219,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
             <div className="flex items-center gap-3 border-b border-line-divider px-5 py-3.5">
               <span className={`orb ${cfg.role} h-9 w-9 flex-none`} />
               <div>
-                <div className="text-[15px] font-bold tracking-tight">{cfg.agentName}</div>
+                <div className="text-[15px] font-bold tracking-tight">{agentName}</div>
                 <div className="flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[.1em] text-body-3">
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#34D399' }} />
                   {zh ? '在线 · 读取你的记忆' : 'ONLINE · READING YOUR MEMORY'}
@@ -260,8 +262,8 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
               <span className="text-[13px] text-body-3">🔗</span>
               <span className="text-[13px] text-body-3">🎙</span>
               <span className="min-w-0 flex-1 truncate text-[12px] text-body-3">
-                {zh ? `告诉 ${cfg.agentName} 你想做什么 —— 文字、语音或上传文件都行`
-                    : `Tell ${cfg.agentName} what you need — text, voice or upload a file`}
+                {zh ? `告诉 ${agentName}你想做什么 —— 文字、语音或上传文件都行`
+                    : `Tell ${agentName} what you need — text, voice or upload a file`}
               </span>
               <span className="flex-none rounded-lg px-3 py-1.5 text-[11.5px] font-bold text-white" style={{ background: c }}>
                 {zh ? '发送 →' : 'Send →'}
@@ -286,13 +288,13 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
       <section style={{ background: '#F3F8FC', borderTop: '1px solid #E4EEF6', borderBottom: '1px solid #E4EEF6' }}>
         <div className="mx-auto max-w-[1180px] px-5 py-20 sm:px-8 lg:py-24">
           <div className="v8-eyebrow" style={{ color: c }}>
-            {zh ? `${cfg.agentName} 做什么` : `What ${cfg.agentName} does`}
+            {zh ? `${agentName}做什么` : `What ${agentName} does`}
           </div>
           <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
             {zh ? '三件事，每件都能先在对话里试。' : 'Three things — each one you can try in the conversation first.'}
           </h2>
           <p className="mt-3 max-w-[640px] text-[17px] leading-[1.6] text-body-2">
-            {zh ? '每张卡末尾那句是一条真的问题：点它会回到首页的对话框，由助手直接回答，不用注册。' : 'The last line of each card is a real question: it opens the homepage conversation and the assistant answers it — no signup.'}
+            {zh ? '每张卡末尾那句是一条真的问题：点它会回到首页的对话框，由 AI 助理直接回答，不用注册。' : 'The last line of each card is a real question: it opens the homepage conversation and the AI Agent answers it — no signup.'}
           </p>
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {cfg.benefits.map((b, i) => (
@@ -324,8 +326,8 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
           </div>
           <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
             {lang === 'zh'
-              ? <>{cfg.agentName} 陪你走完每一步。</>
-              : <>{cfg.agentName} walks you through every step.</>}
+              ? <>{agentName}陪你走完每一步。</>
+              : <>{agentName} walks you through every step.</>}
           </h2>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {cfg.journey.map((j, i) => (
@@ -453,7 +455,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
                   </div>
                   <div>
                     <div className="text-[10.5px] font-bold uppercase tracking-[.12em]" style={{ color: c }}>
-                      {lang === 'zh' ? `之后 · ${cfg.agentName} 接手` : `AFTER · with ${cfg.agentName}`}
+                      {lang === 'zh' ? `之后 · ${agentName}接手` : `AFTER · with ${agentName}`}
                     </div>
                     <p className="mt-1.5 text-[14px] leading-relaxed text-body-2">{cfg.scenario.after[lang]}</p>
                   </div>
@@ -511,8 +513,8 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
         <div className="relative mx-auto max-w-[1180px] px-5 py-24 text-center sm:px-8 lg:py-28">
           <h2 className="rv mx-auto max-w-[640px] text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em] text-white">
             {lang === 'zh'
-              ? <>现在就让 {cfg.agentName} 替你开始。</>
-              : <>Let {cfg.agentName} start for you now.</>}
+              ? <>现在就让 {agentName}替你开始。</>
+              : <>Let {agentName} start for you now.</>}
           </h2>
           <div className="rv d1 mt-8">
             <Link

@@ -56,7 +56,7 @@ const PLANS: RolePlan[] = [
         href: '/onboarding/name',
         includesLabel: { zh: '全部包含:', en: 'Everything included:' },
         features: [
-          { zh: '个人 AI Agent 全功能', en: 'Full personal AI agent' },
+          { zh: 'AI 助理全功能', en: 'Full AI Agent' },
           { zh: '筛查与核验不向你收一分钱 · RTA s.134', en: 'Screening and verification never cost you a cent · RTA s.134' },
           { zh: '申请 · 签约 · 维修全流程', en: 'Apply, sign and maintenance end to end' },
           { zh: '可直接联系平台认证的持牌经纪（Stayloop 不收费）', en: 'Contact Stayloop-verified licensed agents directly (no fee from Stayloop)' },
@@ -100,7 +100,7 @@ const PLANS: RolePlan[] = [
         includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Go, plus:' },
         features: [
           { zh: '无限发布房源', en: 'Unlimited listings' },
-          { zh: 'AI Agent 全功能', en: 'Full AI agent' },
+          { zh: 'AI 助理全功能', en: 'Full AI Agent' },
           { zh: '验证 / 筛查全含', en: 'Verification / screening included' },
           { zh: '租约起草 + 一键续约', en: 'Lease drafting + 1-click renewals' },
           { zh: '维修派单：已核验服务商网络 + 派单策略（紧急件自动派、预授权）· 不抽成，付款你与服务商直接结算', en: 'Repairs: verified provider network + dispatch policy (auto-dispatch emergencies, pre-approval) · no commission, you pay the provider directly', href: '/services' },
@@ -140,7 +140,7 @@ const PLANS: RolePlan[] = [
         includesLabel: { zh: '包含:', en: 'Included:' },
         features: [
           { zh: 'RECO 注册核验徽章 + 认证经纪目录', en: 'RECO-checked badge + verified agent directory' },
-          { zh: 'AI Agent 基础功能', en: 'AI agent basics' },
+          { zh: 'AI 助理基础功能', en: 'AI Agent basics' },
           { zh: '看房排程 + 现场记录（即将推出）', en: 'Showing scheduler + on-site notes (coming soon)' },
           { zh: '不抽佣金', en: 'No commission cut' },
         ],
@@ -155,7 +155,7 @@ const PLANS: RolePlan[] = [
         includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Go, plus:' },
         features: [
           { zh: '无限客户', en: 'Unlimited clients' },
-          { zh: 'AI Agent 全功能', en: 'Full AI agent' },
+          { zh: 'AI 助理全功能', en: 'Full AI Agent' },
           { zh: 'RECO 合规工具 + 审计提醒', en: 'RECO compliance tools + audit reminders' },
           { zh: '自动跟进提醒', en: 'Automated follow-up reminders' },
         ],
@@ -342,9 +342,9 @@ export default function PricingPage() {
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {[
               { q: { zh: '租客真的永远免费吗?', en: 'Are tenants really free forever?' }, a: { zh: '是。找房、申请、签约、报修和护照分享链接都免费；房东的筛查与核验费用也不能转给你（安省 RTA s.134）。', en: 'Yes. Searching, applying, signing, repairs and your Passport share link are all free, and a landlord cannot pass screening or verification costs on to you (Ontario RTA s.134).' } },
-              { q: { zh: '经纪订阅包含什么?', en: 'What does the agent subscription include?' }, a: { zh: '现在可用的是免费档：RECO 注册核验徽章、认证经纪目录与 AI 助手。日程编排、客户管理等付费工具即将推出、尚未开售。不抽任何佣金。', en: 'Available today is the free tier: the RECO-checked badge, the verified agent directory and the AI assistant. Paid tools such as scheduling and client management are coming soon and not yet on sale. No commission cut.' } },
+              { q: { zh: '经纪订阅包含什么?', en: 'What does the agent subscription include?' }, a: { zh: '现在可用的是免费档：RECO 注册核验徽章、认证经纪目录与 AI 助理。日程编排、客户管理等付费工具即将推出、尚未开售。不抽任何佣金。', en: 'Available today is the free tier: the RECO-checked badge, the verified agent directory and the AI Agent. Paid tools such as scheduling and client management are coming soon and not yet on sale. No commission cut.' } },
               { q: { zh: '为什么不收带看费、不抽租金?', en: 'Why no showing fees and no rent skim?' }, a: { zh: '我们只收订阅费。Stayloop 目前不经手租金（在线收租尚未上线），租客也零负担。', en: 'We only charge subscriptions. Stayloop does not handle rent today (online rent collection is not live), and tenants pay nothing.' } },
-              { q: { zh: '房东免费档够用吗?', en: 'Is the landlord free tier enough?' }, a: { zh: '多数个人房东够用：发布房源、收申请、每月 5 次 AI 筛查都在免费档。需要更多筛查、深度核查或完整 AI Agent 再升级。', en: 'For most individual landlords, yes: listing, applications and 5 AI screenings a month are all in the free tier. Upgrade when you need more screenings, deep checks or the full AI agent.' } },
+              { q: { zh: '房东免费档够用吗?', en: 'Is the landlord free tier enough?' }, a: { zh: '多数个人房东够用：发布房源、收申请、每月 5 次 AI 筛查都在免费档。需要更多筛查、深度核查或完整的 AI 助理功能再升级。', en: 'For most individual landlords, yes: listing, applications and 5 AI screenings a month are all in the free tier. Upgrade when you need more screenings, deep checks or the full AI Agent.' } },
               { q: { zh: '只筛一两个人，非要订阅吗?', en: 'Screening one or two applicants — do I need a subscription?' }, a: { zh: '不用。免费档每月 5 次筛查；只有深度核查（公司注册交叉核查、董事比对、关联关系识别，以及陆续上线的身份 / 银行 / 征信直连）需要解锁——单个申请人 $14.99 一次性，由房东支付（安省 RTA s.134 禁止向申请人收取任何费用）。多套房再考虑 Pro。', en: 'No. The free tier includes 5 screenings a month. Only deep checks (company-registry cross-check, director matching, related-party detection, and the ID / bank / credit direct verification as it launches) need an unlock — $14.99 one-time per applicant, paid by the landlord (Ontario\'s RTA s.134 prohibits charging applicants). Pro is for landlords with several properties.' } },
             ].map((f) => (
               <div key={f.q.zh} className="sl-card p-5">

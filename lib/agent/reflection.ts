@@ -74,7 +74,7 @@ export function applyUserOverrides<T extends Partial<UserModel>>(model: T, overr
 
 const REFLECT_PROMPT = `你是一个"用户理解引擎"。下面是某位 Stayloop 用户（身份：{ROLE}）最近与 AI 助理的对话记录、TA 已保存的记忆、以及 TA 对 AI 提议的批准/拒绝记录。
 
-任务：把零散信息提炼成一份稳定的「用户画像」，让 AI 管家越来越懂这个人。规则：
+任务：把零散信息提炼成一份稳定的「用户画像」，让 AI 助理越来越懂这个人。规则：
 1. 只写有证据支撑的判断，不猜测；矛盾时以最新的证据为准。
 2. 合并重复、丢弃过时（比如已完成的找房需求）。
 3. 目标(goals)写 TA 正在追求的结果（如「把 89 Estelle 租出去」「续约谈到 $2900 以内」）；偏好(preferences)写做事方式（语言、渠道、风格、预算习惯）；约束(constraints)写硬限制（预算上限、时间、宠物）。

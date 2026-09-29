@@ -5,7 +5,8 @@
 //   · Signed-in users see the name THEY set (assistant_profiles.name, written
 //     at onboarding or from the assistant panel; localStorage is only a fast
 //     cache for the first paint).
-//   · Signed-out / not-yet-named → the generic "AI Agent". The demo personas'
+//   · Signed-out / not-yet-named → the generic label: 「AI 助理」 in Chinese,
+//     "AI Agent" in English (2026-09-28; lib/agent/assistantName.ts). The demo personas'
 //     names (Luna / Logic / Brief) never appear as the live assistant's name.
 //   · The cache belongs to ONE account (`sl-ai-name-owner`). A name chosen
 //     before signing in is "unclaimed" and is adopted by the account that signs
@@ -17,8 +18,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { readAssistantProfile } from './agent/assistantProfile'
+import { GENERIC_AI_NAME, displayAiName } from './agent/assistantName'
+import { useT } from './i18n'
 
-export const GENERIC_AI_NAME = 'AI Agent'
+export { GENERIC_AI_NAME, GENERIC_AI_NAME_ZH, displayAiName, genericAiName, isGenericAiName } from './agent/assistantName'
 const KEY = 'sl-ai-name'
 const OWNER_KEY = 'sl-ai-name-owner'
 // Pre-2026-09-25 per-hat keys, cleared on sign-out so nothing stale lingers.
@@ -125,6 +128,7 @@ export function invalidateAiName() {
  * "AI Agent".
  */
 export function useAIName(): string {
+  const { lang } = useT()
   const [name, setName] = useState<string>(GENERIC_AI_NAME)
 
   useEffect(() => {
@@ -157,5 +161,5 @@ export function useAIName(): string {
     }
   }, [])
 
-  return name
+  return displayAiName(name, lang)
 }

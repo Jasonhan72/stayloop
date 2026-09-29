@@ -95,7 +95,7 @@ export function ActivitySheet({ role, agentName, live, memoryCount, currentThrea
               </button>
               {canEdit && (
                 <div ref={menuRef} className="absolute -bottom-1 -right-1">
-                  <button type="button" onClick={() => setMenu((v) => !v)} aria-label={zh ? '编辑助手' : 'Edit assistant'} title={zh ? '换头像 / 改名' : 'Change avatar / edit name'} aria-haspopup="menu" aria-expanded={menu} data-testid="sheet-pencil" className="flex h-6 w-6 items-center justify-center rounded-full border border-line-divider bg-white text-body shadow-sm">
+                  <button type="button" onClick={() => setMenu((v) => !v)} aria-label={zh ? '编辑 AI 助理' : 'Edit AI Agent'} title={zh ? '换头像 / 改名' : 'Change avatar / edit name'} aria-haspopup="menu" aria-expanded={menu} data-testid="sheet-pencil" className="flex h-6 w-6 items-center justify-center rounded-full border border-line-divider bg-white text-body shadow-sm">
                     <PencilIcon />
                   </button>
                   {menu && (
@@ -110,7 +110,7 @@ export function ActivitySheet({ role, agentName, live, memoryCount, currentThrea
             <div className="min-w-0">
               {renaming ? (
                 <form onSubmit={(e) => { e.preventDefault(); void saveName() }} className="flex items-center gap-1.5">
-                  <input autoFocus value={nameDraft} maxLength={20} onChange={(e) => setNameDraft(e.target.value)} onBlur={() => void saveName()} aria-label={zh ? '助手名字' : 'Assistant name'} className="sl-input w-[150px] min-w-0 !py-1 text-[16px] font-medium" />
+                  <input autoFocus value={nameDraft} maxLength={20} onChange={(e) => setNameDraft(e.target.value)} onBlur={() => void saveName()} aria-label={zh ? 'AI 助理名字' : 'AI Agent name'} className="sl-input w-[150px] min-w-0 !py-1 text-[16px] font-medium" />
                   <button type="submit" className="rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-white" style={{ background: '#1B1B3C' }}>{zh ? '好' : 'OK'}</button>
                 </form>
               ) : (
@@ -127,7 +127,7 @@ export function ActivitySheet({ role, agentName, live, memoryCount, currentThrea
           {items === null && <div className="py-4 text-[13px] text-body-3">{zh ? '读取中…' : 'Loading…'}</div>}
           {items && items.length === 0 && (
             <div className="py-4 text-[13px] text-body-3">
-              {live ? (zh ? '还没有对话记录。' : 'No conversations yet.') : (zh ? '预览模式没有日志。登录后这里会列出你和助手的对话。' : 'Preview mode has no log. Sign in and your conversations are listed here.')}
+              {live ? (zh ? '还没有对话记录。' : 'No conversations yet.') : (zh ? '预览模式没有日志。登录后这里会列出你和 AI 助理的对话。' : 'Preview mode has no log. Sign in and your conversations are listed here.')}
             </div>
           )}
           {items?.map((it) => {

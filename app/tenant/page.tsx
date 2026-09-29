@@ -4,7 +4,7 @@ import RoleLanding, { RoleLandingConfig } from '@/components/RoleLanding'
 
 const CFG: RoleLandingConfig = {
   role: 'tenant',
-  eyebrow: 'TENANT · 租客 · AI Agent',
+  eyebrow: 'TENANT · 租客 · AI 助理',
   agentName: 'AI Agent',
   color: '#00ACE4',
   h1: {
@@ -15,7 +15,7 @@ const CFG: RoleLandingConfig = {
     zh: '说出你想要的家,它从真实房源里替你找、替你比;看房、提问、申请、签约都在一处,英文租约逐条讲成中文。每个关键决定,依然由你拍板。',
     en: 'Say what home you want and it searches and compares real listings for you; viewings, questions, applications and signing live in one place, and the lease is explained clause by clause. Every key decision stays yours.',
   },
-  primaryCta: { label: { zh: '唤醒你的 AI 租房助手 →', en: 'Wake up your rental AI →' }, href: '/onboarding/name', authedHref: '/tenant/agent' },
+  primaryCta: { label: { zh: '唤醒你的 AI 助理 →', en: 'Wake up your AI Agent →' }, href: '/onboarding/name', authedHref: '/tenant/agent' },
   secondaryCta: { label: { zh: '先浏览房源', en: 'Browse listings first' }, href: '/listings' },
   ctaNote: { zh: '租客永远免费 · 是否授权查询征信由你决定', en: 'Always free for tenants · you decide whether to authorise a credit check' },
   agentPoints: [
@@ -50,8 +50,8 @@ const CFG: RoleLandingConfig = {
     {
       file: 'mia-02-luna.jpg',
       fallback: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=700&q=80&fit=crop&auto=format',
-      label: { zh: 'AI Agent 接手', en: 'The AI agent takes over' },
-      text: { zh: '一句话说清需求:市中心、一居、能养猫。AI Agent 找房、比价、中文讲解租约,替她起草给房东的消息。', en: 'One sentence: downtown, 1-bed, cats OK. The AI agent searches, compares, explains the lease in Chinese and drafts her messages to the landlord.' },
+      label: { zh: 'AI 助理接手', en: 'The AI Agent takes over' },
+      text: { zh: '一句话说清需求:市中心、一居、能养猫。AI 助理找房、比价、中文讲解租约,替她起草给房东的消息。', en: 'One sentence: downtown, 1-bed, cats OK. The AI Agent searches, compares, explains the lease in Chinese and drafts her messages to the landlord.' },
     },
     {
       file: 'mia-03-home.jpg',
@@ -122,7 +122,7 @@ const CFG: RoleLandingConfig = {
     },
     {
       h: { zh: '看房与提问：房东一张卡片就收到', en: 'Viewings & questions: one card to the landlord' },
-      b: { zh: '房源页的「预约看房」「向房东提问」直接进房东助手的待办，房东批准后你收到带联系方式的邮件。要带经纪也可以自选一位 RECO 已核的。', en: '"Request a viewing" and "Ask the landlord" on a listing go straight to the landlord\'s agent inbox; once approved you get an email with their contact. Want an agent along? Pick a RECO-checked one.' },
+      b: { zh: '房源页的「预约看房」「向房东提问」直接进房东 AI 助理的待办，房东批准后你收到带联系方式的邮件。要带经纪也可以自选一位 RECO 已核的。', en: '"Request a viewing" and "Ask the landlord" on a listing go straight to the landlord\'s AI Agent to-do list; once approved you get an email with their contact. Want an agent along? Pick a RECO-checked one.' },
       ask: { zh: '看房时我可以问什么、房东不能问我什么？', en: 'What can I ask at a viewing, and what may the landlord not ask me?' },
     },
     {
@@ -137,8 +137,8 @@ const CFG: RoleLandingConfig = {
     note: { zh: '这是此刻数据库里对外可见的房源数，不含任何演示数据。TRREB 季度行情与 LTB 判令目录的数量在首页的数据带里。', en: 'The number of listings publicly visible in the database right now — no demo rows. TRREB quarters and LTB order counts are on the homepage data band.' },
   },
   faq: [
-    { q: { zh: '助手找的房源来自哪里？', en: 'Where do the listings come from?' }, a: { zh: 'Stayloop 上经人工核验的房源，加上 Realtor.ca 的实时挂牌抓取（示范阶段，TRREB 数据库尚未接入）。行情线来自 TRREB 季度租赁市场报告。', en: 'Stayloop listings verified by hand, plus live Realtor.ca listings (demonstration stage — the TRREB feed is not yet connected). The benchmark line comes from the TRREB quarterly rental market report.' } },
-    { q: { zh: '我的资料谁能看？', en: 'Who can see my information?' }, a: { zh: '你在申请或核验里提交的材料只有那位房东能读；助手对话不会分享给任何人。数据库在 AWS 蒙特利尔，我们不收 SIN。', en: 'Material you submit in an application or verification is readable only by that landlord; your assistant conversation is shared with no one. The database is in AWS Montréal and we never collect a SIN.' } },
+    { q: { zh: 'AI 助理找的房源来自哪里？', en: 'Where do the listings come from?' }, a: { zh: 'Stayloop 上经人工核验的房源，加上 Realtor.ca 的实时挂牌抓取（示范阶段，TRREB 数据库尚未接入）。行情线来自 TRREB 季度租赁市场报告。', en: 'Stayloop listings verified by hand, plus live Realtor.ca listings (demonstration stage — the TRREB feed is not yet connected). The benchmark line comes from the TRREB quarterly rental market report.' } },
+    { q: { zh: '我的资料谁能看？', en: 'Who can see my information?' }, a: { zh: '你在申请或核验里提交的材料只有那位房东能读；你和 AI 助理的对话不会分享给任何人。数据库在 AWS 蒙特利尔，我们不收 SIN。', en: 'Material you submit in an application or verification is readable only by that landlord; your AI Agent conversation is shared with no one. The database is in AWS Montréal and we never collect a SIN.' } },
     { q: { zh: '房东用 Stayloop 筛查了我，我能看报告吗？', en: 'A landlord screened me on Stayloop — can I see the report?' }, a: { zh: '可以。按《消费者报告法》s.10(7)，你可以在 60 天内要求房东说明参考了哪些信息及来源；报告自带申请人通知信。争议请写 privacy@stayloop.ai。', en: 'Yes. Under Consumer Reporting Act s.10(7) you can ask the landlord within 60 days what information was used and where it came from; the report includes an applicant notice. Disputes: privacy@stayloop.ai.' } },
     { q: { zh: '房东可以向我收申请费或筛查费吗？', en: 'Can a landlord charge me an application or screening fee?' }, a: { zh: '不可以（RTA s.134）。也不能收宠物押金、清洁押金或超过一个月租金的押金（s.106）。房源页的「入住前费用一览」会列出合法的三项。', en: 'No (RTA s.134). Nor pet deposits, cleaning deposits or a rent deposit above one month (s.106). The "Move-in costs" card on each listing lists the only lawful items.' } },
     { q: { zh: '为什么没有「在线交租」？', en: 'Why is there no online rent payment?' }, a: { zh: '因为还没做。工作台里标着样例的页面都挂了琥珀色说明，按钮不会扣款。租金记录目前是在管租约里的自述「标记已付」。', en: 'Because it is not built yet. Sample pages in the workspace carry an amber notice and no button moves money. Rent records today are self-reported "mark as paid" entries in a managed tenancy.' } },

@@ -101,8 +101,8 @@ export function ShowingRequestModal({
           <div className="mt-5 rounded-xl border border-success/30 bg-success/5 p-4 text-[13.5px] leading-relaxed text-body-2">
             {done.delivered
               ? (zh
-                  ? <>已送到房东的助手待办{done.merged ? '（并入了你对这套房源的上一条请求）' : ''}。房东批准后你会收到一封带联系方式的邮件；房东没有回应时不会有任何邮件。</>
-                  : <>Delivered to the landlord&apos;s agent inbox{done.merged ? ' (merged with your earlier request for this listing)' : ''}. You get an email with the landlord&apos;s contact once they approve; no email otherwise.</>)
+                  ? <>已送到房东的 AI 助理待办{done.merged ? '（并入了你对这套房源的上一条请求）' : ''}。房东批准后你会收到一封带联系方式的邮件；房东没有回应时不会有任何邮件。</>
+                  : <>Delivered to the landlord&apos;s AI Agent to-do list{done.merged ? ' (merged with your earlier request for this listing)' : ''}. You get an email with the landlord&apos;s contact once they approve; no email otherwise.</>)
               : (zh
                   ? '已记录你的请求。这套房源没有 Stayloop 房东账号（多为 Realtor.ca 导入），请直接联系页面上的经纪公司。'
                   : 'Recorded. This listing has no Stayloop landlord account (usually a Realtor.ca import) — please contact the brokerage shown on the page.')}

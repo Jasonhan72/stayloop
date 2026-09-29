@@ -15,7 +15,7 @@ const wf = { workflow_type: 'tenant_search', workflow_id: null, current_stage: '
 describe('assistant panel, Muse round', () => {
   it('four icon-only tabs, each with aria-label + title + a hover tooltip; dividers between inactive tabs', () => {
     const panel = read('components/agent/AssistantPanel.tsx')
-    expect(panel).toContain("{ key: 'settings', label: zh ? '助手设置' : 'Assistant settings', icon: <FingerprintIcon />, badge: 0 }")
+    expect(panel).toContain("{ key: 'settings', label: zh ? 'AI 助理设置' : 'AI Agent settings', icon: <FingerprintIcon />, badge: 0 }")
     expect(panel).toContain('aria-label={t.label}')
     expect(panel).toContain('title={t.label}')
     expect(panel).toContain('group-hover:block group-focus-visible:block" style={{ background: \'#1B1B3C\' }}>{t.label}</span>')

@@ -179,7 +179,7 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
                   ? '你还没有已确认的在管租约，工单没有可发送的房东。先'
                   : 'You have no confirmed managed tenancy yet, so there is no landlord to send this to. First '}
                 <Link href="/leases/import" className="font-bold underline">{zh ? '导入已签租约' : 'import your signed lease'}</Link>
-                {zh ? '或接受房东的邀请；也可以直接对助手描述问题。' : ' or accept your landlord’s invite; you can also describe the issue to the assistant.'}
+                {zh ? '或接受房东的邀请；也可以直接对 AI 助理描述问题。' : ' or accept your landlord’s invite; you can also describe the issue to the AI Agent.'}
               </div>
             )}
 

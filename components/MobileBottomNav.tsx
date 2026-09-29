@@ -43,7 +43,7 @@ export default function MobileBottomNav() {
     return <PhoneTabs role={role} items={RAIL_BY_ROLE[role]} />
   }
   const items = [
-    { key: 'home', href: '/', label: zh ? '助手' : 'Assistant', active: path === '/', icon: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /> },
+    { key: 'home', href: '/', label: zh ? 'AI 助理' : 'AI Agent', active: path === '/', icon: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /> },
     { key: 'listings', href: '/listings', label: zh ? '房源' : 'Listings', active: path.startsWith('/listings'), icon: <><path d="M3 11l9-7 9 7" /><path d="M5 10v9h14v-9" /></> },
     { key: 'screening', href: '/screening', label: zh ? '筛查' : 'Screening', active: path.startsWith('/screening'), icon: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></> },
     { key: 'me', href: '/login', label: zh ? '登录' : 'Sign in', active: false, icon: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></> },

@@ -47,9 +47,9 @@ export default function OnboardingMeetPage() {
         }}
       >
         {zh ? (
-          <>每位用户都有一个<br />专属 AI 经纪。</>
+          <>每位用户都有一个<br />自己的 AI 助理。</>
         ) : (
-          <>Every user gets their own<br />personal AI agent.</>
+          <>Every user gets their own<br />AI Agent.</>
         )}
       </h1>
       <p

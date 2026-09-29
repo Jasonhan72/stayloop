@@ -16,7 +16,8 @@ import { loadAgentSession } from './session-loader'
 import { decidePendingAction } from './approval-engine'
 import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
 import { demoSession } from './demo'
-import { getAIName, setAIName, getStoredAIName, getDefaultName, dropForeignAIName } from '@/lib/aiName'
+import { setAIName, getStoredAIName, dropForeignAIName } from '@/lib/aiName'
+import { displayAiName, isGenericAiName } from '@/lib/agent/assistantName'
 import { appendToThread, createThread, latestThread, loadThread, readPointer, saveThread, writePointer } from './threads'
 import { notifyActivityChanged } from './useActivityLog'
 import { saveAssistantName } from './assistantProfile'
@@ -84,14 +85,14 @@ async function reconcileAgentName(
   _role: AgentRole
 ): Promise<void> {
   const uid = sess.agent.user_id
-  const dbName = sess.agent.agent_name && sess.agent.agent_name !== getDefaultName() ? sess.agent.agent_name : null
+  const dbName = !isGenericAiName(sess.agent.agent_name) ? sess.agent.agent_name : null
   // A cache another account left on this browser is neither shown nor pushed (prod 2026-09-25).
   dropForeignAIName(uid)
   const local = getStoredAIName(uid)
   try {
     if (dbName) {
       setAIName(dbName, uid)
-    } else if (local && local !== getDefaultName()) {
+    } else if (local && !isGenericAiName(local)) {
       // Named before signing in (onboarding) → the account adopts it.
       await saveAssistantName(client, uid, local)
       setAIName(local, uid)
@@ -183,7 +184,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       for (const m of next) for (const l of (m.listings ?? []).slice(0, m.listingsPage ?? LISTINGS_PAGE)) shownListings.current.add(l.address.toLowerCase())
     } else {
       msgSeq.current = 0
-      next = [{ id: nextId(), role: 'agent', text: greeting(role, agentNameRef.current || getDefaultName(), langRef.current) }]
+      next = [{ id: nextId(), role: 'agent', text: greeting(role, displayAiName(agentNameRef.current, langRef.current), langRef.current) }]
     }
     lastAppliedRef.current = next
     setMessages(next)
@@ -245,7 +246,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       // row lands) shows immediately; the loader already put the account's
       // saved name on d.agent, so nothing overrides that with the generic label.
       const chosen = getStoredAIName(isLive && user?.id ? user.id : null)
-      if (chosen && chosen !== getDefaultName()) d = { ...d, agent: { ...d.agent, agent_name: chosen } }
+      if (chosen && !isGenericAiName(chosen)) d = { ...d, agent: { ...d.agent, agent_name: chosen } }
       agentNameRef.current = d.agent.agent_name
       const hadTyped = messagesRef.current.length > 1
       // All state updates batched by React 18+ automatic batching
@@ -274,7 +275,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           for (const m of saved) for (const l of (m.listings ?? []).slice(0, m.listingsPage ?? LISTINGS_PAGE)) shownListings.current.add(l.address.toLowerCase())
           return saved
         }
-        return [{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name, langRef.current) }]
+        return [{ id: nextId(), role: 'agent', text: greeting(role, displayAiName(d.agent.agent_name, langRef.current), langRef.current) }]
       })
       if (isLive && user?.id && (!settledBefore || scopeChanged) && !hadTyped) {
         const p = resolveThread(user.id, nextScope)

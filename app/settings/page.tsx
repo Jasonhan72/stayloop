@@ -9,7 +9,7 @@ import Link from 'next/link'
 import WorkspaceShell, { type WorkspaceRole } from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
 import { useI18n } from '@/lib/i18n'
-import { getAIName, getDefaultName, invalidateAiName, setAIName } from '@/lib/aiName'
+import { getStoredAIName, invalidateAiName, setAIName, GENERIC_AI_NAME, displayAiName, genericAiName, isGenericAiName } from '@/lib/aiName'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import SubscriptionCard from '@/components/settings/SubscriptionCard'
@@ -38,7 +38,8 @@ export default function SettingsPage() {
   const color = ROLE_COLORS[shellRole] || ROLE_THEME.tenant.accent
 
   const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()
-  const aiName = getAIName(auth.user?.id ?? null)
+  // The name the person gave it, or 「AI 助理」/「AI Agent」 in the interface language (2026-09-28).
+  const aiName = displayAiName(getStoredAIName(auth.user?.id ?? null), zh ? 'zh' : 'en')
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -126,7 +127,7 @@ export default function SettingsPage() {
               <div className="mt-4 space-y-3">
                 <InfoRow icon="✉" label={zh ? '邮箱' : 'Email'} value={auth.email || '—'} />
                 <InfoRow icon="🌐" label={zh ? '语言' : 'Language'} value={zh ? '中文 · English' : 'Chinese · English'} />
-                <InfoRow icon="🤖" label={zh ? 'AI 助手' : 'AI Assistant'} value={aiName || getDefaultName()} />
+                <InfoRow icon="🤖" label={zh ? 'AI 助理' : 'AI Agent'} value={aiName} />
                 <InfoRow icon="🔒" label={zh ? '登录方式' : 'Sign-in'} value={signInMethods(auth.user, zh)} />
               </div>
             </div>
@@ -152,20 +153,20 @@ export default function SettingsPage() {
             {/* Quick actions */}
             <div className="space-y-2">
               <QuickAction
-                label={zh ? '修改 AI 助手名字' : 'Change AI assistant name'}
-                desc={zh ? `当前：${aiName || getDefaultName()}` : `Current: ${aiName || getDefaultName()}`}
+                label={zh ? '修改 AI 助理名字' : 'Change AI Agent name'}
+                desc={zh ? `当前：${aiName}` : `Current: ${aiName}`}
               >
                 <AssistantNameEditor role={shellRole} zh={zh} user={auth.user} color={color} />
               </QuickAction>
               <QuickAction
-                label={zh ? '修改 AI 助手头像' : 'Change AI assistant avatar'}
+                label={zh ? '修改 AI 助理头像' : 'Change AI Agent avatar'}
                 desc={zh ? '二十只毛绒宠物、二十个年轻人；手机上也在这里改' : 'Twenty plush pets and twenty young people; on phones this is the place'}
               >
                 <AssistantAvatarEditor role={shellRole} zh={zh} user={auth.user} />
               </QuickAction>
               <QuickAction
-                label={zh ? '助手的说话风格' : 'How your assistant speaks'}
-                desc={zh ? '一句话，只影响语气与措辞（助手面板的「助手设置」里也能改）' : 'One line — tone and wording only (also in the assistant panel)'}
+                label={zh ? 'AI 助理的说话风格' : 'How your AI Agent speaks'}
+                desc={zh ? '一句话，只影响语气与措辞（AI 助理面板的「AI 助理设置」里也能改）' : 'One line — tone and wording only (also in the AI Agent panel)'}
               >
                 <VibeEditor zh={zh} user={auth.user} />
               </QuickAction>
@@ -216,14 +217,15 @@ function QuickAction({ label, desc, children }: { label: string; desc: string; c
 }
 
 function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: boolean; user: any; color: string }) {
-  const currentName = getAIName(user?.id ?? null)
-  const defaultName = getDefaultName()
+  const stored = getStoredAIName(user?.id ?? null)
+  const currentName = isGenericAiName(stored) ? '' : (stored ?? '').trim()
+  const placeholderName = genericAiName(zh ? 'zh' : 'en')
   const [value, setValue] = useState(currentName)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
-    const trimmed = value.trim() || defaultName
+    const trimmed = value.trim() || GENERIC_AI_NAME
     setSaving(true)
     setAIName(trimmed, user?.id ?? null)
     if (user) {
@@ -246,7 +248,7 @@ function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: bool
           type="text"
           value={value}
           onChange={(e) => { setValue(e.target.value); setSaved(false) }}
-          placeholder={defaultName}
+          placeholder={placeholderName}
           maxLength={20}
           className="min-w-0 flex-1 border-none bg-transparent text-[16px] font-semibold outline-none"
         />
@@ -259,8 +261,8 @@ function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: bool
         >
           {saving ? '...' : saved ? '✓' : (zh ? '保存' : 'Save')}
         </button>
-        {value.trim() !== defaultName && (
-          <button onClick={() => { setValue(defaultName); setSaved(false) }} className="text-[12px] text-body-3 hover:text-body-2">
+        {!isGenericAiName(value) && (
+          <button onClick={() => { setValue(''); setSaved(false) }} className="text-[12px] text-body-3 hover:text-body-2">
             {zh ? '恢复默认' : 'Reset'}
           </button>
         )}

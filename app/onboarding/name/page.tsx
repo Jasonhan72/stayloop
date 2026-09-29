@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
 import OnboardingStage from '@/components/OnboardingStage'
 import RoleChooser from '@/components/onboarding/RoleChooser'
-import { GENERIC_AI_NAME, setAIName } from '@/lib/aiName'
+import { GENERIC_AI_NAME, setAIName, displayAiName, genericAiName, isGenericAiName } from '@/lib/aiName'
 import { saveAssistantName } from '@/lib/agent/assistantProfile'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
@@ -71,8 +71,8 @@ const ROLE_CONFIG: Record<AgentRole, {
     orbBg: ROLE_THEME.landlord.onboardingOrb,
     orbShadow: ROLE_THEME.landlord.orbShadow,
     desc: {
-      zh: '你的专属 AI 房东助手：整理申请、发起筛查、合规把关、起草租约 —— 决定权,始终在你手里。',
-      en: 'Your dedicated AI landlord assistant: organizes applications, runs screening, keeps you compliant, drafts leases — you keep the final say.',
+      zh: '你的专属 AI 助理：整理申请、发起筛查、合规把关、起草租约 —— 决定权,始终在你手里。',
+      en: 'Your dedicated AI Agent: organizes applications, runs screening, keeps you compliant, drafts leases — you keep the final say.',
     },
     preview: {
       zh: (n) => `「你好,我是 ${n}。从今天开始,申请整理、筛查、合规、续约这些事交给我;关键的决定,你点头就好。」`,
@@ -98,8 +98,8 @@ const ROLE_CONFIG: Record<AgentRole, {
     orbBg: ROLE_THEME.agent.onboardingOrb,
     orbShadow: ROLE_THEME.agent.orbShadow,
     desc: {
-      zh: '你的专属 AI 经纪助手：整理客户、给房源定价、准备带看、提醒合规边界 —— 行政杂活交给它,你专注做人和判断。',
-      en: 'Your dedicated AI broker assistant: manages clients, prices listings, preps showings, flags compliance boundaries — admin work handled, you focus on people and judgment.',
+      zh: '你的专属 AI 助理：整理客户、给房源定价、准备带看、提醒合规边界 —— 行政杂活交给它,你专注做人和判断。',
+      en: 'Your dedicated AI Agent: manages clients, prices listings, preps showings, flags compliance boundaries — admin work handled, you focus on people and judgment.',
     },
     preview: {
       zh: (n) => `「你好,我是 ${n}。客户整理、定价、带看准备、合规提醒 —— 行政杂活我来,你专心做人和判断。」`,
@@ -201,7 +201,7 @@ function NamePageInner() {
         </p>
         <RoleChooser zh={zh} onPick={pick} />
         <p style={{ fontSize: 11.5, color: '#71717A', marginTop: 18, fontFamily: 'inherit' }}>
-          {zh ? '下一步：给你的 AI 助理起个名字（只起一次，所有身份共用）。' : 'Next: name your AI assistant (once; every identity shares it).'}
+          {zh ? '下一步：给你的 AI 助理起个名字（只起一次，所有身份共用）。' : 'Next: name your AI Agent (once; every identity shares it).'}
         </p>
       </OnboardingStage>
     )
@@ -209,13 +209,15 @@ function NamePageInner() {
 
   const cfg = ROLE_CONFIG[role]
   const final = value.trim() || cfg.default
+  // What the preview and button show: the typed name, or 「AI 助理」/「AI Agent」 while it is empty.
+  const shown = displayAiName(final, lang)
 
   const submit = (name?: string) => {
     if (submitting) return
     setSubmitting(true)
     const chosen = name ?? final
     setAIName(chosen, user?.id ?? null) // signed out: unclaimed, adopted by the account that signs in next
-    if (user && chosen !== GENERIC_AI_NAME) void saveAssistantName(supabase, user.id, chosen)
+    if (user && !isGenericAiName(chosen)) void saveAssistantName(supabase, user.id, chosen)
     setRole(role)
     // First-time SIGNED-IN landlords land on the aha moment, not a chat
     // shell. Production data (2026-08-12): 33 signups/30d but 3 active
@@ -258,13 +260,13 @@ function NamePageInner() {
       />
 
       <h1 style={{ fontSize: 'clamp(24px, 6.5vw, 30px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.18 }}>
-        {zh ? '为你的 AI 助理起名' : 'Name your AI assistant'}
+        {zh ? '为你的 AI 助理起名' : 'Name your AI Agent'}
       </h1>
       <p style={{ fontSize: 14.5, color: '#3F3F46', lineHeight: 1.6, margin: '12px 0 8px' }}>
         {cfg.desc[lang]}
       </p>
       <p style={{ fontSize: 12.5, color: '#71717A', lineHeight: 1.55, margin: '0 0 6px' }}>
-        {zh ? '它是你在 Stayloop 上唯一的助理：租客、房东、经纪的事都由它处理，各身份分开记录。' : 'It is your one assistant on Stayloop: tenant, landlord and agent matters all go to it, each hat kept separate.'}
+        {zh ? '它是你在 Stayloop 上唯一的 AI 助理：租客、房东、经纪的事都由它处理，各身份分开记录。' : 'It is your one AI Agent on Stayloop: tenant, landlord and agent matters all go to it, each hat kept separate.'}
       </p>
       <p style={{ fontSize: 12.5, color: '#71717A', lineHeight: 1.55, margin: '0 0 22px' }}>
         {zh ? `当前身份：${roleWord} · ` : `Identity: ${roleWord} · `}
@@ -276,7 +278,7 @@ function NamePageInner() {
       {/* @-prefixed name input */}
       <div style={{ textAlign: 'left', marginBottom: 18 }}>
         <div className="font-mono" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#71717A', marginBottom: 8 }}>
-          {zh ? '助手名字' : 'Assistant name'}
+          {zh ? 'AI 助理名字' : 'AI Agent name'}
         </div>
         <form
           onSubmit={(e) => {
@@ -300,7 +302,7 @@ function NamePageInner() {
               type="text"
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder={cfg.default}
+              placeholder={genericAiName(lang)}
               autoFocus
               maxLength={20}
               style={{
@@ -373,17 +375,17 @@ function NamePageInner() {
         }}
       >
         <div className="font-mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: cfg.color, marginBottom: 6 }}>
-          {zh ? `PREVIEW · ${final} 会说` : `PREVIEW · ${final} would say`}
+          {zh ? `PREVIEW · ${shown} 会说` : `PREVIEW · ${shown} would say`}
         </div>
         <p style={{ fontSize: 13.5, lineHeight: 1.6, color: '#3F3F46' }}>
-          {cfg.preview[lang](final)}
+          {cfg.preview[lang](shown)}
         </p>
       </div>
 
       {/* Capabilities grid */}
       <div style={{ textAlign: 'left', marginBottom: 22 }}>
         <div className="font-mono" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#71717A', marginBottom: 8 }}>
-          {zh ? `${final} 会帮你` : `${final} will help you`}
+          {zh ? `${shown} 会帮你` : `${shown} will help you`}
         </div>
         <div className="grid grid-cols-2 gap-2">
           {cfg.helps.map((h, i) => (
@@ -427,7 +429,7 @@ function NamePageInner() {
           opacity: submitting ? 0.6 : 1,
         }}
       >
-        {submitting ? '...' : cfg.cta[lang](final)}
+        {submitting ? '...' : cfg.cta[lang](shown)}
       </button>
 
       <button
@@ -452,8 +454,8 @@ function NamePageInner() {
 
       <p style={{ fontSize: 11.5, color: '#71717A', marginTop: 10, fontFamily: 'inherit' }}>
         {zh
-          ? '随时可以在助手面板或设置里改名、换头像、写人设和说话风格。'
-          : 'You can rename it, change its avatar and write its persona and tone any time in the assistant panel or Settings.'}
+          ? '随时可以在 AI 助理面板或设置里改名、换头像、写人设和说话风格。'
+          : 'You can rename it, change its avatar and write its persona and tone any time in the AI Agent panel or Settings.'}
       </p>
     </OnboardingStage>
   )

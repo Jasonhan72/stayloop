@@ -925,8 +925,8 @@ export default function ListingDetailPage() {
               <div className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
                 {listing.source !== 'realtor'
                   ? (zh
-                      ? <>请求会进入房东助手的待办；房东批准后你会收到带联系方式的邮件。也可以<button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">找认证经纪</button>陪同看房。Stayloop 不参与交易、不收费。</>
-                      : <>Your request lands in the landlord&apos;s agent inbox; once approved you get an email with their contact. You can also <button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">bring a verified agent</button>. Stayloop takes no part in the trade and charges nothing.</>)
+                      ? <>请求会进入房东 AI 助理的待办；房东批准后你会收到带联系方式的邮件。也可以<button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">找认证经纪</button>陪同看房。Stayloop 不参与交易、不收费。</>
+                      : <>Your request lands in the landlord&apos;s AI Agent to-do list; once approved you get an email with their contact. You can also <button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">bring a verified agent</button>. Stayloop takes no part in the trade and charges nothing.</>)
                   : (zh
                       ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选并直接联系；Stayloop 不参与交易、不收费。'
                       : 'Pick a Stayloop-verified (RECO-checked) agent and contact them directly; Stayloop takes no part in the trade and charges nothing.')}
@@ -967,7 +967,7 @@ export default function ListingDetailPage() {
                 href={`/tenant/agent?prompt=${encodeURIComponent(zh ? `我想咨询 ${listing.address} 这个房源，帮我联系${listing.broker_name ? `经纪 ${listing.broker_name}` : '房东'}` : `I'd like to ask about the listing at ${listing.address} — connect me with ${listing.broker_name ? `agent ${listing.broker_name}` : 'the landlord'}`)}&send=1`}
                 className="mt-4 block w-full rounded-[10px] border border-line-strong bg-white py-[10px] text-center text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
-                {zh ? '让我的助手替我联系' : 'Ask through my assistant'}
+                {zh ? '让我的 AI 助理替我联系' : 'Ask through my AI Agent'}
               </Link>
             </div>
 

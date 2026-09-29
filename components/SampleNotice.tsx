@@ -36,8 +36,8 @@ export function SampleBanner({
         {text
           ? (zh ? text.zh : text.en)
           : zh
-            ? '本页显示的是产品示范，不是你的真实记录。页面上的按钮不会执行真实操作——付款、提交、发送这类动作只会交给 AI 助手生成一张待你确认的卡片。'
-            : 'This page is a product demonstration, not your live records. Its buttons do not perform real actions — paying, submitting or sending only hands the request to the AI assistant as a card for you to confirm.'}
+            ? '本页显示的是产品示范，不是你的真实记录。页面上的按钮不会执行真实操作——付款、提交、发送这类动作只会交给 AI 助理生成一张待你确认的卡片。'
+            : 'This page is a product demonstration, not your live records. Its buttons do not perform real actions — paying, submitting or sending only hands the request to the AI Agent as a card for you to confirm.'}
         {note && <> {zh ? note.zh : note.en}</>}
         {onExit && (
           <>

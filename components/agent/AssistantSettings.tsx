@@ -201,7 +201,7 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
     <div className="space-y-3" data-testid="assistant-settings">
       {!live ? (
         <div className="rounded-xl bg-surface-chip px-3 py-2 text-[12px] leading-relaxed text-body-3">
-          {zh ? '预览模式 · 登录后这里是你助理的长期档案：名字、头像、风格、模型、通知、画像，每一项都能改。' : 'Preview mode · sign in and this is your assistant’s long-term record: name, face, style, model, notifications, profile — every item editable.'}
+          {zh ? '预览模式 · 登录后这里是你的 AI 助理的长期档案：名字、头像、风格、模型、通知、画像，每一项都能改。' : 'Preview mode · sign in and this is your AI Agent’s long-term record: name, face, style, model, notifications, profile — every item editable.'}
         </div>
       ) : (
         <div className="px-1 font-mono text-[10.5px] leading-relaxed text-body-3">{zh ? '长期档案 · 存在你的账号里，跨设备同步 · 这里的每一项都会进入它的每一次思考，每一项都可以改' : 'Long-term record · stored on your account, synced across devices · every item shapes every reply, every item editable'}</div>
@@ -225,7 +225,7 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
               maxLength={PERSONA_MAX}
               rows={4}
               onChange={(e) => setPersonaDraft(e.target.value)}
-              placeholder={zh ? '例如：你是一位务实的租房助理，先给结论再给依据；涉及法规时引用条款；拿不准的事先问我，不替我做决定。' : 'e.g. You are a practical rental assistant: conclusion first, then the evidence; cite the rule when law is involved; ask me before deciding anything unclear.'}
+              placeholder={zh ? '例如：你是一位务实的租房助理，先给结论再给依据；涉及法规时引用条款；拿不准的事先问我，不替我做决定。' : 'e.g. You are a practical rental AI Agent: conclusion first, then the evidence; cite the rule when law is involved; ask me before deciding anything unclear.'}
               aria-label={zh ? '人设' : 'Persona'}
               className="w-full resize-none rounded-lg border border-line-strong bg-white px-2.5 py-2 text-[13.5px] leading-snug outline-none focus:border-brand"
             />

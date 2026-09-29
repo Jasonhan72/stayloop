@@ -98,7 +98,7 @@ export default function TenantApplicationPage({ params }: { params: Promise<{ id
               <div className="rounded-2xl border border-line-divider bg-white p-5">
                 <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '材料' : 'MATERIALS'}</div>
                 <div className="mt-2 text-[22px] font-extrabold">{app.files_count ?? 0}<span className="ml-1 text-[13px] font-semibold text-body-3">{zh ? '份已提交' : 'submitted'}</span></div>
-                <p className="mt-1 text-[12.5px] text-body-3">{zh ? '材料只有该房源的房东能查看，每次查看都留痕。要补充材料，在对话里告诉助手或直接联系房东。' : 'Only this listing’s landlord can open them, and every view is logged. To add documents, tell your assistant or contact the landlord.'}</p>
+                <p className="mt-1 text-[12.5px] text-body-3">{zh ? '材料只有该房源的房东能查看，每次查看都留痕。要补充材料，在对话里告诉 AI 助理或直接联系房东。' : 'Only this listing’s landlord can open them, and every view is logged. To add documents, tell your AI Agent or contact the landlord.'}</p>
               </div>
               <div className="rounded-2xl border border-line-divider bg-white p-5">
                 <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '租约与在管租约' : 'LEASE & TENANCY'}</div>

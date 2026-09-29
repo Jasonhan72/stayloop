@@ -158,7 +158,7 @@ export const ONTARIO_RULES: Rule[] = [
     id: 'RTA-134-no-fees', area: 'screening', statute: 'RTA s.134(1)–(2)', severity: 'block', since: '2007-01-31',
     title: { zh: '不得向租客或申请人收取任何额外费用', en: 'No fees may be charged to tenants or applicants' },
     summary: { zh: '申请费、筛查费、信用检查费、清洁押金、宠物押金等一律禁止。', en: 'Application, screening, credit-check fees, cleaning and pet deposits are all prohibited.' },
-    enforcement: { zh: 'Stripe 解锁对 payer=tenant 返回 400；定价页与助手提示词无「让申请人付」。', en: 'Stripe unlock rejects payer=tenant; pricing and prompts carry no applicant-pays path.' },
+    enforcement: { zh: 'Stripe 解锁对 payer=tenant 返回 400；定价页与 AI 助理提示词无「让申请人付」。', en: 'Stripe unlock rejects payer=tenant; pricing and prompts carry no applicant-pays path.' },
   },
   {
     id: 'RTA-14-no-pet-clause', area: 'listing', statute: 'RTA s.14', severity: 'block', since: '2007-01-31',
@@ -207,7 +207,7 @@ export const ONTARIO_RULES: Rule[] = [
     id: 'RTA-59-n4-7-days', area: 'tenancy', statute: 'RTA s.59(1) · Bill 60 · N4 (2026/09)', severity: 'warn', since: '2026-09-21',
     title: { zh: '欠租通知 N4 的终止日至少 7 天后', en: 'N4 termination date at least 7 days out' },
     summary: { zh: '2026-09-21 起，N4 的终止日不得早于送达后 7 天（此前 14 天）；邮寄送达另加 5 天视为送达期。租金逾期次日即可送达。必须用 2026/09 版表格，旧版 2026-11-30 后不再受理。', en: 'From 2026-09-21 an N4 may end the tenancy no earlier than 7 days after service (was 14); mail adds 5 deemed-service days. Serve any day after the due date. Use the 2026/09 form; older versions are rejected after 2026-11-30.' },
-    enforcement: { zh: '房东租约页 N 表工具箱与租金提醒执行器按 7 天计算最早终止日；助手事实包同步。', en: 'The N-form toolbox and rent-reminder executor compute the earliest termination date at 7 days; assistant fact packs match.' },
+    enforcement: { zh: '房东租约页 N 表工具箱与租金提醒执行器按 7 天计算最早终止日；AI 助理事实包同步。', en: 'The N-form toolbox and rent-reminder executor compute the earliest termination date at 7 days; AI Agent fact packs match.' },
   },
   {
     id: 'RTA-58-persistent-late', area: 'tenancy', statute: 'RTA s.58(1.1) + O. Reg. · Bill 60', severity: 'info', since: '2026-09-21',
@@ -219,13 +219,13 @@ export const ONTARIO_RULES: Rule[] = [
     id: 'RTA-82-half-arrears', area: 'tenancy', statute: 'RTA s.82(2) · Bill 60', severity: 'info', since: '2026-09-21',
     title: { zh: '欠租听证上提维修等问题须先付一半欠款', en: 'Raising issues at an arrears hearing needs half the arrears paid' },
     summary: { zh: '2026-09-21 起提交的 L1 申请，租客要在欠租听证上提出维修或权利问题，须在听证前至少 7 天把申请书上欠款的一半直接付给房东，并仍须提前 7 天书面列出问题。', en: 'For L1 applications filed from 2026-09-21, a tenant who wants to raise maintenance or rights issues at the arrears hearing must pay the landlord half the claimed arrears at least 7 days before the hearing, and still give written notice of the issues 7 days ahead.' },
-    enforcement: { zh: '租客与房东助手事实包说明；Stayloop 不代提交 LTB 申请。', en: 'Stated in tenant and landlord fact packs; Stayloop files nothing with the LTB.' },
+    enforcement: { zh: '租客与房东 AI 助理事实包说明；Stayloop 不代提交 LTB 申请。', en: 'Stated in tenant and landlord fact packs; Stayloop files nothing with the LTB.' },
   },
   {
     id: 'RTA-48-1-n12-120-days', area: 'tenancy', statute: 'RTA s.48.1(2) · Bill 60 · N12 (2026/09)', severity: 'warn', since: '2026-09-21',
     title: { zh: '房东自用 N12：提前 120 天可免一个月补偿', en: 'Landlord’s own use (N12): 120 days’ notice waives the compensation' },
     summary: { zh: '房东本人或家属自用，若提前至少 120 天送达 N12 且终止日为租期末日，不再需要支付一个月补偿或提供替代单位（60–119 天仍需）。买家自用不适用此豁免。房东或指定人须在 N12 终止日后 60 天内入住，否则租客提 T5 时推定恶意。', en: 'For landlord/family own use, an N12 served at least 120 days ahead ending on the last day of a rental period no longer requires one month’s compensation or an alternative unit (60–119 days still does). Purchaser’s own use is not covered. The named person must occupy within 60 days of the termination date or bad faith is presumed on a T5.' },
-    enforcement: { zh: 'N 表工具箱 N12 卡按 120 天规则提示；助手事实包同步。', en: 'The N12 toolbox card states the 120-day rule; assistant fact packs match.' },
+    enforcement: { zh: 'N 表工具箱 N12 卡按 120 天规则提示；AI 助理事实包同步。', en: 'The N12 toolbox card states the 120-day rule; AI Agent fact packs match.' },
   },
   {
     id: 'RTA-53-n13-first-refusal', area: 'tenancy', statute: 'RTA s.53 · Bill 97/60 · N13 (2026/09)', severity: 'warn', since: '2026-09-21',
@@ -237,19 +237,19 @@ export const ONTARIO_RULES: Rule[] = [
     id: 'TOR-53-2025-renovation-licence', area: 'tenancy', statute: 'City of Toronto By-law 53-2025 · Chapter 354', severity: 'block', since: '2025-07-31',
     title: { zh: '多伦多：发 N13 后 7 天内须申请装修许可证', en: 'Toronto: apply for a Rental Renovation Licence within 7 days of an N13' },
     summary: { zh: '2025-07-31 起，多伦多市内以装修为由发 N13 的房东，须在 7 天内向市府申请 Rental Renovation Licence（2026 年 $728/单元），附建筑许可与 PEO/OAA 持牌人出具的「必须腾空」报告；租客回迁的须提供临时住所或补租金差价，搬家补贴 $1,500（一居及以下）/ $2,500（两居及以上）；不回迁的另付 3 个月租金差价。未申请可罚 $1,000 起、持续违规每日最高 $10,000。', en: 'From 2025-07-31 a Toronto landlord serving an N13 for renovations must apply to the City within 7 days for a Rental Renovation Licence ($728 per unit in 2026) with the building permit and a PEO/OAA report that vacancy is required; returning tenants get temporary housing or rent-gap payments plus a $1,500 (studio/1-bed) or $2,500 (2+ bed) moving allowance; non-returning tenants get three months of rent-gap severance. Fines start at $1,000 and reach $10,000 per day for continuing offences.' },
-    enforcement: { zh: 'N13 工具箱卡对多伦多房源标红并链接市府页面；助手事实包同步。', en: 'The N13 toolbox card flags Toronto units and links the City page; assistant fact packs match.' },
+    enforcement: { zh: 'N13 工具箱卡对多伦多房源标红并链接市府页面；AI 助理事实包同步。', en: 'The N13 toolbox card flags Toronto units and links the City page; AI Agent fact packs match.' },
   },
   {
     id: 'RTA-209-review-15-days', area: 'tenancy', statute: 'RTA s.209 · Bill 60', severity: 'info', since: '2026-07-01',
     title: { zh: 'LTB 裁决复审申请期限 15 天', en: 'LTB order review requests within 15 days' },
     summary: { zh: '2026-07-01 起，请求 LTB 复审裁决的期限由 30 天缩短为 15 天；AGI 申请的送达指令由 14 天缩为 7 天、送达证明 5 天内提交。', en: 'From 2026-07-01 the window to request review of an LTB order is 15 days (was 30); AGI direction-to-serve is 7 days (was 14) with the certificate of service within 5 days.' },
-    enforcement: { zh: '助手事实包说明。', en: 'Stated in assistant fact packs.' },
+    enforcement: { zh: 'AI 助理事实包说明。', en: 'Stated in AI Agent fact packs.' },
   },
   {
     id: 'RTA-206-payment-agreement-form', area: 'tenancy', statute: 'RTA s.206 · Bill 60', severity: 'info', since: '2026-07-01',
     title: { zh: '欠租还款计划须用 LTB 付款协议表', en: 'Repayment plans must use the LTB Payment Agreement Form' },
     summary: { zh: '2026-07-01 起，按 s.206 提交的还款计划必须使用 LTB 的 Payment Agreement Form，邮件或信件约定不再受理。', en: 'From 2026-07-01 a s.206 repayment plan must be on the LTB Payment Agreement Form; letters or emails are no longer accepted.' },
-    enforcement: { zh: '租金提醒邮件与助手事实包指向该表格。', en: 'Rent-reminder emails and fact packs point to the form.' },
+    enforcement: { zh: '租金提醒邮件与 AI 助理事实包指向该表格。', en: 'Rent-reminder emails and fact packs point to the form.' },
   },
   {
     id: 'RTA-36-1-tenant-ac', area: 'tenancy', statute: 'RTA s.36.1 · Bill 97', severity: 'info', since: '2026-07-01',

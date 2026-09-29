@@ -61,7 +61,7 @@ describe('/onboarding/name asks only when nothing chose for the visitor', () => 
   })
   it('the naming copy promises only what ships and speaks of one assistant', () => {
     for (const w of ['佣金拆分', '8 Engine', '看房 Live', '她会', 'Persona', 'Plaid', '调性格', 'Commission splits']) expect(page, w).not.toContain(w)
-    expect(page).toContain('唯一的助理')
+    expect(page).toContain('唯一的 AI 助理')
     // two stage steps: choose, then name
     expect(page).toContain('<OnboardingStage step={1} totalSteps={2}')
     expect(page).toMatch(/<OnboardingStage\s+step=\{2\}\s+totalSteps=\{2\}/)

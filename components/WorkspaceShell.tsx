@@ -62,8 +62,8 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     more: { zh: '维修与服务网络是怎么运作的 →', en: 'How the repairs network works →', href: '/services' },
   },
   '/tenant/applications': {
-    zh: '还没有租房申请。让助手按你的预算和区域先找几套,再一键申请。', en: 'No applications yet. Let your assistant shortlist homes for your budget and area first.',
-    ctaZh: '让助手开始找房 →', ctaEn: 'Let your assistant start searching →', href: '/tenant/agent',
+    zh: '还没有租房申请。让 AI 助理按你的预算和区域先找几套,再一键申请。', en: 'No applications yet. Let your AI Agent shortlist homes for your budget and area first.',
+    ctaZh: '让 AI 助理开始找房 →', ctaEn: 'Let your AI Agent start searching →', href: '/tenant/agent',
   },
   '/tenant/payments': {
     zh: '还没有租金记录。加入或导入你的在管租约后,每月租金在这里留痕——准时记录会进入你的租客护照。', en: 'No rent records yet. Join or import your managed tenancy and every month leaves a record here.',
@@ -88,35 +88,35 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
   },
   '/agent/clients': {
     zh: '上面是你的真实客户表：加第一位客户，并记录代表协议与 Information Guide 的日期。下面的样例只是演示。', en: 'Your real client table is above: add the first client and record the agreement and Information Guide dates. The samples below are a demo.',
-    ctaZh: '和助手开工 →', ctaEn: 'Start with your assistant →', href: '/agent/agent',
+    ctaZh: '和 AI 助理开工 →', ctaEn: 'Start with your AI Agent →', href: '/agent/agent',
   },
   '/agent/calendar': {
-    zh: '还没有带看日程。让助手帮你安排第一场。', en: 'No showings yet. Let your assistant schedule your first.',
-    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/agent/agent',
+    zh: '还没有带看日程。让 AI 助理帮你安排第一场。', en: 'No showings yet. Let your AI Agent schedule your first.',
+    ctaZh: '打开 AI 助理 →', ctaEn: 'Open your AI Agent →', href: '/agent/agent',
   },
   '/agent/earnings': {
     zh: '还没有结算记录。完成的转介与筛查服务会在这里对账。', en: 'No settlements yet. Completed referrals and screenings reconcile here.',
-    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/agent/agent',
+    ctaZh: '打开 AI 助理 →', ctaEn: 'Open your AI Agent →', href: '/agent/agent',
   },
   '/tenant/passport/sharing': {
     zh: '还没有授权记录。第一次分享护照后，谁能看到什么会列在这里。', en: 'No grants yet. Once you share your Passport, who can see what is listed here.',
     ctaZh: '打开护照 →', ctaEn: 'Open Passport →', href: '/tenant/passport',
   },
   '/tenant/audit': {
-    zh: '还没有审计记录。助手替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your assistant does for you is logged here.',
-    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/tenant/agent',
+    zh: '还没有审计记录。AI 助理替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your AI Agent does for you is logged here.',
+    ctaZh: '打开 AI 助理 →', ctaEn: 'Open your AI Agent →', href: '/tenant/agent',
   },
   '/landlord/audit': {
-    zh: '还没有审计记录。助手替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your assistant does for you is logged here.',
-    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/landlord/agent',
+    zh: '还没有审计记录。AI 助理替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your AI Agent does for you is logged here.',
+    ctaZh: '打开 AI 助理 →', ctaEn: 'Open your AI Agent →', href: '/landlord/agent',
   },
   '/agent/audit': {
-    zh: '还没有审计记录。助手替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your assistant does for you is logged here.',
-    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/agent/agent',
+    zh: '还没有审计记录。AI 助理替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your AI Agent does for you is logged here.',
+    ctaZh: '打开 AI 助理 →', ctaEn: 'Open your AI Agent →', href: '/agent/agent',
   },
   '/agent/showings/*': {
-    zh: '还没有带看任务。让助手帮你接第一场。', en: 'No showings yet. Let your assistant book your first.',
-    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/agent/agent',
+    zh: '还没有带看任务。让 AI 助理帮你接第一场。', en: 'No showings yet. Let your AI Agent book your first.',
+    ctaZh: '打开 AI 助理 →', ctaEn: 'Open your AI Agent →', href: '/agent/agent',
   },
 }
 
@@ -129,8 +129,8 @@ const SAMPLE_NOTE: Record<string, GateNote> = {
     en: 'Only the share link and the rent-reporting waitlist are live here; stamp status, view log and verification history are sample data.',
   },
   '/tenant/lease': {
-    zh: '本页只有「在管租约」列表是真实数据；租约条款、签署进度与助手解读是示范数据。',
-    en: 'Only the managed-lease list is live here; the clauses, signing progress and assistant commentary are sample data.',
+    zh: '本页只有「在管租约」列表是真实数据；租约条款、签署进度与 AI 助理解读是示范数据。',
+    en: 'Only the managed-lease list is live here; the clauses, signing progress and AI Agent commentary are sample data.',
   },
 }
 
@@ -266,7 +266,7 @@ function AgentLockedState({ status, zh }: { status: string; zh: boolean }) {
       </p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Link href="/agent/verify" className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#00ACE4' }}>{zh ? (status === 'pending' ? '查看认证状态' : '去认证') : (status === 'pending' ? 'View status' : 'Get verified')}</Link>
-        <Link href="/agent/agent" className="rounded-xl border border-line-divider px-5 py-3 text-[13px] font-semibold text-body-2">{zh ? '先和助手聊聊' : 'Talk to your assistant meanwhile'}</Link>
+        <Link href="/agent/agent" className="rounded-xl border border-line-divider px-5 py-3 text-[13px] font-semibold text-body-2">{zh ? '先和 AI 助理聊聊' : 'Talk to your AI Agent meanwhile'}</Link>
       </div>
     </div>
   )
@@ -364,7 +364,7 @@ function Rail({ role }: { role: WorkspaceRole }) {
   // the current hat and settings at the bottom. The labelled 220px sidebar
   // (09-05) is retired.
   const assistant: RailItem[] = [
-    { key: 'assistant', href: `/${role}/agent`, icon: <ChatIcon />, label: { zh: '助手', en: 'Assistant' }, desc: { zh: '和助手对话', en: 'Talk to your assistant' } },
+    { key: 'assistant', href: `/${role}/agent`, icon: <ChatIcon />, label: { zh: 'AI 助理', en: 'AI Agent' }, desc: { zh: '和 AI 助理对话', en: 'Talk to your AI Agent' } },
     { key: 'todo', href: `/${role}/todo`, icon: <TodoIcon />, label: { zh: '待办', en: 'To-do' }, desc: { zh: '等你点头的', en: 'Waiting on you' } },
     { key: 'ideas', href: `/${role}/ideas`, icon: <BulbIcon />, label: { zh: '想法', en: 'Ideas' }, desc: { zh: '它可以替你做', en: 'What it can do for you' } },
     { key: 'progress', href: `/${role}/progress`, icon: <ProgressIcon />, label: { zh: '进度', en: 'Progress' }, desc: { zh: '租前 · 租中 · 租后', en: 'Leasing · Living · Renewal' } },

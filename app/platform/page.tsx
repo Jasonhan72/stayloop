@@ -116,8 +116,8 @@ export default function PlatformPage() {
         <h2 className="mt-2 text-[26px] font-extrabold leading-tight tracking-tight sm:text-[34px]">{zh ? 'Stayloop 全流程' : 'Stayloop Lifecycle'}</h2>
         <p className="mt-2 max-w-[720px] text-[15.5px] text-body-2">
           {zh
-            ? '三个阶段不是三个产品：同一个房源、同一位申请人、同一份租约在每个阶段接力，你的 AI 助手在每个节点先动，会对外产生影响的事一律先变成等你批准的卡片。'
-            : 'Three stages, not three products: the same listing, applicant and lease hand off across every stage; your AI assistant moves first at each step, and anything that reaches another person becomes a card waiting for your approval.'}
+            ? '三个阶段不是三个产品：同一个房源、同一位申请人、同一份租约在每个阶段接力，你的 AI 助理在每个节点先动，会对外产生影响的事一律先变成等你批准的卡片。'
+            : 'Three stages, not three products: the same listing, applicant and lease hand off across every stage; your AI Agent moves first at each step, and anything that reaches another person becomes a card waiting for your approval.'}
         </p>
 
         {/* rail */}
@@ -153,7 +153,7 @@ export default function PlatformPage() {
         {/* what runs through all three */}
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {[
-            { h: { zh: '一条对话', en: 'One conversation' }, p: { zh: '一个 AI 助理跟着你的三种身份：租客、房东、经纪的事都由它办，只对你负责；记忆与画像跨身份延续，各身份的流程与数据分开。', en: 'One assistant across your hats — tenant, landlord, agent — answering only to you; memory and profile carry across, each hat keeps its own flow and data.' } },
+            { h: { zh: '一条对话', en: 'One conversation' }, p: { zh: '一个 AI 助理跟着你的三种身份：租客、房东、经纪的事都由它办，只对你负责；记忆与画像跨身份延续，各身份的流程与数据分开。', en: 'One AI Agent across your hats — tenant, landlord, agent — answering only to you; memory and profile carry across, each hat keeps its own flow and data.' } },
             { h: { zh: '一条审批链', en: 'One approval chain' }, p: { zh: '发信、发租约、发续约函先变成卡片：预览正文 → 批准 → 60 秒可撤销 → 执行 → 审计。', en: 'Emails, leases and renewal letters become cards: preview → approve → 60-second undo → execute → audit.' } },
             { h: { zh: '一套规则', en: 'One rule set' }, p: { zh: '安省 RTA、OHRC 与《消费者报告法》的规则是单一来源，发布检查、租约草稿、通知信和 API 引用同一份。', en: 'Ontario RTA, OHRC and Consumer Reporting Act rules live in one place, cited by publish checks, lease drafts, notices and the API alike.' } },
           ].map((b) => (

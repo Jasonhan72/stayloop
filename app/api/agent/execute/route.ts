@@ -246,8 +246,8 @@ Your current lease for ${unit} ends on ${m.end_date}. Your landlord would like t
 
 Reply to this email to accept, discuss, or ask questions. Under Ontario's Residential Tenancies Act you may also choose to continue month-to-month on your existing terms.
 
-— Sent by the landlord's AI assistant on Stayloop, after landlord approval.
-此邮件由房东在 Stayloop 上批准后由其 AI 助手发送：${unit} 的租约将于 ${m.end_date} 到期，房东提议以月租 $${rentAmount(rent ?? 0)} 续约 12 个月。你也可以依据安省 RTA 按原条款转为月租。直接回复本邮件即可沟通。`
+— Sent by the landlord's AI Agent on Stayloop, after landlord approval.
+此邮件由房东在 Stayloop 上批准后由其 AI 助理发送：${unit} 的租约将于 ${m.end_date} 到期，房东提议以月租 $${rentAmount(rent ?? 0)} 续约 12 个月。你也可以依据安省 RTA 按原条款转为月租。直接回复本邮件即可沟通。`
 
   if (preview) return PREVIEW({ subject, body: text, to: m.tenant_email ?? null })
   const result = await sendEmail({

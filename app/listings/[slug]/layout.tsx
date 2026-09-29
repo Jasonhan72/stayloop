@@ -37,7 +37,7 @@ export async function generateMetadata(
   const { slug } = await params
   const fallback: Metadata = {
     title: '房源 · Stayloop',
-    description: '浏览多伦多真实认证房源，AI Agent 帮你问询、看房、递交申请。',
+    description: '浏览多伦多真实认证房源，AI 助理帮你问询、看房、递交申请。',
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY

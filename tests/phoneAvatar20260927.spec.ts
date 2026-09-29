@@ -35,9 +35,9 @@ describe('one avatar picker, three places', () => {
     expect(chat).toMatch(/<ActivitySheet [^\n]*avatar=\{avatar\} avatarFallback=\{avatarFallback\} onAvatarChange=\{onAvatarChange\}/)
     expect(read('components/agent/AgentWorkspacePage.tsx')).toContain('onAvatarChange={setAvatar}')
   })
-  it('/settings has a「修改 AI 助手头像」quick action that reads assistant_profiles and saves the same way', () => {
+  it('/settings has a「修改 AI 助理头像」quick action that reads assistant_profiles and saves the same way', () => {
     const s = read('app/settings/page.tsx')
-    expect(s).toContain("label={zh ? '修改 AI 助手头像' : 'Change AI assistant avatar'}")
+    expect(s).toContain("label={zh ? '修改 AI 助理头像' : 'Change AI Agent avatar'}")
     expect(s).toContain('function AssistantAvatarEditor(')
     expect(s).toContain('await saveAssistantAvatar(getSupabaseBrowser(), user.id, key)')
     expect(s).toContain('readAssistantProfile(getSupabaseBrowser())')

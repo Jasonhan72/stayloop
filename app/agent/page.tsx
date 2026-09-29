@@ -4,7 +4,7 @@ import RoleLanding, { RoleLandingConfig } from '@/components/RoleLanding'
 
 const CFG: RoleLandingConfig = {
   role: 'agent',
-  eyebrow: 'AGENT · 经纪 · AI Agent',
+  eyebrow: 'AGENT · 经纪 · AI 助理',
   agentName: 'AI Agent',
   color: '#2563EB',
   h1: {
@@ -47,7 +47,7 @@ const CFG: RoleLandingConfig = {
       file: 'david-01-task.jpg',
       fallback: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=700&q=80&fit=crop&auto=format',
       label: { zh: '接到任务', en: 'Task lands' },
-      text: { zh: '提交 RECO 注册信息，人工核验后获得「RECO 注册已核」标记，进入租客可选的经纪目录。租客找上门：时间、地点、租客画像与授权问答清单，AI Agent 备好材料包。', en: 'Submit your RECO registration; once checked by hand you carry the “RECO verified” mark and appear in the tenant-facing directory. A tenant reaches out: time, place, profile and the authorized Q&A list — the AI agent preps the pack.' },
+      text: { zh: '提交 RECO 注册信息，人工核验后获得「RECO 注册已核」标记，进入租客可选的经纪目录。租客找上门：时间、地点、租客画像与授权问答清单，AI 助理备好材料包。', en: 'Submit your RECO registration; once checked by hand you carry the “RECO verified” mark and appear in the tenant-facing directory. A tenant reaches out: time, place, profile and the authorized Q&A list — the AI Agent preps the pack.' },
     },
     {
       file: 'david-02-showing.jpg',

@@ -336,7 +336,7 @@ export default function EditDraftListingPage() {
             onChange={(e) => set('description', e.target.value)}
             rows={5}
             className="mt-3 w-full rounded-xl border border-line-strong bg-white px-4 py-3 text-[14px] leading-relaxed outline-none focus:border-brand"
-            placeholder={zh ? '房源详细描述（AI Agent 已帮你生成了初稿）' : 'Detailed listing description (AI Agent drafted this for you)'}
+            placeholder={zh ? '房源详细描述（AI 助理已帮你生成了初稿）' : 'Detailed listing description (AI Agent drafted this for you)'}
           />
         </section>
 

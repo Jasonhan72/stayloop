@@ -162,7 +162,7 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
                   </Td>
                   <Td>
                     <div className="flex flex-wrap gap-1.5">
-                      <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `客户 ${c.name}（${c.client_role === 'landlord' ? '房东' : '租客'}，${c.budget || '预算未填'}，${c.area || '区域未填'}）：` : `Client ${c.name} (${c.client_role}, ${c.budget || 'no budget'}, ${c.area || 'no area'}): `)}`} className="rounded-[8px] border border-line-strong bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-body hover:border-brand hover:text-brand">{zh ? '交给助手' : 'To the assistant'}</Link>
+                      <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `客户 ${c.name}（${c.client_role === 'landlord' ? '房东' : '租客'}，${c.budget || '预算未填'}，${c.area || '区域未填'}）：` : `Client ${c.name} (${c.client_role}, ${c.budget || 'no budget'}, ${c.area || 'no area'}): `)}`} className="rounded-[8px] border border-line-strong bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-body hover:border-brand hover:text-brand">{zh ? '交给 AI 助理' : 'To the AI Agent'}</Link>
                       {(() => {
                         // 节点 5: screening for a client needs a LIVE delegation that allows it; the delegation needs the TRESA dates + an email.
                         const d = delegFor(c.id)

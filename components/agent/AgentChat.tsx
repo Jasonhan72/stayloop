@@ -633,7 +633,7 @@ function ScheduledRow({ id, title, decision, scheduled, onUndo, zh }: { id: stri
           ? (zh ? '已拒绝' : 'Rejected')
           : scheduled
             ? (zh ? `已批准 · ${left} 秒后执行` : `Approved · runs in ${left}s`)
-            : (zh ? '已批准 · 已交给助手执行' : 'Approved · handed to the assistant')} · {title}
+            : (zh ? '已批准 · 已交给 AI 助理执行' : 'Approved · handed to the AI Agent')} · {title}
       </span>
       {scheduled && onUndo && (
         <button type="button" onClick={() => onUndo(id)} className="flex-none rounded-full border border-line-strong bg-white px-2.5 py-[3px] text-[11.5px] font-semibold text-body hover:border-danger hover:text-danger">{zh ? '撤销' : 'Undo'}</button>

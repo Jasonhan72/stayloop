@@ -183,7 +183,7 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     for (const f of ['components/agent/AssistantPanel.tsx', 'components/agent/AgentChat.tsx', 'components/agent/AgentWorkspacePage.tsx', 'components/home/HomeNext.tsx']) {
       expect(read(f), f).not.toMatch(/HatChip|hatChip|HAT_LABEL|onHatSwitch/)
     }
-    expect(read('components/agent/AgentWorkspacePage.tsx')).toContain("{agent.agent_name}{pendingCount > 0 ? (zh ? ` · 等你点头 ${pendingCount} 件` : ` · ${pendingCount} waiting`) : ''}")
+    expect(read('components/agent/AgentWorkspacePage.tsx')).toContain("{shownName}{pendingCount > 0 ? (zh ? ` · 等你点头 ${pendingCount} 件` : ` · ${pendingCount} waiting`) : ''}")
     expect(read('components/Header.tsx')).toContain('handleRoleSwitch')
   })
   it('a ↓ button appears once the thread is scrolled up and jumps to the newest message', () => {

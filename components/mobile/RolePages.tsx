@@ -25,6 +25,7 @@ import MattersPanel from '@/components/matters/MattersPanel'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
 import { buildIdeas } from '@/lib/agent/ideas'
 import { useT } from '@/lib/i18n'
+import { displayAiName } from '@/lib/agent/assistantName'
 import type { AgentRole } from '@/lib/agent/types'
 
 function ScheduledLine({ id, title, executeAt, onUndo, zh }: { id: string; title: string; executeAt: number; onUndo: (id: string) => void | Promise<void>; zh: boolean }) {
@@ -72,7 +73,7 @@ export function TodoPage({ role }: { role: AgentRole }) {
   const waiting = Object.entries(scheduled)
   return (
     <WorkspaceShell role={role} hideAside>
-      <PageHead eyebrow="TO-DO" title={zh ? '等你点头的' : 'Waiting on you'} sub={zh ? `${data.agent.agent_name} 不会替你决定；这里的每一件都要你批准才执行。` : `${data.agent.agent_name} never decides for you; nothing here runs until you approve.`} />
+      <PageHead eyebrow="TO-DO" title={zh ? '等你点头的' : 'Waiting on you'} sub={zh ? `${displayAiName(data.agent.agent_name, lang)} 不会替你决定；这里的每一件都要你批准才执行。` : `${displayAiName(data.agent.agent_name, lang)} never decides for you; nothing here runs until you approve.`} />
       {!live && <PreviewNote zh={zh} what={zh ? '待办' : 'to-dos'} />}
       {live && <div className="mb-4"><TodayCard lifecycle={lifecycle} pending={pending.map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref={`/${role}/todo`} lang={lang} omitPending /></div>}
       {/* Agents: the to-do tab is not only approval cards — the client table's real tasks live here too (external review 2026-09-26). */}
@@ -89,7 +90,7 @@ export function TodoPage({ role }: { role: AgentRole }) {
         <div className="rounded-2xl border border-line-divider bg-white px-6 py-14 text-center">
           <div className="text-[28px]">✓</div>
           <p className="mt-2 text-[14px] text-body-2">{zh ? '没有等你点头的事。' : 'Nothing waiting on you.'}</p>
-          <p className="mt-1 text-[12.5px] text-body-3">{zh ? '助手有新的提议时会出现在这里，底栏会有红点。' : 'New proposals from the assistant land here, with a badge on the tab.'}</p>
+          <p className="mt-1 text-[12.5px] text-body-3">{zh ? 'AI 助理有新的提议时会出现在这里，底栏会有红点。' : 'New proposals from the AI Agent land here, with a badge on the tab.'}</p>
           <Link href={`/${role}/ideas`} className="mt-5 inline-block text-[13px] font-semibold text-brand">{zh ? '看看它现在能替你做什么 ›' : 'See what it can do for you now ›'}</Link>
         </div>
       ) : (
@@ -119,7 +120,7 @@ export function IdeasPage({ role }: { role: AgentRole }) {
   const ideas = buildIdeas({
     role,
     lang,
-    agentName: data.agent.agent_name,
+    agentName: displayAiName(data.agent.agent_name, lang),
     // Ideas are per hat: a landlord's page must not suggest the tenant-side budget (one assistant, separate hats).
     memories: data.memories.filter((m) => !m.role || m.role === role || m.role === 'self'),
     workflow: data.workflow,
@@ -128,7 +129,7 @@ export function IdeasPage({ role }: { role: AgentRole }) {
   })
   return (
     <WorkspaceShell role={role} hideAside>
-      <PageHead eyebrow="IDEAS" title={zh ? `${data.agent.agent_name} 可以替你做` : `${data.agent.agent_name} can do for you`} sub={zh ? '每一条都写了为什么。点一条，就是把那句话发给它。' : 'Each one says why. Tap one and it is sent to the conversation.'} />
+      <PageHead eyebrow="IDEAS" title={zh ? `${displayAiName(data.agent.agent_name, lang)} 可以替你做` : `${displayAiName(data.agent.agent_name, lang)} can do for you`} sub={zh ? '每一条都写了为什么。点一条，就是把那句话发给它。' : 'Each one says why. Tap one and it is sent to the conversation.'} />
       {!live && <PreviewNote zh={zh} what={zh ? '想法' : 'ideas'} />}
       <div className="divide-y divide-line-divider rounded-2xl border border-line-divider bg-white">
         {ideas.length === 0 && (
@@ -186,7 +187,7 @@ export function ProgressPage({ role }: { role: AgentRole }) {
           <StatusOverview role={role} live={live} pendingCount={pending} />
         </div>
         <div id="memory" className="scroll-mt-20">
-          <PrivateMemorySnapshot agentName={data.agent.agent_name} memories={data.memories} role={role} editable={live} />
+          <PrivateMemorySnapshot agentName={displayAiName(data.agent.agent_name, lang)} memories={data.memories} role={role} editable={live} />
         </div>
         <PushSettingsCard live={live} />
         <RelatedPagesCard role={role} />

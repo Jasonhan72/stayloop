@@ -635,7 +635,7 @@ function DemoApplicantDetail({ id }: { id: string }) {
               <Link
                 href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我给【申请人】写一封邮件，问【入住时间 / 材料】' : 'Draft an email to 【applicant】 about 【move-in timing / documents】')}`}
                 className="sl-btn-secondary text-center"
-              >{lang === 'zh' ? '💬 先跟她聊一下（经她的 AI Agent 中介）' : '💬 Chat with her first (via her AI agent)'}</Link>
+              >{lang === 'zh' ? '💬 先跟她聊一下（经她的 AI 助理中介）' : '💬 Chat with her first (via her AI Agent)'}</Link>
               <Link
                 href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '我想婉拒【申请人】的申请，理由是【具体、与租住能力相关的理由】，帮我走合规流程' : 'I want to decline 【applicant】’s application because 【specific, tenancy-related reason】 — walk me through the compliant process (specific, non-discriminatory reason, logged to audit)')}`}
                 className="rounded-lg border border-danger/40 bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-danger"

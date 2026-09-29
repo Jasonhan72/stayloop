@@ -49,7 +49,7 @@ export default function LifecycleStats({ days, zh }: { days: number; zh: boolean
           </div>
           <div className="mt-2 text-[12px] text-body-3">
             {zh
-              ? `助手提议 ${s.actions.proposed} · 批准 ${s.actions.approved} · 拒绝 ${s.actions.rejected} · 已执行 ${s.actions.executed} · 推送设备 ${s.push_subscriptions}`
+              ? `AI 助理提议 ${s.actions.proposed} · 批准 ${s.actions.approved} · 拒绝 ${s.actions.rejected} · 已执行 ${s.actions.executed} · 推送设备 ${s.push_subscriptions}`
               : `Proposed ${s.actions.proposed} · approved ${s.actions.approved} · rejected ${s.actions.rejected} · executed ${s.actions.executed} · push devices ${s.push_subscriptions}`}
           </div>
         </>

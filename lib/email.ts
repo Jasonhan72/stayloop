@@ -164,7 +164,7 @@ export function renderAgentMessageEmail(i: AgentMessageEmailInput): {
   text: string
 } {
   const disclosureZh = '此邮件由发送方在 Stayloop 上批准后，由其 AI 代理发送。直接回复本邮件即可联系对方。'
-  const disclosureEn = 'Sent by the sender’s AI agent on Stayloop, after their explicit approval. Reply to this email to reach them directly.'
+  const disclosureEn = 'Sent by the sender’s AI Agent on Stayloop, after their explicit approval. Reply to this email to reach them directly.'
 
   const text = `${i.body}
 
@@ -237,8 +237,8 @@ A friendly reminder that your rent for ${unit} is due soon:
 
 If you've already arranged payment, please ignore this note. Questions? Just reply to this email.
 
-— Sent by the landlord's AI assistant on Stayloop, after landlord approval.
-你好 ${tenant}，友情提醒：${unit} 的租金 ${amount} 将于 ${i.dueDate} 到期。如已安排付款请忽略本邮件；有任何问题直接回复即可。此邮件由房东在 Stayloop 上批准后由其 AI 助手发送。`
+— Sent by the landlord's AI Agent on Stayloop, after landlord approval.
+你好 ${tenant}，友情提醒：${unit} 的租金 ${amount} 将于 ${i.dueDate} 到期。如已安排付款请忽略本邮件；有任何问题直接回复即可。此邮件由房东在 Stayloop 上批准后由其 AI 助理发送。`
 
   const html = `<!DOCTYPE html>
 <html>
@@ -267,7 +267,7 @@ If you've already arranged payment, please ignore this note. Questions? Just rep
                 <p style="margin:20px 0 0 0;">If you've already arranged payment, please ignore this note. Questions? Just reply to this email.<br>如已安排付款请忽略本邮件；有任何问题直接回复即可。</p>
 
                 <p style="margin:24px 0 0 0;font-size:12px;color:#94a3b8;">
-                  Sent by the landlord's AI assistant on Stayloop, after landlord approval. · 此邮件由房东在 Stayloop 上批准后由其 AI 助手发送。
+                  Sent by the landlord's AI Agent on Stayloop, after landlord approval. · 此邮件由房东在 Stayloop 上批准后由其 AI 助理发送。
                 </p>
               </td>
             </tr>

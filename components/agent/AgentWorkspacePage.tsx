@@ -23,6 +23,7 @@ import { useAssistantPanel } from '@/lib/agent/useAssistantPanel'
 import { AssistantAvatar, getStoredAvatar, setStoredAvatar } from '@/lib/agent/avatars'
 import { usePromptDeepLink } from '@/lib/agent/usePromptDeepLink'
 import { useT } from '@/lib/i18n'
+import { displayAiName } from '@/lib/agent/assistantName'
 import type { AgentRole } from '@/lib/agent/types'
 
 /** The one line that differs per hat: what the assistant reads once the visitor signs in. */
@@ -61,6 +62,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
 
   const { agent, workflow, memories, pendingActions } = data
   const zh = lang === 'zh'
+  const shownName = displayAiName(agent.agent_name, lang)
   const stageLabel = lifecycle ? (zh ? lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.zh ?? '' : lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.en ?? '') : ''
   const pending = pendingActions.filter((a) => a.status === 'pending')
   const pendingCount = pending.length
@@ -73,16 +75,16 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
           {!live && (
             <div className="mx-5 mb-3 mt-4 flex-none rounded-xl border border-line-strong bg-surface-chip px-4 py-3 font-mono text-[11px] leading-relaxed text-body-3 md:mx-8 md:mb-2 md:mt-4">
               {zh
-                ? `预览模式 · 登录后助手会读取你真实的${reads.zh},审批将写入审计 · `
-                : `Preview mode · once you sign in, your assistant reads your real ${reads.en}, and approvals are written to the audit log · `}
+                ? `预览模式 · 登录后 AI 助理会读取你真实的${reads.zh},审批将写入审计 · `
+                : `Preview mode · once you sign in, your AI Agent reads your real ${reads.en}, and approvals are written to the audit log · `}
               <a href="/login" className="font-bold text-brand">{zh ? '登录 →' : 'Sign in →'}</a>
             </div>
           )}
           {live && <div className="md:hidden"><ContextStrip lifecycle={lifecycle} pending={pending.map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref={`/${role}/todo`} lang={lang} onPrompt={prefill} /></div>}
           {!panelOpen && (
-            <button type="button" onClick={() => setPanelOpen(true)} aria-label={zh ? '打开助手面板' : 'Open the assistant panel'} className="absolute right-4 top-3 z-10 hidden items-center gap-2 rounded-full border border-line-divider bg-white py-1 pl-1 pr-3 text-[12.5px] font-bold text-body-2 shadow-sm transition hover:border-line-strong lg:flex">
+            <button type="button" onClick={() => setPanelOpen(true)} aria-label={zh ? '打开 AI 助理面板' : 'Open the AI Agent panel'} className="absolute right-4 top-3 z-10 hidden items-center gap-2 rounded-full border border-line-divider bg-white py-1 pl-1 pr-3 text-[12.5px] font-bold text-body-2 shadow-sm transition hover:border-line-strong lg:flex">
               <AssistantAvatar avatar={avatar} role={role} className="h-6 w-6" fallback={live ? 'brand' : 'role'} />
-              {agent.agent_name}{pendingCount > 0 ? (zh ? ` · 等你点头 ${pendingCount} 件` : ` · ${pendingCount} waiting`) : ''}
+              {shownName}{pendingCount > 0 ? (zh ? ` · 等你点头 ${pendingCount} 件` : ` · ${pendingCount} waiting`) : ''}
             </button>
           )}
           <div className="min-h-0 flex-1">
@@ -96,7 +98,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
               onAvatarChange={setAvatar}
               threadLoading={threadLoading} currentThreadId={threadId} onOpenThread={openThread}
               role={role}
-              agentName={agent.agent_name}
+              agentName={shownName}
               status={status}
               messages={messages}
               onSend={sendMessage}
@@ -113,7 +115,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
         </div>
         {panelOpen && (
           <aside className="hidden lg:flex lg:w-[360px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider">
-            <AssistantPanel role={role} agentName={agent.agent_name} pendingActions={pendingActions} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onClose={() => setPanelOpen(false)} />
+            <AssistantPanel role={role} agentName={shownName} pendingActions={pendingActions} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onClose={() => setPanelOpen(false)} />
           </aside>
         )}
       </div>
