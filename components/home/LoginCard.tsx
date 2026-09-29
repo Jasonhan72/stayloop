@@ -18,6 +18,10 @@
 // (/login and /register render it too): Google, email + password sign-in,
 // email + password registration with a verification email, forgot-password
 // and resend-verification. No one-time email link (retired, user 2026-09-27).
+//
+// Also the sign-in gate of the naming step (/onboarding/name, 2026-09-29):
+// `next` is where every method lands afterwards — the password sign-in, the
+// verification link in the sign-up email, and Google.
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import GoogleIcon from '@/components/auth/GoogleIcon'
@@ -26,8 +30,8 @@ import { EMAIL_RE, lookupEmailStatus, routeForEmail } from '@/lib/auth/emailStat
 
 type Step = 'email' | 'password' | 'create' | 'nopassword'
 
-export default function LoginCard({ className = '' }: { className?: string }) {
-  const f = useLoginForm('signin')
+export default function LoginCard({ className = '', next }: { className?: string; next?: string }) {
+  const f = useLoginForm('signin', { next })
   const zh = f.zh
   const [step, setStep] = useState<Step>('email')
   const [emailErr, setEmailErr] = useState(false)
@@ -49,7 +53,7 @@ export default function LoginCard({ className = '' }: { className?: string }) {
   const toEmail = () => { setKnown(false); setGoogle(false); f.setTab('signin'); f.setPassword(''); f.setPassword2(''); setStep('email') }
   const toPassword = () => { f.setTab('signin'); setStep('password') }
   const toCreate = () => { f.setTab('register'); setStep('create') }
-  const next = async (e: FormEvent) => {
+  const continueWithEmail = async (e: FormEvent) => {
     e.preventDefault()
     if (checking) return
     const email = f.email.trim()
@@ -84,7 +88,7 @@ export default function LoginCard({ className = '' }: { className?: string }) {
         <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
           {verify ? (zh ? '验证链接已发到 ' : 'We sent a verification link to ') : (zh ? '重置密码的链接已发到 ' : 'We sent a password-reset link to ')}
           <b className="text-body">{f.email}</b>
-          {verify ? (zh ? '。点开它完成注册，再回来登录。' : '. Open it to finish, then sign in.') : (zh ? '。点开它设置新密码。' : '. Open it to set a new password.')}
+          {verify ? (zh ? '。点开它完成注册，会自动登录并接着往下走。' : '. Open it to finish — it signs you in and carries on from there.') : (zh ? '。点开它设置新密码。' : '. Open it to set a new password.')}
         </p>
         <button type="button" onClick={() => { f.back(); if (verify) toPassword() }} className={`mt-4 text-[13px] ${link}`}>{zh ? '← 返回' : '← Back'}</button>
       </div>
@@ -113,7 +117,7 @@ export default function LoginCard({ className = '' }: { className?: string }) {
     <div id="login" data-testid="home-login" className={root}>
       {step === 'email' && (
         <>
-          <form onSubmit={(e) => void next(e)} noValidate aria-busy={checking || undefined} className="space-y-3">
+          <form onSubmit={(e) => void continueWithEmail(e)} noValidate aria-busy={checking || undefined} className="space-y-3">
             <div className={label}>{zh ? '登录或创建账户' : 'Sign in or create an account'}</div>
             <input
               type="email"

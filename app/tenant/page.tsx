@@ -15,7 +15,7 @@ const CFG: RoleLandingConfig = {
     zh: '说出你想要的家,它从真实房源里替你找、替你比;看房、提问、申请、签约都在一处,英文租约逐条讲成中文。每个关键决定,依然由你拍板。',
     en: 'Say what home you want and it searches and compares real listings for you; viewings, questions, applications and signing live in one place, and the lease is explained clause by clause. Every key decision stays yours.',
   },
-  primaryCta: { label: { zh: '唤醒你的 AI 助理 →', en: 'Wake up your AI Agent →' }, href: '/onboarding/name', authedHref: '/tenant/agent' },
+  primaryCta: { label: { zh: '唤醒你的 AI 助理 →', en: 'Wake up your AI Agent →' }, href: '/onboarding/name?role=tenant', authedHref: '/tenant/agent' },
   secondaryCta: { label: { zh: '先浏览房源', en: 'Browse listings first' }, href: '/listings' },
   ctaNote: { zh: '租客永远免费 · 是否授权查询征信由你决定', en: 'Always free for tenants · you decide whether to authorise a credit check' },
   agentPoints: [

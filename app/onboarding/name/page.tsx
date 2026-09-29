@@ -2,14 +2,16 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
+import Link from 'next/link'
 import OnboardingStage from '@/components/OnboardingStage'
 import RoleChooser from '@/components/onboarding/RoleChooser'
+import LoginCard from '@/components/home/LoginCard'
 import { GENERIC_AI_NAME, setAIName, displayAiName, genericAiName, isGenericAiName } from '@/lib/aiName'
 import { saveAssistantName } from '@/lib/agent/assistantProfile'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
 import { invalidateHats } from '@/lib/useHats'
-import { useOnboarded } from '@/lib/useOnboarding'
+import { ROLE_HOME, useOnboarded } from '@/lib/useOnboarding'
 import { PROVIDER_ONBOARD, isAgentRole, type OnboardingRole } from '@/lib/onboarding/roleChoices'
 import { useT } from '@/lib/i18n'
 import { ROLE_THEME } from '@/lib/roleTheme'
@@ -128,6 +130,11 @@ const AGENT_HOME: Record<AgentRole, string> = {
 
 const ONBOARDING_ROLE_KEY = 'sl-onboarding-role'
 
+const ROLE_WORD: Record<'zh' | 'en', Record<AgentRole, string>> = {
+  zh: { tenant: '租客', landlord: '房东', agent: '经纪' },
+  en: { tenant: 'tenant', landlord: 'landlord', agent: 'agent' },
+}
+
 function NamePageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -155,6 +162,10 @@ function NamePageInner() {
   const [picked, setPicked] = useState<AgentRole | null>(null)
   const [cleared, setCleared] = useState(false) // "换身份" on the naming step reopens the chooser
   const role: AgentRole | null = picked ?? (cleared ? null : fromParam ?? fromStored)
+  // Steps: sign in → (which identity, only when nothing chose it) → name.
+  // Sign-in is step 1 even for a visitor who arrives signed in — it is done.
+  const asked = picked !== null || cleared || !(fromParam ?? fromStored)
+  const total = asked ? 3 : 2
   useEffect(() => {
     if (!role) return
     try { window.sessionStorage.setItem(ONBOARDING_ROLE_KEY, role) } catch {}
@@ -188,9 +199,56 @@ function NamePageInner() {
   const [value, setValue] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  // Nothing to show until the session is known: a signed-in visitor must not
+  // see the sign-in form flash before the naming step (or the redirect above).
+  if (authLoading) {
+    return (
+      <OnboardingStage>
+        <div aria-busy="true" style={{ minHeight: 320 }} />
+      </OnboardingStage>
+    )
+  }
+
+  // Sign in first (user 2026-09-29:「是不是应该先有登录？才能到设置助理这个步骤？」).
+  // The assistant's name, avatar, memory and to-dos live on the account; a
+  // name picked while signed out was kept only in this browser and the
+  // visitor landed in a preview that remembers nothing. Every entry point
+  // (the role pages' main buttons, pricing, about, the header's「成为房东」)
+  // comes through here, so the gate lives here. The identity rides along in
+  // `next` — password sign-in, the sign-up email's link and Google all come
+  // back to this page with it. The no-account preview stays one link away.
+  if (!user) {
+    const next = role ? `/onboarding/name?role=${role}` : '/onboarding/name'
+    return (
+      <OnboardingStage step={1} totalSteps={total} eyebrow={zh ? 'SIGN IN · 登录' : 'SIGN IN'}>
+        <h1 style={{ fontSize: 'clamp(24px, 6.5vw, 30px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.18 }}>
+          {zh ? '先登录，再设置你的 AI 助理' : 'Sign in to set up your AI Agent'}
+        </h1>
+        <p style={{ fontSize: 14.5, color: '#3F3F46', lineHeight: 1.6, margin: '12px 0 8px' }}>
+          {zh
+            ? '它的名字、记忆和待办都记在你的账户里，换一台设备也还在。第一次来就用邮箱或 Google 免费创建一个账户。'
+            : 'Its name, memory and to-dos live in your account, so they follow you to any device. New here? Create a free account with your email or Google.'}
+        </p>
+        <p style={{ fontSize: 12.5, color: '#71717A', lineHeight: 1.55, margin: '0 0 22px' }} data-testid="onboarding-next-step">
+          {role
+            ? (zh ? `身份：${ROLE_WORD.zh[role]} · 登录后接着给 AI 助理起名` : `Identity: ${ROLE_WORD.en[role]} · naming your AI Agent comes right after`)
+            : (zh ? '登录后选身份，再给 AI 助理起名' : 'After signing in: pick your identity, then name your AI Agent')}
+        </p>
+        <LoginCard next={next} className="mx-auto w-full max-w-[400px]" />
+        <p style={{ fontSize: 12.5, color: '#71717A', lineHeight: 1.6, marginTop: 24 }}>
+          <Link href={ROLE_HOME[role ?? 'tenant']} data-testid="onboarding-preview" style={{ color: '#00ACE4', fontWeight: 600 }}>
+            {zh ? '先不登录，看看预览 →' : 'Look at a preview first →'}
+          </Link>
+          <br />
+          {zh ? '预览不用账户，但不会记住你，也不能替你办事。' : 'The preview needs no account, but it won’t remember you or act for you.'}
+        </p>
+      </OnboardingStage>
+    )
+  }
+
   if (!role) {
     return (
-      <OnboardingStage step={1} totalSteps={2} eyebrow={zh ? 'PICK YOUR ROLE · 选身份' : 'PICK YOUR ROLE'}>
+      <OnboardingStage step={2} totalSteps={3} eyebrow={zh ? 'PICK YOUR ROLE · 选身份' : 'PICK YOUR ROLE'}>
         <h1 style={{ fontSize: 'clamp(24px, 6.5vw, 30px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.18 }}>
           {zh ? '你现在主要是哪种身份？' : 'Which identity are you here as?'}
         </h1>
@@ -216,18 +274,18 @@ function NamePageInner() {
     if (submitting) return
     setSubmitting(true)
     const chosen = name ?? final
-    setAIName(chosen, user?.id ?? null) // signed out: unclaimed, adopted by the account that signs in next
+    // The page is behind sign-in (above), so this names the account's
+    // assistant; `null` only covers a session that ended while the page was open.
+    setAIName(chosen, user?.id ?? null)
     if (user && !isGenericAiName(chosen)) void saveAssistantName(supabase, user.id, chosen)
     setRole(role)
-    // First-time SIGNED-IN landlords land on the aha moment, not a chat
-    // shell. Production data (2026-08-12): 33 signups/30d but 3 active
-    // screeners — the activation gap lives in this exact hop. Returning
-    // users are unaffected (the onboarded-check above skips this page).
-    // An ANONYMOUS visitor who just clicked "进入 Logic 工作台" used to be
-    // dropped on the screening page's "requires an account" wall — a
-    // dead end on an unrelated-looking page (external walkthrough
-    // 2026-09-22). They get the workspace they were promised: it runs in
-    // preview mode without an account and carries its own sign-in banner.
+    // First-time landlords land on the aha moment, not a chat shell.
+    // Production data (2026-08-12): 33 signups/30d but 3 active screeners —
+    // the activation gap lives in this exact hop. Returning users are
+    // unaffected (the onboarded-check above skips this page). A signed-out
+    // visitor never reaches this button any more (2026-09-29): the sign-in
+    // step comes first, so no one is dropped on the screening page's
+    // "requires an account" wall (external walkthrough 2026-09-22).
     const signedIn = !!user && !authLoading
     // Choosing "landlord" here IS the explicit opt-in: grant the hat now
     // (pages no longer claim it on load — three-role test report 2026-09-24).
@@ -238,12 +296,12 @@ function NamePageInner() {
     router.push(AGENT_HOME[role])
   }
 
-  const roleWord = zh ? ({ tenant: '租客', landlord: '房东', agent: '经纪' } as const)[role] : ({ tenant: 'tenant', landlord: 'landlord', agent: 'agent' } as const)[role]
+  const roleWord = ROLE_WORD[zh ? 'zh' : 'en'][role]
 
   return (
     <OnboardingStage
-      step={2}
-      totalSteps={2}
+      step={total}
+      totalSteps={total}
       eyebrow="NAME YOUR AGENT"
     >
       <span

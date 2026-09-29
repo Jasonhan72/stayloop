@@ -72,7 +72,7 @@ describe('the login card and the shared sign-in hook', () => {
   const hook = read('lib/auth/useLoginForm.ts')
   const page = read('app/login/page.tsx')
   it('the card offers the regular methods only — Google, email + password sign-in, registration — and no one-time link (user, 2026-09-27)', () => {
-    expect(card).toContain("useLoginForm('signin')")
+    expect(card).toContain("useLoginForm('signin', { next })")
     expect(card).toContain('id="login"')
     expect(card).toContain('data-testid="home-login"')
     for (const m of ['f.signInWithGoogle()', 'f.signUpWithPassword(e)', 'f.signInWithPassword(e)', 'f.forgotPassword()', 'f.resendConfirm()']) expect(card, m).toContain(m)

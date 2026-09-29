@@ -18,21 +18,25 @@ export type SentKind = 'verify' | 'reset'
 // Post-login destination: useLandlord/guards bounce logged-out users to
 // /login?redirect=<path>; the auth callback honors a `next` param. Bridge
 // the two so bookmarked deep links survive the sign-in round-trip.
-export function callbackUrl(): string {
+// `nextOverride` is for a form embedded in a page that knows where the visitor
+// should land (the naming step's sign-in gate sends them back to itself with
+// the identity they picked, 2026-09-29); it passes the same safety check.
+export function callbackUrl(nextOverride?: string): string {
   if (typeof window === 'undefined') return '/auth/callback'
   // Half the app sends ?next= (screening subpages, /h/[id], lease import),
   // the other half ?redirect= — honor both, and reject /\ alongside //
   // (browsers treat backslash as slash: '/\evil.com' escapes the origin).
   const q = new URLSearchParams(window.location.search)
-  const redirect = q.get('next') ?? q.get('redirect')
+  const redirect = nextOverride ?? q.get('next') ?? q.get('redirect')
   const next = redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\')
     ? `?next=${encodeURIComponent(redirect)}`
     : ''
   return `${window.location.origin}/auth/callback${next}`
 }
 
-export function useLoginForm(initialTab: LoginTab = 'signin') {
+export function useLoginForm(initialTab: LoginTab = 'signin', opts: { next?: string } = {}) {
   const { lang } = useT()
+  const returnUrl = () => callbackUrl(opts.next)
   const zh = lang === 'zh'
   const [tab, setTabState] = useState<LoginTab>(initialTab)
   const [email, setEmail] = useState('')
@@ -65,7 +69,7 @@ export function useLoginForm(initialTab: LoginTab = 'signin') {
         }
         throw error
       }
-      window.location.href = callbackUrl()
+      window.location.href = returnUrl()
     } catch (e: unknown) {
       setErr(message(e, zh ? '登录失败' : 'Sign-in failed'))
     } finally {
@@ -91,7 +95,7 @@ export function useLoginForm(initialTab: LoginTab = 'signin') {
     setLoading(true)
     try {
       const supabase = getSupabaseBrowser()
-      const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: callbackUrl() } })
+      const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: returnUrl() } })
       if (error) {
         if (error.message?.includes('already registered')) throw alreadyRegistered()
         throw error
@@ -102,7 +106,7 @@ export function useLoginForm(initialTab: LoginTab = 'signin') {
       // A session comes back only when autoconfirm is on; otherwise the
       // verification link must be clicked first.
       if (data.session) {
-        window.location.href = callbackUrl()
+        window.location.href = returnUrl()
         return
       }
       setSent('verify')
@@ -119,7 +123,7 @@ export function useLoginForm(initialTab: LoginTab = 'signin') {
       const supabase = getSupabaseBrowser()
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: typeof window !== 'undefined' ? callbackUrl() : undefined },
+        options: { redirectTo: typeof window !== 'undefined' ? returnUrl() : undefined },
       })
       if (error) throw error
     } catch (e: unknown) {
@@ -135,7 +139,7 @@ export function useLoginForm(initialTab: LoginTab = 'signin') {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
-        options: { emailRedirectTo: typeof window !== 'undefined' ? callbackUrl() : undefined },
+        options: { emailRedirectTo: typeof window !== 'undefined' ? returnUrl() : undefined },
       })
       if (error) throw error
       setNeedsConfirm(false)

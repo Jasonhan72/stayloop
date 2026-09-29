@@ -12,9 +12,12 @@ import { buildListingRow } from '../lib/listingPublish'
 // for pets / smoking / lease term / utilities; (3) the chat bubble showed
 // raw "###" / "**" markdown.
 
-describe('onboarding: the workspace button leads to the workspace when signed out', () => {
+describe('onboarding: nobody is dropped on the screening page’s sign-up wall', () => {
   const src = readFileSync('app/onboarding/name/page.tsx', 'utf8')
-  it('routes anonymous landlords to /landlord/agent and signed-in first-timers to the screening aha moment', () => {
+  // Since 2026-09-29 a signed-out visitor meets the sign-in step before the naming
+  // step (tests/onboardingSignIn20260929.spec.tsx), so the button below is only ever
+  // pressed signed in; the no-account preview is a link on that sign-in step.
+  it('first-time landlords are granted the hat and sent to the screening aha moment; the rest to their workspace', () => {
     // 2026-09-24: signed-in landlords are granted the hat explicitly, then sent to the screening page.
     expect(src).toMatch(/role === 'landlord' && signedIn\) \{[\s\S]*?router\.push\('\/screening\/app'\)[\s\S]*?\}\s*router\.push\(AGENT_HOME\[role\]\)/)
   })
