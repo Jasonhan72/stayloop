@@ -131,7 +131,7 @@ describe('what did not change, and the version label', () => {
     expect(read('components/Footer.tsx')).not.toContain('>V0.6<')
     const chat = read('components/agent/AgentChat.tsx')
     expect(chat).not.toContain('compactHeader')
-    expect(chat).toContain('flex flex-none flex-col items-center px-4 pb-2 pt-3 md:border-b') // the /x/agent header (2026-09-24) is the only header now
+    expect(chat).toContain("flex flex-none flex-col items-center px-4 pb-2 pt-3 ${device ? '' : 'md:border-b") // the /x/agent header (2026-09-24) is the only header now; `device` only drops its md: sizes
     expect(chat).not.toMatch(/flex h-12 flex-none items-center gap-2\.5 border-b/) // the one-row variant stays rejected
     expect(read('components/agent/AgentWorkspacePage.tsx')).not.toContain('compactHeader')
     expect(home).toContain('<Header variant="transparent" />')

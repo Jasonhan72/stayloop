@@ -71,8 +71,8 @@ describe('homepage FAQ', () => {
     // never a pricing claim in the FAQ (pricing has one source: /pricing)
     expect(block).not.toMatch(/\$\d|每月|per month/)
   })
-  it('the section order is hero → landing map → propose/decide → flow → roles → rules → steps → numbers → FAQ → final', () => {
-    const order = ['HERO: message + login card', 'LANDING MAP', 'PROPOSE / DECIDE', 'PRODUCTS: one flow', 'ROLES', 'RULES', 'STEPS', 'VERIFY: live numbers', 'FAQ', 'FINAL'].map((k) => home.indexOf(`{/* ================= ${k}`))
+  it('the section order is hero → landing map → how it works → propose/decide → flow → roles → rules → steps → numbers → FAQ → final', () => {
+    const order = ['HERO: message + login card', 'LANDING MAP', 'HOW IT WORKS', 'PROPOSE / DECIDE', 'PRODUCTS: one flow', 'ROLES', 'RULES', 'STEPS', 'VERIFY: live numbers', 'FAQ', 'FINAL'].map((k) => home.indexOf(`{/* ================= ${k}`))
     for (const i of order) expect(i).toBeGreaterThan(-1)
     for (let i = 1; i < order.length; i++) expect(order[i], String(i)).toBeGreaterThan(order[i - 1])
   })

@@ -24,6 +24,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail, renderRentReminderEmail } from '@/lib/email'
 import { sendLeaseInvitation, leaseSendPreflight, buildLeaseInvite, type LeaseForSend } from '@/lib/lease/sendLease'
 import { decisionNoticeFooter, guidelineFor } from '@/lib/ontario/rules'
+import { rentAmount } from '@/lib/agent/chatCopy'
 import { notifyUser } from '@/lib/push/notify'
 import { actOnWorkOrder, createWorkOrder, suggestDispatch } from '@/lib/marketplace/server'
 import { ensureThread, postSystemMessage } from '@/lib/threads/server'
@@ -240,13 +241,13 @@ async function executeSendRenewalLetter(
 
 Your current lease for ${unit} ends on ${m.end_date}. Your landlord would like to offer a renewal:
 
-  • Proposed monthly rent: $${(rent ?? 0).toLocaleString()}${option === 'B' ? ` (current $${(m.current_rent ?? 0).toLocaleString()} + ${m.guideline_pct}% — within Ontario's ${m.guideline_year} rent increase guideline)` : ' (unchanged)'}
+  • Proposed monthly rent: $${rentAmount(rent ?? 0)}${option === 'B' ? ` (current $${rentAmount(m.current_rent ?? 0)} + ${m.guideline_pct}% — within Ontario's ${m.guideline_year} rent increase guideline)` : ' (unchanged)'}
   • New term: 12 months from ${m.end_date}
 
 Reply to this email to accept, discuss, or ask questions. Under Ontario's Residential Tenancies Act you may also choose to continue month-to-month on your existing terms.
 
 — Sent by the landlord's AI assistant on Stayloop, after landlord approval.
-此邮件由房东在 Stayloop 上批准后由其 AI 助手发送：${unit} 的租约将于 ${m.end_date} 到期，房东提议以月租 $${(rent ?? 0).toLocaleString()} 续约 12 个月。你也可以依据安省 RTA 按原条款转为月租。直接回复本邮件即可沟通。`
+此邮件由房东在 Stayloop 上批准后由其 AI 助手发送：${unit} 的租约将于 ${m.end_date} 到期，房东提议以月租 $${rentAmount(rent ?? 0)} 续约 12 个月。你也可以依据安省 RTA 按原条款转为月租。直接回复本邮件即可沟通。`
 
   if (preview) return PREVIEW({ subject, body: text, to: m.tenant_email ?? null })
   const result = await sendEmail({

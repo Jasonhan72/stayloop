@@ -2566,7 +2566,7 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
 
 蓝本 `design/homepage-v10-marketing-login-2026-09.html`（桌面 1280 + 手机 375 + 规格表 + 四个决定点，用户全部按建议采纳）。守卫 `tests/homeV10_20260927.spec.ts`（11 条）+ `tests/homeRoles20260927.spec.ts`（改写）；`tests/homeHero20260925.spec.ts` 退役（其中 useAuth 广播的断言搬进新 spec）。**Header / Footer / logo / 配色一律不动。**
 - **四个决定**：① 首页去掉实时对话框——三周实测里它只有半屏、匿名访客没有个人数据，展示不出「替你办事」，页面也没说清系统是什么；免登录的真实体验不删，搬到助手预览页（整屏对话）。② **已登录访客不看首页**：`HomeNext` 在 auth 解析后用登录页同一谓词 `homeForHats(记住的身份, my_hats)` 做 `router.replace`（租客 / 房东 / 经纪 → 各自 `/x/agent`，服务商 → `/provider/jobs`），期间显示「正在打开你的助手…」+ 兜底链接；首屏仍按匿名渲染（与预渲染 HTML 一致，不在水合期分支）。③ Hero 右侧是登录卡。④ 保留四身份 tab、租前租中租后四卡、数字带、FAQ、页头页脚；删掉 hero 对话与痛点三格（并进「登录后直达」四格）。
-- **页面顺序**（注释锚 `{/* ================= X`，守卫按顺序断言）：HERO: message + login card（44px 两行标题 · 一句导语 · 「免费开始 →」锚到 `#login` · 「先免登录试一试」→ `/tenant/agent`）→ LANDING MAP（「登录后，你会直接进入」四格，各链到自己的预览页，服务商链 `/services` 并标试点）→ PROPOSE / DECIDE（标注「示例对话 · 房东 · 内容为示范」的两句对话 + 审批卡真实样式：将分享 / 不会分享 / 预览正文 / 批准 / 拒绝 / 60 秒撤销 / 审计，按钮是 `<span>` 不是控件；下面四步流 说一句 → 助手去办 → 你来批准 → 执行并留痕）→ PRODUCTS: one flow（原四卡不变）→ ROLES（原滑动胶囊 tab；例句改为 `assistantPromptHref(role, prompt)` 打开助手预览，眉标「试一试 · 打开助手预览，不用登录」）→ RULES（新：`RULE_IDS` 十条经 `ruleById` 从 `lib/ontario/rules.ts` 取标题与法条号，指导比例数字来自 `GUIDELINE_TEXT`，「全部 N 条」= `ONTARIO_RULES.length`）→ STEPS（登录 → 选身份、起名 → 说第一句话，三种身份各一句例句）→ VERIFY（原数字带）→ FAQ（原五问之前加「不登录能试吗？」→ `/tenant/agent`；模型列表 Claude · GPT · Gemini 挪进「数据放在哪里」那问）→ FINAL。无价格、无照片、无编造数字、示例对话沿用数据规范（Unit 1207 · Mia Chen）且按 09-27 引导卡的规矩措辞（申请按材料齐全与递交时间整理、分数只在报告里）。
+- **页面顺序**（注释锚 `{/* ================= X`，守卫按顺序断言）：HERO: message + login card（44px 两行标题 · 一句导语 · 「免费开始 →」锚到 `#login` · 「先免登录试一试」→ `/tenant/agent`）→ LANDING MAP（「登录后，你会直接进入」四格，各链到自己的预览页，服务商链 `/services` 并标试点）→ HOW IT WORKS（2026-09-28 加：「Stayloop 是怎么工作的 / How Stayloop works」+ 三方联动动画，见文末「首页三方联动动画」）→ PROPOSE / DECIDE（标注「示例对话 · 房东 · 内容为示范」的两句对话 + 审批卡真实样式：将分享 / 不会分享 / 预览正文 / 批准 / 拒绝 / 60 秒撤销 / 审计，按钮是 `<span>` 不是控件；下面四步流 说一句 → 助手去办 → 你来批准 → 执行并留痕）→ PRODUCTS: one flow（原四卡不变）→ ROLES（原滑动胶囊 tab；例句改为 `assistantPromptHref(role, prompt)` 打开助手预览，眉标「试一试 · 打开助手预览，不用登录」）→ RULES（新：`RULE_IDS` 十条经 `ruleById` 从 `lib/ontario/rules.ts` 取标题与法条号，指导比例数字来自 `GUIDELINE_TEXT`，「全部 N 条」= `ONTARIO_RULES.length`）→ STEPS（登录 → 选身份、起名 → 说第一句话，三种身份各一句例句）→ VERIFY（原数字带）→ FAQ（原五问之前加「不登录能试吗？」→ `/tenant/agent`；模型列表 Claude · GPT · Gemini 挪进「数据放在哪里」那问）→ FINAL。无价格、无照片、无编造数字、示例对话沿用数据规范（Unit 1207 · Mia Chen）且按 09-27 引导卡的规矩措辞（申请按材料齐全与递交时间整理、分数只在报告里）。
 - **登录卡** `components/home/LoginCard.tsx`：~~Google / 邮箱一次性链接（默认；首次登录即注册）/ 「已有密码？密码登录」~~ → **2026-09-27 晚改为常规方式**（用户：「这个发送登录链接的功能早就不要了」）：「登录 / 注册」两个 tab + Google；登录 = 邮箱 + 密码（忘记密码、重发验证邮件），注册 = 邮箱 + 密码 + 确认（≥8 位、防枚举、发验证邮件后卡片原位变「验证你的邮箱」）；脚注「注册免费 · 不要信用卡 · 租客永远免费」。三种方式的状态与处理器抽成 `lib/auth/useLoginForm.ts`（含 `callbackUrl`），`/login` 页改用同一 hook、界面一字不改；Google 图标抽成 `components/auth/GoogleIcon.tsx`。
 - **深链**：`lib/homeDeepLink.ts`（`assistantPromptHref` / `homeAskRedirect`，纯函数）；`middleware.ts` 把 `/?ask=…` 308 到 `/<role>/agent?prompt=…&send=1`（role 不是三者之一 → tenant，ask 截 300 字）。角色页 `RoleLanding` 的 `/?role=&ask=` 链接原样保留（eliseai 守卫不变）：匿名落到预览、已登录落到真实助手，`usePromptDeepLink` 的 `send=1` 语义不变。
 - **顺带**：`AgentChat` 的 `compactHeader`（只有首页在用）连同分支删除；页脚 `V0.6 → V0.7`（`threeRoleReport` 守卫同步）；`oneAssistant / museMobile / review20260925 / walkthrough20260922 / guidedIntake` 里钉住旧 hero 的断言改为新行为。**手机 375 的一个坑**：示例对话卡里 `truncate` 的占位句把单列 grid 的 min-content 撑到 450px，两张卡都要 `min-w-0`（与 08-24 的宽表规矩同一根因）。
@@ -2629,3 +2629,32 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   名字缓存归属该 uid；再开 `/onboarding/name` 跳过起名直达 `/landlord/agent`。ship61 后以访客身份核对首页登录卡：「Sign in / Create account」两个 tab、登录 = 邮箱 + 密码、
   注册 = 邮箱 + 两次密码 + Google、卡内无任何「链接」文案、375px 零溢出、输入框 16px；`/login` 无「邮箱链接」tab。测试号与其房东行 / 助手档案已删除。
   Supabase 日志证实该时段浏览器侧的三条 401 全是我在页面里手调 `my_hats` 的实验（应用自身零 401）。
+
+## 首页三方联动动画（2026-09-28 · V0.7 · 用户「做一个介绍网站的动画」→「要按照现在的页面设计来做」→「按三个角色联动…真人演绎」→「先用 C 3D 卡通人物来做」）
+
+**教训：演示产品的动画一律用产品自己的组件来演，不要照着画一个「像产品」的界面。** 第一版手画舞台被否；第二版单角色演示（HeroShowcase，真实组件驱动）
+未上线即被三方联动版取代，文件已删。规划稿 `design/three-role-film-plan-2026-09.html`（B 真人风格 / C 3D / A 实拍的对比、六幕分镜、真实性边界），用户选 C 先做。
+守卫 `tests/threeRoleFilm20260928.spec.ts`（22 条）。
+- **位置与标题（用户 2026-09-28 看完预览：「可以把这个加到主页了，上面加一个 Title，How Stayloop Works」）**：独立一节 `<section id="how-it-works">`，
+  排在「登录后，你会直接进入」四格之后、「它提议，你决定。」之前（四格要紧贴它解释的登录卡，所以不插在 hero 与四格之间）。标题用首页各节同一体例
+  （无眉标、28/36px）：「Stayloop 是怎么工作的 / How Stayloop works」；导语中文按句断行（lg 起每句一行）：各有自己的 AI 助理 / 事情在三个助理之间接力，
+  从你的助理发出去的每一件事都要你本人批准，批准后还有 60 秒可以撤销 / 下面用同一套房，从委托挂牌演到续约。「留痕」「四步流程」交给下一节，不重复。
+- **人物**：租客 Mia Chen（助理 Momo · 小猫）、房东 Sarah Wang（Bao · 熊猫）、经纪 David Park（Ollie · 猫头鹰）——站内示范数据的三人，同一套 Unit 1207 · $2,800。
+  12 张场景图 + 3 张头像在 `public/home/film/`（gpt-image-2 由三张 3D 定妆图编辑生成，960×640 webp，每张 ≤ 60 KB）。标注「示范动画 · 3D 人物由 AI 生成 · 内容为示范」。
+- **组件 `components/home/ThreeRoleFilm.tsx`**：每人一条泳道 = 上方场景图（缓慢推镜、切换淡入）+ 下方手机，**手机里就是真实的 `AgentChat`**，新 prop **`device`**
+  （与 `hero` 同用）= 任何宽度都用手机排版：头部显示、每条消息带小头像、手机输入条、**不显示快捷入口**（五张卡会把手机大小的对话压没，第一次实测审批卡被顶出可视区）。
+  不传 `device` 时 `/x/agent` 与首页一切照旧（守卫逐条比对）。审批卡照常渲染，**指针先把该泳道自己的对话滚到按钮处（`[data-chat-thread]`，不滚整页）、再点卡片自己的按钮**
+  （`data-decide` / `data-option`），走真实的「提交中…」→ 60 秒撤销行 →「⏩ 60 秒后」→「✅ 已执行」；新卡到达先把卡片标题滚到可视区（`[data-approval-card]`）。
+  交接时一枚「看房请求 →」胶囊从一部手机飞到另一部；邮件与推送以横幅落在收件人手机上。宽屏三部手机并排（不在戏里的变暗、谁接到东西谁亮起），
+  lg 以下一次一部 + 顶部「接力条」。章节按钮一行（手机可横滑）+ 暂停；`inert` + `aria-hidden` + 屏幕阅读器整段说明；可见 ≥25% 且标签页可见才播；
+  减少动态效果时不播，每章显示关键帧（卡片等待批准那一刻）。淡入动画用 `backwards` 填充——`both` 会把 opacity 锁在 1，盖掉变暗类（第一次实测三条泳道都没变暗）。
+- **剧本 `lib/home/film.ts`**（纯函数，五章约 67 秒）：① 委托定价（Sarah 请 David 代办 → 邮件链接确认委托 → David 工作台出现真实的「正在代表」条 → 挂牌 + TRREB 定价）；
+  ② 找房看房（Mia 一句话 → 房源卡 + 真实的「已按 … 过滤」→ 看房请求卡与推送 = `/api/showing-intent` 原文 → Sarah 批准 → Mia 收到真实邮件标题）；
+  ③ 申请筛查（David 在委托范围内发起筛查，只引导到客户表、不替房东做决定 → 录取卡 = 申请人页 `proposeNotice` 原文 → Mia 收到录取邮件）；
+  ④ 签约（`send_lease` 卡 → 真实邮件标题 → 双签成在管租约）；⑤ 续约（**一年后**：入住日 = 下下个月 1 号、到期 = 一年减一天、当天 = 到期前 91 天，
+  续约卡由 `buildRenewalProposal` 本身生成，指导比例按生效年份，推送 = proactive 扫描原文）。只有房东的手机里有卡和点按；租客手机里不出现分数；除指导比例外无百分比、无统计。
+- **顺带的产品修正**：续约涨到 $2,853.20 时，卡片正文（`$2,853`）、按钮与执行回执（`$2,853.2`）、续约邮件（`$2,853.2`）三处不一致——统一用 `chatCopy.rentAmount`
+  （有分才显示两位小数）。`AgentChat` 只滚动对话自身（`threadRef.scrollTo`），不再 `scrollIntoView`（会连带滚动整页）；开场白与「✅ 已执行」文案抽到 `lib/agent/chatCopy.ts`，
+  会话钩子与动画共用。
+- **本地核对方法**：内置浏览器面板隐藏时截图是旧画面；改用无头 Chrome + CDP（会话 scratchpad `shoot.mjs`：按章节与毫秒截帧、打印字幕与控制台错误；`overflow.mjs`：五个宽度量横向溢出与各部分高度）。
+- **未做**：规划稿里 /platform 的 90 秒完整版（含报修一幕、服务商客串）；B 方案（真人风格）需要用户另行决定。

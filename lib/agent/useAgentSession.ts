@@ -21,6 +21,7 @@ import { appendToThread, createThread, latestThread, loadThread, readPointer, sa
 import { notifyActivityChanged } from './useActivityLog'
 import { saveAssistantName } from './assistantProfile'
 import { reconcileDraft } from './draftReconcile'
+import { executedText, greeting } from './chatCopy'
 
 const CHAT_KEY_PREFIX = 'stayloop-agent-chat-'
 
@@ -98,21 +99,6 @@ async function reconcileAgentName(
   } catch (e) {
     console.warn('[agent] name reconcile failed', (e as Error).message)
   }
-}
-
-function greeting(role: AgentRole, name: string, lang: Lang): string {
-  if (lang === 'en') {
-    if (role === 'tenant')
-      return `Hi, I'm ${name}. Tell me what kind of home you're after — area, budget, layout, hard requirements. Just say it, and I'll remember it all for you.`
-    if (role === 'landlord')
-      return `Hi, I'm ${name}. Leave applications, due diligence, compliance and renewals to me — you only nod at the 1–2 moments that matter.`
-    return `Hi, I'm ${name}. Showings, prep packs, on-site feedback, settlement — I take the busywork so you can focus on people and judgment.`
-  }
-  if (role === 'tenant')
-    return `你好,我是 ${name}。告诉我你想找什么样的家 —— 区域、预算、户型、硬条件,直接说就好,我都帮你记住。`
-  if (role === 'landlord')
-    return `你好,我是 ${name}。把申请、尽调、合规、续约交给我;关键的 1–2 个时刻,你点头就好。`
-  return `你好,我是 ${name}。带看、准备包、现场反馈、结算 —— 行政杂活我来,你专心做人和判断。`
 }
 
 export type UseAgentSession = {
@@ -539,29 +525,10 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           const rentAmt = j.result?.rent
           const zh = langRef.current === 'zh'
           if (j.executed && sentTo) {
-            // Name the artifact by type — "续约函" only for renewals; the newer
-            // executors (rent_reminder / send_message) send other emails.
-            const artifact = zh
-              ? (removed?.action_type === 'send_renewal_letter'
-                  ? '续约函'
-                  : removed?.action_type === 'rent_reminder'
-                    ? '租金提醒'
-                    : removed?.action_type === 'maintenance_request'
-                      ? '报修工单'
-                      : '邮件')
-              : (removed?.action_type === 'send_renewal_letter'
-                  ? 'renewal letter'
-                  : removed?.action_type === 'rent_reminder'
-                    ? 'rent reminder'
-                    : removed?.action_type === 'maintenance_request'
-                      ? 'maintenance request'
-                      : 'email')
             const doneMsg: ChatMessage = {
               id: nextId(),
               role: 'agent',
-              text: zh
-                ? `✅ 已执行：「${removed?.title ?? '你批准的操作'}」— ${artifact}已真实发送至 ${sentTo}${rentAmt ? `（月租 $${rentAmt.toLocaleString()}）` : ''}。执行记录已写入审计日志。`
-                : `✅ Done: "${removed?.title ?? 'the action you approved'}" — the ${artifact} was actually sent to ${sentTo}${rentAmt ? ` (monthly rent $${rentAmt.toLocaleString()})` : ''}. The execution was written to the audit log.`,
+              text: executedText({ title: removed?.title, actionType: removed?.action_type, sentTo, rent: rentAmt, zh }),
             }
             if (startedIn && threadIdRef.current !== startedIn) void appendToThread(getSupabaseBrowser(), startedIn, [doneMsg])
             else setMessages((msgs) => [...msgs, doneMsg])

@@ -16,6 +16,7 @@
 // Idempotency is by (lease_id, stage): each stage is proposed at most once
 // per lease, ever — decided or not, we never re-nag.
 import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
+import { rentAmount } from './chatCopy'
 import { N1_NOTICE_DAYS, guidelineFor, n1DeadlineFor } from '@/lib/ontario/rules'
 
 // The guideline is per calendar year of the increase's effective date (RTA
@@ -78,9 +79,9 @@ export function marketLineText(m: MarketLine | null | undefined): string {
   return `TRREB ${m.period} 均租：${parts.join(' · ')}。`
 }
 
-function fmt(n: number): string {
-  return Math.round(n).toLocaleString()
-}
+// Same figure as the card's buttons, the executed line and the letter: a
+// guideline increase on $2,800 is $2,853.20, not "$2,853" here and "$2,853.20" there.
+const fmt = rentAmount
 
 export function buildRenewalProposal(userId: string, l: RenewalLease, today: Date, market?: MarketLine | null): RenewalProposal {
   const rent = Number(l.monthly_rent) || 0

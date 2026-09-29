@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useT } from '@/lib/i18n'
 import type { PendingAction } from '@/lib/agent/types'
+import { rentAmount } from '@/lib/agent/chatCopy'
 import { supabase } from '@/lib/supabase'
 import WorkOrderInline from '@/components/agent/WorkOrderInline'
 
@@ -64,7 +65,7 @@ export default function ApprovalActionCard({
   }
 
   return (
-    <div className={`rounded-2xl border border-brand bg-white shadow-[0_0_0_1px_rgba(4,120,87,0.22),0_6px_18px_rgba(4,120,87,0.06)] ${compact ? 'p-4' : 'p-6'}`}>
+    <div data-approval-card className={`rounded-2xl border border-brand bg-white shadow-[0_0_0_1px_rgba(4,120,87,0.22),0_6px_18px_rgba(4,120,87,0.06)] ${compact ? 'p-4' : 'p-6'}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-brand">
           {zh ? 'PENDING APPROVAL · 等你确认' : 'PENDING APPROVAL · AWAITING YOU'}
@@ -121,25 +122,29 @@ export default function ApprovalActionCard({
               type="button"
               disabled={busy !== null}
               onClick={() => decide('approved', 'A')}
+              data-decide="approved"
+              data-option="A"
               className="rounded-lg border border-brand bg-white px-4 py-[9px] text-[13.5px] font-semibold text-brand transition hover:bg-brand/5 disabled:opacity-60"
             >
               {busy === 'approved:A'
                 ? (zh ? '发送中…' : 'Sending…')
                 : zh
-                  ? `✓ 不涨续约${m.current_rent ? ` · $${m.current_rent.toLocaleString()}` : ''}`
-                  : `✓ Renew, no increase${m.current_rent ? ` · $${m.current_rent.toLocaleString()}` : ''}`}
+                  ? `✓ 不涨续约${m.current_rent ? ` · $${rentAmount(m.current_rent)}` : ''}`
+                  : `✓ Renew, no increase${m.current_rent ? ` · $${rentAmount(m.current_rent)}` : ''}`}
             </button>
             <button
               type="button"
               disabled={busy !== null}
               onClick={() => decide('approved', 'B')}
+              data-decide="approved"
+              data-option="B"
               className="sl-btn-primary !px-4 !py-[10px] !text-[13.5px] disabled:opacity-60"
             >
               {busy === 'approved:B'
                 ? (zh ? '发送中…' : 'Sending…')
                 : zh
-                  ? `✓ ${pctLabel} 续约${m.guideline_rent ? ` · $${m.guideline_rent.toLocaleString()}` : ''}`
-                  : `✓ ${pctLabelEn} renewal${m.guideline_rent ? ` · $${m.guideline_rent.toLocaleString()}` : ''}`}
+                  ? `✓ ${pctLabel} 续约${m.guideline_rent ? ` · $${rentAmount(m.guideline_rent)}` : ''}`
+                  : `✓ ${pctLabelEn} renewal${m.guideline_rent ? ` · $${rentAmount(m.guideline_rent)}` : ''}`}
             </button>
           </>
         ) : (
@@ -147,6 +152,7 @@ export default function ApprovalActionCard({
             type="button"
             disabled={busy !== null}
             onClick={() => decide('approved')}
+            data-decide="approved"
             className="sl-btn-primary !px-4 !py-[10px] !text-[13.5px] disabled:opacity-60"
           >
             {busy === 'approved' ? (zh ? '提交中…' : 'Submitting…') : zh ? '✓ 确认 · 替我执行' : '✓ Approve · Execute for me'}
@@ -156,6 +162,7 @@ export default function ApprovalActionCard({
           type="button"
           disabled={busy !== null}
           onClick={() => decide('rejected')}
+          data-decide="rejected"
           className="rounded-lg border border-line-strong bg-white px-4 py-[9px] text-[13.5px] font-semibold text-body transition hover:border-danger hover:text-danger disabled:opacity-60"
         >
           {busy === 'rejected' ? (zh ? '处理中…' : 'Working…') : zh ? '拒绝' : 'Reject'}

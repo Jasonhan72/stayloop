@@ -20,6 +20,7 @@
 // No photos, no invented numbers, no pricing (that has one source: /pricing);
 // the header, footer, logo and palette are untouched.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
@@ -282,6 +283,24 @@ function fmt(n: number | null | undefined): string {
 
 const TRY_HREF = '/tenant/agent'
 
+// The film (2026-09-28): Mia, Sarah and David — tenant, landlord, agent — each
+// with their own assistant, one unit from listing to renewal. Their phones run
+// the product's own chat, cards and composer driven by a script — see
+// components/home/ThreeRoleFilm.tsx and lib/home/film.ts. It is the "How
+// Stayloop works" section (user 2026-09-28), loaded lazily so the hero paints
+// first; the placeholder keeps the film's exact size (no layout shift).
+const ThreeRoleFilm = dynamic(() => import('@/components/home/ThreeRoleFilm'), {
+  ssr: false,
+  loading: () => (
+    <div aria-hidden>
+      <div className="mx-auto mb-3 h-[42px] max-w-[420px] lg:hidden" />
+      <div className="mx-auto h-[600px] max-w-[420px] rounded-[22px] border border-line-divider bg-[#EEF5FA] lg:h-[660px] lg:max-w-none" />
+      <div className="mt-4 h-[74px] md:h-[52px]" />
+      <div className="mt-1 h-[74px] md:h-[59px]" />
+    </div>
+  ),
+})
+
 export default function HomeNext() {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -383,6 +402,24 @@ export default function HomeNext() {
               <div className="mt-auto text-[13px] text-body-2">→ <b className="text-brand">{pick(t.to, lang)}</b> · {pick(t.detail, lang)}</div>
             </Link>
           ))}
+        </div>
+      </section>
+
+      {/* ================= HOW IT WORKS: three people, three assistants, one unit ================= */}
+      {/* After the landing tiles, which stay right under the login card they explain. */}
+      <section id="how-it-works" className="border-t border-line-divider">
+        <div className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7 sm:py-16">
+          <div className="max-w-[760px]">
+            <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? 'Stayloop 是怎么工作的' : 'How Stayloop works'}</h2>
+            <p className="mt-2 text-[16px] leading-relaxed text-body-2 [text-wrap:pretty]">
+              {zh
+                ? <>租客、房东、经纪各有自己的 AI 助理。<br className="hidden lg:block" />事情在三个助理之间接力，从你的助理发出去的每一件事都要你本人批准，批准后还有 60 秒可以撤销。<br className="hidden lg:block" />下面用同一套房，从委托挂牌演到续约。</>
+                : 'Tenants, landlords and agents each have their own AI assistant. Work passes from one assistant to the next, and nothing leaves yours without your approval, with 60 seconds to undo. Below, one unit from listing to renewal.'}
+            </p>
+          </div>
+          <div className="mt-8" data-testid="home-film">
+            <ThreeRoleFilm />
+          </div>
         </div>
       </section>
 

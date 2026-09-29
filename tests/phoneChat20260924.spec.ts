@@ -40,9 +40,9 @@ describe('phone assistant screen', () => {
   it('chat header: centred avatar with the name below on every breakpoint (user 2026-09-24, phone and web); phoneFill fills the parent', () => {
     const s = read('components/agent/AgentChat.tsx')
     expect(s).not.toContain("'flex-col text-center sm:flex-row sm:text-left'")
-    expect(s).toContain('flex flex-none flex-col items-center px-4 pb-2 pt-3 md:border-b')
+    expect(s).toContain("flex flex-none flex-col items-center px-4 pb-2 pt-3 ${device ? '' : 'md:border-b") // `device` = the homepage film's phones (2026-09-28)
     expect(s).not.toContain('md:flex-row md:gap-3')
-    expect(s).toContain('h-11 w-11 md:h-14 md:w-14')
+    expect(s).toContain("h-11 w-11 ${device ? '' : 'md:h-14 md:w-14'}")
     expect(s).not.toContain('-mt-2 rounded-full border border-line-divider bg-white') // 名字不得压住头像（用户 2026-09-24）
     expect(s).toContain("phoneFill ? 'h-full md:h-[70vh] md:rounded-2xl md:border md:border-line-divider md:shadow-sm lg:h-full'")
     expect(s).toContain('border-t border-line-divider p-2 md:p-3')

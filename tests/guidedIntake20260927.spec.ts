@@ -232,7 +232,7 @@ describe('wiring', () => {
   it('the workspace page and the signed-in chat open the intake; the anonymous homepage demo still sends the example; the grid hides while a card is open; a new thread resets it', () => {
     expect(chat).toContain('const guided = live || hero')
     expect(chat).toMatch(/const spec = guided \? intakeFor\(s\.key\) : null; if \(spec\) setIntake\(\{ spec, icon: s\.icon \}\); else void onSend\(s\.prompt\[lang\]\)/)
-    expect(chat).toContain('{messages.length <= 1 && !thinking && !threadLoading && !intake && (')
+    expect(chat).toContain('{!device && messages.length <= 1 && !thinking && !threadLoading && !intake && (')
     expect(chat).toMatch(/setIntake\(null\)\s+setDecided\(\[\]\)/)
     expect(chat).toMatch(/if \(messages\.length > 1\) setIntake\(null\)/)
     expect(chat).toContain('<IntakeCard')

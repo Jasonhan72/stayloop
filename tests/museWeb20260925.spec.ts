@@ -43,7 +43,7 @@ describe('the conversation is the page', () => {
   it('hero mode: no card chrome, 760px column, identity header hidden from lg, approvals in the thread, pill composer', () => {
     expect(chat).toMatch(/hero \? 'h-full' : fill \?/)
     expect(chat).toContain("hero ? 'mx-auto w-full max-w-[760px] space-y-4' : 'space-y-4'")
-    expect(chat).toContain("${hero ? 'lg:hidden' : ''}")
+    expect(chat).toContain("${hero && !device ? 'lg:hidden' : ''}") // a device frame keeps its header
     expect(chat).toContain("space-y-3 ${hero ? '' : 'lg:hidden'}")
     expect(chat).toContain('pill={hero}')
     expect(chat).not.toMatch(/export const ORB/) // dead export removed in the 2026-09-25 review

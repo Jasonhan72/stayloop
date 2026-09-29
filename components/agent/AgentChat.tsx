@@ -90,6 +90,7 @@ export default function AgentChat({
   onOpenThread,
   avatarFallback = 'role',
   onAvatarChange,
+  device = false,
 }: {
   role: AgentRole
   agentName: string
@@ -131,14 +132,16 @@ export default function AgentChat({
   /** The open conversation + how to reopen another one — the phone activity sheet's rows are conversations (2026-09-25). */
   currentThreadId?: string | null
   onOpenThread?: (id: string) => void | Promise<void>
-  /** Homepage hero (user 2026-09-25): the same centred avatar · name · status
-   *  block, only tighter — 44px avatar and smaller gaps (≈105px instead of ≈130px)
-   *  so the conversation gets more of the first screen. (A one-row header was
-   *  tried and rejected the same day: "还是原来的布置比较好".) */
   /** 'brand' = the signed-in user's one assistant (same face under every hat); 'role' = a demo persona's orb. */
   avatarFallback?: 'role' | 'brand'
   /** Phone: the activity sheet's pencil changes the avatar / name (2026-09-27); the workspace page owns the state. */
   onAvatarChange?: (key: string | null) => void
+  /** With `hero`: the phone layout at EVERY width — the chat sits in a phone-sized
+   *  frame on a wide page (the homepage film, 2026-09-28: three people's phones
+   *  side by side on a desktop), where the md:/lg: classes would otherwise switch
+   *  to the web assistant page. Header shown, per-message orb, one-column quick
+   *  starts, the phone composer row. */
+  device?: boolean
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -164,10 +167,17 @@ export default function AgentChat({
   })()
   const statusLine = assistantStatusLine({ status, pendingCount: pending.length, hasApprovals: !!pendingActions, stageLabel, memoryCount, zh })
   const canOpenSheet = !!pendingActions
-  const endRef = useRef<HTMLDivElement>(null)
   // "↓" appears once the user has scrolled up more than ~160px from the newest
   // message (user 2026-09-25); tapping it returns to the bottom.
   const threadRef = useRef<HTMLDivElement>(null)
+  // Scroll the thread itself, never the page: scrolling an element into view
+  // also scrolls every scrolling ancestor, so a chat embedded in a longer page
+  // (the homepage showcase, 2026-09-28) yanked the whole window to it on every
+  // new message.
+  const scrollToEnd = () => {
+    const el = threadRef.current
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }
   const [showJump, setShowJump] = useState(false)
   const onThreadScroll = () => {
     const el = threadRef.current
@@ -192,7 +202,7 @@ export default function AgentChat({
   }, [messages.length])
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    scrollToEnd()
     setShowJump(false)
   }, [messages.length, thinking])
 
@@ -202,13 +212,13 @@ export default function AgentChat({
           breakpoint (user 2026-09-24: "avatar 放中间，下面放名字", phone and web
           alike). Compact (~80px on phones, ~110px on desktop). Avatar / status
           open the activity log. */}
-      <div className={`flex flex-none flex-col items-center px-4 pb-2 pt-3 md:border-b md:border-line-divider md:px-5 md:pb-3 md:pt-5 ${hero ? 'lg:hidden' : ''}`}>
+      <div className={`flex flex-none flex-col items-center px-4 pb-2 pt-3 ${device ? '' : 'md:border-b md:border-line-divider md:px-5 md:pb-3 md:pt-5'} ${hero && !device ? 'lg:hidden' : ''}`}>
         <button
           type="button"
           onClick={() => canOpenSheet && setSheet(true)}
           disabled={!canOpenSheet}
           aria-label={canOpenSheet ? (zh ? `${agentName} 的活动日志` : `${agentName}'s activity log`) : undefined}
-          className={`flex-none rounded-full h-11 w-11 md:h-14 md:w-14 ${canOpenSheet ? 'shadow-[0_4px_14px_rgba(27,27,60,.16)]' : 'cursor-default'}`}
+          className={`flex-none rounded-full h-11 w-11 ${device ? '' : 'md:h-14 md:w-14'} ${canOpenSheet ? 'shadow-[0_4px_14px_rgba(27,27,60,.16)]' : 'cursor-default'}`}
         >
           <AssistantAvatar avatar={avatar} role={role} className="h-full w-full" fallback={avatarFallback} />
         </button>
@@ -217,7 +227,7 @@ export default function AgentChat({
               hat as a text label beside the name (user 2026-09-25) — on the same
               row, so the phone header stays as short as before. */}
           {/* Plain, medium-weight name like Muse's — no pill (user 2026-09-25). */}
-          <div className={`max-w-full truncate text-[17px] font-medium leading-tight tracking-tight text-ink md:text-[19px] mt-2`}>{agentName}</div>
+          <div className={`max-w-full truncate text-[17px] font-medium leading-tight tracking-tight text-ink ${device ? '' : 'md:text-[19px]'} mt-2`}>{agentName}</div>
           {/* No hat label by the name (user 2026-09-25, final round: "把所有这里的角色标记都去掉") —
               hats switch in the Header's identity menu. The status line opens the activity log. */}
           <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`mt-1 flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
@@ -229,12 +239,12 @@ export default function AgentChat({
 
       {/* thread */}
       <div className="relative flex min-h-0 flex-1 flex-col">
-      <div ref={threadRef} onScroll={onThreadScroll} className={`flex-1 overflow-y-auto px-4 py-4 ${hero ? 'md:px-10 md:py-6' : 'md:px-5 md:py-5'}`}>
+      <div ref={threadRef} onScroll={onThreadScroll} data-chat-thread className={`flex-1 overflow-y-auto px-4 py-4 ${device ? '' : hero ? 'md:px-10 md:py-6' : 'md:px-5 md:py-5'}`}>
       <div className={hero ? 'mx-auto w-full max-w-[760px] space-y-4' : 'space-y-4'}>
         {messages.map((m) => (
           <div key={m.id} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
             {m.role === 'agent' && (
-              <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero ? 'md:hidden' : ''}`} fallback={avatarFallback} />
+              <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero && !device ? 'md:hidden' : ''}`} fallback={avatarFallback} />
             )}
             <div
               className={
@@ -435,7 +445,8 @@ export default function AgentChat({
         {threadLoading && (
           <div className="py-6 text-center font-mono text-[11px] text-body-3">{zh ? '读取对话…' : 'Loading the conversation…'}</div>
         )}
-        {messages.length <= 1 && !thinking && !threadLoading && !intake && (
+        {/* Not in a device frame: the film scripts every turn, and five quick starts would bury a phone-sized thread. */}
+        {!device && messages.length <= 1 && !thinking && !threadLoading && !intake && (
           <div className={`pl-9 pt-1 ${hero ? 'md:pl-0' : ''}`}>
             <div className="mb-2.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">
               {guided ? (lang === 'zh' ? '从这里开始 · 我一步步问清楚，你只需要选' : 'Start here — I ask step by step, you tap') : (lang === 'zh' ? '试试这些 · 一句话开工' : 'Try one — a single sentence starts the work')}
@@ -477,17 +488,16 @@ export default function AgentChat({
         )}
         {thinking && (
           <div className="flex justify-start">
-            <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero ? 'md:hidden' : ''}`} fallback={avatarFallback} />
+            <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero && !device ? 'md:hidden' : ''}`} fallback={avatarFallback} />
             <ThinkingIndicator status={status} lang={lang} />
           </div>
         )}
-        <div ref={endRef} />
       </div>
       </div>
       {showJump && (
         <button
           type="button"
-          onClick={() => endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })}
+          onClick={scrollToEnd}
           aria-label={zh ? '回到最新消息' : 'Jump to the latest message'}
           className="absolute bottom-4 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full text-white shadow-lg ring-1 ring-white/30 transition hover:opacity-90"
           style={{ background: 'rgba(27,27,60,0.85)' }}
@@ -498,7 +508,7 @@ export default function AgentChat({
       </div>
 
       {/* input */}
-      <div className={hero ? 'border-t border-line-divider p-2 md:border-t-0 md:px-10 md:pb-5 md:pt-1' : 'border-t border-line-divider p-2 md:p-3'}>
+      <div className={device ? 'border-t border-line-divider p-2' : hero ? 'border-t border-line-divider p-2 md:border-t-0 md:px-10 md:pb-5 md:pt-1' : 'border-t border-line-divider p-2 md:p-3'}>
         <div className={hero ? 'mx-auto max-w-[760px]' : ''}>
           <AgentInputBar agentName={agentName} role={role} onSend={onSend} disabled={thinking || threadLoading} draft={composerDraft} pill={hero} />
         </div>

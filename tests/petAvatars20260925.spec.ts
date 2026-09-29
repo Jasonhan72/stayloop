@@ -73,7 +73,7 @@ describe('pet avatars', () => {
     expect(panel).toContain('mt-3 text-[26px] font-medium leading-tight tracking-tight text-ink')
     expect(read('components/agent/AvatarPicker.tsx')).toContain('grid grid-cols-5 gap-1.5')
     const chat = read('components/agent/AgentChat.tsx')
-    expect(chat).toContain('max-w-full truncate text-[17px] font-medium leading-tight tracking-tight text-ink md:text-[19px]')
+    expect(chat).toContain("max-w-full truncate text-[17px] font-medium leading-tight tracking-tight text-ink ${device ? '' : 'md:text-[19px]'}")
     expect(chat).not.toContain('rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold')
     expect(read('components/agent/AssistantSettings.tsx')).toContain('text-[19px] font-medium tracking-tight text-ink')
   })
