@@ -34,7 +34,8 @@ export default function SignInBlock({
   return (
     <>
       <h1 style={{ fontSize: 'clamp(24px, 6.5vw, 30px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.18 }}>{title}</h1>
-      <p style={{ fontSize: 14.5, color: '#3F3F46', lineHeight: 1.6, margin: note ? '12px 0 8px' : '12px 0 22px' }}>{lead}</p>
+      {/* pretty wrapping: no single character left alone on the last line */}
+      <p className="[text-wrap:pretty]" style={{ fontSize: 14.5, color: '#3F3F46', lineHeight: 1.6, margin: note ? '12px 0 8px' : '12px 0 22px' }}>{lead}</p>
       {note && (
         <p style={{ fontSize: 12.5, color: '#71717A', lineHeight: 1.55, margin: '0 0 22px' }} data-testid="signin-note">
           {note}
