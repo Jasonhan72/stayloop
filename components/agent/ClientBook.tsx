@@ -94,7 +94,7 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
   const input = 'rounded-md border border-line-divider bg-white px-2.5 py-1.5 text-[12.5px]'
   const active = rows.filter((r) => r.stage !== 'closed')
   return (
-    <div data-testid="client-book">
+    <div data-testid="client-book" id="client-book" className="scroll-mt-24">
       <SectionCard
         className="mb-4"
         padded={false}

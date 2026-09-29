@@ -56,3 +56,36 @@ describe('no "verify once, go anywhere" promise', () => {
     expect(read('app/onboarding/welcome/page.tsx')).not.toMatch(/每天为你筛新房|daily/)
   })
 })
+
+// Same day, second pass (用户：「这两处也一起改掉」): the pricing page promised
+// tenants "all four stamps free to earn", and the agent client page's sample
+// block said screening yields a "6-dimension report", a report link goes
+// straight to the landlord (sharing is not live) and the client's passport
+// "travels with the application". Screening scores four dimensions, and an agent
+// screens for a client only through a delegation the landlord confirms.
+describe('pricing and the agent screening card say what ships', () => {
+  it('pricing no longer offers stamps to earn', () => {
+    const s = read('app/pricing/page.tsx')
+    for (const gone of ['四枚章', 'four stamps', '全部免费盖', 'free to earn']) expect(s, gone).not.toContain(gone)
+    expect(s).toMatch(/筛查与核验不向你收一分钱 · RTA s\.134/)
+    expect(s).toMatch(/房东的筛查与核验费用也不能转给你（安省 RTA s\.134）/)
+  })
+
+  it('the agent client page describes the delegated screening flow', () => {
+    const s = read('app/agent/clients/page.tsx')
+    for (const gone of ['6 维', '6-dimension', '四枚章', 'four stamps', 'travels with the application', '直接转发房东', 'auto-CRM', '自动 CRM', '补齐', '盖上收入章'])
+      expect(s, gone).not.toContain(gone)
+    expect(s).toMatch(/替房东客户筛查，先有委托/)
+    expect(s).toMatch(/发起委托/)
+    expect(s).toMatch(/付款能力、信用、租务与司法历史、核验四项打分/)
+    expect(s).toMatch(/href="#client-book"/)
+    // the anchor the card points at
+    expect(read('components/agent/ClientBook.tsx')).toMatch(/data-testid="client-book" id="client-book"/)
+    // the assistant's reply mentions /agent/clients — it must render as a link
+    expect(read('components/agent/AgentChat.tsx')).toMatch(/const PATH_RE = \/\([^\n]*\\\/agent\\\/clients/)
+  })
+
+  it('no assistant prompt claims six scoring dimensions', () => {
+    expect(read('lib/agent/prompts.ts')).not.toMatch(/六个维度|six dimensions/)
+  })
+})

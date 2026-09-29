@@ -83,8 +83,8 @@ export default function AgentClientsPage() {
             <span className="font-mono text-[11px] uppercase tracking-eyebrow text-agent">AGENT · CLIENTS</span>
             <span className="mx-1.5 text-body-3">·</span>
             {zh
-              ? `${aiName} 自动 CRM · 按阶段 / 盖章进度 / 静默天数排序`
-              : `${aiName} auto-CRM · sorted by stage / stamps / days quiet`}
+              ? '客户表 · 阶段 / 代表协议与 Information Guide 日期 / 静默天数 / 委托'
+              : 'Client book · stage / agreement & Information Guide dates / days quiet / delegation'}
           </>
         }
       />
@@ -122,26 +122,27 @@ export default function AgentClientsPage() {
         ]}
       />
 
-      {/* Screening workflow — order screening for a client, share it with the landlord */}
+      {/* Screening for a client — only through a confirmed delegation (节点 5):
+          the client book's "发起筛查" appears once the landlord confirms. */}
       <SectionCard
         className="mb-4"
-        title={zh ? '替客户下单筛查，报告直接给房东' : 'Order screening for a client — the report goes straight to the landlord'}
+        title={zh ? '替房东客户筛查，先有委托' : 'Screening for a landlord client starts with a delegation'}
         action={
-          <Link href="/screening/app" className="sl-btn-primary !px-4 !py-2 !text-[12px]">
-            {zh ? '发起筛查 →' : 'Start a screening →'}
-          </Link>
+          <a href="#client-book" className="sl-btn-primary !px-4 !py-2 !text-[12px]">
+            {zh ? '去客户表 ↑' : 'Go to the client book ↑'}
+          </a>
         }
       >
         <ol className="space-y-1 text-[12.5px] leading-relaxed text-body-2">
-          <li>{zh ? '① 上传客户的申请材料，几分钟出 6 维报告（付款能力 / 信用 / 司法记录）' : '① Upload the client’s application docs — a 6-dimension report (ability to pay / credit / court records) in minutes'}</li>
-          <li>{zh ? '② 报告页链接可直接转发房东，不用截图拼图' : '② Send the report link to the landlord directly — no screenshot collages'}</li>
-          <li>{zh ? '③ 客户的认证护照（四枚章）随申请一起展示，申请更有说服力' : '③ The client’s verified passport (four stamps) travels with the application and strengthens it'}</li>
+          <li>{zh ? '① 在客户表里添加房东客户，记下书面代表协议与 RECO Information Guide 的日期，再点「发起委托」，确认链接会发到客户邮箱' : '① Add the landlord to your client book, record the representation agreement and RECO Information Guide dates, then Propose delegation; the confirmation link goes to the client’s email'}</li>
+          <li>{zh ? '② 客户用自己的账号确认后，这一行出现「发起筛查」：上传申请人自愿提交、并书面同意核查的材料，报告按付款能力、信用、租务与司法历史、核验四项打分，附法庭与 LTB 记录' : '② Once the client confirms from their own account, the row shows Screen: upload the documents the applicant chose to submit and agreed in writing to have checked; the report scores ability to pay, credit, rental and legal history, and verification, with court and LTB records'}</li>
+          <li>{zh ? '③ 报告在你和房东客户各自的账号里都能看到，也能下载 PDF；录取与否由房东本人决定，委托一撤销你就看不到了' : '③ The report shows up in your account and your client’s, and downloads as a PDF; the landlord makes the decision, and revoking the delegation removes your access at once'}</li>
         </ol>
         <Link
-          href={`/agent/agent?prompt=${encodeURIComponent(zh ? '给我讲讲租客认证护照：四枚章分别验证什么，我怎么帮客户补齐，怎么转发给房东？' : 'Explain the tenant verified passport: what each of the four stamps verifies, how I help a client complete them, and how to forward it to a landlord.')}`}
+          href={`/agent/agent?prompt=${encodeURIComponent(zh ? '给我讲讲代客筛查：委托怎么发、房东客户怎么确认、我能做什么不能做什么？' : 'Explain screening for a client: how the delegation is sent, how the landlord client confirms it, and what I can and cannot do.')}`}
           className="mt-3 inline-block rounded-[8px] border border-line-strong bg-white px-4 py-2 text-[12px] font-semibold text-body transition hover:border-brand hover:text-brand"
         >
-          {zh ? '秒懂认证护照' : 'Passport in 60s'}
+          {zh ? '秒懂代客筛查' : 'Screening for clients in 60s'}
         </Link>
       </SectionCard>
 
@@ -226,10 +227,10 @@ export default function AgentClientsPage() {
                       </Link>
                     ) : (
                       <Link
-                        href={`/agent/agent?prompt=${encodeURIComponent(zh ? `查看 ${c.name} 的认证护照进度（已盖 ${c.tier}/4 枚章），列出还缺的章和最快补齐路径` : `Check ${c.name}'s verified passport progress (${c.tier}/4 stamps) — list the missing stamps and the fastest way to complete them`)}`}
+                        href={`/agent/agent?prompt=${encodeURIComponent(zh ? `帮我给 ${c.name} 起草一条跟进消息（在看 ${c.area}，预算 ${c.budget}）` : `Draft a follow-up to ${c.name} (looking at ${c.area}, budget ${c.budget})`)}`}
                         className="rounded-[8px] border border-line-strong bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
                       >
-                        {zh ? '护照状态' : 'Passport'}
+                        {zh ? '跟进' : 'Follow up'}
                       </Link>
                     )}
                   </div>
@@ -324,7 +325,7 @@ function Aside({ lang, quietest }: { lang: Lang; quietest: { name: string; silen
           {[
             { who: 'Anna L.', msg: { zh: '看房后 30 min 内问反馈', en: 'Ask for feedback within 30 min of showing' }, when: { zh: '今天 14:30', en: 'Today 14:30' } },
             { who: 'Jason H.', msg: { zh: '5 套 brief 包等你审', en: '5-listing brief pack awaiting your review' }, when: { zh: '本周内', en: 'This week' } },
-            { who: 'Sophie B.', msg: { zh: '提议盖上收入章', en: 'Suggest earning the income stamp' }, when: { zh: '今天', en: 'Today' } },
+            { who: 'Sophie B.', msg: { zh: '约第二次看房', en: 'Book a second viewing' }, when: { zh: '今天', en: 'Today' } },
             { who: 'Kevin Tran', msg: { zh: '续约草稿审阅', en: 'Review renewal draft' }, when: { zh: '5/12 前', en: 'By 5/12' } },
           ].map((f) => (
             <div key={f.who} className="rounded-[10px] border border-line-divider bg-white p-3">

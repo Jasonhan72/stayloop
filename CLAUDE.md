@@ -2685,6 +2685,16 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
   2 小时响应」、「替她谈判」、「缴租维修续约退租全托管」、「Passport 直接复用即出 Stayloop Score」一并删掉）、护照页副标题、/about 原则二（「信任可以复用」→
   「记录可以带走」）与原则一（「付款」→「发通知」，Stayloop 不经手资金）、旧欢迎页 `/onboarding/welcome` 两条、首次登录身份卡的租客一句（`roleChoices.ts`）。
   守卫 `tests/honestPassport20260928.spec.ts`：app / components / lib 里不得出现 验证一次 / 验一次 / 一次验证 / 处处通行 / 全城通用 / Verify once / go anywhere，
-  并钉住分享页只认已确认租约、只取 due_date 与 status。**有意未改**：定价页「四枚章，全部免费盖」（租客确实不付费，章的体系是既定设计）；经纪客户页只在
-  没有真实客户时显示的示范段（「6 维报告」「报告链接转发房东」「认证护照随申请展示」），挂着示范横幅，需要时再改。
+  并钉住分享页只认已确认租约、只取 due_date 与 status。
+- **同晚第二轮（用户：「这两处也一起改掉」）**：定价页租客卡「四枚章，全部免费盖」→「筛查与核验不向你收一分钱 · RTA s.134」，FAQ 答案改为「找房、申请、签约、
+  报修和护照分享链接都免费；房东的筛查与核验费用也不能转给你」；经纪客户页示范段的筛查卡改写为真实的代客筛查流程（客户表记下代表协议与 Information Guide
+  日期 →「发起委托」→ 房东客户用自己的账号确认 →「发起筛查」→ 四项打分 + 法庭与 LTB → 双方账号都能看到、可下 PDF、委托一撤销即失去访问），按钮改为
+  「去客户表 ↑」（`ClientBook` 根节点加 `id="client-book"`），「秒懂认证护照」→「秒懂代客筛查」；示范行的「护照状态」（让助手列「还缺的章和最快补齐路径」）
+  →「跟进」、侧栏示范「提议盖上收入章」→「约第二次看房」；**所有经纪都看得到的**页副标题「${aiName} 自动 CRM · 按阶段 / 盖章进度 / 静默天数排序」改为客户表实际
+  有的列。助手指令同步：`SCREENING_RULES_AGENT` 写明代客筛查必须经委托、回复里给 `/agent/clients`（`AgentChat PATH_RE` 加了这条路径才会渲染成链接），房东与经纪两段
+  的「六个维度」改为「付款能力、信用、租务与司法历史、核验四项」。守卫在 `tests/honestPassport20260928.spec.ts` 第二段与 `tests/prompts.spec.ts`。
+  **同类说法还留在这些地方（本轮未改，已告知用户）**：「六维」——`/landlord/applicants/[id]` 真实模式评分未完成时的标题与说明、`components/landlord/LandlordThreeSteps.tsx`、
+  `/dashboard` 升级弹窗、`/admin/models` 槽位说明、示范申请人页与 `ApplicantReport`（示范数据本身是六项）；「多 42% 房源」——护照页 AI 建议、`lib/passportStamps.ts`
+  银行章 gain、租客助手提示词的话术示例（章早已不限制任何房源，trust_tier 09-25 清空）；`/dashboard` 升级弹窗的免费 / Pro 功能清单与 `/pricing` 不一致（列了不存在的
+  Openroom、Slack 通知、品牌申请页、优先评分队列、CanLII 查询，且「不限房源」在弹窗里算免费、在定价页算 Pro）——应改为与定价页读同一份清单。
 

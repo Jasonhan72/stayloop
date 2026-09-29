@@ -644,7 +644,7 @@ function ScheduledRow({ id, title, decision, scheduled, onUndo, zh }: { id: stri
 
 // Internal paths the assistant is told to mention (e.g. /screening/app) render
 // as links; everything else stays plain text.
-const PATH_RE = /(\/screening\/app|\/screening|\/verify\/[A-Za-z0-9-]+|\/leases\/import|\/landlord\/applicants)(?![\w/-])/g
+const PATH_RE = /(\/screening\/app|\/screening|\/verify\/[A-Za-z0-9-]+|\/leases\/import|\/landlord\/applicants|\/agent\/clients)(?![\w/-])/g
 function linkifyPaths(text: string) {
   const parts = text.split(PATH_RE)
   if (parts.length === 1) return text

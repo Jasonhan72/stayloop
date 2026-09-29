@@ -55,6 +55,14 @@ describe('agent (Brief) system prompt', () => {
     expect(p).toContain('由房东本人决定')
     expect(p).toContain('RTA s.134')
   })
+  // 2026-09-28: since 节点 5 an agent screens for a client only through a confirmed
+  // delegation started from the client book — the prompt must send them there.
+  it('routes screening for a client through the client book and a confirmed delegation', () => {
+    expect(p).toContain('/agent/clients')
+    expect(p).toContain('发起委托')
+    expect(p).toContain('委托一撤销')
+    expect(p).not.toContain('六个维度')
+  })
   it('carries the pricing rule (search → real listings + TRREB, no hand-written prices)', () => {
     expect(p).toContain('挂牌定价')
     expect(p).toContain('TRREB')

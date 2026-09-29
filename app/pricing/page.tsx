@@ -57,7 +57,7 @@ const PLANS: RolePlan[] = [
         includesLabel: { zh: '全部包含:', en: 'Everything included:' },
         features: [
           { zh: '个人 AI Agent 全功能', en: 'Full personal AI agent' },
-          { zh: '四枚章,全部免费盖', en: 'All four stamps free to earn' },
+          { zh: '筛查与核验不向你收一分钱 · RTA s.134', en: 'Screening and verification never cost you a cent · RTA s.134' },
           { zh: '申请 · 签约 · 维修全流程', en: 'Apply, sign and maintenance end to end' },
           { zh: '可直接联系平台认证的持牌经纪（Stayloop 不收费）', en: 'Contact Stayloop-verified licensed agents directly (no fee from Stayloop)' },
           { zh: '租房记录可携带', en: 'Portable rental record' },
@@ -341,7 +341,7 @@ export default function PricingPage() {
           <h2 className="text-[24px] font-bold tracking-tight sm:text-[30px]">{zh ? '常见问题' : 'Frequently asked questions'}</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {[
-              { q: { zh: '租客真的永远免费吗?', en: 'Are tenants really free forever?' }, a: { zh: '是。验证、护照、申请、签约、维修全部免费，四枚章也免费盖。', en: 'Yes. Verification, Passport, applications, signing and maintenance are all free — including all four stamps.' } },
+              { q: { zh: '租客真的永远免费吗?', en: 'Are tenants really free forever?' }, a: { zh: '是。找房、申请、签约、报修和护照分享链接都免费；房东的筛查与核验费用也不能转给你（安省 RTA s.134）。', en: 'Yes. Searching, applying, signing, repairs and your Passport share link are all free, and a landlord cannot pass screening or verification costs on to you (Ontario RTA s.134).' } },
               { q: { zh: '经纪订阅包含什么?', en: 'What does the agent subscription include?' }, a: { zh: '现在可用的是免费档：RECO 注册核验徽章、认证经纪目录与 AI 助手。日程编排、客户管理等付费工具即将推出、尚未开售。不抽任何佣金。', en: 'Available today is the free tier: the RECO-checked badge, the verified agent directory and the AI assistant. Paid tools such as scheduling and client management are coming soon and not yet on sale. No commission cut.' } },
               { q: { zh: '为什么不收带看费、不抽租金?', en: 'Why no showing fees and no rent skim?' }, a: { zh: '我们只收订阅费。Stayloop 目前不经手租金（在线收租尚未上线），租客也零负担。', en: 'We only charge subscriptions. Stayloop does not handle rent today (online rent collection is not live), and tenants pay nothing.' } },
               { q: { zh: '房东免费档够用吗?', en: 'Is the landlord free tier enough?' }, a: { zh: '多数个人房东够用：发布房源、收申请、每月 5 次 AI 筛查都在免费档。需要更多筛查、深度核查或完整 AI Agent 再升级。', en: 'For most individual landlords, yes: listing, applications and 5 AI screenings a month are all in the free tier. Upgrade when you need more screenings, deep checks or the full AI agent.' } },
