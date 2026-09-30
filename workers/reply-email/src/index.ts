@@ -16,6 +16,13 @@ function toBase64(bytes: Uint8Array): string {
 
 export default {
   async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
+    // The zone-wide catch-all lands here. Only thread reply addresses are ours;
+    // anything else (e.g. an unknown @stayloop.ai address) is rejected exactly as
+    // before the catch-all existed, and never reaches the app.
+    if (!/^t-[a-z0-9]{20,40}@reply\.stayloop\.ai$/i.test(message.to)) {
+      message.setReject('Unknown address')
+      return
+    }
     const raw = new Uint8Array(await new Response(message.raw).arrayBuffer())
     let parsed: Awaited<ReturnType<typeof PostalMime.parse>> | null = null
     try { parsed = await PostalMime.parse(raw) } catch { parsed = null }
