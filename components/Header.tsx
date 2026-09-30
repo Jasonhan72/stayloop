@@ -401,15 +401,6 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       <span className="flex-1">{lang === 'zh' ? '消息' : 'Messages'}</span>
                       {unreadMessages > 0 && <span className="rounded-full bg-[#FF385C] px-2 py-[1px] text-[11px] font-bold text-white">{unreadMessages > 99 ? '99+' : unreadMessages}</span>}
                     </Link>
-                    <Link
-                      href="/notifications"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
-                      role="menuitem"
-                    >
-                      <BellIcon />
-                      {lang === 'zh' ? '通知' : 'Notifications'}
-                    </Link>
                     {isAdmin && (
                       <Link
                         href="/admin"
@@ -676,14 +667,6 @@ function MailIcon() {
   )
 }
 
-function BellIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-[#222]">
-      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-    </svg>
-  )
-}
 
 function WorkspaceIcon() {
   return (

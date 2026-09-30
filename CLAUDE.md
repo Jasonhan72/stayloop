@@ -2857,3 +2857,7 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
 - **导出**：`POST /api/threads/export {thread_id, format: html|json}`（JSON 带链算法与服务器校验结果，可第三方复算；审计 `thread_export_generated`）；`lib/export/threadRecord.ts` 也供事务证据包用。
 - **隐私页** 3a 节：只追加、保留 7 年、注销后对话记录保留、邮件中转。
 - **B 期（短信）等 Twilio 凭证；C 期未做**——现在请 Stayloop 介入走「新消息 → 联系 Stayloop」。
+
+### 「通知」页退役（2026-09-30 · 用户确认）
+
+通知与消息不是一类：消息 = 人与人围绕一件事务的对话（可回复、只追加、可作证据）；原 `/notifications` 页只是三份别处已有的数据——当前身份的待批卡片（= 待办页）、工单动态（= 工单对话里的系统行）、账号操作记录（= 审计页 / AI 助理面板「活动」），外加一段设计样例。已删除页面内容与 `components/notifications/LiveNotifications.tsx`、菜单与手机抽屉里的「通知」入口、DEMO_GATE 条目；`/notifications` 只剩客户端跳转（`lib/notificationsTarget.ts`：服务商 → `/provider/jobs`，其余 → 当前身份的 `/<hat>/todo`，未登录 → 登录后去 `/messages`）。设置里的推送开关标题改名「推送提醒 · 这台设备」，不再和页面同名。汉堡红点 = 待批卡片或未读消息，仍是唯一的提醒入口。

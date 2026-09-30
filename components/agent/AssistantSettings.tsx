@@ -201,7 +201,7 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
     <div className="space-y-3" data-testid="assistant-settings">
       {!live ? (
         <div className="rounded-xl bg-surface-chip px-3 py-2 text-[12px] leading-relaxed text-body-3">
-          {zh ? '预览模式 · 登录后这里是你的 AI 助理的长期档案：名字、头像、风格、模型、通知、画像，每一项都能改。' : 'Preview mode · sign in and this is your AI Agent’s long-term record: name, face, style, model, notifications, profile — every item editable.'}
+          {zh ? '预览模式 · 登录后这里是你的 AI 助理的长期档案：名字、头像、风格、模型、推送提醒、画像，每一项都能改。' : 'Preview mode · sign in and this is your AI Agent’s long-term record: name, face, style, model, push alerts, profile — every item editable.'}
         </div>
       ) : (
         <div className="px-1 font-mono text-[10.5px] leading-relaxed text-body-3">{zh ? '长期档案 · 存在你的账号里，跨设备同步 · 这里的每一项都会进入它的每一次思考，每一项都可以改' : 'Long-term record · stored on your account, synced across devices · every item shapes every reply, every item editable'}</div>

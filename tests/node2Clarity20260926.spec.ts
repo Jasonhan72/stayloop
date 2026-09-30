@@ -26,9 +26,9 @@ describe('the provider is a landing hat', () => {
     expect(auth).toContain("window.localStorage.setItem(key, 'provider')")
   })
   it('neutral pages frame themselves with a held hat; the landlord gate resets a stale remembered hat', () => {
+    // /notifications retired 2026-09-30 (user): it only redirects, to a held hat's to-do page.
     const n = read('app/notifications/page.tsx')
-    expect(n).toContain('const shellRole = activeHat(hats, role)')
-    expect(n).toContain('liveSlot={<LiveNotifications role={shellRole} />}')
+    expect(n).toContain('activeHat(hats, remembered)')
     const shell = read('components/WorkspaceShell.tsx')
     expect(shell).toContain('auth.setRole(bestHat(hats))')
     expect(shell).toContain("const ctaHref = gate.href === '/dashboard' && role !== 'landlord' ? `/${role}/agent` : gate.href")
@@ -45,12 +45,15 @@ describe('the provider is a landing hat', () => {
     expect(h).toContain("<ReservedText text={home.signedIn ? navIdentityLabel : t('nav.product')} bold={!!identityColor || isProductActive} />")
     for (const f of ['app/provider/jobs/page.tsx', 'app/provider/onboard/page.tsx']) expect(read(f)).toContain('<Header />')
   })
-  it('real notifications: pending cards of the hat, provider job events, recent audit', () => {
-    const c = read('components/notifications/LiveNotifications.tsx')
-    expect(c).toContain(".eq('role', role).eq('status', 'pending')")
-    expect(c).toContain("from('work_order_events')")
-    expect(c).toContain('data-testid="provider-notifications"')
-    expect(c).toContain('auditActionLabel(r.action, lang')
+  it('notifications retired (user 2026-09-30): its three blocks live in 待办, the work-order conversations and 审计', async () => {
+    expect(existsSync('components/notifications/LiveNotifications.tsx')).toBe(false)
+    expect(read('components/Header.tsx')).not.toContain('href="/notifications"')
+    expect(read('components/workspace/rail.tsx')).not.toContain('href="/notifications"')
+    const { notificationsTarget } = await import('@/lib/notificationsTarget')
+    expect(notificationsTarget(true, 'landlord', false)).toBe('/landlord/todo')
+    expect(notificationsTarget(true, 'tenant', true)).toBe('/provider/jobs')
+    expect(notificationsTarget(false, 'tenant', false)).toBe('/login?next=/messages')
+    expect(read('components/mobile/PushSettingsCard.tsx')).toContain("'推送提醒 · 这台设备'")
   })
 })
 

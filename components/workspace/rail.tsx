@@ -134,7 +134,6 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
               {hats.provider && (
                 <Link href="/provider/jobs" data-testid="drawer-provider-jobs" className={'flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-[11.5px] font-medium ' + (path.startsWith('/provider') ? 'bg-brand/10 text-brand' : 'bg-surface text-body-2')}><BriefcaseIcon /><span>{zh ? '工单' : 'Jobs'}</span></Link>
               )}
-              <Link href="/notifications" className="flex flex-col items-center gap-1.5 rounded-xl bg-surface px-2 py-3 text-[11.5px] font-medium text-body-2"><BellSmall /><span>{zh ? '通知' : 'Alerts'}</span></Link>
               <Link href="/settings" className="flex flex-col items-center gap-1.5 rounded-xl bg-surface px-2 py-3 text-[11.5px] font-medium text-body-2"><GearIcon /><span>{zh ? '设置' : 'Settings'}</span></Link>
             </div>
           </div>

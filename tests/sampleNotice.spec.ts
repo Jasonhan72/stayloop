@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 const shell = readFileSync('components/WorkspaceShell.tsx', 'utf8')
 
 const GATED = [
-  '/notifications', '/landlord/finance', '/landlord/maintenance',
+  '/landlord/finance', '/landlord/maintenance',
   '/tenant/applications', '/tenant/payments', '/tenant/move-in', '/tenant/maintenance',
   '/tenant/passport/sharing', '/tenant/audit', '/landlord/audit',
   '/agent/tasks', '/agent/clients', '/agent/calendar', '/agent/earnings', '/agent/showings/*',

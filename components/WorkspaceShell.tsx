@@ -48,10 +48,6 @@ type GateNote = { zh: string; en: string }
 /** An optional second, quieter link under the CTA (e.g. the repairs network page). */
 type GateMore = { zh: string; en: string; href: string }
 const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: string; href: string; note?: GateNote; more?: GateMore }> = {
-  '/notifications': {
-    zh: '还没有通知。你的 AI 与各方产生的动态会出现在这里。', en: 'No notifications yet — activity from your AI and counterparties lands here.',
-    ctaZh: '回到工作台', ctaEn: 'Back to workspace', href: '/dashboard',
-  },
   '/landlord/finance': {
     zh: '还没有收支记录。导入一份已签租约,租金台账从第一天起自动记录。', en: 'No ledger yet. Import a signed lease and the rent ledger starts itself.',
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',

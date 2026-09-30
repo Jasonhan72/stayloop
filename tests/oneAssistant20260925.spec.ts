@@ -100,6 +100,5 @@ describe('one assistant per account', () => {
     expect(home).toContain('你自己的 AI 助理') // one assistant per account, in the hero's own words
     expect(home).not.toContain('各提供一个')
     expect(home).not.toContain('useAIName') // signed-in users are redirected off the homepage; nothing here names their assistant (V0.7)
-    expect(read('app/notifications/page.tsx')).toContain('const aiNames = useAIName()')
   })
 })

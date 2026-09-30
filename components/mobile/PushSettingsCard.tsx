@@ -59,7 +59,7 @@ export default function PushSettingsCard({ live, frameless = false }: { live: bo
   return (
     <div className={frameless ? '' : 'sl-card p-5'}>
       <div className="flex items-center justify-between">
-        <h4 className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '通知 · 推到这台设备' : 'NOTIFICATIONS · THIS DEVICE'}</h4>
+        <h4 className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '推送提醒 · 这台设备' : 'PUSH ALERTS · THIS DEVICE'}</h4>
         {state?.subscribed && <span className="rounded-full px-2 py-[2px] font-mono text-[10px] font-bold" style={{ background: 'rgba(106,179,68,.12)', color: '#3F7D20' }}>{zh ? '已开' : 'ON'}</span>}
       </div>
       <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
@@ -84,7 +84,7 @@ export default function PushSettingsCard({ live, frameless = false }: { live: bo
       </p>
       {state?.subscribed && (
         <div className="mt-3 flex items-center gap-3">
-          <button type="button" disabled={busy} onClick={sendTest} className="rounded-full border border-line-divider bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-body-2 disabled:opacity-60">{zh ? '发一条测试通知' : 'Send a test notification'}</button>
+          <button type="button" disabled={busy} onClick={sendTest} className="rounded-full border border-line-divider bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-body-2 disabled:opacity-60">{zh ? '发一条测试提醒' : 'Send a test alert'}</button>
           {testMsg && <span className="text-[12px] text-body-3">{testMsg}</span>}
         </div>
       )}
