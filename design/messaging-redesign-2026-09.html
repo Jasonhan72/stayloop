@@ -151,7 +151,7 @@
 </head>
 <body>
 <main>
-  <div class="eyebrow">Blueprint · 消息与沟通 · 2026-09-29</div>
+  <div class="eyebrow">Blueprint · 消息与沟通 · 2026-09-29 · 已定稿，待实施</div>
   <h1>消息与沟通系统重设计</h1>
   <p class="lead">目标：所有角色——租客、房东、经纪、服务商，以及 Stayloop——围绕<strong>同一件租房的事</strong>无障碍沟通。站内、邮件、短信三个渠道进<strong>同一份记录</strong>；每条都有服务器时间戳、任何人都删不掉，将来可以直接作为争议证据。有一个独立入口，随时可以发起新消息。</p>
 
@@ -320,7 +320,7 @@
         <div class="row"><div><span class="t">280 Dundas St W</span></div><span class="time">昨天</span><div class="s">Kevin：能养一只猫吗？</div></div>
         <div class="row"><div><span class="t">Stayloop 客服</span></div><span class="time">9/25</span><div class="s">你的房源已核验通过。</div></div>
       </div>
-      <div class="tabbar"><span><b>◎</b>助手</span><span><b>☑</b>待办</span><span><b>✦</b>想法</span><span><b>◷</b>进度</span><span class="on"><b>≡</b>更多</span></div>
+      <div class="tabbar"><span><b>◎</b>AI 助理</span><span><b>☑</b>待办</span><span><b>✦</b>想法</span><span><b>◷</b>进度</span><span class="on"><b>≡</b>更多</span></div>
     </div>
     <div class="phone">
       <div class="ph"><span style="font-weight:700;font-size:13px">‹ 100 Test Ave #1</span><span class="small muted">3 人</span></div>
@@ -370,7 +370,7 @@
       <tr><th style="width:150px">要证明什么</th><th>怎么做到</th><th style="width:110px">现状</th></tr>
       <tr><td><b>什么时候</b></td><td>数据库写入时盖服务器时间（UTC），界面显示多伦多时间；客户端时间一律不采信。</td><td><span class="pill p-have">已有</span></td></tr>
       <tr><td><b>是谁</b></td><td>站内 = 登录会话；邮件回复 = 专属回复地址（签名令牌）且发件地址与档案一致；短信 = 已验证的手机号。每条记录写明验证方式。</td><td><span class="pill p-gap">补邮件 / 短信</span></td></tr>
-      <tr><td><b>没被删改</b></td><td>数据库层对<b>所有人</b>禁止修改和删除消息——包括 Stayloop 后台与数据库管理账号；删对话、删事务都不会连带删消息。更正 / 撤回 = 新增一条，原文保留。</td><td><span class="pill p-gap">补：服务端也不能删</span></td></tr>
+      <tr><td><b>没被删改</b></td><td>数据库层对所有应用角色禁止修改和删除消息——包括 Stayloop 后台（服务端）；删对话、删事务都不会连带删消息。更正 / 撤回 = 新增一条，原文保留。数据库所有者理论上仍能绕过这道限制，所以还要靠下一行的哈希链：任何删改都会被发现。</td><td><span class="pill p-gap">补：服务端也不能删</span></td></tr>
       <tr><td><b>一条都没少</b></td><td>哈希链：每条消息的指纹 = SHA-256（上一条指纹 + 本条内容）。删掉或改动任何一条，后面的链都对不上；导出时附每条指纹和校验结果，第三方可以自己复算。</td><td><span class="pill p-new">新</span></td></tr>
       <tr><td><b>对方收到了</b></td><td>逐渠道回执：已发出 · 已送达 · 已打开 · 已读 · 已确认收到，各带时间；邮件和短信保存服务商的消息编号。</td><td><span class="pill p-gap">补邮件 / 短信</span></td></tr>
       <tr><td><b>原件</b></td><td>入站邮件保存原始 MIME 及其 SHA-256；短信保存服务商回调原文；附件已有指纹。</td><td><span class="pill p-new">新</span></td></tr>
@@ -434,14 +434,14 @@
   </div>
 
   <!-- ============ 8 ============ -->
-  <h2>8 · 需要你决定</h2>
+  <h2>8 · 已决定（2026-09-29 · 全部按建议）</h2>
   <div class="grid2">
-    <div class="decision"><b>1 · 短信用 Twilio 吗？</b>需要你注册 Twilio 账号并把 API 凭证给我（我不会替你注册或付款），再定一个每月预算上限。<br><span class="rec">建议：用 Twilio，上限先定每月 US$30。</span></div>
-    <div class="decision"><b>2 · 邮件回复用 reply.stayloop.ai 收？</b>在 Cloudflare 给这个子域名加收信记录（免费），主域名 stayloop.ai 的收信不受影响。<br><span class="rec">建议：可以。</span></div>
-    <div class="decision"><b>3 · 记录保留多久？</b>事务结束后仍保留，用作争议证据。账户注销时删个人资料，但对话记录保留（对方也有证据权益），隐私页写明。<br><span class="rec">建议：事务结束后 7 年（覆盖 LTB 一年、小额法庭两年的时效，并与税务记录一致）。</span></div>
-    <div class="decision"><b>4 · 默认不交换私人联系方式？</b>双方只通过 Stayloop 的中转地址 / 号码联系，除非自己在对话里写出来。<br><span class="rec">建议：是。</span></div>
+    <div class="decision"><b>1 · 短信用 Twilio 吗？</b>需要你注册 Twilio 账号并把 API 凭证给我（我不会替你注册或付款），再定一个每月预算上限。<br><span class="rec">✓ 已定：用 Twilio，上限每月 US$30。等你注册账号并交来凭证。</span></div>
+    <div class="decision"><b>2 · 邮件回复用 reply.stayloop.ai 收？</b>在 Cloudflare 给这个子域名加收信记录（免费），主域名 stayloop.ai 的收信不受影响。<br><span class="rec">✓ 已定：用 reply.stayloop.ai。</span></div>
+    <div class="decision"><b>3 · 记录保留多久？</b>事务结束后仍保留，用作争议证据。账户注销时删个人资料，但对话记录保留（对方也有证据权益），隐私页写明。<br><span class="rec">✓ 已定：事务结束后 7 年（覆盖 LTB 一年、小额法庭两年的时效，并与税务记录一致）。</span></div>
+    <div class="decision"><b>4 · 默认不交换私人联系方式？</b>双方只通过 Stayloop 的中转地址 / 号码联系，除非自己在对话里写出来。<br><span class="rec">✓ 已定：是，默认中转。</span></div>
   </div>
-  <p class="small muted" style="margin-top:18px">A 期可以在你确认后马上开始，不依赖 1；B 期等 Twilio 账号。</p>
+  <p class="small muted" style="margin-top:18px">A 期不依赖第 1 项，在下一个对话开始实施；B 期等你的 Twilio 账号。</p>
 
   <footer>Stayloop · design/messaging-redesign-2026-09.html · 基于节点 4 对话（2026-09-26）与节点 6 证据包（2026-09-27）· 示例中的人名与地址为站内示范数据</footer>
 </main>
