@@ -190,7 +190,7 @@ const FLOW: { h: Bi; p: Bi }[] = [
   { h: { zh: '你说一句', en: 'You say it' }, p: { zh: '「多大附近、能养猫、4000 以内」这样说就行；不想打字，也可以点卡片一步步选。', en: '"Near UofT, cats OK, under 4000" is enough; or tap a card and pick step by step.' } },
   { h: { zh: '它去办', en: 'It does the work' }, p: { zh: '查真实挂牌与 TRREB 行情、核材料真伪、查 LTB 与法院记录、起草租约与通知。', en: 'Searches real listings and TRREB data, checks documents, looks up LTB and court records, drafts leases and notices.' } },
   { h: { zh: '你来批准', en: 'You approve' }, p: { zh: '会影响到别人的动作先变成一张卡片，写明将分享什么、不分享什么；批准后 60 秒内可撤销。', en: 'Anything that reaches another person becomes a card first, saying what will and will not be shared; an approval can be undone for 60 seconds.' } },
-  { h: { zh: '执行并留痕', en: 'Done, and logged' }, p: { zh: '每一步写进审计记录；一件租赁事务可以导出带内容指纹的证据包。', en: 'Every step goes to the audit log; a rental matter can be exported as a fingerprinted evidence pack.' } },
+  { h: { zh: '执行并留痕', en: 'Done, and logged' }, p: { zh: '每一步写进审计记录；一件租赁事务的聊天记录可以导出，带内容指纹。', en: 'Every step goes to the audit log; a rental matter’s chat history can be exported, fingerprinted.' } },
 ]
 
 // ── Ontario rules shown on the page — ids resolved against the single source ─
@@ -230,7 +230,7 @@ const FAQ: { q: Bi; a: Bi; href: string; more: Bi }[] = [
   },
   {
     q: { zh: '我的数据放在哪里，谁能看到？', en: 'Where is my data, and who can see it?' },
-    a: { zh: '数据库在加拿大（AWS 蒙特利尔）。租客、房东、经纪、服务商各自只能读到与自己有关的记录，这是数据库层面的权限，不只是页面上的隐藏；筛查记录房东可随时删除，租赁事务可导出带内容指纹的证据包。AI 服务商（Claude · GPT · Gemini，可自选）及其所在地在隐私页逐家列明。', en: 'The database is in Canada (AWS Montréal). Tenants, landlords, agents and providers can each read only the records that concern them, enforced at the database rather than hidden in the page. A landlord can delete a screening at any time; a rental matter can be exported as a fingerprinted evidence pack. The AI providers (Claude · GPT · Gemini, your choice) and where they run are listed one by one on the privacy page.' },
+    a: { zh: '数据库在加拿大（AWS 蒙特利尔）。租客、房东、经纪、服务商各自只能读到与自己有关的记录，这是数据库层面的权限，不只是页面上的隐藏；筛查记录房东可随时删除，租赁事务的聊天记录可以导出，带内容指纹。AI 服务商（Claude · GPT · Gemini，可自选）及其所在地在隐私页逐家列明。', en: 'The database is in Canada (AWS Montréal). Tenants, landlords, agents and providers can each read only the records that concern them, enforced at the database rather than hidden in the page. A landlord can delete a screening at any time; a rental matter’s chat history can be exported, fingerprinted. The AI providers (Claude · GPT · Gemini, your choice) and where they run are listed one by one on the privacy page.' },
     href: '/privacy', more: { zh: '隐私页 →', en: 'Privacy page →' },
   },
 ]

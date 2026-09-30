@@ -15,6 +15,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import WorkOrderCard, { type WorkOrderLite } from '@/components/marketplace/WorkOrderCard'
 import ThreadPanel from '@/components/threads/ThreadPanel'
+import MessageButton from '@/components/messages/MessageButton'
 import { CREDENTIAL_LABEL, coverageLabel, earliestExpiry, TRADES, type CredentialKind, type CredentialLite, type Trade } from '@/lib/marketplace/trades'
 import { expiryTone } from '@/lib/marketplace/sla'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
@@ -155,7 +156,11 @@ export default function ProviderJobsPage() {
               <div className="mt-2 space-y-3">
                 {list.map((r) => (
                   <div key={r.id}>
-                    <div className="mb-1 text-[12.5px] text-body-2"><b>{ctx[r.id]?.title || r.scope}</b> · {hidden(r) ? (ctx[r.id]?.city || '') : [ctx[r.id]?.address, ctx[r.id]?.unit ? `#${ctx[r.id]?.unit}` : null, ctx[r.id]?.city].filter(Boolean).join(', ')}</div>
+                    <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-body-2">
+                      <span className="min-w-0 flex-1"><b>{ctx[r.id]?.title || r.scope}</b> · {hidden(r) ? (ctx[r.id]?.city || '') : [ctx[r.id]?.address, ctx[r.id]?.unit ? `#${ctx[r.id]?.unit}` : null, ctx[r.id]?.city].filter(Boolean).join(', ')}</span>
+                      {/* 找得到人 2026-09-30: tenant · landlord · you share this thread, so the label names the thread, not a person. */}
+                      <MessageButton target={{ kind: 'work_order', ref: r.id }} zh={zh} variant="link" label={zh ? '在工单对话里发消息' : 'Message in the work-order thread'} testId="provider-job-message" />
+                    </div>
                     <WorkOrderCard wo={r} viewer="provider" zh={zh} providerName={prov.trade_name || prov.legal_name} onChange={load} />
                     {/* 节点 4: the tri-party thread — the landlord and the tenant read the same lines. */}
                     <div className="mt-2"><ThreadPanel kind="work_order" refId={r.id} viewer="provider" zh={zh} compact title={zh ? '工单对话' : 'Work-order thread'} participants={zh ? '租客 · 房东 · 你' : 'tenant · landlord · you'} /></div>

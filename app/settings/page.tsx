@@ -13,6 +13,7 @@ import { getStoredAIName, invalidateAiName, setAIName, GENERIC_AI_NAME, displayA
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import SubscriptionCard from '@/components/settings/SubscriptionCard'
+import DisplayNameCard from '@/components/settings/DisplayNameCard'
 import PushSettingsCard from '@/components/mobile/PushSettingsCard'
 import MyDelegations from '@/components/delegations/MyDelegations'
 
@@ -146,6 +147,8 @@ export default function SettingsPage() {
               </div>
             )}
             {/* Push notifications — per device, all roles (2026-09-22). */}
+            {/* 找得到人 (2026-09-30): the name others see in messages, and a way to reach Stayloop. */}
+            {auth.user && <DisplayNameCard zh={zh} />}
             {auth.user && <PushSettingsCard live />}
             {/* 节点 5: delegations given (as landlord / tenant) and received (as agent). */}
             {auth.user && <MyDelegations zh={zh} />}

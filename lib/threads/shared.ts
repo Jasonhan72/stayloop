@@ -144,3 +144,84 @@ export function workOrderSystemLine(action: string, payload: Record<string, unkn
     default: return action
   }
 }
+
+// ── People (找得到人, 2026-09-30) ────────────────────────────────────────────
+// A person in a conversation, as the viewer may see them (people_for / thread_people):
+// never an address. `name` is null when the account never set one.
+export type Person = { user_id: string | null; name: string | null; role: string; channel: 'app' | 'email'; pending: boolean; is_me: boolean }
+
+/** The role word shown next to a person (never alone when a name exists). */
+export const PERSON_ROLE: Record<string, { zh: string; en: string }> = {
+  tenant: { zh: '租客', en: 'Tenant' },
+  landlord: { zh: '房东', en: 'Landlord' },
+  provider: { zh: '服务商', en: 'Provider' },
+  external: { zh: '外部服务商', en: 'Contractor' },
+  agent: { zh: '经纪', en: 'Agent' },
+  admin: { zh: 'Stayloop', en: 'Stayloop' },
+  member: { zh: '用户', en: 'Member' },
+}
+/** Role accent colours (identity colours from lib/roleTheme + provider orange + Stayloop brand). */
+export const ROLE_ACCENT: Record<string, string> = {
+  tenant: '#7C3AED', landlord: '#047857', agent: '#2563EB', provider: '#C2410C', external: '#C2410C', admin: '#00ACE4', member: '#6E6E8A',
+}
+export function roleLabel(role: string, zh: boolean): string {
+  const r = PERSON_ROLE[role]
+  return r ? (zh ? r.zh : r.en) : role
+}
+/** "Sarah Wang" or, with no name, the role word ("房东"). */
+export function personName(name: string | null | undefined, role: string, zh: boolean): string {
+  return name && name.trim() ? name.trim() : roleLabel(role, zh)
+}
+/** First visible character for an initial avatar (Han characters stay whole; Latin uppercased). */
+export function initialOf(name: string | null | undefined, role: string, zh: boolean): string {
+  if (role === 'admin') return 'S'
+  const s = personName(name, role, zh)
+  const ch = Array.from(s)[0] ?? '?'
+  return /[a-z]/i.test(ch) ? ch.toUpperCase() : ch
+}
+/**
+ * The name line for a conversation from the viewer's side: "Sarah Wang",
+ * "Northline · Sarah Wang", or "Sarah Wang 等 3 人". Names are paired with their
+ * roles by index (people_for orders both arrays the same way).
+ */
+export function counterpartLine(names: string[], roles: string[], zh: boolean, max = 2): string {
+  // Named people are listed once each; unnamed people are counted per role (「租客 ×2」), never collapsed into one.
+  const named = Array.from(new Set(names.filter((n) => n && n.trim()).map((n) => n.trim())))
+  const unnamedByRole = new Map<string, number>()
+  names.forEach((n, i) => { if (!n || !n.trim()) { const r = roles[i] ?? 'member'; unnamedByRole.set(r, (unnamedByRole.get(r) ?? 0) + 1) } })
+  const unnamed = Array.from(unnamedByRole.entries()).map(([r, k]) => (k > 1 ? `${roleLabel(r, zh)} ×${k}` : roleLabel(r, zh)))
+  const uniq = [...named, ...unnamed]
+  if (uniq.length === 0) return zh ? '只有你' : 'Only you'
+  if (uniq.length <= max) return uniq.join(zh ? '、' : ', ')
+  return zh ? `${uniq.slice(0, max).join('、')} 等 ${uniq.length} 人` : `${uniq.slice(0, max).join(', ')} +${uniq.length - max}`
+}
+/** A conversation is "two-party" when exactly one other person is in it — only then may a button say 「发消息给 X」. */
+export function isTwoParty(roles: string[]): boolean {
+  return roles.length === 1
+}
+/** The counterpart group a conversation belongs to in the message-centre filters. */
+export function counterpartGroup(kind: ThreadKind, roles: string[]): 'landlord' | 'tenant' | 'applicant' | 'provider' | 'agent' | 'stayloop' | 'other' {
+  if (kind === 'support') return 'stayloop'
+  if (kind === 'application' && roles.includes('tenant')) return 'applicant'
+  if (roles.includes('provider') || roles.includes('external')) return 'provider'
+  if (roles.includes('agent')) return 'agent'
+  if (roles.includes('landlord')) return 'landlord'
+  if (roles.includes('tenant')) return 'tenant'
+  return 'other'
+}
+export const COUNTERPART_GROUP_LABEL: Record<string, { zh: string; en: string }> = {
+  landlord: { zh: '房东', en: 'Landlords' },
+  tenant: { zh: '租客', en: 'Tenants' },
+  applicant: { zh: '申请人', en: 'Applicants' },
+  provider: { zh: '服务商', en: 'Providers' },
+  agent: { zh: '经纪 · 客户', en: 'Agents · clients' },
+  stayloop: { zh: 'Stayloop', en: 'Stayloop' },
+  other: { zh: '其他', en: 'Other' },
+}
+/** Honest audience line for a composer: everyone in the matter reads every message. */
+export function audienceLine(people: Person[], zh: boolean): string {
+  const others = people.filter((p) => !p.is_me)
+  if (!others.length) return zh ? '这件事里还没有其他人能收到消息' : 'Nobody else in this matter can receive messages yet'
+  const list = others.map((p) => `${personName(p.name, p.role, zh)}${p.name ? (zh ? `（${roleLabel(p.role, zh)}）` : ` (${roleLabel(p.role, zh)})`) : ''}${p.pending ? (zh ? '·邀请中' : ' · invited') : ''}`)
+  return zh ? `这段对话里的每个人都能看到：${list.join('、')}、你` : `Everyone here can read it: ${list.join(', ')}, you`
+}

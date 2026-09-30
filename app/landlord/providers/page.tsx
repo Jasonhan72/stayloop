@@ -27,7 +27,7 @@ export default function LandlordProvidersPage() {
   const [providers, setProviders] = useState<Provider[]>([])
   const [creds, setCreds] = useState<Cred[]>([])
   const [reviews, setReviews] = useState<Review[]>([])
-  const [mine, setMine] = useState<{ external_email: string | null; external_name: string | null; provider_id: string | null; status: string; created_at: string; quoted_at: string | null; approved_amount: number | null; invoice_amount: number | null; schedule_start: string | null; arrived_at: string | null; accepted_at: string | null; emergency: boolean }[]>([])
+  const [mine, setMine] = useState<{ external_name: string | null; provider_id: string | null; status: string; created_at: string; quoted_at: string | null; approved_amount: number | null; invoice_amount: number | null; schedule_start: string | null; arrived_at: string | null; accepted_at: string | null; emergency: boolean }[]>([])
   const [trade, setTrade] = useState<Trade | 'all'>('all')
   const [city, setCity] = useState<string>('all')
   const { graceDays } = useMarketplaceConfig()
@@ -37,7 +37,7 @@ export default function LandlordProvidersPage() {
     ;(async () => {
       const [{ data: p }, { data: w }] = await Promise.all([
         supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, pricing_mode, call_out_fee, hourly_rate, contact_email, contact_phone, website, verified_at').limit(200),
-        supabase.from('work_orders').select('external_email, external_name, provider_id, status, created_at, quoted_at, approved_amount, invoice_amount, schedule_start, arrived_at, accepted_at, emergency').eq('landlord_auth_id', auth.user!.id).order('created_at', { ascending: false }).limit(200),
+        supabase.from('work_orders').select('external_name, provider_id, status, created_at, quoted_at, approved_amount, invoice_amount, schedule_start, arrived_at, accepted_at, emergency').eq('landlord_auth_id', auth.user!.id).order('created_at', { ascending: false }).limit(200),
       ])
       const list = (p ?? []) as Provider[]
       const ids = list.map((x) => x.id)
@@ -63,11 +63,19 @@ export default function LandlordProvidersPage() {
     const pc = creds.filter((c) => c.provider_id === p.id)
     return { id: p.id, name: p.trade_name || p.legal_name, coveredTrades: (p.trades as Trade[]).filter((t) => coverageFor(t, pc, new Date(), graceDays).ok) }
   }), [providers, creds, graceDays])
-  const contacts = useMemo(() => {
-    const m = new Map<string, { name: string | null; jobs: number; last: string }>()
-    for (const w of mine) { if (!w.external_email) continue; const cur = m.get(w.external_email); m.set(w.external_email, { name: w.external_name || cur?.name || null, jobs: (cur?.jobs ?? 0) + 1, last: cur?.last ?? w.created_at }) }
-    return Array.from(m.entries())
-  }, [mine])
+  // The landlord's own contractor contacts: a contractor's address is the landlord's alone
+  // (work_orders.external_email is not column-readable since 2026-09-30), so it comes from a
+  // landlord-scoped RPC.
+  const [contacts, setContacts] = useState<[string, { name: string | null; jobs: number; last: string }][]>([])
+  useEffect(() => {
+    if (auth.loading || !auth.user) return
+    let on = true
+    supabase.rpc('my_external_contacts').then(({ data }) => {
+      if (!on) return
+      setContacts(((data ?? []) as { email: string; name: string | null; last_at: string; jobs: number }[]).map((c) => [c.email, { name: c.name, jobs: c.jobs, last: c.last_at }]))
+    })
+    return () => { on = false }
+  }, [auth.loading, auth.user])
 
   return (
     <WorkspaceShell role="landlord" hideAside>

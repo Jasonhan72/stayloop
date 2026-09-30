@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
+import MessageButton from '@/components/messages/MessageButton'
 import { prepareUploads } from '@/lib/screening/prepareUpload'
 import { isEmergencyMaintenance } from '@/lib/agent/maintenanceTriage'
 import { acceptTicketPhotos, MAX_TICKET_PHOTOS, MAX_TICKET_PHOTO_BYTES, ticketCategoryFor, ticketPhotoPath, ticketTitleFrom } from '@/lib/household/ticketPhotos'
@@ -48,7 +49,7 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
   const [hh, setHh] = useState<Household | null | 'loading'>('loading')
   const [busy, setBusy] = useState<false | 'preparing' | 'uploading' | 'saving'>(false)
   const [err, setErr] = useState<string | null>(null)
-  const [done, setDone] = useState<{ ticketId: string; householdId: string; failedPhotos: number; notified: boolean } | null>(null)
+  const [done, setDone] = useState<{ ticketId: string; householdId: string; title: string; failedPhotos: number; notified: boolean } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // The tenant's most recent active tenancy (household membership as tenant).
@@ -99,6 +100,7 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
     setErr(null)
     const ticketId = crypto.randomUUID()
     const priority = emergency ? 'high' : urg
+    const title = ticketTitleFrom(desc, catLabel)
     setBusy('saving')
     // Ticket first, photos second: a request must reach the landlord even
     // when one upload fails; the paths are attached once they exist.
@@ -106,7 +108,7 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
       id: ticketId,
       household_id: hh.id,
       opened_by: auth.user.id,
-      title: ticketTitleFrom(desc, catLabel),
+      title,
       description: desc.trim().slice(0, 2000),
       category: ticketCategoryFor(cat),
       priority,
@@ -137,7 +139,7 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
     // Photos are attached first so the landlord's email links to a complete ticket.
     const notified = await notifyTicket(ticketId)
     setBusy(false)
-    setDone({ ticketId, householdId: hh.id, failedPhotos: failed, notified })
+    setDone({ ticketId, householdId: hh.id, title, failedPhotos: failed, notified })
     onCreated?.(ticketId, hh.id)
   }
 
@@ -161,6 +163,11 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
             <div className="mt-6 flex gap-2">
               <button onClick={onClose} className="flex-1 rounded-[10px] border border-line-strong bg-white py-[12px] text-[14px] font-semibold text-body">{zh ? '关闭' : 'Close'}</button>
               <Link href={`/h/${done.householdId}?tab=maintenance`} className="sl-btn-primary flex-1 !py-[12px] text-center">{zh ? '查看工单 →' : 'View ticket →'}</Link>
+            </div>
+            {/* The tenancy conversation (landlord · tenant), pre-filled with this ticket's title. */}
+            <div className="mt-3 text-center">
+              <MessageButton variant="link" zh={zh} label={zh ? '在对话里跟进这张报修' : 'Follow up on this request in the conversation'} testId="ticket-follow-up"
+                target={{ kind: 'tenancy', ref: done.householdId, draft: zh ? `关于报修「${done.title}」：` : `About the repair request "${done.title}": ` }} />
             </div>
           </div>
         ) : (

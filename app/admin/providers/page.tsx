@@ -15,7 +15,7 @@ import { actOn } from '@/components/marketplace/WorkOrderCard'
 
 type Provider = { id: string; auth_id: string; legal_name: string; trade_name: string | null; business_number: string | null; service_cities: string[]; trades: string[]; contact_email: string | null; contact_phone: string | null; website: string | null; status: string; review_note: string | null; verified_at: string | null; updated_at: string; created_at: string }
 type Cred = { id: string; provider_id: string; kind: CredentialKind; number: string | null; holder_name: string | null; expires_at: string | null; verified_at: string | null; note: string | null }
-type Dispute = { id: string; ticket_id: string; dispute_reason: string | null; disputed_at: string | null; landlord_auth_id: string; provider_id: string | null; external_email: string | null; invoice_amount: number | null; approved_amount: number | null }
+type Dispute = { id: string; ticket_id: string; dispute_reason: string | null; disputed_at: string | null; landlord_auth_id: string; provider_id: string | null; external_name: string | null; invoice_amount: number | null; approved_amount: number | null }
 
 function Shell({ children }: { children: React.ReactNode }) {
   return <div className="min-h-screen bg-surface"><Header /><main className="mx-auto max-w-[1100px] px-5 py-8">{children}</main></div>
@@ -52,7 +52,7 @@ export default function AdminProvidersPage() {
     const ids = list.map((p) => p.id)
     const { data: c } = ids.length ? await supabase.from('provider_credentials').select('*').in('provider_id', ids) : { data: [] }
     setCreds((c ?? []) as Cred[])
-    const { data: d } = await supabase.from('work_orders').select('id, ticket_id, dispute_reason, disputed_at, landlord_auth_id, provider_id, external_email, invoice_amount, approved_amount').eq('status', 'disputed').order('disputed_at', { ascending: false }).limit(50)
+    const { data: d } = await supabase.from('work_orders').select('id, ticket_id, dispute_reason, disputed_at, landlord_auth_id, provider_id, external_name, invoice_amount, approved_amount').eq('status', 'disputed').order('disputed_at', { ascending: false }).limit(50)
     setDisputes((d ?? []) as Dispute[])
   }, [tab])
   useEffect(() => { if (adminRole && adminRole !== 'loading') void load() }, [adminRole, load])
@@ -133,7 +133,7 @@ export default function AdminProvidersPage() {
             <div key={d.id} className="rounded-2xl border border-line-divider bg-white p-4 text-[13px]">
               <div className="font-mono text-[11px] text-body-3">{d.id} · {d.disputed_at?.slice(0, 16)}</div>
               <div className="mt-1"><b>{zh ? '原因' : 'Reason'}:</b> {d.dispute_reason || '—'}</div>
-              <div className="text-body-2">{zh ? '批准报价' : 'Approved'} {d.approved_amount ?? '—'} · {zh ? '账单' : 'invoice'} {d.invoice_amount ?? '—'} · {d.provider_id ? `provider ${d.provider_id.slice(0, 8)}` : d.external_email}</div>
+              <div className="text-body-2">{zh ? '批准报价' : 'Approved'} {d.approved_amount ?? '—'} · {zh ? '账单' : 'invoice'} {d.invoice_amount ?? '—'} · {d.provider_id ? `provider ${d.provider_id.slice(0, 8)}` : (d.external_name || (zh ? "外部服务商" : "external contractor"))}</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <input value={notes[d.id] ?? ''} onChange={(e) => setNotes({ ...notes, [d.id]: e.target.value })} placeholder={zh ? '裁定说明（双方可见）' : 'Resolution note (visible to both)'} className="min-w-[260px] flex-1 rounded-lg border border-line-divider px-3 py-2 text-[13px]" />
                 <button disabled={busy === d.id || !(notes[d.id] || '').trim()} onClick={() => void resolve(d)} className="rounded-lg px-3 py-2 text-[12.5px] font-bold text-white disabled:opacity-50" style={{ background: '#047857' }}>{zh ? '裁定为已验收' : 'Resolve as accepted'}</button>

@@ -8,6 +8,7 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { WORK_ORDER_COLUMNS, invoiceWithinEstimate } from '@/lib/marketplace/workOrders'
 import { canonicalJson, renderReceipt, type ReceiptData } from '@/lib/export/evidencePack'
 import { ensureMatter } from '@/lib/matters/server'
+import { displayNameFor } from '@/lib/threads/server'
 
 export const runtime = 'edge'
 const UUID = /^[0-9a-f-]{36}$/i
@@ -43,7 +44,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const [{ data: ev }, { data: hh }, { data: ll }, { data: prov }] = await Promise.all([
     admin.from('work_order_events').select('created_at, actor_kind, event, payload').eq('work_order_id', id).order('id'),
     admin.from('households').select('address, unit, city').eq('id', w.household_id as string).maybeSingle(),
-    admin.auth.admin.getUserById(w.landlord_auth_id as string),
+    displayNameFor(admin, w.landlord_auth_id as string).then((n) => ({ data: n })),
     w.provider_id ? admin.from('service_providers').select('legal_name, trade_name, business_number').eq('id', w.provider_id as string).maybeSingle() : Promise.resolve({ data: null }),
   ])
   const h = hh as { address: string; unit: string | null; city: string | null } | null
@@ -52,10 +53,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const data: ReceiptData = {
     work_order: {
       id, status: String(w.status), trade: (w.trade as string) ?? null, scope: (w.scope as string) ?? null, emergency: !!w.emergency,
-      contractor: p ? `${p.trade_name || p.legal_name}${p.trade_name ? ` (${p.legal_name})` : ''}` : ((w.external_name as string) || (w.external_email as string) || 'contractor'),
+      contractor: p ? `${p.trade_name || p.legal_name}${p.trade_name ? ` (${p.legal_name})` : ''}` : ((w.external_name as string) || (lang === 'zh' ? '外部服务商' : 'contractor')),
       provider_business_number: p?.business_number ?? null,
       household: h ? [h.address, h.unit ? `#${h.unit}` : null, h.city].filter(Boolean).join(', ') : null,
-      landlord: ll?.user?.email ?? String(w.landlord_auth_id).slice(0, 8),
+      // Named, never by address (relay): the landlord's display name, else the role.
+      landlord: (ll as string | null) ?? (lang === 'zh' ? '房东' : 'Landlord'),
       quote_amount: (w.quote_amount as number) ?? null, quote_version: (w.quote_version as number) ?? null, approved_amount: (w.approved_amount as number) ?? null, invoice_amount: (w.invoice_amount as number) ?? null,
       created_at: String(w.created_at), quoted_at: (w.quoted_at as string) ?? null, approved_at: (w.approved_at as string) ?? null, arrived_at: (w.arrived_at as string) ?? null, completed_at: (w.completed_at as string) ?? null, accepted_at: (w.accepted_at as string) ?? null, paid_at: (w.paid_at as string) ?? null,
       payment_mode: (w.payment_mode as string) ?? null, decline_code: (w.decline_code as string) ?? null, cancel_reason: (w.cancel_reason as string) ?? null,

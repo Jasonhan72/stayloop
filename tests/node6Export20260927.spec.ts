@@ -41,7 +41,7 @@ describe('evidence pack renderer', () => {
     expect(html).not.toContain('<script>alert(1)</script>')
     expect(html).toContain('Test &lt;b&gt;Tenant&lt;/b&gt;')
     expect(html).not.toMatch(/ai_score|\/100\b|v3_tier/)
-    expect(html).toContain('结果与分数不在证据包内')
+    expect(html).toContain('结果与分数不在这份记录里') // wording: 导出聊天记录 (user 2026-09-30)
   })
   it('renders in English too and the JSON canonicalisation is key-sorted and stable', () => {
     const en = renderEvidencePack(DATA, { ...META, lang: 'en' })
@@ -80,7 +80,7 @@ describe('routes and surfaces', () => {
     expect(r).toContain("rental_matter_id: matterId")
   })
   it('buttons: evidence pack on every matter card, receipt on settled work orders for landlord / provider; the tab opens before the fetch', () => {
-    expect(read('components/matters/MattersPanel.tsx')).toContain('data-testid="export-evidence-pack"')
+    expect(read('components/matters/MattersPanel.tsx')).toContain('data-testid="export-chat-history"')
     const c = read('components/marketplace/WorkOrderCard.tsx')
     expect(c).toContain('data-testid="work-order-receipt"')
     expect(c).toContain("['accepted', 'paid', 'closed'].includes(wo.status) && viewer !== 'tenant' && viewer !== 'system'")

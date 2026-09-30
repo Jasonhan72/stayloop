@@ -98,7 +98,8 @@ export async function noteOnWorkOrder(admin: Admin, wo: { id: string; household_
   if (t) await postSystemMessage(admin, t.id, { body: line, meta: { work_order_id: wo.id, ...meta } })
 }
 
-export type Party = { userId: string | null; email: string | null; kind: SenderKind; label: string }
+/** pending = invited, not joined: relayed notice only (no reply address), link to accept the invitation. */
+export type Party = { userId: string | null; email: string | null; kind: SenderKind; label: string | null; pending?: boolean; inviteToken?: string | null }
 
 async function landlordOfListing(admin: Admin, landlordId: string | null | undefined): Promise<string | null> {
   if (!landlordId) return null
@@ -107,14 +108,34 @@ async function landlordOfListing(admin: Admin, landlordId: string | null | undef
   return row?.auth_id ?? landlordId
 }
 
-/** Everyone in a thread, from the matter's own rows (never from message metadata). */
+/** Everyone in a thread, named (找得到人 2026-09-30): account holders get their display name, never an address. */
 export async function threadParties(admin: Admin, t: ThreadRow): Promise<Party[]> {
+  const raw = await threadPartiesRaw(admin, t)
+  const generic = new Set(['landlord', 'tenant', 'agent', 'property_manager', 'member', 'provider'])
+  const ids = Array.from(new Set(raw.filter((p) => p.userId && (!p.label || generic.has(p.label))).map((p) => p.userId as string)))
+  if (!ids.length) return raw
+  const { data } = await admin.rpc('person_names', { p_users: ids })
+  const names = new Map(((data ?? []) as { user_id: string; name: string | null }[]).filter((r) => r.name).map((r) => [r.user_id, r.name as string]))
+  return raw.map((p) => (p.userId && names.has(p.userId) && (!p.label || generic.has(p.label)) ? { ...p, label: names.get(p.userId)! } : p))
+}
+
+async function threadPartiesRaw(admin: Admin, t: ThreadRow): Promise<Party[]> {
   const out: Party[] = []
   const members = async (hh: string) => {
     const { data } = await admin.from('household_members').select('user_id, role').eq('household_id', hh).eq('status', 'active')
     for (const m of (data ?? []) as { user_id: string; role: string }[]) out.push({ userId: m.user_id, email: null, kind: m.role === 'landlord' || m.role === 'property_manager' ? 'landlord' : m.role === 'agent' ? 'agent' : 'tenant', label: m.role })
   }
-  if (t.kind === 'tenancy') { await members(t.ref_id); return out }
+  if (t.kind === 'tenancy') {
+    await members(t.ref_id)
+    // An invited counterpart who has not joined yet is reached by relay email at the
+    // invited address (they already received the invitation there).
+    const { data: inv } = await admin.from('household_invites').select('invited_email, invited_role, expires_at, token').eq('household_id', t.ref_id)
+      .is('accepted_at', null).is('declined_at', null).is('revoked_at', null).gt('expires_at', new Date().toISOString())
+    for (const i of (inv ?? []) as { invited_email: string; invited_role: string; token: string }[]) {
+      out.push({ userId: null, email: i.invited_email, kind: i.invited_role === 'landlord' || i.invited_role === 'property_manager' ? 'landlord' : i.invited_role === 'agent' ? 'agent' : 'tenant', label: null, pending: true, inviteToken: i.token })
+    }
+    return out
+  }
   if (t.kind === 'work_order' || t.kind === 'dispute') {
     const { data: wo } = await admin.from('work_orders').select('landlord_auth_id, provider_id, external_email, external_name, household_id').eq('id', t.ref_id).maybeSingle()
     if (!wo) return out
@@ -156,7 +177,7 @@ export async function threadParties(admin: Admin, t: ThreadRow): Promise<Party[]
     if (!cl) return out
     const { data: ap } = await admin.from('agent_profiles').select('legal_name').eq('auth_id', cl.agent_auth_id).maybeSingle()
     out.push({ userId: cl.agent_auth_id, email: null, kind: 'agent', label: (ap as { legal_name: string | null } | null)?.legal_name || 'Agent' })
-    const { data: d } = await admin.from('delegations').select('principal_auth_id').eq('client_id', t.ref_id).eq('status', 'active').not('principal_auth_id', 'is', null).limit(1)
+    const { data: d } = await admin.from('delegations').select('principal_auth_id').eq('client_id', t.ref_id).eq('status', 'active').gt('expires_at', new Date().toISOString()).not('principal_auth_id', 'is', null).limit(1)
     const principal = ((d ?? []) as { principal_auth_id: string }[])[0]?.principal_auth_id ?? null
     if (principal) out.push({ userId: principal, email: null, kind: cl.client_role, label: cl.name })
     else if (cl.email) out.push({ userId: null, email: cl.email, kind: cl.client_role, label: cl.name })
@@ -212,11 +233,11 @@ async function authEmail(admin: Admin, userId: string): Promise<string | null> {
 /** A person's display name for "<name> 经 Stayloop" (metadata name, never the address). */
 export async function displayNameFor(admin: Admin, userId: string | null): Promise<string | null> {
   if (!userId) return null
+  // The same sanitised name the insert trigger stamps (person_name: 显示名 → full_name → name → landlords / tenants).
   try {
-    const { data } = await admin.auth.admin.getUserById(userId)
-    const md = (data?.user?.user_metadata ?? {}) as Record<string, unknown>
-    const n = [md.full_name, md.name].find((v) => typeof v === 'string' && v.trim()) as string | undefined
-    return n ? n.trim().slice(0, 60) : null
+    const { data } = await admin.rpc('person_names', { p_users: [userId] })
+    const n = ((data ?? []) as { name: string | null }[])[0]?.name
+    return n ? n.slice(0, 60) : null
   } catch { return null }
 }
 
@@ -241,8 +262,10 @@ export async function notifyThreadParties(admin: Admin, t: ThreadRow, opts: { me
     const seenUsers = new Set<string>(); const seenEmails = new Set<string>()
     const except = (opts.exceptEmail || '').toLowerCase()
     const email = async (to: string, party: Party) => {
-      const token = await replyTokenFor(admin, t.id, to, { kind: party.kind, userId: party.userId, label: party.label })
-      const link = party.kind === 'external' ? (await externalLink(admin, t)) || SITE() : party.userId ? `${SITE()}${messageCenterHref(t.id)}` : party.kind === 'tenant' && t.kind === 'application' ? `${SITE()}/tenant/applications/${t.ref_id}` : `${SITE()}${messageCenterHref(t.id)}`
+      // An invitee who has not joined gets a notice only — no reply address into the record
+      // (review 2026-09-30) — and the link goes to the invitation, not a page they cannot open.
+      const token = party.pending ? null : await replyTokenFor(admin, t.id, to, { kind: party.kind, userId: party.userId, label: party.label })
+      const link = party.pending && party.inviteToken ? `${SITE()}/join/${party.inviteToken}` : party.kind === 'external' ? (await externalLink(admin, t)) || SITE() : party.userId ? `${SITE()}${messageCenterHref(t.id)}` : party.kind === 'tenant' && t.kind === 'application' ? `${SITE()}/tenant/applications/${t.ref_id}` : `${SITE()}${messageCenterHref(t.id)}`
       const { subject, html, text } = renderThreadMessageEmail({ threadTitle: title, kindLabel: kindTag, senderLabel: opts.senderLabel, when, body: (opts.body ?? opts.preview).slice(0, 4000), link, replyable: !!token, marker: REPLY_MARKER })
       const r = await sendEmail({ to, subject, html, text, replyTo: token ? replyAddress(token) : undefined, fromName: `${opts.senderLabel.split(' / ')[0]} 经 Stayloop` })
       await recordDelivery(admin, { message_id: opts.messageId ?? null, thread_id: t.id, channel: 'email', recipient_user_id: party.userId, recipient_address: to, provider_message_id: r.id ?? null, status: r.ok ? 'sent' : 'failed', detail: r.ok ? null : r.error })
@@ -319,7 +342,7 @@ export async function recordEmailReply(admin: Admin, mail: InboundEmail): Promis
   const { data: tk } = await admin.from('thread_reply_tokens').select('token, thread_id, email, user_id, party_kind, label, revoked_at').eq('token', token).maybeSingle()
   const row = tk as { token: string; thread_id: string; email: string; user_id: string | null; party_kind: SenderKind; label: string | null; revoked_at: string | null } | null
   if (!row) { await log('unknown_token', null, null); return { outcome: 'unknown_token' } }
-  if (row.revoked_at) { await log('revoked', row.thread_id, null); return { outcome: 'revoked', threadId: row.thread_id } }
+  if (row.revoked_at || !(await tokenStillParty(admin, row))) { await log('revoked', row.thread_id, null); return { outcome: 'revoked', threadId: row.thread_id } }
   if (!from || from !== row.email.toLowerCase()) { await log('sender_mismatch', row.thread_id, null); return { outcome: 'sender_mismatch', threadId: row.thread_id } }
   const plain = mail.text && mail.text.trim() ? mail.text : mail.html ? htmlToText(mail.html) : ''
   let body = stripQuotedReply(plain).slice(0, 3800)
@@ -340,3 +363,64 @@ export async function recordEmailReply(admin: Admin, mail: InboundEmail): Promis
   return { outcome: 'recorded', messageId: msgId, threadId: row.thread_id }
 }
 
+
+/**
+ * Is the holder of a reply address still a party of that conversation? Checked
+ * on every email reply (review 2026-09-30): an address stays live only while the
+ * relationship that issued it does — a revoked delegation, a changed client email,
+ * a tenant who left, a contractor swapped out: the reply is refused (logged, raw kept).
+ */
+async function tokenStillParty(admin: Admin, row: { thread_id: string; email: string; user_id: string | null; party_kind: string }): Promise<boolean> {
+  const { data: t } = await admin.from('threads').select('kind, ref_id, listing_id, subject_user').eq('id', row.thread_id).maybeSingle()
+  if (!t) return false
+  const th = t as { kind: ThreadKind; ref_id: string; listing_id: string | null; subject_user: string | null }
+  const em = row.email.toLowerCase()
+  const emailOf = async (uid: string) => { try { const { data } = await admin.auth.admin.getUserById(uid); return (data?.user?.email || '').toLowerCase() } catch { return '' } }
+  const activeMember = async (hh: string, uid: string) => {
+    const { data } = await admin.from('household_members').select('user_id').eq('household_id', hh).eq('user_id', uid).eq('status', 'active').limit(1)
+    return !!(data && data.length)
+  }
+  if (th.kind === 'tenancy') return !!row.user_id && (await activeMember(th.ref_id, row.user_id))
+  if (th.kind === 'work_order' || th.kind === 'dispute') {
+    const { data: w } = await admin.from('work_orders').select('landlord_auth_id, provider_id, external_email, household_id').eq('id', th.ref_id).maybeSingle()
+    const wo = w as { landlord_auth_id: string; provider_id: string | null; external_email: string | null; household_id: string } | null
+    if (!wo) return false
+    if (row.party_kind === 'landlord') return !!row.user_id && row.user_id === wo.landlord_auth_id
+    if (row.party_kind === 'external') return !wo.provider_id && (wo.external_email || '').toLowerCase() === em
+    if (row.party_kind === 'provider') {
+      if (!wo.provider_id) return false
+      const { data: p } = await admin.from('service_providers').select('auth_id, contact_email').eq('id', wo.provider_id).maybeSingle()
+      const pr = p as { auth_id: string | null; contact_email: string | null } | null
+      return !!pr && (row.user_id ? pr.auth_id === row.user_id : (pr.contact_email || '').toLowerCase() === em)
+    }
+    if (row.party_kind === 'tenant') {
+      if (row.user_id) return activeMember(wo.household_id, row.user_id)
+      const { data: ms } = await admin.from('household_members').select('user_id').eq('household_id', wo.household_id).eq('status', 'active').eq('role', 'tenant')
+      for (const m of (ms ?? []) as { user_id: string }[]) if ((await emailOf(m.user_id)) === em) return true
+      return false
+    }
+    return false
+  }
+  if (th.kind === 'application') {
+    const { data: a } = await admin.from('applications').select('email').eq('id', th.ref_id).maybeSingle()
+    if (row.party_kind === 'tenant') return ((a as { email: string | null } | null)?.email || '').toLowerCase() === em
+    if (row.party_kind === 'landlord' && row.user_id) {
+      const people = await threadParties(admin, { id: row.thread_id, kind: th.kind, ref_id: th.ref_id, household_id: null, title: null })
+      return people.some((p) => p.kind === 'landlord' && p.userId === row.user_id)
+    }
+    return false
+  }
+  if (th.kind === 'listing_inquiry') {
+    if (row.party_kind === 'tenant') return !!row.user_id && row.user_id === th.subject_user
+    return false
+  }
+  if (th.kind === 'agent_client') {
+    const { data: c } = await admin.from('agent_clients').select('agent_auth_id, email').eq('id', th.ref_id).maybeSingle()
+    const cl = c as { agent_auth_id: string; email: string | null } | null
+    if (!cl) return false
+    if (row.party_kind === 'agent') return row.user_id === cl.agent_auth_id
+    return (cl.email || '').toLowerCase() === em
+  }
+  if (th.kind === 'support') return row.party_kind === 'admin' || (!!row.user_id && row.user_id === th.ref_id)
+  return false
+}

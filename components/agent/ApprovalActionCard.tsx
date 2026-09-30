@@ -4,11 +4,37 @@
 // would NOT (excluded_data), the recipient, and risk — then approve / reject.
 // Nothing executes until the user clicks Approve.
 import { useState } from 'react'
+import Link from 'next/link'
 import { useT } from '@/lib/i18n'
 import type { PendingAction } from '@/lib/agent/types'
 import { rentAmount } from '@/lib/agent/chatCopy'
 import { supabase } from '@/lib/supabase'
 import WorkOrderInline from '@/components/agent/WorkOrderInline'
+import { maskEmails } from '@/lib/relay'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Relay principle (找得到人 2026-09-30): a card never shows another person's
+// email address. Older cards and some previews still carry one as the
+// recipient — show the recipient's name when the card has it, else the role.
+const noEmail = (v: string | null | undefined): string | null => {
+  const t = (v || '').trim()
+  return t && !t.includes('@') ? t : null
+}
+function recipientRole(action: PendingAction, zh: boolean): string {
+  if (action.role === 'tenant') return zh ? '房东' : 'your landlord'
+  switch (action.action_type) {
+    case 'approve_quote':
+    case 'accept_completion': return zh ? '租客' : 'the tenant'
+    case 'send_decision': return zh ? '申请人' : 'the applicant'
+    case 'send_lease':
+    case 'send_renewal_letter':
+    case 'rent_reminder': return zh ? '租客' : 'the tenant'
+    case 'showing_request':
+    case 'listing_inquiry': return zh ? '咨询的租客' : 'the enquirer'
+    default: return zh ? '对方' : 'the other party'
+  }
+}
 
 const RISK: Record<PendingAction['risk_level'], { label: { zh: string; en: string }; cls: string }> = {
   low: { label: { zh: '低风险', en: 'LOW RISK' }, cls: 'text-success bg-success/10' },
@@ -55,6 +81,21 @@ export default function ApprovalActionCard({
   const pctLabel = m.guideline_pct != null ? `+${m.guideline_pct}%` : '按指导上限'
   const pctLabelEn = m.guideline_pct != null ? `+${m.guideline_pct}%` : 'guideline'
 
+  const recipientShown = action.recipient_label ? (noEmail(action.recipient_label) ?? recipientRole(action, zh)) : null
+  const previewTo = (to: string | null) => (to ? (noEmail(to) ?? noEmail(action.recipient_label) ?? recipientRole(action, zh)) : action.role === 'tenant' ? recipientRole(action, zh) : null)
+  // Showing requests and listing questions already have a conversation (the
+  // listing-inquiry thread) — reply there without approving anything.
+  const replyThreadId = (action.action_type === 'showing_request' || action.action_type === 'listing_inquiry')
+    && typeof (action.metadata as { thread_id?: unknown } | null)?.thread_id === 'string'
+    && UUID_RE.test(String((action.metadata as { thread_id?: string }).thread_id))
+    && ((action.metadata as { source?: unknown; intent_id?: unknown }).source === 'listing_page' || typeof (action.metadata as { intent_id?: unknown }).intent_id === 'string')
+    ? String((action.metadata as { thread_id?: string }).thread_id)
+    : null
+  const rawWho = noEmail(action.recipient_label)
+  // /api/showing-intent falls back to the Chinese word 租客 when the prospect has no name.
+  const replyWho = rawWho && !(rawWho === '租客' && !zh) ? rawWho : (zh ? '对方' : 'them')
+  const mask = (t: string) => maskEmails(t, recipientRole(action, zh))
+
   const decide = async (d: 'approved' | 'rejected', option?: 'A' | 'B') => {
     setBusy(option ? `approved:${option}` : d)
     try {
@@ -75,9 +116,9 @@ export default function ApprovalActionCard({
         </span>
       </div>
 
-      <h3 className={`mt-2 font-bold tracking-tight ${compact ? 'text-[15.5px] leading-snug' : 'text-[18px]'}`}>{action.title}</h3>
+      <h3 className={`mt-2 font-bold tracking-tight ${compact ? 'text-[15.5px] leading-snug' : 'text-[18px]'}`}>{mask(action.title)}</h3>
       {action.summary && (
-        <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{action.summary}</p>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{mask(action.summary)}</p>
       )}
 
       {/* 节点 5: work-order cards carry the live work order + its thread — act here, no hub detour. */}
@@ -85,13 +126,23 @@ export default function ApprovalActionCard({
         <WorkOrderInline workOrderId={String((action.metadata as { work_order_id?: string }).work_order_id)} zh={zh} />
       )}
 
-      {action.recipient_label && (
+      {recipientShown && (
         <div className="mt-4 flex items-baseline gap-2 text-[12.5px]">
           <span className="font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">
             {zh ? '接收方' : 'RECIPIENT'}
           </span>
-          <span className="font-semibold text-body">{action.recipient_label}</span>
+          <span className="font-semibold text-body">{recipientShown}</span>
         </div>
+      )}
+
+      {replyThreadId && (
+        <Link
+          href={`/messages?t=${replyThreadId}&compose=1`}
+          data-testid="card-reply-thread"
+          className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-semibold text-brand underline-offset-2 hover:underline"
+        >
+          <span aria-hidden="true">✉</span>{zh ? `回复 ${replyWho} →` : `Reply to ${replyWho} →`}
+        </Link>
       )}
 
       <div className="mt-4 grid gap-3">
@@ -101,9 +152,9 @@ export default function ApprovalActionCard({
 
       {preview && preview !== 'none' && (
         <div className="mt-4 rounded-xl border border-line-divider bg-white p-3 text-[12.5px]">
-          <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '将要发送的正文' : 'EXACT MESSAGE'}{preview.to ? ` · → ${preview.to}` : ''}</div>
-          <div className="mt-1 font-semibold text-body">{preview.subject}</div>
-          <pre className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap font-sans leading-relaxed text-body-2">{preview.body}</pre>
+          <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '将要发送的正文' : 'EXACT MESSAGE'}{previewTo(preview.to) ? ` · → ${previewTo(preview.to)}` : ''}</div>
+          {preview.subject ? <div className="mt-1 font-semibold text-body">{mask(preview.subject)}</div> : null}
+          <pre className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap font-sans leading-relaxed text-body-2">{mask(preview.body)}</pre>
         </div>
       )}
       {preview === 'none' && <p className="mt-3 text-[12px] text-body-3">{zh ? '这类动作没有可预览的正文（批准即记录）。' : 'Nothing to preview for this action (approval is the effect).'}</p>}

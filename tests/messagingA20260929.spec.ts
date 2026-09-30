@@ -121,7 +121,8 @@ describe('email replies', () => {
     const fn = s.slice(s.indexOf('export async function recordEmailReply'))
     expect(fn.indexOf("storage.from('thread-inbound').upload")).toBeLessThan(fn.indexOf("if (!token)"))
     expect(fn).toContain("if (!from || from !== row.email.toLowerCase()) { await log('sender_mismatch'")
-    expect(fn).toContain("if (row.revoked_at)")
+    // 找得到人 review 2026-09-30: a token must also still belong to a party of the conversation.
+    expect(fn).toContain("if (row.revoked_at || !(await tokenStillParty(admin, row)))")
     expect(fn).toContain("channel: 'email'")
     expect(existsSync('workers/reply-email/src/index.ts')).toBe(true)
     expect(read('workers/reply-email/wrangler.toml')).toContain('INBOUND_URL = "https://www.stayloop.ai/api/threads/inbound"')
@@ -200,7 +201,7 @@ describe('one entry: the message centre', () => {
   })
   it('every kind has a tag; the agent client row and the listing modal open conversations', () => {
     for (const k of ['work_order', 'application', 'tenancy', 'dispute', 'listing_inquiry', 'agent_client', 'support'] as ThreadKind[]) expect(KIND_TAG[k].zh.length).toBeGreaterThan(0)
-    expect(read('components/agent/ClientBook.tsx')).toContain('/messages?new=agent_client:${c.id}')
+    expect(read('components/agent/ClientBook.tsx')).toContain("<MessageButton target={{ kind: 'agent_client', ref: c.id }} zh={zh} label={zh ? `发消息给 ${c.name}` : `Message ${c.name}`} testId=\"client-message\" />")
     expect(read('components/ShowingRequestModal.tsx')).toContain('/messages?t=${done.threadId}')
   })
   it('the privacy page states 7-year retention, records kept after account closure, and the relay', () => {

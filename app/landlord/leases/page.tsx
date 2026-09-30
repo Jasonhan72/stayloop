@@ -26,6 +26,7 @@ import { useT, type Lang } from '@/lib/i18n'
 import { downloadCsv, toCsv } from '@/lib/csv'
 import { daysBetween, monthsBetween, parseDateOnly, todayUtc } from '@/lib/dates'
 import { leaseDisplayState } from '@/lib/matters/states'
+import MessageButton from '@/components/messages/MessageButton'
 
 // Tenant's answer to the 30-day touchpoint (renewal_intents, P1 2026-09-23).
 const INTENT_LABEL: Record<string, { zh: string; en: string }> = {
@@ -46,13 +47,18 @@ type LeaseItem = {
   onTime: string
   monthsLeft: number
   nextRenewal: { zh: string; en: string }
+  /** The in-management tenancy on this lease (households.current_lease_id) — its conversation is the tenancy thread. */
+  householdId?: string | null
+  /** The application the lease was drafted from — its conversation is the fallback when no tenancy exists yet. */
+  applicationId?: string | null
 }
 
 function mapDbLease(row: {
   id: string; tenant_name: string | null; tenant_email: string | null
   unit_label: string | null; monthly_rent: number | null
   start_date: string | null; end_date: string | null; status: string | null
-}, aiName: string, intent?: { intent: string; created_at: string } | null): LeaseItem {
+  application_id?: string | null
+}, aiName: string, intent?: { intent: string; created_at: string } | null, householdId?: string | null): LeaseItem {
   // One state vocabulary (lib/matters/states, 节点 1 2026-09-26): a signed lease whose
   // start date is still ahead is 已签待起租, never ACTIVE (external review: L-46B5).
   const display = leaseDisplayState(row)
@@ -64,7 +70,9 @@ function mapDbLease(row: {
   const inWindow = status === 'active' && daysToEnd <= 120 && daysToEnd >= 0
   return {
     id: row.id,
-    tenant: row.tenant_name || row.tenant_email || '—',
+    // Relay principle (找得到人 2026-09-30): never the tenant's email — an unnamed
+    // tenant renders as the role word (tenantLabel).
+    tenant: row.tenant_name?.trim() || '',
     unit: row.unit_label || '—',
     rent: Number(row.monthly_rent) || 0,
     start: row.start_date || '—',
@@ -77,8 +85,12 @@ function mapDbLease(row: {
       : inWindow
       ? { zh: `续约窗口已开 · ${aiName} 已在工作台准备方案`, en: `Renewal window open · ${aiName} prepared options in your workspace` }
       : { zh: '—', en: '—' },
+    householdId: householdId ?? null,
+    applicationId: row.application_id ?? null,
   }
 }
+
+const tenantLabel = (l: LeaseItem, zh: boolean) => l.tenant || (zh ? '租客' : 'Tenant')
 
 const LEASES: LeaseItem[] = [
   {
@@ -219,7 +231,7 @@ function downloadCSV(lang: Lang, rows: LeaseItem[]) {
     : 'Lease code,Lease ID,Tenant,Unit,Monthly Rent,Start Date,End Date,Status,On-time Rate'
   const csv = toCsv(
     header.split(','),
-    rows.map(l => [leaseCode(l.id), l.id, l.tenant, l.unit, l.rent, l.start, l.end, l.status, l.onTime]),
+    rows.map(l => [leaseCode(l.id), l.id, tenantLabel(l, lang === 'zh'), l.unit, l.rent, l.start, l.end, l.status, l.onTime]),
   )
   downloadCsv(`stayloop-leases-${new Date().toISOString().slice(0, 10)}.csv`, csv)
 }
@@ -238,15 +250,24 @@ export default function LandlordLeasesPage() {
     if (!landlord) return
     const { data, error } = await supabase
       .from('lease_documents')
-      .select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status')
+      .select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status, application_id')
       .order('end_date', { ascending: true })
     if (!error && data) {
-      // Newest tenant intent per lease (RLS: household members read).
+      // Newest tenant intent per lease (RLS: household members read), and the
+      // tenancy on each lease (one batched read, for the message button: a tenancy thread may include
+      // co-tenants, so it is labelled as the thread, not one person).
       const ids = data.map((r) => r.id)
-      const { data: intents } = ids.length ? await supabase.from('renewal_intents').select('lease_id, intent, created_at').in('lease_id', ids).order('created_at', { ascending: false }).limit(200) : { data: [] as { lease_id: string | null; intent: string; created_at: string }[] }
+      const [{ data: intents }, { data: hhs }] = ids.length
+        ? await Promise.all([
+            supabase.from('renewal_intents').select('lease_id, intent, created_at').in('lease_id', ids).order('created_at', { ascending: false }).limit(200),
+            supabase.from('households').select('id, current_lease_id').in('current_lease_id', ids).limit(200),
+          ])
+        : [{ data: [] as { lease_id: string | null; intent: string; created_at: string }[] }, { data: [] as { id: string; current_lease_id: string | null }[] }]
       const byLease = new Map<string, { intent: string; created_at: string }>()
       for (const i of (intents ?? []) as { lease_id: string | null; intent: string; created_at: string }[]) if (i.lease_id && !byLease.has(i.lease_id)) byLease.set(i.lease_id, i)
-      setRealLeases(data.map((row) => mapDbLease(row, aiName, byLease.get(row.id) ?? null)))
+      const hhByLease = new Map<string, string>()
+      for (const h of (hhs ?? []) as { id: string; current_lease_id: string | null }[]) if (h.current_lease_id && !hhByLease.has(h.current_lease_id)) hhByLease.set(h.current_lease_id, h.id)
+      setRealLeases(data.map((row) => mapDbLease(row, aiName, byLease.get(row.id) ?? null, hhByLease.get(row.id) ?? null)))
     }
   }, [landlord, aiName])
   useEffect(() => { void loadLeases() }, [loadLeases])
@@ -858,7 +879,7 @@ function LeaseSection({
             return (
               <Tr key={l.id}>
                 <Td>
-                  <div className="text-[13px] font-semibold">{l.tenant}</div>
+                  <div className="text-[13px] font-semibold">{tenantLabel(l, zh)}</div>
                   <div className="text-[12px] text-body-2">{l.unit}</div>
                   <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
                     {leaseCode(l.id)} · {l.start} → {l.end}
@@ -907,12 +928,25 @@ function LeaseSection({
                   <div className="mt-0.5 text-[11.5px] text-body-2">{l.nextRenewal[lang]}</div>
                 </Td>
                 <Td align="right">
-                  <Link
-                    href={`/landlord/leases/${l.id}`}
-                    className="inline-block whitespace-nowrap rounded-[8px] border border-line-strong bg-white px-3 py-1.5 text-[12px] font-semibold text-body transition hover:border-brand hover:text-brand"
-                  >
-                    {lang === 'zh' ? '打开 →' : 'Open →'}
-                  </Link>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <Link
+                      href={`/landlord/leases/${l.id}`}
+                      className="inline-block whitespace-nowrap rounded-[8px] border border-line-strong bg-white px-3 py-1.5 text-[12px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                    >
+                      {lang === 'zh' ? '打开 →' : 'Open →'}
+                    </Link>
+                    {/* Real rows only: the tenancy conversation when the lease is in management,
+                        else the application conversation it was drafted from. Sample rows have neither. */}
+                    {(l.householdId || l.applicationId) && (
+                      <MessageButton
+                        target={l.householdId ? { kind: 'tenancy', ref: l.householdId } : { kind: 'application', ref: l.applicationId! }}
+                        label={l.householdId ? (zh ? '在租约对话里发消息' : 'Message in the tenancy thread') : (zh ? '发消息给申请人' : 'Message the applicant')}
+                        zh={zh}
+                        className="whitespace-nowrap"
+                        testId="lease-row-message"
+                      />
+                    )}
+                  </div>
                 </Td>
               </Tr>
             )

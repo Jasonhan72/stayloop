@@ -28,6 +28,7 @@ import { applicantStage, STAGE_SECTIONS, type ApplicantStage } from '@/lib/landl
 import ApplicantCompare from '@/components/landlord/ApplicantCompare'
 import { useFacts } from '@/lib/facts/useFacts'
 import { leaseStateDetail } from '@/lib/matters/states'
+import MessageButton from '@/components/messages/MessageButton'
 
 type Decision = 'approve' | 'review' | 'decline'
 
@@ -470,11 +471,13 @@ export default function LandlordApplicantsPage() {
             ) : undefined}
           >
             {list.map((a) => (
-              <Link
+              // The whole row opens the application (an overlay link), and the
+              // 「发消息」 chip sits above it — a button is never nested inside a link.
+              <div
                 key={a.id}
-                href={`/landlord/applicants/${a.id}`}
-                className="grid grid-cols-[36px_1fr_auto] items-center gap-3 border-b border-line-divider px-4 py-2.5 transition last:border-b-0 hover:bg-surface-chip sm:grid-cols-[36px_1fr_110px_64px_16px] sm:gap-4"
+                className="relative grid grid-cols-[36px_1fr_auto] items-center gap-3 border-b border-line-divider px-4 py-2.5 transition last:border-b-0 hover:bg-surface-chip sm:grid-cols-[36px_1fr_110px_64px_16px] sm:gap-4"
               >
+                <Link href={`/landlord/applicants/${a.id}`} aria-label={lang === 'zh' ? `打开申请：${a.name === '—' ? '申请人' : a.name}` : `Open application: ${a.name === '—' ? 'applicant' : a.name}`} className="absolute inset-0" />
                 <span
                   className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-bold text-white"
                   style={{
@@ -491,7 +494,19 @@ export default function LandlordApplicantsPage() {
                   {a.initial}
                 </span>
                 <div className="min-w-0">
-                  <div className="text-[13.5px] font-bold">{a.name}</div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-[13.5px] font-bold">{a.name}</span>
+                    {/* Real rows only — the design-sample rows have no conversation behind them. */}
+                    {liveMode && (
+                      <MessageButton
+                        target={{ kind: 'application', ref: a.id }}
+                        label={lang === 'zh' ? '发消息' : 'Message'}
+                        zh={lang === 'zh'}
+                        className="relative z-10"
+                        testId="applicant-row-message"
+                      />
+                    )}
+                  </div>
                   <div className="font-mono text-[10.5px] text-body-3">
                     {a.income != null ? `$${a.income.toLocaleString()}/mo` : lang === 'zh' ? '收入未填' : 'No income given'}
                     {a.unitLabel ? ` · ${a.unitLabel}` : ''}
@@ -506,7 +521,7 @@ export default function LandlordApplicantsPage() {
                   </div>
                   <span className="text-right text-body-3">›</span>
                 </div>
-              </Link>
+              </div>
             ))}
           </SectionCard>
         )
@@ -530,7 +545,7 @@ export default function LandlordApplicantsPage() {
                     const decision = r.status === 'approved' ? (lang === 'zh' ? '录取' : 'Approved') : r.status === 'declined' || r.status === 'rejected' ? (lang === 'zh' ? '婉拒' : 'Declined') : r.status === 'withdrawn' ? (lang === 'zh' ? '已撤回' : 'Withdrawn') : (lang === 'zh' ? '未决定' : 'Undecided')
                     return (
                       <tr key={r.id}>
-                        <td className="py-2 pr-3"><Link href={`/landlord/applicants/${r.id}`} className="font-semibold hover:underline">{a.name}</Link>{a.unitLabel ? <div className="text-[11.5px] text-body-3">{a.unitLabel}</div> : null}</td>
+                        <td className="py-2 pr-3"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><Link href={`/landlord/applicants/${r.id}`} className="font-semibold hover:underline">{a.name}</Link><MessageButton target={{ kind: 'application', ref: r.id }} label={lang === 'zh' ? '发消息' : 'Message'} zh={lang === 'zh'} testId="archived-applicant-message" /></div>{a.unitLabel ? <div className="text-[11.5px] text-body-3">{a.unitLabel}</div> : null}</td>
                         <td className="py-2 pr-3">{decision}</td>
                         <td className="py-2 pr-3">{r.decision_notified_at ? r.decision_notified_at.slice(0, 10) : <span className="text-amber-800">{lang === 'zh' ? '未发通知' : 'Not sent'}</span>}</td>
                         <td className="py-2 pr-3">{lease ? leaseStateDetail(lease, lang === 'zh') : r.status === 'approved' ? <span className="text-amber-800">{lang === 'zh' ? '尚未起草' : 'Not drafted'}</span> : '—'}</td>

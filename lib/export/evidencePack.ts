@@ -72,7 +72,7 @@ export function renderEvidencePack(d: EvidencePackData, m: PackMeta): string {
     <table><thead><tr><th>${T(L, '环节', 'Step')}</th><th>${T(L, '状态', 'State')}</th><th>${T(L, '时间（多伦多 · UTC）', 'When (Toronto · UTC)')}</th><th>${T(L, '说明', 'Notes')}</th></tr></thead><tbody>
     ${rows([
       d.application ? `<td>${T(L, '申请', 'Application')}</td><td>${esc(d.application.status ?? '—')}</td><td>${when(d.application.created_at, L)}</td><td>${esc(d.application.applicant)}${d.application.decision_notified_at ? ` · ${T(L, '决定通知', 'decision notice')} ${when(d.application.decision_notified_at, L)}` : ''}${d.application.decision_reason ? ` · ${esc(d.application.decision_reason)}` : ''}</td>` : '',
-      d.screening ? `<td>${T(L, '筛查', 'Screening')}</td><td>${esc(d.screening.status ?? '—')}</td><td>${when(d.screening.created_at, L)}</td><td>${T(L, '结果与分数不在证据包内；报告由房东另存', 'Result and score are not part of the pack; the landlord keeps the report separately')}</td>` : '',
+      d.screening ? `<td>${T(L, '筛查', 'Screening')}</td><td>${esc(d.screening.status ?? '—')}</td><td>${when(d.screening.created_at, L)}</td><td>${T(L, '结果与分数不在这份记录里；报告由房东另存', 'Result and score are not part of this record; the landlord keeps the report separately')}</td>` : '',
       d.lease ? `<td>${T(L, '租约', 'Lease')}</td><td>${esc(d.lease.status ?? '—')}</td><td>${esc(d.lease.start_date ?? '—')} → ${esc(d.lease.end_date ?? '—')}</td><td>${T(L, '月租', 'Rent')} ${money(d.lease.monthly_rent)}${d.lease.sent_at ? ` · ${T(L, '发出', 'sent')} ${when(d.lease.sent_at, L)}` : ''}${d.lease.signed_at ? ` · ${T(L, '双签', 'signed')} ${when(d.lease.signed_at, L)}` : ''}</td>` : '',
       d.household ? `<td>${T(L, '在管租约', 'Managed tenancy')}</td><td>${esc(d.household.status ?? '—')}${d.household.verified ? ` · ${T(L, '双方确认', 'both confirmed')}` : ` · ${T(L, '未确认', 'unconfirmed')}`}</td><td>—</td><td>${T(L, '租金记录', 'Rent records')} ${d.household.rent.length}</td>` : '',
     ].filter(Boolean))}
@@ -88,10 +88,10 @@ export function renderEvidencePack(d: EvidencePackData, m: PackMeta): string {
   const audit = d.audit.length ? `<table><thead><tr><th>${T(L, '时间', 'When')}</th><th>${T(L, '身份', 'Hat')}</th><th>${T(L, '谁', 'Who')}</th><th>${T(L, '动作', 'Action')}</th><th>${T(L, '委托', 'Delegation')}</th></tr></thead><tbody>${rows(d.audit.map((a) => `<td>${when(a.created_at, L)}</td><td>${esc(a.acting_role ? (PARTY[a.acting_role]?.[L] ?? a.acting_role) : '—')}</td><td>${esc(a.actor)}</td><td>${esc(a.action)}</td><td class="att">${a.delegation_id ? esc(a.delegation_id.slice(0, 8)) : '—'}</td>`))}</tbody></table>` : `<p class="meta">${T(L, '无审计记录。', 'No audit rows.')}</p>`
   const delegs = d.delegations.length ? `<table><thead><tr><th>${T(L, '委托人', 'Principal')}</th><th>${T(L, '受托经纪', 'Agent')}</th><th>${T(L, '范围 · 动作', 'Scope · actions')}</th><th>${T(L, '状态', 'Status')}</th><th>${T(L, '确认 / 撤销 / 到期', 'Confirmed / revoked / until')}</th></tr></thead><tbody>${rows(d.delegations.map((g) => `<td>${esc(g.principal)}</td><td>${esc(g.delegate)}</td><td>${esc(g.scope.join(', '))} · ${esc(g.allowed_actions.join(', '))}<br><span class="att">${esc(g.basis_version)}</span></td><td>${esc(g.status)}</td><td>${when(g.confirmed_at, L)}<br>${when(g.revoked_at, L)}<br>${esc(g.expires_at.slice(0, 10))}</td>`))}</tbody></table>` : `<p class="meta">${T(L, '无委托。', 'No delegations.')}</p>`
   const attachments = d.threads.flatMap((t) => t.messages.flatMap((x) => x.attachments))
-  return `<!doctype html><html lang="${L === 'zh' ? 'zh-CN' : 'en-CA'}"><head><meta charset="utf-8"><title>${esc(T(L, '证据包', 'Evidence pack'))} · ${esc(title)}</title><style>${CSS}</style></head><body>
+  return `<!doctype html><html lang="${L === 'zh' ? 'zh-CN' : 'en-CA'}"><head><meta charset="utf-8"><title>${esc(T(L, '聊天记录', 'Chat history'))} · ${esc(title)}</title><style>${CSS}</style></head><body>
 <div class="toolbar"><span>${T(L, '这是按平台记录生成的导出件；打印可存为 PDF。', 'Generated from the platform record; print to save as PDF.')}</span><button onclick="window.print()">${T(L, '打印 / 保存为 PDF', 'Print / Save as PDF')}</button></div>
 <div class="sheet">
-  <div class="eyebrow">Stayloop · ${T(L, '租赁事务证据包', 'Rental matter evidence pack')}</div>
+  <div class="eyebrow">Stayloop · ${T(L, '租赁事务 · 聊天记录（含工单与通知）', 'Rental matter · chat history (with work orders & notices)')}</div>
   <h1>${esc(title)}</h1>
   <div class="meta">${T(L, '事务编号', 'Matter')} <span class="fp">${esc(d.matter.id)}</span> · ${T(L, '房东', 'landlord')} ${esc(d.parties.landlord)}${d.parties.tenant ? ` · ${T(L, '租客', 'tenant')} ${esc(d.parties.tenant)}` : ''}</div>
   <div class="meta">${T(L, '生成于', 'Generated')} ${when(m.generatedAt, L)} · ${T(L, '生成者', 'by')} ${esc(m.generatedBy)} · ${esc(m.siteUrl)}</div>
@@ -166,10 +166,10 @@ export type ThreadPackMeta = PackMeta & { parties: string[] }
 /** A single conversation's export (message centre). */
 export function renderThreadPack(t: PackThread, m: ThreadPackMeta): string {
   const L = m.lang
-  return `<!doctype html><html lang="${L === 'zh' ? 'zh-CN' : 'en-CA'}"><head><meta charset="utf-8"><title>${esc(T(L, '对话记录', 'Conversation record'))} · ${esc(t.title || t.kind)}</title><style>${CSS}</style></head><body>
+  return `<!doctype html><html lang="${L === 'zh' ? 'zh-CN' : 'en-CA'}"><head><meta charset="utf-8"><title>${esc(T(L, '聊天记录', 'Chat history'))} · ${esc(t.title || t.kind)}</title><style>${CSS}</style></head><body>
 <div class="toolbar"><span>${T(L, '这是按平台记录生成的导出件；打印可存为 PDF。', 'Generated from the platform record; print to save as PDF.')}</span><button onclick="window.print()">${T(L, '打印 / 保存为 PDF', 'Print / Save as PDF')}</button></div>
 <div class="sheet">
-  <div class="eyebrow">Stayloop · ${T(L, '对话记录', 'Conversation record')}</div>
+  <div class="eyebrow">Stayloop · ${T(L, '聊天记录', 'Chat history')}</div>
   <h1>${esc(t.title || t.kind)}</h1>
   <div class="meta">${T(L, '对话编号', 'Thread')} <span class="fp">${esc(t.id)}</span> · ${T(L, '参与方', 'parties')}: ${esc(m.parties.join(' · '))}</div>
   <div class="meta">${T(L, '生成于', 'Generated')} ${when(m.generatedAt, L)} · ${T(L, '生成者', 'by')} ${esc(m.generatedBy)} · ${esc(m.siteUrl)}</div>

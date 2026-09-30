@@ -238,6 +238,22 @@ export default function ListingDetailPage() {
     })()
   }, [listing?.landlord_id])
   const isOwnListing = !!listing?.landlord_id && ownIds.includes(listing.landlord_id)
+  // The prospect's own conversation with this listing's landlord (找得到人
+  // 2026-09-30). One lookup, only once we know the viewer is signed in and not
+  // the owner (ownIds always holds the uid once resolved); re-checked after the
+  // ask/showing modal closes, because the first message creates the thread.
+  // Realtor.ca imports have no Stayloop landlord — no conversation, no lookup.
+  const [inquiryThreadId, setInquiryThreadId] = useState<string | null>(null)
+  const [inquiryCheck, setInquiryCheck] = useState(0)
+  const viewerId = auth.user?.id ?? null
+  const ownResolved = ownIds.length > 0
+  useEffect(() => {
+    if (!listing?.id || listing.source === 'realtor' || !viewerId || !ownResolved || isOwnListing) { setInquiryThreadId(null); return }
+    let on = true
+    supabase.rpc('find_listing_thread', { p_listing: listing.id })
+      .then(({ data }) => { if (on) setInquiryThreadId(data ? String(data) : null) })
+    return () => { on = false }
+  }, [listing?.id, listing?.source, viewerId, ownResolved, isOwnListing, inquiryCheck])
 
   const onShare = useCallback(async () => {
     const url = window.location.href
@@ -886,6 +902,15 @@ export default function ListingDetailPage() {
                   directory and contacts them directly. Stayloop does not
                   dispatch, is not a brokerage and charges nothing (decision
                   2026-09-13; design/roles-and-agent-verification-2026-09.md). */}
+              {listing.source !== 'realtor' && inquiryThreadId && (
+                <Link
+                  href={`/messages?t=${inquiryThreadId}&compose=1`}
+                  data-testid="listing-continue-thread"
+                  className="mt-4 block rounded-[10px] border border-brand/30 bg-brand/5 px-4 py-[10px] text-center text-[13.5px] font-semibold text-brand transition hover:bg-brand/10"
+                >
+                  {zh ? '继续和房东的对话 →' : 'Continue your conversation with the landlord →'}
+                </Link>
+              )}
               {listing.source !== 'realtor' ? (
                 <button
                   onClick={() => setIntentKind('showing')}
@@ -925,8 +950,8 @@ export default function ListingDetailPage() {
               <div className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
                 {listing.source !== 'realtor'
                   ? (zh
-                      ? <>请求会进入房东 AI 助理的待办；房东批准后你会收到带联系方式的邮件。也可以<button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">找认证经纪</button>陪同看房。Stayloop 不参与交易、不收费。</>
-                      : <>Your request lands in the landlord&apos;s AI Agent to-do list; once approved you get an email with their contact. You can also <button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">bring a verified agent</button>. Stayloop takes no part in the trade and charges nothing.</>)
+                      ? <>房东会在「消息」里的这段对话回复你；双方都看不到对方的私人邮箱。也可以<button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">找认证经纪</button>陪同看房。Stayloop 不参与交易、不收费。</>
+                      : <>The landlord replies in this conversation under Messages; neither side sees the other&apos;s personal email. You can also <button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">bring a verified agent</button>. Stayloop takes no part in the trade and charges nothing.</>)
                   : (zh
                       ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选并直接联系；Stayloop 不参与交易、不收费。'
                       : 'Pick a Stayloop-verified (RECO-checked) agent and contact them directly; Stayloop takes no part in the trade and charges nothing.')}
@@ -963,12 +988,46 @@ export default function ListingDetailPage() {
 
                 </div>
               </div>
-              <Link
-                href={`/tenant/agent?prompt=${encodeURIComponent(zh ? `我想咨询 ${listing.address} 这个房源，帮我联系${listing.broker_name ? `经纪 ${listing.broker_name}` : '房东'}` : `I'd like to ask about the listing at ${listing.address} — connect me with ${listing.broker_name ? `agent ${listing.broker_name}` : 'the landlord'}`)}&send=1`}
-                className="mt-4 block w-full rounded-[10px] border border-line-strong bg-white py-[10px] text-center text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
-              >
-                {zh ? '让我的 AI 助理替我联系' : 'Ask through my AI Agent'}
-              </Link>
+              {/* 找得到人 2026-09-30: the old「让我的 AI 助理替我联系」sent a prompt
+                  whose send_message resolved to the tenant's CURRENT landlord —
+                  the wrong person. A Stayloop landlord listing now opens the
+                  listing conversation (first contact goes through the ask
+                  modal / /api/showing-intent, which creates the thread); a
+                  Realtor.ca import has no Stayloop landlord (its landlord row is
+                  the admin who imported it), so it keeps the verified-agent path. */}
+              {isOwnListing ? null : listing.source !== 'realtor' ? (
+                <>
+                  {inquiryThreadId ? (
+                    <Link
+                      href={`/messages?t=${inquiryThreadId}&compose=1`}
+                      data-testid="listing-message-landlord"
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-[10px] border border-line-strong bg-white py-[10px] text-center text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                    >
+                      <span aria-hidden="true">✉</span>{zh ? '发消息给房东' : 'Message the landlord'}
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIntentKind('question')}
+                      data-testid="listing-message-landlord"
+                      className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-[10px] border border-line-strong bg-white py-[10px] text-center text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                    >
+                      <span aria-hidden="true">✉</span>{zh ? '发消息给房东' : 'Message the landlord'}
+                    </button>
+                  )}
+                  <p className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
+                    {zh ? '房东会在「消息」里的这段对话回复你；双方都看不到对方的私人邮箱。' : 'The landlord replies in this conversation under Messages; neither side sees the other’s personal email.'}
+                  </p>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setFieldAgentOpen(true)}
+                  className="mt-4 block w-full rounded-[10px] border border-line-strong bg-white py-[10px] text-center text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                >
+                  {zh ? '找认证经纪帮我联系' : 'Contact through a verified agent'}
+                </button>
+              )}
             </div>
 
           </aside>
@@ -1032,7 +1091,7 @@ export default function ListingDetailPage() {
             listingId={listing.id}
             listingAddress={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`}
             signedIn={!auth.loading && !!auth.user}
-            onClose={() => setIntentKind(null)}
+            onClose={() => { setIntentKind(null); if (!inquiryThreadId) setInquiryCheck((n) => n + 1) }}
           />
         )}
         {fieldAgentOpen && (

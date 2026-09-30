@@ -279,10 +279,10 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
       id: 'film-decision', role: 'landlord', action_type: 'send_decision', risk_level: 'low',
       title: L({ zh: `录取通知：Mia Chen · ${ADDR}`, en: `Admission notice: Mia Chen · ${ADDR}` }),
       summary: L({
-        zh: `批准后我会给 ${MIA_EMAIL} 发录取通知，并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。`,
-        en: `Once approved I send the admission notice to ${MIA_EMAIL} and say the lease follows. The letter always carries the Consumer Reporting Act s.10(7) and OHRC statements.`,
+        zh: `批准后我会给申请人 Mia Chen 发录取通知（发到 TA 申请时填写的邮箱），并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。`,
+        en: `Once approved I send the admission notice to Mia Chen (at the address on the application) and say the lease follows. The letter always carries the Consumer Reporting Act s.10(7) and OHRC statements.`,
       }),
-      recipient_label: MIA_EMAIL,
+      recipient_label: 'Mia Chen',
       data_scope: zh ? ['申请结果', '申请对话（对方回邮件即进对话）'] : ['The decision', 'The application conversation (replies land there)'],
       excluded_data: zh ? ['筛查报告', '评分', '其他申请人信息'] : ['Screening report', 'Score', 'Other applicants’ information'],
     }, now)
@@ -314,7 +314,7 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
         zh: `安省标准租约 · ${D.moveIn} 起一年 · 月租 $2,800 · 押金一个月（RTA s.106）。签署链接只发给 Mia；双方签完后自动建立在管租约。`,
         en: `Ontario Standard Lease · one year from ${D.moveIn} · $2,800/month · one month’s deposit (RTA s.106). The signing link goes to Mia only; once both sign, the managed tenancy is set up.`,
       }),
-      recipient_label: MIA_EMAIL,
+      recipient_label: 'Mia Chen',
       data_scope: zh ? ['租约全文', '签署链接'] : ['The full lease', 'The signing link'],
       excluded_data: zh ? ['筛查报告', '你的其他租约'] : ['Screening report', 'Your other leases'],
     }, now)

@@ -30,8 +30,17 @@ export function rentAmount(n: number): string {
 
 /** The line posted after an approved card ran: names the artifact by type — "续约函" only for
  *  renewals; the newer executors (rent_reminder / send_message) send other emails. */
-export function executedText(i: { title: string | null | undefined; actionType: string | null | undefined; sentTo: string; rent?: number | null; zh: boolean }): string {
-  const { title, actionType, sentTo, rent, zh } = i
+export function executedText(i: { title: string | null | undefined; actionType: string | null | undefined; sentTo: string; rent?: number | null; zh: boolean; viaThread?: boolean }): string {
+  const { title, actionType, rent, zh } = i
+  // A message the tenant's AI Agent posted into the tenancy conversation is not an email to one person (找得到人 2026-09-30).
+  if (i.viaThread) {
+    return zh
+      ? `✅ 已执行：「${title ?? '你批准的操作'}」— 消息已发到在管租约对话（对话里的每个人都能看到），对方会收到提醒。执行记录已写入审计日志。`
+      : `✅ Done: "${title ?? 'the action you approved'}" — the message is in the tenancy conversation (everyone in it can see it) and they were notified. The execution was written to the audit log.`
+  }
+  // Role words the server uses instead of a personal address (relay), in the reader's language.
+  const ROLE_EN: Record<string, string> = { 房东: 'your landlord', 租客: 'the tenant', 申请人: 'the applicant' }
+  const sentTo = zh ? i.sentTo : (ROLE_EN[i.sentTo] ?? i.sentTo)
   const artifact = zh
     ? (actionType === 'send_renewal_letter'
         ? '续约函'

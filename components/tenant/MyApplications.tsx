@@ -14,6 +14,8 @@ import Link from 'next/link'
 import { useReportLiveRows } from '@/lib/liveRows'
 import { useFacts, type LeaseRow, type TenantApplicationRow } from '@/lib/facts/useFacts'
 import { applicationTrack, trackSummary, type TrackStep } from '@/lib/lifecycle/applicationTrack'
+import MessageButton from '@/components/messages/MessageButton'
+import { useRealtorListings } from '@/lib/messages/realtorListings'
 
 function Tracker({ steps, zh }: { steps: TrackStep[]; zh: boolean }) {
   return (
@@ -40,6 +42,8 @@ export default function MyApplications({ zh }: { zh: boolean }) {
   const households = facts ? facts.households : []
   const joined = new Set(facts ? facts.members : [])
   useReportLiveRows('applications', rows ? rows.length : null)
+  // Realtor.ca imports have no Stayloop landlord (the row belongs to whoever imported it): no message button there.
+  const realtor = useRealtorListings(rows ? rows.map((r) => r.listing_id) : [])
   if (!rows || rows.length === 0) return null
   // A lease "belongs" to an application when it names it (lease_documents.application_id);
   // the address heuristic is only for leases that predate the column, and never for a lease
@@ -79,12 +83,12 @@ export default function MyApplications({ zh }: { zh: boolean }) {
                 </span>
               </div>
               <Tracker steps={steps} zh={zh} />
-              {(lease?.status === 'sent' || hh) && (
-                <div className="mt-1.5 flex flex-wrap gap-3 text-[12px]">
-                  {lease?.status === 'sent' && <Link href="/tenant/lease" className="font-semibold text-brand underline underline-offset-2">{zh ? '租约已发到你的邮箱 · 去签署' : 'Lease sent to your email · sign'}</Link>}
-                  {hh && <Link href={`/h/${hh.id}`} className="font-semibold text-brand underline underline-offset-2">{joined.has(hh.id) ? (zh ? '打开在管租约' : 'Open the tenancy') : (zh ? '接受在管租约邀请' : 'Accept the tenancy invitation')}</Link>}
-                </div>
-              )}
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px]">
+                {/* 找得到人 2026-09-30: the application conversation is two-party (applicant ↔ this listing's landlord). */}
+                {realtor && !(r.listing_id && realtor.has(r.listing_id)) && <MessageButton target={{ kind: 'application', ref: r.id }} label={zh ? '发消息给房东' : 'Message the landlord'} zh={zh} variant="chip" testId="application-message-landlord" />}
+                {lease?.status === 'sent' && <Link href="/tenant/lease" className="font-semibold text-brand underline underline-offset-2">{zh ? '租约已发到你的邮箱 · 去签署' : 'Lease sent to your email · sign'}</Link>}
+                {hh && <Link href={`/h/${hh.id}`} className="font-semibold text-brand underline underline-offset-2">{joined.has(hh.id) ? (zh ? '打开在管租约' : 'Open the tenancy') : (zh ? '接受在管租约邀请' : 'Accept the tenancy invitation')}</Link>}
+              </div>
             </div>
           )
         })}

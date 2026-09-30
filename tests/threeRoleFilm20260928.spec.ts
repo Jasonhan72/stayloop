@@ -185,13 +185,16 @@ describe('the script: the product’s own lines and cards, the site canon, no sc
   it('the admission card is the one the applicant page drafts', () => {
     const page = read('app/landlord/applicants/[id]/page.tsx')
     expect(page).toContain("decision === 'approved' ? `录取通知：${name} · ${listingAddr}`")
-    expect(page).toContain('`批准后我会给 ${app.email} 发录取通知，并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。`')
+    // Relay (找得到人 2026-09-30): the card names the applicant; the executor reads the address from the application row.
+    expect(page).toContain('`批准后我会给${applicantWhoSp}发录取通知（发到 TA 申请时填写的邮箱），并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。`')
+    expect(page).toContain("const applicantWho = hasName ? `申请人 ${name}` : '申请人'")
     expect(page).toContain("excluded_data: ['筛查报告', '评分', '其他申请人信息']")
     const b = beatsOf('zh')[2].beats.find((x) => x.k === 'card')!
     if (b.k !== 'card') throw new Error('no card')
     expect(b.card.action_type).toBe('send_decision')
     expect(b.card.title).toBe('录取通知：Mia Chen · King St W #1207')
-    expect(b.card.summary).toBe(`批准后我会给 ${MIA_EMAIL} 发录取通知，并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。`)
+    expect(b.card.summary).toBe('批准后我会给申请人 Mia Chen 发录取通知（发到 TA 申请时填写的邮箱），并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。')
+    expect(b.card.summary).not.toContain(MIA_EMAIL)
     expect(b.card.data_scope).toEqual(['申请结果', '申请对话（对方回邮件即进对话）'])
     expect(b.card.excluded_data).toEqual(['筛查报告', '评分', '其他申请人信息'])
   })

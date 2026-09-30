@@ -27,7 +27,7 @@ import { decisionNoticeFooter, guidelineFor } from '@/lib/ontario/rules'
 import { rentAmount } from '@/lib/agent/chatCopy'
 import { notifyUser } from '@/lib/push/notify'
 import { actOnWorkOrder, createWorkOrder, suggestDispatch } from '@/lib/marketplace/server'
-import { ensureListingThread, ensureThread, postSystemMessage, replyTokenFor } from '@/lib/threads/server'
+import { displayNameFor, ensureListingThread, ensureThread, notifyThreadParties, postSystemMessage, replyTokenFor } from '@/lib/threads/server'
 import { messageCenterHref } from '@/lib/threads/shared'
 import { replyAddress } from '@/lib/threads/emailReply'
 import { matterOfRef } from '@/lib/matters/server'
@@ -361,13 +361,13 @@ async function isKnownCounterparty(admin: Admin, userId: string, email: string):
 // a repair request), so executors derive it here instead of trusting metadata.
 // ---------------------------------------------------------------------------
 async function resolveTenantLandlord(admin: Admin, userId: string, callerEmail: string | null): Promise<{ email: string; auth_id: string | null; household_id: string | null; unit: string | null } | null> {
-  const { data: mem } = await admin.from('household_members').select('household_id, role').eq('user_id', userId).eq('role', 'tenant')
+  const { data: mem } = await admin.from('household_members').select('household_id, role').eq('user_id', userId).eq('role', 'tenant').eq('status', 'active')
   const hhIds = (mem ?? []).map((r: { household_id: string }) => r.household_id)
   if (hhIds.length) {
     const { data: hhs } = await admin.from('households').select('id, verified, status, address, unit').in('id', hhIds).eq('verified', true).order('created_at', { ascending: false })
     for (const hh of (hhs ?? []) as { id: string; status: string | null; address: string | null; unit: string | null }[]) {
       if (hh.status && !['active', 'pending'].includes(hh.status)) continue
-      const { data: ll } = await admin.from('household_members').select('user_id').eq('household_id', hh.id).eq('role', 'landlord').limit(1)
+      const { data: ll } = await admin.from('household_members').select('user_id').eq('household_id', hh.id).eq('role', 'landlord').eq('status', 'active').limit(1)
       const landlordAuth = (ll?.[0] as { user_id: string } | undefined)?.user_id ?? null
       if (!landlordAuth) continue
       const { data: u } = await admin.auth.admin.getUserById(landlordAuth)
@@ -431,7 +431,8 @@ Your tenant filed a repair ticket on Stayloop:
   • Priority: ${priority}${emergency ? ' (habitability — please contact your tenant today)' : ''}
 ${enLines ? enLines + '\n' : ''}
 The ticket is on your shared tenancy hub; both sides see its progress.${emergency ? '\nUnder RTA s.20 the landlord must keep the unit fit for habitation; heat, water, gas and locks cannot wait.' : ''}`
-  if (preview) return PREVIEW({ subject, body, to: ll.email })
+  // Relay (找得到人 2026-09-30): the tenant never sees the landlord's personal address, not even in the preview.
+  if (preview) return PREVIEW({ subject, body, to: null })
   if (!(await claimExecution(admin, action.id))) return ALREADY()
   const { data: ticket, error: tErr } = await admin.from('maintenance_tickets').insert({ household_id: ll.household_id, opened_by: userId, title, description: [description, ...triageLines(m, true)].filter(Boolean).join('\n') || null, priority, status: 'new', category }).select('id').single()
   if (tErr || !ticket) {
@@ -439,14 +440,16 @@ The ticket is on your shared tenancy hub; both sides see its progress.${emergenc
     return NextResponse.json({ executed: false, reason: tErr?.message || 'ticket insert failed' }, { status: 500 })
   }
   const { html, text } = renderAgentMessageEmail({ subject, body })
-  const result = await sendEmail({ to: ll.email, subject, html, text })
+  const hhThread = await ensureThread(admin, 'tenancy', ll.household_id, { householdId: ll.household_id, createdBy: userId })
+  const llToken = hhThread ? await replyTokenFor(admin, hhThread.id, ll.email, { kind: 'landlord', userId: ll.auth_id, label: null }) : null
+  const result = await sendEmail({ to: ll.email, subject, html, text, replyTo: llToken ? replyAddress(llToken) : undefined, fromName: '租客 经 Stayloop' })
   if (ll.auth_id) void notifyUser(admin, ll.auth_id, { kind: 'event', title: '新的报修工单 / New repair ticket', body: title, url: `/h/${ll.household_id}` })
   // Services marketplace step ③: suggest the dispatch to the landlord as a card
   // (candidates = verified providers covering the trade and city; own contact
   // always possible). Never auto-dispatches.
   if (ll.auth_id) void suggestDispatch(admin, ll.auth_id, ticket.id)
-  const executionResult = { ok: true, kind: 'ticket', ticket_id: ticket.id, household_id: ll.household_id, email_id: result.ok ? result.id : null, sent_to: ll.email, email_error: result.ok ? null : result.error }
-  return finalizeExecution(admin, userId, action, 'executed_maintenance_request', executionResult, { ticket_id: ticket.id, household_id: ll.household_id, sent_to: ll.email })
+  const executionResult = { ok: true, kind: 'ticket', ticket_id: ticket.id, household_id: ll.household_id, email_id: result.ok ? result.id : null, sent_to: '房东', email_error: result.ok ? null : result.error }
+  return finalizeExecution(admin, userId, action, 'executed_maintenance_request', executionResult, { ticket_id: ticket.id, household_id: ll.household_id, sent_to: '房东' })
 }
 
 // ---------------------------------------------------------------------------
@@ -518,11 +521,12 @@ async function executeSendMessage(
   const fallback = (action.recipient_label || '').trim()
   let to = EMAIL_RE.test(candidate) ? candidate : (EMAIL_RE.test(fallback) ? fallback : null)
   let derived = false
+  let tenancyId: string | null = null
   if (!to && action.role === 'tenant') {
     // Turn-proposed cards carry no address; the landlord comes from the
     // tenant's own tenancy rows (see resolveTenantLandlord).
     const ll = await resolveTenantLandlord(admin, userId, callerEmail)
-    if (ll) { to = ll.email; derived = true }
+    if (ll) { to = ll.email; derived = true; tenancyId = ll.household_id }
   }
   if (!to) {
     return NextResponse.json({ executed: false, reason: action.role === 'tenant' ? 'no_landlord_on_file' : 'no valid recipient email' }, { status: 422 })
@@ -540,7 +544,22 @@ async function executeSendMessage(
   const subject =
     (typeof m.subject === 'string' && m.subject.trim()) ||
     '来自您的 Stayloop 代理的消息 / Message from your Stayloop agent'
-  if (preview) return PREVIEW({ subject, body: bodyText, to })
+  // A tenant writing to their own landlord: the message goes into the tenancy
+  // conversation (recorded, relayed by email with a reply address); the tenant
+  // never sees the landlord's personal address (找得到人 2026-09-30).
+  if (derived && tenancyId) {
+    if (preview) return PREVIEW({ subject: '', body: bodyText, to: null })
+    if (!(await claimExecution(admin, action.id))) return ALREADY()
+    const th = await ensureThread(admin, 'tenancy', tenancyId, { householdId: tenancyId, createdBy: userId })
+    if (!th) { await releaseClaim(admin, action.id, 'thread unavailable'); return NextResponse.json({ executed: false, reason: 'thread unavailable' }, { status: 500 }) }
+    const label = await displayNameFor(admin, userId)
+    const msgId = await postSystemMessage(admin, th.id, { kind: 'message', channel: 'app', senderId: userId, senderKind: 'tenant', actingRole: 'tenant', senderLabel: label, body: bodyText.slice(0, 4000), meta: { via: 'agent_send_message', action_id: action.id } })
+    if (!msgId) { await releaseClaim(admin, action.id, 'message insert failed'); return NextResponse.json({ executed: false, reason: 'message insert failed' }, { status: 500 }) }
+    await notifyThreadParties(admin, th, { messageId: msgId, exceptUserId: userId, preview: bodyText.slice(0, 120), body: bodyText, senderLabel: label ? `${label}（租客） / ${label} (Tenant)` : '租客 / Tenant' })
+    const shown = '房东（在管租约对话）'
+    return finalizeExecution(admin, userId, action, 'executed_send_message', { ok: true, kind: 'thread', thread_id: th.id, message_id: msgId, sent_to: shown }, { sent_to: shown, subject, thread_id: th.id, message_id: msgId })
+  }
+  if (preview) return PREVIEW({ subject, body: bodyText, to: derived ? null : to })
 
   if (!(await claimExecution(admin, action.id))) return ALREADY()
 
@@ -552,9 +571,10 @@ async function executeSendMessage(
     return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
   }
 
-  const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: to }
+  const shownTo = derived ? '房东' : to
+  const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: shownTo }
   return finalizeExecution(admin, userId, action, 'executed_send_message', executionResult, {
-    sent_to: to,
+    sent_to: shownTo,
     subject,
     email_id: result.id,
   })

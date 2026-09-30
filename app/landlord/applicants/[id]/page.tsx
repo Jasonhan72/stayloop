@@ -5,6 +5,7 @@ export const runtime = 'edge'
 import { summaryFor } from '@/lib/screening/summaryText'
 import FilePreviewModal from '@/components/landlord/FilePreviewModal'
 import ThreadPanel from '@/components/threads/ThreadPanel'
+import MessageButton from '@/components/messages/MessageButton'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -57,8 +58,6 @@ type AppDetail = {
   first_name: string | null
   last_name: string | null
   ai_extracted_name: string | null
-  email: string
-  phone: string | null
   monthly_income: number | null
   employer_name: string | null
   job_title: string | null
@@ -114,7 +113,7 @@ function RealApplicantDetail({ id }: { id: string }) {
       const { data } = await supabase
         .from('applications')
         .select(
-          'id, first_name, last_name, ai_extracted_name, email, phone, monthly_income, employer_name, job_title, ai_score, ai_summary, ai_dimension_notes, doc_authenticity_score, payment_ability_score, court_records_score, stability_score, behavior_signals_score, info_consistency_score, ltb_records_found, status, created_at, archived_at, files, viewed_at, listing:listings(address, unit, monthly_rent)',
+          'id, first_name, last_name, ai_extracted_name, monthly_income, employer_name, job_title, ai_score, ai_summary, ai_dimension_notes, doc_authenticity_score, payment_ability_score, court_records_score, stability_score, behavior_signals_score, info_consistency_score, ltb_records_found, status, created_at, archived_at, files, viewed_at, listing:listings(address, unit, monthly_rent)',
         )
         .eq('id', id)
         .maybeSingle()
@@ -163,14 +162,16 @@ function RealApplicantDetail({ id }: { id: string }) {
     if (!app || app === 'missing' || !user) return
     const listingAddr = app.listing ? `${(app.listing as { address?: string }).address ?? ''}` : ''
     const title = decision === 'approved' ? `录取通知：${name} · ${listingAddr}` : decision === 'declined' ? `婉拒通知：${name} · ${listingAddr}` : `补材料通知：${name} · ${listingAddr}`
+    // Relay principle (找得到人 2026-09-30): the card names the applicant, never
+    // shows their email — the executor reads the address from the application row.
     const summary = decision === 'approved'
-      ? `批准后我会给 ${app.email} 发录取通知，并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。`
+      ? `批准后我会给${applicantWhoSp}发录取通知（发到 TA 申请时填写的邮箱），并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。`
       : decision === 'declined'
-        ? `批准后我会给 ${app.email} 发婉拒通知${reason ? `，理由：「${reason}」` : ''}。信里固定带 s.10(7) 索取权与 OHRC 声明；理由已写入审计。`
-        : `批准后我会给 ${app.email} 发补材料通知：${reason || '（未填）'}`
+        ? `批准后我会给${applicantWhoSp}发婉拒通知（发到 TA 申请时填写的邮箱）${reason ? `，理由：「${reason}」` : ''}。信里固定带 s.10(7) 索取权与 OHRC 声明；理由已写入审计。`
+        : `批准后我会给${applicantWhoSp}发补材料通知（发到 TA 申请时填写的邮箱）：${reason || '（未填）'}`
     const { data: row, error } = await supabase.from('agent_pending_actions').insert({
       user_id: user.id, role: 'landlord', action_type: 'send_decision', title, summary,
-      recipient_label: app.email, data_scope: ['申请结果', decision === 'declined' && reason ? '房东填写的理由' : '申请对话（对方回邮件即进对话）'], excluded_data: ['筛查报告', '评分', '其他申请人信息'],
+      recipient_label: hasName ? name : null, data_scope: ['申请结果', decision === 'declined' && reason ? '房东填写的理由' : '申请对话（对方回邮件即进对话）'], excluded_data: ['筛查报告', '评分', '其他申请人信息'],
       risk_level: decision === 'declined' ? 'medium' : 'low', status: 'pending', requires_approval: true,
       metadata: { application_id: app.id, decision, reason: reason || null, source: 'applicant_page' },
     }).select('*').single()
@@ -188,7 +189,7 @@ function RealApplicantDetail({ id }: { id: string }) {
     const j = (await res.json().catch(() => ({}))) as { executed?: boolean; reason?: string; result?: { sent_to?: string; decision?: string } }
     setNoticeCard(null)
     if (j.executed) {
-      setNoticeDone(zh ? `通知已发送至 ${j.result?.sent_to}` : `Notice sent to ${j.result?.sent_to}`)
+      setNoticeDone(zh ? `通知已通过邮件发给${applicantWho}，副本留在下方的申请对话里` : `Notice emailed to ${applicantWhoEn}; a copy is in the application conversation below`)
       if (app && app !== 'missing' && j.result?.decision) setApp({ ...app, status: j.result.decision === 'needs_more' ? 'reviewing' : j.result.decision })
     } else setErr(j.reason || 'send failed')
   }
@@ -251,6 +252,10 @@ function RealApplicantDetail({ id }: { id: string }) {
   }
 
   const name = (app.ai_extracted_name || `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim()) || '—'
+  const hasName = name !== '—'
+  const applicantWho = hasName ? `申请人 ${name}` : '申请人'
+  const applicantWhoEn = hasName ? name : 'the applicant'
+  const applicantWhoSp = hasName ? `${applicantWho} ` : applicantWho
   const unitLabel = app.listing
     ? [app.listing.unit ? `Unit ${app.listing.unit}` : null, app.listing.address].filter(Boolean).join(' · ')
     : zh ? '房源未关联' : 'No listing linked'
@@ -292,6 +297,14 @@ function RealApplicantDetail({ id }: { id: string }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Application conversations are two-party (landlord · applicant), so the label names the person. */}
+          <MessageButton
+            target={{ kind: 'application', ref: app.id }}
+            label={zh ? (hasName ? `发消息给 ${name}` : '发消息给申请人') : hasName ? `Message ${name}` : 'Message the applicant'}
+            zh={zh}
+            variant="primary"
+            testId="applicant-message"
+          />
           <StampRow tier={tier} lang={lang} />
           {app.status === 'declined' ? (
             <span className="rounded-md bg-danger/10 px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-danger">
@@ -403,12 +416,13 @@ function RealApplicantDetail({ id }: { id: string }) {
                   {zh ? '🪪 请 TA 本人核验（身份 / 银行 / 征信）' : '🪪 Ask them to verify (identity / bank / credit)'}
                 </Link>
               )}
-              <Link
-                href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `帮我给申请人 ${name}（${app.email}）写一封邮件，问入住时间和还缺的材料。` : `Draft an email to applicant ${name} (${app.email}) about move-in timing and any missing documents.`)}&send=1`}
-                className="sl-btn-secondary text-center"
-              >
-                {zh ? `💬 让 ${aiName} 起草一封给 TA 的邮件` : `💬 Have ${aiName} draft an email to them`}
-              </Link>
+              {/* 找得到人 (2026-09-30): ask in the application conversation (relayed; replies land there) — the
+                  old "have the AI draft an email" link lost its recipient once the email left the prompt. */}
+              <MessageButton
+                target={{ kind: 'application', ref: app.id, draft: zh ? '想跟你确认一下入住时间，另外还缺这些材料：' : 'Quick check on your move-in date, and the documents still missing: ' }}
+                label={zh ? '💬 在申请对话里问入住时间和缺的材料' : '💬 Ask about move-in and missing documents'}
+                zh={zh} variant="chip" className="sl-btn-secondary justify-center !rounded-full !py-2.5" testId="applicant-ask-thread"
+              />
               {declineOpen ? (
                 <div className="rounded-lg border border-danger/40 p-3">
                   <input
@@ -484,7 +498,7 @@ function RealApplicantDetail({ id }: { id: string }) {
 
           <div className="sl-card p-6" data-testid="application-thread">
             <h3 className="text-[15px] font-bold tracking-tight">{zh ? '与申请人的对话' : 'Thread with the applicant'}</h3>
-            <p className="mt-1 text-[12px] text-body-3">{zh ? '申请人用申请时的邮箱登录后能看到并回复；决定通知的副本也留在这里。记录只追加、带服务器时间。' : 'The applicant sees and replies once signed in with the application email; copies of decision notices land here too. Append-only, server-timed.'}</p>
+            <p className="mt-1 text-[12px] text-body-3">{zh ? '申请人会收到新消息提醒邮件；TA 可以登录 Stayloop 在这里回复，也可以直接回复那封提醒邮件——都会进这段对话。对话经 Stayloop 中转，这里不会显示任何一方的邮箱。决定通知的副本也留在这里；记录只追加、带服务器时间。' : 'The applicant gets a new-message email; they can reply here after signing in to Stayloop, or simply reply to that email — either way it lands in this conversation. Messages are relayed by Stayloop; this conversation never shows either side’s email address. Copies of decision notices land here too; append-only, server-timed.'}</p>
             <div className="mt-3"><ThreadPanel kind="application" refId={app.id} viewer="landlord" zh={zh} title={zh ? '申请对话' : 'Application thread'} /></div>
           </div>
         </div>

@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/useAuth'
 import WorkOrderCard, { type WorkOrderLite } from '@/components/marketplace/WorkOrderCard'
 import DispatchModal from '@/components/marketplace/DispatchModal'
 import ThreadPanel from '@/components/threads/ThreadPanel'
+import MessageButton from '@/components/messages/MessageButton'
 import { CATEGORY_LABEL, MAINTENANCE_CATEGORIES } from '@/lib/agent/maintenanceTriage'
 
 export type Ticket = { id: string; title: string; description: string | null; category: string | null; priority: string; status: string; created_at: string; resolved_at: string | null; opened_by: string | null; photos: string[] | null }
@@ -27,6 +28,8 @@ export const TICKET_STATUS: Record<string, { zh: string; en: string; cls: string
   cancelled: { zh: '已取消', en: 'CANCELLED', cls: 'bg-surface-chip text-body-3' },
 }
 const OPEN = new Set(['offered', 'quoted', 'scheduled', 'in_progress', 'completed', 'rework', 'disputed'])
+// A work order that was declined or cancelled leaves no three-way thread to follow up in.
+const DEAD = new Set(['declined', 'cancelled'])
 
 export default function MaintenancePanel({ householdId, city, myRole, zh, providerNames, onNewTicket }: {
   householdId: string
@@ -120,6 +123,10 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
         const wos = orders.filter((w) => w.ticket_id === t.id)
         const open = wos.find((w) => OPEN.has(w.status))
         const cat = MAINTENANCE_CATEGORIES.includes(t.category as never) ? CATEGORY_LABEL[t.category as (typeof MAINTENANCE_CATEGORIES)[number]] : null
+        // No live work order → the ticket is between landlord and tenant: talk in the tenancy thread
+        // (it may include co-tenants, so the label names the thread, not one person).
+        const noWorkOrder = !wos.some((w) => !DEAD.has(w.status))
+        const ticketDraft = zh ? `关于报修「${t.title}」：` : `About the repair request "${t.title}": `
         return (
           <div key={t.id} className="rounded-xl border border-line-divider bg-white p-5" data-testid="ticket">
             <div className="flex flex-wrap items-center gap-2">
@@ -147,11 +154,19 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
               {isLandlord && !open && t.status === 'new' && <button disabled={busy} onClick={() => void setStatus(t, 'in_progress')} className="rounded-full border border-line-strong bg-white px-3 py-1.5 text-[12px] font-bold">{zh ? '我自己处理' : 'Handle it myself'}</button>}
               {isLandlord && !open && t.status === 'in_progress' && <button disabled={busy} onClick={() => void setStatus(t, 'done')} className="rounded-full border border-line-strong bg-white px-3 py-1.5 text-[12px] font-bold">{zh ? '标记完成' : 'Mark done'}</button>}
               {isLandlord && !open && !['done', 'cancelled'].includes(t.status) && <button disabled={busy} onClick={() => void setStatus(t, 'cancelled')} className="rounded-full px-3 py-1.5 text-[12px] text-body-3 underline">{zh ? '取消工单' : 'Cancel'}</button>}
+              {noWorkOrder && myRole === 'tenant' && (
+                <MessageButton zh={zh} label={zh ? '在租约对话里问房东' : 'Ask in the tenancy thread'} testId="ticket-message"
+                  target={{ kind: 'tenancy', ref: householdId, draft: ticketDraft }} />
+              )}
+              {noWorkOrder && isLandlord && (
+                <MessageButton zh={zh} label={zh ? '在租约对话里就这张报修发消息' : 'Message in the tenancy thread about this request'} testId="ticket-message"
+                  target={{ kind: 'tenancy', ref: householdId, draft: ticketDraft }} />
+              )}
             </div>
             {wos.length > 0 && (
               <div className="mt-3 space-y-3">
                 {wos.map((w) => {
-                  const who = w.provider_id ? (names[w.provider_id] || (zh ? '服务商' : 'provider')) : (w.external_name || w.external_email || (zh ? '服务商' : 'contractor'))
+                  const who = w.provider_id ? (names[w.provider_id] || (zh ? '服务商' : 'provider')) : (w.external_name || (zh ? '外部服务商' : 'Contractor'))
                   return (
                     <div key={w.id} className="space-y-2">
                       <WorkOrderCard wo={w} viewer={isLandlord ? 'landlord' : myRole === 'tenant' ? 'tenant' : 'system'} zh={zh} providerName={w.provider_id ? names[w.provider_id] : null} onChange={load} compact />

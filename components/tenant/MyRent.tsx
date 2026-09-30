@@ -10,6 +10,7 @@ import { useT } from '@/lib/i18n'
 import { useReportLiveRows } from '@/lib/liveRows'
 import { useFacts } from '@/lib/facts/useFacts'
 import { RENT_STATE_LABEL } from '@/lib/matters/states'
+import MessageButton from '@/components/messages/MessageButton'
 
 export default function MyRent() {
   const { lang } = useT()
@@ -36,6 +37,10 @@ export default function MyRent() {
             <div className="min-w-0 flex-1 basis-[180px]">
               <div className="break-words font-semibold">{r.address}{r.unit ? ` #${r.unit}` : ''}</div>
               <div className="mt-0.5 text-[12px] text-body-3">{zh ? '账期 ' : 'Due '}{r.due_date}{r.paid_at ? (zh ? ` · 记录付于 ${r.paid_at.slice(0, 10)}` : ` · recorded paid ${r.paid_at.slice(0, 10)}`) : ''}{r.method ? ` · ${r.method}` : ''}</div>
+              {/* Opens the tenancy conversation with the period pre-filled (resolved on click). The tenancy
+                  thread may include co-tenants, so the label says where the message goes. */}
+              <div className="mt-1"><MessageButton variant="link" zh={zh} label={zh ? '在租约对话里问房东' : 'Ask in the tenancy thread'} testId="rent-ask-landlord"
+                target={{ kind: 'tenancy', ref: r.household_id, draft: zh ? `关于 ${r.due_date} 的租金：` : `About the rent due ${r.due_date}: ` }} /></div>
             </div>
             <div className="flex flex-none items-center gap-2">
               {r.amount != null && <span className="font-semibold">${Number(r.amount).toLocaleString()}</span>}

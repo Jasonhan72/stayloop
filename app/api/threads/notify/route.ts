@@ -38,6 +38,8 @@ export async function POST(req: Request) {
   const labelOf: Record<string, string> = { tenant: '租客 / Tenant', landlord: '房东 / Landlord', provider: '服务商 / Provider', agent: '经纪 / Agent', admin: 'Stayloop', member: '用户 / Member' }
   const role = labelOf[msg.sender_kind] || msg.sender_kind
   const name = msg.sender_kind === 'admin' ? null : await displayNameFor(admin, ud.user.id)
-  const r = await notifyThreadParties(admin, t as ThreadRow, { messageId: msg.id, createdAt: msg.created_at, exceptUserId: ud.user.id, exceptEmail: ud.user.email ?? null, preview: msg.body.slice(0, 120), body: msg.body, senderLabel: msg.sender_label || (name ? `${name}（${role.split(' / ')[0]}） / ${name} (${role.split(' / ').pop()})` : role) })
+  // Always "name（role）": the name is self-chosen, the role comes from the matter (review 2026-09-30).
+  const base = msg.sender_kind === 'admin' ? null : (msg.sender_label || name)
+  const r = await notifyThreadParties(admin, t as ThreadRow, { messageId: msg.id, createdAt: msg.created_at, exceptUserId: ud.user.id, exceptEmail: ud.user.email ?? null, preview: msg.body.slice(0, 120), body: msg.body, senderLabel: base ? `${base}（${role.split(' / ')[0]}） / ${base} (${role.split(' / ').pop()})` : role })
   return NextResponse.json({ ok: true, ...r })
 }

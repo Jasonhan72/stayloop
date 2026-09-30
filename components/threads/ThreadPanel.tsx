@@ -14,6 +14,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { applyRetractions, canRetract, CHANNEL_LABEL, fmtSize, FORMAL_COPY_NOTE, KIND_LABEL, PARTY_LABEL, READ_LABEL, readStateFor, type Attachment, type ReadMark, type ThreadKind, type ThreadMessage } from '@/lib/threads/shared'
 import { notifyMessagesChanged } from '@/lib/messages/unread'
+import { takeDraft } from '@/lib/messages/openThread'
+import { roleLabel, type Person } from '@/lib/threads/shared'
 
 export type ThreadViewer = 'tenant' | 'landlord' | 'provider' | 'agent' | 'admin'
 
@@ -24,7 +26,7 @@ async function jwt(): Promise<string | null> {
   return data.session?.access_token ?? null
 }
 
-export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, title, allowAttachments = true, participants, fill = false, hideHeader = false, onMessages, onSelectMessage, selectedId }: {
+export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, title, allowAttachments = true, participants, fill = false, hideHeader = false, onMessages, onSelectMessage, selectedId, people, focusComposer = false }: {
   kind: ThreadKind
   refId: string
   viewer: ThreadViewer
@@ -42,6 +44,10 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   onMessages?: (msgs: ThreadMessage[], threadId: string | null) => void
   onSelectMessage?: (id: number) => void
   selectedId?: number | null
+  /** 找得到人: who is in the thread (names by user_id, for bubbles whose sender_label predates the name snapshot). */
+  people?: Person[] | null
+  /** Opened from a 「发消息」 button: focus the composer and pick up a stashed draft. */
+  focusComposer?: boolean
 }) {
   const auth = useAuth()
   const me = auth.user?.id ?? null
@@ -57,6 +63,20 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const nameOf = useCallback((m: ThreadMessage): string | null => {
+    if (m.sender_label) return m.sender_label
+    const p = people?.find((x) => x.user_id && x.user_id === m.sender_id)
+    return p?.name ?? null
+  }, [people])
+  useEffect(() => {
+    if (!focusComposer) return
+    const d = takeDraft(kind, refId)
+    if (d) setDraft((cur) => cur || d)
+    setOpen(true)
+    const t = setTimeout(() => inputRef.current?.focus(), 150)
+    return () => clearTimeout(t)
+  }, [focusComposer, kind, refId])
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Look the thread up (read-only, party-checked). Viewing never creates a
@@ -223,7 +243,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
                 <div key={m.id} className={`mb-3 flex ${isMine ? 'justify-end' : 'justify-start'}`} data-testid="thread-message" data-kind={m.kind}>
                   <div onClick={onSelectMessage ? () => onSelectMessage(m.id) : undefined} className={'max-w-[80%] rounded-xl px-3.5 py-2 text-[13px] leading-relaxed ' + (formal ? 'border border-amber-200 bg-amber-50 text-amber-950' : isMine ? 'bg-brand text-white' : 'bg-surface-chip text-body') + (onSelectMessage ? ' cursor-pointer' : '') + (selectedId === m.id ? ' ring-2 ring-brand/40 ring-offset-1' : '')}>
                     <div className={'mb-0.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[10px] font-bold ' + (isMine && !formal ? 'text-white/80' : 'text-body-3')}>
-                      <span>{m.sender_label || (zh ? party.zh : party.en)}{m.acting_role && m.acting_role !== m.sender_kind ? ` · ${zh ? (PARTY_LABEL[m.acting_role as keyof typeof PARTY_LABEL]?.zh ?? m.acting_role) : (PARTY_LABEL[m.acting_role as keyof typeof PARTY_LABEL]?.en ?? m.acting_role)}` : ''}</span>
+                      <span data-testid="bubble-sender">{formal && m.sender_label ? m.sender_label : isMine ? (zh ? '你' : 'You') : nameOf(m) ? (m.sender_kind === 'admin' || nameOf(m) === roleLabel(m.sender_kind, zh) ? nameOf(m) : `${nameOf(m)} · ${roleLabel(m.sender_kind === 'external' ? 'external' : m.sender_kind, zh)}`) : (zh ? party.zh : party.en)}{m.acting_role && m.acting_role !== m.sender_kind ? ` · ${zh ? (PARTY_LABEL[m.acting_role as keyof typeof PARTY_LABEL]?.zh ?? m.acting_role) : (PARTY_LABEL[m.acting_role as keyof typeof PARTY_LABEL]?.en ?? m.acting_role)}` : ''}</span>
                       <time dateTime={m.created_at} title={m.created_at}>{when(m.created_at)}</time>
                       {formal && <span className="rounded-full bg-amber-200/70 px-1.5 text-amber-900">{zh ? '正式通知副本' : 'FORMAL COPY'}</span>}
                       {m.channel && m.channel !== 'app' && m.channel !== 'system' && <span className={'rounded px-1.5 ' + (isMine ? 'bg-white/20' : m.channel === 'email' ? 'bg-indigo-50 text-indigo-800' : 'bg-emerald-50 text-emerald-800')} data-testid="thread-channel">{zh ? CHANNEL_LABEL[m.channel].zh : CHANNEL_LABEL[m.channel].en}</span>}
@@ -265,7 +285,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
               </div>
             )}
             <div className="flex gap-2">
-              <textarea className="min-h-[40px] flex-1 resize-y rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]" rows={1} value={draft} placeholder={zh ? '输入消息… Enter 发送，Shift+Enter 换行' : 'Type a message… Enter to send, Shift+Enter for a new line'}
+              <textarea ref={inputRef} data-testid="thread-input" className="min-h-[40px] flex-1 resize-y rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]" rows={1} value={draft} placeholder={zh ? '输入消息… Enter 发送，Shift+Enter 换行' : 'Type a message… Enter to send, Shift+Enter for a new line'}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send() } }} />
               {allowAttachments && (

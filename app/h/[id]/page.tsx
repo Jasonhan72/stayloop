@@ -22,6 +22,8 @@ import MoveInChecklist from '@/components/household/MoveInChecklist'
 import MaintenancePanel from '@/components/household/MaintenancePanel'
 import PaymentPlanDraft from '@/components/household/PaymentPlanDraft'
 import ThreadPanel from '@/components/threads/ThreadPanel'
+import MessageButton from '@/components/messages/MessageButton'
+import { personName, roleLabel, type Person } from '@/lib/threads/shared'
 
 // Tenant's answer to the 30-day touchpoint (renewal_intents, P1 2026-09-23).
 type Intent = { id: string; intent: string; note: string | null; tenant_user_id: string; created_at: string }
@@ -40,7 +42,8 @@ interface Household {
   current_lease_id: string | null; status: string; verified: boolean; created_by: string
 }
 interface Member { user_id: string; role: string; status: string; joined_at: string }
-interface Invite { id: string; invited_email: string; invited_role: string; accepted_at: string | null; declined_at: string | null; revoked_at: string | null; expires_at: string }
+// No invited_email: the hub never shows another person's address (relay principle, 2026-09-30).
+interface Invite { id: string; invited_role: string; accepted_at: string | null; declined_at: string | null; revoked_at: string | null; expires_at: string }
 interface Payment { id: string; due_date: string; paid_at: string | null; amount: number | null; status: string }
 
 const ROLE_ZH: Record<string, string> = { landlord: '房东', tenant: '租客', agent: '经纪', property_manager: '物业' }
@@ -57,6 +60,8 @@ export default function HouseholdHub() {
   const [household, setHousehold] = useState<Household | null>(null)
   const [members, setMembers] = useState<Member[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
+  // Who is in this tenancy, by name (people_for · 找得到人 2026-09-30) — one call per page, never an address.
+  const [people, setPeople] = useState<Person[] | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [intents, setIntents] = useState<Intent[]>([])
   const [intentPick, setIntentPick] = useState<string | null>(null)
@@ -69,13 +74,15 @@ export default function HouseholdHub() {
     const { data: h } = await supabase.from('households').select('*').eq('id', id).maybeSingle()
     if (!h) { setNotFound(true); return }
     setHousehold(h as Household)
-    const [{ data: m }, { data: inv }, { data: ri }] = await Promise.all([
+    const [{ data: m }, { data: inv }, { data: ri }, { data: ppl, error: pplErr }] = await Promise.all([
       supabase.from('household_members').select('*').eq('household_id', id).eq('status', 'active'),
-      supabase.from('household_invites').select('id, household_id, invited_email, invited_role, invited_by, expires_at, accepted_by, accepted_at, declined_at, revoked_at, created_at').eq('household_id', id).order('created_at', { ascending: false }),
+      supabase.from('household_invites').select('id, household_id, invited_role, invited_by, expires_at, accepted_by, accepted_at, declined_at, revoked_at, created_at').eq('household_id', id).order('created_at', { ascending: false }),
       supabase.from('renewal_intents').select('id, intent, note, tenant_user_id, created_at').eq('household_id', id).order('created_at', { ascending: false }).limit(10),
+      supabase.rpc('people_for', { p_kind: 'tenancy', p_ref: id, p_listing: null, p_subject: null }),
     ])
     setMembers((m as Member[]) ?? [])
     setInvites((inv as Invite[]) ?? [])
+    setPeople(pplErr ? null : ((ppl as Person[] | null) ?? []))
     setIntents((ri as Intent[]) ?? [])
     if ((h as Household).current_lease_id) {
       const { data: p } = await supabase.from('rent_payments')
@@ -169,6 +176,22 @@ export default function HouseholdHub() {
   const dueSoFar = schedule.filter((d) => !d.upcoming).length
   const recorded = payments.filter((p) => p.status === 'paid' || p.status === 'late').length
   const latestIntent = intents[0] ?? null
+  // People: names from people_for when it answered, otherwise members/invites without names.
+  const nameOf = new Map((people ?? []).filter((p) => p.user_id && !p.pending).map((p) => [p.user_id as string, p.name]))
+  const pendingPeople: Array<{ key: string; role: string }> = people
+    ? people.filter((p) => p.pending && !p.is_me).map((p, i) => ({ key: `p${i}`, role: p.role }))
+    : invites.filter((i) => !i.accepted_at && !i.declined_at && !i.revoked_at && new Date(i.expires_at).getTime() > Date.now())
+        .map((i) => ({ key: i.id, role: i.invited_role === 'property_manager' ? 'landlord' : i.invited_role }))
+  const memberRole = (r: string) => (r === 'property_manager' ? 'landlord' : r)
+  const others = members.filter((m) => m.user_id !== user?.id)
+  // The tenancy thread is shared by every member (and pending invitees by email): a
+  // button may name one person only when exactly one other person is in it.
+  const otherCount = others.length + pendingPeople.length
+  const soleOther = otherCount === 1 && others.length === 1 ? others[0] : null
+  const soleName = soleOther ? nameOf.get(soleOther.user_id) ?? null : null
+  const soleLabel = !soleOther ? null
+    : soleName ? (zh ? `发消息给 ${personName(soleName, memberRole(soleOther.role), true)}` : `Message ${personName(soleName, memberRole(soleOther.role), false)}`)
+    : (zh ? `发消息给${roleLabel(memberRole(soleOther.role), true)}` : `Message the ${roleLabel(memberRole(soleOther.role), false).toLowerCase()}`)
   // Past-due periods with nothing recorded → the landlord may draft a repayment plan.
   const missedDue = schedule.filter((d) => !d.upcoming && !paidByDue.get(d.due)).map((d) => d.due)
   const TABS: Array<{ id: Tab; zh: string; en: string }> = [
@@ -271,22 +294,42 @@ export default function HouseholdHub() {
           </section>
 
           <section className="rounded-xl border border-line-divider bg-white p-5">
-            <h2 className="text-[14px] font-extrabold">{zh ? `成员 · ${members.length}` : `Members · ${members.length}`}</h2>
-            <div className="mt-3 space-y-2">
-              {members.map((m) => (
-                <div key={m.user_id} className="flex items-center gap-3 text-[13px]">
-                  <span className="rounded-md bg-surface-chip px-2 py-0.5 font-mono text-[10px] font-bold">{zh ? ROLE_ZH[m.role] ?? m.role : m.role}</span>
-                  <span className="text-body-2">{m.user_id === user?.id ? (zh ? '我' : 'me') : (zh ? '对方' : 'the other party')}</span>
-                  <span className="text-[11px] text-body-3">{new Date(m.joined_at).toLocaleDateString()}</span>
-                </div>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-[14px] font-extrabold">{zh ? `成员 · ${members.length}` : `Members · ${members.length}`}</h2>
+              {myRole && otherCount > 1 && (
+                <MessageButton target={{ kind: 'tenancy', ref: id }} zh={zh} className="ml-auto" testId="hub-message-shared"
+                  label={zh ? `在租约对话里发消息（${otherCount + 1} 人都能看到）` : `Message in the tenancy thread (all ${otherCount + 1} can see it)`} />
+              )}
             </div>
-            {invites.filter((i) => !i.accepted_at && !i.declined_at && !i.revoked_at).length > 0 && (
+            <div className="mt-3 space-y-2" data-testid="hub-members">
+              {members.map((m) => {
+                const me = m.user_id === user?.id
+                const role = memberRole(m.role)
+                const name = nameOf.get(m.user_id) ?? null
+                return (
+                  <div key={m.user_id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px]">
+                    <span className="rounded-md bg-surface-chip px-2 py-0.5 font-mono text-[10px] font-bold">{zh ? ROLE_ZH[m.role] ?? m.role : m.role === 'property_manager' ? 'Property manager' : roleLabel(role, false)}</span>
+                    {(me || name) && <span className="min-w-0 break-words text-body-2">{me ? (zh ? '我' : 'me') : name}</span>}
+                    <span className="text-[11px] text-body-3">{new Date(m.joined_at).toLocaleDateString()}</span>
+                    {!me && myRole && soleOther?.user_id === m.user_id && (
+                      <MessageButton target={{ kind: 'tenancy', ref: id }} zh={zh} className="ml-auto" testId="hub-message-member"
+                        label={soleLabel ?? undefined} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            {pendingPeople.length > 0 && (
               <div className="mt-4 border-t border-line-divider pt-3">
                 <div className="font-mono text-[10px] font-bold uppercase text-body-3">{zh ? '待接受的邀请' : 'Pending invites'}</div>
-                {invites.filter((i) => !i.accepted_at && !i.declined_at && !i.revoked_at).map((i) => (
-                  <div key={i.id} className="mt-1.5 text-[12.5px] text-body-2">
-                    {i.invited_email} · {zh ? ROLE_ZH[i.invited_role] ?? i.invited_role : i.invited_role}
+                {pendingPeople.map((p) => (
+                  <div key={p.key} className="mt-1.5 flex flex-wrap items-center gap-2 text-[12.5px] text-body-2" data-testid="hub-pending-invite">
+                    <span className="rounded-md bg-surface-chip px-2 py-0.5 font-mono text-[10px] font-bold">{roleLabel(p.role, zh)}</span>
+                    <span>{zh ? '邀请中 · 消息会经邮件送达' : 'Invited · messages reach them by email'}</span>
+                    {myRole && otherCount === 1 && (
+                      <MessageButton target={{ kind: 'tenancy', ref: id }} zh={zh} className="ml-auto" testId="hub-message-invitee"
+                        label={zh ? `发消息给${roleLabel(p.role, true)}` : `Message the ${roleLabel(p.role, false).toLowerCase()}`} />
+                    )}
                   </div>
                 ))}
               </div>

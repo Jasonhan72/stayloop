@@ -520,7 +520,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
             executed?: boolean
             already?: boolean
             reason?: string
-            result?: { sent_to?: string; rent?: number } | null
+            result?: { sent_to?: string; rent?: number; kind?: string } | null
           }
           const sentTo = j.result?.sent_to
           const rentAmt = j.result?.rent
@@ -529,7 +529,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
             const doneMsg: ChatMessage = {
               id: nextId(),
               role: 'agent',
-              text: executedText({ title: removed?.title, actionType: removed?.action_type, sentTo, rent: rentAmt, zh }),
+              text: executedText({ title: removed?.title, actionType: removed?.action_type, sentTo, rent: rentAmt, zh, viaThread: j.result?.kind === 'thread' }),
             }
             if (startedIn && threadIdRef.current !== startedIn) void appendToThread(getSupabaseBrowser(), startedIn, [doneMsg])
             else setMessages((msgs) => [...msgs, doneMsg])

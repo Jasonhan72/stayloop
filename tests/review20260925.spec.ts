@@ -108,7 +108,7 @@ describe('conversation threads: loading is not a change; a reply lands in the th
     expect(s).toContain('const startedIn = threadIdRef.current')
     expect(s).toContain('if (startedIn && threadIdRef.current !== startedIn) void appendToThread(getSupabaseBrowser(), startedIn, [doneMsg])')
     // the artifact name moved with the line to lib/agent/chatCopy.ts (2026-09-28, shared with the homepage showcase)
-    expect(s).toContain('text: executedText({ title: removed?.title, actionType: removed?.action_type, sentTo, rent: rentAmt, zh })')
+    expect(s).toContain("text: executedText({ title: removed?.title, actionType: removed?.action_type, sentTo, rent: rentAmt, zh, viaThread: j.result?.kind === 'thread' }),")
     expect(read('lib/agent/chatCopy.ts')).toContain("? 'maintenance request'")
     // undo: the audit row exists before the badges re-read
     const undo = s.slice(s.indexOf('const undo = useCallback'))

@@ -14,7 +14,7 @@ import { openHtmlFromPost } from '@/lib/export/openHtml'
 
 export type WorkOrderLite = {
   id: string; status: WorkOrderStatus; trade: string | null; scope: string | null; emergency: boolean; entry_permission: string | null
-  provider_id: string | null; external_email: string | null; external_name: string | null
+  provider_id: string | null; external_email?: string | null; external_name: string | null
   quote_amount: number | null; quote_type: string | null; quote_note: string | null; quoted_at: string | null
   approved_amount: number | null; approved_at: string | null; schedule_start: string | null; schedule_end: string | null; entry_notice_sent_at: string | null
   arrived_at: string | null; completed_at: string | null; completion_note: string | null; invoice_amount: string | number | null; invoice_note: string | null
@@ -74,7 +74,8 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
   const when = (s: string | null | undefined) => whenIn(s, zh)
   const st = WO_STATUS_LABEL[wo.status]
   const tone = st.tone === 'ok' ? 'bg-success/10 text-success' : st.tone === 'danger' ? 'bg-danger/10 text-danger' : st.tone === 'warn' ? 'bg-amber-50 text-amber-800' : st.tone === 'info' ? 'bg-brand/10 text-brand' : 'bg-surface-chip text-body-3'
-  const who = providerName || wo.external_name || wo.external_email || (zh ? '服务商' : 'Contractor')
+  // Never an address (relay; tenants cannot read external_email since 2026-09-30).
+  const who = providerName || wo.external_name || (wo.provider_id ? (zh ? '服务商' : 'Provider') : (zh ? '外部服务商' : 'Contractor'))
   const trade = TRADES.find((t) => t.key === wo.trade)
   const cpa = invoiceWithinEstimate(wo.approved_amount, wo.invoice_amount == null || wo.invoice_amount === '' ? null : Number(wo.invoice_amount))
   const can = (a: WoAction) => canAct(a, wo.status, viewer).ok

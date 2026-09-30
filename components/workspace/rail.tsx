@@ -6,6 +6,7 @@
 // signed-in phone shows ONE bottom bar everywhere (user 2026-09-25: the public
 // bar and the workbench bar side by side were "容易分不清"). Desktop rail and
 // the shell itself stay in components/WorkspaceShell.tsx.
+import { useUnreadMessages } from '@/lib/messages/unread'
 import { ReactNode, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -89,6 +90,8 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
     { key: 'ideas', href: `/${role}/ideas`, label: zh ? '想法' : 'Ideas', icon: <BulbIcon /> },
     { key: 'progress', href: `/${role}/progress`, label: zh ? '进度' : 'Progress', icon: <ProgressIcon /> },
   ]
+  // Messages live under 更多 on phones: its tab and the 消息 tile carry the unread count (找得到人 2026-09-30).
+  const unreadMessages = useUnreadMessages(!auth.loading && !!auth.user)
   const cell = 'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg text-[16px] transition'
   const moreOn = more || (!tabs.some((t) => path === t.href || path.startsWith(t.href + '/')) && path !== `/${role}/agent`)
   return (
@@ -110,7 +113,10 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
           )
         })}
         <button type="button" onClick={() => setMore((v) => !v)} className={cell} style={{ color: moreOn ? '#1B1B3C' : '#6E6E8A', background: moreOn ? '#EEF5FA' : undefined }} aria-expanded={more}>
-          <MoreIcon />
+          <span className="relative">
+            <MoreIcon />
+            {unreadMessages > 0 && <span data-testid="more-unread" className="absolute -right-2.5 -top-1.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-bold leading-4 text-white">{unreadMessages > 9 ? '9+' : unreadMessages}</span>}
+          </span>
           <span className="text-[11px] font-medium leading-none">{zh ? '更多' : 'More'}</span>
         </button>
        </div>
@@ -123,8 +129,9 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
               {items.filter((it) => it.key !== 'home').map((it) => {
                 const on = path === it.href || path.startsWith(it.href + '/')
                 return (
-                  <Link key={it.key} href={it.href} className={'flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-[11.5px] font-medium ' + (on ? 'bg-brand/10 text-brand' : 'bg-surface text-body-2')}>
+                  <Link key={it.key} href={it.href} className={'relative flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-[11.5px] font-medium ' + (on ? 'bg-brand/10 text-brand' : 'bg-surface text-body-2')}>
                     {it.icon}
+                    {it.key === 'msgs' && unreadMessages > 0 && <span className="absolute right-2 top-1.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-bold leading-4 text-white">{unreadMessages > 9 ? '9+' : unreadMessages}</span>}
                     <span className="max-w-full truncate">{zh ? it.label.zh : it.label.en}</span>
                   </Link>
                 )

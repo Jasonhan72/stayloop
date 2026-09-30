@@ -284,4 +284,9 @@ html, body {
 @media (max-width: 767px) {
   .sl-phone-col { height: calc(100dvh - 121px - env(safe-area-inset-bottom)); }
   .sl-phone-pb { padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }
+  /* 消息中心: same column maths as the assistant page (56px phone header + tab bar + safe area). */
+  .sl-msg-col { height: calc(100dvh - 121px - env(safe-area-inset-bottom)); }
+}
+@media (min-width: 768px) {
+  .sl-msg-col { height: calc(100vh - 67px); }
 }

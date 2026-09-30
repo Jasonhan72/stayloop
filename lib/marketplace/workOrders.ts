@@ -10,7 +10,7 @@
  * alike (three-role walkthrough 2026-09-26). Read this list, never `*`.
  */
 export const WORK_ORDER_COLUMNS = [
-  'id', 'ticket_id', 'household_id', 'landlord_auth_id', 'provider_id', 'external_email', 'external_name', 'trade', 'scope', 'emergency', 'status',
+  'id', 'ticket_id', 'household_id', 'landlord_auth_id', 'provider_id', 'external_name', 'trade', 'scope', 'emergency', 'status',
   'quote_amount', 'quote_type', 'quote_note', 'quote_valid_until', 'quoted_at', 'approved_amount', 'approved_at',
   'schedule_start', 'schedule_end', 'entry_permission', 'entry_notice_sent_at', 'arrived_at',
   'completed_at', 'completion_note', 'completion_photos', 'invoice_amount', 'invoice_note',

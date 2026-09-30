@@ -16,6 +16,8 @@ import { useT } from '@/lib/i18n'
 import { applicationTrack, trackSummary, type TrackStep } from '@/lib/lifecycle/applicationTrack'
 import { leaseStateDetail } from '@/lib/matters/states'
 import ThreadPanel from '@/components/threads/ThreadPanel'
+import MessageButton from '@/components/messages/MessageButton'
+import { useRealtorListings } from '@/lib/messages/realtorListings'
 
 const OWNER: Record<string, { zh: string; en: string }> = {
   viewed: { zh: '房东', en: 'the landlord' },
@@ -38,6 +40,9 @@ export default function TenantApplicationPage({ params }: { params: Promise<{ id
   const zh = lang === 'zh'
   const { facts, loading } = useFacts('tenant')
   const app = facts?.applications.find((a) => a.id === id) ?? null
+  // A Realtor.ca import has no Stayloop landlord: no conversation offered on it (找得到人 2026-09-30).
+  const realtor = useRealtorListings(app?.listing_id ? [app.listing_id] : [])
+  const noLandlordAccount = !!app?.listing_id && (!realtor || realtor.has(app.listing_id))
   const lease = facts && app ? facts.leases.find((l) => l.application_id === app.id) ?? null : null
   const hh = facts && lease ? facts.households.find((h) => h.current_lease_id === lease.id) ?? null : null
   const joined = !!hh && !!facts && facts.members.includes(hh.id)
@@ -66,6 +71,12 @@ export default function TenantApplicationPage({ params }: { params: Promise<{ id
               {app.listing_active !== false && app.listing_slug && <Link href={`/listings/${app.listing_slug}`} className="underline underline-offset-2">{zh ? '看房源 →' : 'Listing →'}</Link>}
               {summary && <span className={'ml-auto rounded-full px-2.5 py-[3px] text-[11px] font-bold ' + (summary.tone === 'ok' ? 'bg-success/10 text-success' : summary.tone === 'bad' ? 'bg-danger/10 text-danger' : 'bg-surface-chip text-body-3')}>{summary.text}</span>}
             </div>
+            {/* 找得到人 2026-09-30: the way to reach this landlord, up front. Two-party
+                conversation (applicant ↔ the listing's landlord), in the message centre. */}
+            {!noLandlordAccount && <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <MessageButton target={{ kind: 'application', ref: app.id }} label={zh ? '发消息给房东' : 'Message the landlord'} zh={zh} variant="primary" testId="application-message-landlord" />
+              <a href="#application-thread" className="text-[12.5px] font-semibold text-brand underline-offset-2 hover:underline">{zh ? '或在本页下方的对话里回复 ↓' : 'or reply in the conversation below ↓'}</a>
+            </div>}
 
             <section className="mt-6 rounded-2xl border border-line-divider bg-white p-5" data-testid="application-detail-steps">
               <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '进度 · 谁在处理' : 'PROGRESS · WHO HAS IT'}</div>
@@ -98,7 +109,7 @@ export default function TenantApplicationPage({ params }: { params: Promise<{ id
               <div className="rounded-2xl border border-line-divider bg-white p-5">
                 <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '材料' : 'MATERIALS'}</div>
                 <div className="mt-2 text-[22px] font-extrabold">{app.files_count ?? 0}<span className="ml-1 text-[13px] font-semibold text-body-3">{zh ? '份已提交' : 'submitted'}</span></div>
-                <p className="mt-1 text-[12.5px] text-body-3">{zh ? '材料只有该房源的房东能查看，每次查看都留痕。要补充材料，在对话里告诉 AI 助理或直接联系房东。' : 'Only this listing’s landlord can open them, and every view is logged. To add documents, tell your AI Agent or contact the landlord.'}</p>
+                <p className="mt-1 text-[12.5px] text-body-3">{zh ? '材料只有该房源的房东能查看，每次查看都留痕。要补充材料，在下方与房东的对话里说明并附上文件。' : 'Only this listing’s landlord can open them, and every view is logged. To add documents, attach them in the conversation with the landlord below.'}</p>
               </div>
               <div className="rounded-2xl border border-line-divider bg-white p-5">
                 <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '租约与在管租约' : 'LEASE & TENANCY'}</div>
@@ -115,11 +126,13 @@ export default function TenantApplicationPage({ params }: { params: Promise<{ id
                 )}
               </div>
             </section>
-            <section className="mt-4 rounded-2xl border border-line-divider bg-white p-5" data-testid="application-thread">
+            {noLandlordAccount ? (
+              <p className="mt-4 rounded-2xl border border-line-divider bg-white p-5 text-[12.5px] text-body-3" data-testid="application-realtor-note">{zh ? '这套房源来自 Realtor.ca，在 Stayloop 上没有房东账号，所以这里没有对话；请联系房源页上的挂牌经纪。' : 'This listing comes from Realtor.ca and has no landlord account on Stayloop, so there is no conversation here; contact the listing brokerage shown on the listing page.'}</p>
+            ) : <section id="application-thread" className="mt-4 scroll-mt-24 rounded-2xl border border-line-divider bg-white p-5" data-testid="application-thread">
               <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '与房东的对话' : 'THREAD WITH THE LANDLORD'}</div>
               <p className="mt-1 text-[12.5px] text-body-3">{zh ? '补充材料、问进度都在这里；房东发出的决定通知会留一份副本（正式通知以邮件为准）。' : 'Ask about progress or add context here; a copy of any decision notice lands here (the email is the notice).'}</p>
               <div className="mt-3"><ThreadPanel kind="application" refId={app.id} viewer="tenant" zh={zh} title={zh ? '申请对话' : 'Application thread'} /></div>
-            </section>
+            </section>}
             <p className="mt-4 text-[11.5px] text-body-3">{zh ? '「房东已查看」「筛查已发起」来自房东的真实操作；筛查结果只有房东能看到，决定以邮件通知为准。' : '"Landlord opened it" and "screening started" reflect the landlord’s real actions; only the landlord sees the screening result; the decision arrives by e-mail.'}</p>
           </>
         )}
