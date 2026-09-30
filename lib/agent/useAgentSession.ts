@@ -664,8 +664,10 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           }
           // A re-draft of the same property keeps the facts extracted earlier
           // unless this message changed them (fact drift, 2026-09-25).
-          if (draftListing) {
-            const prevDraft = [...messagesRef.current].reverse().find((m) => m.role === 'agent' && m.draftListing)?.draftListing
+          // A rewrite of an owned listing was merged on the server from the fresh stored row —
+          // reconciling it against an older card could copy another unit's facts (review 2026-09-30).
+          if (draftListing && !draftListing.listing_id) {
+            const prevDraft = [...messagesRef.current].reverse().find((m) => m.role === 'agent' && m.draftListing && !m.draftListing.listing_id)?.draftListing
             draftListing = reconcileDraft(prevDraft, draftListing, message)
           }
           // Remember what we showed so the next search returns fresh results.

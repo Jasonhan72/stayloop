@@ -191,3 +191,48 @@ export async function publishListing(
   if (error) return { slug: null, error: error.message }
   return { slug: row.slug, error: null }
 }
+
+// ── Updating a listing the landlord already has (2026-09-30) ────────────────
+// The AI's rewrite card for an owned listing updates that row in place, writing
+// ONLY the fields the AI changed (draft.changed_fields) and the photos if the
+// landlord changed them on the card — never the whole snapshot (review
+// 2026-09-30). It refuses when the listing changed since the card was drafted
+// (listings.updated_at), so an old card in a chat thread cannot revert later
+// edits. Trust fields stay with the DB (guard_listing_trust_fields: a changed
+// rent / layout sends a verified listing back to review) — the result says so.
+export const LISTING_EDIT_DRAFT_PREFIX = 'stayloop-listing-edit-draft:'
+
+const PATCHABLE: (keyof DraftListing)[] = [
+  'title', 'description', 'monthly_rent', 'bedrooms', 'bathrooms', 'sqft', 'available_date', 'parking', 'pet_policy', 'amenities', 'has_den',
+  'deposit', 'lease_term', 'pets_allowed', 'smoking_policy', 'furnished', 'utilities_included', 'parking_spaces',
+]
+
+export function buildListingPatch(form: DraftListing, photos: string[] | null, fields: string[]): Record<string, unknown> {
+  const keep = (v: unknown) => v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '')
+  const patch: Record<string, unknown> = {}
+  for (const k of PATCHABLE) if (fields.includes(k) && keep(form[k])) patch[k] = form[k]
+  if (photos) { patch.images = photos; patch.photo_count = photos.length }
+  return patch
+}
+
+export type ListingUpdateResult =
+  | { error: null; stale: false; row: { slug: string | null; is_active: boolean; verification_status: string | null; source: string | null } }
+  | { error: string; stale: boolean; row: null }
+
+export async function updateListing(client: SupabaseClient, id: string, patch: Record<string, unknown>, opts: { zh: boolean; expectedUpdatedAt?: string | null }): Promise<ListingUpdateResult> {
+  if ('images' in patch && !hasUsablePhotos(patch.images)) return { error: opts.zh ? LISTING_PUBLISH_MSG.noPhotos.zh : LISTING_PUBLISH_MSG.noPhotos.en, stale: false, row: null }
+  if (Object.keys(patch).length === 0) return { error: opts.zh ? '这张卡片相对现在的房源没有改动。' : 'This card has no changes against the current listing.', stale: false, row: null }
+  let q = client.from('listings').update(patch).eq('id', id)
+  if (opts.expectedUpdatedAt) q = q.eq('updated_at', opts.expectedUpdatedAt)
+  const { data, error } = await q.select('slug, is_active, verification_status, source')
+  if (error) return { error: error.message, stale: false, row: null }
+  if (!data || data.length === 0) {
+    // Tell "changed since" apart from "not yours / gone".
+    const { data: still } = await client.from('listings').select('id').eq('id', id).maybeSingle()
+    return still
+      ? { error: opts.zh ? '这套房源在这张卡片生成之后被改过，为免覆盖新的修改，没有更新。请让 AI 助理按现在的内容重新生成，或去编辑页修改。' : 'This listing changed after the card was made; to avoid overwriting newer edits nothing was updated. Ask your AI Agent again, or edit the listing directly.', stale: true, row: null }
+      : { error: opts.zh ? '没能更新：这套房源不在你的账号下，或已被删除。' : 'Could not update: this listing is not on your account, or it was deleted.', stale: false, row: null }
+  }
+  const r = data[0] as { slug: string | null; is_active: boolean; verification_status: string | null; source: string | null }
+  return { error: null, stale: false, row: r }
+}

@@ -10,7 +10,8 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { hasUsablePhotos } from '@/lib/listingVisibility'
-import { LISTING_PUBLISH_MSG } from '@/lib/listingPublish'
+import { LISTING_EDIT_DRAFT_PREFIX, LISTING_PUBLISH_MSG } from '@/lib/listingPublish'
+import type { DraftListing } from '@/lib/agent/types'
 import { prepareUploads } from '@/lib/screening/prepareUpload'
 
 const AMENITY_OPTIONS: { id: string; zh: string; en: string }[] = [
@@ -65,6 +66,9 @@ const UTILITY_OPTIONS: { id: string; zh: string; en: string }[] = [
   { id: 'cable', zh: '有线电视', en: 'Cable' },
 ]
 
+const AGENT_FIELD_ZH: Record<string, string> = { title: '标题', description: '描述', amenities: '设施', monthly_rent: '月租', bedrooms: '卧室数', bathrooms: '浴室数', sqft: '面积', deposit: '押金', pets_allowed: '宠物', pet_policy: '宠物说明', smoking_policy: '吸烟', lease_term: '租期', utilities_included: '租金包含', furnished: '家具', parking: '车位', available_date: '入住日期', has_den: 'den', images: '照片' }
+const AGENT_FIELD_EN: Record<string, string> = { title: 'title', description: 'description', amenities: 'amenities', monthly_rent: 'rent', bedrooms: 'bedrooms', bathrooms: 'bathrooms', sqft: 'size', deposit: 'deposit', pets_allowed: 'pets', pet_policy: 'pet notes', smoking_policy: 'smoking', lease_term: 'lease term', utilities_included: 'utilities', furnished: 'furnished', parking: 'parking', available_date: 'available date', has_den: 'den', images: 'photos' }
+
 export default function EditPublishedListingPage() {
   const params = useParams()
   const id = params.id as string
@@ -81,9 +85,21 @@ export default function EditPublishedListingPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [slug, setSlug] = useState('')
+  // Opened from the AI's rewrite card (2026-09-30): its changes are pre-filled here; nothing is saved until 保存.
+  const [fromAgent, setFromAgent] = useState<string[] | null>(null)
+  // Read (and clear) the AI's stash once, before loading — StrictMode runs the load effect twice.
+  const agentStash = useRef<(Partial<DraftListing> & { changed_fields?: string[] }) | null | undefined>(undefined)
+  if (agentStash.current === undefined && typeof window !== 'undefined' && id) {
+    try {
+      const raw = localStorage.getItem(LISTING_EDIT_DRAFT_PREFIX + id)
+      localStorage.removeItem(LISTING_EDIT_DRAFT_PREFIX + id)
+      agentStash.current = raw ? JSON.parse(raw) : null
+    } catch { agentStash.current = null }
+  }
 
   useEffect(() => {
     if (!id) return
+    let cancelled = false
     const client = getSupabaseBrowser()
     client
       .from('listings')
@@ -91,6 +107,7 @@ export default function EditPublishedListingPage() {
       .eq('id', id)
       .maybeSingle()
       .then(({ data }) => {
+        if (cancelled) return
         if (!data) {
           setLoading(false)
           return
@@ -121,8 +138,37 @@ export default function EditPublishedListingPage() {
           utilities_included: Array.isArray(data.utilities_included) ? data.utilities_included : [],
         })
         setPhotos(Array.isArray(data.images) ? data.images : [])
+        // The AI's changes (only the fields it changed), stashed by the chat card: apply them over the stored values.
+        const d = agentStash.current
+        if (d && Array.isArray(d.changed_fields) && d.changed_fields.length) {
+          const ch = d.changed_fields
+          const has = (k: string) => ch.includes(k) && (d as Record<string, unknown>)[k] !== undefined && (d as Record<string, unknown>)[k] !== null
+          setForm((f) => f ? {
+            ...f,
+            ...(has('title') ? { title: String(d.title) } : {}),
+            ...(has('description') ? { description: String(d.description) } : {}),
+            ...(has('monthly_rent') && typeof d.monthly_rent === 'number' ? { monthly_rent: d.monthly_rent } : {}),
+            ...(has('deposit') && typeof d.deposit === 'number' ? { deposit: d.deposit } : {}),
+            ...(has('bedrooms') && typeof d.bedrooms === 'number' ? { bedrooms: d.bedrooms } : {}),
+            ...(has('bathrooms') && typeof d.bathrooms === 'number' ? { bathrooms: d.bathrooms } : {}),
+            ...(has('sqft') && typeof d.sqft === 'number' ? { sqft: d.sqft } : {}),
+            ...(has('available_date') ? { available_date: String(d.available_date) } : {}),
+            ...(has('parking') ? { parking: String(d.parking) } : {}),
+            ...(has('pet_policy') ? { pet_policy: String(d.pet_policy) } : {}),
+            ...(has('amenities') && Array.isArray(d.amenities) ? { amenities: d.amenities.map(String) } : {}),
+            ...(has('has_den') && typeof d.has_den === 'boolean' ? { has_den: d.has_den } : {}),
+            ...(has('lease_term') ? { lease_term: String(d.lease_term) } : {}),
+            ...(has('pets_allowed') ? { pets_allowed: String(d.pets_allowed) } : {}),
+            ...(has('smoking_policy') ? { smoking_policy: String(d.smoking_policy) } : {}),
+            ...(has('furnished') && typeof d.furnished === 'boolean' ? { furnished: d.furnished ? 'yes' : 'no' } : {}),
+            ...(has('utilities_included') && Array.isArray(d.utilities_included) ? { utilities_included: d.utilities_included.map(String) } : {}),
+          } : f)
+          if (has('images') && Array.isArray(d.images) && d.images.length) setPhotos(d.images.map(String))
+          setFromAgent(ch)
+        }
         setLoading(false)
       })
+    return () => { cancelled = true }
   }, [id])
 
   if (loading) {
@@ -228,6 +274,13 @@ export default function EditPublishedListingPage() {
           {zh ? '← 返回工作台' : '← Back to workspace'}
         </Link>
 
+        {fromAgent && (
+          <div className="mt-4 rounded-xl border border-brand/30 bg-[#F0FAFE] px-4 py-3 text-[13px] text-body" data-testid="agent-edit-banner">
+            {zh
+              ? `已带入 AI 助理的修改：${fromAgent.map((k) => AGENT_FIELD_ZH[k] ?? k).join('、')}。检查后点「保存修改」才会生效；不想要可以直接返回。`
+              : `Your AI Agent’s changes are filled in: ${fromAgent.map((k) => AGENT_FIELD_EN[k] ?? k).join(', ')}. Nothing is saved until you press “Save changes”; go back to discard them.`}
+          </div>
+        )}
         <div className="mt-4 flex items-center justify-between gap-4">
           <h1 className="text-[28px] font-bold tracking-tight">
             {zh ? '编辑房源' : 'Edit Listing'}
@@ -382,6 +435,13 @@ export default function EditPublishedListingPage() {
         <section className="mt-8">
           <h2 className="text-[18px] font-bold">{zh ? '配套设施' : 'Amenities'}</h2>
           <div className="mt-3 flex flex-wrap gap-2">
+            {/* Amenities outside the fixed options (the AI and imports write free text): shown so they can be reviewed and removed. */}
+            {form.amenities.filter((x) => !AMENITY_OPTIONS.some((o) => o.id === x)).map((x) => (
+              <button key={`free-${x}`} type="button" onClick={() => toggleAmenity(x)} data-testid="free-amenity"
+                className="rounded-full border border-brand bg-brand/10 px-3.5 py-1.5 text-[12.5px] font-medium text-brand" title={zh ? '点击移除' : 'Click to remove'}>
+                ✓ {x} <span aria-hidden="true">×</span>
+              </button>
+            ))}
             {AMENITY_OPTIONS.map((a) => {
               const on = form.amenities.includes(a.id)
               return (

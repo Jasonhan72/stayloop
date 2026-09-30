@@ -196,6 +196,16 @@ export type DraftListing = {
   year_built?: number
   mls_number?: string
   source_url?: string
+  /** Set when this draft rewrites a listing the landlord already owns (2026-09-30):
+   *  publishing updates that listing in place, editing opens its own editor. */
+  listing_id?: string
+  listing_slug?: string
+  /** The stored listing's state when the card was drafted: live or not, and its updated_at
+   *  (更新房源 refuses if the listing changed since — an old card must not revert later edits). */
+  listing_active?: boolean
+  base_updated_at?: string
+  /** The only fields 更新房源 may write: what the AI changed (the rest of the card is the stored listing). */
+  changed_fields?: string[]
 }
 
 export type ChatAttachment = {

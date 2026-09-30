@@ -6,7 +6,7 @@ import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import type { DraftListing } from '@/lib/agent/types'
-import { LISTING_PUBLISH_MSG, buildListingRow, computeListingSource, makeListingSlug, publishListing, resolveLandlordId } from '@/lib/listingPublish'
+import { LISTING_EDIT_DRAFT_PREFIX, LISTING_PUBLISH_MSG, buildListingPatch, buildListingRow, computeListingSource, makeListingSlug, publishListing, resolveLandlordId, updateListing } from '@/lib/listingPublish'
 
 const DRAFT_KEY = 'stayloop-draft-listing'
 
@@ -27,8 +27,17 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
   const [published, setPublished] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // 2026-09-30: a rewrite of a listing the landlord already owns — 更新房源 writes only what the AI
+  // changed (plus photos the landlord changed here), 编辑 opens that listing's own editor.
+  const isUpdate = !!form.listing_id
+  const changedFields = form.changed_fields ?? []
+  const photosChanged = JSON.stringify(photos) !== JSON.stringify(draft.images ?? [])
+  const nothingToUpdate = isUpdate && changedFields.length === 0 && !photosChanged
+  const [updatedRow, setUpdatedRow] = useState<{ slug: string | null; is_active: boolean; verification_status: string | null; source: string | null } | null>(null)
 
   const reloadFromStorage = useCallback(() => {
+    // The shared new-listing draft slot belongs to new drafts only.
+    if (draft.listing_id) return
     try {
       const raw = localStorage.getItem(DRAFT_KEY)
       if (raw) {
@@ -38,7 +47,7 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
         setPhotoIdx(0)
       }
     } catch {}
-  }, [])
+  }, [draft.listing_id])
 
   useEffect(() => {
     const onFocus = () => reloadFromStorage()
@@ -47,6 +56,17 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
   }, [reloadFromStorage])
 
   const openEditPage = () => {
+    if (isUpdate && form.listing_id) {
+      // The listing's own editor, pre-filled with ONLY the AI's changes (the editor loads everything else
+      // from the database; photos travel only if changed here). Nothing is saved until the landlord saves there.
+      const stash: Record<string, unknown> = { changed_fields: changedFields }
+      for (const k of changedFields) stash[k] = (form as Record<string, unknown>)[k]
+      if (photosChanged) { stash.images = photos; stash.changed_fields = [...changedFields.filter((k) => k !== 'images'), 'images'] }
+      try { localStorage.setItem(LISTING_EDIT_DRAFT_PREFIX + form.listing_id, JSON.stringify(stash)) }
+      catch { setError(zh ? '修改内容太大，没能带到编辑页（通常是照片太多）。可以先点「更新房源」，再去编辑页调整照片。' : 'The changes are too large to carry to the editor (usually photos). Press Update first, then adjust photos in the editor.'); return }
+      router.push(`/dashboard/listings/${form.listing_id}/edit?from=agent`)
+      return
+    }
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...form, images: photos }))
     router.push('/dashboard/listings/edit')
   }
@@ -78,6 +98,14 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
     setError(null)
     try {
       const client = getSupabaseBrowser()
+      if (isUpdate && form.listing_id) {
+        const res = await updateListing(client, form.listing_id, buildListingPatch(form, photosChanged ? photos : null, changedFields), { zh, expectedUpdatedAt: form.base_updated_at ?? null })
+        if (res.error !== null || !res.row) throw new Error(res.error ?? 'update failed')
+        setUpdatedRow(res.row)
+        setPublished(true)
+        onPublished?.(res.row.slug || form.listing_slug || '')
+        return
+      }
       // Dual-ID: RLS requires landlords.id (profileId), not auth.uid()
       const landlordId = await resolveLandlordId(client, user.id)
       if (!landlordId) throw new Error(zh ? LISTING_PUBLISH_MSG.landlordNotFound.zh : LISTING_PUBLISH_MSG.landlordNotFound.en)
@@ -101,10 +129,25 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#047857" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6 9 17l-5-5" /></svg>
           </div>
-          <div className="text-[15px] font-bold text-success">{zh ? '房源已发布' : 'Published!'}</div>
-          <div className="text-[12px] text-body-3">{form.address}</div>
+          <div className="text-[15px] font-bold text-success" data-testid="draft-card-done">{isUpdate ? (zh ? '房源已更新' : 'Listing updated') : (zh ? '房源已发布' : 'Published!')}</div>
+          <div className="text-[12px] text-body-3">{form.address}{form.unit ? ` · ${form.unit}` : ''}</div>
           <div className="mt-1 text-[11.5px] text-body-3">
-            {computeListingSource(form) === 'realtor'
+            {isUpdate && updatedRow
+              ? (() => {
+                  // Say what is actually true after the write (the DB may have sent it back to review).
+                  const live = updatedRow.is_active && (updatedRow.verification_status === 'verified' || updatedRow.source === 'realtor')
+                  const text = !updatedRow.is_active
+                    ? (zh ? '修改已保存；这套房源目前是下架状态，可在编辑页重新上架。' : 'Saved. The listing is currently off market; you can relist it in the editor.')
+                    : live
+                      ? (zh ? '修改已保存并已在房源页生效。' : 'Saved and live on the listing page.')
+                      : (zh ? '修改已保存；因为改了租金或户型等信息，房源已回到待审核，通过后重新公开。' : 'Saved. Because rent or layout changed, the listing went back to review and reappears once approved.')
+                  return (<>
+                    {text}
+                    {live && updatedRow.slug && <> <a href={`/listings/${updatedRow.slug}`} className="font-semibold text-brand">{zh ? '查看房源 →' : 'View listing →'}</a></>}
+                    {!live && form.listing_id && <> <a href={`/dashboard/listings/${form.listing_id}/edit`} className="font-semibold text-brand">{zh ? '去编辑页 →' : 'Open the editor →'}</a></>}
+                  </>)
+                })()
+              : computeListingSource(form) === 'realtor'
               ? (zh ? '已提交审核 · 通过后上线并标注 Realtor.ca 来源' : 'Submitted for review · goes live with a Realtor.ca source badge once approved')
               : (zh ? '待 Stayloop 验证,通过后公开展示并打上 VERIFIED 标' : 'Pending Stayloop verification — goes public with a VERIFIED badge once approved')}
           </div>
@@ -138,7 +181,7 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
         )}
         {/* badge — same position as ListingChatCard */}
         <span className="absolute left-3 top-3 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: '#B45309' }}>
-          {zh ? '草稿' : 'DRAFT'}
+          {isUpdate ? (zh ? '修改稿' : 'REVISION') : (zh ? '草稿' : 'DRAFT')}
         </span>
         {/* + button / heart position */}
         <button
@@ -205,6 +248,14 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
         </div>
       )}
 
+      {isUpdate && (
+        <div className="border-t border-line-divider px-4 py-2 text-[11.5px] leading-snug text-body-2" data-testid="draft-card-changes">
+          {nothingToUpdate
+            ? (zh ? '和现在的房源相比没有改动。' : 'No changes against the current listing.')
+            : (zh ? `将更新：${[...changedFields, ...(photosChanged && !changedFields.includes('images') ? ['images'] : [])].map((k) => FIELD_ZH[k] ?? k).join('、')}；其余保持不变。` : `Will update: ${[...changedFields, ...(photosChanged && !changedFields.includes('images') ? ['images'] : [])].map((k) => FIELD_EN[k] ?? k).join(', ')}; everything else stays as it is.`)}
+          {form.listing_active === false && (zh ? ' 这套房源目前已下架。' : ' This listing is currently off market.')}
+        </div>
+      )}
       {/* action bar — edit + publish */}
       <div className="flex border-t border-line-divider">
         <button onClick={openEditPage} className="flex flex-1 items-center justify-center gap-1.5 border-r border-line-divider py-3 text-[12.5px] font-semibold text-body transition hover:bg-surface-chip">
@@ -212,17 +263,20 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
           {zh ? '编辑' : 'Edit'}
         </button>
         <button
-          onClick={handlePublish} disabled={publishing || photos.length === 0 || !form.address || !form.monthly_rent} title={photos.length === 0 ? (zh ? '请先添加至少 1 张照片' : 'Add at least one photo first') : undefined}
+          onClick={handlePublish} disabled={publishing || photos.length === 0 || !form.address || !form.monthly_rent || nothingToUpdate} title={photos.length === 0 ? (zh ? '请先添加至少 1 张照片' : 'Add at least one photo first') : nothingToUpdate ? (zh ? '和现在的房源相比没有改动' : 'No changes against the current listing') : undefined}
           className="flex flex-1 items-center justify-center gap-1.5 py-3 text-[12.5px] font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
           style={{ background: '#047857' }}
         >
-          {publishing ? '…' : zh ? '发布房源' : 'Publish'}
+          {publishing ? '…' : isUpdate ? (zh ? '更新房源' : 'Update listing') : zh ? '发布房源' : 'Publish'}
         </button>
       </div>
       {error && <div className="bg-danger/5 px-4 py-2 text-[11px] text-danger">{error}</div>}
     </div>
   )
 }
+
+const FIELD_ZH: Record<string, string> = { title: '标题', description: '描述', amenities: '设施', monthly_rent: '月租', bedrooms: '卧室数', bathrooms: '浴室数', sqft: '面积', deposit: '押金', pets_allowed: '宠物', pet_policy: '宠物说明', smoking_policy: '吸烟', lease_term: '租期', utilities_included: '租金包含', furnished: '家具', parking: '车位', parking_spaces: '车位数', available_date: '入住日期', has_den: 'den', images: '照片' }
+const FIELD_EN: Record<string, string> = { title: 'title', description: 'description', amenities: 'amenities', monthly_rent: 'rent', bedrooms: 'bedrooms', bathrooms: 'bathrooms', sqft: 'size', deposit: 'deposit', pets_allowed: 'pets', pet_policy: 'pet notes', smoking_policy: 'smoking', lease_term: 'lease term', utilities_included: 'utilities', furnished: 'furnished', parking: 'parking', parking_spaces: 'parking spaces', available_date: 'available date', has_den: 'den', images: 'photos' }
 
 function HeartIcon() {
   return (

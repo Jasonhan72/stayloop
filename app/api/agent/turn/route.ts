@@ -11,6 +11,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
 import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback } from '@/lib/agent/prompts'
 import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
+import { matchOwnedListing, mergeWithExisting, type OwnedListingRow } from '@/lib/agent/draftExisting'
 import { flattenMarkdown, isProviderCapacityError } from '@/lib/agent/turnHelpers'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
@@ -953,14 +954,16 @@ export async function POST(req: Request) {
   // pass it through so the client can render a preview card in the chat.
   let draftListing: DraftListing | undefined
   const dl = parsed?.draft_listing as Record<string, unknown> | null | undefined
-  if (role === 'landlord' && dl && typeof dl === 'object' && typeof dl.address === 'string' && typeof dl.monthly_rent === 'number') {
+  // A rewrite of an owned listing may leave out the rent (the prompt says "only the fields you change");
+  // it is filled from the stored listing below, and a draft that matches nothing still needs one.
+  if (role === 'landlord' && dl && typeof dl === 'object' && typeof dl.address === 'string' && (typeof dl.monthly_rent === 'number' || dl.monthly_rent == null)) {
     const dlImages = Array.isArray(dl.images) ? (dl.images as unknown[]).map(String).filter((u: string) => u.startsWith('http')) : []
     const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
     const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
     const strArr = (v: unknown) => (Array.isArray(v) && v.length ? (v as unknown[]).map(String) : undefined)
     draftListing = {
       address: String(dl.address),
-      monthly_rent: dl.monthly_rent as number,
+      monthly_rent: typeof dl.monthly_rent === 'number' ? dl.monthly_rent : 0,
       title: typeof dl.title === 'string' ? dl.title : undefined,
       unit: typeof dl.unit === 'string' ? dl.unit : undefined,
       city: typeof dl.city === 'string' ? dl.city : 'Toronto',
@@ -1011,13 +1014,37 @@ export async function POST(req: Request) {
       source_url: urls[0] || undefined,
       images: urlImages.length ? urlImages : dlImages.length ? dlImages : undefined,
     }
+    // A rewrite of a listing the landlord already owns (2026-09-30): link the draft
+    // to it — the stored listing is the base, its photos stay, and the card
+    // updates it in place instead of publishing a duplicate.
+    let ownedMatch = false
+    if (draftListing && sbAuth && turnUserId) {
+      try {
+        const { data: lp } = await sbAuth.from('landlords').select('id').or(`id.eq.${turnUserId},auth_id.eq.${turnUserId}`)
+        const ids = Array.from(new Set([...(lp ?? []).map((r: { id: string }) => r.id), turnUserId]))
+        const { data: rows } = await sbAuth.from('listings').select('*').in('landlord_id', ids).limit(60)
+        const hit = matchOwnedListing(draftListing, (rows ?? []) as OwnedListingRow[])
+        if (hit) {
+          draftListing = mergeWithExisting(hit, draftListing, message, urlImages)
+          ownedMatch = true
+        }
+        // Not an owned listing and no rent: nothing publishable (as before).
+        if (!ownedMatch && !(draftListing.monthly_rent > 0)) draftListing = undefined
+      } catch (e) {
+        console.warn('[agent/turn] owned-listing match failed', (e as Error).message)
+      }
+    }
+
     // The draft card renders with an edit/publish CTA — it must pass the
     // same OHRC/RTA compliance filters as the reply text.
-    const sanitized = sanitizeDraftListing(draftListing, uiLang)
-    draftListing = sanitized.draft
-    if (sanitized.flags.length) {
-      flags.push(...sanitized.flags)
-      if (sanitized.note) out.reply += `\n\n${sanitized.note}`
+    // Runs on the merged draft, so an owned listing's stored terms (pets, utilities …) count as confirmed.
+    if (draftListing) {
+      const sanitized = sanitizeDraftListing(draftListing, uiLang)
+      draftListing = sanitized.draft
+      if (sanitized.flags.length) {
+        flags.push(...sanitized.flags)
+        if (sanitized.note) out.reply += `\n\n${sanitized.note}`
+      }
     }
 
     // Grounding backstop: the address must actually come from something the
@@ -1026,7 +1053,8 @@ export async function POST(req: Request) {
     // is the guarantee — a hallucinated address on a publish-ready card is
     // worse than no card. Heuristic: the street NUMBER (the least ambiguous
     // token) must appear in the user-provided text.
-    if (draftListing) {
+    // (An owned listing is grounded by the landlord's own record.)
+    if (draftListing && !ownedMatch) {
       const groundText = [
         message,
         ...(Array.isArray(body.history) ? body.history.map((h) => h?.text || '') : []),
