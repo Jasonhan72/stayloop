@@ -2801,7 +2801,7 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
     （「房源发布，不限套数」「AI 助理、安省标准租约与电子签、续约提醒」），专业档标语改「筛查不限次，核验与服务商网络全开」。`lib/i18n.tsx` 里无人使用的 `dash.pricing.*`
     与 `acct.langplan.planProDesc`（「优先 AI 评分」）删除。**未动**：团队档 $39 的「多成员协作 + 权限 / 多物业组合面板」（组织成员未做，CTA 指向联系页）。
 
-## 消息与沟通系统重设计（2026-09-29 · 蓝本已定稿，**待新对话实施**）
+## 消息与沟通系统重设计（2026-09-29 · 蓝本已定稿；**A 期 2026-09-30 已实施**，见下「A 期落地」）
 
 用户：「要加强这个消息系统，是关于所有角色的沟通功能，可以是站内，也可以是短信和邮箱…目标是能否实现所有角色的相互无障碍沟通，并能全部有时间戳和不可删除，
 未来可以作为争议处理的证据。希望有一个独立的入口，能可以直接发起消息的，当然都是和租房这个事物相关的沟通。」蓝本 `design/messaging-redesign-2026-09.html`
@@ -2842,3 +2842,18 @@ household / 工单 / 申请；密码只从 `E2E_TEST_PASSWORD` 读）——生�
 回复路由待定：一个号码时默认进「最近一条发给这个手机的对话」并附短码切换，或用号码池（每号 $1.15/月）按「对方手机 × 我方号码」路由。
 **C 期**：「请 Stayloop 介入」→ 调解员加入对话、双方提交材料、结案记录、证据包交 LTB。
 
+
+### A 期落地（2026-09-30 · V0.7）
+
+迁移 `20260929_messaging_a.sql`（已应用 prod，回滚事务实测：service role 删 / 改消息 → `append_only`，删有消息的对话 → FK 拒绝，租客看不到房东的客服对话）。守卫 `tests/messagingA20260929.spec.ts`（23 条）。
+- **入口**：页头信封 `components/messages/InboxButton.tsx`（`my_unread_messages()`，`lib/messages/unread.ts` 2 秒共享 + `sl-messages-changed` 事件）→ `/messages`（`components/messages/MessageCenter.tsx`：列表 · 对话 · xl 起右侧记录栏）。壳按 `activeHat`，记住的是服务商且有服务商行时用普通页头。`/tenant|landlord|agent|provider/messages` 在中间件 308 到 `/messages`；旧 `components/messages/Inbox.tsx` 删除。`?t=<thread>` 打开对话，`?new=<kind>:<ref>` 打开新消息并预选事务。
+- **七种对话**：原四种 + `listing_inquiry`（ref = `uuidV5(listing_id, prospect_uid)`，`threads.listing_id / subject_user`；只由服务端 `ensureListingThread` 开，`/api/showing-intent` 把请求本身写成租客的第一条消息，待办卡只作提醒，metadata 带 `thread_id`）、`agent_client`（ref = `agent_clients.id`；经纪 = `agent_auth_id`，客户 = 登录邮箱等于客户表邮箱或有效委托的委托人；客户表每行「发消息」）、`support`（ref = 用户自己的 uid，对方 = `admin_users`）。**当事人判定只在 `party_for(kind, ref, listing, subject)`**，`thread_party(tid)` 调它；`my_message_targets()` 列新消息第 1 步可选的事务。
+- **哈希链**：`thread_messages.channel / prev_hash / hash`；`trg_thread_messages_zz_chain`（名字排在 `before_insert` 之后，按对话 advisory lock 串行）对每个写入者算 `sha256(thread_message_canonical(row, prev))`，首条 prev = `genesis`。格式 `stayloop-thread-v1` 在 `lib/threads/hashChain.ts` 逐字节复现（时间戳保留微秒、UTC），夹具 `tests/fixtures/threadChain20260929.json` 是生产 7 条真消息。**改规范化格式 = 历史链全部失效，别动；要改就加 v2 按版本分支。**
+- **删不掉**：`thread_messages_append_only()` 对所有角色（含 service role）拒绝 UPDATE / DELETE，另有 BEFORE TRUNCATE；`thread_messages.thread_id` → `on delete restrict`，`threads.household_id` → `on delete set null`。回执 `message_deliveries`（状态只能前进）、入站 `thread_inbound` 同样只追加。数据库所有者理论上能删触发器——哈希链就是为此存在。
+- **实时**：`thread_messages`、`message_reads` 进 `supabase_realtime`；`ThreadPanel` 订阅 postgres_changes（RLS 过滤）+ 45 秒兜底。
+- **邮件出站**：`notifyThreadParties` 对有账号的推送，**推送没送到任何设备时改发一封邮件**；无账号的一方直接邮件。模板 `renderThreadMessageEmail`，发件人显示「<名字> 经 Stayloop」（`sendEmail` 新参数 `fromName`），`Reply-To = t-<令牌>@reply.stayloop.ai`（`thread_reply_tokens`，每个对话 × 收件地址一枚，service role 专用）；每封 / 每次推送写 `message_deliveries`。
+- **邮件回复入档**：Email Worker `workers/reply-email`（`stayloop-reply-email`，已 `wrangler deploy`；postal-mime；主 tsconfig 排除 `workers/`）→ `POST /api/threads/inbound`（共享密钥 `INBOUND_EMAIL_SECRET`：`.env.local` + CF Pages secret + Worker secret 三处同值）→ `recordEmailReply`：原始 MIME 存私有桶 `thread-inbound` 并记 SHA-256（不论结果），只有令牌有效、**且 From 等于令牌签发地址**才写成 `channel='email'` 消息（剥掉引用；邮件附件不收录，正文注明）。**待用户做**：Cloudflare 后台为子域名 `reply.stayloop.ai` 开 Email Routing，catch-all →「Send to a Worker → stayloop-reply-email」（本机两枚令牌都没有 Email Routing 权限）。开之前回复邮件会被退回，其余不受影响。
+- **中转（决定 4）**：看房批准邮件、派单 / 进入通知 / 服务商通知（`relayReplyTo`；进入通知改为每个租客单独一封）、`/w/<token>` 页、委托确认、新申请通知、决定通知都不再给私人邮箱；看房卡与房东回执只写名字；证据包与对话导出按名字（`displayNameFor`）标人。申请人 / 租客的邮箱仍在房东自己的申请与租约数据里（是对方提交给房东的）。
+- **导出**：`POST /api/threads/export {thread_id, format: html|json}`（JSON 带链算法与服务器校验结果，可第三方复算；审计 `thread_export_generated`）；`lib/export/threadRecord.ts` 也供事务证据包用。
+- **隐私页** 3a 节：只追加、保留 7 年、注销后对话记录保留、邮件中转。
+- **B 期（短信）等 Twilio 凭证；C 期未做**——现在请 Stayloop 介入走「新消息 → 联系 Stayloop」。
