@@ -168,8 +168,14 @@ describe('relay: no personal address changes hands', () => {
 
 describe('one entry: the message centre', () => {
   it('the header envelope, the rail and the old pages all lead to /messages', () => {
-    expect(read('components/Header.tsx')).toContain('<InboxButton zh={lang === \'zh\'} />')
-    expect(read('components/messages/InboxButton.tsx')).toContain('href="/messages"')
+    // 2026-09-30 (user): no separate envelope — messages sit in the hamburger, and its one red dot
+    // lights for approval cards OR unread messages.
+    const h = read('components/Header.tsx')
+    expect(existsSync('components/messages/InboxButton.tsx')).toBe(false)
+    expect(h).toContain('href="/messages"')
+    expect(h).toContain('data-testid="menu-messages"')
+    expect(h).toContain('const attention = pendingCount + unreadMessages')
+    expect(h).toContain('{auth.user && attention > 0 && (')
     expect(read('lib/messages/unread.ts')).toContain("supabase.rpc('my_unread_messages')")
     expect(existsSync('app/tenant/messages/page.tsx')).toBe(false)
     expect(existsSync('app/landlord/messages/page.tsx')).toBe(false)

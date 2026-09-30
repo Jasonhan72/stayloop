@@ -1,6 +1,6 @@
 'use client'
 
-import InboxButton from '@/components/messages/InboxButton'
+import { useUnreadMessages } from '@/lib/messages/unread'
 import { isRegistrationLive } from '@/lib/agentProfile'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -82,6 +82,14 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
     window.addEventListener(PENDING_CHANGED_EVENT, load)
     return () => { cancelled = true; window.removeEventListener(PENDING_CHANGED_EVENT, load) }
   }, [auth.loading, auth.user, currentRole, displayRole, pathname])
+
+  // Messages (消息系统 A 期): the envelope folded into the hamburger (user 2026-09-30) —
+  // one red dot for "something is waiting": approval cards on this hat or unread messages.
+  const unreadMessages = useUnreadMessages(!auth.loading && !!auth.user)
+  const attention = pendingCount + unreadMessages
+  const attentionLabel = lang === 'zh'
+    ? [pendingCount ? `${pendingCount} 件等你点头` : '', unreadMessages ? `${unreadMessages} 条未读消息` : ''].filter(Boolean).join('，')
+    : [pendingCount ? `${pendingCount} waiting on you` : '', unreadMessages ? `${unreadMessages} unread messages` : ''].filter(Boolean).join(', ')
 
   const handleRoleSwitch = (newRole: string) => {
     auth.setRole(newRole as 'tenant' | 'landlord' | 'agent')
@@ -284,9 +292,8 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
           <NavLink i18nKey="nav.screening" href="/screening" active={isActive('/screening')} />
         </nav>
 
-        {/* Right side — messages envelope + avatar + hamburger (消息系统 A 期: one entry for every conversation) */}
+        {/* Right side — avatar + hamburger (messages live in the hamburger since 2026-09-30) */}
         <div className="flex items-center gap-[10px]">
-          <InboxButton zh={lang === 'zh'} />
           {/* Avatar — links to profile/settings like Airbnb */}
           {!auth.loading && auth.user && (
             <Link
@@ -309,11 +316,11 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
             <button
               onClick={() => setMenuOpen((v) => !v)}
               className="relative flex h-[42px] w-[42px] items-center justify-center rounded-full border border-[#DDDDDD] bg-white text-[#222] transition hover:shadow-[0_2px_4px_rgba(0,0,0,0.18)]"
-              aria-label="Menu"
+              aria-label={auth.user && attention > 0 ? `Menu · ${attentionLabel}` : 'Menu'}
             >
               <HamburgerIcon />
-              {auth.user && pendingCount > 0 && (
-                <span className="absolute right-[3px] top-[3px] h-[8px] w-[8px] rounded-full bg-[#FF385C] ring-[1.5px] ring-white" aria-label={lang === 'zh' ? `${pendingCount} 件等你点头` : `${pendingCount} waiting on you`} />
+              {auth.user && attention > 0 && (
+                <span data-testid="menu-attention-dot" className="absolute right-[3px] top-[3px] h-[8px] w-[8px] rounded-full bg-[#FF385C] ring-[1.5px] ring-white" aria-hidden="true" />
               )}
             </button>
 
@@ -383,6 +390,17 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                         {lang === 'zh' ? '房源管理' : 'Manage listings'}
                       </Link>
                     )}
+                    <Link
+                      href="/messages"
+                      onClick={() => setMenuOpen(false)}
+                      data-testid="menu-messages"
+                      className="flex items-center gap-3 px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
+                      role="menuitem"
+                    >
+                      <MailIcon />
+                      <span className="flex-1">{lang === 'zh' ? '消息' : 'Messages'}</span>
+                      {unreadMessages > 0 && <span className="rounded-full bg-[#FF385C] px-2 py-[1px] text-[11px] font-bold text-white">{unreadMessages > 99 ? '99+' : unreadMessages}</span>}
+                    </Link>
                     <Link
                       href="/notifications"
                       onClick={() => setMenuOpen(false)}
@@ -649,6 +667,12 @@ function HamburgerIcon() {
       <line x1="3" y1="12" x2="21" y2="12" />
       <line x1="3" y1="18" x2="21" y2="18" />
     </svg>
+  )
+}
+
+function MailIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
   )
 }
 

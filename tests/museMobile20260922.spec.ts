@@ -134,7 +134,7 @@ describe('signed-in homepage + identity menu', () => {
     expect(header).not.toMatch(/aiNames|useAIName|的工作台/)
     expect(header).toMatch(/<span>\{lang === 'zh' \? ROLE_META\[r\]\.label : ROLE_META\[r\]\.labelEn\}<\/span>/)
     expect(header).toMatch(/\(\['tenant', 'landlord', 'agent'\] as const\)\.map\(\(r\) => \{\s*const held = heldRoles\.includes\(r\)/)
-    expect(header).toMatch(/auth\.user && pendingCount > 0 && \(/)
+    expect(header).toMatch(/auth\.user && attention > 0 && \(/) // approval cards or unread messages (2026-09-30)
     expect(header).not.toMatch(/otherRoles|missingRoles/)
   })
   it('menu: the identity list folds behind one 切换身份 row, collapsed on every open (user 2026-09-26: the menu had grown too long)', () => {
