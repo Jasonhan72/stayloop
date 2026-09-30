@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail, renderNewApplicationEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
+import { ensureThread, replyTokenFor } from '@/lib/threads/server'
+import { replyAddress } from '@/lib/threads/emailReply'
 
 export const runtime = 'edge'
 
@@ -126,9 +128,17 @@ export async function POST(req: NextRequest) {
     dashboardUrl: `${siteUrl}/landlord/applicants/${app.id}`,
   })
 
+  // Relay (消息系统 A 期): replying goes into the application conversation, where
+  // the applicant is reached by email — neither inbox is handed to the other.
+  let relay: string | undefined
+  try {
+    const th = await ensureThread(admin, 'application', app.id, { title: [listing?.address, listing?.unit ? `#${listing.unit}` : null].filter(Boolean).join(' ') || null, createdBy: landlord.auth_id ?? null })
+    const tok = th ? await replyTokenFor(admin, th.id, String(landlord.email), { kind: 'landlord', userId: landlord.auth_id ? String(landlord.auth_id) : null, label: null }) : null
+    relay = tok ? replyAddress(tok) : undefined
+  } catch { relay = undefined }
   const result = await sendEmail({
     to: landlord.email,
-    replyTo: app.email ?? undefined,
+    replyTo: relay,
     subject,
     html,
     text,

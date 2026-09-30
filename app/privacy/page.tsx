@@ -17,7 +17,7 @@ export default function PrivacyPage() {
           <h1 className="mt-3 text-[36px] font-extrabold leading-tight tracking-tight sm:text-[44px]">
             {zh ? '我们怎么处理你的数据' : 'How we handle your data'}
           </h1>
-          <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? '最后更新 · 2026-09-19' : 'Last updated · 2026-09-19'}</p>
+          <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? '最后更新 · 2026-09-29' : 'Last updated · 2026-09-29'}</p>
 
           <Section title={zh ? '1 · 我们收集什么' : '1 · What we collect'}>
             <p>{zh
@@ -35,6 +35,11 @@ export default function PrivacyPage() {
             <p>{zh
               ? '每个字段都可以随时撤销共享。账户删除后,加密原文 30 天内擦除,衍生 hash (用于 fraud 检测) 保留 12 个月。'
               : 'You can revoke sharing of any field at any time. After you delete your account, the encrypted originals are erased within 30 days, while derived hashes (used for fraud detection) are retained for 12 months.'}</p>
+          </Section>
+          <Section title={zh ? '3a · 消息与沟通记录' : '3a · Messages and conversation records'}>
+            <p>{zh
+              ? '平台上的对话（租约、申请、维修工单、房源咨询、经纪委托、联系 Stayloop）只能追加、任何人都删不掉——包括 Stayloop 后台——因为它们可能成为争议证据。每条消息带服务器时间与指纹（哈希链），回复邮件的原始件及其指纹另存。事务结束后记录保留 7 年（覆盖 LTB 一年、小额法庭两年的时效，并与税务记录一致），之后删除。你注销账户时，我们删除你的个人资料，但对话记录保留（对方同样有证据权益），其中你的名字仍按发送时显示。发给没开 App 的一方的邮件经 Stayloop 转发：对方看到的是「你的名字 经 Stayloop」和一个专属回复地址，看不到你的私人邮箱；对方回复邮件时，回复会进同一份记录。'
+              : 'Conversations on the platform (tenancies, applications, work orders, listing inquiries, agent engagements, contacting Stayloop) are append-only and nobody can delete them — Stayloop’s back office included — because they may become evidence in a dispute. Each message carries server time and a fingerprint (hash chain); raw email replies and their fingerprints are kept too. Records are kept for 7 years after the matter ends (covering the LTB’s one-year and Small Claims’ two-year limitation periods, and matching tax records), then deleted. If you close your account we delete your profile, but conversation records remain (the other side has the same evidentiary interest), showing your name as it was when sent. Email to a party who is not in the app is relayed by Stayloop: they see “your name via Stayloop” and a private reply address, never your personal email; when they reply by email, the reply joins the same record.'}</p>
           </Section>
           <Section title={zh ? '4 · 数据存储' : '4 · Data storage'}>
             <p>{zh

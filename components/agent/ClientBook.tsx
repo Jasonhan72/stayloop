@@ -176,6 +176,8 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
                         const screenHref = shared ? `/screening/app?as=agent&delegation=${d.id}` : '/screening/app?as=agent'
                         return (<>
                           {/* screening is of a landlord client's applicants; for a tenant client the agent is on the other side */}
+                          {/* 消息系统 A 期: the agent ↔ client conversation (relayed by email when the client has no account) */}
+                          {c.email && <Link href={`/messages?new=agent_client:${c.id}`} data-testid="client-message" className="rounded-[8px] border border-line-divider px-2.5 py-[5px] text-[11.5px] font-semibold text-body">{zh ? '发消息' : 'Message'}</Link>}
                           {c.client_role === 'landlord' && <Link href={screenHref} data-testid="client-screen" className="rounded-[8px] border border-agent/40 bg-agent/[0.06] px-2.5 py-[5px] text-[11.5px] font-semibold text-agent">{zh ? '发起筛查' : 'Screen'}</Link>}
                           {d && st && <span data-testid="delegation-chip" className={'rounded-[8px] px-2 py-[5px] font-mono text-[10.5px] font-bold ' + (live ? 'bg-success/10 text-success' : st.tone === 'warn' ? 'bg-amber-50 text-amber-800' : st.tone === 'danger' ? 'bg-danger/10 text-danger' : 'bg-surface-chip text-body-3')}>{live ? (zh ? `委托有效至 ${d.expires_at.slice(0, 10)}` : `Delegated until ${d.expires_at.slice(0, 10)}`) : (zh ? st.zh : st.en)}</span>}
                           {shared

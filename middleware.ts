@@ -51,6 +51,11 @@ export function middleware(request: NextRequest) {
       url.pathname = '/settings'
       return withSecurityHeaders(NextResponse.redirect(url, 308))
     }
+    // One message centre for every hat (消息系统 A 期, 2026-09-29).
+    if (/^\/(landlord|tenant|agent|provider)\/messages\/?$/.test(url.pathname)) {
+      url.pathname = '/messages'
+      return withSecurityHeaders(NextResponse.redirect(url, 308))
+    }
     // /landlord/applications is the guessed plural (three-role test report
     // 2026-09-24, SL-L-04); the page is /landlord/applicants.
     const apps = url.pathname.match(/^\/landlord\/applications(\/.*)?$/)

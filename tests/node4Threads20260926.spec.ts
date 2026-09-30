@@ -92,7 +92,8 @@ describe('surfaces and hooks', () => {
     expect(p).toContain("supabase.rpc('find_thread', { p_kind: kind, p_ref: refId })")
     expect(p).toContain("supabase.rpc('open_thread', { p_kind: kind, p_ref: refId })")
     expect(p.indexOf("rpc('open_thread'")).toBeGreaterThan(p.indexOf('const ensureThreadId'))
-    expect(read('components/messages/Inbox.tsx')).toContain('.filter((i) => i.latest)')
+    // 消息系统 A 期: the message centre lists threads through my_threads(), which only returns threads that hold a message.
+    expect(read('supabase/migrations/20260929_messaging_a.sql')).toContain('from t join last l on l.thread_id = t.id')
     expect(p).toContain("from('thread_messages').insert(")
     expect(p).toContain("from('message_reads').upsert(row, { onConflict: 'thread_id,user_id' })")
     expect(p).not.toMatch(/from\('thread_messages'\)\.(update|delete)/)
@@ -102,9 +103,9 @@ describe('surfaces and hooks', () => {
   it('old messaging is gone; the inbox reads threads and read marks from the database', () => {
     expect(existsSync('lib/household/readMarks.ts')).toBe(false)
     expect(existsSync('app/api/household/notify-message/route.ts')).toBe(false)
-    const inbox = read('components/messages/Inbox.tsx')
-    expect(inbox).toContain("from('threads')")
-    expect(inbox).toContain("from('message_reads')")
+    const inbox = read('components/messages/MessageCenter.tsx')
+    expect(inbox).toContain("supabase.rpc('my_threads')")
+    expect(read('supabase/migrations/20260929_messaging_a.sql')).toContain('left join public.message_reads r on r.thread_id = m.thread_id and r.user_id = auth.uid()')
     expect(inbox).not.toContain('localStorage')
     expect(read('app/h/[id]/page.tsx')).not.toContain('household_messages')
   })

@@ -230,11 +230,11 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
       id: 'film-showing', role: 'landlord', action_type: 'showing_request', risk_level: 'low',
       title: L({ zh: `看房请求：Mia Chen · ${ADDR}`, en: `Showing request: Mia Chen · ${ADDR}` }),
       summary: zh
-        ? `Mia Chen（${MIA_EMAIL}）${line}。批准 = 同意安排看房：我会把你的联系邮箱发给对方，由你们直接约时间；拒绝则不回复。 按 OHRC 租房政策，看房与回答提问不得因受保护特征区别对待。`
-        : `Mia Chen (${MIA_EMAIL}) ${line}. Approve = agree to a showing: I send your contact email to her and you set the time directly; reject = no reply. Under the OHRC rental policy, showings and answers may not differ by protected grounds.`,
-      recipient_label: MIA_EMAIL,
-      data_scope: zh ? ['你的联系邮箱', '房源地址'] : ['Your contact email', 'The listing address'],
-      excluded_data: zh ? ['筛查报告', '其他申请人信息'] : ['Screening reports', 'Other applicants’ information'],
+        ? `Mia Chen ${line}。批准 = 同意安排看房：我会邮件告诉对方，你们在「消息」里的这段对话约时间（双方都看不到对方的私人邮箱）；拒绝则不回复。也可以直接去对话里回复。 按 OHRC 租房政策，看房与回答提问不得因受保护特征区别对待。`
+        : `Mia Chen ${line}. Approve = agree to a showing: I email her and you pick a time in this conversation under Messages (neither side sees the other’s personal email); reject = no reply. You can also answer in the conversation directly. Under the OHRC rental policy, showings and answers may not differ by protected grounds.`,
+      recipient_label: 'Mia Chen',
+      data_scope: zh ? ['房源地址', '这段对话的链接'] : ['The listing address', 'A link to this conversation'],
+      excluded_data: zh ? ['你的私人邮箱', '筛查报告', '其他申请人信息'] : ['Your personal email', 'Screening reports', 'Other applicants’ information'],
     }, now)
     w.push({ k: 'notify', lane: 'sarah', kind: 'push', title: L({ zh: `看房请求 · ${ADDR}`, en: `Showing request · ${ADDR}` }), body: `Mia Chen${zh ? '：' : ': '}${line}` })
     // she taps the push: the banner goes, the card is there
@@ -243,7 +243,7 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
     w.push({ k: 'status', lane: 'sarah', status: 'approval' })
     w.key()
     w.wait(1300)
-    w.approve('sarah', executedText({ title: showing.title, actionType: showing.action_type, sentTo: MIA_EMAIL, zh }))
+    w.approve('sarah', executedText({ title: showing.title, actionType: showing.action_type, sentTo: 'Mia Chen', zh }))
     w.wait(400)
     w.push({ k: 'handoff', from: 'sarah', to: 'mia', label: L({ zh: '看房已确认', en: 'Showing confirmed' }) })
     w.wait(700)
@@ -283,7 +283,7 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
         en: `Once approved I send the admission notice to ${MIA_EMAIL} and say the lease follows. The letter always carries the Consumer Reporting Act s.10(7) and OHRC statements.`,
       }),
       recipient_label: MIA_EMAIL,
-      data_scope: zh ? ['申请结果', '房东联系邮箱'] : ['The decision', 'Your contact email'],
+      data_scope: zh ? ['申请结果', '申请对话（对方回邮件即进对话）'] : ['The decision', 'The application conversation (replies land there)'],
       excluded_data: zh ? ['筛查报告', '评分', '其他申请人信息'] : ['Screening report', 'Score', 'Other applicants’ information'],
     }, now)
     w.push({ k: 'card', lane: 'sarah', card: decision })

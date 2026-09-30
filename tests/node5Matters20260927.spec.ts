@@ -75,7 +75,7 @@ describe('schema: one writer, party-scoped reads, delegation-gated screenings', 
   })
   it('threads and audit receipts carry the matter; the matter columns exist before the SQL function that reads them', () => {
     expect(sql.indexOf('alter table public.threads add column if not exists matter_id')).toBeLessThan(sql.indexOf('create or replace function public.matter_summary'))
-    expect(read('lib/threads/server.ts')).toContain('const matterId = await ensureMatter(admin, matterKindOfThread(kind), refId)')
+    expect(read('lib/threads/server.ts')).toContain(': await ensureMatter(admin, matterKindOfThread(kind), refId)')
     expect(read('app/api/agent/execute/route.ts')).toContain('rental_matter_id: rentalMatterId')
     expect(read('lib/marketplace/server.ts')).toContain("void ensureMatter(admin, 'work_order', wo.id)")
   })

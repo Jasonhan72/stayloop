@@ -2,49 +2,88 @@
 // system / formal-copy messages, resolves the parties and notifies them.
 // Never imported by client code; never imports the marketplace server (the
 // marketplace imports this).
+//
+// 消息系统 A 期 (2026-09-29): seven kinds (listing inquiries, agent ↔ client and
+// Stayloop support joined tenancies / applications / work orders / disputes);
+// every email about a thread is sent "<sender> 经 Stayloop" from our own address
+// with Reply-To t-<token>@reply.stayloop.ai, so the other side never sees a
+// personal address and a reply by email lands in the same record
+// (recordEmailReply, called by /api/threads/inbound). Every push / email is a
+// row in message_deliveries.
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
+import { sendEmail, renderThreadMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
-import { FORMAL_COPY_NOTE, threadHref, type MessageKind, type SenderKind, type ThreadKind } from './shared'
+import { FORMAL_COPY_NOTE, KIND_TAG, PARTY_LABEL, messageCenterHref, type MessageKind, type SenderKind, type ThreadKind } from './shared'
+import { REPLY_MARKER, bareAddress, newReplyToken, replyAddress, stripQuotedReply, tokenFromAddress, htmlToText } from './emailReply'
 import { ensureMatter, matterKindOfThread } from '@/lib/matters/server'
 
 type Admin = SupabaseClient
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')
+const COLS = 'id, kind, ref_id, household_id, title, listing_id, subject_user'
 
-export type ThreadRow = { id: string; kind: ThreadKind; ref_id: string; household_id: string | null; title: string | null }
+export type ThreadRow = { id: string; kind: ThreadKind; ref_id: string; household_id: string | null; title: string | null; listing_id?: string | null; subject_user?: string | null }
+
+/** RFC 4122 v5 (SHA-1) — the ref of a listing inquiry is uuid_v5(listing, prospect). */
+export async function uuidV5(namespace: string, name: string): Promise<string> {
+  const ns = namespace.replace(/-/g, '')
+  const bytes = new Uint8Array(16 + new TextEncoder().encode(name).length)
+  for (let i = 0; i < 16; i++) bytes[i] = parseInt(ns.slice(i * 2, i * 2 + 2), 16)
+  bytes.set(new TextEncoder().encode(name), 16)
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-1', bytes)).slice(0, 16)
+  h[6] = (h[6] & 0x0f) | 0x50
+  h[8] = (h[8] & 0x3f) | 0x80
+  const hex = Array.from(h).map((b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
 
 /** Get or create the thread of a matter. */
-export async function ensureThread(admin: Admin, kind: ThreadKind, refId: string, opts: { householdId?: string | null; title?: string | null; createdBy?: string | null } = {}): Promise<ThreadRow | null> {
-  const { data: hit } = await admin.from('threads').select('id, kind, ref_id, household_id, title').eq('kind', kind).eq('ref_id', refId).maybeSingle()
+export async function ensureThread(admin: Admin, kind: ThreadKind, refId: string, opts: { householdId?: string | null; title?: string | null; createdBy?: string | null; listingId?: string | null; subjectUser?: string | null } = {}): Promise<ThreadRow | null> {
+  const { data: hit } = await admin.from('threads').select(COLS).eq('kind', kind).eq('ref_id', refId).maybeSingle()
   if (hit) return hit as ThreadRow
   // 节点 5: every thread hangs off the rental matter of its ref (derived from the chain; null when there is none yet).
-  const matterId = await ensureMatter(admin, matterKindOfThread(kind), refId)
-  const { data, error } = await admin.from('threads').insert({ kind, ref_id: refId, household_id: opts.householdId ?? null, title: (opts.title || '').slice(0, 200) || null, created_by: opts.createdBy ?? null, matter_id: matterId }).select('id, kind, ref_id, household_id, title').maybeSingle()
+  const matterId = kind === 'listing_inquiry' && opts.listingId
+    ? await ensureMatter(admin, 'listing', opts.listingId)
+    : kind === 'agent_client' || kind === 'support' || kind === 'listing_inquiry' ? null
+    : await ensureMatter(admin, matterKindOfThread(kind), refId)
+  const { data, error } = await admin.from('threads').insert({
+    kind, ref_id: refId, household_id: opts.householdId ?? null, title: (opts.title || '').slice(0, 200) || null, created_by: opts.createdBy ?? null, matter_id: matterId,
+    listing_id: opts.listingId ?? null, subject_user: opts.subjectUser ?? null,
+  }).select(COLS).maybeSingle()
   if (error) {
     // Lost a race: read the winner.
-    const { data: again } = await admin.from('threads').select('id, kind, ref_id, household_id, title').eq('kind', kind).eq('ref_id', refId).maybeSingle()
+    const { data: again } = await admin.from('threads').select(COLS).eq('kind', kind).eq('ref_id', refId).maybeSingle()
     return (again as ThreadRow | null) ?? null
   }
   return (data as ThreadRow | null) ?? null
 }
 
+/** The one listing-inquiry thread between a listing and a prospect. */
+export async function ensureListingThread(admin: Admin, listing: { id: string; address: string | null; unit: string | null }, prospectId: string): Promise<ThreadRow | null> {
+  const ref = await uuidV5(listing.id, prospectId)
+  const title = [listing.address, listing.unit ? `#${listing.unit}` : ''].filter(Boolean).join(' ') || 'Listing'
+  return ensureThread(admin, 'listing_inquiry', ref, { title, createdBy: prospectId, listingId: listing.id, subjectUser: prospectId })
+}
+
 export type SystemMessageInput = {
   body: string
-  kind?: Extract<MessageKind, 'system' | 'formal_copy'>
+  kind?: Extract<MessageKind, 'system' | 'formal_copy' | 'message'>
   senderKind?: SenderKind
   senderId?: string | null
   actingRole?: string | null
   senderLabel?: string | null
+  channel?: 'app' | 'email' | 'sms' | 'system'
+  attachments?: unknown[]
   meta?: Record<string, unknown>
 }
 
-/** A system line or a formal-notice copy on a thread (service role; the insert guard does not touch it). Never throws. */
+/** A server-written message (system line, formal-notice copy, or a party's message relayed by the server). Never throws. */
 export async function postSystemMessage(admin: Admin, threadId: string, m: SystemMessageInput): Promise<number | null> {
   try {
-    const body = (m.kind === 'formal_copy' ? `${m.body}\n\n— ${FORMAL_COPY_NOTE.zh} / ${FORMAL_COPY_NOTE.en}` : m.body).slice(0, 4000)
+    const kind = m.kind ?? 'system'
+    const body = (kind === 'formal_copy' ? `${m.body}\n\n— ${FORMAL_COPY_NOTE.zh} / ${FORMAL_COPY_NOTE.en}` : m.body).slice(0, 4000)
     const { data } = await admin.from('thread_messages').insert({
       thread_id: threadId, sender_id: m.senderId ?? null, sender_kind: m.senderKind ?? 'system', acting_role: m.actingRole ?? null, sender_label: m.senderLabel ?? null,
-      kind: m.kind ?? 'system', body, meta: m.meta ?? {},
+      kind, body, meta: m.meta ?? {}, channel: m.channel ?? (kind === 'message' ? 'app' : 'system'), attachments: m.attachments ?? [],
     }).select('id').maybeSingle()
     return (data as { id: number } | null)?.id ?? null
   } catch (e) {
@@ -61,6 +100,13 @@ export async function noteOnWorkOrder(admin: Admin, wo: { id: string; household_
 
 export type Party = { userId: string | null; email: string | null; kind: SenderKind; label: string }
 
+async function landlordOfListing(admin: Admin, landlordId: string | null | undefined): Promise<string | null> {
+  if (!landlordId) return null
+  const { data } = await admin.from('landlords').select('id, auth_id').or(`id.eq.${landlordId},auth_id.eq.${landlordId}`).limit(1)
+  const row = ((data ?? []) as { id: string; auth_id: string | null }[])[0]
+  return row?.auth_id ?? landlordId
+}
+
 /** Everyone in a thread, from the matter's own rows (never from message metadata). */
 export async function threadParties(admin: Admin, t: ThreadRow): Promise<Party[]> {
   const out: Party[] = []
@@ -70,16 +116,16 @@ export async function threadParties(admin: Admin, t: ThreadRow): Promise<Party[]
   }
   if (t.kind === 'tenancy') { await members(t.ref_id); return out }
   if (t.kind === 'work_order' || t.kind === 'dispute') {
-    const { data: wo } = await admin.from('work_orders').select('landlord_auth_id, provider_id, external_email, external_name, household_id, token').eq('id', t.ref_id).maybeSingle()
+    const { data: wo } = await admin.from('work_orders').select('landlord_auth_id, provider_id, external_email, external_name, household_id').eq('id', t.ref_id).maybeSingle()
     if (!wo) return out
-    const w = wo as { landlord_auth_id: string; provider_id: string | null; external_email: string | null; external_name: string | null; household_id: string; token: string | null }
+    const w = wo as { landlord_auth_id: string; provider_id: string | null; external_email: string | null; external_name: string | null; household_id: string }
     out.push({ userId: w.landlord_auth_id, email: null, kind: 'landlord', label: 'landlord' })
     if (w.provider_id) {
       const { data: p } = await admin.from('service_providers').select('auth_id, contact_email, legal_name, trade_name').eq('id', w.provider_id).maybeSingle()
       const pr = p as { auth_id: string | null; contact_email: string | null; legal_name: string; trade_name: string | null } | null
       if (pr) out.push({ userId: pr.auth_id, email: pr.auth_id ? null : pr.contact_email, kind: 'provider', label: pr.trade_name || pr.legal_name })
     } else if (w.external_email) {
-      out.push({ userId: null, email: w.external_email, kind: 'external', label: w.external_name || w.external_email })
+      out.push({ userId: null, email: w.external_email, kind: 'external', label: w.external_name || 'Contractor' })
     }
     const { data } = await admin.from('household_members').select('user_id, role').eq('household_id', w.household_id).eq('status', 'active').eq('role', 'tenant')
     for (const m of (data ?? []) as { user_id: string }[]) out.push({ userId: m.user_id, email: null, kind: 'tenant', label: 'tenant' })
@@ -90,15 +136,46 @@ export async function threadParties(admin: Admin, t: ThreadRow): Promise<Party[]
     if (!a) return out
     const app = a as { email: string | null; first_name: string | null; last_name: string | null; listing: { landlord_id: string } | { landlord_id: string }[] | null }
     const listing = Array.isArray(app.listing) ? app.listing[0] : app.listing
-    if (listing?.landlord_id) {
-      const { data: ll } = await admin.from('landlords').select('id, auth_id').or(`id.eq.${listing.landlord_id},auth_id.eq.${listing.landlord_id}`).limit(1)
-      const row = ((ll ?? []) as { id: string; auth_id: string | null }[])[0]
-      out.push({ userId: row?.auth_id ?? listing.landlord_id, email: null, kind: 'landlord', label: 'landlord' })
+    const ll = await landlordOfListing(admin, listing?.landlord_id)
+    if (ll) out.push({ userId: ll, email: null, kind: 'landlord', label: 'landlord' })
+    if (app.email) out.push({ userId: null, email: app.email, kind: 'tenant', label: [app.first_name, app.last_name].filter(Boolean).join(' ') || 'Applicant' })
+    return out
+  }
+  if (t.kind === 'listing_inquiry') {
+    if (t.subject_user) out.push({ userId: t.subject_user, email: null, kind: 'tenant', label: 'tenant' })
+    if (t.listing_id) {
+      const { data: l } = await admin.from('listings').select('landlord_id').eq('id', t.listing_id).maybeSingle()
+      const ll = await landlordOfListing(admin, (l as { landlord_id: string | null } | null)?.landlord_id)
+      if (ll) out.push({ userId: ll, email: null, kind: 'landlord', label: 'landlord' })
     }
-    if (app.email) out.push({ userId: null, email: app.email, kind: 'tenant', label: [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email })
+    return out
+  }
+  if (t.kind === 'agent_client') {
+    const { data: c } = await admin.from('agent_clients').select('agent_auth_id, name, client_role, email').eq('id', t.ref_id).maybeSingle()
+    const cl = c as { agent_auth_id: string; name: string; client_role: 'tenant' | 'landlord'; email: string | null } | null
+    if (!cl) return out
+    const { data: ap } = await admin.from('agent_profiles').select('legal_name').eq('auth_id', cl.agent_auth_id).maybeSingle()
+    out.push({ userId: cl.agent_auth_id, email: null, kind: 'agent', label: (ap as { legal_name: string | null } | null)?.legal_name || 'Agent' })
+    const { data: d } = await admin.from('delegations').select('principal_auth_id').eq('client_id', t.ref_id).eq('status', 'active').not('principal_auth_id', 'is', null).limit(1)
+    const principal = ((d ?? []) as { principal_auth_id: string }[])[0]?.principal_auth_id ?? null
+    if (principal) out.push({ userId: principal, email: null, kind: cl.client_role, label: cl.name })
+    else if (cl.email) out.push({ userId: null, email: cl.email, kind: cl.client_role, label: cl.name })
+    return out
+  }
+  if (t.kind === 'support') {
+    out.push({ userId: t.ref_id, email: null, kind: 'member', label: 'member' })
+    const { data } = await admin.from('admin_users').select('user_id')
+    for (const r of (data ?? []) as { user_id: string }[]) out.push({ userId: r.user_id, email: null, kind: 'admin', label: 'Stayloop' })
     return out
   }
   return out
+}
+
+/** A party as the other side sees them: role + name when we know one, never an address. */
+export function partyDisplay(p: Party, zh: boolean): string {
+  const role = zh ? PARTY_LABEL[p.kind]?.zh : PARTY_LABEL[p.kind]?.en
+  const generic = ['tenant', 'landlord', 'agent', 'provider', 'member', 'property_manager', 'landlord_owner']
+  return p.label && !generic.includes(p.label) && !p.label.includes('@') ? `${p.label} · ${role}` : role || p.kind
 }
 
 /** External-contact link for a work-order thread (the token is their credential). */
@@ -109,33 +186,84 @@ async function externalLink(admin: Admin, t: ThreadRow): Promise<string | null> 
   return token ? `${SITE()}/w/${token}` : null
 }
 
+/** The reply address for (thread, recipient); issued once, reused after. */
+export async function replyTokenFor(admin: Admin, threadId: string, email: string, party: { kind: SenderKind; userId: string | null; label: string | null }): Promise<string | null> {
+  const em = email.trim().toLowerCase()
+  const { data: hit } = await admin.from('thread_reply_tokens').select('token, revoked_at').eq('thread_id', threadId).eq('email', em).maybeSingle()
+  const h = hit as { token: string; revoked_at: string | null } | null
+  if (h) return h.revoked_at ? null : h.token
+  const token = newReplyToken()
+  const partyKind = party.kind === 'system' ? 'member' : party.kind
+  const { error } = await admin.from('thread_reply_tokens').insert({ token, thread_id: threadId, email: em, user_id: party.userId, party_kind: partyKind, label: party.label?.slice(0, 120) ?? null })
+  if (error) {
+    const { data: again } = await admin.from('thread_reply_tokens').select('token').eq('thread_id', threadId).eq('email', em).maybeSingle()
+    return (again as { token: string } | null)?.token ?? null
+  }
+  return token
+}
+
+async function authEmail(admin: Admin, userId: string): Promise<string | null> {
+  try {
+    const { data } = await admin.auth.admin.getUserById(userId)
+    return data?.user?.email ?? null
+  } catch { return null }
+}
+
+/** A person's display name for "<name> 经 Stayloop" (metadata name, never the address). */
+export async function displayNameFor(admin: Admin, userId: string | null): Promise<string | null> {
+  if (!userId) return null
+  try {
+    const { data } = await admin.auth.admin.getUserById(userId)
+    const md = (data?.user?.user_metadata ?? {}) as Record<string, unknown>
+    const n = [md.full_name, md.name].find((v) => typeof v === 'string' && v.trim()) as string | undefined
+    return n ? n.trim().slice(0, 60) : null
+  } catch { return null }
+}
+
+async function recordDelivery(admin: Admin, row: { message_id: number | null; thread_id: string; channel: 'email' | 'push'; recipient_user_id?: string | null; recipient_address?: string | null; provider_message_id?: string | null; status: string; detail?: string | null }) {
+  try { await admin.from('message_deliveries').insert({ ...row, detail: row.detail?.slice(0, 500) ?? null }) } catch { /* receipts never block delivery */ }
+}
+
 /**
- * Tell the other parties about a new message: push for account holders (their
- * own push level applies), one email for parties without an account (the
- * external contractor, an applicant). Never the sender. Never throws.
+ * Tell the other parties about a new message. Account holders get a push (their
+ * own push level applies) and, when no push reached them, one email; parties
+ * without an account get the email. Every email is relayed "<sender> 经
+ * Stayloop" with a per-recipient reply address, so replying by email records
+ * the reply. Never the sender. Never throws.
  */
-export async function notifyThreadParties(admin: Admin, t: ThreadRow, opts: { exceptUserId?: string | null; exceptEmail?: string | null; preview: string; senderLabel: string }): Promise<{ pushed: number; emailed: number }> {
+export async function notifyThreadParties(admin: Admin, t: ThreadRow, opts: { messageId?: number | null; exceptUserId?: string | null; exceptEmail?: string | null; preview: string; body?: string; senderLabel: string; createdAt?: string }): Promise<{ pushed: number; emailed: number }> {
   let pushed = 0, emailed = 0
   try {
     const parties = await threadParties(admin, t)
-    const title = `${t.title || ''}`.trim()
+    const title = `${t.title || ''}`.trim() || 'Stayloop'
+    const kindTag = `${KIND_TAG[t.kind]?.zh ?? t.kind} / ${KIND_TAG[t.kind]?.en ?? t.kind}`
+    const when = new Date(opts.createdAt || Date.now()).toLocaleString('zh-CN', { timeZone: 'America/Toronto', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + '（多伦多 / Toronto）'
     const seenUsers = new Set<string>(); const seenEmails = new Set<string>()
+    const except = (opts.exceptEmail || '').toLowerCase()
+    const email = async (to: string, party: Party) => {
+      const token = await replyTokenFor(admin, t.id, to, { kind: party.kind, userId: party.userId, label: party.label })
+      const link = party.kind === 'external' ? (await externalLink(admin, t)) || SITE() : party.userId ? `${SITE()}${messageCenterHref(t.id)}` : party.kind === 'tenant' && t.kind === 'application' ? `${SITE()}/tenant/applications/${t.ref_id}` : `${SITE()}${messageCenterHref(t.id)}`
+      const { subject, html, text } = renderThreadMessageEmail({ threadTitle: title, kindLabel: kindTag, senderLabel: opts.senderLabel, when, body: (opts.body ?? opts.preview).slice(0, 4000), link, replyable: !!token, marker: REPLY_MARKER })
+      const r = await sendEmail({ to, subject, html, text, replyTo: token ? replyAddress(token) : undefined, fromName: `${opts.senderLabel.split(' / ')[0]} 经 Stayloop` })
+      await recordDelivery(admin, { message_id: opts.messageId ?? null, thread_id: t.id, channel: 'email', recipient_user_id: party.userId, recipient_address: to, provider_message_id: r.id ?? null, status: r.ok ? 'sent' : 'failed', detail: r.ok ? null : r.error })
+      if (r.ok) emailed++
+    }
     for (const p of parties) {
       if (p.userId) {
         if (p.userId === opts.exceptUserId || seenUsers.has(p.userId)) continue
         seenUsers.add(p.userId)
-        const viewer = p.kind === 'provider' ? 'provider' : p.kind === 'landlord' ? 'landlord' : p.kind === 'agent' ? 'agent' : 'tenant'
-        pushed += await notifyUser(admin, p.userId, { kind: 'event', title: `新消息 / New message · ${title}`.slice(0, 80), body: `${opts.senderLabel}: ${opts.preview}`.slice(0, 120), url: threadHref(t.kind, t.ref_id, t.household_id, viewer) })
+        const n = await notifyUser(admin, p.userId, { kind: 'event', title: `新消息 / New message · ${title}`.slice(0, 80), body: `${opts.senderLabel}: ${opts.preview}`.slice(0, 120), url: messageCenterHref(t.id) })
+        pushed += n
+        await recordDelivery(admin, { message_id: opts.messageId ?? null, thread_id: t.id, channel: 'push', recipient_user_id: p.userId, status: n > 0 ? 'sent' : 'skipped', detail: n > 0 ? `${n} device(s)` : 'no push subscription or muted' })
+        if (n === 0) {
+          const to = await authEmail(admin, p.userId)
+          if (to && to.toLowerCase() !== except && !seenEmails.has(to.toLowerCase())) { seenEmails.add(to.toLowerCase()); await email(to, p) }
+        }
       } else if (p.email) {
         const em = p.email.toLowerCase()
-        if (em === (opts.exceptEmail || '').toLowerCase() || seenEmails.has(em)) continue
+        if (em === except || seenEmails.has(em)) continue
         seenEmails.add(em)
-        const link = p.kind === 'external' ? await externalLink(admin, t) : p.kind === 'tenant' && t.kind === 'application' ? `${SITE()}/tenant/applications/${t.ref_id}` : SITE()
-        const subject = `新消息 · ${title} / New message`
-        const body = `${opts.senderLabel} 在 Stayloop 的对话里给你留了一条消息：\n\n${opts.preview}\n\n打开对话回复：\n${link || SITE()}\n\n${opts.senderLabel} left you a message on Stayloop:\n\n${opts.preview}\n\nOpen the thread to reply:\n${link || SITE()}`
-        const { html, text } = renderAgentMessageEmail({ subject, body })
-        const r = await sendEmail({ to: p.email, subject, html, text })
-        if (r.ok) emailed++
+        await email(p.email, p)
       }
     }
   } catch (e) {
@@ -146,5 +274,69 @@ export async function notifyThreadParties(admin: Admin, t: ThreadRow, opts: { ex
 
 /** The audit matter of a thread. */
 export function threadMatter(t: Pick<ThreadRow, 'kind' | 'ref_id'>): { matterType: string; matterId: string } {
-  return { matterType: t.kind === 'tenancy' ? 'household' : t.kind === 'dispute' ? 'work_order' : t.kind, matterId: t.ref_id }
+  const type = t.kind === 'tenancy' ? 'household' : t.kind === 'dispute' ? 'work_order' : t.kind
+  return { matterType: type, matterId: t.ref_id }
 }
+
+// ── Email replies ───────────────────────────────────────────────────────────
+
+export type InboundEmail = {
+  raw: Uint8Array
+  from: string | null
+  to: string[]
+  text: string | null
+  html: string | null
+  messageId: string | null
+  attachmentCount: number
+}
+
+export type InboundOutcome = 'recorded' | 'unknown_token' | 'sender_mismatch' | 'empty' | 'revoked' | 'error'
+
+async function sha256HexBytes(b: Uint8Array): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', b as Uint8Array<ArrayBuffer>)
+  return Array.from(new Uint8Array(buf)).map((x) => x.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Record an email reply. The raw MIME is stored (private bucket) with its
+ * SHA-256 whatever the outcome; a message is written only when the reply
+ * address is a live token and the From address is the one it was issued to.
+ */
+export async function recordEmailReply(admin: Admin, mail: InboundEmail): Promise<{ outcome: InboundOutcome; messageId?: number; threadId?: string }> {
+  const sha = await sha256HexBytes(mail.raw)
+  const from = bareAddress(mail.from)
+  const toAddr = mail.to.find((a) => tokenFromAddress(a)) ?? mail.to[0] ?? null
+  const token = mail.to.map(tokenFromAddress).find(Boolean) ?? null
+  const month = new Date().toISOString().slice(0, 7)
+  const rawPath = `${month}/${sha}.eml`
+  try {
+    await admin.storage.from('thread-inbound').upload(rawPath, mail.raw, { contentType: 'message/rfc822', upsert: true })
+  } catch { /* the hash is still recorded */ }
+  const log = async (outcome: InboundOutcome, threadId: string | null, messageId: number | null) => {
+    await admin.from('thread_inbound').insert({ channel: 'email', thread_id: threadId, message_id: messageId, from_addr: from, to_addr: bareAddress(toAddr) ?? toAddr?.slice(0, 320) ?? null, raw_path: rawPath, raw_sha256: sha, raw_size: mail.raw.byteLength, outcome })
+  }
+  if (!token) { await log('unknown_token', null, null); return { outcome: 'unknown_token' } }
+  const { data: tk } = await admin.from('thread_reply_tokens').select('token, thread_id, email, user_id, party_kind, label, revoked_at').eq('token', token).maybeSingle()
+  const row = tk as { token: string; thread_id: string; email: string; user_id: string | null; party_kind: SenderKind; label: string | null; revoked_at: string | null } | null
+  if (!row) { await log('unknown_token', null, null); return { outcome: 'unknown_token' } }
+  if (row.revoked_at) { await log('revoked', row.thread_id, null); return { outcome: 'revoked', threadId: row.thread_id } }
+  if (!from || from !== row.email.toLowerCase()) { await log('sender_mismatch', row.thread_id, null); return { outcome: 'sender_mismatch', threadId: row.thread_id } }
+  const plain = mail.text && mail.text.trim() ? mail.text : mail.html ? htmlToText(mail.html) : ''
+  let body = stripQuotedReply(plain).slice(0, 3800)
+  if (mail.attachmentCount > 0) body = `${body}${body ? '\n\n' : ''}（邮件带有 ${mail.attachmentCount} 个附件，未收录进对话；请在站内对话上传。 / ${mail.attachmentCount} email attachment(s) were not added; please upload them in the app.）`
+  if (!body.trim()) { await log('empty', row.thread_id, null); return { outcome: 'empty', threadId: row.thread_id } }
+  const msgId = await postSystemMessage(admin, row.thread_id, {
+    kind: 'message', channel: 'email', senderId: row.user_id, senderKind: row.party_kind, actingRole: null,
+    senderLabel: row.label && !row.label.includes('@') ? row.label : null,
+    body, meta: { via: 'email_reply', raw_sha256: sha, email_message_id: mail.messageId?.slice(0, 200) ?? null, verified_by: 'reply_token+from_address' },
+  })
+  if (!msgId) { await log('error', row.thread_id, null); return { outcome: 'error', threadId: row.thread_id } }
+  await log('recorded', row.thread_id, msgId)
+  const { data: t } = await admin.from('threads').select(COLS).eq('id', row.thread_id).maybeSingle()
+  if (t) {
+    const label = row.label && !row.label.includes('@') ? row.label : (PARTY_LABEL[row.party_kind]?.zh ?? row.party_kind)
+    await notifyThreadParties(admin, t as ThreadRow, { messageId: msgId, exceptUserId: row.user_id, exceptEmail: from, preview: body.slice(0, 120), body, senderLabel: label })
+  }
+  return { outcome: 'recorded', messageId: msgId, threadId: row.thread_id }
+}
+

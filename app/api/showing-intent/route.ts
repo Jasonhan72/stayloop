@@ -19,6 +19,8 @@ import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { stripNul } from '@/lib/screening/jsonSafe'
 import { notifyUser } from '@/lib/push/notify'
+import { ensureListingThread, postSystemMessage } from '@/lib/threads/server'
+import { messageCenterHref } from '@/lib/threads/shared'
 
 export const runtime = 'edge'
 
@@ -100,7 +102,18 @@ export async function POST(req: Request) {
   }
 
   const addr = [listing.address, listing.unit ? `#${listing.unit}` : ''].filter(Boolean).join(' ')
-  const who = tenantRow.full_name || user.email || '租客'
+  // Relay (消息系统 A 期): the landlord sees the prospect's name, never their address.
+  const who = tenantRow.full_name || '租客'
+  // The listing-inquiry conversation: one per (listing, prospect). The request
+  // itself is the prospect's message in it; the to-do card is only a reminder.
+  const th = await ensureListingThread(admin, { id: listing.id as string, address: listing.address as string | null, unit: listing.unit as string | null }, user.id)
+  if (th) {
+    const text = kind === 'showing'
+      ? `想预约看房${moveIn ? `（期望入住 ${moveIn}）` : ''}${message ? `：${message}` : ''}`
+      : message
+    await postSystemMessage(admin, th.id, { kind: 'message', channel: 'app', senderId: user.id, senderKind: 'tenant', actingRole: 'tenant', body: text.slice(0, 4000), meta: { intent_id: intentId, via: 'listing_page' } })
+  }
+  const hubUrl = th ? messageCenterHref(th.id) : '/landlord/todo'
   const actionType = kind === 'showing' ? 'showing_request' : 'listing_inquiry'
   const line = kind === 'showing'
     ? `想看房${moveIn ? `，期望入住 ${moveIn}` : ''}${message ? `：${message}` : ''}`
@@ -123,11 +136,11 @@ export async function POST(req: Request) {
       .from('agent_pending_actions')
       .update({
         summary: `${String(open.summary || '')}\n· ${line}`.slice(0, 4000),
-        metadata: { ...meta, messages: [...messages, { kind, message, move_in_date: moveIn, intent_id: intentId, at: new Date().toISOString() }].slice(-20) },
+        metadata: { ...meta, thread_id: th?.id ?? meta.thread_id ?? null, messages: [...messages, { kind, message, move_in_date: moveIn, intent_id: intentId, at: new Date().toISOString() }].slice(-20) },
       })
       .eq('id', open.id)
-    await notifyUser(admin, landlordAuthId, { kind: 'approval', title: kind === 'showing' ? `看房请求 · ${addr}` : `房源提问 · ${addr}`, body: `${who}：${line.slice(0, 120)}`, url: '/landlord/todo' })
-    return NextResponse.json({ ok: true, intent_id: intentId, delivered: true, merged: true })
+    await notifyUser(admin, landlordAuthId, { kind: 'approval', title: kind === 'showing' ? `看房请求 · ${addr}` : `房源提问 · ${addr}`, body: `${who}：${line.slice(0, 120)}`, url: hubUrl })
+    return NextResponse.json({ ok: true, intent_id: intentId, delivered: true, merged: true, thread_id: th?.id ?? null })
   }
 
   const { error: aErr } = await admin.from('agent_pending_actions').insert({
@@ -136,14 +149,14 @@ export async function POST(req: Request) {
     action_type: actionType,
     title: kind === 'showing' ? `看房请求：${who} · ${addr}` : `房源提问：${who} · ${addr}`,
     summary:
-      `${who}（${user.email}）${line}。` +
+      `${who} ${line}。` +
       (kind === 'showing'
-        ? '批准 = 同意安排看房：我会把你的联系邮箱发给对方，由你们直接约时间；拒绝则不回复。'
-        : '批准 = 我把你的联系邮箱发给对方、由你直接回答；拒绝则不回复。') +
+        ? '批准 = 同意安排看房：我会邮件告诉对方，你们在「消息」里的这段对话约时间（双方都看不到对方的私人邮箱）；拒绝则不回复。也可以直接去对话里回复。'
+        : '批准 = 我邮件告诉对方你收到了，你在「消息」里的这段对话回答（双方都看不到对方的私人邮箱）；也可以直接去对话里回复。') +
       ' 按 OHRC 租房政策，看房与回答提问不得因受保护特征区别对待。',
-    recipient_label: user.email ?? null,
-    data_scope: ['你的联系邮箱', '房源地址'],
-    excluded_data: ['筛查报告', '其他申请人信息'],
+    recipient_label: who,
+    data_scope: ['房源地址', '这段对话的链接'],
+    excluded_data: ['你的私人邮箱', '筛查报告', '其他申请人信息'],
     risk_level: 'low',
     status: 'pending',
     requires_approval: true,
@@ -156,12 +169,13 @@ export async function POST(req: Request) {
       message,
       messages: [{ kind, message, move_in_date: moveIn, intent_id: intentId, at: new Date().toISOString() }],
       source: 'listing_page',
+      thread_id: th?.id ?? null,
     },
   })
   if (aErr) {
     console.error('[showing-intent] pending action insert failed:', aErr.message)
     return NextResponse.json({ ok: true, intent_id: intentId, delivered: false, reason: 'action_insert_failed' })
   }
-  await notifyUser(admin, landlordAuthId, { kind: 'approval', title: kind === 'showing' ? `看房请求 · ${addr}` : `房源提问 · ${addr}`, body: `${who}：${line.slice(0, 120)}`, url: '/landlord/todo' })
-  return NextResponse.json({ ok: true, intent_id: intentId, delivered: true })
+  await notifyUser(admin, landlordAuthId, { kind: 'approval', title: kind === 'showing' ? `看房请求 · ${addr}` : `房源提问 · ${addr}`, body: `${who}：${line.slice(0, 120)}`, url: hubUrl })
+  return NextResponse.json({ ok: true, intent_id: intentId, delivered: true, thread_id: th?.id ?? null })
 }

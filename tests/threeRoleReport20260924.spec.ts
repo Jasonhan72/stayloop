@@ -147,10 +147,11 @@ describe('round 2 (user: 改成 V0.6，其余按建议全部修)', () => {
   })
   it('SL-T-07 · a messages inbox for tenants and landlords', () => {
     const rail = read('components/workspace/rail.tsx') // the role page lists moved out of WorkspaceShell on 2026-09-25
-    expect(rail).toContain("href: '/tenant/messages'")
-    expect(rail).toContain("href: '/landlord/messages'")
-    // 节点 4 (2026-09-26): the inbox lists threads; the hub's messages tab is the tenancy thread.
-    expect(read('components/messages/Inbox.tsx')).toContain("from('threads')")
+    // 消息系统 A 期 (2026-09-29): one message centre for every hat; the old per-role pages redirect there.
+    expect(rail).not.toContain("href: '/tenant/messages'")
+    expect((rail.match(/href: '\/messages'/g) || []).length).toBe(3)
+    expect(read('middleware.ts')).toContain('(landlord|tenant|agent|provider)\\/messages')
+    expect(read('components/messages/MessageCenter.tsx')).toContain("supabase.rpc('my_threads')")
     expect(read('app/h/[id]/page.tsx')).toContain('<ThreadPanel kind="tenancy"')
   })
 })
@@ -284,7 +285,6 @@ describe('found while walking the landlord test account (2026-09-24)', () => {
     const route = read('app/api/threads/notify/route.ts')
     expect(route).toContain(".eq('sender_id', ud.user.id)")
     expect(route).not.toMatch(/sendEmail/)
-    expect(read('components/messages/Inbox.tsx')).not.toContain('回复会同时发到对方邮箱')
   })
   it('forensics verdict and document kinds are shown in Chinese', async () => {
     expect(read('app/screening/[id]/report/page.tsx')).toContain("clean: '未见异常'")

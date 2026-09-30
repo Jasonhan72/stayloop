@@ -8,7 +8,8 @@ import { notifyUser } from '@/lib/push/notify'
 import { canAct, entryNoticeText, entryWindowProblem, invoiceWithinEstimate, TICKET_STATUS_FOR, validateQuote, type ActorKind, type WoAction, type WorkOrderStatus } from './workOrders'
 import { clampGraceDays, providerEligible, tradeForCategory, TRADES, type Trade } from './trades'
 import { declineText, quoteDueAt, validateDecline } from './sla'
-import { ensureThread, noteOnWorkOrder, postSystemMessage } from '@/lib/threads/server'
+import { ensureThread, noteOnWorkOrder, postSystemMessage, replyTokenFor } from '@/lib/threads/server'
+import { replyAddress } from '@/lib/threads/emailReply'
 import { workOrderSystemLine } from '@/lib/threads/shared'
 import { ensureMatter } from '@/lib/matters/server'
 import { inInternalTestWindow } from '@/lib/billing/freeWindow'
@@ -158,8 +159,9 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   const to = provider ? (provider.contact_email || null) : wo.external_email
   if (to) {
     const { html, text } = renderAgentMessageEmail({ subject, body })
-    const { data: ll } = await admin.auth.admin.getUserById(i.landlordAuthId)
-    await sendEmail({ to, subject, html, text, replyTo: ll?.user?.email ?? undefined })
+    // Relay (消息系统 A 期): a reply goes into the work-order conversation, never to the landlord's inbox.
+    const replyTo = await relayReplyTo(admin, wo as WorkOrderRow, to, provider ? 'provider' : 'external', provider?.auth_id ?? null, provider ? (provider.trade_name || provider.legal_name) : (i.externalName || null), ctx.ticket.title)
+    await sendEmail({ to, subject, html, text, replyTo, fromName: '房东 经 Stayloop' })
   }
   if (provider?.auth_id) void notifyUser(admin, provider.auth_id, { kind: 'approval', title: `新工单 / New work order · ${ctx.ticket.title}`, body: unit, url: '/provider/jobs' })
   return { ok: true, wo: wo as WorkOrderRow }
@@ -281,9 +283,12 @@ export async function actOnWorkOrder(admin: Admin, i: ActInput): Promise<{ ok: t
   return { ok: true, wo: updated }
 }
 
-async function landlordEmail(admin: Admin, wo: WorkOrderRow): Promise<string | null> {
-  const { data } = await admin.auth.admin.getUserById(wo.landlord_auth_id)
-  return data?.user?.email ?? null
+/** The Reply-To for an email about a work order: the recipient's own reply address on its conversation. */
+async function relayReplyTo(admin: Admin, wo: WorkOrderRow, to: string, kind: 'provider' | 'external' | 'tenant', userId: string | null, label: string | null, title: string): Promise<string | undefined> {
+  const th = await ensureThread(admin, 'work_order', wo.id, { householdId: wo.household_id, title, createdBy: wo.landlord_auth_id })
+  if (!th) return undefined
+  const token = await replyTokenFor(admin, th.id, to, { kind, userId, label })
+  return token ? replyAddress(token) : undefined
 }
 
 export async function providerLabel(admin: Admin, wo: WorkOrderRow): Promise<{ name: string; email: string | null; authId: string | null }> {
@@ -301,7 +306,7 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
     if (!ctx) return
     const unit = [ctx.household.address, ctx.household.unit ? `#${ctx.household.unit}` : null].filter(Boolean).join(' ')
     const prov = await providerLabel(admin, wo)
-    const replyTo = (await landlordEmail(admin, wo)) ?? undefined
+    const provReplyTo = prov.email ? await relayReplyTo(admin, wo, prov.email, wo.provider_id ? 'provider' : 'external', prov.authId, prov.name, ctx.ticket.title) : undefined
     const money = (n: number | null) => (n == null ? '—' : `$${Number(n).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
     const landlordUrl = `/h/${wo.household_id}?tab=maintenance`
 
@@ -349,7 +354,14 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
       const notice = entryNoticeText({ unit, scheduleStart: wo.schedule_start, scheduleEnd: wo.schedule_end, provider: prov.name, scope: ctx.ticket.title, entryPermission: wo.entry_permission, emergency: wo.emergency })
       if (ctx.tenantEmails.length) {
         const { html, text } = renderAgentMessageEmail({ subject: notice.subject, body: notice.body })
-        const r = await sendEmail({ to: ctx.tenantEmails, subject: notice.subject, html, text, replyTo })
+        // One email per tenant: each carries that tenant's own reply address on the work-order conversation.
+        let anyOk = false
+        for (const te of ctx.tenantEmails) {
+          const rt = await relayReplyTo(admin, wo, te, 'tenant', null, null, ctx.ticket.title)
+          const one = await sendEmail({ to: te, subject: notice.subject, html, text, replyTo: rt, fromName: '房东 经 Stayloop' })
+          anyOk = anyOk || one.ok
+        }
+        const r = { ok: anyOk }
         if (r.ok) await admin.from('work_orders').update({ entry_notice_sent_at: new Date().toISOString() }).eq('id', wo.id)
         // 节点 4: a copy of the formal notice in the thread — the email is the notice, the copy is the record.
         const th = await ensureThread(admin, 'work_order', wo.id, { householdId: wo.household_id, title: ctx.ticket.title, createdBy: wo.landlord_auth_id })
@@ -359,7 +371,7 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
       for (const uid of ctx.tenantAuthIds) void notifyUser(admin, uid, { kind: 'event', title: `进入通知 · ${ctx.ticket.title}`, body: notice.subject, url: `/h/${wo.household_id}` })
       const cSubject = `报价已批准 · ${ctx.ticket.title} · ${unit} / Quote approved`
       const cBody = `房东已批准您的报价 ${money(wo.approved_amount)}。地址：${unit}。${wo.entry_permission === 'tenant_present' ? '须租客在场。' : wo.entry_permission === 'call_first' ? '进入前请先电话联系租客。' : ''}到场后请在工单页点「已到场」，完工后上传说明与账单。\n${wo.provider_id ? `${SITE()}/provider/jobs` : `${SITE()}/w/${wo.token}`}\n\nQuote ${money(wo.approved_amount)} approved. Address: ${unit}. Tap "Arrived" on the job page when on site; add notes and the invoice when done.`
-      if (prov.email) { const { html, text } = renderAgentMessageEmail({ subject: cSubject, body: cBody }); await sendEmail({ to: prov.email, subject: cSubject, html, text, replyTo }) }
+      if (prov.email) { const { html, text } = renderAgentMessageEmail({ subject: cSubject, body: cBody }); await sendEmail({ to: prov.email, subject: cSubject, html, text, replyTo: provReplyTo, fromName: '房东 经 Stayloop' }) }
       if (prov.authId) void notifyUser(admin, prov.authId, { kind: 'event', title: '报价已批准 / Quote approved', body: `${ctx.ticket.title} · ${unit}`, url: '/provider/jobs' })
     }
     if (i.action === 'reject_quote' || i.action === 'cancel') {
@@ -389,7 +401,7 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
     }
     if (i.action === 'accept_completion' || i.action === 'request_rework' || i.action === 'mark_paid') {
       const label = i.action === 'accept_completion' ? '房东已验收 / Accepted' : i.action === 'request_rework' ? `房东要求返工 / Rework requested${wo.resolution_note ? `：${wo.resolution_note}` : ''}` : '房东已标记付款 / Marked as paid'
-      if (prov.email) { const { html, text } = renderAgentMessageEmail({ subject: `${label} · ${ctx.ticket.title}`, body: `${label}\n${ctx.ticket.title} · ${unit}\n${wo.provider_id ? `${SITE()}/provider/jobs` : wo.token ? `${SITE()}/w/${wo.token}` : ''}` }); await sendEmail({ to: prov.email, subject: `${label} · ${ctx.ticket.title}`, html, text, replyTo }) }
+      if (prov.email) { const { html, text } = renderAgentMessageEmail({ subject: `${label} · ${ctx.ticket.title}`, body: `${label}\n${ctx.ticket.title} · ${unit}\n${wo.provider_id ? `${SITE()}/provider/jobs` : wo.token ? `${SITE()}/w/${wo.token}` : ''}` }); await sendEmail({ to: prov.email, subject: `${label} · ${ctx.ticket.title}`, html, text, replyTo: provReplyTo, fromName: '房东 经 Stayloop' }) }
       if (prov.authId) void notifyUser(admin, prov.authId, { kind: 'event', title: label, body: ctx.ticket.title, url: '/provider/jobs' })
     }
     if (i.action === 'dispute') {
@@ -408,8 +420,8 @@ export async function peekByToken(admin: Admin, token: string): Promise<{ wo: Wo
   const ctx = await ticketContext(admin, wo.ticket_id)
   if (!ctx) return null
   const accepted = !['offered', 'declined', 'cancelled', 'expired'].includes(wo.status)
-  let landlordEmail: string | null = null
-  if (accepted) { const { data } = await admin.auth.admin.getUserById(wo.landlord_auth_id); landlordEmail = data?.user?.email ?? null }
+  // Relay (消息系统 A 期): the contractor talks to the landlord in the conversation below, not by personal email.
+  const landlordEmail: string | null = null
   return { wo, ticket: { title: ctx.ticket.title, description: ctx.ticket.description, category: ctx.ticket.category, priority: ctx.ticket.priority }, address: { city: ctx.household.city, full: accepted ? [ctx.household.address, ctx.household.unit ? `#${ctx.household.unit}` : null, ctx.household.city].filter(Boolean).join(', ') : null }, landlordEmail }
 }
 

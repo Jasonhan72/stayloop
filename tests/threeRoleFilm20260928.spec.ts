@@ -156,7 +156,9 @@ describe('the script: the product’s own lines and cards, the site canon, no sc
           if (b.k === 'done') {
             const option = c.beats.find((x) => x.k === 'click')
             const rent = option && option.k === 'click' && option.option === 'B' ? (lastCard!.metadata.guideline_rent as number) : undefined
-            expect(b.text).toBe(executedText({ title: lastCard!.title, actionType: lastCard!.action_type, sentTo: MIA_EMAIL, rent, zh: lang === 'zh' }))
+            // 消息系统 A 期: the showing receipt names the prospect (relay), the others the address the notice went to.
+            const sentTo = lastCard!.action_type === 'showing_request' ? 'Mia Chen' : MIA_EMAIL
+            expect(b.text).toBe(executedText({ title: lastCard!.title, actionType: lastCard!.action_type, sentTo, rent, zh: lang === 'zh' }))
           }
         }
       }
@@ -165,18 +167,19 @@ describe('the script: the product’s own lines and cards, the site canon, no sc
   it('the showing card and its push are worded as /api/showing-intent writes them', () => {
     const route = read('app/api/showing-intent/route.ts')
     expect(route).toContain("title: kind === 'showing' ? `看房请求：${who} · ${addr}`")
-    expect(route).toContain("'批准 = 同意安排看房：我会把你的联系邮箱发给对方，由你们直接约时间；拒绝则不回复。'")
+    expect(route).toContain("'批准 = 同意安排看房：我会邮件告诉对方，你们在「消息」里的这段对话约时间（双方都看不到对方的私人邮箱）；拒绝则不回复。也可以直接去对话里回复。'")
     expect(route).toContain("' 按 OHRC 租房政策，看房与回答提问不得因受保护特征区别对待。'")
-    expect(route).toContain("data_scope: ['你的联系邮箱', '房源地址']")
-    expect(route).toContain("excluded_data: ['筛查报告', '其他申请人信息']")
+    expect(route).toContain("data_scope: ['房源地址', '这段对话的链接']")
+    expect(route).toContain("excluded_data: ['你的私人邮箱', '筛查报告', '其他申请人信息']")
     expect(route).toContain("title: kind === 'showing' ? `看房请求 · ${addr}`")
     const b = beatsOf('zh')[1].beats.find((x) => x.k === 'card')!
     if (b.k !== 'card') throw new Error('no card')
     expect(b.card.title).toBe('看房请求：Mia Chen · King St W #1207')
-    expect(b.card.summary).toContain(`Mia Chen（${MIA_EMAIL}）想看房，期望入住 ${filmDates(NOW).moveIn}：`)
-    expect(b.card.summary).toContain('批准 = 同意安排看房：我会把你的联系邮箱发给对方，由你们直接约时间；拒绝则不回复。 按 OHRC 租房政策，看房与回答提问不得因受保护特征区别对待。')
-    expect(b.card.data_scope).toEqual(['你的联系邮箱', '房源地址'])
-    expect(b.card.excluded_data).toEqual(['筛查报告', '其他申请人信息'])
+    expect(b.card.summary).toContain(`Mia Chen 想看房，期望入住 ${filmDates(NOW).moveIn}：`)
+    expect(b.card.summary).not.toContain(MIA_EMAIL)
+    expect(b.card.summary).toContain('批准 = 同意安排看房：我会邮件告诉对方，你们在「消息」里的这段对话约时间（双方都看不到对方的私人邮箱）；拒绝则不回复。也可以直接去对话里回复。 按 OHRC 租房政策，看房与回答提问不得因受保护特征区别对待。')
+    expect(b.card.data_scope).toEqual(['房源地址', '这段对话的链接'])
+    expect(b.card.excluded_data).toEqual(['你的私人邮箱', '筛查报告', '其他申请人信息'])
     expect(b.card.risk_level).toBe('low')
   })
   it('the admission card is the one the applicant page drafts', () => {
@@ -189,7 +192,7 @@ describe('the script: the product’s own lines and cards, the site canon, no sc
     expect(b.card.action_type).toBe('send_decision')
     expect(b.card.title).toBe('录取通知：Mia Chen · King St W #1207')
     expect(b.card.summary).toBe(`批准后我会给 ${MIA_EMAIL} 发录取通知，并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。`)
-    expect(b.card.data_scope).toEqual(['申请结果', '房东联系邮箱'])
+    expect(b.card.data_scope).toEqual(['申请结果', '申请对话（对方回邮件即进对话）'])
     expect(b.card.excluded_data).toEqual(['筛查报告', '评分', '其他申请人信息'])
   })
   it('the renewal card is the 90-day sweep’s own, run a year on, with the guideline for the year it takes effect', () => {

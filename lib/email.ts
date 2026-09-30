@@ -10,6 +10,8 @@ export interface SendEmailArgs {
   html: string
   text?: string
   replyTo?: string
+  /** Display name shown before our own address, e.g. "Mia Chen 经 Stayloop". The address never changes. */
+  fromName?: string
 }
 
 export interface SendEmailResult {
@@ -25,6 +27,8 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
     return { ok: false, error: 'RESEND_API_KEY or RESEND_FROM not configured' }
   }
 
+  const fromAddr = (/<([^>]+)>/.exec(from)?.[1] || from).trim()
+  const fromHeader = args.fromName ? `${args.fromName.replace(/["<>\r\n]/g, '').slice(0, 80)} <${fromAddr}>` : from
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -35,7 +39,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from,
+        from: fromHeader,
         to: Array.isArray(args.to) ? args.to : [args.to],
         subject: args.subject,
         html: args.html,
@@ -345,5 +349,60 @@ ${i.inviterName} invited you to join the managed tenancy at ${i.address} as ${i.
   <p style="margin:24px 0"><a href="${esc(i.joinUrl)}" style="background:#00ACE4;color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px">查看邀请 · View invitation</a></p>
   <p style="font-size:12px;color:#888;line-height:1.6">${esc(i.inviterName)} invited you to join the managed tenancy at ${esc(i.address)} as ${esc(i.roleEn)}. If you don't recognize this, ignore this email or decline at the link.</p>
 </div>`
+  return { subject, html, text }
+}
+
+// -----------------------------------------------------------------------------
+// Thread message (消息系统 A 期, 2026-09-29). Replying goes into the record.
+// -----------------------------------------------------------------------------
+
+export interface ThreadMessageEmailInput {
+  threadTitle: string
+  kindLabel: string
+  senderLabel: string
+  when: string
+  body: string
+  link: string
+  /** true when Reply-To is a thread reply address (the reply is recorded). */
+  replyable: boolean
+  marker: string
+}
+
+export function renderThreadMessageEmail(i: ThreadMessageEmailInput): { subject: string; html: string; text: string } {
+  const subject = `${i.threadTitle} · ${i.kindLabel} · 新消息 / New message`.slice(0, 160)
+  const how = i.replyable
+    ? { zh: '直接回复这封邮件即可，你的回复会进这段对话的记录（和站内消息一样有服务器时间戳、不可删改）。', en: 'Just reply to this email — your reply goes into this conversation’s record (server-timestamped and append-only, like messages in the app).' }
+    : { zh: '打开对话回复。', en: 'Open the conversation to reply.' }
+  const privacy = { zh: '对方看不到你的私人邮箱：往来都经 Stayloop 转发并记录。', en: 'The other side does not see your personal address: messages are relayed and recorded by Stayloop.' }
+  const text = `${i.marker}
+
+${i.senderLabel} · ${i.when}
+${i.body}
+
+${how.zh}
+${how.en}
+${i.link}
+
+${privacy.zh}
+${privacy.en}`
+  const html = `<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background:#f3f8fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;color:#1b1b3c;">
+<div style="color:#94a3b8;font-size:11px;padding:10px 16px 0 16px;">${escapeHtml(i.marker)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:16px;"><tr><td align="center">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;border:1px solid #d3e3ef;">
+<tr><td style="padding:22px 26px 6px 26px;">
+<div style="font-size:11px;letter-spacing:0.12em;color:#0094c6;text-transform:uppercase;font-weight:700;">Stayloop · ${escapeHtml(i.kindLabel)}</div>
+<h1 style="margin:6px 0 0 0;font-size:18px;font-weight:700;">${escapeHtml(i.threadTitle)}</h1>
+</td></tr>
+<tr><td style="padding:10px 26px 4px 26px;">
+<div style="border-left:3px solid #00ace4;background:#f8fcfe;padding:8px 14px;">
+<div style="font-size:12px;color:#6e6e8a;">${escapeHtml(i.senderLabel)} · ${escapeHtml(i.when)}</div>
+<div style="font-size:14px;line-height:1.55;margin-top:4px;">${escapeHtml(i.body).replace(/\n/g, '<br>')}</div>
+</div></td></tr>
+<tr><td style="padding:12px 26px 20px 26px;font-size:13px;line-height:1.55;color:#4a4a6a;">
+<p style="margin:0;"><b>${escapeHtml(how.zh)}</b><br>${escapeHtml(how.en)}</p>
+<p style="margin:12px 0 0 0;"><a href="${escapeHtml(i.link)}" style="color:#0094c6;">${escapeHtml(i.link)}</a></p>
+<p style="margin:14px 0 0 0;font-size:11.5px;color:#94a3b8;">${escapeHtml(privacy.zh)}<br>${escapeHtml(privacy.en)}</p>
+</td></tr></table></td></tr></table></body></html>`
   return { subject, html, text }
 }

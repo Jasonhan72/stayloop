@@ -246,7 +246,6 @@ describe('tenant / landlord walk-through fixes (review C)', () => {
     const sh = read('components/tenant/MyShowings.tsx')
     expect(sh).toContain("s === 'declined' ? (zh ? '房东婉拒' : 'Declined')")
     expect(sh).toContain('<div className="mt-0.5 break-words text-[12px] text-body-3">')
-    expect(read('components/messages/Inbox.tsx')).toContain("supabase.from('my_showing_intents')")
   })
   it('the dashboard insight counts only listings the public can see; re-listing restarts the clock', () => {
     const d = read('app/dashboard/page.tsx')

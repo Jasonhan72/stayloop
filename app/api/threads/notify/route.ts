@@ -7,7 +7,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
-import { notifyThreadParties, type ThreadRow } from '@/lib/threads/server'
+import { displayNameFor, notifyThreadParties, type ThreadRow } from '@/lib/threads/server'
 
 export const runtime = 'edge'
 const UUID = /^[0-9a-f-]{36}$/i
@@ -27,15 +27,17 @@ export async function POST(req: Request) {
 
   const since = new Date(Date.now() - 120_000).toISOString()
   const [{ data: t }, { data: mine }] = await Promise.all([
-    sb.from('threads').select('id, kind, ref_id, household_id, title').eq('id', tid).maybeSingle(),
-    sb.from('thread_messages').select('id, body, sender_kind, sender_label').eq('thread_id', tid).eq('sender_id', ud.user.id).eq('kind', 'message').gte('created_at', since).order('id', { ascending: false }).limit(1),
+    sb.from('threads').select('id, kind, ref_id, household_id, title, listing_id, subject_user').eq('id', tid).maybeSingle(),
+    sb.from('thread_messages').select('id, body, sender_kind, sender_label, created_at').eq('thread_id', tid).eq('sender_id', ud.user.id).eq('kind', 'message').gte('created_at', since).order('id', { ascending: false }).limit(1),
   ])
-  const msg = (mine ?? [])[0] as { id: number; body: string; sender_kind: string; sender_label: string | null } | undefined
+  const msg = (mine ?? [])[0] as { id: number; body: string; sender_kind: string; sender_label: string | null; created_at: string } | undefined
   if (!t || !msg) return NextResponse.json({ error: 'no_recent_message' }, { status: 404 })
   if (!(await underHourlyLimit(`thread-notify:${ud.user.id}`, 60, true))) return NextResponse.json({ ok: true, throttled: true })
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
-  const labelOf: Record<string, string> = { tenant: '租客 / Tenant', landlord: '房东 / Landlord', provider: '服务商 / Provider', agent: '经纪 / Agent', admin: 'Stayloop' }
-  const r = await notifyThreadParties(admin, t as ThreadRow, { exceptUserId: ud.user.id, exceptEmail: ud.user.email ?? null, preview: msg.body.slice(0, 120), senderLabel: msg.sender_label || labelOf[msg.sender_kind] || msg.sender_kind })
+  const labelOf: Record<string, string> = { tenant: '租客 / Tenant', landlord: '房东 / Landlord', provider: '服务商 / Provider', agent: '经纪 / Agent', admin: 'Stayloop', member: '用户 / Member' }
+  const role = labelOf[msg.sender_kind] || msg.sender_kind
+  const name = msg.sender_kind === 'admin' ? null : await displayNameFor(admin, ud.user.id)
+  const r = await notifyThreadParties(admin, t as ThreadRow, { messageId: msg.id, createdAt: msg.created_at, exceptUserId: ud.user.id, exceptEmail: ud.user.email ?? null, preview: msg.body.slice(0, 120), body: msg.body, senderLabel: msg.sender_label || (name ? `${name}（${role.split(' / ')[0]}） / ${name} (${role.split(' / ').pop()})` : role) })
   return NextResponse.json({ ok: true, ...r })
 }

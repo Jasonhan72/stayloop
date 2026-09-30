@@ -1,0 +1,7 @@
+{
+  "name": "stayloop-reply-email",
+  "private": true,
+  "type": "module",
+  "dependencies": { "postal-mime": "^4.0.0" },
+  "devDependencies": { "@cloudflare/workers-types": "^4.20250101.0" }
+}

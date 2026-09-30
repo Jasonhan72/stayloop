@@ -6,8 +6,11 @@
 // scores anywhere. The route computes a content fingerprint over the JSON it
 // rendered and prints it in the footer so two copies can be compared.
 
-export type PackMessage = { id: number; created_at: string; sender_kind: string; acting_role: string | null; sender_label: string | null; kind: string; body: string; retracted_at: string | null; attachments: { name: string; size: number; sha256: string; path: string }[] }
-export type PackThread = { id: string; kind: string; title: string | null; created_at: string; messages: PackMessage[] }
+export type PackDelivery = { channel: string; status: string; at: string; provider_message_id: string | null }
+export type PackMessage = { id: number; created_at: string; sender_kind: string; acting_role: string | null; sender_label: string | null; kind: string; body: string; retracted_at: string | null; attachments: { name: string; size: number; sha256: string; path: string }[]; channel?: string | null; hash?: string | null; prev_hash?: string | null; deliveries?: PackDelivery[]; raw_sha256?: string | null }
+/** Hash-chain verification of a thread (消息系统 A 期): recomputed by the server at export time. */
+export type PackChain = { ok: boolean; count: number; head: string | null; brokenAt: number | null; reason: string | null }
+export type PackThread = { id: string; kind: string; title: string | null; created_at: string; messages: PackMessage[]; chain?: PackChain }
 export type PackWorkOrder = { id: string; status: string; trade: string | null; scope: string | null; contractor: string; emergency: boolean; quote_amount: number | null; quote_version: number | null; approved_amount: number | null; invoice_amount: number | null; created_at: string; quoted_at: string | null; approved_at: string | null; arrived_at: string | null; completed_at: string | null; accepted_at: string | null; paid_at: string | null; decline_code: string | null; cancel_reason: string | null; events: { created_at: string; actor_kind: string; event: string; payload: Record<string, unknown> }[] }
 export type PackAudit = { created_at: string; action: string; actor: string; acting_role: string | null; delegation_id: string | null }
 export type PackDelegation = { id: string; principal: string; delegate: string; scope: string[]; allowed_actions: string[]; status: string; confirmed_at: string | null; revoked_at: string | null; expires_at: string; basis_version: string }
@@ -36,7 +39,9 @@ export function canonicalJson(v: unknown): string {
 }
 const money = (n: number | null | undefined) => (n == null ? '—' : `$${Number(n).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
 const when = (iso: string | null | undefined, lang: 'zh' | 'en') => (iso ? `${new Date(iso).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })} <span class="utc">${new Date(iso).toISOString()}</span>` : '—')
-const PARTY: Record<string, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'Tenant' }, landlord: { zh: '房东', en: 'Landlord' }, provider: { zh: '服务商', en: 'Provider' }, external: { zh: '服务商（邮件链接）', en: 'Contractor (email link)' }, agent: { zh: '经纪', en: 'Agent' }, system: { zh: '系统', en: 'System' }, admin: { zh: 'Stayloop', en: 'Stayloop' } }
+const PARTY: Record<string, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'Tenant' }, landlord: { zh: '房东', en: 'Landlord' }, provider: { zh: '服务商', en: 'Provider' }, external: { zh: '服务商（邮件链接）', en: 'Contractor (email link)' }, agent: { zh: '经纪', en: 'Agent' }, system: { zh: '系统', en: 'System' }, admin: { zh: 'Stayloop', en: 'Stayloop' }, member: { zh: '用户', en: 'Member' } }
+const CHANNEL: Record<string, { zh: string; en: string }> = { app: { zh: '站内', en: 'in app' }, email: { zh: '邮件回复', en: 'email reply' }, sms: { zh: '短信回复', en: 'SMS reply' }, system: { zh: '系统', en: 'system' } }
+const DELIV: Record<string, { zh: string; en: string }> = { sent: { zh: '已发出', en: 'sent' }, delivered: { zh: '已送达', en: 'delivered' }, opened: { zh: '已打开', en: 'opened' }, bounced: { zh: '退回', en: 'bounced' }, failed: { zh: '失败', en: 'failed' }, skipped: { zh: '未推送', en: 'not pushed' } }
 const KIND: Record<string, { zh: string; en: string }> = { message: { zh: '消息', en: 'Message' }, system: { zh: '系统行', en: 'System' }, formal_copy: { zh: '正式通知副本', en: 'Formal-notice copy' }, retraction: { zh: '撤回', en: 'Retraction' } }
 const T = (lang: 'zh' | 'en', zh: string, en: string) => (lang === 'zh' ? zh : en)
 
@@ -54,6 +59,7 @@ const CSS = `
   .body { white-space: pre-wrap; word-break: break-word; margin-top: 2px; } .att { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #4A4A6A; }
   .note { background: #F3F8FC; border: 1px solid #D3E3EF; border-radius: 8px; padding: 10px 12px; font-size: 11.5px; color: #4A4A6A; }
   .fp { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; word-break: break-all; }
+  .ok { color: #047857; font-weight: 700; } .bad { color: #B42318; font-weight: 700; }
   @page { size: A4; margin: 14mm 14mm; }
   @media print { body { background: #fff; } .toolbar { display: none; } .sheet { width: auto; margin: 0; padding: 0; box-shadow: none; } h2 { break-after: avoid; } .msg, tr { break-inside: avoid; } }
 `
@@ -78,13 +84,7 @@ export function renderEvidencePack(d: EvidencePackData, m: PackMeta): string {
     <table><thead><tr><th>${T(L, '时间', 'When')}</th><th>${T(L, '谁', 'Who')}</th><th>${T(L, '事件', 'Event')}</th><th>${T(L, '内容', 'Payload')}</th></tr></thead><tbody>${rows(w.events.map((e) => `<td>${when(e.created_at, L)}</td><td>${esc(PARTY[e.actor_kind]?.[L] ?? e.actor_kind)}</td><td>${esc(e.event)}</td><td class="att">${esc(Object.entries(e.payload || {}).filter(([k]) => !['photos'].includes(k)).map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : String(v)}`).join(' · ').slice(0, 300))}</td>`))}</tbody></table>`).join('') : `<p class="meta">${T(L, '无维修工单。', 'No work orders.')}</p>`
   const formal = d.threads.flatMap((t) => t.messages.filter((x) => x.kind === 'formal_copy').map((x) => ({ t, x })))
   const formalHtml = formal.length ? formal.map(({ t, x }) => `<div class="msg formal"><div class="meta">${esc(t.title || t.kind)} · ${when(x.created_at, L)} · ${esc(x.sender_label || PARTY[x.sender_kind]?.[L] || x.sender_kind)}</div><div class="body">${esc(x.body)}</div></div>`).join('') : `<p class="meta">${T(L, '无正式通知副本。', 'No formal-notice copies.')}</p>`
-  const threads = d.threads.length ? d.threads.map((t) => `
-    <h3>${esc(t.title || t.kind)} <span class="meta">· ${esc(t.kind)} · ${t.messages.length} ${T(L, '条', 'messages')} · ${T(L, '开于', 'opened')} ${when(t.created_at, L)}</span></h3>
-    ${t.messages.map((x) => `<div class="msg ${x.kind === 'formal_copy' ? 'formal' : x.kind === 'system' ? 'system' : ''} ${x.retracted_at ? 'retracted' : ''}">
-      <div class="meta">#${x.id} · ${when(x.created_at, L)} · <b>${esc(x.sender_label || PARTY[x.sender_kind]?.[L] || x.sender_kind)}</b>${x.acting_role && x.acting_role !== x.sender_kind ? ` (${esc(PARTY[x.acting_role]?.[L] ?? x.acting_role)})` : ''} · ${esc(KIND[x.kind]?.[L] ?? x.kind)}${x.retracted_at ? ` · <b>${T(L, '已撤回于', 'retracted at')} ${when(x.retracted_at, L)}</b>` : ''}</div>
-      <div class="body">${esc(x.body)}</div>
-      ${x.attachments.length ? `<ul>${x.attachments.map((a) => `<li class="att">${esc(a.name)} · ${a.size} B · sha256 ${esc(a.sha256)}</li>`).join('')}</ul>` : ''}
-    </div>`).join('')}`).join('') : `<p class="meta">${T(L, '无对话。', 'No threads.')}</p>`
+  const threads = d.threads.length ? d.threads.map((t) => renderThreadBlock(t, L)).join('') : `<p class="meta">${T(L, '无对话。', 'No threads.')}</p>`
   const audit = d.audit.length ? `<table><thead><tr><th>${T(L, '时间', 'When')}</th><th>${T(L, '身份', 'Hat')}</th><th>${T(L, '谁', 'Who')}</th><th>${T(L, '动作', 'Action')}</th><th>${T(L, '委托', 'Delegation')}</th></tr></thead><tbody>${rows(d.audit.map((a) => `<td>${when(a.created_at, L)}</td><td>${esc(a.acting_role ? (PARTY[a.acting_role]?.[L] ?? a.acting_role) : '—')}</td><td>${esc(a.actor)}</td><td>${esc(a.action)}</td><td class="att">${a.delegation_id ? esc(a.delegation_id.slice(0, 8)) : '—'}</td>`))}</tbody></table>` : `<p class="meta">${T(L, '无审计记录。', 'No audit rows.')}</p>`
   const delegs = d.delegations.length ? `<table><thead><tr><th>${T(L, '委托人', 'Principal')}</th><th>${T(L, '受托经纪', 'Agent')}</th><th>${T(L, '范围 · 动作', 'Scope · actions')}</th><th>${T(L, '状态', 'Status')}</th><th>${T(L, '确认 / 撤销 / 到期', 'Confirmed / revoked / until')}</th></tr></thead><tbody>${rows(d.delegations.map((g) => `<td>${esc(g.principal)}</td><td>${esc(g.delegate)}</td><td>${esc(g.scope.join(', '))} · ${esc(g.allowed_actions.join(', '))}<br><span class="att">${esc(g.basis_version)}</span></td><td>${esc(g.status)}</td><td>${when(g.confirmed_at, L)}<br>${when(g.revoked_at, L)}<br>${esc(g.expires_at.slice(0, 10))}</td>`))}</tbody></table>` : `<p class="meta">${T(L, '无委托。', 'No delegations.')}</p>`
   const attachments = d.threads.flatMap((t) => t.messages.flatMap((x) => x.attachments))
@@ -141,5 +141,41 @@ export function renderReceipt(r: ReceiptData, m: PackMeta): string {
   <table><thead><tr><th>${T(L, '时间', 'When')}</th><th>${T(L, '谁', 'Who')}</th><th>${T(L, '事件', 'Event')}</th></tr></thead><tbody>${w.events.map((e) => `<tr><td>${when(e.created_at, L)}</td><td>${esc(PARTY[e.actor_kind]?.[L] ?? e.actor_kind)}</td><td>${esc(e.event)}${typeof e.payload?.amount === 'number' ? ` · ${money(e.payload.amount as number)}` : ''}${typeof e.payload?.reason === 'string' && e.payload.reason ? ` · ${esc(e.payload.reason)}` : ''}</td></tr>`).join('')}</tbody></table>
   <p class="note">${T(L, 'Stayloop 不经手资金，也不是任何一方的代理。本回执只记录双方在平台上的操作与时间；它不是发票——发票由服务商向房东开具。', 'Stayloop moves no money and is no party’s agent. This record shows both sides’ actions and times on the platform; it is not an invoice — the contractor invoices the landlord.')}</p>
   <div class="meta">${T(L, '生成于', 'Generated')} ${when(m.generatedAt, L)} · ${T(L, '生成者', 'by')} ${esc(m.generatedBy)} · ${T(L, '指纹', 'fingerprint')} <span class="fp">${esc(m.fingerprint)}</span></div>
+</div></body></html>`
+}
+
+/** One thread: chain status, then every message with server time, party, hat, channel, receipts and fingerprint. */
+export function renderThreadBlock(t: PackThread, L: 'zh' | 'en'): string {
+  const chain = t.chain ? (t.chain.ok
+    ? `<span class="ok">✓ ${T(L, `哈希链完整（${t.chain.count}/${t.chain.count}）`, `hash chain intact (${t.chain.count}/${t.chain.count})`)}</span> · ${T(L, '链头', 'head')} <span class="fp">${esc(t.chain.head ?? '—')}</span>`
+    : `<span class="bad">✗ ${T(L, `哈希链在第 ${t.chain.brokenAt} 条断开（${t.chain.reason}）`, `hash chain breaks at #${t.chain.brokenAt} (${t.chain.reason})`)}</span>`) : ''
+  return `
+    <h3>${esc(t.title || t.kind)} <span class="meta">· ${esc(t.kind)} · ${t.messages.length} ${T(L, '条', 'messages')} · ${T(L, '开于', 'opened')} ${when(t.created_at, L)}</span></h3>
+    ${chain ? `<div class="meta">${chain}</div>` : ''}
+    ${t.messages.map((x) => `<div class="msg ${x.kind === 'formal_copy' ? 'formal' : x.kind === 'system' ? 'system' : ''} ${x.retracted_at ? 'retracted' : ''}">
+      <div class="meta">#${x.id} · ${when(x.created_at, L)} · <b>${esc(x.sender_label || PARTY[x.sender_kind]?.[L] || x.sender_kind)}</b>${x.acting_role && x.acting_role !== x.sender_kind ? ` (${esc(PARTY[x.acting_role]?.[L] ?? x.acting_role)})` : ''} · ${esc(KIND[x.kind]?.[L] ?? x.kind)}${x.channel && x.channel !== 'app' && x.channel !== 'system' ? ` · ${esc(CHANNEL[x.channel]?.[L] ?? x.channel)}` : ''}${x.retracted_at ? ` · <b>${T(L, '已撤回于', 'retracted at')} ${when(x.retracted_at, L)}</b>` : ''}</div>
+      <div class="body">${esc(x.body)}</div>
+      ${x.attachments.length ? `<ul>${x.attachments.map((a) => `<li class="att">${esc(a.name)} · ${a.size} B · sha256 ${esc(a.sha256)}</li>`).join('')}</ul>` : ''}
+      ${x.deliveries && x.deliveries.length ? `<div class="att">${T(L, '回执', 'Receipts')}: ${x.deliveries.map((r) => `${esc(r.channel)} ${esc(DELIV[r.status]?.[L] ?? r.status)} ${esc(r.at.replace('+00:00', 'Z'))}${r.provider_message_id ? ` (${esc(r.provider_message_id)})` : ''}`).join(' · ')}</div>` : ''}
+      ${x.raw_sha256 ? `<div class="att">${T(L, '原始邮件 SHA-256', 'Raw email SHA-256')} ${esc(x.raw_sha256)}</div>` : ''}
+      ${x.hash ? `<div class="att">${T(L, '指纹', 'fingerprint')} ${esc(x.hash)}</div>` : ''}
+    </div>`).join('')}`
+}
+
+export type ThreadPackMeta = PackMeta & { parties: string[] }
+/** A single conversation's export (message centre). */
+export function renderThreadPack(t: PackThread, m: ThreadPackMeta): string {
+  const L = m.lang
+  return `<!doctype html><html lang="${L === 'zh' ? 'zh-CN' : 'en-CA'}"><head><meta charset="utf-8"><title>${esc(T(L, '对话记录', 'Conversation record'))} · ${esc(t.title || t.kind)}</title><style>${CSS}</style></head><body>
+<div class="toolbar"><span>${T(L, '这是按平台记录生成的导出件；打印可存为 PDF。', 'Generated from the platform record; print to save as PDF.')}</span><button onclick="window.print()">${T(L, '打印 / 保存为 PDF', 'Print / Save as PDF')}</button></div>
+<div class="sheet">
+  <div class="eyebrow">Stayloop · ${T(L, '对话记录', 'Conversation record')}</div>
+  <h1>${esc(t.title || t.kind)}</h1>
+  <div class="meta">${T(L, '对话编号', 'Thread')} <span class="fp">${esc(t.id)}</span> · ${T(L, '参与方', 'parties')}: ${esc(m.parties.join(' · '))}</div>
+  <div class="meta">${T(L, '生成于', 'Generated')} ${when(m.generatedAt, L)} · ${T(L, '生成者', 'by')} ${esc(m.generatedBy)} · ${esc(m.siteUrl)}</div>
+  <p class="note">${T(L, '记录只追加、谁都删不掉：每条消息带服务器时间（UTC）、发送者在这件事中的身份与当时的帽子、渠道（站内 / 邮件回复）、逐渠道回执与指纹。指纹 = SHA-256（上一条指纹 + 本条规范化内容，算法见 JSON 导出的 chain 字段）；删掉或改动任何一条，后面的指纹都对不上。邮件回复另存原始邮件并记录其 SHA-256。平台消息是沟通记录；N 表等正式通知仍按《住宅租赁法》s.191 送达。', 'Append-only; nobody can delete it. Each message carries server time (UTC), the sender’s party and hat, the channel (in app / email reply), per-channel receipts and a fingerprint = SHA-256(previous fingerprint + this message’s canonical content; the algorithm is in the JSON export’s chain field). Removing or changing any message breaks every fingerprint after it. Email replies keep the raw email and its SHA-256. Platform messages are a record of communication; formal notices (N forms) are still served under RTA s.191.')}</p>
+  ${renderThreadBlock(t, L)}
+  <h2>${T(L, '内容指纹', 'Content fingerprint')}</h2>
+  <p class="fp">${esc(m.fingerprint)}</p>
 </div></body></html>`
 }

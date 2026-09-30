@@ -170,7 +170,7 @@ function RealApplicantDetail({ id }: { id: string }) {
         : `批准后我会给 ${app.email} 发补材料通知：${reason || '（未填）'}`
     const { data: row, error } = await supabase.from('agent_pending_actions').insert({
       user_id: user.id, role: 'landlord', action_type: 'send_decision', title, summary,
-      recipient_label: app.email, data_scope: ['申请结果', decision === 'declined' && reason ? '房东填写的理由' : '房东联系邮箱'], excluded_data: ['筛查报告', '评分', '其他申请人信息'],
+      recipient_label: app.email, data_scope: ['申请结果', decision === 'declined' && reason ? '房东填写的理由' : '申请对话（对方回邮件即进对话）'], excluded_data: ['筛查报告', '评分', '其他申请人信息'],
       risk_level: decision === 'declined' ? 'medium' : 'low', status: 'pending', requires_approval: true,
       metadata: { application_id: app.id, decision, reason: reason || null, source: 'applicant_page' },
     }).select('*').single()

@@ -1,5 +1,6 @@
 'use client'
 
+import InboxButton from '@/components/messages/InboxButton'
 import { isRegistrationLive } from '@/lib/agentProfile'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -283,8 +284,9 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
           <NavLink i18nKey="nav.screening" href="/screening" active={isActive('/screening')} />
         </nav>
 
-        {/* Right side — minimal: avatar + hamburger only */}
+        {/* Right side — messages envelope + avatar + hamburger (消息系统 A 期: one entry for every conversation) */}
         <div className="flex items-center gap-[10px]">
+          <InboxButton zh={lang === 'zh'} />
           {/* Avatar — links to profile/settings like Airbnb */}
           {!auth.loading && auth.user && (
             <Link

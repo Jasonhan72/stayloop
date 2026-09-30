@@ -52,10 +52,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     if (['declined', 'cancelled', 'expired', 'closed'].includes(v.wo.status)) return NextResponse.json({ error: 'thread_closed' }, { status: 409 })
     const th = await ensureThread(a, 'work_order', v.wo.id, { householdId: v.wo.household_id, title: v.ticket.title, createdBy: v.wo.landlord_auth_id })
     if (!th) return NextResponse.json({ error: 'thread unavailable' }, { status: 500 })
-    const label = v.wo.external_name || v.wo.external_email || 'Contractor'
-    const { error } = await a.from('thread_messages').insert({ thread_id: th.id, sender_id: null, sender_kind: 'external', acting_role: 'provider', sender_label: label, kind: 'message', body: text, meta: { via: 'token' } })
+    // Never show the contractor's address as their name (relay, 消息系统 A 期).
+    const label = v.wo.external_name || 'Contractor'
+    const { data: ins, error } = await a.from('thread_messages').insert({ thread_id: th.id, sender_id: null, sender_kind: 'external', acting_role: 'provider', sender_label: label, kind: 'message', body: text, meta: { via: 'token' } }).select('id, created_at').maybeSingle()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    void notifyThreadParties(a, th, { exceptEmail: v.wo.external_email, preview: text.slice(0, 120), senderLabel: label })
+    const row = ins as { id: number; created_at: string } | null
+    void notifyThreadParties(a, th, { messageId: row?.id ?? null, createdAt: row?.created_at, exceptEmail: v.wo.external_email, preview: text.slice(0, 120), body: text, senderLabel: `${label}（服务商） / ${label} (Contractor)` })
     return NextResponse.json({ ok: true }, { headers: { 'Referrer-Policy': 'no-referrer' } })
   }
   const action = body.action as WoAction

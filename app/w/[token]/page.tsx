@@ -72,7 +72,7 @@ export default function ExternalJobPage() {
         {v.ticket.description && <p className="text-body-2">{v.ticket.description}</p>}
         <div><b>{zh ? '位置' : 'Location'}:</b> {v.address.full || `${v.address.city || '—'}（${zh ? '接单后显示完整地址' : 'full address after you accept'}）`}</div>
         <div><b>{zh ? '进入方式' : 'Entry'}:</b> {w.entry_permission === 'tenant_present' ? (zh ? '须租客在场' : 'tenant must be present') : w.entry_permission === 'call_first' ? (zh ? '进入前先电话联系租客' : 'call the tenant before entering') : (zh ? '房东会给租客发 24 小时进入通知' : 'the landlord sends the tenant a 24-hour notice')}</div>
-        {v.landlord_email && <div><b>{zh ? '房东' : 'Landlord'}:</b> <a className="underline" href={`mailto:${v.landlord_email}`}>{v.landlord_email}</a></div>}
+        {v.address?.full && <div className="text-body-3">{zh ? '联系房东：在下面的对话里留言，或直接回复工单邮件——都会进同一份记录。' : 'Reach the landlord in the conversation below, or reply to the work-order email — both land in the same record.'}</div>}
         {w.quote_amount != null && <div><b>{zh ? '你的报价' : 'Your quote'}:</b> {money(w.quote_amount)}{(w.quote_version ?? 0) > 1 ? (zh ? ` · 第 ${w.quote_version} 版` : ` · v${w.quote_version}`) : ''}{w.quote_valid_until ? (zh ? ` · 有效期至 ${w.quote_valid_until}` : ` · valid until ${w.quote_valid_until}`) : ''}{w.approved_amount != null ? ` · ${zh ? '已批准' : 'approved'}` : ''}</div>}
         {w.status === 'declined' && <div className="text-body-3">{zh ? '婉拒原因' : 'Declined'}: {declineText(w.decline_code, w.cancel_reason, zh)}</div>}
         {w.schedule_start && <div><b>{zh ? '到场时间' : 'Window'}:</b> {when(w.schedule_start)}{w.schedule_end ? ` – ${when(w.schedule_end)}` : ''}</div>}

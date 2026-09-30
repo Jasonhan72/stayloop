@@ -12,18 +12,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
-import { applyRetractions, canRetract, fmtSize, FORMAL_COPY_NOTE, KIND_LABEL, PARTY_LABEL, READ_LABEL, readStateFor, type Attachment, type ReadMark, type ThreadKind, type ThreadMessage } from '@/lib/threads/shared'
+import { applyRetractions, canRetract, CHANNEL_LABEL, fmtSize, FORMAL_COPY_NOTE, KIND_LABEL, PARTY_LABEL, READ_LABEL, readStateFor, type Attachment, type ReadMark, type ThreadKind, type ThreadMessage } from '@/lib/threads/shared'
+import { notifyMessagesChanged } from '@/lib/messages/unread'
 
 export type ThreadViewer = 'tenant' | 'landlord' | 'provider' | 'agent' | 'admin'
 
-const SELECT = 'id, sender_id, sender_kind, acting_role, sender_label, kind, body, ref_message_id, attachments, meta, created_at'
+const SELECT = 'id, thread_id, sender_id, sender_kind, acting_role, sender_label, kind, body, ref_message_id, attachments, meta, created_at, channel, prev_hash, hash'
 
 async function jwt(): Promise<string | null> {
   const { data } = await supabase.auth.getSession()
   return data.session?.access_token ?? null
 }
 
-export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, title, allowAttachments = true, participants }: {
+export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, title, allowAttachments = true, participants, fill = false, hideHeader = false, onMessages, onSelectMessage, selectedId }: {
   kind: ThreadKind
   refId: string
   viewer: ThreadViewer
@@ -34,6 +35,13 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   allowAttachments?: boolean
   /** Shown in the header: who is in this thread. */
   participants?: string
+  /** Message centre: take the full height of the parent, the list scrolls, the composer sticks. */
+  fill?: boolean
+  hideHeader?: boolean
+  /** Message centre: the loaded messages (for the record panel) and the clicked one. */
+  onMessages?: (msgs: ThreadMessage[], threadId: string | null) => void
+  onSelectMessage?: (id: number) => void
+  selectedId?: number | null
 }) {
   const auth = useAuth()
   const me = auth.user?.id ?? null
@@ -76,6 +84,8 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
     return id
   }, [tid, kind, refId, zh])
 
+  const onMessagesRef = useRef(onMessages)
+  onMessagesRef.current = onMessages
   const load = useCallback(async () => {
     if (!tid) { setMsgs([]); return }
     const [{ data: m }, { data: r }] = await Promise.all([
@@ -83,6 +93,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
       supabase.from('message_reads').select('user_id, last_delivered_id, last_opened_id, last_acknowledged_id').eq('thread_id', tid),
     ])
     setMsgs((m ?? []) as ThreadMessage[])
+    onMessagesRef.current?.((m ?? []) as ThreadMessage[], tid)
     const rr = (r ?? []) as ReadMark[]
     readsRef.current = rr
     setReads(rr)
@@ -90,11 +101,17 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   useEffect(() => {
     if (!tid) return
     void load()
-    // Poll while visible; a hidden tab pauses and catches up the moment it is shown again.
-    const iv = setInterval(() => { if (document.visibilityState === 'visible') void load() }, 8000)
+    // Realtime (消息系统 A 期): new messages and read marks arrive through Supabase
+    // Realtime under the caller's RLS; a slow poll stays as the safety net, and a
+    // hidden tab catches up the moment it is shown again.
+    const ch = supabase.channel(`thread:${tid}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'thread_messages', filter: `thread_id=eq.${tid}` }, () => { void load() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reads', filter: `thread_id=eq.${tid}` }, () => { void load() })
+      .subscribe()
+    const iv = setInterval(() => { if (document.visibilityState === 'visible') void load() }, 45_000)
     const onVis = () => { if (document.visibilityState === 'visible') void load() }
     document.addEventListener('visibilitychange', onVis)
-    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVis) }
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', onVis); void supabase.removeChannel(ch) }
   }, [tid, load])
 
   // Read marks: delivered when fetched, opened while the panel is open, acknowledged on click. Monotonic (the trigger also enforces it).
@@ -109,7 +126,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
     }
     if (mine && mine.last_delivered_id === row.last_delivered_id && mine.last_opened_id === row.last_opened_id && mine.last_acknowledged_id === row.last_acknowledged_id) return
     const { error } = await supabase.from('message_reads').upsert(row, { onConflict: 'thread_id,user_id' })
-    if (!error) { readsRef.current = [...readsRef.current.filter((r) => r.user_id !== me), row]; setReads(readsRef.current) }
+    if (!error) { readsRef.current = [...readsRef.current.filter((r) => r.user_id !== me), row]; setReads(readsRef.current); if ((mine?.last_opened_id ?? 0) < row.last_opened_id) notifyMessagesChanged() }
   }, [tid, me])
   const maxId = msgs.length ? msgs[msgs.length - 1].id : 0
   useEffect(() => {
@@ -135,6 +152,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
     setDraft(''); setPending([])
     await load()
     void notify(id)
+    notifyMessagesChanged()
     setBusy(false)
   }
   async function retract(m: ThreadMessage) {
@@ -183,31 +201,32 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   const heading = title || (zh ? KIND_LABEL[kind].zh : KIND_LABEL[kind].en)
 
   return (
-    <div className={'rounded-xl border border-line-divider bg-white ' + (compact ? '' : 'mt-2')} data-testid="thread-panel" data-kind={kind}>
-      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left" aria-expanded={open}>
+    <div className={fill ? 'flex h-full min-h-0 flex-col bg-white' : 'rounded-xl border border-line-divider bg-white ' + (compact ? '' : 'mt-2')} data-testid="thread-panel" data-kind={kind}>
+      {!hideHeader && <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left" aria-expanded={open}>
         <span className="text-[13px] font-bold">{heading}</span>
         <span className="font-mono text-[11px] text-body-3">{visible}</span>
         {unread > 0 && !open && <span className="rounded-full bg-brand px-1.5 py-[1px] font-mono text-[10px] font-bold text-white" data-testid="thread-unread">{unread}</span>}
         {participants && <span className="min-w-0 truncate text-[11.5px] text-body-3">· {participants}</span>}
         <span className="ml-auto text-[11.5px] text-body-3">{open ? (compact ? (zh ? '收起' : 'Hide') : '') : (zh ? '展开' : 'Open')}</span>
-      </button>
+      </button>}
       {open && (
-        <div className="border-t border-line-divider">
-          <div className="max-h-[420px] min-h-[120px] overflow-y-auto px-4 py-3">
+        <div className={fill ? 'flex min-h-0 flex-1 flex-col' : 'border-t border-line-divider'}>
+          <div className={fill ? 'min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-6' : 'max-h-[420px] min-h-[120px] overflow-y-auto px-4 py-3'}>
             {visible === 0 && <p className="py-6 text-center text-[12.5px] text-body-3">{zh ? '还没有消息。这里的每一条都带服务器时间与发送身份，只能追加、不能改。' : 'No messages yet. Every line here carries server time and the sender’s hat; the record is append-only.'}</p>}
             {view.map((m) => {
               const isMine = !!me && m.sender_id === me
               const party = PARTY_LABEL[m.sender_kind] ?? PARTY_LABEL.system
               const sys = m.kind === 'system'
               const formal = m.kind === 'formal_copy'
-              if (sys) return <div key={m.id} className="my-2 text-center text-[11.5px] text-body-3" data-testid="thread-message" data-kind="system"><span className="font-mono">{when(m.created_at)}</span> · {m.body}</div>
+              if (sys) return <div key={m.id} className={'my-2 text-center text-[11.5px] text-body-3 ' + (onSelectMessage ? 'cursor-pointer' : '') + (selectedId === m.id ? ' underline' : '')} onClick={onSelectMessage ? () => onSelectMessage(m.id) : undefined} data-testid="thread-message" data-kind="system"><span className="font-mono">{when(m.created_at)}</span> · {m.body}</div>
               return (
                 <div key={m.id} className={`mb-3 flex ${isMine ? 'justify-end' : 'justify-start'}`} data-testid="thread-message" data-kind={m.kind}>
-                  <div className={'max-w-[80%] rounded-xl px-3.5 py-2 text-[13px] leading-relaxed ' + (formal ? 'border border-amber-200 bg-amber-50 text-amber-950' : isMine ? 'bg-brand text-white' : 'bg-surface-chip text-body')}>
+                  <div onClick={onSelectMessage ? () => onSelectMessage(m.id) : undefined} className={'max-w-[80%] rounded-xl px-3.5 py-2 text-[13px] leading-relaxed ' + (formal ? 'border border-amber-200 bg-amber-50 text-amber-950' : isMine ? 'bg-brand text-white' : 'bg-surface-chip text-body') + (onSelectMessage ? ' cursor-pointer' : '') + (selectedId === m.id ? ' ring-2 ring-brand/40 ring-offset-1' : '')}>
                     <div className={'mb-0.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[10px] font-bold ' + (isMine && !formal ? 'text-white/80' : 'text-body-3')}>
                       <span>{m.sender_label || (zh ? party.zh : party.en)}{m.acting_role && m.acting_role !== m.sender_kind ? ` · ${zh ? (PARTY_LABEL[m.acting_role as keyof typeof PARTY_LABEL]?.zh ?? m.acting_role) : (PARTY_LABEL[m.acting_role as keyof typeof PARTY_LABEL]?.en ?? m.acting_role)}` : ''}</span>
                       <time dateTime={m.created_at} title={m.created_at}>{when(m.created_at)}</time>
                       {formal && <span className="rounded-full bg-amber-200/70 px-1.5 text-amber-900">{zh ? '正式通知副本' : 'FORMAL COPY'}</span>}
+                      {m.channel && m.channel !== 'app' && m.channel !== 'system' && <span className={'rounded px-1.5 ' + (isMine ? 'bg-white/20' : m.channel === 'email' ? 'bg-indigo-50 text-indigo-800' : 'bg-emerald-50 text-emerald-800')} data-testid="thread-channel">{zh ? CHANNEL_LABEL[m.channel].zh : CHANNEL_LABEL[m.channel].en}</span>}
                     </div>
                     {m.retracted ? (
                       <div className="italic opacity-70" data-testid="thread-retracted">{zh ? '（已撤回 · 原文保留在记录中）' : '(retracted · the original stays in the record)'}</div>

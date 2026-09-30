@@ -27,7 +27,7 @@ export interface RailItem {
 export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   tenant: [
     { key: 'home',      href: '/tenant/agent',     icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 AI 助理对话——找房、办事的入口', en: 'Chat with your AI Agent — search and get things done' } },
-    { key: 'msgs',      href: '/tenant/messages',  icon: <MailIcon />,    label: { zh: '消息', en: 'Messages' } , desc: { zh: '租约对话与看房请求', en: 'Tenancy conversations and showing requests' } },
+    { key: 'msgs',      href: '/messages',  icon: <MailIcon />,    label: { zh: '消息', en: 'Messages' } , desc: { zh: '所有对话：租约、申请、维修、房源咨询、联系 Stayloop', en: 'Every conversation: tenancy, applications, repairs, listing questions, Stayloop' } },
     { key: 'apps',      href: '/tenant/applications', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } , desc: { zh: '我的申请进度', en: 'Track your applications' } },
     { key: 'passport',  href: '/tenant/passport',  icon: <PassIcon />,    label: { zh: 'Passport', en: 'Passport' } , desc: { zh: '租客护照与四枚章', en: 'Your Passport and four stamps' } },
     { key: 'lease',     href: '/tenant/lease',     icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '查看与签署租约', en: 'View and sign leases' } },
@@ -37,7 +37,7 @@ export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   ],
   landlord: [
     { key: 'home',      href: '/landlord/agent',   icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 AI 助理对话——管房的入口', en: 'Chat with your AI Agent — manage your rentals' } },
-    { key: 'msgs',      href: '/landlord/messages', icon: <MailIcon />,   label: { zh: '消息', en: 'Messages' } , desc: { zh: '租约对话与看房请求', en: 'Tenancy conversations and showing requests' } },
+    { key: 'msgs',      href: '/messages', icon: <MailIcon />,   label: { zh: '消息', en: 'Messages' } , desc: { zh: '所有对话：租约、申请、维修、房源咨询、联系 Stayloop', en: 'Every conversation: tenancy, applications, repairs, listing questions, Stayloop' } },
     { key: 'apps',      href: '/landlord/applicants', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } , desc: { zh: '申请人审查与评分', en: 'Review and score applicants' } },
     { key: 'screen',    href: '/screening/app',    icon: <ScreenIcon />,  label: { zh: '筛查', en: 'Screen' } , desc: { zh: '租客筛查报告', en: 'Tenant screening reports' } },
     { key: 'lease',     href: '/landlord/leases',  icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '租约管理与续约', en: 'Leases and renewals' } },
@@ -48,6 +48,7 @@ export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   ],
   agent: [
     { key: 'home',      href: '/agent/agent',      icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 AI 助理对话——业务的入口', en: 'Chat with your AI Agent — run your business' } },
+    { key: 'msgs',      href: '/messages',         icon: <MailIcon />,    label: { zh: '消息', en: 'Messages' } , desc: { zh: '和客户、各方的所有对话', en: 'Every conversation with clients and parties' } },
     { key: 'tasks',     href: '/agent/tasks',      icon: <FileIcon />,    label: { zh: '任务', en: 'Tasks' } , desc: { zh: '今日任务与带看', en: "Today's tasks and showings" } },
     { key: 'clients',   href: '/agent/clients',    icon: <ListIcon />,    label: { zh: '客户', en: 'Clients' } , desc: { zh: '客户管理', en: 'Manage clients' } },
     { key: 'cal',       href: '/agent/calendar',   icon: <ToolIcon />,    label: { zh: '日历', en: 'Calendar' } , desc: { zh: '日程安排', en: 'Your calendar' } },

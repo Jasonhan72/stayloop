@@ -4,8 +4,9 @@
 // a new row that hides the original from the default view but never from the
 // record; read marks are per-party high-water marks (送达 · 打开 · 确认).
 
-export type ThreadKind = 'work_order' | 'application' | 'tenancy' | 'dispute'
-export type SenderKind = 'tenant' | 'landlord' | 'provider' | 'external' | 'agent' | 'system' | 'admin'
+export type ThreadKind = 'work_order' | 'application' | 'tenancy' | 'dispute' | 'listing_inquiry' | 'agent_client' | 'support'
+export type SenderKind = 'tenant' | 'landlord' | 'provider' | 'external' | 'agent' | 'system' | 'admin' | 'member'
+export type Channel = 'app' | 'email' | 'sms' | 'system'
 export type MessageKind = 'message' | 'system' | 'formal_copy' | 'retraction'
 
 export type Attachment = { path: string; name: string; mime: string | null; size: number; sha256: string }
@@ -21,6 +22,10 @@ export type ThreadMessage = {
   attachments: Attachment[]
   meta: Record<string, unknown>
   created_at: string
+  channel?: Channel | null
+  thread_id?: string
+  prev_hash?: string | null
+  hash?: string | null
 }
 export type ReadMark = { user_id: string; last_delivered_id: number; last_opened_id: number; last_acknowledged_id: number }
 
@@ -32,13 +37,35 @@ export const PARTY_LABEL: Record<SenderKind, { zh: string; en: string }> = {
   agent: { zh: '经纪', en: 'Agent' },
   system: { zh: '系统', en: 'System' },
   admin: { zh: 'Stayloop', en: 'Stayloop' },
+  member: { zh: '用户', en: 'Member' },
 }
 export const KIND_LABEL: Record<ThreadKind, { zh: string; en: string }> = {
   work_order: { zh: '工单对话', en: 'Work-order thread' },
   application: { zh: '申请对话', en: 'Application thread' },
   tenancy: { zh: '租约对话', en: 'Tenancy thread' },
   dispute: { zh: '争议对话', en: 'Dispute thread' },
+  listing_inquiry: { zh: '房源咨询', en: 'Listing inquiry' },
+  agent_client: { zh: '经纪委托', en: 'Agent & client' },
+  support: { zh: '联系 Stayloop', en: 'Contact Stayloop' },
 }
+/** Short type tags for the message-centre list. */
+export const KIND_TAG: Record<ThreadKind, { zh: string; en: string }> = {
+  work_order: { zh: '维修工单', en: 'Work order' },
+  application: { zh: '申请', en: 'Application' },
+  tenancy: { zh: '在管租约', en: 'Tenancy' },
+  dispute: { zh: '争议', en: 'Dispute' },
+  listing_inquiry: { zh: '房源咨询', en: 'Listing inquiry' },
+  agent_client: { zh: '经纪委托', en: 'Agent & client' },
+  support: { zh: '联系 Stayloop', en: 'Stayloop' },
+}
+export const CHANNEL_LABEL: Record<Channel, { zh: string; en: string }> = {
+  app: { zh: '站内', en: 'In app' },
+  email: { zh: '邮件回复', en: 'Email reply' },
+  sms: { zh: '短信回复', en: 'SMS reply' },
+  system: { zh: '系统', en: 'System' },
+}
+/** The message centre is the one entry for every thread. */
+export const messageCenterHref = (threadId: string) => `/messages?t=${threadId}`
 /** Every formal-notice copy carries this line: the email is the notice, the thread copy is a record. */
 export const FORMAL_COPY_NOTE = { zh: '正式通知副本 · 以邮件送达为准 · 不构成 RTA 法定送达', en: 'Copy of a formal notice · the email is the notice · not statutory service under the RTA' }
 
@@ -84,6 +111,9 @@ export function fmtSize(n: number): string {
 /** Where a thread lives in the UI for each party. */
 export function threadHref(kind: ThreadKind, refId: string, householdId: string | null, viewer: 'tenant' | 'landlord' | 'provider' | 'agent' | 'admin'): string {
   switch (kind) {
+    case 'listing_inquiry':
+    case 'agent_client':
+    case 'support': return '/messages'
     case 'tenancy': return `/h/${refId}?tab=messages`
     case 'work_order':
     case 'dispute': return viewer === 'provider' ? '/provider/jobs' : householdId ? `/h/${householdId}?tab=maintenance` : '/landlord/maintenance'

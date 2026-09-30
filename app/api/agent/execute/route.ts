@@ -27,7 +27,9 @@ import { decisionNoticeFooter, guidelineFor } from '@/lib/ontario/rules'
 import { rentAmount } from '@/lib/agent/chatCopy'
 import { notifyUser } from '@/lib/push/notify'
 import { actOnWorkOrder, createWorkOrder, suggestDispatch } from '@/lib/marketplace/server'
-import { ensureThread, postSystemMessage } from '@/lib/threads/server'
+import { ensureListingThread, ensureThread, postSystemMessage, replyTokenFor } from '@/lib/threads/server'
+import { messageCenterHref } from '@/lib/threads/shared'
+import { replyAddress } from '@/lib/threads/emailReply'
 import { matterOfRef } from '@/lib/matters/server'
 
 export const runtime = 'edge'
@@ -662,8 +664,15 @@ async function executeShowingRequest(admin: Admin, userId: string, action: Actio
 
   const addr = [listing.address, listing.unit ? `#${listing.unit}` : ''].filter(Boolean).join(' ')
   const isShowing = action.action_type === 'showing_request'
-  const contact = callerEmail ? `房东联系邮箱：${callerEmail}` : '房东会通过 Stayloop 继续联系你。'
-  const contactEn = callerEmail ? `Landlord contact: ${callerEmail}` : 'The landlord will follow up through Stayloop.'
+  // 消息系统 A 期: no personal address changes hands — both sides continue in the
+  // listing-inquiry conversation (reply to this email and it lands there too).
+  void callerEmail
+  const tenantAuthRaw = (m as Record<string, unknown>).tenant_auth_id
+  const tenantAuth = typeof tenantAuthRaw === 'string' ? tenantAuthRaw : null
+  const th = tenantAuth ? await ensureListingThread(admin, { id: listing.id as string, address: listing.address as string | null, unit: listing.unit as string | null }, tenantAuth) : null
+  const link = `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')}${th ? messageCenterHref(th.id) : '/messages'}`
+  const contact = `请在 Stayloop 的对话里约定时间（直接回复本邮件也会进对话）：${link}`
+  const contactEn = `Arrange it in your Stayloop conversation (replying to this email also lands there): ${link}`
   const body = isShowing
     ? `${tenant?.full_name || ''} 你好，
 
@@ -696,15 +705,19 @@ The landlord has received your question about ${addr}. ${contactEn}`
   if (preview) return PREVIEW({ subject, body, to })
   if (!(await claimExecution(admin, action.id))) return ALREADY()
   const { html, text } = renderAgentMessageEmail({ subject, body })
-  const result = await sendEmail({ to, subject, html, text })
+  const token = th ? await replyTokenFor(admin, th.id, to, { kind: 'tenant', userId: tenantAuth, label: tenant?.full_name || null }) : null
+  const result = await sendEmail({ to, subject, html, text, replyTo: token ? replyAddress(token) : undefined, fromName: '房东 经 Stayloop' })
   if (!result.ok) {
     await releaseClaim(admin, action.id, result.error)
     return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
   }
   await admin.from('showing_intents').update({ status: 'accepted' }).eq('id', intent.id)
-  const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: to, intent_id: intent.id }
+  if (th) await postSystemMessage(admin, th.id, { body: isShowing ? '房东同意安排看房，请在这里约定时间 / The landlord agreed to arrange a viewing — pick a time here' : '房东已收到提问，会在这里回复 / The landlord received the question and will answer here', meta: { intent_id: intent.id, action_id: action.id } })
+  // The landlord's receipt names the prospect, never their address (relay).
+  const shownTo = tenant?.full_name || '对方 / the prospect'
+  const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: shownTo, intent_id: intent.id, thread_id: th?.id ?? null }
   return finalizeExecution(admin, userId, action, isShowing ? 'executed_showing_request' : 'executed_listing_inquiry', executionResult, {
-    sent_to: to,
+    sent_to: shownTo,
     subject,
     email_id: result.id,
     intent_id: intent.id,
@@ -741,7 +754,9 @@ async function executeSendDecision(admin: Admin, userId: string, action: ActionR
   const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || 'there'
   const addr = [listing.address, listing.unit ? `#${listing.unit}` : ''].filter(Boolean).join(' ')
   const reason = typeof m.reason === 'string' ? m.reason.replace(/<[^>]*>/g, '').trim().slice(0, 600) : ''
-  const contact = callerEmail ? `房东联系邮箱 / Landlord contact: ${callerEmail}` : ''
+  // Relay (消息系统 A 期): no personal address — the applicant replies to this email and it lands in the application conversation.
+  void callerEmail
+  const contact = '有问题直接回复这封邮件，回复会进这份申请的对话记录，房东会看到。 / Questions? Reply to this email — it goes into this application’s conversation and the landlord sees it.'
   const footer = `${decisionNoticeFooter('zh')}\n\n${decisionNoticeFooter('en')}`
   let subject: string
   let body: string
@@ -761,7 +776,9 @@ async function executeSendDecision(admin: Admin, userId: string, action: ActionR
   }
   if (!(await claimExecution(admin, action.id))) return ALREADY()
   const { html, text } = renderAgentMessageEmail({ subject, body })
-  const result = await sendEmail({ to, subject, html, text })
+  const appThread = await ensureThread(admin, 'application', app.id, { title: addr, createdBy: userId })
+  const appToken = appThread ? await replyTokenFor(admin, appThread.id, to, { kind: 'tenant', userId: null, label: name === 'there' ? null : name }) : null
+  const result = await sendEmail({ to, subject, html, text, replyTo: appToken ? replyAddress(appToken) : undefined, fromName: '房东 经 Stayloop' })
   if (!result.ok) {
     await releaseClaim(admin, action.id, result.error)
     return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
