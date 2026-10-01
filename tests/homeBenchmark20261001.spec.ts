@@ -46,4 +46,12 @@ describe('sections (plan A, 2026-10-01 — supersedes the 40px / 700 pass)', () 
     const css = readFileSync('app/globals.css', 'utf8')
     expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{\s*@supports \(animation-timeline: view\(\)\)/)
   })
+  it('long Chinese runs without punctuation carry an explicit break point, never an emergency mid-word break (production check 2026-10-01: 「…维修工单 / ？先把…」「…申请 / 人？」)', () => {
+    expect(home).toContain("'想接多伦多租房市场的\\u200b维修工单？先把资质核了。'")
+    expect(home).toContain("'筛查报告会不会\\u200b一票否决申请人？'")
+    // highlighted words never split across lines either
+    expect(home).toContain('whitespace-nowrap" style={{ color: \'#00ACE4\' }}>每一步办完</em>')
+    // the break point is layout-only: the FAQ structured data carries the plain question
+    expect(home).toContain("name: pick(f.q, lang).replace(/\\u200b/g, '')")
+  })
 })

@@ -44,6 +44,8 @@ const pick = (b: Bi, lang: Lang) => (lang === 'zh' ? b.zh : b.en)
 // Type scale, plan A (2026-10-01, after muse.ai / america.gov): 600 headings and 400 text only,
 // headings 44 / 36px on desktop (28 / 26 on phones), 20px muted leads, 17px text at 1.75 for Chinese.
 // The CJK details (no negative tracking, proportional punctuation, balanced lines) live in globals.css.
+// Chinese headings break only at punctuation (keep-all); a long run without punctuation gets an explicit
+// break point — '\u200b' at the phrase boundary — instead of the emergency mid-word break.
 const H2 = 'sl-type-head text-[28px] leading-[1.18] text-ink sm:text-[44px] sm:leading-[1.12]'
 const LEAD = 'sl-type-text text-[17px] leading-[1.6] text-body-3 sm:text-[20px]'
 const BODY = 'sl-type-text text-[16px] leading-[1.75] text-body-2 sm:text-[17px]'
@@ -166,7 +168,7 @@ const ROLES: {
     key: 'provider',
     pilot: true,
     tag: { zh: '服务商', en: 'Provider' },
-    h2: { zh: '想接多伦多租房市场的维修工单？先把资质核了。', en: 'Want repair work orders from Toronto rentals? Get your credentials verified first.' },
+    h2: { zh: '想接多伦多租房市场的\u200b维修工单？先把资质核了。', en: 'Want repair work orders from Toronto rentals? Get your credentials verified first.' },
     lead: {
       zh: '房东在 Stayloop 里给报修派单，只会派给资质已核验的服务商，或自己的联系人。入驻填工种与资质，管理员对照公开注册库核验后，你就会出现在派单候选里。',
       en: 'Landlords dispatch repairs inside Stayloop only to providers whose credentials were verified, or to their own contacts. Enter your trades and credentials; an admin checks them against the public registries, and you appear among the dispatch candidates.',
@@ -234,7 +236,7 @@ const FAQ: { q: Bi; a: Bi; href: string; more: Bi }[] = [
     href: '/listings', more: { zh: '看房源 →', en: 'Browse listings →' },
   },
   {
-    q: { zh: '筛查报告会不会一票否决申请人？', en: 'Can the screening report reject an applicant on its own?' },
+    q: { zh: '筛查报告会不会\u200b一票否决申请人？', en: 'Can the screening report reject an applicant on its own?' },
     a: { zh: '不会。报告列出可核验的事实——材料真伪、收入佐证、LTB 判令与法院记录——每条结论注明依据；按 OHRC 租房政策，租金收入比和信用分不设硬性截止线，只作参考。录取或婉拒由房东本人决定，通知信附《消费者报告法》s.10(7) 的说明。', en: 'No. The report lists checkable facts, document authenticity, income corroboration, LTB orders and court records, and every conclusion cites its evidence; following the OHRC rental policy there is no hard cut-off on rent-to-income ratio or credit score, they are context only. Admitting or declining is the landlord’s own decision, and the notice letter carries the Consumer Reporting Act s.10(7) statement.' },
     href: '/screening', more: { zh: '筛查怎么做 →', en: 'How screening works →' },
   },
@@ -322,7 +324,7 @@ export default function HomeNext() {
     return () => { cancelled = true }
   }, [signedIn])
 
-  const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: pick(f.q, lang), acceptedAnswer: { '@type': 'Answer', text: pick(f.a, lang) } })) }
+  const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: pick(f.q, lang).replace(/\u200b/g, ''), acceptedAnswer: { '@type': 'Answer', text: pick(f.a, lang) } })) }
 
   if (signedIn) {
     return (
