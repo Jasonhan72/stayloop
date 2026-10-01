@@ -11,9 +11,10 @@ import { LISTINGS_PAGE } from '@/lib/agent/listingPaging'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT, type Lang } from '@/lib/i18n'
-import type { AgentRole, AgentSessionResponse, AgentStatus, ChatAttachment, ChatMessage } from './types'
+import type { AgentRole, AgentSessionResponse, AgentStatus, ChatAttachment, ChatMessage, MemoryItem, PendingAction } from './types'
 import { loadAgentSession } from './session-loader'
-import { decidePendingAction } from './approval-engine'
+import { classifyApproved, clearUndoFailed, decidePendingAction, markUndoFailed, optionNote, PENDING_EXPIRED_EVENT, readApprovedUnexecuted, readPendingActions, resumeDelayMs, undoFailedIds, type DecidedAction, type DecideOutcome } from './approval-engine'
+import { getUserMemories, MEMORIES_CHANGED_EVENT } from './memory'
 import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
 import { demoSession } from './demo'
 import { setAIName, getStoredAIName, dropForeignAIName } from '@/lib/aiName'
@@ -22,7 +23,7 @@ import { appendToThread, createThread, latestThread, loadThread, readPointer, sa
 import { notifyActivityChanged } from './useActivityLog'
 import { saveAssistantName } from './assistantProfile'
 import { reconcileDraft } from './draftReconcile'
-import { executedText, greeting } from './chatCopy'
+import { alreadyRanCannotTakeBackText, alreadyRanText, cardExpiredText, previewApprovalText, executedPlainText, executedText, existingTicketText, greeting, notExecutedText, notRunText, quoteApprovedNoNoticeText, ticketNotEmailedText, undoFailedText } from './chatCopy'
 
 const CHAT_KEY_PREFIX = 'stayloop-agent-chat-'
 
@@ -109,10 +110,18 @@ export type UseAgentSession = {
   status: AgentStatus
   error: string | null
   messages: ChatMessage[]
-  decide: (actionId: string, decision: 'approved' | 'rejected', option?: 'A' | 'B', note?: string) => Promise<void>
+  /** Resolves with what the decision became (an approval resolves once it ran, failed or was undone). */
+  decide: (actionId: string, decision: 'approved' | 'rejected', option?: 'A' | 'B', note?: string) => Promise<DecideOutcome>
   /** Approved actions execute after a short delay; until then they can be undone (lifecycle plan §2.5). */
   scheduled: Record<string, { title: string; executeAt: number }>
   undo: (actionId: string) => Promise<void>
+  /** Approved cards that have not run sit in data.pendingActions with status 'approved'
+   *  (「已批准，尚未执行」); decide() on one means 现在执行 (approved) / 放弃 (rejected). */
+  executeNow: (actionId: string, option?: 'A' | 'B') => Promise<DecideOutcome>
+  abandon: (actionId: string) => Promise<DecideOutcome>
+  /** The latest execution outcome, for pages without the chat thread (the to-do page). */
+  notice: { id: string; text: string } | null
+  dismissNotice: () => void
   sendMessage: (message: string, attachments?: ChatAttachment[]) => Promise<void>
   /** The chat reveals a further page of listing cards: exclude those addresses from later searches too. */
   markListingsShown: (addresses: string[]) => void
@@ -126,9 +135,45 @@ export type UseAgentSession = {
 const RENDER_DEADLINE_MS = 10000
 // Approve → execute delay during which the approval can be undone (Muse/EliseAI plans, 2026-09-22).
 const UNDO_MS = 60_000
+// The table's identity is (role, memory_type, key): merging by key alone kept an older row
+// from another hat and dropped the newer one (sweep 2026-10-01).
+const memKey = (m: MemoryItem, role: AgentRole) => `${m.role ?? role}|${m.memory_type}|${m.key}`
 
-export function useAgentSession(role: AgentRole): UseAgentSession {
+type ExecResponse = {
+  executed?: boolean
+  already?: boolean
+  expired?: boolean
+  reason?: string
+  error?: string
+  result?: { sent_to?: string | null; rent?: number; kind?: string; email_error?: string | null; entry_notice_sent?: boolean } | null
+}
+
+// What the row says now (after an update matched nothing). null = the read itself failed.
+async function readActionState(
+  sb: ReturnType<typeof getSupabaseBrowser>,
+  id: string
+): Promise<{ found: boolean; status: string | null; executed_at: string | null } | null> {
+  try {
+    const r = await sb.from('agent_pending_actions').select('status, executed_at').eq('id', id).maybeSingle()
+    if (r.error) return null
+    const d = r.data as { status?: string | null; executed_at?: string | null } | null
+    return { found: !!d, status: d?.status ?? null, executed_at: d?.executed_at ?? null }
+  } catch {
+    return null
+  }
+}
+
+export type UseAgentSessionOptions = {
+  /** Resume approved-but-unexecuted countdowns on load (default true). Only pages that render the
+   *  countdown with 撤销, the stalled rows and the outcome may run them; the ideas and progress
+   *  pages pass false so nothing is sent from a page that can't show it (review 2026-10-01). */
+  resumeApproved?: boolean
+}
+
+export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = {}): UseAgentSession {
   const { loading: authLoading, user } = useAuth()
+  const resumeOptRef = useRef(opts.resumeApproved !== false)
+  resumeOptRef.current = opts.resumeApproved !== false
   const { lang } = useT()
   // Read through a ref inside stable callbacks so a language switch doesn't
   // recreate them (and re-trigger the load effects).
@@ -136,12 +181,35 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   langRef.current = lang
   const [loading, setLoading] = useState(true)
   const [live, setLive] = useState(false)
+  // Callbacks captured before the live re-render (a resumed countdown) read this, not the closure.
+  const liveRef = useRef(false)
+  liveRef.current = live
   const [data, setData] = useState<AgentSessionResponse | null>(null)
   const [status, setStatus] = useState<AgentStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [scheduled, setScheduled] = useState<Record<string, { title: string; executeAt: number }>>({})
+  const [notice, setNotice] = useState<{ id: string; text: string } | null>(null)
   const undoCtrls = useRef<Map<string, AbortController>>(new Map())
+  const scheduledCards = useRef<Map<string, { card: PendingAction; startedIn: string | null }>>(new Map())
+  // Leaving the page cancels this page's countdowns without touching the database
+  // (review 2026-10-01): the old timer used to fire after a client-side move to
+  // /x/todo while that page resumed the same card from decided_at — two executes
+  // at the same instant, the outcome line lost to an unmounted hook. The next
+  // mounted page resumes the countdown, or shows the card as stalled.
+  useEffect(() => {
+    const ctrls = undoCtrls.current
+    return () => { for (const c of Array.from(ctrls.values())) c.abort() }
+  }, [])
+  // Cards whose execute call is in flight (a resume or refresh must not show them as stalled).
+  const runningRef = useRef<Set<string>>(new Set())
+  const resumedRef = useRef(false)
+  // Read inside stable callbacks: the cards on screen and the memories the next turn sends.
+  const actionsRef = useRef<PendingAction[]>([])
+  actionsRef.current = data?.pendingActions ?? []
+  const memoriesRef = useRef<MemoryItem[]>([])
+  memoriesRef.current = data?.memories ?? []
+  const memReloadRef = useRef<Promise<MemoryItem[]> | null>(null)
   const messagesRef = useRef<ChatMessage[]>([])
   messagesRef.current = messages
   const settled = useRef(false)
@@ -241,6 +309,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       const nextScope = isLive && user?.id ? user.id.slice(0, 8) : 'anon'
       const scopeChanged = chatScopeRef.current !== nextScope
       settled.current = true
+      liveRef.current = isLive
       chatScopeRef.current = nextScope
       // A name cached on this device (onboarding writes it before the profile
       // row lands) shows immediately; the loader already put the account's
@@ -416,6 +485,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
         await reconcileAgentName(client, session, role)
         if (cancelled) return
         settle(session, true)
+        // Approved cards that never ran: resume their countdown or keep them on screen (never orphaned).
+        if (resumeOptRef.current) resumeRef.current(session.approvedUnexecuted ?? [])
 
         // Proactive sweep AFTER the workspace is live — never on the load
         // critical path. Fire-and-forget; merge any created proposals in.
@@ -457,119 +528,334 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     }
   }, [authLoading, user, role, settle])
 
+  // ---- Execution of approved cards (sweep 2026-10-01) ---------------------
+  // An approval is executed by the browser after the undo window. If the tab
+  // closed, or the run failed, the row stays approved with executed_at null:
+  // the next load resumes it (decided < 10 min ago) or shows it as
+  // 「已批准，尚未执行」 with 现在执行 / 放弃 — it never silently disappears.
+  const dropAction = useCallback((id: string) => {
+    setData((prev) => (prev ? { ...prev, pendingActions: prev.pendingActions.filter((a) => a.id !== id) } : prev))
+  }, [])
+  const markStalled = useCallback((card: PendingAction, reason: string | null) => {
+    const row: DecidedAction = { ...card, status: 'approved', execution_result: { ok: false, reason } }
+    setData((prev) => (prev ? { ...prev, pendingActions: [...prev.pendingActions.filter((a) => a.id !== card.id), row] } : prev))
+  }, [])
+  // The outcome line goes to the conversation the card was decided in; the to-do page shows it as a notice.
+  const deliverLine = useCallback((doneMsg: ChatMessage, startedIn: string | null) => {
+    if (startedIn && threadIdRef.current !== startedIn) void appendToThread(getSupabaseBrowser(), startedIn, [doneMsg])
+    else setMessages((msgs) => [...msgs, doneMsg])
+    setNotice({ id: doneMsg.id, text: doneMsg.text })
+  }, [])
+  // Re-read what is really waiting (a card decided on another page, undone, or expired).
+  // liveRef, not the closure: a resumed countdown runs with callbacks from before the live re-render.
+  const refreshActions = useCallback(async () => {
+    if (!liveRef.current) return
+    const sb = getSupabaseBrowser()
+    const [pending, approved] = await Promise.all([readPendingActions(sb, role, 'pending'), readApprovedUnexecuted(sb, role)])
+    // A read that failed keeps what is on screen — one blip must not wipe every card.
+    if (!pending || !approved) return
+    const now = Date.now()
+    const held = undoFailedIds(now)
+    const shownStalled = new Set(actionsRef.current.filter((a) => a.status === 'approved').map((a) => a.id))
+    const stalled = approved
+      .filter((a) => !undoCtrls.current.has(a.id) && !runningRef.current.has(a.id))
+      // a fresh approval another tab is still counting down is not ours to show as stalled
+      .filter((a) => shownStalled.has(a.id) || classifyApproved(a, now, held) === 'stalled')
+      .map((a) => ({ ...a, execution_result: a.execution_result ?? { ok: false, reason: held.has(a.id) ? 'undo_failed' : 'interrupted' } }))
+    setData((prev) => (prev ? { ...prev, pendingActions: [...pending, ...stalled] } : prev))
+  }, [role])
+
+  const runExecution = useCallback(async (removed: PendingAction, option: 'A' | 'B' | undefined, startedIn: string | null): Promise<DecideOutcome> => {
+    const actionId = removed.id
+    runningRef.current.add(actionId)
+    // The person chose to run it (or its own countdown ended): a held undo no longer applies.
+    clearUndoFailed(actionId)
+    try {
+      let j: ExecResponse = {}
+      let httpStatus = 0
+      try {
+        const { data: sess } = await getSupabaseBrowser().auth.getSession()
+        const token = sess?.session?.access_token
+        if (!token) {
+          j = { executed: false, reason: 'no_session' }
+        } else {
+          const res = await fetch('/api/agent/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ action_id: actionId, option }),
+          })
+          httpStatus = res.status
+          j = (await res.json().catch(() => ({}))) as ExecResponse
+        }
+      } catch {
+        j = { executed: false, reason: 'network' }
+      }
+      // A resumed card can finish before its conversation has loaded — wait, or the line is wiped.
+      if (resolvingRef.current) await resolvingRef.current
+      const zh = langRef.current === 'zh'
+      const say = (text: string) => deliverLine({ id: nextId(), role: 'agent', text }, startedIn)
+      if (j.executed) {
+        dropAction(actionId)
+        // The execution wrote an audit row — the activity panel should show it now, not on the next reload.
+        notifyActivityChanged()
+        // Another tab or page claimed it first (e.g. the countdown resumed there): say so, once, without a second send.
+        if (j.already) { say(alreadyRanText(removed.title, zh)); return 'already_ran' }
+        const sentTo = j.result?.sent_to
+        const rentAmt = j.result?.rent
+        if (j.result?.kind === 'existing_ticket') {
+          // Merged into the repair ticket already open on this tenancy — not a second ticket (C2).
+          say(existingTicketText(removed.title, zh))
+        } else if (j.result?.kind === 'ticket' && !sentTo) {
+          // The ticket exists, the email to the landlord did not go out: never "sent to your landlord".
+          say(ticketNotEmailedText(removed.title, j.result.email_error, zh))
+        } else if (j.result?.kind === 'approve_quote' && j.result.entry_notice_sent === false) {
+          say(quoteApprovedNoNoticeText(removed.title, zh))
+        } else if (sentTo) {
+          const doneMsg: ChatMessage = {
+            id: nextId(),
+            role: 'agent',
+            text: executedText({ title: removed?.title, actionType: removed?.action_type, sentTo, rent: rentAmt, zh, viaThread: j.result?.kind === 'thread' }),
+          }
+          deliverLine(doneMsg, startedIn)
+        } else {
+          say(executedPlainText({ title: removed.title, actionType: removed.action_type, zh }))
+        }
+        return 'executed'
+      }
+      const reason = j.reason || j.error || (httpStatus ? `http ${httpStatus}` : 'network')
+      if (j.expired) {
+        // The executor found the card no longer valid and retired it (C2): say why; never "done".
+        dropAction(actionId)
+        notifyPendingChanged()
+        say(cardExpiredText(removed.title, reason, zh))
+        return 'expired'
+      }
+      if (reason === 'no_executor_for_type') {
+        // Nothing can run this card: retire it instead of leaving it "approved" forever.
+        await getSupabaseBrowser().from('agent_pending_actions').update({ status: 'expired', execution_result: { ok: false, reason } }).eq('id', actionId).eq('status', 'approved').is('executed_at', null)
+        dropAction(actionId)
+        notifyPendingChanged()
+        say(cardExpiredText(removed.title, reason, zh))
+        return 'expired'
+      }
+      // in_flight: another page claimed it and is still sending (or failing) — not ours to call done.
+      if (/^action is \w+, not approved$/.test(reason) || reason === 'in_flight') {
+        dropAction(actionId)
+        say(notRunText(removed.title, reason, zh))
+        void refreshActions()
+        return 'not_run'
+      }
+      // Everything else leaves the row approved and unexecuted (a 4xx precondition, a 5xx send
+      // that was released, no network): keep it visible with the reason and a retry. A tenant
+      // with no confirmed tenancy (no_landlord_on_file / no_household_on_file) is told how to get one.
+      markStalled(removed, reason)
+      say(notExecutedText(reason, zh))
+      return 'stalled'
+    } finally {
+      runningRef.current.delete(actionId)
+    }
+  }, [deliverLine, dropAction, markStalled, refreshActions])
+
+  // Approved → EXECUTE after an undo window. The decision only changed a
+  // status row; this is where the action actually happens (server-side,
+  // idempotent, audited). Sends cannot be recalled, so the recall lives
+  // here: 60 seconds in which the person can take the approval back.
+  const scheduleExecution = useCallback(async (card: PendingAction, option: 'A' | 'B' | undefined, delayMs: number, startedIn: string | null): Promise<DecideOutcome> => {
+    const actionId = card.id
+    const executeAt = Date.now() + delayMs
+    const ctrl = new AbortController()
+    undoCtrls.current.set(actionId, ctrl)
+    // undo() needs the card (title, where to say it) if the take-back does not reach the database.
+    scheduledCards.current.set(actionId, { card, startedIn })
+    setScheduled((prev) => ({ ...prev, [actionId]: { title: card.title ?? '', executeAt } }))
+    const cancelled = await new Promise<boolean>((resolve) => {
+      const t = setTimeout(() => resolve(false), delayMs)
+      ctrl.signal.addEventListener('abort', () => { clearTimeout(t); resolve(true) })
+    })
+    undoCtrls.current.delete(actionId)
+    scheduledCards.current.delete(actionId)
+    setScheduled((prev) => { const n = { ...prev }; delete n[actionId]; return n })
+    if (cancelled) return 'undone'
+    return runExecution(card, option, startedIn)
+  }, [runExecution])
+
+  const resumeApproved = useCallback((rows: DecidedAction[]) => {
+    if (resumedRef.current) return
+    resumedRef.current = true
+    const now = Date.now()
+    const held = undoFailedIds(now)
+    const stalled: DecidedAction[] = []
+    for (const r of rows) {
+      if (undoCtrls.current.has(r.id) || runningRef.current.has(r.id)) continue
+      if (classifyApproved(r, now, held) === 'resume') void scheduleExecution(r, r.approved_option ?? undefined, resumeDelayMs(r, now, UNDO_MS), null)
+      else stalled.push({ ...r, execution_result: r.execution_result ?? { ok: false, reason: held.has(r.id) ? 'undo_failed' : 'interrupted' } })
+    }
+    if (stalled.length) {
+      const ids = new Set(stalled.map((s) => s.id))
+      setData((prev) => (prev ? { ...prev, pendingActions: [...prev.pendingActions.filter((a) => !ids.has(a.id)), ...stalled] } : prev))
+    }
+  }, [scheduleExecution])
+  const resumeRef = useRef(resumeApproved)
+  resumeRef.current = resumeApproved
+
+  // 现在执行 on a card that was approved but has not run — no second undo window (it already had one).
+  const executeNow = useCallback(async (actionId: string, option?: 'A' | 'B'): Promise<DecideOutcome> => {
+    if (!liveRef.current) return 'noop'
+    const row = actionsRef.current.find((a) => a.id === actionId) as DecidedAction | undefined
+    if (!row || row.status !== 'approved' || runningRef.current.has(actionId)) return 'noop'
+    const opt = option ?? row.approved_option ?? undefined
+    // A renewal letter runs only with the rent option the person picks.
+    if (row.action_type === 'send_renewal_letter' && !opt) return 'noop'
+    return runExecution(row, opt, threadIdRef.current)
+  }, [runExecution])
+
+  // 放弃: the approval is withdrawn (own row under RLS) and audited; nothing is sent.
+  // It reports 'abandoned' only when the withdrawal really landed (review 2026-10-01).
+  const abandon = useCallback(async (actionId: string): Promise<DecideOutcome> => {
+    if (!liveRef.current) return 'noop'
+    const sb = getSupabaseBrowser()
+    const zh = langRef.current === 'zh'
+    const title = actionsRef.current.find((a) => a.id === actionId)?.title ?? null
+    const startedIn = threadIdRef.current
+    type AbandonRow = { id: string; metadata?: Record<string, unknown> | null }
+    let row: AbandonRow | null = null
+    try {
+      const r = await sb.from('agent_pending_actions').update({ status: 'rejected' }).eq('id', actionId).eq('status', 'approved').is('executed_at', null).select('id, metadata').maybeSingle()
+      if (r.error) { setError(r.error.message); return 'error' }
+      row = (r.data as AbandonRow | null) ?? null
+    } catch (e) {
+      setError((e as Error).message)
+      return 'error'
+    }
+    if (row) {
+      dropAction(actionId)
+      clearUndoFailed(actionId)
+      await sb.from('agent_audit_events').insert({ actor_id: user?.id ?? null, actor_type: 'user', action: 'approval_abandoned', target_type: 'agent_pending_action', target_id: actionId, metadata: { thread_id: (row.metadata?.thread_id as string | undefined) ?? null } })
+      notifyPendingChanged()
+      return 'abandoned'
+    }
+    // Nothing matched: it ran or changed in the meantime — say which, never "dropped".
+    const st = await readActionState(sb, actionId)
+    if (!st) {
+      setError(zh ? '放弃没有确认成功——刷新页面后再看这张卡片现在的状态。' : "Couldn't confirm the drop — refresh to see this card's current state.")
+      return 'error'
+    }
+    dropAction(actionId)
+    clearUndoFailed(actionId)
+    notifyPendingChanged()
+    const say = (text: string) => deliverLine({ id: nextId(), role: 'agent', text }, startedIn)
+    if (st.executed_at) {
+      say(alreadyRanCannotTakeBackText(title, zh))
+      notifyActivityChanged()
+      return 'already_ran'
+    }
+    say(notRunText(title, st.found && st.status ? `action is ${st.status}, not approved` : 'action is not pending', zh))
+    void refreshActions()
+    return 'not_run'
+  }, [user, deliverLine, dropAction, refreshActions])
+
+  // A card the preview found expired (ApprovalActionCard) leaves every list at once.
+  useEffect(() => {
+    const onExpired = (e: Event) => {
+      const id = (e as CustomEvent<{ id?: string }>).detail?.id
+      if (!id) return
+      dropAction(id)
+      notifyPendingChanged()
+    }
+    window.addEventListener(PENDING_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(PENDING_EXPIRED_EVENT, onExpired)
+  }, [dropAction])
+
+  // Memories changed outside the chat (panel forget / edit / add, settings): reload them so the
+  // next turn — its prompt and its hard search constraints — uses what is actually stored (C3).
+  const reloadMemories = useCallback(() => {
+    if (!live) return null
+    const p = getUserMemories(getSupabaseBrowser())
+      .then((mems) => {
+        memoriesRef.current = mems
+        setData((prev) => (prev ? { ...prev, memories: mems } : prev))
+        return mems
+      })
+      .catch(() => memoriesRef.current)
+    memReloadRef.current = p
+    void p.finally(() => { if (memReloadRef.current === p) memReloadRef.current = null })
+    return p
+  }, [live])
+  useEffect(() => {
+    const h = () => { void reloadMemories() }
+    window.addEventListener(MEMORIES_CHANGED_EVENT, h)
+    return () => window.removeEventListener(MEMORIES_CHANGED_EVENT, h)
+  }, [reloadMemories])
+
   const decide = useCallback(
-    async (actionId: string, decision: 'approved' | 'rejected', option?: 'A' | 'B', note?: string) => {
+    async (actionId: string, decision: 'approved' | 'rejected', option?: 'A' | 'B', note?: string): Promise<DecideOutcome> => {
+      // An approved card that never ran: its two buttons are 现在执行 / 放弃.
+      const current = actionsRef.current.find((a) => a.id === actionId)
+      if (current && current.status === 'approved') {
+        return decision === 'approved' ? executeNow(actionId, option) : abandon(actionId)
+      }
       // Optimistic removal, but keep what we removed so a failed RPC can
       // ROLL BACK — otherwise the card vanishes, the user believes the
       // action happened, and the still-pending row resurfaces on reload.
-      let removed: AgentSessionResponse['pendingActions'][number] | undefined
+      let removed: AgentSessionResponse['pendingActions'][number] | undefined = current
       let prevStatus: AgentStatus | null = null
       let remainingPending = 0
       // The "✅ 已执行" line 60 s later belongs to the conversation the card was decided in.
       const startedIn = threadIdRef.current
       setData((prev) => {
         if (!prev) return prev
-        removed = prev.pendingActions.find((a) => a.id === actionId)
+        removed = prev.pendingActions.find((a) => a.id === actionId) ?? removed
         const pendingActions = prev.pendingActions.filter((a) => a.id !== actionId)
-        remainingPending = pendingActions.length
+        remainingPending = pendingActions.filter((a) => a.status === 'pending').length
         return { ...prev, pendingActions }
       })
       // Only clear the approval state when NO cards remain — otherwise a second
       // pending action would look 'handled' while still awaiting the user.
       setStatus((s) => { prevStatus = s; return remainingPending > 0 ? s : (s === 'approval' ? 'result' : s) })
-      if (!live) return
+      if (!live) {
+        // The decided line reads "see the result above" — in the preview the result is that nothing ran.
+        if (decision === 'approved') {
+          deliverLine({ id: nextId(), role: 'agent', text: previewApprovalText(langRef.current === 'zh') }, startedIn)
+          return 'preview'
+        }
+        return 'rejected'
+      }
+      // A renewal letter's A/B rides on the approval event, so a reloaded page can still run it.
+      if (!note && option) note = optionNote(option)
+      let decided: DecidedAction | null = null
       try {
-        await decidePendingAction(getSupabaseBrowser(), actionId, decision, note)
+        decided = await decidePendingAction(getSupabaseBrowser(), actionId, decision, note)
         notifyPendingChanged()
       } catch (e) {
-        setError((e as Error).message)
+        const msg = (e as Error).message || ''
+        if (/not pending/i.test(msg)) {
+          // Decided on another page, or retired: don't resurrect the card — re-read what is there.
+          deliverLine({ id: nextId(), role: 'agent', text: notRunText(removed?.title, 'action is not pending', langRef.current === 'zh') }, startedIn)
+          notifyPendingChanged()
+          void refreshActions()
+          return 'not_run'
+        }
+        setError(msg)
         // Roll back: restore the card and the prior status so the UI never
         // claims a decision that didn't persist.
         setData((prev) =>
           prev && removed ? { ...prev, pendingActions: [removed, ...prev.pendingActions] } : prev
         )
         if (prevStatus) setStatus(prevStatus)
-        return
+        return 'error'
       }
-      // Approved → EXECUTE after an undo window. The decision only changed a
-      // status row; this is where the action actually happens (server-side,
-      // idempotent, audited). Sends cannot be recalled, so the recall lives
-      // here: 60 seconds in which the landlord can take the approval back.
+      // The card had expired (C1): the RPC retired it instead of approving it. Nothing runs.
+      if (decided?.status === 'expired') {
+        deliverLine({ id: nextId(), role: 'agent', text: cardExpiredText(removed?.title ?? decided.title, 'expired', langRef.current === 'zh') }, startedIn)
+        return 'expired'
+      }
       if (decision === 'approved') {
-        const executeAt = Date.now() + UNDO_MS
-        const ctrl = new AbortController()
-        undoCtrls.current.set(actionId, ctrl)
-        setScheduled((prev) => ({ ...prev, [actionId]: { title: removed?.title ?? '', executeAt } }))
-        const cancelled = await new Promise<boolean>((resolve) => {
-          const t = setTimeout(() => resolve(false), UNDO_MS)
-          ctrl.signal.addEventListener('abort', () => { clearTimeout(t); resolve(true) })
-        })
-        undoCtrls.current.delete(actionId)
-        setScheduled((prev) => { const n = { ...prev }; delete n[actionId]; return n })
-        if (cancelled) return
-        try {
-          const { data: sess } = await getSupabaseBrowser().auth.getSession()
-          const token = sess?.session?.access_token
-          if (!token) return
-          const res = await fetch('/api/agent/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ action_id: actionId, option }),
-          })
-          const j = (await res.json()) as {
-            executed?: boolean
-            already?: boolean
-            reason?: string
-            result?: { sent_to?: string; rent?: number; kind?: string } | null
-          }
-          const sentTo = j.result?.sent_to
-          const rentAmt = j.result?.rent
-          const zh = langRef.current === 'zh'
-          if (j.executed && sentTo) {
-            const doneMsg: ChatMessage = {
-              id: nextId(),
-              role: 'agent',
-              text: executedText({ title: removed?.title, actionType: removed?.action_type, sentTo, rent: rentAmt, zh, viaThread: j.result?.kind === 'thread' }),
-            }
-            if (startedIn && threadIdRef.current !== startedIn) void appendToThread(getSupabaseBrowser(), startedIn, [doneMsg])
-            else setMessages((msgs) => [...msgs, doneMsg])
-            // The execution wrote an audit row — the activity panel should show it now, not on the next reload.
-            notifyActivityChanged()
-          } else if (j.executed) {
-            // already executed earlier — nothing new to report
-          } else if (j.reason === 'no_executor_for_type') {
-            // Approval-only action type — the approval itself was the effect.
-          } else if (j.reason === 'no_landlord_on_file' || j.reason === 'no_household_on_file') {
-            // Tenant-side send / repair with nobody to send to: no confirmed
-            // tenancy on this account (user report 2026-09-23).
-            setMessages((msgs) => [...msgs, {
-              id: nextId(),
-              role: 'agent',
-              text: zh
-                ? '⚠️ 批准已记录，但我不知道该发给哪位房东：你的账号上还没有已确认的在管租约或已签租约。先在「租约」里接受房东的邀请或导入已签租约（/leases/import），之后这类事就能真实送达。'
-                : "⚠️ Your approval was recorded, but there is no landlord on file: this account has no confirmed managed tenancy or signed lease yet. Accept your landlord's invitation or import a signed lease (/leases/import) first, and requests like this will really go through.",
-            }])
-          } else {
-            setMessages((msgs) => [...msgs, {
-              id: nextId(),
-              role: 'agent',
-              text: zh
-                ? `⚠️ 批准已记录，但执行未完成（${j.reason || '发送失败'}）。这不会重复发送 —— 你可以稍后在待办里重试，或让我检查租客邮箱是否有误。`
-                : `⚠️ Your approval was recorded, but execution didn't complete (${j.reason || 'send failed'}). Nothing will be double-sent — retry from your pending items later, or ask me to check whether the tenant's email address is wrong.`,
-            }])
-          }
-        } catch {
-          setMessages((msgs) => [...msgs, {
-            id: nextId(),
-            role: 'agent',
-            text: langRef.current === 'zh'
-              ? '⚠️ 批准已记录，但执行请求没有送达服务器。刷新后可重试，不会重复发送。'
-              : "⚠️ Your approval was recorded, but the execution request never reached the server. Refresh and retry — nothing will be double-sent.",
-          }])
-        }
+        const card = removed ?? decided
+        return card ? scheduleExecution(card, option, UNDO_MS, startedIn) : 'noop'
       }
+      return 'rejected'
     },
-    [live]
+    [live, executeNow, abandon, deliverLine, refreshActions, scheduleExecution]
   )
 
   const sendMessage = useCallback(
@@ -580,6 +866,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       // shown, then wiped by the loaded history, and its reply lands in an
       // orphan row (review 2026-09-25, reproduced in a hook harness).
       if (resolvingRef.current) await resolvingRef.current
+      // A memory forgotten / edited in the panel a moment ago must not ride along on this turn.
+      if (memReloadRef.current) await memReloadRef.current
       // Capture the prior thread as context so follow-ups ("再找几个 / 换一批")
       // keep the earlier criteria.
       const history = messagesRef.current.slice(-6).map((m) => ({ role: m.role, text: m.text }))
@@ -635,7 +923,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
             role,
             agentName: data.agent.agent_name,
             message,
-            memories: data.memories,
+            memories: memoriesRef.current,
             workflow: data.workflow,
             stageLabel,
             attachments,
@@ -796,17 +1084,18 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
 
       setData((prev) => {
         if (!prev) return prev
-        // Merge implicit memory writes into the live snapshot (dedupe by key).
-        const memMap = new Map(prev.memories.map((m) => [m.key, m]))
-        for (const m of memoryWrites) memMap.set(m.key, m)
+        // Merge the memory rows as stored (role · type · key, newest first); no write → same array,
+        // so the memory panel is not reset on every turn.
+        const freshKeys = new Set(memoryWrites.map((m) => memKey(m, role)))
+        const memories = memoryWrites.length ? [...memoryWrites, ...prev.memories.filter((m) => !freshKeys.has(memKey(m, role)))] : prev.memories
         const pendingActions = proposedAction
           ? [proposedAction, ...prev.pendingActions]
           : prev.pendingActions
         const workflow = nextStage ? { ...prev.workflow, current_stage: nextStage } : prev.workflow
-        setStatus(pendingActions.length ? 'approval' : 'result')
+        setStatus(pendingActions.some((a) => a.status === 'pending') ? 'approval' : 'result')
         return {
           ...prev,
-          memories: Array.from(memMap.values()),
+          memories,
           pendingActions,
           workflow,
           latestResult: { ...result, kind: 'summary' },
@@ -830,26 +1119,69 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   }, [])
 
   // Undo within the window: cancel the timer, put the row back to pending
-  // (own row under RLS), restore the card, audit the reversal.
+  // (own row under RLS), restore the card, audit the reversal. If the take-back
+  // does not reach the database the row is still approved: it is held (never
+  // resumed on a timer) and the person is told — a failed undo must not turn
+  // into a send they took back (review 2026-10-01).
   const undo = useCallback(async (actionId: string) => {
     const ctrl = undoCtrls.current.get(actionId)
     if (!ctrl) return
+    const entry = scheduledCards.current.get(actionId)
     ctrl.abort()
-    if (!live) return
+    if (!liveRef.current) return
+    const sb = getSupabaseBrowser()
+    let row: Record<string, unknown> | null = null
     try {
-      const sb = getSupabaseBrowser()
-      const { data: row } = await sb.from('agent_pending_actions').update({ status: 'pending' }).eq('id', actionId).eq('status', 'approved').is('executed_at', null).select('*').maybeSingle()
-      if (row) {
-        setData((prev) => (prev ? { ...prev, pendingActions: [row as AgentSessionResponse['pendingActions'][number], ...prev.pendingActions.filter((a) => a.id !== actionId)] } : prev))
-        setStatus('approval')
-        await sb.from('agent_audit_events').insert({ actor_id: user?.id ?? null, actor_type: 'user', action: 'approval_undone', target_type: 'agent_pending_action', target_id: actionId, metadata: { thread_id: ((row as { metadata?: Record<string, unknown> | null }).metadata?.thread_id as string | undefined) ?? null } })
+      // decided_at goes with the approval: a reload must not resume a countdown that was taken back.
+      let r = await sb.from('agent_pending_actions').update({ status: 'pending', decided_at: null }).eq('id', actionId).eq('status', 'approved').is('executed_at', null).select('*').maybeSingle()
+      // Before the 20261001_A1 column exists PostgREST refuses decided_at (PGRST204): the take-back still lands.
+      if (r.error && /decided_at|PGRST204|42703/i.test(`${r.error.message} ${r.error.code ?? ''}`)) {
+        r = await sb.from('agent_pending_actions').update({ status: 'pending' }).eq('id', actionId).eq('status', 'approved').is('executed_at', null).select('*').maybeSingle()
       }
+      if (!r.error) row = (r.data as Record<string, unknown> | null) ?? null
+    } catch { /* below: find out what is really there */ }
+    if (row) {
+      const restored = row as unknown as PendingAction
+      clearUndoFailed(actionId)
+      setData((prev) => (prev ? { ...prev, pendingActions: [restored, ...prev.pendingActions.filter((a) => a.id !== actionId)] } : prev))
+      setStatus('approval')
+      try {
+        await sb.from('agent_audit_events').insert({ actor_id: user?.id ?? null, actor_type: 'user', action: 'approval_undone', target_type: 'agent_pending_action', target_id: actionId, metadata: { thread_id: (restored.metadata?.thread_id as string | undefined) ?? null } })
+      } catch { /* the reversal itself landed; the audit row is best-effort here */ }
       // After the audit row exists, so the badges and the activity log re-read the final state.
       notifyPendingChanged()
-    } catch (e) {
-      setError((e as Error).message)
+      return
     }
-  }, [live, user])
+    const zh = langRef.current === 'zh'
+    const title = entry?.card.title ?? null
+    const say = (text: string) => deliverLine({ id: nextId(), role: 'agent', text }, entry?.startedIn ?? threadIdRef.current)
+    const st = await readActionState(sb, actionId)
+    if (st?.executed_at) {
+      // Another tab or page ran it when its own countdown ended.
+      say(alreadyRanCannotTakeBackText(title, zh))
+      notifyActivityChanged()
+      notifyPendingChanged()
+      return
+    }
+    if (st && (!st.found || st.status !== 'approved')) {
+      say(notRunText(title, st.found && st.status ? `action is ${st.status}, not approved` : 'action is not pending', zh))
+      void refreshActions()
+      notifyPendingChanged()
+      return
+    }
+    // Still approved and unexecuted (or unreadable): hold it here, and stamp the row so no load resumes it.
+    markUndoFailed(actionId)
+    void sb.from('agent_pending_actions')
+      .update({ execution_result: { ok: false, reason: 'undo_failed', at: new Date().toISOString() } })
+      .eq('id', actionId).eq('status', 'approved').is('executed_at', null)
+      .then(() => {}, () => {})
+    if (entry) markStalled(entry.card, 'undo_failed')
+    else void refreshActions()
+    say(undoFailedText(title, zh))
+    notifyPendingChanged()
+  }, [user, deliverLine, markStalled, refreshActions])
 
-  return { loading, live, data, status, error, messages, decide, sendMessage, markListingsShown, scheduled, undo, threadId, threadLoading, newThread, openThread }
+  const dismissNotice = useCallback(() => setNotice(null), [])
+
+  return { loading, live, data, status, error, messages, decide, sendMessage, markListingsShown, scheduled, undo, executeNow, abandon, notice, dismissNotice, threadId, threadLoading, newThread, openThread }
 }

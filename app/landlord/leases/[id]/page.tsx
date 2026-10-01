@@ -2,7 +2,7 @@
 
 export const runtime = 'edge'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import WorkspaceShell from '@/components/WorkspaceShell'
@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
+import { leaseActionErrorText, leaseErrorNeedsReload, leaseHasTerms, leaseIsEditableDraft, leaseIsRecordOnly, leaseIsSendable, leaseIsSignable, leaseIsWithdrawable } from '@/lib/lease/leaseState'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -33,27 +34,48 @@ type DbLease = {
   landlord_signature: LeaseSignature | null
   tenant_signature: LeaseSignature | null
   signed_at: string | null
+  pdf_path: string | null
+  application_id: string | null
 }
 
 function RealLeaseDetail({ id }: { id: string }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const aiName = useAIName()
+  const router = useRouter()
   const [lease, setLease] = useState<DbLease | null | 'missing'>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [signName, setSignName] = useState('')
+  // The household this lease is the current terms of (its uploaded file lives in that household's folder).
+  const [householdId, setHouseholdId] = useState<string | null>(null)
+  const [fileUrl, setFileUrl] = useState<string | null | 'denied'>(null)
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from('lease_documents')
-      .select('id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, sent_at, landlord_signature, tenant_signature, signed_at')
+      .select('id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, sent_at, landlord_signature, tenant_signature, signed_at, pdf_path, application_id')
       .eq('id', id)
       .maybeSingle<DbLease>()
     setLease(error || !data ? 'missing' : data)
+    if (data) {
+      const { data: hh } = await supabase.from('households').select('id').eq('current_lease_id', data.id).limit(1)
+      setHouseholdId(((hh ?? []) as { id: string }[])[0]?.id ?? null)
+    }
   }, [id])
   useEffect(() => { void load() }, [load])
+
+  // The imported lease file (households migration stores it in lease_documents.pdf_path, which no page showed).
+  const pdfPath = lease && lease !== 'missing' ? lease.pdf_path : null
+  useEffect(() => {
+    if (!pdfPath) { setFileUrl(null); return }
+    let cancelled = false
+    supabase.storage.from('tenancy-files').createSignedUrl(pdfPath, 600).then(({ data, error }) => {
+      if (!cancelled) setFileUrl(error || !data?.signedUrl ? 'denied' : data.signedUrl)
+    })
+    return () => { cancelled = true }
+  }, [pdfPath])
 
   const withToken = async (fn: (token: string) => Promise<void>) => {
     if (busy) return
@@ -76,8 +98,34 @@ function RealLeaseDetail({ id }: { id: string }) {
     })
     const j = (await res.json()) as { ok?: boolean; sent_to?: string; error?: string }
     if (j.ok) { setMsg(zh ? `✅ 签署邀请已发送至 ${j.sent_to}` : `✅ Signing invitation sent to ${j.sent_to}`); await load() }
-    else setErr(j.error || 'send failed')
+    else {
+      setErr(leaseActionErrorText(j.error || 'send failed', zh))
+      if (leaseErrorNeedsReload(j.error)) await load()
+    }
   })
+
+  // An unsigned lease can be deleted (RLS: leases_landlord_delete). For a sent one this is a
+  // withdrawal: the tenant's signing link stops working.
+  const removeLease = async (sent: boolean) => {
+    if (busy) return
+    const ok = typeof window === 'undefined' || window.confirm(sent
+      ? (zh ? '撤回并删除这份已发送、尚未签署的租约？租客手上的签署链接会失效。' : 'Withdraw and delete this sent, unsigned lease? The tenant’s signing link will stop working.')
+      : (zh ? '删除这份草稿？' : 'Delete this draft?'))
+    if (!ok) return
+    setBusy(true); setErr(null); setMsg(null)
+    const { data, error } = await supabase
+      .from('lease_documents')
+      .delete()
+      .eq('id', id)
+      .in('status', ['draft', 'sent'])
+      .is('signed_at', null)
+      .is('landlord_signature', null)
+      .is('tenant_signature', null)
+      .select('id')
+    setBusy(false)
+    if (error || !(data ?? []).length) { setErr(error?.message || (zh ? '没能删除：这份租约可能已被签署。' : 'Could not delete: the lease may have been signed.')); await load(); return }
+    router.push('/landlord/leases')
+  }
 
   const countersign = () => withToken(async (token) => {
     if (signName.trim().length < 2) { setErr(zh ? '请输入你的法定全名' : 'Enter your full legal name'); return }
@@ -92,7 +140,10 @@ function RealLeaseDetail({ id }: { id: string }) {
         ? (zh ? '✅ 双方签署完成 — 租客已收到永久查看链接邮件' : '✅ Fully executed — the tenant was emailed their permanent link')
         : (zh ? '✅ 你已签字' : '✅ You have signed'))
       await load()
-    } else setErr(j.error || 'sign failed')
+    } else {
+      setErr(leaseActionErrorText(j.error || 'sign failed', zh))
+      if (leaseErrorNeedsReload(j.error)) await load()
+    }
   })
 
   if (lease === null) {
@@ -121,7 +172,14 @@ function RealLeaseDetail({ id }: { id: string }) {
   const fullySigned = !!l.landlord_signature && !!l.tenant_signature
   const tenantLink = l.sign_token ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.stayloop.ai'}/lease/sign/${l.sign_token}` : null
   // Both terms schemas carry landlord_legal_name — a filled one means a real document.
-  const hasTerms = l.terms && (l.terms as OntarioLeaseTerms).landlord_legal_name !== undefined && !!(l.terms as OntarioLeaseTerms).landlord_legal_name
+  const hasTerms = !!l.terms && !!(l.terms as OntarioLeaseTerms).landlord_legal_name
+  // What this row allows (lib/lease/leaseState): imported and quick-entered records have no
+  // document to send or sign — they get their file and a "draft a standard lease" action instead.
+  const sendable = leaseIsSendable(l)
+  const signable = leaseIsSignable(l)
+  const editableDraft = leaseIsEditableDraft(l)
+  const withdrawable = leaseIsWithdrawable(l)
+  const recordOnly = leaseIsRecordOnly(l) || !leaseHasTerms(l.terms)
   // Unknown/legacy form_type falls back to the Ontario renderer (back-compat).
   const isTrreb = l.form_type === 'trreb'
 
@@ -142,13 +200,25 @@ function RealLeaseDetail({ id }: { id: string }) {
               </h1>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => window.print()}
-                className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
-              >
-                {zh ? '下载 PDF 备份' : 'Download PDF backup'}
-              </button>
-              {!l.tenant_signature && (
+              {hasTerms && (
+                <button
+                  onClick={() => window.print()}
+                  className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                >
+                  {zh ? '下载 PDF 备份' : 'Download PDF backup'}
+                </button>
+              )}
+              {editableDraft && (
+                <Link href={`/landlord/leases/${l.id}/edit`} className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand" data-testid="lease-edit-draft">
+                  {zh ? '编辑草稿' : 'Edit draft'}
+                </Link>
+              )}
+              {withdrawable && (
+                <button onClick={() => void removeLease(!!l.sent_at)} disabled={busy} className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body-3 transition hover:border-red-400 hover:text-red-600 disabled:opacity-40" data-testid="lease-delete">
+                  {l.sent_at ? (zh ? '撤回并删除' : 'Withdraw & delete') : (zh ? '删除草稿' : 'Delete draft')}
+                </button>
+              )}
+              {sendable && (
                 <button onClick={sendForSigning} disabled={busy || !l.tenant_email} className="sl-btn-primary !px-5 !py-[10px] !text-[13px] disabled:opacity-40">
                   {busy ? '…' : l.sent_at ? (zh ? '重发签署邀请' : 'Resend signing invite') : (zh ? '发送给租客签署 →' : 'Send to tenant for signing →')}
                 </button>
@@ -156,7 +226,28 @@ function RealLeaseDetail({ id }: { id: string }) {
             </div>
           </div>
 
-          {!l.tenant_email && !l.tenant_signature && (
+          {recordOnly && (
+            <div className="mt-4 rounded-lg border border-line-strong bg-white px-4 py-3 text-[13px] text-body" data-testid="lease-record-only">
+              <div className="font-semibold">{l.status === 'imported' ? (zh ? '这是导入的已签租约记录' : 'This is an imported record of a signed lease') : (zh ? '这是快速录入的租约记录' : 'This is a quick-entered lease record')}</div>
+              <p className="mt-1 text-[12.5px] text-body-2">
+                {zh ? '它没有在 Stayloop 上签署的条款文档，所以不能在线发送或签署。要给租客一份可在线签署的安省标准租约，从这份记录起草一份即可（会预填租客、地址、租金和日期）。' : 'It has no terms document signed on Stayloop, so it cannot be sent or signed online. To give the tenant an Ontario standard lease to sign online, draft one from this record (tenant, address, rent and dates are prefilled).'}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {l.pdf_path && (
+                  fileUrl && fileUrl !== 'denied'
+                    ? <a href={fileUrl} target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2" data-testid="lease-imported-file">{zh ? '打开导入的租约文件 ↗' : 'Open the imported lease file ↗'}</a>
+                    : fileUrl === 'denied'
+                      ? <span className="text-[12.5px] text-body-3">{zh ? '导入的文件只对在管租约的成员可见' : 'The imported file is visible to members of the managed tenancy only'}{householdId ? <> · <Link href={`/h/${householdId}`} className="text-brand underline underline-offset-2">{zh ? '打开在管租约' : 'Open the tenancy'}</Link></> : null}</span>
+                      : <span className="text-[12.5px] text-body-3">{zh ? '正在准备文件…' : 'Preparing the file…'}</span>
+                )}
+                <Link href={`/landlord/leases/new?from_lease=${l.id}`} className="sl-btn-primary !px-4 !py-[8px] !text-[12.5px]" data-testid="lease-draft-standard">
+                  {zh ? '起草这份租约的标准租约 →' : 'Draft a standard lease for this tenancy →'}
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {sendable && !l.tenant_email && !l.tenant_signature && (
             <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-[12.5px] text-amber-800">
               {zh ? '此租约没有租客邮箱，无法发送在线签署邀请。' : 'This lease has no tenant email on file — online signing invitation can’t be sent.'}
             </div>
@@ -164,8 +255,8 @@ function RealLeaseDetail({ id }: { id: string }) {
           {msg && <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-[12.5px] text-green-800">{msg}</div>}
           {err && <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-[12.5px] text-red-700">{err}</div>}
 
-          {/* Landlord countersign */}
-          {!l.landlord_signature && (l.tenant_signature || l.status !== 'draft') && (
+          {/* Landlord countersign — only a real document in the signing flow */}
+          {signable && !l.landlord_signature && (l.tenant_signature || l.status !== 'draft') && (
             <div className="mt-4 sl-card border-2 border-landlord p-4">
               <div className="text-[14px] font-bold">
                 {l.tenant_signature
@@ -222,8 +313,8 @@ function RealLeaseDetail({ id }: { id: string }) {
           ) : (
             <div className="p-8 text-center text-[13.5px] text-body-3">
               {zh
-                ? `这份租约是快速录入的（无完整条款文档）。${aiName} 用它跟踪续约窗口；如需可签署的标准租约，请用「起草新租约」。`
-                : `This lease was quick-entered (no full terms document). ${aiName} uses it to track the renewal window; to produce a signable standard lease, use "Draft new lease".`}
+                ? `这份租约没有完整的条款文档（导入或快速录入的记录）。${aiName} 用它跟踪租期与续约窗口；如需可在线签署的标准租约，请用上面的「起草这份租约的标准租约」。`
+                : `This lease has no full terms document (an imported or quick-entered record). ${aiName} uses it to track the term and renewal window; for a standard lease to sign online, use “Draft a standard lease for this tenancy” above.`}
             </div>
           )}
         </div>

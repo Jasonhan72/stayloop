@@ -331,10 +331,10 @@ export default function HomeNext() {
       <section style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
         <div className="mx-auto max-w-[1100px] px-5 pb-12 pt-10 text-center sm:px-7 sm:pb-14 sm:pt-14 lg:pt-[64px]">
           <div className="min-w-0">
-            <h1 className="mx-auto max-w-[900px] text-[30px] font-extrabold leading-[1.15] tracking-tight sm:text-[44px]">
+            <h1 className="mx-auto max-w-[900px] text-[clamp(22px,7.6vw,30px)] font-extrabold leading-[1.15] tracking-tight sm:text-[44px]">
               {zh
-                ? <>租房路上的每一步，<br className="hidden sm:block" />交给<em className="not-italic" style={{ color: '#00ACE4' }}>你自己的 AI 助理</em>。</>
-                : <>Every step of renting,<br className="hidden sm:block" />handled by <em className="not-italic" style={{ color: '#00ACE4' }}>your own AI Agent</em>.</>}
+                ? <span className="whitespace-nowrap">租房的事，交给<em className="not-italic" style={{ color: '#00ACE4' }}>AI助理</em></span>
+                : <>Leave renting to <em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>an AI Agent</em></>}
             </h1>
             <p className="mx-auto mt-3 max-w-[620px] text-[15px] leading-relaxed text-body-2 [text-wrap:pretty] sm:mt-4 sm:text-[17px]">
               {zh

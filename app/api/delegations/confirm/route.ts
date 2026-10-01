@@ -12,11 +12,11 @@ const admin = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.
 const ip = (req: Request) => (req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim()
 const mask = (email: string) => { const [u, d] = email.split('@'); return `${(u || '').slice(0, 1)}***@${d || ''}` }
 
-type Row = { id: string; principal_email: string; principal_name: string | null; delegate_auth_id: string; scope: string[]; allowed_actions: string[]; expires_at: string; basis_version: string; status: string; created_at: string }
+type Row = { id: string; principal_email: string; principal_name: string | null; delegate_auth_id: string; client_id: string | null; scope: string[]; allowed_actions: string[]; expires_at: string; basis_version: string; status: string; created_at: string }
 
 async function peek(token: string) {
   const a = admin()
-  const { data } = await a.from('delegations').select('id, principal_email, principal_name, delegate_auth_id, scope, allowed_actions, expires_at, basis_version, status, created_at').eq('confirm_token', token).maybeSingle()
+  const { data } = await a.from('delegations').select('id, principal_email, principal_name, delegate_auth_id, client_id, scope, allowed_actions, expires_at, basis_version, status, created_at').eq('confirm_token', token).maybeSingle()
   const d = data as Row | null
   if (!d) return null
   const { data: prof } = await a.from('agent_profiles').select('legal_name, reco_number, brokerage_name, category, status').eq('auth_id', d.delegate_auth_id).maybeSingle()
@@ -55,6 +55,13 @@ export async function POST(req: Request) {
   if (v.d.status !== 'pending') return NextResponse.json({ error: `status_${v.d.status}` }, { status: 409 })
   if (new Date(v.d.expires_at).getTime() <= Date.now()) return NextResponse.json({ error: 'expired' }, { status: 409 })
   const a = admin()
+  // The agent corrected the client's email after this link went out: the old address must not become the principal
+  // (an active principal is the client side of the agent ↔ client conversation). The agent re-proposes to the new one.
+  if (v.d.client_id) {
+    const { data: c } = await a.from('agent_clients').select('email').eq('id', v.d.client_id).maybeSingle()
+    const current = ((c as { email?: string | null } | null)?.email ?? '').trim().toLowerCase()
+    if (c && current !== v.d.principal_email.trim().toLowerCase()) return NextResponse.json({ error: 'client_email_changed' }, { status: 409 })
+  }
   const now = new Date().toISOString()
   const { data: hit } = await a.from('delegations').update({ status: 'active', principal_auth_id: ud.user.id, confirmed_at: now, confirm_token: null, updated_at: now }).eq('id', v.d.id).eq('status', 'pending').select('id')
   if (!hit || !hit.length) return NextResponse.json({ error: 'status_changed' }, { status: 409 })

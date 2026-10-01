@@ -26,6 +26,7 @@ import { useT, type Lang } from '@/lib/i18n'
 import { downloadCsv, toCsv } from '@/lib/csv'
 import { daysBetween, monthsBetween, parseDateOnly, todayUtc } from '@/lib/dates'
 import { leaseDisplayState } from '@/lib/matters/states'
+import { successorLease, type LeaseSlot } from '@/lib/agent/renewalStages'
 import MessageButton from '@/components/messages/MessageButton'
 
 // Tenant's answer to the 30-day touchpoint (renewal_intents, P1 2026-09-23).
@@ -51,6 +52,8 @@ type LeaseItem = {
   householdId?: string | null
   /** The application the lease was drafted from — its conversation is the fallback when no tenancy exists yet. */
   applicationId?: string | null
+  /** A pending send_renewal_letter card exists for this lease (sweep 2026-10-01): only then do we say options are prepared. */
+  renewalCard?: boolean
 }
 
 function mapDbLease(row: {
@@ -58,7 +61,7 @@ function mapDbLease(row: {
   unit_label: string | null; monthly_rent: number | null
   start_date: string | null; end_date: string | null; status: string | null
   application_id?: string | null
-}, aiName: string, intent?: { intent: string; created_at: string } | null, householdId?: string | null): LeaseItem {
+}, aiName: string, intent?: { intent: string; created_at: string } | null, householdId?: string | null, renewalCard = false, successor: { start_date?: string | null } | null = null): LeaseItem {
   // One state vocabulary (lib/matters/states, 节点 1 2026-09-26): a signed lease whose
   // start date is still ahead is 已签待起租, never ACTIVE (external review: L-46B5).
   const display = leaseDisplayState(row)
@@ -80,13 +83,21 @@ function mapDbLease(row: {
     status,
     onTime: '—',
     monthsLeft,
-    nextRenewal: intent
+    // Already renewed / re-let (a signed lease on the same unit starts later): the planner, the
+    // executor, the rail and the stats tile all treat it so — never "window open" (review 2026-10-01).
+    nextRenewal: successor && status === 'active'
+      ? { zh: `已续约 · 新租约 ${successor.start_date ?? ''} 起`, en: `Renewed · new lease from ${successor.start_date ?? ''}` }
+      : intent
       ? { zh: `租客意向：${INTENT_LABEL[intent.intent]?.zh ?? intent.intent}（${intent.created_at.slice(0, 10)}）`, en: `Tenant intent: ${INTENT_LABEL[intent.intent]?.en ?? intent.intent} (${intent.created_at.slice(0, 10)})` }
-      : inWindow
+      : renewalCard
       ? { zh: `续约窗口已开 · ${aiName} 已在工作台准备方案`, en: `Renewal window open · ${aiName} prepared options in your workspace` }
+      : inWindow
+      // No card on file (not proposed yet, already decided, or expired): say only what the dates say.
+      ? { zh: '续约窗口已开', en: 'Renewal window open' }
       : { zh: '—', en: '—' },
     householdId: householdId ?? null,
     applicationId: row.application_id ?? null,
+    renewalCard,
   }
 }
 
@@ -222,7 +233,7 @@ const leaseCode = (id: string): string => (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(id)
 export const LEASE_ACTIVITY_ACTIONS = [
   'lease_sent_for_signature', 'lease_signed_landlord', 'lease_fully_executed', 'lease_resent', 'lease_withdrawn',
   'executed_send_lease', 'executed_send_renewal_letter', 'executed_renewal_checkpoint', 'executed_rent_reminder',
-  'household_created_from_esign',
+  'household_created_from_esign', 'household_lease_attached_from_esign',
 ]
 
 function downloadCSV(lang: Lang, rows: LeaseItem[]) {
@@ -250,24 +261,33 @@ export default function LandlordLeasesPage() {
     if (!landlord) return
     const { data, error } = await supabase
       .from('lease_documents')
-      .select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status, application_id')
+      .select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status, application_id, listing_id, landlord_id')
       .order('end_date', { ascending: true })
     if (!error && data) {
       // Newest tenant intent per lease (RLS: household members read), and the
       // tenancy on each lease (one batched read, for the message button: a tenancy thread may include
       // co-tenants, so it is labelled as the thread, not one person).
       const ids = data.map((r) => r.id)
-      const [{ data: intents }, { data: hhs }] = ids.length
+      const [{ data: intents }, { data: hhs }, { data: cards }] = ids.length
         ? await Promise.all([
             supabase.from('renewal_intents').select('lease_id, intent, created_at').in('lease_id', ids).order('created_at', { ascending: false }).limit(200),
             supabase.from('households').select('id, current_lease_id').in('current_lease_id', ids).limit(200),
+            // The landlord's own pending renewal-letter cards (RLS: own rows) — the only basis for 「已在工作台准备方案」.
+            supabase.from('agent_pending_actions').select('metadata').eq('user_id', landlord.authId).eq('action_type', 'send_renewal_letter').eq('status', 'pending').limit(200),
           ])
-        : [{ data: [] as { lease_id: string | null; intent: string; created_at: string }[] }, { data: [] as { id: string; current_lease_id: string | null }[] }]
+        : [{ data: [] as { lease_id: string | null; intent: string; created_at: string }[] }, { data: [] as { id: string; current_lease_id: string | null }[] }, { data: [] as { metadata: Record<string, unknown> | null }[] }]
       const byLease = new Map<string, { intent: string; created_at: string }>()
       for (const i of (intents ?? []) as { lease_id: string | null; intent: string; created_at: string }[]) if (i.lease_id && !byLease.has(i.lease_id)) byLease.set(i.lease_id, i)
       const hhByLease = new Map<string, string>()
       for (const h of (hhs ?? []) as { id: string; current_lease_id: string | null }[]) if (h.current_lease_id && !hhByLease.has(h.current_lease_id)) hhByLease.set(h.current_lease_id, h.id)
-      setRealLeases(data.map((row) => mapDbLease(row, aiName, byLease.get(row.id) ?? null, hhByLease.get(row.id) ?? null)))
+      const cardLeases = new Set<string>()
+      for (const c of (cards ?? []) as { metadata: Record<string, unknown> | null }[]) {
+        const lid = c.metadata?.lease_id
+        if (typeof lid === 'string') cardLeases.add(lid)
+      }
+      // Same successor rule as the renewal planner (lib/agent/renewalStages successorLease).
+      const slots = data as unknown as LeaseSlot[]
+      setRealLeases(data.map((row) => mapDbLease(row, aiName, byLease.get(row.id) ?? null, hhByLease.get(row.id) ?? null, cardLeases.has(row.id), successorLease(row as unknown as LeaseSlot, slots))))
     }
   }, [landlord, aiName])
   useEffect(() => { void loadLeases() }, [loadLeases])
@@ -320,7 +340,7 @@ export default function LandlordLeasesPage() {
   // The renewal-window notice is advisory — it now lives in the right rail
   // instead of pushing the lease list below the fold (design/v9-workspace-*).
   const renewalNotice: ReactNode =
-    liveMode && expiringSoon >= 0 && active.some((l) => l.nextRenewal.zh !== '—') ? (
+    liveMode && rows.some((l) => l.renewalCard) ? (
       <div className="rounded-xl border border-landlord/25 bg-landlord/[0.05] p-3">
         <div className="flex items-start gap-2.5">
           <span className="mt-0.5 h-5 w-5 flex-none rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #6EE7B7, #047857 70%)' }} />

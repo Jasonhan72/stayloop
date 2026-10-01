@@ -16,7 +16,7 @@
 import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
 import { dueReminder, type ReminderTier } from './sla'
-import { CREDENTIAL_LABEL, type CredentialKind } from './trades'
+import { CREDENTIAL_LABEL, isSuperseded, type CredentialKind, type CredentialLite } from './trades'
 import { providerLabel, SITE, ticketContext, type Admin, type WorkOrderRow } from './server'
 import { noteOnWorkOrder } from '@/lib/threads/server'
 
@@ -78,11 +78,21 @@ export async function sweepCredentialReminders(admin: Admin, today = new Date())
   const ids = Array.from(new Set(list.map((c) => c.provider_id)))
   const { data: provs } = await admin.from('service_providers').select('id, auth_id, legal_name, trade_name, contact_email, status').in('id', ids).in('status', ['verified', 'pending'])
   const byId = new Map(((provs ?? []) as ProvRow[]).map((p) => [p.id, p]))
+  // A renewal added as a new row (and verified) supersedes the old one: the old
+  // expiry no longer pauses dispatch, so it must not send "dispatch paused"
+  // (sweep 2026-10-01). Needs every row of these providers, not only the
+  // ones inside the reminder window — a renewal usually runs past +90 days.
+  const { data: allCreds } = await admin.from('provider_credentials').select('id, provider_id, kind, expires_at, verified_at').in('provider_id', ids)
+  const byProvider = new Map<string, (CredentialLite & { id: string })[]>()
+  for (const r of (allCreds ?? []) as (CredentialLite & { id: string; provider_id: string })[]) byProvider.set(r.provider_id, [...(byProvider.get(r.provider_id) ?? []), r])
   const perProvider = new Map<string, { kind: CredentialKind; expires_at: string; daysLeft: number; tier: ReminderTier }[]>()
   let credentials = 0
   for (const c of list) {
     const prov = byId.get(c.provider_id)
     if (!prov) continue
+    const mine = byProvider.get(c.provider_id) ?? []
+    const self = mine.find((r) => r.id === c.id)
+    if (self && isSuperseded(self, mine)) continue
     const due = dueReminder(c.expires_at, c.reminders_sent ?? [], today)
     if (due.send == null) continue
     const merged = Array.from(new Set([...(c.reminders_sent ?? []), ...due.mark])).sort((a, b) => b - a)

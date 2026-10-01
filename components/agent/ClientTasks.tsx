@@ -50,7 +50,11 @@ export default function ClientTasks({ zh }: { zh: boolean }) {
               {/* 找得到人 2026-09-30: the agent ↔ client conversation, resolved on click. */}
               {t.clientId && (reachable[t.clientId]
                 ? <MessageButton target={{ kind: 'agent_client', ref: t.clientId }} zh={zh} label={names[t.clientId] ? (zh ? `发消息给 ${names[t.clientId]}` : `Message ${names[t.clientId]}`) : undefined} className="flex-none" testId="client-task-message" />
-                : <MessageButton target={{ kind: 'agent_client', ref: t.clientId }} zh={zh} className="flex-none" disabledReason={zh ? '先补邮箱才能发消息' : 'Add an email to message'} testId="client-task-message" />)}
+                : <>
+                    <MessageButton target={{ kind: 'agent_client', ref: t.clientId }} zh={zh} className="flex-none" disabledReason={zh ? '先补邮箱才能发消息' : 'Add an email to message'} testId="client-task-message" />
+                    {/* The email is added on the client table (「编辑资料」 on that row). */}
+                    <Link href="/agent/clients#client-book" data-testid="client-task-add-email" className="flex-none text-[12px] font-semibold text-brand underline underline-offset-2">{zh ? '去客户表补邮箱' : 'Add it in the client table'}</Link>
+                  </>)}
               {t.prompt
                 ? <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? t.prompt.zh : t.prompt.en)}`} className="flex-none rounded-lg border border-line-divider px-2.5 py-1 text-[12px] font-semibold">{zh ? '交给 AI 助理' : 'Hand to the AI Agent'}</Link>
                 : t.href ? <Link href={t.href} className="flex-none rounded-lg border border-line-divider px-2.5 py-1 text-[12px] font-semibold">{zh ? '去客户表' : 'Client table'}</Link> : null}

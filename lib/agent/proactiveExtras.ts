@@ -6,7 +6,8 @@
 //   • re-list prompt — a signed lease whose end date passed within
 //     RELIST_LOOKBACK_DAYS and no newer lease on the same unit → a
 //     `relist_prompt` card (approval = acknowledged, nothing is sent); one
-//     per lease, ever.
+//     per lease, ever. It carries the original listing_id and points at that
+//     listing's edit page (re-activate), not at the new-listing wizard.
 import { daysBetween, parseDateOnly, todayUtc } from '@/lib/dates'
 
 export const INVITE_REMINDER_AFTER_DAYS = 3
@@ -29,6 +30,8 @@ export type InviteRow = {
 
 export type EndedLeaseRow = {
   id: string
+  /** The Stayloop listing this lease came from (lease_documents.listing_id), when any. */
+  listing_id?: string | null
   tenant_name: string | null
   unit_label: string | null
   end_date: string | null
@@ -102,10 +105,19 @@ export function leaseNeedsRelist(l: EndedLeaseRow, today: Date, newerLeaseOnUnit
   return d >= 0 && d <= RELIST_LOOKBACK_DAYS
 }
 
+/** Where "re-list" really goes: the original listing's edit page in its relist mode (?relist=1 pre-ticks 已上架, nothing saved until 保存; photos and price history intact) — never the new-listing wizard, whose duplicate-address check rejects the same unit. */
+export function relistHref(listingId: string | null | undefined): string {
+  return listingId ? `/dashboard/listings/${listingId}/edit?relist=1` : '/dashboard'
+}
+
 export function buildRelistProposal(userId: string, l: EndedLeaseRow, today: Date): ExtraProposal {
   const unit = l.unit_label || '该单元'
   const tenant = l.tenant_name || '租客'
   const since = l.end_date ? daysBetween(parseDateOnly(l.end_date) ?? todayUtc(today), todayUtc(today)) : 0
+  // There is no one-click relist (review 2026-10-01): say exactly where to go.
+  const how = l.listing_id
+    ? `如果租客已搬离，在「房源管理」里打开这份租约原来的房源（照片和价格记录都还在），核对租金与照片后设为「已上架」保存即可重新挂牌；`
+    : `如果租客已搬离，可以在「房源管理」里重新上架原来的房源，没有的话再发布新房源；`
   return {
     user_id: userId,
     role: 'landlord',
@@ -113,7 +125,8 @@ export function buildRelistProposal(userId: string, l: EndedLeaseRow, today: Dat
     title: `退租 → 重新挂牌：${unit} · 租约 ${l.end_date} 已到期`,
     summary:
       `${tenant} 在 ${unit} 的租约 ${l.end_date} 到期（已过 ${since} 天），没有新的租约。` +
-      `如果租客已搬离，可以从上一次的房源信息一键重新挂牌；如果租客继续住，按 RTA s.38 已自动转为月租，不需要做任何事。` +
+      how +
+      `如果租客继续住，按 RTA s.38 已自动转为月租，不需要做任何事。` +
       `点「批准」表示你已知悉；这张卡不会发出任何邮件。`,
     recipient_label: null,
     data_scope: ['租约到期日'],
@@ -121,6 +134,14 @@ export function buildRelistProposal(userId: string, l: EndedLeaseRow, today: Dat
     risk_level: 'low',
     status: 'pending',
     requires_approval: true,
-    metadata: { lease_id: l.id, stage: 'relist', unit_label: l.unit_label, end_date: l.end_date, source: 'proactive_sweep' },
+    metadata: {
+      lease_id: l.id,
+      listing_id: l.listing_id ?? null,
+      href: relistHref(l.listing_id),
+      stage: 'relist',
+      unit_label: l.unit_label,
+      end_date: l.end_date,
+      source: 'proactive_sweep',
+    },
   }
 }

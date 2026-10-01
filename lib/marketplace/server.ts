@@ -5,7 +5,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
-import { canAct, entryNoticeText, entryWindowProblem, invoiceWithinEstimate, TICKET_STATUS_FOR, validateQuote, type ActorKind, type WoAction, type WorkOrderStatus } from './workOrders'
+import { canAct, entryCancelText, entryNoticeText, entryWindowProblem, invoiceWithinEstimate, mergeCompletion, mergeQuote, quoteExpired, quoteStillAsSeen, resolveEntryPermission, TICKET_STATUS_FOR, validateQuote, type ActorKind, type WoAction, type WorkOrderStatus } from './workOrders'
 import { clampGraceDays, providerEligible, tradeForCategory, TRADES, type Trade } from './trades'
 import { declineText, quoteDueAt, validateDecline } from './sla'
 import { ensureThread, noteOnWorkOrder, postSystemMessage, replyTokenFor } from '@/lib/threads/server'
@@ -14,7 +14,8 @@ import { workOrderSystemLine } from '@/lib/threads/shared'
 import { ensureMatter } from '@/lib/matters/server'
 import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
-import { normalizePolicy, rankCandidates, rankReason, shouldAutoApprove, shouldAutoDispatch, type Candidate, type DispatchPolicy } from './dispatchPolicy'
+import { deadProviderIds, normalizePolicy, rankCandidates, rankReason, shouldAutoApprove, shouldAutoDispatch, type Candidate, type DispatchPolicy } from './dispatchPolicy'
+import { isEmergencyMaintenance } from '@/lib/agent/maintenanceTriage'
 
 export type Admin = SupabaseClient
 export const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')
@@ -65,6 +66,24 @@ export async function ticketContext(admin: Admin, ticketId: string, callerId?: s
   return { ticket: t as never, household: hh as never, landlordAuthId: landlord?.user_id ?? null, tenantEmails: emails, tenantAuthIds: tenantIds }
 }
 
+/**
+ * What the ticket says about urgency and entry, read apart from ticketContext so
+ * the 20261001_A3 columns being absent can only cost the defaults. Emergency is
+ * whether the problem is one (RTA s.20/s.26 — no heat, water, gas, flooding,
+ * locks…), recorded on the ticket when it is filed; a ticket filed before the
+ * column existed is judged from its words. It is never the priority: "urgent ·
+ * 24 h" on a dripping tap is not an emergency entry (review 2026-10-01).
+ */
+export async function ticketFlags(admin: Admin, ticket: { id: string; title: string; description: string | null; category: string | null }): Promise<{ emergency: boolean; entryPermission: string | null }> {
+  const { data } = await admin.from('maintenance_tickets').select('entry_permission, emergency').eq('id', ticket.id).maybeSingle()
+  const row = (data as { entry_permission?: string | null; emergency?: boolean | null } | null) ?? null
+  const recorded = typeof row?.emergency === 'boolean' ? row.emergency : null
+  return {
+    emergency: recorded ?? isEmergencyMaintenance({ title: ticket.title, description: ticket.description, category: ticket.category }),
+    entryPermission: row?.entry_permission ?? null,
+  }
+}
+
 /** Admin-configurable marketplace rules (app_config key 'marketplace'); defaults when the row is missing. */
 export type MarketplaceConfig = { credentialGraceDays: number }
 export async function loadMarketplaceConfig(admin: Admin): Promise<MarketplaceConfig> {
@@ -100,6 +119,9 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   const ctx = await ticketContext(admin, i.ticketId, i.landlordAuthId)
   if (!ctx) return { ok: false, error: 'ticket not found', status: 404 }
   if (ctx.landlordAuthId !== i.landlordAuthId) return { ok: false, error: 'not the landlord of this household', status: 403 }
+  // A finished or cancelled ticket is never dispatched (a stale suggestion card
+  // approved later used to email a contractor and reopen it; sweep 2026-10-01).
+  if (ctx.ticket.status === 'done' || ctx.ticket.status === 'cancelled') return { ok: false, error: 'ticket_closed', status: 409 }
   const { data: open } = await admin.from('work_orders').select('id, status').eq('ticket_id', i.ticketId).in('status', ['offered', 'quoted', 'scheduled', 'in_progress', 'completed', 'rework', 'disputed']).limit(1)
   if (open && open.length) return { ok: false, error: 'this ticket already has an open work order', status: 409 }
   type ProviderLite = { id: string; auth_id: string; legal_name: string; trade_name: string | null; contact_email: string | null; status: string }
@@ -126,7 +148,12 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   } else if (!i.externalEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(i.externalEmail)) {
     return { ok: false, error: 'provider_id or a valid external_email required', status: 400 }
   }
-  const emergency = i.emergency ?? ctx.ticket.priority === 'high'
+  // What the tenant said about entry rides with the ticket; the suggestion card
+  // and auto-dispatch carry no choice of their own. Emergency comes from the
+  // ticket's problem, never its priority; the landlord's checkbox overrides.
+  const flags = await ticketFlags(admin, ctx.ticket)
+  const emergency = i.emergency ?? flags.emergency
+  const entryPermission = resolveEntryPermission(i.entryPermission, flags.entryPermission)
   // The token is the external contact's credential; account holders reach the job through /provider/jobs.
   const token = provider ? null : mintToken()
   // 节点 3: the contractor's clock starts now — the landlord's policy says how long (24–72 h, default 48).
@@ -135,27 +162,29 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   const { data: wo, error } = await admin.from('work_orders').insert({
     ticket_id: i.ticketId, household_id: ctx.household.id, landlord_auth_id: i.landlordAuthId,
     provider_id: provider?.id ?? null, external_email: provider ? null : i.externalEmail!.trim().toLowerCase(), external_name: provider ? null : (i.externalName || '').trim().slice(0, 120) || null,
-    token, trade, scope: (i.scope || ctx.ticket.title).slice(0, 2000), emergency, entry_permission: i.entryPermission ?? null, status: 'offered',
+    token, trade, scope: (i.scope || ctx.ticket.title).slice(0, 2000), emergency, entry_permission: entryPermission, status: 'offered',
     quote_due_at: dueAt,
   }).select('*').single()
   if (error || !wo) return { ok: false, error: error?.message || 'insert failed', status: 500 }
   await event(admin, wo.id, i.actor ?? 'landlord', i.landlordAuthId, 'offered', { provider_id: provider?.id ?? null, external_email: wo.external_email, trade, emergency })
   void ensureMatter(admin, 'work_order', wo.id) // 节点 5: hangs off the household's rental matter
+  // A suggestion card for this ticket is now moot (the landlord dispatched by hand or via another card).
+  // Expired before the ticket status changes: the A3 trigger would otherwise retire it first, as
+  // 'ticket_status_changed', and the more specific 'dispatched' could never be shown.
+  await admin.from('agent_pending_actions').update({ status: 'expired', execution_result: { ok: false, reason: 'dispatched' } }).eq('status', 'pending').eq('action_type', 'dispatch_work_order').contains('metadata', { ticket_id: i.ticketId })
   await setTicketStatus(admin, i.ticketId, 'offered')
   // 节点 4: the tri-party thread (tenant · landlord · contractor) opens with the offer.
   {
     const who = provider ? (provider.trade_name || provider.legal_name) : (i.externalName || wo.external_email || 'contractor')
     await noteOnWorkOrder(admin, { id: wo.id, household_id: ctx.household.id, scope: ctx.ticket.title, landlord_auth_id: i.landlordAuthId }, `已派单给 ${who} · 请在 ${policy.quote_hours} 小时内报价 / Offered to ${who} · quote within ${policy.quote_hours} h`, { event: 'offered', quote_due_at: dueAt })
   }
-  // A suggestion card for this ticket is now moot (the landlord dispatched by hand or via another card).
-  await admin.from('agent_pending_actions').update({ status: 'expired' }).eq('status', 'pending').eq('action_type', 'dispatch_work_order').contains('metadata', { ticket_id: i.ticketId })
 
   const unit = [ctx.household.address, ctx.household.unit ? `#${ctx.household.unit}` : null].filter(Boolean).join(' ')
   const link = provider ? `${SITE()}/provider/jobs` : `${SITE()}/w/${token}`
   const subject = `${emergency ? '【紧急】' : ''}维修派单 · ${ctx.household.city || ''} · ${ctx.ticket.title} / ${emergency ? 'URGENT ' : ''}Work order`
   const body =
-    `您好${provider ? `，${provider.trade_name || provider.legal_name}` : i.externalName ? `，${i.externalName}` : ''}，\n\n房东通过 Stayloop 向您派了一张维修工单：\n\n  • 问题：${ctx.ticket.title}\n  • 说明：${ctx.ticket.description || '（无）'}\n  • 位置：${ctx.household.city || ''}（详细地址接单后可见）\n  • 紧急程度：${emergency ? '紧急' : '一般'}\n  • 进入方式：${i.entryPermission === 'tenant_present' ? '须租客在场' : i.entryPermission === 'call_first' ? '进入前先电话' : '按 24 小时通知进入'}\n  • 请在 ${policy.quote_hours} 小时内回应（截止 ${new Date(dueAt).toLocaleString('zh-CN', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })}）——逾期房东可能改派\n\n请打开链接接单并报价，或婉拒（婉拒请选原因）：\n${link}\n\n费用由房东承担；报价一经房东批准，最终账单不得超出报价 10%（安省《消费者保护法》）。\n\n` +
-    `Hi${provider ? ` ${provider.trade_name || provider.legal_name}` : i.externalName ? ` ${i.externalName}` : ''},\n\nA landlord sent you a work order on Stayloop:\n\n  • Issue: ${ctx.ticket.title}\n  • Details: ${ctx.ticket.description || '(none)'}\n  • Location: ${ctx.household.city || ''} (full address after you accept)\n  • Urgency: ${emergency ? 'urgent' : 'normal'}\n  • Please answer within ${policy.quote_hours} h (by ${new Date(dueAt).toLocaleString('en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })}) — after that the landlord may reassign\n\nOpen the link to accept with a quote, or decline (with a reason):\n${link}\n\nThe landlord pays; once a quote is approved the invoice may not exceed it by more than 10% (Ontario Consumer Protection Act).`
+    `您好${provider ? `，${provider.trade_name || provider.legal_name}` : i.externalName ? `，${i.externalName}` : ''}，\n\n房东通过 Stayloop 向您派了一张维修工单：\n\n  • 问题：${ctx.ticket.title}\n  • 说明：${ctx.ticket.description || '（无）'}\n  • 位置：${ctx.household.city || ''}（详细地址接单后可见）\n  • 紧急程度：${emergency ? '紧急' : '一般'}\n  • 进入方式：${entryPermission === 'tenant_present' ? '须租客在场' : entryPermission === 'call_first' ? '进入前先电话' : '按 24 小时通知进入'}\n  • 请在 ${policy.quote_hours} 小时内回应（截止 ${new Date(dueAt).toLocaleString('zh-CN', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })}）——逾期房东可能改派\n\n请打开链接接单并报价，或婉拒（婉拒请选原因）：\n${link}\n\n费用由房东承担；报价一经房东批准，最终账单不得超出报价 10%（安省《消费者保护法》）。\n\n` +
+    `Hi${provider ? ` ${provider.trade_name || provider.legal_name}` : i.externalName ? ` ${i.externalName}` : ''},\n\nA landlord sent you a work order on Stayloop:\n\n  • Issue: ${ctx.ticket.title}\n  • Details: ${ctx.ticket.description || '(none)'}\n  • Location: ${ctx.household.city || ''} (full address after you accept)\n  • Urgency: ${emergency ? 'urgent' : 'normal'}\n  • Entry: ${entryPermission === 'tenant_present' ? 'the tenant must be present' : entryPermission === 'call_first' ? 'call the tenant before entering' : 'on 24-hour notice'}\n  • Please answer within ${policy.quote_hours} h (by ${new Date(dueAt).toLocaleString('en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })}) — after that the landlord may reassign\n\nOpen the link to accept with a quote, or decline (with a reason):\n${link}\n\nThe landlord pays; once a quote is approved the invoice may not exceed it by more than 10% (Ontario Consumer Protection Act).`
   const to = provider ? (provider.contact_email || null) : wo.external_email
   if (to) {
     const { html, text } = renderAgentMessageEmail({ subject, body })
@@ -196,7 +225,8 @@ export async function actOnWorkOrder(admin: Admin, i: ActInput): Promise<{ ok: t
   switch (i.action) {
     case 'accept':
     case 'quote': {
-      const q = validateQuote({ amount: Number(p.amount), type: p.type as never, note: String(p.note || ''), valid_until: p.valid_until ? String(p.valid_until) : undefined, schedule_start: p.schedule_start ? String(p.schedule_start) : undefined, schedule_end: p.schedule_end ? String(p.schedule_end) : undefined })
+      // A revision keeps every term it does not resend (window, note, type, validity).
+      const q = validateQuote(mergeQuote(wo, p))
       if (!q.ok) return { ok: false, error: `quote_${q.reason}`, status: 400 }
       // 节点 3: every accept / quote is a version; the events table keeps each one, the row keeps the count.
       const version = (Number(wo.quote_version) || 0) + 1
@@ -217,10 +247,11 @@ export async function actOnWorkOrder(admin: Admin, i: ActInput): Promise<{ ok: t
       evPayload.reason = patch.cancel_reason
       break
     case 'approve_quote': {
-      // The amount the landlord saw must be the amount on the row (a re-quote
-      // between the card and the click would otherwise be approved blind).
-      if (p.expected_amount != null && Number(p.expected_amount) !== Number(wo.quote_amount)) return { ok: false, error: 'quote_changed', status: 409 }
-      if (wo.quote_valid_until && wo.quote_valid_until < now.slice(0, 10)) return { ok: false, error: 'quote_expired', status: 422 }
+      // The version the landlord saw must be the version on the row: amount,
+      // quote_version and quoted_at (a re-quote between the card and the click —
+      // same amount, new window — would otherwise be approved blind).
+      if (!quoteStillAsSeen(wo, p)) return { ok: false, error: 'quote_changed', status: 409 }
+      if (quoteExpired(wo.quote_valid_until)) return { ok: false, error: 'quote_expired', status: 422 }
       const win = entryWindowProblem({ emergency: wo.emergency, scheduleStart: wo.schedule_start, scheduleEnd: wo.schedule_end })
       if (win) return { ok: false, error: `entry_window_${win}`, status: 422 }
       Object.assign(patch, { approved_amount: wo.quote_amount, approved_at: now })
@@ -234,12 +265,12 @@ export async function actOnWorkOrder(admin: Admin, i: ActInput): Promise<{ ok: t
       patch.arrived_at = now
       break
     case 'complete': {
-      const invoice = p.invoice_amount == null || p.invoice_amount === '' ? null : Number(p.invoice_amount)
-      if (invoice != null && (!Number.isFinite(invoice) || invoice < 0)) return { ok: false, error: 'invoice_amount', status: 400 }
-      const photos = Array.isArray(p.photos) ? (p.photos as unknown[]).filter((x) => typeof x === 'string').slice(0, 12) as string[] : []
-      Object.assign(patch, { completed_at: now, completion_note: String(p.note || '').slice(0, 2000) || null, completion_photos: photos, invoice_amount: invoice, invoice_note: String(p.invoice_note || '').slice(0, 1000) || null })
-      const cpa = invoiceWithinEstimate(wo.approved_amount, invoice)
-      Object.assign(evPayload, { invoice_amount: invoice, over_estimate_pct: cpa.ok ? null : cpa.overBy })
+      // After rework, what the payload omits (the invoice above all) is kept from the row.
+      const c = mergeCompletion(wo, p)
+      if (!c.ok) return { ok: false, error: c.reason, status: 400 }
+      Object.assign(patch, { completed_at: now, ...c.value })
+      const cpa = invoiceWithinEstimate(wo.approved_amount, c.value.invoice_amount)
+      Object.assign(evPayload, { invoice_amount: c.value.invoice_amount, over_estimate_pct: cpa.ok ? null : cpa.overBy })
       break
     }
     case 'tenant_confirm':
@@ -277,8 +308,11 @@ export async function actOnWorkOrder(admin: Admin, i: ActInput): Promise<{ ok: t
   // A decision taken directly on the hub supersedes the matching pending card
   // (otherwise approving it later would fail with not_from_<status>).
   const cardType = i.action === 'approve_quote' || i.action === 'reject_quote' ? 'approve_quote' : i.action === 'accept_completion' || i.action === 'request_rework' || i.action === 'dispute' ? 'accept_completion' : i.action === 'cancel' ? null : null
-  if (cardType) await admin.from('agent_pending_actions').update({ status: 'expired' }).eq('status', 'pending').eq('action_type', cardType).contains('metadata', { work_order_id: wo.id })
-  if (i.action === 'cancel' || i.action === 'decline') await admin.from('agent_pending_actions').update({ status: 'expired' }).eq('status', 'pending').in('action_type', ['approve_quote', 'accept_completion']).contains('metadata', { work_order_id: wo.id })
+  if (cardType) await admin.from('agent_pending_actions').update({ status: 'expired', execution_result: { ok: false, reason: 'decided_on_work_order' } }).eq('status', 'pending').eq('action_type', cardType).contains('metadata', { work_order_id: wo.id })
+  if (i.action === 'cancel' || i.action === 'decline') await admin.from('agent_pending_actions').update({ status: 'expired', execution_result: { ok: false, reason: 'work_order_closed' } }).eq('status', 'pending').in('action_type', ['approve_quote', 'accept_completion']).contains('metadata', { work_order_id: wo.id })
+  // The "overdue · reassign?" card only makes sense while the offer is unanswered:
+  // any move out of 'offered' (accept, quote, decline, cancel) retires it.
+  if (wo.status === 'offered' && gate.to !== 'offered') await admin.from('agent_pending_actions').update({ status: 'expired', execution_result: { ok: false, reason: 'work_order_already_answered' } }).eq('status', 'pending').eq('action_type', 'work_order_overdue').contains('metadata', { work_order_id: wo.id })
   await sideEffects(admin, updated, i)
   return { ok: true, wo: updated }
 }
@@ -317,7 +351,7 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
       // the invoice to this amount. Over the cap → the normal card below.
       const policy = await loadDispatchPolicy(admin, wo.landlord_auth_id)
       if (shouldAutoApprove(policy, wo)) {
-        const r = await actOnWorkOrder(admin, { woId: wo.id, action: 'approve_quote', by: 'landlord', actorId: wo.landlord_auth_id, payload: { expected_amount: wo.quote_amount, auto_policy: true } })
+        const r = await actOnWorkOrder(admin, { woId: wo.id, action: 'approve_quote', by: 'landlord', actorId: wo.landlord_auth_id, payload: { expected_amount: wo.quote_amount, expected_version: wo.quote_version, auto_policy: true } })
         if (r.ok) {
           await admin.from('agent_audit_events').insert({ actor_id: wo.landlord_auth_id, actor_type: 'system', action: 'work_order_quote_auto_approved', target_type: 'work_order', target_id: wo.id, metadata: { amount: wo.quote_amount, cap: policy.emergency_cap } })
           void notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `紧急报价 ${money(wo.quote_amount)} 已按预授权批准 / Pre-approved`, body: `${prov.name} · ${ctx.ticket.title}`, url: landlordUrl })
@@ -328,19 +362,19 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
     }
     if (i.action === 'accept' || i.action === 'quote') {
       // Step ⑤ card for the landlord: approve the quote (executor sends the entry notice).
-      const { data: existing } = await admin.from('agent_pending_actions').select('id').eq('user_id', wo.landlord_auth_id).eq('action_type', 'approve_quote').eq('status', 'pending').contains('metadata', { work_order_id: wo.id }).limit(1)
-      const title = `批准报价：${prov.name} · ${money(wo.quote_amount)} · ${ctx.ticket.title}`
+      // One card per quote version, never rewritten: a revision retires the old
+      // card and writes a new one, so approving what was on screen can only ever
+      // approve that version (quote_changed otherwise).
+      await admin.from('agent_pending_actions').update({ status: 'expired', execution_result: { ok: false, reason: 'quote_changed' } }).eq('user_id', wo.landlord_auth_id).eq('action_type', 'approve_quote').eq('status', 'pending').contains('metadata', { work_order_id: wo.id })
+      const v = Number(wo.quote_version) || 1
+      const title = `批准报价${v > 1 ? `（第 ${v} 版）` : ''}：${prov.name} · ${money(wo.quote_amount)} · ${ctx.ticket.title}`
       const summary = `${prov.name} 对「${ctx.ticket.title}」（${unit}）报价 ${money(wo.quote_amount)}${wo.quote_type === 'hourly_estimate' ? '（按工时估算）' : '（固定价）'}${wo.schedule_start ? `，可到场 ${new Date(wo.schedule_start).toLocaleString('en-CA', { timeZone: 'America/Toronto' })}` : ''}。${wo.quote_note ? `说明：${wo.quote_note} ` : ''}批准后：${wo.emergency ? '紧急件按 RTA s.26 可不提前通知，仍会通知租客。' : '我会给租客发 RTA s.27 的 24 小时进入通知。'}最终账单不得超出报价 10%。`
-      const meta = { work_order_id: wo.id, ticket_id: wo.ticket_id, household_id: wo.household_id, expected_amount: wo.quote_amount, quoted_at: wo.quoted_at, source: 'work_order' }
-      if (existing && existing.length) {
-        await admin.from('agent_pending_actions').update({ title, summary, metadata: meta }).eq('id', existing[0].id)
-      } else {
-        await admin.from('agent_pending_actions').insert({
-          user_id: wo.landlord_auth_id, role: 'landlord', action_type: 'approve_quote', title, summary,
-          recipient_label: ctx.tenantEmails[0] ?? null, data_scope: ['工单', '报价', '进入时间'], excluded_data: ['租约', '筛查报告'], risk_level: 'low', status: 'pending', requires_approval: true,
-          metadata: meta,
-        })
-      }
+      const meta = { work_order_id: wo.id, ticket_id: wo.ticket_id, household_id: wo.household_id, expected_amount: wo.quote_amount, quote_version: v, quoted_at: wo.quoted_at, source: 'work_order' }
+      await admin.from('agent_pending_actions').insert({
+        user_id: wo.landlord_auth_id, role: 'landlord', action_type: 'approve_quote', title, summary,
+        recipient_label: ctx.tenantEmails[0] ?? null, data_scope: ['工单', '报价', '进入时间'], excluded_data: ['租约', '筛查报告'], risk_level: 'low', status: 'pending', requires_approval: true,
+        metadata: meta,
+      })
       void notifyUser(admin, wo.landlord_auth_id, { kind: 'approval', title: `报价 ${money(wo.quote_amount)} · ${ctx.ticket.title}`, body: prov.name, url: '/landlord/todo' })
     }
     if (i.action === 'decline') {
@@ -366,7 +400,11 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
         // 节点 4: a copy of the formal notice in the thread — the email is the notice, the copy is the record.
         const th = await ensureThread(admin, 'work_order', wo.id, { householdId: wo.household_id, title: ctx.ticket.title, createdBy: wo.landlord_auth_id })
         if (th) await postSystemMessage(admin, th.id, { kind: 'formal_copy', senderKind: 'landlord', senderId: wo.landlord_auth_id, actingRole: 'landlord', senderLabel: '房东 · 进入通知 / Landlord · notice of entry', body: `${notice.subject}\n\n${notice.body}`, meta: { notice: 'entry', rule: wo.emergency ? 'RTA-26-emergency-entry' : 'RTA-27-entry-notice', sent_to: ctx.tenantEmails, sent: r.ok } })
-        await admin.from('compliance_events').insert({ user_id: wo.landlord_auth_id, role: 'landlord', source: 'work_order', rule_id: wo.emergency ? 'RTA-26-emergency-entry' : 'RTA-27-entry-notice', severity: 'info', target_type: 'work_order', target_id: wo.id, metadata: { household_id: wo.household_id, notice_sent: true } }).then(() => undefined, () => undefined)
+        // The record says what happened: notice_sent only when an email actually went out (review 2026-10-01).
+        await admin.from('compliance_events').insert({ user_id: wo.landlord_auth_id, role: 'landlord', source: 'work_order', rule_id: wo.emergency ? 'RTA-26-emergency-entry' : 'RTA-27-entry-notice', severity: 'info', target_type: 'work_order', target_id: wo.id, metadata: { household_id: wo.household_id, notice_sent: r.ok } }).then(() => undefined, () => undefined)
+      } else {
+        // No tenant email on the household (an emergency with nobody joined yet): no notice went out — record that too.
+        await admin.from('compliance_events').insert({ user_id: wo.landlord_auth_id, role: 'landlord', source: 'work_order', rule_id: wo.emergency ? 'RTA-26-emergency-entry' : 'RTA-27-entry-notice', severity: 'info', target_type: 'work_order', target_id: wo.id, metadata: { household_id: wo.household_id, notice_sent: false, reason: 'no_tenant_email' } }).then(() => undefined, () => undefined)
       }
       for (const uid of ctx.tenantAuthIds) void notifyUser(admin, uid, { kind: 'event', title: `进入通知 · ${ctx.ticket.title}`, body: notice.subject, url: `/h/${wo.household_id}` })
       const cSubject = `报价已批准 · ${ctx.ticket.title} · ${unit} / Quote approved`
@@ -378,6 +416,24 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
       const subj = `工单已取消 · ${ctx.ticket.title} / Work order cancelled`
       if (prov.email && i.by === 'landlord') { const { html, text } = renderAgentMessageEmail({ subject: subj, body: `房东取消了这张工单。${wo.cancel_reason ? `原因：${wo.cancel_reason}` : ''}\n\nThe landlord cancelled this work order.` }); await sendEmail({ to: prov.email, subject: subj, html, text }) }
       if (i.by !== 'landlord') void notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `服务商取消 · ${ctx.ticket.title}`, body: prov.name, url: landlordUrl })
+    }
+    if (i.action === 'cancel' && wo.entry_notice_sent_at) {
+      // The tenant was formally told someone would enter (email + push + a copy in
+      // the thread); the cancellation reaches them through the same channels, or
+      // they keep the window free for nobody (sweep 2026-10-01).
+      const off = entryCancelText({ unit, scheduleStart: wo.schedule_start, scheduleEnd: wo.schedule_end, provider: prov.name, scope: ctx.ticket.title, byContractor: i.by !== 'landlord', reason: wo.cancel_reason })
+      const sentTo: string[] = []
+      if (ctx.tenantEmails.length) {
+        const { html, text } = renderAgentMessageEmail({ subject: off.subject, body: off.body })
+        for (const te of ctx.tenantEmails) {
+          const rt = await relayReplyTo(admin, wo, te, 'tenant', null, null, ctx.ticket.title)
+          const one = await sendEmail({ to: te, subject: off.subject, html, text, replyTo: rt, fromName: 'Stayloop' })
+          if (one.ok) sentTo.push(te)
+        }
+      }
+      const th = await ensureThread(admin, 'work_order', wo.id, { householdId: wo.household_id, title: ctx.ticket.title, createdBy: wo.landlord_auth_id })
+      if (th) await postSystemMessage(admin, th.id, { kind: 'formal_copy', senderKind: 'system', senderLabel: 'Stayloop · 进入取消 / Entry cancelled', body: `${off.subject}\n\n${off.body}`, meta: { notice: 'entry_cancelled', sent_to: sentTo, sent: sentTo.length > 0, by: i.by } })
+      for (const uid of ctx.tenantAuthIds) void notifyUser(admin, uid, { kind: 'event', title: `进入取消 · ${ctx.ticket.title} / Entry cancelled`, body: off.subject, url: `/h/${wo.household_id}?tab=maintenance` })
     }
     if (i.action === 'arrive') {
       for (const uid of ctx.tenantAuthIds) void notifyUser(admin, uid, { kind: 'event', title: `服务商已到场 · ${ctx.ticket.title}`, body: prov.name, url: `/h/${wo.household_id}` })
@@ -427,7 +483,8 @@ export async function peekByToken(admin: Admin, token: string): Promise<{ wo: Wo
 
 /** The landlord's dispatch policy row (defaults when none). */
 export async function loadDispatchPolicy(admin: Admin, landlordAuthId: string): Promise<DispatchPolicy> {
-  const { data } = await admin.from('dispatch_policies').select('mode, emergency_auto_approve, emergency_cap, preferred').eq('landlord_auth_id', landlordAuthId).maybeSingle()
+  // quote_hours too: without it every offer silently got the 48 h default (sweep 2026-10-01).
+  const { data } = await admin.from('dispatch_policies').select('mode, emergency_auto_approve, emergency_cap, preferred, quote_hours').eq('landlord_auth_id', landlordAuthId).maybeSingle()
   return normalizePolicy(data as never)
 }
 
@@ -454,32 +511,57 @@ async function candidateStats(admin: Admin, landlordAuthId: string, cands: Candi
   })
 }
 
-/** Services marketplace step ③: after a ticket lands, suggest the dispatch to
- *  the landlord as a card. Never auto-dispatches. Shared by the maintenance
- *  executor and /api/maintenance/notify. */
+/** Services marketplace step ③: after a ticket lands (or comes back after a
+ *  decline / overdue withdrawal), suggest the dispatch to the landlord as a
+ *  card, or auto-dispatch under their policy. With no eligible candidate there
+ *  is no card (its approve button could only fail): a push to the ticket page
+ *  instead. Shared by the maintenance executor and /api/maintenance/notify. */
 export type SuggestOptions = {
   /** providers not to offer again (the one who declined / went overdue) */
   excludeProviderIds?: string[]
   /** why the ticket is back on the landlord's desk — named in the card */
   because?: 'declined' | 'overdue'
 }
+/** What the landlord is told when no provider can be suggested. Pure, so the wording is testable. */
+export function noCandidateMessage(i: { network: boolean; excludedEligible: number; because?: SuggestOptions['because']; title: string }): { title: string; body: string; bodyZh: string; bodyEn: string } {
+  const why = !i.network
+    ? { zh: '已核验服务商网络是 Pro 功能', en: 'The verified provider network is a Pro feature' }
+    : i.excludedEligible > 0
+      ? { zh: `能接这单的 ${i.excludedEligible} 家已核验服务商都已婉拒、逾期或被撤回过这张工单（你仍可在工单页手动再派给其中一家）`, en: `All ${i.excludedEligible} verified provider${i.excludedEligible > 1 ? 's' : ''} who could take this job already declined it, let it lapse or had it withdrawn (you can still pick one by hand on the ticket page)` }
+      : { zh: '精选网络里暂时没有覆盖这个工种与区域、资质有效的服务商', en: 'No verified provider in the network covers this trade and area right now' }
+  const lead = i.because === 'declined' ? { zh: '上一位服务商婉拒了。', en: 'The previous contractor declined. ' } : i.because === 'overdue' ? { zh: '逾期的派单已撤回。', en: 'The overdue offer was withdrawn. ' } : { zh: '', en: '' }
+  const bodyZh = `${lead.zh}${why.zh}——在工单页把它派给你自己的联系人（只需一个邮箱）。`
+  const bodyEn = `${lead.en}${why.en} — send it to your own contact on the ticket page (just an email).`
+  return { title: `派单需要你来选 · ${i.title} / Dispatch needs you`, body: `${bodyZh} / ${bodyEn}`, bodyZh, bodyEn }
+}
+
 export async function suggestDispatch(admin: Admin, landlordAuthId: string, ticketId: string, opts: SuggestOptions = {}): Promise<void> {
   try {
     const ctx = await ticketContext(admin, ticketId)
     if (!ctx) return
+    // Only a ticket still waiting for someone gets a suggestion: one the landlord
+    // took in hand, finished or cancelled does not (sweep 2026-10-01).
+    if (ctx.ticket.status !== 'new') return
     // A ticket with an open work order needs no suggestion (createWorkOrder would refuse anyway).
     const { data: openWo } = await admin.from('work_orders').select('id').eq('ticket_id', ticketId).in('status', ['offered', 'quoted', 'scheduled', 'in_progress', 'completed', 'rework', 'disputed']).limit(1)
     if (openWo && openWo.length) return
     const trade = tradeForCategory(ctx.ticket.category)
-    const exclude = new Set(opts.excludeProviderIds ?? [])
+    // Never re-offer a contractor this ticket already went to without result
+    // (declined, expired, cancelled) — not just the latest one.
+    const { data: prior } = await admin.from('work_orders').select('provider_id, status').eq('ticket_id', ticketId).not('provider_id', 'is', null)
+    const exclude = new Set([...(opts.excludeProviderIds ?? []), ...deadProviderIds((prior ?? []) as { provider_id: string | null; status: string }[])])
     const { data: provs } = await admin.from('service_providers').select('id, legal_name, trade_name, status, trades, service_cities').eq('status', 'verified').contains('trades', [trade]).limit(20)
     const network = await networkDispatchAllowed(admin, landlordAuthId)
     const cfg = await loadMarketplaceConfig(admin)
     const eligible: Candidate[] = []
+    // Eligible providers left out only because this ticket already went to them:
+    // "nobody covers this trade" would be untrue when they exist.
+    let excludedEligible = 0
     if (network) for (const p of (provs ?? []) as { id: string; legal_name: string; trade_name: string | null; status: string; trades: string[]; service_cities: string[] }[]) {
-      if (exclude.has(p.id)) continue
       const { data: creds } = await admin.from('provider_credentials').select('kind, expires_at, verified_at').eq('provider_id', p.id)
-      if (providerEligible(p, (creds ?? []) as { kind: string; expires_at: string | null; verified_at: string | null }[], trade, ctx.household.city, new Date(), cfg.credentialGraceDays).ok) eligible.push({ provider_id: p.id, name: p.trade_name || p.legal_name })
+      const ok = providerEligible(p, (creds ?? []) as { kind: string; expires_at: string | null; verified_at: string | null }[], trade, ctx.household.city, new Date(), cfg.credentialGraceDays).ok
+      if (exclude.has(p.id)) { if (ok) excludedEligible++; continue }
+      if (ok) eligible.push({ provider_id: p.id, name: p.trade_name || p.legal_name })
     }
     // P2 (V0.6): rank by the landlord's preference and track record, then
     // follow their dispatch policy. Auto-dispatch goes through createWorkOrder,
@@ -488,7 +570,7 @@ export async function suggestDispatch(admin: Admin, landlordAuthId: string, tick
     const preferredId = policy.preferred[trade] ?? null
     const ranked = rankCandidates(await candidateStats(admin, landlordAuthId, eligible), preferredId)
     const candidates = ranked.slice(0, 5).map((c) => ({ provider_id: c.provider_id, name: c.name, reason: rankReason(c, preferredId) }))
-    const emergency = ctx.ticket.priority === 'high'
+    const emergency = (await ticketFlags(admin, ctx.ticket)).emergency
     const tradeLabel = TRADES.find((t) => t.key === trade)
     const unit = [ctx.household.address, ctx.household.unit ? `#${ctx.household.unit}` : null].filter(Boolean).join(' ')
     if (shouldAutoDispatch(policy, emergency, candidates.length)) {
@@ -501,13 +583,36 @@ export async function suggestDispatch(admin: Admin, landlordAuthId: string, tick
       }
       console.warn('[marketplace] auto-dispatch failed, falling back to a card:', r.error)
     }
-    if (opts.because) await admin.from('agent_pending_actions').update({ status: 'expired' }).eq('status', 'pending').eq('action_type', 'dispatch_work_order').contains('metadata', { ticket_id: ticketId })
+    if (opts.because) await admin.from('agent_pending_actions').update({ status: 'expired', execution_result: { ok: false, reason: 'superseded' } }).eq('status', 'pending').eq('action_type', 'dispatch_work_order').contains('metadata', { ticket_id: ticketId })
+    if (!candidates.length) {
+      // Nobody to dispatch to: a card with an approve button could only fail. Tell
+      // the landlord where to send it to their own contact, and leave a trail.
+      const msg = noCandidateMessage({ network, excludedEligible, because: opts.because, title: ctx.ticket.title })
+      const ticketPath = `/h/${ctx.household.id}?tab=maintenance`
+      // It asks the landlord to act, so it is an 'approval' push (reaches quiet
+      // devices too); with no device reached, the same text goes by email.
+      const pushed = Number(await notifyUser(admin, landlordAuthId, { kind: 'approval', title: msg.title, body: msg.body, url: ticketPath }).catch(() => 0)) || 0
+      let emailed = false
+      if (!pushed) {
+        try {
+          const { data: u } = await admin.auth.admin.getUserById(landlordAuthId)
+          const to = u?.user?.email
+          if (to) {
+            const body = `${msg.bodyZh}\n${SITE()}${ticketPath}\n\n${msg.bodyEn}\n${SITE()}${ticketPath}`
+            const { html, text } = renderAgentMessageEmail({ subject: msg.title, body })
+            emailed = (await sendEmail({ to, subject: msg.title, html, text, fromName: 'Stayloop' })).ok === true
+          }
+        } catch (e) { console.warn('[marketplace] no-candidate email failed:', (e as Error).message) }
+      }
+      await admin.from('agent_audit_events').insert({ actor_id: landlordAuthId, actor_type: 'system', action: 'work_order_dispatch_no_candidate', target_type: 'maintenance_ticket', target_id: ticketId, acting_role: 'landlord', metadata: { household_id: ctx.household.id, trade, network, because: opts.because ?? null, excluded: Array.from(exclude), excluded_eligible: excludedEligible, pushed, emailed } }).then(() => undefined, () => undefined)
+      return
+    }
     await admin.from('agent_pending_actions').insert({
       user_id: landlordAuthId, role: 'landlord', action_type: 'dispatch_work_order',
       title: `派单：${ctx.ticket.title} · ${unit}`,
-      summary: (opts.because === 'declined' ? '上一位服务商婉拒了这张工单，' : opts.because === 'overdue' ? '上一位服务商逾期未报价、派单已撤回，' : '') + `租客的报修「${ctx.ticket.title}」需要${tradeLabel?.zh ?? '维修'}。` + (candidates.length ? `精选网络里有 ${candidates.length} 家资质在有效期内的服务商可派，排第一的是 ${candidates[0].name}（${candidates[0].reason}）${candidates.length > 1 ? `，其余：${candidates.slice(1).map((c) => c.name).join('、')}` : ''}。批准 = 向第一位发出派单邀请（可在工单页改派或派给自己的联系人）。` : (network ? '精选网络里暂时没有覆盖这个工种与区域的已核验服务商——请在工单页把它派给你自己的联系人（只需一个邮箱）。' : '已核验服务商网络是 Pro 功能——请在工单页把它派给你自己的联系人（只需一个邮箱，所有计划都可用），或升级 Pro。')) + (emergency ? ' 紧急件：进入按 RTA s.26 可不提前通知。' : ' 非紧急：批准报价时我会给租客发 24 小时进入通知（RTA s.27）。'),
-      recipient_label: candidates[0]?.name ?? null, data_scope: ['工单内容', '地址（接单后）'], excluded_data: ['租约', '筛查报告', '租金记录'], risk_level: 'low', status: 'pending', requires_approval: true,
-      metadata: { ticket_id: ticketId, household_id: ctx.household.id, candidates, provider_id: candidates[0]?.provider_id ?? null, source: 'work_order' },
+      summary: (opts.because === 'declined' ? '上一位服务商婉拒了这张工单，' : opts.because === 'overdue' ? '上一位服务商逾期未报价、派单已撤回，' : '') + `租客的报修「${ctx.ticket.title}」需要${tradeLabel?.zh ?? '维修'}。` + `精选网络里有 ${candidates.length} 家资质在有效期内的服务商可派，排第一的是 ${candidates[0].name}（${candidates[0].reason}）${candidates.length > 1 ? `，其余：${candidates.slice(1).map((c) => c.name).join('、')}` : ''}。批准 = 向第一位发出派单邀请（可在工单页改派或派给自己的联系人）。` + (emergency ? ' 紧急件：进入按 RTA s.26 可不提前通知。' : ' 非紧急：批准报价时我会给租客发 24 小时进入通知（RTA s.27）。'),
+      recipient_label: candidates[0].name, data_scope: ['工单内容', '地址（接单后）'], excluded_data: ['租约', '筛查报告', '租金记录'], risk_level: 'low', status: 'pending', requires_approval: true,
+      metadata: { ticket_id: ticketId, household_id: ctx.household.id, candidates, provider_id: candidates[0].provider_id, source: 'work_order' },
     })
   } catch (e) { console.warn('[marketplace] suggestDispatch failed:', (e as Error).message) }
 }

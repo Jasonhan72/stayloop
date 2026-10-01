@@ -9,7 +9,7 @@ import Logo from './Logo'
 import MobileBottomNav from './MobileBottomNav'
 import LanguageCurrencyModal from './LanguageCurrencyModal'
 import { useI18n } from '@/lib/i18n'
-import { useAuth } from '@/lib/useAuth'
+import { profilePhotoOf, readCachedProfilePhoto, useAuth, writeCachedProfilePhoto } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { activeHat, useHats } from '@/lib/useHats'
 import { useHomeHref } from '@/lib/useHomeHref'
@@ -151,11 +151,12 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
 
   const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  // The signed-in account's own photo only (the cache is per account — sweep 2026-10-01).
   useEffect(() => {
-    const cached = typeof window !== 'undefined' ? localStorage.getItem('stayloop-avatar') : null
-    if (cached) setAvatarUrl(cached)
-    const meta = (auth.user?.user_metadata as any)?.avatar_url
-    if (meta && typeof meta === 'string') setAvatarUrl(meta)
+    const uid = auth.user?.id
+    if (!uid) { setAvatarUrl(null); return }
+    const meta = profilePhotoOf(auth.user)
+    if (meta) { setAvatarUrl(meta); writeCachedProfilePhoto(uid, meta) } else setAvatarUrl(readCachedProfilePhoto(uid))
   }, [auth.user])
   const avatarBg =
     displayRole === 'provider' ? `linear-gradient(135deg, #FDBA74, ${PROVIDER_ACCENT})` : (ROLE_THEME[displayRole as RoleKey] ?? ROLE_THEME.landlord).avatarGradient

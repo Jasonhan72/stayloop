@@ -29,6 +29,10 @@ export default function ProposeDelegation({ client, zh, onDone, onCancel }: { cl
         already_delegated: { zh: '这位客户已有待确认或有效的委托。', en: 'This client already has a pending or active delegation.' },
       }
       setErr(j.error && map[j.error] ? (zh ? map[j.error].zh : map[j.error].en) : j.error || `HTTP ${res.status}`)
+    } else if (j.emailed === false) {
+      // The row exists but the email did not leave: say so, never 「已发到」 (sweep 2026-10-01).
+      setErr(zh ? `委托已创建，但确认邮件没有发出去（邮件服务出错）。在客户表这一行点「重发链接」再试，或「撤回」后检查邮箱 ${client.email} 是否正确。` : `The delegation was created but the confirmation email did not go out (mail service error). Use 「Resend link」 on this client’s row, or 「Withdraw」 and check that ${client.email} is right.`)
+      await onDone()
     } else {
       setMsg(zh ? `确认链接已发到 ${client.email}；客户用该邮箱登录并确认后生效。` : `A confirmation link went to ${client.email}; it takes effect once the client confirms while signed in with that email.`)
       await onDone()

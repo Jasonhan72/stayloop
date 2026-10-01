@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import { useT } from '@/lib/i18n'
 import type { AgentRole, MemoryItem } from '@/lib/agent/types'
-import { formatMemoryValue } from '@/lib/agent/memory'
+import { applyMemoryEdit, formatMemoryValue, memoryEditFields, notifyMemoriesChanged, type MemoryEditField } from '@/lib/agent/memory'
 import { supabase } from '@/lib/supabase'
 import { writeAuditEvent } from '@/lib/agent/audit'
 
@@ -38,6 +38,16 @@ function humanize(v: string): string {
 }
 
 const VISIBLE_CAP = 6
+// A row's identity is (role, memory_type, key) — the table's unique key (less the user).
+const rowId = (m: MemoryItem, role?: AgentRole) => `${m.role ?? role ?? ''}|${m.memory_type}|${m.key}`
+// Field names inside structured memories, for the field-by-field editor.
+const FIELD_LABEL: Record<string, { zh: string; en: string }> = {
+  min: { zh: '最低', en: 'Min' }, max: { zh: '最高', en: 'Max' }, currency: { zh: '币种', en: 'Currency' },
+  areas: { zh: '区域', en: 'Areas' }, target: { zh: '日期', en: 'Date' }, flexible: { zh: '可灵活', en: 'Flexible' },
+  beds: { zh: '卧室', en: 'Bedrooms' }, max_rent: { zh: '租金上限', en: 'Max rent' }, requires_transit: { zh: '需要公交', en: 'Needs transit' },
+  max_walk_minutes: { zh: '步行分钟', en: 'Walk minutes' }, in_unit_laundry: { zh: '室内洗衣', en: 'In-unit laundry' }, quiet: { zh: '安静', en: 'Quiet' },
+  value: { zh: '内容', en: 'Value' },
+}
 // One assistant per account (2026-09-25): facts learned under another hat are shown with that hat.
 const HAT_TAG: Record<string, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'tenant' }, landlord: { zh: '房东', en: 'landlord' }, agent: { zh: '经纪', en: 'agent' } }
 
@@ -59,40 +69,68 @@ export default function PrivateMemorySnapshot({
   const { lang } = useT()
   const zh = lang === 'zh'
   const [expanded, setExpanded] = useState(false)
+  // Local copy for instant feedback only. Every write below also announces itself
+  // (notifyMemoriesChanged): the session re-reads user_memories, so the next turn's
+  // prompt and hard constraints see the change and this prop comes back fresh (C3).
   const [memories, setMemories] = useState(memoriesProp)
   useEffect(() => { setMemories(memoriesProp) }, [memoriesProp])
   const [editing, setEditing] = useState<string | null>(null)
-  const [draft, setDraft] = useState('')
+  const [editFields, setEditFields] = useState<MemoryEditField[]>([])
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
   const canEdit = editable && !!role
+  const gone = zh ? '这条记忆已经变了（可能刚被更新或删除），已重新读取，请再试一次。' : 'This memory changed (just updated or removed); reloaded — please try again.'
+
+  function startEdit(m: MemoryItem) {
+    const fields = memoryEditFields(m.value)
+    if (!fields) return
+    setErr(null)
+    setEditFields(fields)
+    setDrafts(Object.fromEntries(fields.map((f) => [f.path, f.text])))
+    setEditing(rowId(m, role))
+  }
 
   async function forget(m: MemoryItem) {
     if (!role) return
     if (!confirm(zh ? `让 ${agentName} 忘掉「${m.label}」？` : `Tell ${agentName} to forget "${m.label}"?`)) return
-    setBusy(m.key)
+    setBusy(rowId(m, role))
     try {
       const { data: u } = await supabase.auth.getUser()
       const uid = u.user?.id
       if (!uid) return
-      const { error } = await supabase.from('user_memories').delete().eq('user_id', uid).eq('role', m.role ?? role).eq('memory_type', m.memory_type).eq('key', m.key)
-      if (error) { alert(error.message); return }
-      setMemories((prev) => prev.filter((x) => !(x.key === m.key && x.memory_type === m.memory_type)))
+      setErr(null)
+      const { data: hit, error } = await supabase.from('user_memories').delete().eq('user_id', uid).eq('role', m.role ?? role).eq('memory_type', m.memory_type).eq('key', m.key).select('key')
+      if (error) { setErr(error.message); return }
+      // A zero-row delete is not an error to PostgREST — it must not read as 「已忘掉」.
+      if (!hit || !hit.length) { setErr(gone); notifyMemoriesChanged(); return }
+      setMemories((prev) => prev.filter((x) => rowId(x, role) !== rowId(m, role)))
+      notifyMemoriesChanged()
       void writeAuditEvent(supabase, { actorId: uid, action: 'memory_forgotten', targetType: 'user_memory', metadata: { key: m.key, memory_type: m.memory_type, role: m.role ?? role } })
     } finally { setBusy(null) }
   }
   async function saveEdit(m: MemoryItem) {
     if (!role) return
-    const v = draft.trim().slice(0, 500)
-    if (!v) return
-    setBusy(m.key)
+    const { value: v, changed, invalid } = applyMemoryEdit(m.value, drafts)
+    if (invalid.length) {
+      const names = invalid.map((p) => (p ? (FIELD_LABEL[p] ? (zh ? FIELD_LABEL[p].zh : FIELD_LABEL[p].en) : p) : (zh ? '内容' : 'value'))).join(zh ? '、' : ', ')
+      setErr(zh ? `「${names}」的格式不对（数字只填数字，是 / 否填 是 或 否，内容不能为空）。` : `Check ${names}: numbers only for numbers, yes / no for flags, and the value cannot be empty.`)
+      return
+    }
+    // Nothing changed: no write (an unchanged save used to overwrite the structure).
+    if (!changed) { setEditing(null); setErr(null); return }
+    setBusy(rowId(m, role))
     try {
       const { data: u } = await supabase.auth.getUser()
       const uid = u.user?.id
       if (!uid) return
-      const { error } = await supabase.from('user_memories').update({ value: v, source: 'user_edit', updated_at: new Date().toISOString() }).eq('user_id', uid).eq('role', m.role ?? role).eq('memory_type', m.memory_type).eq('key', m.key)
-      if (error) { alert(error.message); return }
-      setMemories((prev) => prev.map((x) => (x.key === m.key && x.memory_type === m.memory_type ? { ...x, value: v } : x)))
+      setErr(null)
+      const { data: hit, error } = await supabase.from('user_memories').update({ value: v, source: 'user_edit', updated_at: new Date().toISOString() }).eq('user_id', uid).eq('role', m.role ?? role).eq('memory_type', m.memory_type).eq('key', m.key).select('key')
+      if (error) { setErr(error.message); return }
+      if (!hit || !hit.length) { setErr(gone); setEditing(null); notifyMemoriesChanged(); return }
+      setMemories((prev) => prev.map((x) => (rowId(x, role) === rowId(m, role) ? { ...x, value: v, source: 'user_edit' } : x)))
       setEditing(null)
+      notifyMemoriesChanged()
       void writeAuditEvent(supabase, { actorId: uid, action: 'memory_edited', targetType: 'user_memory', metadata: { key: m.key, memory_type: m.memory_type, role: m.role ?? role } })
     } finally { setBusy(null) }
   }
@@ -114,10 +152,12 @@ export default function PrivateMemorySnapshot({
       if (!uid) return
       const key = `user_${label.toLowerCase().replace(/[^a-z0-9一-鿿]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'note'}_${Date.now().toString(36)}`
       const row = { user_id: uid, role, memory_type: 'profile', key, label, value, confidence: 1, source: 'user_edit', updated_at: new Date().toISOString() }
+      setErr(null)
       const { error } = await supabase.from('user_memories').insert(row)
-      if (error) { alert(error.message); return }
-      setMemories((prev) => [{ key, label, value, confidence: 1, memory_type: 'profile', role }, ...prev])
+      if (error) { setErr(error.message); return }
+      setMemories((prev) => [{ key, label, value, confidence: 1, memory_type: 'profile', role, source: 'user_edit' }, ...prev])
       setNewLabel(''); setNewValue(''); setAdding(false)
+      notifyMemoriesChanged()
       void writeAuditEvent(supabase, { actorId: uid, action: 'memory_edited', targetType: 'user_memory', metadata: { key, memory_type: 'profile', role, added: true } })
     } finally { setBusy(null) }
   }
@@ -151,7 +191,7 @@ export default function PrivateMemorySnapshot({
         {shown.map((m) => {
           const meta = TYPE_META[m.memory_type] || TYPE_META.semantic
           return (
-            <div key={`${m.role ?? ''}:${m.memory_type}:${m.key}`} className="flex items-start gap-2.5">
+            <div key={rowId(m, role)} className="flex items-start gap-2.5">
               <span
                 className="mt-[3px] flex-none rounded px-1.5 py-[2px] font-mono text-[9px] font-bold"
                 style={{ background: `${meta.color}14`, color: meta.color }}
@@ -161,26 +201,44 @@ export default function PrivateMemorySnapshot({
               <div className="min-w-0 flex-1">
                 <span className="text-[12.5px] font-bold leading-snug">{m.label}</span>
                 {m.role && m.role !== role && m.role !== 'self' && HAT_TAG[m.role] && <span className="ml-1.5 rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? HAT_TAG[m.role].zh : HAT_TAG[m.role].en}</span>}
-                {editing === m.key ? (
-                  <div className="mt-1 flex gap-1.5">
-                    <input value={draft} onChange={(e) => setDraft(e.target.value)} className="sl-input !py-1 !text-[13px] min-w-0 flex-1" autoFocus />
-                    <button type="button" disabled={busy === m.key} onClick={() => saveEdit(m)} className="rounded-md px-2 text-[12px] font-bold text-white" style={{ background: '#00ACE4' }}>{zh ? '存' : 'Save'}</button>
-                    <button type="button" onClick={() => setEditing(null)} className="rounded-md border border-line-divider px-2 text-[12px] text-body-2">{zh ? '取消' : 'Cancel'}</button>
-                  </div>
+                {editing === rowId(m, role) ? (
+                  <form onSubmit={(e) => { e.preventDefault(); void saveEdit(m) }} className="mt-1 space-y-1">
+                    {editFields.map((f, i) => (
+                      <label key={f.path || '_'} className="flex items-center gap-1.5">
+                        {f.path && <span className="w-[64px] flex-none truncate text-[11px] text-body-3" title={f.path}>{FIELD_LABEL[f.path] ? (zh ? FIELD_LABEL[f.path].zh : FIELD_LABEL[f.path].en) : f.path}</span>}
+                        <input
+                          value={drafts[f.path] ?? ''}
+                          onChange={(e) => setDrafts((d) => ({ ...d, [f.path]: e.target.value }))}
+                          inputMode={f.kind === 'number' ? 'decimal' : undefined}
+                          placeholder={f.kind === 'boolean' ? (zh ? '是 / 否' : 'yes / no') : f.kind === 'list' ? (zh ? '用逗号分隔' : 'comma-separated') : undefined}
+                          maxLength={500}
+                          aria-label={f.path || m.label}
+                          className="sl-input !py-1 !text-[13px] min-w-0 flex-1"
+                          autoFocus={i === 0}
+                        />
+                      </label>
+                    ))}
+                    <div className="flex gap-1.5">
+                      <button type="submit" disabled={busy === rowId(m, role)} className="rounded-md px-2 py-0.5 text-[12px] font-bold text-white" style={{ background: '#00ACE4' }}>{zh ? '存' : 'Save'}</button>
+                      <button type="button" onClick={() => { setEditing(null); setErr(null) }} className="rounded-md border border-line-divider px-2 py-0.5 text-[12px] text-body-2">{zh ? '取消' : 'Cancel'}</button>
+                    </div>
+                  </form>
                 ) : (
                   <span className="ml-1.5 text-[12.5px] leading-snug text-body-2">{humanize(formatMemoryValue(m, lang))}</span>
                 )}
               </div>
-              {canEdit && editing !== m.key && (
+              {canEdit && editing !== rowId(m, role) && (
                 <span className="flex flex-none gap-1 text-[11px]">
-                  <button type="button" onClick={() => { setEditing(m.key); setDraft(formatMemoryValue(m, lang)) }} className="rounded px-1.5 py-[2px] text-body-3 hover:bg-surface-chip hover:text-body">{zh ? '改' : 'Edit'}</button>
-                  <button type="button" disabled={busy === m.key} onClick={() => forget(m)} className="rounded px-1.5 py-[2px] text-body-3 hover:bg-danger/10 hover:text-danger">{zh ? '忘掉' : 'Forget'}</button>
+                  {memoryEditFields(m.value) && <button type="button" onClick={() => startEdit(m)} className="rounded px-1.5 py-[2px] text-body-3 hover:bg-surface-chip hover:text-body">{zh ? '改' : 'Edit'}</button>}
+                  <button type="button" disabled={busy === rowId(m, role)} onClick={() => forget(m)} className="rounded px-1.5 py-[2px] text-body-3 hover:bg-danger/10 hover:text-danger">{zh ? '忘掉' : 'Forget'}</button>
                 </span>
               )}
             </div>
           )
         })}
       </div>
+
+      {err && <p role="alert" className="mt-2 text-[12px] text-danger">{err}</p>}
 
       {canEdit && (
         adding ? (

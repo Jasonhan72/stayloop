@@ -10,12 +10,13 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useParams } from 'next/navigation'
 import { useT } from '@/lib/i18n'
-import { WO_STATUS_LABEL, type WorkOrderStatus } from '@/lib/marketplace/workOrders'
+import { torontoToday, WO_STATUS_LABEL, type WorkOrderStatus } from '@/lib/marketplace/workOrders'
+import { explain } from '@/components/marketplace/WorkOrderCard'
 import { DECLINE_CODES, DECLINE_LABEL, declineText, slaLabel, slaState, type DeclineCode } from '@/lib/marketplace/sla'
 import ExternalThread, { type ExternalMessage } from '@/components/threads/ExternalThread'
 
 type View = {
-  work_order: { id: string; status: WorkOrderStatus; trade: string | null; scope: string | null; emergency: boolean; entry_permission: string | null; quote_amount: number | null; quote_type: string | null; approved_amount: number | null; schedule_start: string | null; schedule_end: string | null; arrived_at: string | null; completed_at: string | null; invoice_amount: number | null; accepted_at: string | null; paid_at: string | null; external_name: string | null; created_at: string; quote_due_at?: string | null; quote_version?: number | null; quote_valid_until?: string | null; decline_code?: string | null; cancel_reason?: string | null }
+  work_order: { id: string; status: WorkOrderStatus; trade: string | null; scope: string | null; emergency: boolean; entry_permission: string | null; quote_amount: number | null; quote_type: string | null; approved_amount: number | null; schedule_start: string | null; schedule_end: string | null; arrived_at: string | null; completed_at: string | null; invoice_amount: number | null; completion_note?: string | null; accepted_at: string | null; paid_at: string | null; external_name: string | null; created_at: string; quote_due_at?: string | null; quote_version?: number | null; quote_valid_until?: string | null; decline_code?: string | null; cancel_reason?: string | null }
   ticket: { title: string; description: string | null; category: string | null; priority: string }
   address: { city: string | null; full: string | null }
   landlord_email: string | null
@@ -47,7 +48,7 @@ export default function ExternalJobPage() {
     setBusy(true); setErr(null)
     const res = await fetch(`/api/w/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, payload }) })
     const j = (await res.json().catch(() => ({}))) as { error?: string }
-    if (!res.ok) setErr(j.error || `HTTP ${res.status}`)
+    if (!res.ok) setErr(j.error ? explain(j.error, zh) : `HTTP ${res.status}`)
     else { setOpen(null); await load() }
     setBusy(false)
   }
@@ -89,7 +90,7 @@ export default function ExternalJobPage() {
         </>)}
         {w.status === 'quoted' && <p className="text-[13px] text-body-3">{zh ? '等房东批准报价。批准后这里会出现「已到场」按钮，你也会收到邮件。' : 'Waiting for the landlord to approve. The "Arrived" button appears here once approved; you will also get an email.'}</p>}
         {(w.status === 'scheduled' || w.status === 'rework') && <button className={big + ' bg-brand text-white'} disabled={busy} onClick={() => void act('arrive')}>{zh ? '我已到场' : 'I have arrived'}</button>}
-        {(w.status === 'scheduled' || w.status === 'in_progress' || w.status === 'rework') && <button className={big + ' bg-success text-white'} disabled={busy} onClick={() => setOpen(open === 'complete' ? null : 'complete')}>{zh ? '完工 + 账单' : 'Complete + invoice'}</button>}
+        {(w.status === 'scheduled' || w.status === 'in_progress' || w.status === 'rework') && <button className={big + ' bg-success text-white'} disabled={busy} onClick={() => { setForm((f) => ({ ...f, note: w.completion_note || '', invoice_amount: w.invoice_amount != null ? String(w.invoice_amount) : '' })); setOpen(open === 'complete' ? null : 'complete') }}>{zh ? '完工 + 账单' : 'Complete + invoice'}</button>}
         {w.status === 'completed' && <p className="text-[13px] text-body-3">{zh ? '已提交完工，等房东验收。' : 'Completion submitted; waiting for the landlord to accept.'}</p>}
       </div>
 
@@ -100,8 +101,8 @@ export default function ExternalJobPage() {
           <label className="block text-[12px] text-body-3">{zh ? '可到场 从' : 'Window from'}<input type="datetime-local" className={input + ' mt-1'} value={form.schedule_start} onChange={(e) => setForm({ ...form, schedule_start: e.target.value })} /></label>
           <label className="block text-[12px] text-body-3">{zh ? '到' : 'to'}<input type="datetime-local" className={input + ' mt-1'} value={form.schedule_end} onChange={(e) => setForm({ ...form, schedule_end: e.target.value })} /></label>
           <input className={input} placeholder={zh ? '范围说明（可选）' : 'Scope note (optional)'} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-          <label className="block text-[12px] text-body-3">{zh ? '报价有效期至（可选）' : 'Quote valid until (optional)'}<input type="date" className={input + ' mt-1'} value={form.valid_until} onChange={(e) => setForm({ ...form, valid_until: e.target.value })} /></label>
-          <button className={big + ' bg-brand text-white'} disabled={busy || form.amount === ''} onClick={() => void act('accept', { amount: Number(form.amount), type: form.type, note: form.note, valid_until: form.valid_until || undefined, schedule_start: form.schedule_start ? new Date(form.schedule_start).toISOString() : undefined, schedule_end: form.schedule_end ? new Date(form.schedule_end).toISOString() : undefined })}>{zh ? '发送报价' : 'Send quote'}</button>
+          <label className="block text-[12px] text-body-3">{zh ? '报价有效期至（可选）' : 'Quote valid until (optional)'}<input type="date" min={torontoToday()} className={input + ' mt-1'} value={form.valid_until} onChange={(e) => setForm({ ...form, valid_until: e.target.value })} /></label>
+          <button className={big + ' bg-brand text-white'} disabled={busy || form.amount === ''} onClick={() => void act('accept', { amount: Number(form.amount), type: form.type, note: form.note, valid_until: form.valid_until || null, schedule_start: form.schedule_start ? new Date(form.schedule_start).toISOString() : null, schedule_end: form.schedule_end ? new Date(form.schedule_end).toISOString() : null })}>{zh ? '发送报价' : 'Send quote'}</button>
           <p className="text-[11.5px] text-body-3">{zh ? '报价一经房东批准，最终账单不得超出 10%，除非增项经房东再次批准（安省《消费者保护法》）。费用由房东承担。' : 'Once approved, the invoice may not exceed the quote by more than 10% unless extras are re-approved (Ontario CPA). The landlord pays.'}</p>
         </div>
       )}

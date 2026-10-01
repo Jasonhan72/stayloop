@@ -22,7 +22,9 @@ export default function AgentVerifyPage() {
   const [f, setF] = useState({ legal_name: '', trade_name: '', reco_number: '', category: 'salesperson' as AgentCategory, brokerage_name: '', business_email: '', business_phone: '', expires_at: '', crea_member: false, attest: false })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  // What the save actually did, read back from the stored row (sweep 2026-10-01): the page used to
+  // say 「已提交，等待人工核验」 even when the row stayed rejected and never reached the queue.
+  const [saved, setSaved] = useState<{ zh: string; en: string; tone: 'ok' | 'warn' } | null>(null)
 
   useEffect(() => {
     if (auth.loading) return
@@ -42,6 +44,8 @@ export default function AgentVerifyPage() {
     if (f.brokerage_name.trim().length < 3) return setErr(zh ? '请填写所属经纪公司的注册名。' : 'Enter your brokerage’s registered name.')
     if (!f.attest) return setErr(zh ? '请勾选承诺。' : 'Please tick the attestation.')
     setBusy(true)
+    setSaved(null)
+    const before = row && row !== 'loading' ? row.status : null
     try {
       const payload = {
         auth_id: auth.user.id,
@@ -56,8 +60,9 @@ export default function AgentVerifyPage() {
       if (error) throw error
       await supabase.from('agent_verification_events').insert({ agent_auth_id: auth.user.id, action: row && row !== 'loading' ? 'edited' : 'submitted', actor: auth.user.id })
       const { data } = await supabase.from('agent_profiles').select('*').eq('auth_id', auth.user.id).maybeSingle()
-      setRow((data as AgentProfile | null) ?? null)
-      setSaved(true)
+      const next = (data as AgentProfile | null) ?? null
+      setRow(next)
+      setSaved(saveOutcome(before, next?.status ?? null))
     } catch (e: any) {
       setErr(/duplicate|unique/i.test(String(e?.message)) ? (zh ? '这个 RECO 注册号已被另一个账号提交。' : 'This RECO number is already submitted by another account.') : String(e?.message || 'failed'))
     } finally {
@@ -86,6 +91,8 @@ export default function AgentVerifyPage() {
             <div className="mt-2"><AgentBadge agent={row} lang={lang as 'zh' | 'en'} /></div>
             {row.status === 'rejected' && row.review_note && <div className="mt-2 text-[12.5px] text-red-700">{zh ? '原因：' : 'Reason: '}{row.review_note}</div>}
             {row.status === 'pending' && <div className="mt-2 text-[12.5px] text-body-3">{zh ? '已收到，等待人工核验。改动注册信息会重新进入核验。' : 'Received — awaiting manual verification. Editing the registration facts re-queues it.'}</div>}
+            {(row.status === 'verified' || row.status === 'renewal_due') && <div className="mt-2 text-[12.5px] text-body-3">{zh ? '改法定姓名、注册号、经纪公司、类别或到期日会重新进入核验；只改联系方式不需要。' : 'Changing the legal name, number, brokerage, category or expiry re-queues verification; contact details alone do not.'}</div>}
+            {(row.status === 'rejected' || row.status === 'expired') && <div className="mt-2 text-[12.5px] text-body-3">{zh ? '按原因修改后点下面的按钮，会重新进入人工核验队列。' : 'Fix what the reason says and resubmit below; it goes back into the manual review queue.'}</div>}
           </div>
         )}
 
@@ -109,9 +116,9 @@ export default function AgentVerifyPage() {
               : 'I confirm the above matches my RECO registration; I will be shown on Stayloop only under my registered name and brokerage; I give clients the RECO Information Guide and a written representation agreement before any service; I will update within 24 hours of a brokerage or registration change.'}</span>
           </label>
           {err && <div className="text-[12.5px] font-semibold text-red-700 sm:col-span-2">⚠ {err}</div>}
-          {saved && !err && <div className="text-[12.5px] font-semibold text-emerald-700 sm:col-span-2">✓ {zh ? '已提交，等待人工核验。' : 'Submitted — awaiting manual verification.'}</div>}
+          {saved && !err && <div data-testid="verify-saved" className={'text-[12.5px] font-semibold sm:col-span-2 ' + (saved.tone === 'ok' ? 'text-emerald-700' : 'text-amber-800')}>{saved.tone === 'ok' ? '✓ ' : '⚠ '}{zh ? saved.zh : saved.en}</div>}
           <div className="flex flex-wrap gap-2 sm:col-span-2">
-            <button onClick={submit} disabled={busy || !auth.user} className="sl-btn-primary !py-[10px] disabled:opacity-50">{busy ? '…' : (row && row !== 'loading' ? (zh ? '更新并重新核验' : 'Update and re-verify') : (zh ? '提交核验' : 'Submit for verification'))}</button>
+            <button onClick={submit} disabled={busy || !auth.user} className="sl-btn-primary !py-[10px] disabled:opacity-50">{busy ? '…' : submitLabel(row && row !== 'loading' ? row.status : null, zh)}</button>
             <Link href="/agent/agent" className="rounded-xl border border-line-divider px-4 py-[10px] text-[13px] text-body-3">{zh ? '稍后再说' : 'Later'}</Link>
           </div>
         </div>
@@ -124,4 +131,25 @@ export default function AgentVerifyPage() {
       </div>
     </WorkspaceShell>
   )
+}
+
+/** The button says what a save will do for this status. */
+function submitLabel(status: AgentProfile['status'] | null, zh: boolean): string {
+  if (!status) return zh ? '提交核验' : 'Submit for verification'
+  if (status === 'rejected' || status === 'expired') return zh ? '更新并重新提交核验' : 'Update and resubmit'
+  if (status === 'pending') return zh ? '更新提交' : 'Update submission'
+  return zh ? '保存' : 'Save'
+}
+
+/** What happened, from the status before and after the save (the database decides; see guard_agent_profile_fields). */
+function saveOutcome(before: AgentProfile['status'] | null, after: AgentProfile['status'] | null): { zh: string; en: string; tone: 'ok' | 'warn' } {
+  if (after === 'pending' && !before) return { zh: '已提交，等待人工核验。', en: 'Submitted — awaiting manual verification.', tone: 'ok' }
+  if (after === 'pending' && before === 'pending') return { zh: '已更新，仍在等待人工核验。', en: 'Updated — still awaiting manual verification.', tone: 'ok' }
+  if (after === 'pending') return { zh: '已重新提交，等待人工核验。', en: 'Resubmitted — awaiting manual verification.', tone: 'ok' }
+  if (after === 'verified' || after === 'renewal_due') return { zh: '已保存（联系方式等改动无需重新核验）。', en: 'Saved — no re-verification needed for these changes.', tone: 'ok' }
+  return {
+    zh: `已保存，但核验状态仍是「${after ? statusLabel(after, 'zh') : '未知'}」，没有进入核验队列。请联系 Stayloop（设置 → 联系 Stayloop 客服）。`,
+    en: `Saved, but the status is still "${after ? statusLabel(after, 'en') : 'unknown'}" and it did not enter the review queue. Please contact Stayloop (Settings → Contact Stayloop).`,
+    tone: 'warn',
+  }
 }

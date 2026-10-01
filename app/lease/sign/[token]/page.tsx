@@ -14,6 +14,18 @@ import TrrebLeaseDoc from '@/components/lease/TrrebLeaseDoc'
 import type { OntarioLeaseTerms, LeaseSignature } from '@/lib/lease/ontario'
 import type { TrrebLeaseTerms } from '@/lib/lease/trreb'
 import { useT } from '@/lib/i18n'
+import { leaseActionErrorText, leaseErrorNeedsReload } from '@/lib/lease/leaseState'
+
+/** /api/lease/sign refusals for the tenant (sweep 2026-10-01). leaseActionErrorText words the
+ *  state errors; a record with no terms gets tenant wording (its text tells the landlord what to draft). */
+function signErrorText(code: string | undefined, zh: boolean): string {
+  const e = String(code || '')
+  if (e === 'lease_no_terms') return zh ? '这份记录没有完整的租约条款，不能在线签署。请联系房东，请他发一份可以在线签署的租约。' : 'This record has no full lease terms, so it cannot be signed online. Ask your landlord to send a lease that can be signed online.'
+  if (e === 'lease_not_signable' || e === 'lease has ended' || e === 'lease_ended') return leaseActionErrorText(e, zh)
+  if (/full legal name/.test(e)) return zh ? '请输入你的法定全名（2–120 个字符）作为签名。' : 'Type your full legal name (2–120 characters) as your signature.'
+  if (e === 'lease not found' || e === 'token or lease_id required') return zh ? '链接无效或已撤回。' : 'This link is invalid or was revoked.'
+  return zh ? '签署没有成功，请重试。' : 'Signing did not go through — please retry.'
+}
 
 type ViewLease = {
   id: string
@@ -63,9 +75,11 @@ export default function LeaseSignPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, name: name.trim() }),
       })
-      const j = (await res.json()) as { ok?: boolean; error?: string }
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
       if (!res.ok || !j.ok) {
-        setSignErr(j.error || (zh ? '签署失败，请重试。' : 'Signing failed — please retry.'))
+        setSignErr(signErrorText(j.error, zh))
+        // The page showed a lease that is no longer waiting for a signature: show it as it is now.
+        if (leaseErrorNeedsReload(j.error)) await load()
       } else {
         await load()
       }
@@ -181,6 +195,12 @@ export default function LeaseSignPage() {
             </div>
             {signErr && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-[12.5px] text-red-700">{signErr}</div>}
           </div>
+        </div>
+      )}
+
+      {!canSign && signErr && (
+        <div className="mx-auto mt-6 max-w-[860px] px-5 print:hidden">
+          <div className="rounded-lg bg-red-50 px-3 py-2 text-[12.5px] text-red-700" data-testid="lease-sign-error">{signErr}</div>
         </div>
       )}
 

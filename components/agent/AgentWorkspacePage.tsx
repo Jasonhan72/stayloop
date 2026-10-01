@@ -64,7 +64,8 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
   const zh = lang === 'zh'
   const shownName = displayAiName(agent.agent_name, lang)
   const stageLabel = lifecycle ? (zh ? lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.zh ?? '' : lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.en ?? '') : ''
-  const pending = pendingActions.filter((a) => a.status === 'pending')
+  // Approved-but-not-run cards on the list (stalled: 现在执行 / 放弃) are waiting on you too.
+  const pending = pendingActions.filter((a) => a.status === 'pending' || a.status === 'approved')
   const pendingCount = pending.length
   const reads = PREVIEW_READS[role]
 

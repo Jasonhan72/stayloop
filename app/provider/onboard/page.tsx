@@ -14,7 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { invalidateHats } from '@/lib/useHats'
-import { CITIES, CREDENTIAL_LABEL, TRADES, coverageFor, coverageLabel, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
+import { CITIES, CREDENTIAL_LABEL, TRADES, coverageFor, coverageLabel, isSuperseded, renewalStanding, renewHintText, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; business_number: string | null; service_cities: string[]; trades: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; website: string | null; status: string; review_note: string | null; verified_at: string | null; attested_at: string | null }
@@ -34,6 +34,12 @@ export default function ProviderOnboardPage() {
   const [creds, setCreds] = useState<Cred[]>([])
   const [f, setF] = useState({ legal_name: '', trade_name: '', business_number: '', service_cities: [] as string[], trades: [] as string[], pricing_mode: 'hourly', call_out_fee: '', hourly_rate: '', contact_name: '', contact_email: '', contact_phone: '', website: '', attest: false })
   const [cf, setCf] = useState({ kind: 'business_registration' as CredentialKind, number: '', holder_name: '', expires_at: '' })
+  // Edit a row in place (a typo, a new expiry) or renew it as a new row; the
+  // reminder email says "update the number and expiry" — this is where.
+  const [editing, setEditing] = useState<string | null>(null)
+  const [ef, setEf] = useState({ number: '', holder_name: '', expires_at: '' })
+  // The row being renewed (not just its kind): the hint depends on whether that record still counts.
+  const [renewHint, setRenewHint] = useState<Cred | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -70,10 +76,22 @@ export default function ProviderOnboardPage() {
     if (!row || row === 'loading') return
     setBusy(true); setErr(null)
     const { error } = await supabase.from('provider_credentials').insert({ provider_id: row.id, kind: cf.kind, number: cf.number.trim() || null, holder_name: cf.holder_name.trim() || null, expires_at: cf.expires_at || null })
-    if (error) setErr(error.message); else { setCf({ kind: 'business_registration', number: '', holder_name: '', expires_at: '' }); await load() }
+    if (error) setErr(error.message); else { setCf({ kind: 'business_registration', number: '', holder_name: '', expires_at: '' }); setRenewHint(null); await load() }
     setBusy(false)
   }
-  async function delCred(id: string) { if (!window.confirm(zh ? '删除这条资质？已核验的记录也会一起删除。' : 'Remove this credential? Its verification goes with it.')) return; await supabase.from('provider_credentials').delete().eq('id', id); await load() }
+  async function saveCred(c: Cred) {
+    setBusy(true); setErr(null)
+    // The guard trigger un-verifies the row when the number or expiry changes.
+    const { error } = await supabase.from('provider_credentials').update({ number: ef.number.trim() || null, holder_name: ef.holder_name.trim() || null, expires_at: ef.expires_at || null }).eq('id', c.id)
+    if (error) setErr(error.message); else { setEditing(null); await load() }
+    setBusy(false)
+  }
+  function renewCred(c: Cred) {
+    setEditing(null)
+    setCf({ kind: c.kind, number: '', holder_name: c.holder_name || '', expires_at: '' })
+    setRenewHint(c)
+  }
+  async function delCred(id: string) { if (!window.confirm(zh ? '删除这条资质？已核验的记录也会一起删除；如果它是该工种唯一有效的一条，派单会立刻跳过你。续期请用「续期」。' : 'Remove this credential? Its verification goes with it; if it is the only valid one for a trade, dispatch skips you at once. To renew, use “renew”.')) return; await supabase.from('provider_credentials').delete().eq('id', id); await load() }
 
   const input = 'w-full rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]'
   const label = 'block text-[12.5px] font-semibold text-body-2'
@@ -133,16 +151,34 @@ export default function ProviderOnboardPage() {
           <p className="mt-1 text-[12px] text-body-3">{zh ? '到期提醒会在 90 / 60 / 30 / 7 天各发一次邮件与推送；过期的资质不再计入覆盖，派单会跳过你。' : 'Expiry reminders go out at 90 / 60 / 30 / 7 days by email and push; an expired credential drops out of coverage and dispatch skips you.'}</p>
           <div className="mt-3 divide-y divide-line-divider">
             {creds.map((c) => (
-              <div key={c.id} className="flex flex-wrap items-center gap-2 py-2 text-[12.5px]">
-                <span className="font-semibold">{zh ? CREDENTIAL_LABEL[c.kind].zh : CREDENTIAL_LABEL[c.kind].en}</span>
-                <span className="font-mono text-body-2">{c.number || '—'}</span>
-                {c.holder_name && <span className="text-body-3">{c.holder_name}</span>}
-                <span className="text-body-3">{c.expires_at ? `${zh ? '到期' : 'exp'} ${c.expires_at}` : (zh ? '无到期' : 'no expiry')}</span>
-                <span className={'ml-auto rounded-full px-2 py-[2px] font-mono text-[10.5px] font-bold ' + (c.verified_at ? 'bg-success/10 text-success' : 'bg-amber-50 text-amber-800')}>{c.verified_at ? (zh ? '已核' : 'verified') : (zh ? '待核' : 'pending')}</span>
-                <button onClick={() => void delCred(c.id)} className="min-h-[36px] px-2 text-[11px] text-body-3 underline">{zh ? '删除' : 'remove'}</button>
+              <div key={c.id} className="py-2 text-[12.5px]" data-testid="credential-row">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">{zh ? CREDENTIAL_LABEL[c.kind].zh : CREDENTIAL_LABEL[c.kind].en}</span>
+                  <span className="font-mono text-body-2">{c.number || '—'}</span>
+                  {c.holder_name && <span className="text-body-3">{c.holder_name}</span>}
+                  <span className="text-body-3">{c.expires_at ? `${zh ? '到期' : 'exp'} ${c.expires_at}` : (zh ? '无到期' : 'no expiry')}</span>
+                  {isSuperseded(c, creds) && <span className="rounded-full bg-surface-chip px-2 py-[2px] text-[10.5px] text-body-3" data-testid="credential-superseded">{zh ? '已有核验过的续期记录 · 不再提醒' : 'renewal verified · no more reminders'}</span>}
+                  <span className={'ml-auto rounded-full px-2 py-[2px] font-mono text-[10.5px] font-bold ' + (c.verified_at ? 'bg-success/10 text-success' : 'bg-amber-50 text-amber-800')}>{c.verified_at ? (zh ? '已核' : 'verified') : (zh ? '待核' : 'pending')}</span>
+                  <button onClick={() => { setEditing(editing === c.id ? null : c.id); setEf({ number: c.number || '', holder_name: c.holder_name || '', expires_at: c.expires_at || '' }) }} className="min-h-[36px] px-2 text-[11px] text-body-3 underline" data-testid="credential-edit">{zh ? '更新' : 'edit'}</button>
+                  {c.expires_at && <button onClick={() => renewCred(c)} className="min-h-[36px] px-2 text-[11px] text-body-3 underline" data-testid="credential-renew">{zh ? '续期' : 'renew'}</button>}
+                  <button onClick={() => void delCred(c.id)} className="min-h-[36px] px-2 text-[11px] text-body-3 underline">{zh ? '删除' : 'remove'}</button>
+                </div>
+                {editing === c.id && (
+                  <div className="mt-2 grid gap-2 rounded-lg bg-surface-chip p-3 sm:grid-cols-3">
+                    <input className={input} placeholder={zh ? '编号' : 'Number'} value={ef.number} onChange={(e) => setEf({ ...ef, number: e.target.value })} />
+                    <input className={input} placeholder={zh ? '持证人（如与公司不同）' : 'Holder (if a person)'} value={ef.holder_name} onChange={(e) => setEf({ ...ef, holder_name: e.target.value })} />
+                    <input className={input} type="date" value={ef.expires_at} onChange={(e) => setEf({ ...ef, expires_at: e.target.value })} />
+                    <p className="text-[11.5px] text-body-3 sm:col-span-3">{zh ? '改编号或到期日后这条资质要重新核验，核验通过前不计入工种覆盖。只是续期、又不想中断派单？点「续期」添加新记录：新记录核验通过后，旧记录不再提醒。' : 'Changing the number or expiry sends this credential back for verification; until then it does not count toward coverage. Renewing and do not want a gap? Use “renew” to add a new record — once it is verified, the old one stops sending reminders.'}</p>
+                    <div className="flex gap-2 sm:col-span-3">
+                      <button onClick={() => void saveCred(c)} disabled={busy} className="rounded-full bg-brand px-4 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50">{zh ? '保存' : 'Save'}</button>
+                      <button onClick={() => setEditing(null)} className="rounded-full border border-line-strong px-4 py-1.5 text-[12.5px] font-bold">{zh ? '取消' : 'Cancel'}</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
+          {renewHint && <p className="mt-3 rounded-lg bg-brand/5 px-3 py-2 text-[12px] text-body-2" data-testid="credential-renew-hint">{renewHintText(renewHint.kind, renewalStanding(creds.find((x) => x.id === renewHint.id) ?? renewHint, creds, new Date(), graceDays), zh)}</p>}
           <div className="mt-3 grid gap-2 sm:grid-cols-4">
             <select className={input} value={cf.kind} onChange={(e) => setCf({ ...cf, kind: e.target.value as CredentialKind })}>{(Object.keys(CREDENTIAL_LABEL) as CredentialKind[]).map((k) => <option key={k} value={k}>{zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en}</option>)}</select>
             <input className={input} placeholder={zh ? '编号' : 'Number'} value={cf.number} onChange={(e) => setCf({ ...cf, number: e.target.value })} />

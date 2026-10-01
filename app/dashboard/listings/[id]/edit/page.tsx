@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { hasUsablePhotos } from '@/lib/listingVisibility'
-import { LISTING_EDIT_DRAFT_PREFIX, LISTING_PUBLISH_MSG } from '@/lib/listingPublish'
+import { LISTING_EDIT_DRAFT_PREFIX, LISTING_PUBLISH_MSG, changedKeys, isStaleBase, listingSaveOutcomeText, listingStateAfterSave, updateListing } from '@/lib/listingPublish'
 import type { DraftListing } from '@/lib/agent/types'
 import { prepareUploads } from '@/lib/screening/prepareUpload'
 
@@ -69,6 +69,64 @@ const UTILITY_OPTIONS: { id: string; zh: string; en: string }[] = [
 const AGENT_FIELD_ZH: Record<string, string> = { title: '标题', description: '描述', amenities: '设施', monthly_rent: '月租', bedrooms: '卧室数', bathrooms: '浴室数', sqft: '面积', deposit: '押金', pets_allowed: '宠物', pet_policy: '宠物说明', smoking_policy: '吸烟', lease_term: '租期', utilities_included: '租金包含', furnished: '家具', parking: '车位', available_date: '入住日期', has_den: 'den', images: '照片' }
 const AGENT_FIELD_EN: Record<string, string> = { title: 'title', description: 'description', amenities: 'amenities', monthly_rent: 'rent', bedrooms: 'bedrooms', bathrooms: 'bathrooms', sqft: 'size', deposit: 'deposit', pets_allowed: 'pets', pet_policy: 'pet notes', smoking_policy: 'smoking', lease_term: 'lease term', utilities_included: 'utilities', furnished: 'furnished', parking: 'parking', available_date: 'available date', has_den: 'den', images: 'photos' }
 
+type AgentStash = Partial<DraftListing> & { changed_fields?: string[]; base_updated_at?: string | null }
+
+// The AI's changes (only the fields it changed), stashed by the chat card, over the stored values.
+function applyAgentStash(f: Form, d: AgentStash): Form {
+  const ch = d.changed_fields ?? []
+  const has = (k: string) => ch.includes(k) && (d as Record<string, unknown>)[k] !== undefined && (d as Record<string, unknown>)[k] !== null
+  return {
+    ...f,
+    ...(has('title') ? { title: String(d.title) } : {}),
+    ...(has('description') ? { description: String(d.description) } : {}),
+    ...(has('monthly_rent') && typeof d.monthly_rent === 'number' ? { monthly_rent: d.monthly_rent } : {}),
+    ...(has('deposit') && typeof d.deposit === 'number' ? { deposit: d.deposit } : {}),
+    ...(has('bedrooms') && typeof d.bedrooms === 'number' ? { bedrooms: d.bedrooms } : {}),
+    ...(has('bathrooms') && typeof d.bathrooms === 'number' ? { bathrooms: d.bathrooms } : {}),
+    ...(has('sqft') && typeof d.sqft === 'number' ? { sqft: d.sqft } : {}),
+    ...(has('available_date') ? { available_date: String(d.available_date) } : {}),
+    ...(has('parking') ? { parking: String(d.parking) } : {}),
+    ...(has('pet_policy') ? { pet_policy: String(d.pet_policy) } : {}),
+    ...(has('amenities') && Array.isArray(d.amenities) ? { amenities: d.amenities.map(String) } : {}),
+    ...(has('has_den') && typeof d.has_den === 'boolean' ? { has_den: d.has_den } : {}),
+    ...(has('lease_term') ? { lease_term: String(d.lease_term) } : {}),
+    ...(has('pets_allowed') ? { pets_allowed: String(d.pets_allowed) } : {}),
+    ...(has('smoking_policy') ? { smoking_policy: String(d.smoking_policy) } : {}),
+    ...(has('furnished') && typeof d.furnished === 'boolean' ? { furnished: d.furnished ? 'yes' : 'no' } : {}),
+    ...(has('utilities_included') && Array.isArray(d.utilities_included) ? { utilities_included: d.utilities_included.map(String) } : {}),
+  }
+}
+
+// The landlord-editable content as it is written to the row (is_active is handled
+// on its own: going back on the market also restores an archived row).
+function listingRowFromForm(form: Form, photos: string[]): Record<string, unknown> {
+  return {
+    title: form.title || form.address,
+    address: form.address,
+    unit: form.unit || null,
+    city: form.city || 'Toronto',
+    neighborhood: form.neighborhood || null,
+    monthly_rent: form.monthly_rent,
+    deposit: form.deposit,
+    bedrooms: form.bedrooms,
+    bathrooms: form.bathrooms,
+    sqft: form.sqft,
+    available_date: form.available_date || null,
+    description: form.description || null,
+    parking: form.parking || null,
+    pet_policy: form.pet_policy || null,
+    amenities: form.amenities,
+    has_den: form.has_den,
+    lease_term: form.lease_term || null,
+    pets_allowed: form.pets_allowed || null,
+    smoking_policy: form.smoking_policy || null,
+    furnished: form.furnished === '' ? null : form.furnished === 'yes',
+    utilities_included: form.utilities_included,
+    images: photos,
+    photo_count: photos.length,
+  }
+}
+
 export default function EditPublishedListingPage() {
   const params = useParams()
   const id = params.id as string
@@ -87,8 +145,19 @@ export default function EditPublishedListingPage() {
   const [slug, setSlug] = useState('')
   // Opened from the AI's rewrite card (2026-09-30): its changes are pre-filled here; nothing is saved until 保存.
   const [fromAgent, setFromAgent] = useState<string[] | null>(null)
+  // A card older than the listing (sweep 2026-10-01): its changes are NOT applied silently —
+  // the landlord sees that the listing changed since and decides.
+  const [staleStash, setStaleStash] = useState<AgentStash | null>(null)
+  // What the row was when this page loaded: the save writes only what differs from it, and only
+  // if the row is still at that version (another tab or an AI card may have saved since).
+  const [original, setOriginal] = useState<{ form: Form; photos: string[] } | null>(null)
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState<string | null>(null)
+  const [rowStatus, setRowStatus] = useState<string | null>(null)
+  const [outcome, setOutcome] = useState<string | null>(null)
+  const [stale, setStale] = useState(false)
+  const [relistMode, setRelistMode] = useState(false)
   // Read (and clear) the AI's stash once, before loading — StrictMode runs the load effect twice.
-  const agentStash = useRef<(Partial<DraftListing> & { changed_fields?: string[] }) | null | undefined>(undefined)
+  const agentStash = useRef<AgentStash | null | undefined>(undefined)
   if (agentStash.current === undefined && typeof window !== 'undefined' && id) {
     try {
       const raw = localStorage.getItem(LISTING_EDIT_DRAFT_PREFIX + id)
@@ -113,7 +182,9 @@ export default function EditPublishedListingPage() {
           return
         }
         setSlug(data.slug || '')
-        setForm({
+        setBaseUpdatedAt((data.updated_at as string | null) ?? null)
+        setRowStatus((data.status as string | null) ?? null)
+        const loaded: Form = {
           title: data.title || '',
           address: data.address || '',
           unit: data.unit || '',
@@ -136,35 +207,24 @@ export default function EditPublishedListingPage() {
           smoking_policy: data.smoking_policy || '',
           furnished: data.furnished == null ? '' : data.furnished ? 'yes' : 'no',
           utilities_included: Array.isArray(data.utilities_included) ? data.utilities_included : [],
-        })
-        setPhotos(Array.isArray(data.images) ? data.images : [])
-        // The AI's changes (only the fields it changed), stashed by the chat card: apply them over the stored values.
+        }
+        const loadedPhotos: string[] = Array.isArray(data.images) ? data.images : []
+        setOriginal({ form: loaded, photos: loadedPhotos })
+        // ?relist=1 (the move-out → re-list step): pre-tick 已上架 on an off-market or deleted listing; nothing is saved until 保存.
+        const wantsRelist = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('relist') === '1'
+        const offMarket = data.is_active === false || data.status === 'archived'
+        if (wantsRelist && offMarket) setRelistMode(true)
+        setForm(wantsRelist && offMarket ? { ...loaded, is_active: true } : loaded)
+        setPhotos(loadedPhotos)
         const d = agentStash.current
         if (d && Array.isArray(d.changed_fields) && d.changed_fields.length) {
-          const ch = d.changed_fields
-          const has = (k: string) => ch.includes(k) && (d as Record<string, unknown>)[k] !== undefined && (d as Record<string, unknown>)[k] !== null
-          setForm((f) => f ? {
-            ...f,
-            ...(has('title') ? { title: String(d.title) } : {}),
-            ...(has('description') ? { description: String(d.description) } : {}),
-            ...(has('monthly_rent') && typeof d.monthly_rent === 'number' ? { monthly_rent: d.monthly_rent } : {}),
-            ...(has('deposit') && typeof d.deposit === 'number' ? { deposit: d.deposit } : {}),
-            ...(has('bedrooms') && typeof d.bedrooms === 'number' ? { bedrooms: d.bedrooms } : {}),
-            ...(has('bathrooms') && typeof d.bathrooms === 'number' ? { bathrooms: d.bathrooms } : {}),
-            ...(has('sqft') && typeof d.sqft === 'number' ? { sqft: d.sqft } : {}),
-            ...(has('available_date') ? { available_date: String(d.available_date) } : {}),
-            ...(has('parking') ? { parking: String(d.parking) } : {}),
-            ...(has('pet_policy') ? { pet_policy: String(d.pet_policy) } : {}),
-            ...(has('amenities') && Array.isArray(d.amenities) ? { amenities: d.amenities.map(String) } : {}),
-            ...(has('has_den') && typeof d.has_den === 'boolean' ? { has_den: d.has_den } : {}),
-            ...(has('lease_term') ? { lease_term: String(d.lease_term) } : {}),
-            ...(has('pets_allowed') ? { pets_allowed: String(d.pets_allowed) } : {}),
-            ...(has('smoking_policy') ? { smoking_policy: String(d.smoking_policy) } : {}),
-            ...(has('furnished') && typeof d.furnished === 'boolean' ? { furnished: d.furnished ? 'yes' : 'no' } : {}),
-            ...(has('utilities_included') && Array.isArray(d.utilities_included) ? { utilities_included: d.utilities_included.map(String) } : {}),
-          } : f)
-          if (has('images') && Array.isArray(d.images) && d.images.length) setPhotos(d.images.map(String))
-          setFromAgent(ch)
+          if (isStaleBase(d.base_updated_at, (data.updated_at as string | null) ?? null)) {
+            setStaleStash(d)
+          } else {
+            setForm((f) => (f ? applyAgentStash(f, d) : f))
+            if (d.changed_fields.includes('images') && Array.isArray(d.images) && d.images.length) setPhotos(d.images.map(String))
+            setFromAgent(d.changed_fields)
+          }
         }
         setLoading(false)
       })
@@ -221,42 +281,51 @@ export default function EditPublishedListingPage() {
     setPhotos((prev) => prev.filter((_, i) => i !== idx))
   }
 
+  const applyStaleStash = () => {
+    if (!staleStash) return
+    setForm((f) => (f ? applyAgentStash(f, staleStash) : f))
+    if ((staleStash.changed_fields ?? []).includes('images') && Array.isArray(staleStash.images) && staleStash.images.length) setPhotos(staleStash.images.map(String))
+    setFromAgent(staleStash.changed_fields ?? [])
+    setStaleStash(null)
+  }
+
   const handleSave = async () => {
-    if (!user || !form.address) return
+    if (!user || !form.address || !original) return
     // A live listing without photos would vanish from /listings yet keep answering on its own URL (review 2026-09-25) — same rule as publishing.
     if (form.is_active && !hasUsablePhotos(photos)) { setError(zh ? LISTING_PUBLISH_MSG.noPhotos.zh : LISTING_PUBLISH_MSG.noPhotos.en); return }
     setSaving(true)
     setError(null)
     setSaved(false)
+    setOutcome(null)
     try {
-      const client = getSupabaseBrowser()
-      const { error: updateErr } = await client.from('listings').update({
-        title: form.title || form.address,
-        address: form.address,
-        unit: form.unit || null,
-        city: form.city || 'Toronto',
-        neighborhood: form.neighborhood || null,
-        monthly_rent: form.monthly_rent,
-        deposit: form.deposit,
-        bedrooms: form.bedrooms,
-        bathrooms: form.bathrooms,
-        sqft: form.sqft,
-        available_date: form.available_date || null,
-        description: form.description || null,
-        parking: form.parking || null,
-        pet_policy: form.pet_policy || null,
-        amenities: form.amenities,
-        has_den: form.has_den,
-        is_active: form.is_active,
-        lease_term: form.lease_term || null,
-        pets_allowed: form.pets_allowed || null,
-        smoking_policy: form.smoking_policy || null,
-        furnished: form.furnished === '' ? null : form.furnished === 'yes',
-        utilities_included: form.utilities_included,
-        images: photos,
-        photo_count: photos.length,
-      }).eq('id', id)
-      if (updateErr) throw new Error(updateErr.message)
+      // Only what changed since this page loaded (sweep 2026-10-01): the old full-snapshot
+      // write silently reverted anything another tab or an AI card had saved in between.
+      const before = listingRowFromForm(original.form, original.photos)
+      const after = listingRowFromForm(form, photos)
+      const patch: Record<string, unknown> = Object.fromEntries(changedKeys(before, after).map((k) => [k, after[k]]))
+      const archived = rowStatus === 'archived'
+      if (form.is_active !== original.form.is_active || (form.is_active && archived)) {
+        patch.is_active = form.is_active
+        if (form.is_active) {
+          // Back on the market: the dashboard lists it again (a deleted row stays hidden otherwise),
+          // and days-on-market restart.
+          if (archived) patch.status = 'active'
+          if (!original.form.is_active) patch.published_at = new Date().toISOString()
+        }
+      }
+      const res = await updateListing(getSupabaseBrowser(), id, patch, { zh, expectedUpdatedAt: baseUpdatedAt, context: 'editor' })
+      if (res.error !== null || !res.row) {
+        if (res.stale) setStale(true)
+        setError(res.error ?? 'save failed')
+        return
+      }
+      setOriginal({ form, photos })
+      setBaseUpdatedAt(res.row.updated_at ?? null)
+      setRowStatus(res.row.status ?? rowStatus)
+      if (res.row.slug) setSlug(res.row.slug)
+      setFromAgent(null)
+      setRelistMode(false)
+      setOutcome(listingSaveOutcomeText(listingStateAfterSave(res.row), zh))
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch (e) {
@@ -274,6 +343,26 @@ export default function EditPublishedListingPage() {
           {zh ? '← 返回工作台' : '← Back to workspace'}
         </Link>
 
+        {staleStash && (
+          <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900" data-testid="agent-edit-stale">
+            {zh
+              ? `这张 AI 助理卡片生成之后，房源又被改过，所以它的修改（${(staleStash.changed_fields ?? []).map((k) => AGENT_FIELD_ZH[k] ?? k).join('、')}）没有自动带入——下面是房源现在的内容。`
+              : `The listing changed after this AI Agent card was made, so its changes (${(staleStash.changed_fields ?? []).map((k) => AGENT_FIELD_EN[k] ?? k).join(', ')}) were not filled in — below is the listing as it is now.`}
+            <div className="mt-2 flex flex-wrap gap-3">
+              <button onClick={applyStaleStash} className="font-semibold text-brand underline underline-offset-2">{zh ? '仍然带入卡片的修改（保存前可再改）' : 'Fill in the card’s changes anyway (you can still edit before saving)'}</button>
+              <button onClick={() => setStaleStash(null)} className="text-body-3 underline underline-offset-2">{zh ? '不用了' : 'Dismiss'}</button>
+            </div>
+          </div>
+        )}
+        {(rowStatus === 'archived' || relistMode || (original && !original.form.is_active)) && !outcome && (
+          <div className="mt-4 rounded-xl border border-line-strong bg-white px-4 py-3 text-[13px] text-body" data-testid="relist-banner">
+            {rowStatus === 'archived'
+              ? (zh ? '这套房源之前被删除了（工作台不显示）。照片和价格记录都还在：核对租金、入住日期和照片，勾选「已上架」并保存，就会重新上架并回到工作台。' : 'This listing was deleted earlier (the workspace hides it). Its photos and price history are still here: check the rent, available date and photos, tick “Active” and save to put it back on the market and back in your workspace.')
+              : relistMode
+                ? (zh ? '重新挂牌：已为你勾选「已上架」（还没保存）。核对租金、入住日期和照片后点「保存修改」。' : 'Relisting: “Active” is ticked for you (not saved yet). Check the rent, available date and photos, then press “Save changes”.')
+                : (zh ? '这套房源目前下架。要重新挂牌，核对内容后勾选「已上架」并保存。' : 'This listing is off market. To relist it, check the details, tick “Active” and save.')}
+          </div>
+        )}
         {fromAgent && (
           <div className="mt-4 rounded-xl border border-brand/30 bg-[#F0FAFE] px-4 py-3 text-[13px] text-body" data-testid="agent-edit-banner">
             {zh
@@ -473,7 +562,13 @@ export default function EditPublishedListingPage() {
         </section>
 
         {/* Action bar */}
-        {error && <div className="mt-6 rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</div>}
+        {error && (
+          <div className="mt-6 rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">
+            {error}
+            {stale && <button onClick={() => window.location.reload()} className="ml-2 font-semibold underline underline-offset-2">{zh ? '重新载入' : 'Reload'}</button>}
+          </div>
+        )}
+        {outcome && <div className="mt-6 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[13px] text-green-800" data-testid="listing-save-outcome">✓ {outcome}</div>}
         <div className="sticky bottom-0 mt-8 flex items-center gap-3 border-t border-line-divider bg-surface py-4">
           <button onClick={() => router.push('/dashboard')} className="sl-btn-secondary flex-1 !py-3">
             {zh ? '取消' : 'Cancel'}

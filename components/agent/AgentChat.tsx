@@ -12,7 +12,9 @@ import TrrebTrendChart from './TrrebTrendChart'
 import Link from 'next/link'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage, PendingAction, WorkflowState } from '@/lib/agent/types'
-import ApprovalActionCard from './ApprovalActionCard'
+import ApprovalActionCard, { StalledActionRow } from './ApprovalActionCard'
+import { decidedRowFor, type DecidedRowKind } from '@/lib/agent/chatCopy'
+import type { DecideOutcome } from '@/lib/agent/approval-engine'
 import { ActivitySheet } from '@/components/mobile/ActivitySheet'
 import { WORKFLOW_STAGES, stageIndex } from '@/lib/agent/orchestrator'
 import { LISTINGS_PAGE, nextBatchPrompt, pageListings } from '@/lib/agent/listingPaging'
@@ -107,7 +109,8 @@ export default function AgentChat({
   // doing and opens the activity sheet. Omit all four and the chat renders
   // exactly as before (homepage hero).
   pendingActions?: PendingAction[]
-  onDecide?: (id: string, decision: 'approved' | 'rejected', option?: 'A' | 'B') => void | Promise<void>
+  /** May resolve with what the decision became (useAgentSession.decide); the collapsed line follows it. */
+  onDecide?: (id: string, decision: 'approved' | 'rejected', option?: 'A' | 'B') => void | Promise<unknown>
   live?: boolean
   memoryCount?: number
   workflow?: WorkflowState | null
@@ -157,8 +160,21 @@ export default function AgentChat({
   const [sheet, setSheet] = useState(false)
   // Cards the user decided in this session collapse to one line instead of
   // vanishing (the session hook drops them from pendingActions).
-  const [decided, setDecided] = useState<{ id: string; title: string; decision: 'approved' | 'rejected' }[]>([])
+  const [decided, setDecided] = useState<{ id: string; title: string; decision: Decision }[]>([])
+  // The line records what the decision became (an approval the RPC retired is not 「已批准」); one line per card.
+  const recordDecided = (id: string, title: string, outcome: unknown, decision: 'approved' | 'rejected', stalledCard: boolean) => {
+    const kind = decidedRowFor(outcome as DecideOutcome | undefined, decision, stalledCard)
+    setDecided((prev) => {
+      const rest = prev.filter((d) => d.id !== id)
+      return kind ? [...rest, { id, title, decision: kind }].slice(-5) : rest
+    })
+  }
   const pending = (pendingActions ?? []).filter((a) => a.status === 'pending')
+  // Approved but not run (tab closed during the undo window, or the run failed): 现在执行 / 放弃.
+  const stalled = (pendingActions ?? []).filter((a) => a.status === 'approved')
+  const scheduledIds = Object.keys(scheduled ?? {})
+  // A decided line steps aside while the same card is counting down, waiting to be retried, or back to pending (undo).
+  const liveIds = new Set([...pending.map((a) => a.id), ...stalled.map((a) => a.id), ...scheduledIds])
   const stageLabel = (() => {
     if (phaseLabel) return phaseLabel
     if (!workflow) return ''
@@ -424,10 +440,25 @@ export default function AgentChat({
         {/* Approvals at the END of the thread, where the auto-scroll lands
             (phone + tablet; the lg controls column shows the same cards).
             Decided ones collapse to one line. */}
-        {onDecide && (decided.length > 0 || pending.length > 0) && (
+        {onDecide && (decided.length > 0 || pending.length > 0 || stalled.length > 0 || scheduledIds.length > 0) && (
           <div className={`space-y-3 ${hero ? '' : 'lg:hidden'}`}>
-            {decided.map((d) => (
-              <ScheduledRow key={d.id} id={d.id} title={d.title} decision={d.decision} scheduled={scheduled?.[d.id]} onUndo={onUndo} zh={zh} />
+            {decided.filter((d) => !liveIds.has(d.id)).map((d) => (
+              <ScheduledRow key={d.id} id={d.id} title={d.title} decision={d.decision} onUndo={onUndo} zh={zh} />
+            ))}
+            {/* The countdown shows as soon as the approval is recorded (and for one resumed after a reload), not only after it ran. */}
+            {scheduledIds.map((id) => (
+              <ScheduledRow key={`run-${id}`} id={id} title={scheduled![id].title} decision="approved" scheduled={scheduled![id]} onUndo={onUndo} zh={zh} />
+            ))}
+            {stalled.map((a) => (
+              <StalledActionRow
+                key={`stalled-${a.id}`}
+                action={a}
+                compact
+                onDecide={async (id, decision, option) => {
+                  const outcome = await onDecide(id, decision, option)
+                  recordDecided(id, a.title, outcome, decision, true)
+                }}
+              />
             ))}
             {pending.map((a) => (
               <ApprovalActionCard
@@ -435,8 +466,8 @@ export default function AgentChat({
                 action={a}
                 compact
                 onDecide={async (id, decision, option) => {
-                  await onDecide(id, decision, option)
-                  setDecided((prev) => [...prev, { id, title: a.title, decision }].slice(-5))
+                  const outcome = await onDecide(id, decision, option)
+                  recordDecided(id, a.title, outcome, decision, false)
                 }}
               />
             ))}
@@ -617,7 +648,8 @@ function ThinkingIndicator({ status, lang }: { status: AgentStatus; lang: 'zh' |
 // undo window it shows a live countdown and an 撤销 button (Muse/EliseAI
 // plans 2026-09-22: sends can't be recalled, so the recall lives before the
 // send).
-function ScheduledRow({ id, title, decision, scheduled, onUndo, zh }: { id: string; title: string; decision: 'approved' | 'rejected'; scheduled?: { title: string; executeAt: number }; onUndo?: (id: string) => void | Promise<void>; zh: boolean }) {
+type Decision = DecidedRowKind
+function ScheduledRow({ id, title, decision, scheduled, onUndo, zh }: { id: string; title: string; decision: Decision; scheduled?: { title: string; executeAt: number }; onUndo?: (id: string) => void | Promise<void>; zh: boolean }) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     if (!scheduled) return
@@ -631,9 +663,16 @@ function ScheduledRow({ id, title, decision, scheduled, onUndo, zh }: { id: stri
       <span className="min-w-0 flex-1 truncate">
         {decision === 'rejected'
           ? (zh ? '已拒绝' : 'Rejected')
-          : scheduled
-            ? (zh ? `已批准 · ${left} 秒后执行` : `Approved · runs in ${left}s`)
-            : (zh ? '已批准 · 已交给 AI 助理执行' : 'Approved · handed to the AI Agent')} · {title}
+          : decision === 'abandoned'
+            ? (zh ? '已放弃 · 没有执行' : 'Dropped · not run')
+            : decision === 'expired'
+              ? (zh ? '已失效 · 没有执行' : 'Expired · not run')
+              : decision === 'not_run'
+                ? (zh ? '没有执行 · 原因见上方消息' : 'Not run · see the message above')
+                : scheduled
+                  ? (zh ? `已批准 · ${left} 秒后执行` : `Approved · runs in ${left}s`)
+                  // The outcome (sent / expired / failed) is the agent's line just above — this row never claims it.
+                  : (zh ? '已批准 · 结果见上方消息' : 'Approved · see the result above')} · {title}
       </span>
       {scheduled && onUndo && (
         <button type="button" onClick={() => onUndo(id)} className="flex-none rounded-full border border-line-strong bg-white px-2.5 py-[3px] text-[11.5px] font-semibold text-body hover:border-danger hover:text-danger">{zh ? '撤销' : 'Undo'}</button>
@@ -644,7 +683,7 @@ function ScheduledRow({ id, title, decision, scheduled, onUndo, zh }: { id: stri
 
 // Internal paths the assistant is told to mention (e.g. /screening/app) render
 // as links; everything else stays plain text.
-const PATH_RE = /(\/screening\/app|\/screening|\/verify\/[A-Za-z0-9-]+|\/leases\/import|\/landlord\/applicants|\/agent\/clients)(?![\w/-])/g
+const PATH_RE = /(\/screening\/app|\/screening|\/verify\/[A-Za-z0-9-]+|\/leases\/import|\/landlord\/applicants|\/agent\/clients|\/landlord\/leases|\/landlord\/todo|\/messages|\/tenant\/lease|\/tenant\/passport)(?![\w/-])/g
 function linkifyPaths(text: string) {
   const parts = text.split(PATH_RE)
   if (parts.length === 1) return text

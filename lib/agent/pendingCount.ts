@@ -13,11 +13,14 @@ const inflight = new Map<string, { at: number; p: Promise<number> }>()
 export function fetchPendingCount(role: string): Promise<number> {
   const hit = inflight.get(role)
   if (hit && Date.now() - hit.at < SHARE_MS) return hit.p
+  // Waiting on you = pending cards AND approved cards that never ran (a failed send, the hourly
+  // limit, an interrupted countdown): those sit on the to-do list with 现在执行 / 放弃, and an
+  // unsent renewal letter or decision notice must light the badge too (review 2026-10-01).
   const p = Promise.resolve(
     supabase
       .from('agent_pending_actions')
       .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending')
+      .or('status.eq.pending,and(status.eq.approved,executed_at.is.null)')
       .eq('role', role),
   ).then(({ count }) => count ?? 0)
   inflight.set(role, { at: Date.now(), p })

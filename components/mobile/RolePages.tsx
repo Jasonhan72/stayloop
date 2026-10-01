@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
+import { StalledActionRow } from '@/components/agent/ApprovalActionCard'
 import StatusOverview from '@/components/agent/StatusOverview'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
 import RecommendationDeck from '@/components/agent/RecommendationDeck'
@@ -66,10 +67,12 @@ function PageHead({ eyebrow, title, sub }: { eyebrow: string; title: string; sub
 export function TodoPage({ role }: { role: AgentRole }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const { loading, live, data, decide, scheduled, undo } = useAgentSession(role)
+  const { loading, live, data, decide, scheduled, undo, notice, dismissNotice } = useAgentSession(role)
   const { lifecycle } = useLifecycle(role)
   if (loading || !data) return <Skeleton role={role} />
   const pending = data.pendingActions.filter((a) => a.status === 'pending')
+  // Approved but never run (closed tab, failed send): they stay here with 现在执行 / 放弃 (sweep 2026-10-01).
+  const stalled = data.pendingActions.filter((a) => a.status === 'approved')
   const waiting = Object.entries(scheduled)
   return (
     <WorkspaceShell role={role} hideAside>
@@ -78,6 +81,13 @@ export function TodoPage({ role }: { role: AgentRole }) {
       {live && <div className="mb-4"><TodayCard lifecycle={lifecycle} pending={pending.map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref={`/${role}/todo`} lang={lang} omitPending /></div>}
       {/* Agents: the to-do tab is not only approval cards — the client table's real tasks live here too (external review 2026-09-26). */}
       {live && role === 'agent' && <ClientTasks zh={zh} />}
+      {/* This page has no chat thread: the latest run's outcome shows here instead. */}
+      {notice && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl border border-line-divider bg-white px-4 py-3 text-[13px] text-body-2" data-testid="todo-notice">
+          <span className="min-w-0 flex-1 whitespace-pre-line">{notice.text}</span>
+          <button type="button" onClick={dismissNotice} aria-label={zh ? '关闭' : 'Dismiss'} className="flex-none text-body-3 hover:text-body">✕</button>
+        </div>
+      )}
       {waiting.length > 0 && (
         <div className="mb-4 space-y-2">
           {waiting.map(([id, w]) => (
@@ -85,8 +95,15 @@ export function TodoPage({ role }: { role: AgentRole }) {
           ))}
         </div>
       )}
-      {live && role === 'landlord' && <BulkApproveBar actions={pending} onDecide={decide} zh={zh} />}
-      {pending.length === 0 ? (
+      {stalled.length > 0 && (
+        <div className="mb-4 space-y-3" data-testid="todo-stalled">
+          {stalled.map((a) => (
+            <StalledActionRow key={a.id} action={a} onDecide={decide} />
+          ))}
+        </div>
+      )}
+      {live && role === 'landlord' && <BulkApproveBar actions={pending} onDecide={async (id, d, o) => { await decide(id, d, o) }} zh={zh} />}
+      {pending.length === 0 && stalled.length === 0 ? (
         <div className="rounded-2xl border border-line-divider bg-white px-6 py-14 text-center">
           <div className="text-[28px]">✓</div>
           <p className="mt-2 text-[14px] text-body-2">{zh ? '没有等你点头的事。' : 'Nothing waiting on you.'}</p>
@@ -115,7 +132,8 @@ function PreviewNote({ zh, what }: { zh: boolean; what: string }) {
 export function IdeasPage({ role }: { role: AgentRole }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const { loading, live, data } = useAgentSession(role)
+  // No countdown, 撤销 or outcome line here: approved cards are never resumed from this page.
+  const { loading, live, data } = useAgentSession(role, { resumeApproved: false })
   if (loading || !data) return <Skeleton role={role} />
   const ideas = buildIdeas({
     role,
@@ -163,7 +181,7 @@ export function IdeasPage({ role }: { role: AgentRole }) {
 export function ProgressPage({ role }: { role: AgentRole }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const { loading, live, data } = useAgentSession(role)
+  const { loading, live, data } = useAgentSession(role, { resumeApproved: false })
   const { lifecycle } = useLifecycle(role)
   if (loading || !data) return <Skeleton role={role} />
   const pending = data.pendingActions.filter((a) => a.status === 'pending').length

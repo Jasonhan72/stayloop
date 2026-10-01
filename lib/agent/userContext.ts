@@ -17,6 +17,7 @@
 // -----------------------------------------------------------------------------
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole } from './types'
+import { isEmergencyMaintenance } from './maintenanceTriage'
 
 const ROW_LIMIT = 6
 
@@ -83,15 +84,22 @@ async function landlordContext(sb: SupabaseClient, uid: string): Promise<string>
 }
 
 async function tenantContext(sb: SupabaseClient, uid: string): Promise<string> {
-  const [tenant, leases] = await Promise.all([
+  const [tenant, leases, memberships] = await Promise.all([
     guard(sb.from('tenants').select('id,full_name,email,tier').eq('auth_id', uid).maybeSingle()),
     // RLS ("leases_parties") scopes lease rows to this tenant.
     guard(sb.from('lease_documents').select('status,monthly_rent,start_date,end_date,unit_label,listing:listings(address,unit,city)').order('created_at', { ascending: false }).limit(5)),
+    guard(sb.from('household_members').select('household_id').eq('user_id', uid).eq('role', 'tenant').eq('status', 'active').limit(10)),
   ])
   const t = tenant?.data as { id?: string; full_name?: string; email?: string; tier?: number } | null
+  const hhIds = ((memberships?.data ?? []) as { household_id: string }[]).map((m) => m.household_id).filter(Boolean)
+  // Tickets hang off the managed tenancy (household_id); tenant_id is a V4
+  // column nothing writes any more, so filtering on it always showed none.
+  const ticketQuery = hhIds.length
+    ? sb.from('maintenance_tickets').select('title,status,priority,category,created_at').in('household_id', hhIds)
+    : t?.id ? sb.from('maintenance_tickets').select('title,status,priority,category,created_at').eq('tenant_id', t.id) : null
   const [intents, tickets] = await Promise.all([
     t?.id ? guard(sb.from('showing_intents').select('status,created_at,listing:listings(address)').eq('tenant_id', t.id).order('created_at', { ascending: false }).limit(4)) : Promise.resolve(null),
-    t?.id ? guard(sb.from('maintenance_tickets').select('title,status,priority').eq('tenant_id', t.id).not('status', 'in', '(done,cancelled)').limit(4)) : Promise.resolve(null),
+    ticketQuery ? guard(ticketQuery.not('status', 'in', '(done,cancelled)').order('created_at', { ascending: false }).limit(6)) : Promise.resolve(null),
   ])
   const lines: string[] = []
   if (t) lines.push(`- 账号: ${[t.full_name, t.email].filter(Boolean).join(' · ')}${typeof t.tier === 'number' ? ` · 租客护照认证 ${t.tier} 级` : ''}`)
@@ -102,9 +110,108 @@ async function tenantContext(sb: SupabaseClient, uid: string): Promise<string> {
   }
   const it = (intents?.data ?? []) as Array<{ status?: string; listing?: { address?: string } | null }>
   if (it.length) lines.push(`- 看房意向: ${it.map((x) => `${x.listing?.address || '?'}(${x.status})`).join('; ')}`)
-  const tk = (tickets?.data ?? []) as Array<{ title?: string; status?: string }>
-  if (tk.length) lines.push(`- 未关闭报修: ${tk.map((x) => `${x.title}(${x.status})`).join('; ')}`)
+  const tk = (tickets?.data ?? []) as Array<{ title?: string; status?: string; category?: string | null; created_at?: string }>
+  if (tk.length) {
+    lines.push(`- 未关闭报修 ${tk.length} 条(同一个问题已有工单时:引用这张工单、建议在工单对话里补充,不要再提新的报修卡): ${tk.map((x) => `${x.title}(${[x.status, x.category, d(x.created_at) ? `提交于 ${d(x.created_at)}` : ''].filter(Boolean).join(' · ')})`).join('; ')}`)
+  }
   return wrap(lines)
+}
+
+// ── Open repair tickets: is this the same problem again? ─────────────────────
+// One leak reported twice must not become two tickets (two landlord emails,
+// two dispatch suggestions, possibly two contractors under an auto policy).
+// The maintenance_request executor uses this to append a repeat report to the
+// open ticket instead of inserting a second one (sweep 2026-10-01).
+export type OpenTicketLite = {
+  id: string
+  title: string | null
+  description?: string | null
+  category?: string | null
+  priority?: string | null
+  status?: string | null
+  created_at?: string | null
+}
+
+const normText = (s: unknown) => String(s ?? '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
+
+function bigrams(s: string): string[] {
+  const ch = Array.from(s)
+  const out: string[] = []
+  for (let i = 0; i < ch.length - 1; i++) out.push(ch[i] + ch[i + 1])
+  return out
+}
+
+/** Dice coefficient over character bigrams of the normalised titles (0–1). */
+export function titleSimilarity(a: string | null | undefined, b: string | null | undefined): number {
+  const x = normText(a)
+  const y = normText(b)
+  if (!x || !y) return 0
+  if (x === y) return 1
+  const bx = bigrams(x)
+  const by = bigrams(y)
+  if (!bx.length || !by.length) return 0
+  const pool = new Map<string, number>()
+  for (const g of by) pool.set(g, (pool.get(g) ?? 0) + 1)
+  let hit = 0
+  for (const g of bx) {
+    const n = pool.get(g) ?? 0
+    if (n > 0) { hit++; pool.set(g, n - 1) }
+  }
+  return (2 * hit) / (bx.length + by.length)
+}
+
+export function nearIdenticalTitle(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = normText(a)
+  const y = normText(b)
+  if (!x || !y) return false
+  if (x === y) return true
+  const [s, l] = x.length <= y.length ? [x, y] : [y, x]
+  const sl = Array.from(s).length
+  if (sl >= 4 && l.includes(s) && sl / Array.from(l).length >= 0.6) return true
+  return titleSimilarity(x, y) >= 0.8
+}
+
+/** The location line the executor writes into a ticket's description (「位置：厨房」 / "Location: Kitchen"). */
+export function ticketLocation(description: string | null | undefined): string | null {
+  const m = String(description ?? '').match(/(?:^|\n)\s*(?:位置|Location)\s*[：:]\s*([^\n]+)/i)
+  return m ? m[1].trim().slice(0, 200) || null : null
+}
+
+const GENERIC_CATEGORIES = new Set(['', 'other', 'repair'])
+/** Same category + same place still needs titles this close: location alone merged a burst pipe into a clogged toilet. */
+export const SIMILAR_TITLE = 0.35
+
+/**
+ * The open ticket a new request repeats, or null. Only a true repeat merges:
+ * a near-identical title, or the same specific category in the same place
+ * (the location named on the ticket, or in its title / description) AND a
+ * similar title. A request with no location merges only on a near-identical
+ * title. An emergency merges only on a near-identical title too — otherwise it
+ * must reach the landlord, and their emergency dispatch policy, as its own
+ * ticket (review 2026-10-01).
+ */
+export function findOpenDuplicate(
+  req: { title: string; description?: string | null; category?: string | null; location?: string | null; emergency?: boolean },
+  open: OpenTicketLite[],
+): OpenTicketLite | null {
+  const live = open.filter((t) => t.status !== 'done' && t.status !== 'cancelled')
+  for (const t of live) if (nearIdenticalTitle(req.title, t.title)) return t
+  const emergency = req.emergency ?? isEmergencyMaintenance({ title: req.title, description: req.description ?? '', category: req.category ?? '' })
+  if (emergency) return null
+  const cat = String(req.category ?? '').trim()
+  const loc = normText(req.location)
+  if (GENERIC_CATEGORIES.has(cat) || Array.from(loc).length < 2) return null
+  for (const t of live) {
+    if (cat !== String(t.category ?? '').trim()) continue
+    const tLoc = normText(ticketLocation(t.description))
+    const tText = normText(`${t.title ?? ''} ${t.description ?? ''}`)
+    const sameLoc =
+      tLoc === loc ||
+      (Array.from(tLoc).length >= 2 && (tLoc.includes(loc) || loc.includes(tLoc))) ||
+      tText.includes(loc)
+    if (sameLoc && titleSimilarity(req.title, t.title) >= SIMILAR_TITLE) return t
+  }
+  return null
 }
 
 function wrap(lines: string[]): string {

@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { rentSchedule } from '@/lib/household/schedule'
+import { checkPaidOn, earliestPaidOn, latenessRows, ledgerStart, missedArrears, rentDueDay, rentLedger, torontoDate } from '@/lib/household/ledger'
 import { persistentLatePayment } from '@/lib/ontario/rules'
 import { tenancyClock } from '@/lib/household/clock'
 import MoveInChecklist from '@/components/household/MoveInChecklist'
@@ -24,9 +25,11 @@ import PaymentPlanDraft from '@/components/household/PaymentPlanDraft'
 import ThreadPanel from '@/components/threads/ThreadPanel'
 import MessageButton from '@/components/messages/MessageButton'
 import { personName, roleLabel, type Person } from '@/lib/threads/shared'
+import { notifyPendingChanged } from '@/lib/agent/pendingCount'
+import { notifyFactsChanged } from '@/lib/facts/useFacts'
 
 // Tenant's answer to the 30-day touchpoint (renewal_intents, P1 2026-09-23).
-type Intent = { id: string; intent: string; note: string | null; tenant_user_id: string; created_at: string }
+type Intent = { id: string; intent: string; note: string | null; tenant_user_id: string; created_at: string; lease_id?: string | null }
 const INTENT_LABEL: Record<string, { zh: string; en: string }> = {
   renew: { zh: '续约', en: 'Renew' },
   leave: { zh: '计划搬离', en: 'Plan to move out' },
@@ -40,6 +43,12 @@ interface Household {
   monthly_rent: number | null; rent_due_day: number | null
   start_date: string | null; end_date: string | null
   current_lease_id: string | null; status: string; verified: boolean; created_by: string
+  /** 'imported' (self-reported upload) or 'esign'. */
+  source?: string | null
+  /** A signed renewal waiting for its start date (promoted daily · B1 2026-10-01). */
+  next_lease_id?: string | null
+  /** The lease a renewal replaced: its unrecorded periods stay listed and recordable (review 2026-10-01). */
+  previous_lease_id?: string | null
 }
 interface Member { user_id: string; role: string; status: string; joined_at: string }
 // No invited_email: the hub never shows another person's address (relay principle, 2026-09-30).
@@ -63,6 +72,15 @@ export default function HouseholdHub() {
   // Who is in this tenancy, by name (people_for · 找得到人 2026-09-30) — one call per page, never an address.
   const [people, setPeople] = useState<Person[] | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
+  // The current lease's own start: after a renewal it is later than the household's.
+  const [leaseStart, setLeaseStart] = useState<string | null>(null)
+  // The signed renewal's start date, when the household has one waiting (null if unreadable).
+  const [nextStart, setNextStart] = useState<string | null>(null)
+  // The lease a renewal replaced, and its rent rows: periods nobody recorded before the switch.
+  const [prevLease, setPrevLease] = useState<{ id: string; start_date: string | null; end_date: string | null; monthly_rent: number | null; due_day: number | null } | null>(null)
+  const [prevPayments, setPrevPayments] = useState<Payment[]>([])
+  // Per period: the day the rent was paid, as the member enters it (default today, Toronto).
+  const [paidOn, setPaidOn] = useState<Record<string, string>>({})
   const [intents, setIntents] = useState<Intent[]>([])
   const [intentPick, setIntentPick] = useState<string | null>(null)
   const [intentNote, setIntentNote] = useState('')
@@ -77,18 +95,38 @@ export default function HouseholdHub() {
     const [{ data: m }, { data: inv }, { data: ri }, { data: ppl, error: pplErr }] = await Promise.all([
       supabase.from('household_members').select('*').eq('household_id', id).eq('status', 'active'),
       supabase.from('household_invites').select('id, household_id, invited_role, invited_by, expires_at, accepted_by, accepted_at, declined_at, revoked_at, created_at').eq('household_id', id).order('created_at', { ascending: false }),
-      supabase.from('renewal_intents').select('id, intent, note, tenant_user_id, created_at').eq('household_id', id).order('created_at', { ascending: false }).limit(10),
+      supabase.from('renewal_intents').select('id, intent, note, tenant_user_id, created_at, lease_id').eq('household_id', id).order('created_at', { ascending: false }).limit(10),
       supabase.rpc('people_for', { p_kind: 'tenancy', p_ref: id, p_listing: null, p_subject: null }),
     ])
     setMembers((m as Member[]) ?? [])
     setInvites((inv as Invite[]) ?? [])
     setPeople(pplErr ? null : ((ppl as Person[] | null) ?? []))
     setIntents((ri as Intent[]) ?? [])
-    if ((h as Household).current_lease_id) {
-      const { data: p } = await supabase.from('rent_payments')
-        .select('*').eq('lease_id', (h as Household).current_lease_id).order('due_date', { ascending: false })
+    const leaseId = (h as Household).current_lease_id
+    if (leaseId) {
+      // Payments and the lease term together, so the schedule never renders from the household start alone.
+      const [{ data: p }, { data: ld }] = await Promise.all([
+        supabase.from('rent_payments').select('*').eq('lease_id', leaseId).order('due_date', { ascending: false }),
+        supabase.from('lease_documents').select('start_date').eq('id', leaseId).maybeSingle(),
+      ])
       setPayments((p as Payment[]) ?? [])
+      setLeaseStart(((ld as { start_date: string | null } | null)?.start_date) ?? null)
     }
+    const prevId = (h as Household).previous_lease_id
+    if (prevId) {
+      const [{ data: pp }, { data: pl }] = await Promise.all([
+        supabase.from('rent_payments').select('*').eq('lease_id', prevId).order('due_date', { ascending: false }),
+        supabase.from('lease_documents').select('id, start_date, end_date, monthly_rent, terms').eq('id', prevId).maybeSingle(),
+      ])
+      const row = pl as { id: string; start_date: string | null; end_date: string | null; monthly_rent: number | null; terms: { rent?: { due_day?: unknown } } | null } | null
+      setPrevPayments((pp as Payment[]) ?? [])
+      setPrevLease(row ? { id: row.id, start_date: row.start_date, end_date: row.end_date, monthly_rent: row.monthly_rent, due_day: rentDueDay(row.terms?.rent?.due_day) } : null)
+    } else { setPrevLease(null); setPrevPayments([]) }
+    const nextId = (h as Household).next_lease_id
+    if (nextId) {
+      const { data: nx } = await supabase.from('lease_documents').select('start_date').eq('id', nextId).maybeSingle()
+      setNextStart(((nx as { start_date: string | null } | null)?.start_date) ?? null)
+    } else setNextStart(null)
   }, [id])
 
   useEffect(() => {
@@ -118,20 +156,17 @@ export default function HouseholdHub() {
     setBusy(false)
   }
 
-  async function markPaid(due: string) {
-    if (!household?.current_lease_id || !user) return
+  // One row per (lease, due date): the RPC records an unrecorded period or fills the
+  // 'due' placeholder in place with the day it was paid (paid vs late follows that day,
+  // not the day it is entered), and expires pending repayment-plan cards that listed
+  // this period (sweep 2026-10-01).
+  async function markPaid(due: string, paidOnDate: string, leaseId: string | null = household?.current_lease_id ?? null) {
+    if (!leaseId || !user) return
     setBusy(true)
-    const paidAt = new Date().toISOString()
-    const { error } = await supabase.from('rent_payments').insert({
-      lease_id: household.current_lease_id,
-      tenant_id: user.id,
-      due_date: due,
-      amount: household.monthly_rent,
-      paid_at: paidAt,
-      status: paidAt.slice(0, 10) <= due ? 'paid' : 'late',
-    })
-    setWriteError(error ? error.message : null)
+    const { error } = await supabase.rpc('mark_rent_paid', { p_lease: leaseId, p_due: due, p_paid_on: paidOnDate })
+    setWriteError(error ? markPaidError(error.message, zh) : null)
     await load()
+    if (!error) { notifyFactsChanged(); notifyPendingChanged() }
     setBusy(false)
   }
 
@@ -166,16 +201,41 @@ export default function HouseholdHub() {
   }
 
   const address = [household.address, household.unit ? `#${household.unit}` : null, household.city].filter(Boolean).join(', ')
-  const schedule = rentSchedule(household.start_date, household.rent_due_day)
-  const paidByDue = new Map(payments.map((p) => [p.due_date, p]))
-  // RTA s.58(1.1) (in force 2026-09-21): >7 days late, 3 times in 6 months.
-  const lateness = persistentLatePayment(payments)
+  // The ledger covers the current lease's term (a renewal keeps the household start).
+  const termStart = ledgerStart(household.start_date, leaseStart)
+  // Periods from a signed renewal's start date belong to that lease: they appear here once it
+  // takes over (promoted daily on its start date), not on the running term's ledger.
+  const nextTermFrom = household.next_lease_id ? nextStart : null
+  const schedule = rentSchedule(termStart, household.rent_due_day).filter((p) => !nextTermFrom || p.due < nextTermFrom)
+  const ledger = rentLedger(schedule, payments)
+  // The replaced term (review 2026-10-01): its own schedule, start..end, before the current term.
+  const prevSchedule = prevLease
+    ? rentSchedule(ledgerStart(household.start_date, prevLease.start_date), prevLease.due_day ?? household.rent_due_day)
+        .filter((p) => (!prevLease.end_date || p.due <= prevLease.end_date) && (!termStart || p.due < termStart))
+    : []
+  const prevLedger = rentLedger(prevSchedule, prevPayments)
+  const prevOpen = prevLedger.periods.filter((p) => p.state === 'due' && !p.upcoming)
+  const prevRent = Number(prevLease?.monthly_rent ?? household.monthly_rent) || 0
+  const today = torontoDate()
+  // RTA s.58(1.1) (in force 2026-09-21): rent *received* >7 days late, 3 times in 6 months —
+  // counted over recorded rows only, by the calendar day paid; an unrecorded 'due'
+  // placeholder is arrears, not lateness.
+  const lateness = persistentLatePayment(latenessRows(ledger.recordedRows))
   const clock = tenancyClock(household.start_date, household.end_date)
   const myRole = members.find((m) => m.user_id === user?.id)?.role ?? null
+  // The importer (still a member) may correct an upload until the other side joins and confirms —
+  // the same rule as the import page's ?edit= and update_household_import.
+  // Not once anyone else is an active member: they have seen these facts (update_household_import refuses too).
+  const canCorrectImport = !household.verified && household.source === 'imported' && household.status === 'active' && !!myRole && !!user && household.created_by === user.id && !members.some((m) => m.user_id !== user.id)
   // Ledger vs lease: rows recorded so far against the schedule to date.
-  const dueSoFar = schedule.filter((d) => !d.upcoming).length
-  const recorded = payments.filter((p) => p.status === 'paid' || p.status === 'late').length
-  const latestIntent = intents[0] ?? null
+  const dueSoFar = ledger.dueSoFar
+  const recorded = ledger.recordedSoFar
+  // The household carries over into a renewal: only answers about the CURRENT lease are the
+  // tenant's intent now (the planner, the rail and /landlord/leases match by lease_id too);
+  // earlier answers are history from the previous term (review 2026-10-01).
+  const currentIntents = intents.filter((i) => !i.lease_id || i.lease_id === household.current_lease_id)
+  const pastIntents = intents.filter((i) => !!i.lease_id && i.lease_id !== household.current_lease_id)
+  const latestIntent = currentIntents[0] ?? null
   // People: names from people_for when it answered, otherwise members/invites without names.
   const nameOf = new Map((people ?? []).filter((p) => p.user_id && !p.pending).map((p) => [p.user_id as string, p.name]))
   const pendingPeople: Array<{ key: string; role: string }> = people
@@ -192,8 +252,8 @@ export default function HouseholdHub() {
   const soleLabel = !soleOther ? null
     : soleName ? (zh ? `发消息给 ${personName(soleName, memberRole(soleOther.role), true)}` : `Message ${personName(soleName, memberRole(soleOther.role), false)}`)
     : (zh ? `发消息给${roleLabel(memberRole(soleOther.role), true)}` : `Message the ${roleLabel(memberRole(soleOther.role), false).toLowerCase()}`)
-  // Past-due periods with nothing recorded → the landlord may draft a repayment plan.
-  const missedDue = schedule.filter((d) => !d.upcoming && !paidByDue.get(d.due)).map((d) => d.due)
+  // Past-due periods with nothing recorded (a 'due' placeholder is not a record) → the landlord may draft a repayment plan.
+  const missedDue = ledger.missed
   const TABS: Array<{ id: Tab; zh: string; en: string }> = [
     { id: 'overview', zh: '概览', en: 'Overview' },
     { id: 'messages', zh: '对话', en: 'Messages' },
@@ -227,11 +287,26 @@ export default function HouseholdHub() {
         {latestIntent && (
           <span className="rounded-full bg-success/10 px-2.5 py-[3px] font-mono text-[11px] font-bold text-success">{zh ? `租客意向：${INTENT_LABEL[latestIntent.intent]?.zh ?? latestIntent.intent}` : `Tenant intent: ${INTENT_LABEL[latestIntent.intent]?.en ?? latestIntent.intent}`}</span>
         )}
+        {household.next_lease_id && (
+          <span className="rounded-full bg-success/10 px-2.5 py-[3px] font-mono text-[11px] font-bold text-success" data-testid="next-lease">
+            {nextStart
+              ? (zh ? `续约租约已双方签署 · ${nextStart} 起生效` : `Renewal signed by both · takes effect ${nextStart}`)
+              : (zh ? '续约租约已双方签署 · 起租日起生效' : 'Renewal signed by both · takes effect on its start date')}
+          </span>
+        )}
       </div>
       <div className="mt-1 text-[12.5px] text-body-3">
         {household.monthly_rent ? `$${household.monthly_rent.toLocaleString()}/${zh ? '月' : 'mo'}` : ''}
         {household.rent_due_day ? ` · ${zh ? `每月 ${household.rent_due_day} 号` : `due day ${household.rent_due_day}`}` : ''}
         {household.start_date ? ` · ${household.start_date} → ${household.end_date || (zh ? '月租续' : 'month-to-month')}` : ''}
+        {canCorrectImport && (
+          <>
+            {' · '}
+            <Link href={`/leases/import?edit=${household.id}`} className="underline hover:text-[#00ACE4]" data-testid="hub-correct-import">
+              {zh ? '更正导入信息' : 'Correct the imported details'}
+            </Link>
+          </>
+        )}
       </div>
 
       <div className="mt-6 flex gap-1 overflow-x-auto whitespace-nowrap border-b border-line-divider">
@@ -242,6 +317,7 @@ export default function HouseholdHub() {
           </button>
         ))}
       </div>
+      {writeError && <p className="mt-3 text-[12px] text-danger" role="alert" data-testid="hub-write-error">{writeError}</p>}
 
       {tab === 'overview' && (
         <div className="mt-6 space-y-5">
@@ -249,13 +325,25 @@ export default function HouseholdHub() {
             <section className="rounded-xl border border-line-divider bg-white p-5" data-testid="renewal-intent">
               <h2 className="text-[14px] font-extrabold">{zh ? '续约意向' : 'Renewal intent'}</h2>
               <p className="mt-1 text-[12px] text-body-3">{zh ? '只是意向，不是通知：搬离仍需按 RTA 提前 60 天送达 N9；不续签会自动转为月租（s.38），你的权利不变。' : 'An intention, not a notice: moving out still needs a Form N9 served 60 days ahead; an unrenewed lease continues month-to-month (s.38) with your rights unchanged.'}</p>
-              {intents.length > 0 && (
+              {currentIntents.length > 0 && (
                 <div className="mt-3 space-y-1 text-[13px]">
-                  {intents.slice(0, 3).map((i) => (
+                  {currentIntents.slice(0, 3).map((i) => (
                     <div key={i.id} className="flex flex-wrap items-center gap-2">
                       <span className="rounded-md bg-success/10 px-2 py-0.5 font-mono text-[10.5px] font-bold text-success">{zh ? INTENT_LABEL[i.intent]?.zh ?? i.intent : INTENT_LABEL[i.intent]?.en ?? i.intent}</span>
                       <span className="text-[11.5px] text-body-3">{i.created_at.slice(0, 10)}{i.tenant_user_id === user?.id ? (zh ? ' · 我' : ' · me') : ''}</span>
                       {i.note && <span className="text-body-2">{i.note}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {pastIntents.length > 0 && (
+                <div className="mt-3 space-y-1 text-[12px] text-body-3" data-testid="renewal-intent-history">
+                  <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrow">{zh ? '上一期租约' : 'Previous term'}</div>
+                  {pastIntents.slice(0, 3).map((i) => (
+                    <div key={i.id} className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-md bg-surface-chip px-2 py-0.5 font-mono text-[10.5px] font-bold">{zh ? INTENT_LABEL[i.intent]?.zh ?? i.intent : INTENT_LABEL[i.intent]?.en ?? i.intent}</span>
+                      <span>{i.created_at.slice(0, 10)}</span>
+                      {i.note && <span>{i.note}</span>}
                     </div>
                   ))}
                 </div>
@@ -366,31 +454,104 @@ export default function HouseholdHub() {
             </div>
           )}
           {myRole === 'landlord' && missedDue.length > 0 && (
-            <PaymentPlanDraft householdId={id} leaseId={household.current_lease_id} unit={address} monthlyRent={Number(household.monthly_rent) || 0} missed={missedDue} recorded={recorded} zh={zh} />
+            <PaymentPlanDraft householdId={id} leaseId={household.current_lease_id} unit={address} monthlyRent={Number(household.monthly_rent) || 0} missed={missedDue} arrears={missedArrears(ledger, Number(household.monthly_rent) || 0)} recorded={ledger.recordedRows.length} zh={zh} />
           )}
-          {schedule.length === 0 ? (
-            <p className="mt-5 text-[13px] text-body-3">{zh ? '缺少起租日或交租日,无法生成账期。' : 'Needs a start date and due day to build the schedule.'}</p>
-          ) : (
-            <div className="mt-4 space-y-2">
-              {schedule.map((p) => {
-                const rec = paidByDue.get(p.due)
-                return (
-                  <div key={p.due} className="flex flex-wrap items-center gap-3 rounded-lg border border-line-divider/60 px-4 py-2.5 text-[13px]">
-                    <span className="font-mono font-semibold">{p.due}</span>
-                    {household.monthly_rent && <span className="text-body-3">${household.monthly_rent.toLocaleString()}</span>}
-                    <span className="ml-auto">
-                      {rec ? (
-                        <span className="rounded-md px-2 py-0.5 font-mono text-[10px] font-bold"
-                          style={rec.status === 'paid' ? { color: '#047857', background: '#04785714' } : { color: '#DC2626', background: '#DC262614' }}>
-                          {rec.status === 'paid' ? (zh ? '✓ 已付' : '✓ PAID') : (zh ? '迟付' : 'LATE')}
-                        </span>
-                      ) : p.upcoming ? (
-                        <span className="font-mono text-[10px] font-bold text-body-3">{zh ? '未到期' : 'UPCOMING'}</span>
-                      ) : (
-                        <button onClick={() => void markPaid(p.due)} disabled={busy}
+          {prevLease && prevOpen.length > 0 && (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/60 p-4" data-testid="rent-previous-term">
+              <div className="text-[13px] font-extrabold">{zh ? `上一期租约 · 还没记录的租金（${prevOpen.length} 期）` : `Previous term · rent not yet recorded (${prevOpen.length})`}</div>
+              <p className="mt-1 text-[11.5px] text-body-3">{zh ? `续约生效前没有标记的账期仍属于上一期租约${prevLease.end_date ? `（至 ${prevLease.end_date}）` : ''}，在这里记录。` : `Periods not marked before the renewal took over still belong to the previous lease${prevLease.end_date ? ` (to ${prevLease.end_date})` : ''}; record them here.`}</p>
+              <div className="mt-3 space-y-2">
+                {prevOpen.map((p) => {
+                  const amount = Number(p.record?.amount ?? prevRent) || 0
+                  const paidOnValue = paidOn[`prev:${p.due}`] ?? today
+                  const chk = checkPaidOn(p.due, paidOnValue, today)
+                  return (
+                    <div key={p.due} className="flex flex-wrap items-center gap-3 rounded-lg border border-line-divider/60 bg-white px-4 py-2.5 text-[13px]" data-state={p.state}>
+                      <span className="font-mono font-semibold">{p.due}</span>
+                      {amount > 0 && <span className="text-body-3">${amount.toLocaleString()}</span>}
+                      <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                        <span className="font-mono text-[10px] font-bold text-amber-700">{zh ? '待付' : 'DUE'}</span>
+                        <label className="flex items-center gap-1.5 text-[11px] text-body-3">
+                          {zh ? '付款日期' : 'Paid on'}
+                          <input type="date" value={paidOnValue} min={earliestPaidOn(p.due, today)} max={today}
+                            aria-label={zh ? `${p.due} 这一期的付款日期` : `Payment date for the ${p.due} period`}
+                            onChange={(e) => setPaidOn((m) => ({ ...m, [`prev:${p.due}`]: e.target.value }))}
+                            className="rounded-md border border-line-divider bg-white px-2 py-1 text-[12px] text-ink" />
+                        </label>
+                        <button onClick={() => void markPaid(p.due, paidOnValue, prevLease.id)} disabled={busy || !chk.ok}
                           className="rounded-md border border-line-divider px-3 py-1 text-[11px] font-bold hover:border-[#00ACE4] disabled:opacity-50">
                           {zh ? '标记已付' : 'Mark paid'}
                         </button>
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+              {myRole === 'landlord' && prevLedger.missed.length > 0 && (
+                <PaymentPlanDraft householdId={id} leaseId={prevLease.id} unit={address} monthlyRent={prevRent} missed={prevLedger.missed} arrears={missedArrears(prevLedger, prevRent)} recorded={prevLedger.recordedRows.length} zh={zh} />
+              )}
+            </div>
+          )}
+          {nextTermFrom && (
+            <p className="mt-2 text-[11.5px] text-body-3" data-testid="rent-next-term-note">
+              {zh ? `续约租约 ${nextTermFrom} 起生效；从那天起的账期在新租约生效后显示在这里。` : `The renewal takes effect ${nextTermFrom}; periods from that date appear here once it does.`}
+            </p>
+          )}
+          {termStart && household.start_date && termStart > household.start_date.slice(0, 10) && (
+            <p className="mt-2 text-[11.5px] text-body-3" data-testid="rent-term-note">
+              {zh ? `这里是当前租约（${termStart} 起）的账期；之前租约已记录的租金仍保存在原租约下${prevOpen.length ? '，还没记录的几期列在上方' : ''}。` : `Periods of the current lease (from ${termStart}). Records under the previous lease stay with that lease${prevOpen.length ? '; its unrecorded periods are listed above' : ''}.`}
+            </p>
+          )}
+          {ledger.periods.length === 0 ? (
+            <p className="mt-5 text-[13px] text-body-3">
+              {termStart && termStart > today
+                ? (zh ? `当前租约 ${termStart} 起租，账期从那时开始。` : `The current lease starts ${termStart}; periods begin then.`)
+                : (zh ? '缺少起租日或交租日,无法生成账期。' : 'Needs a start date and due day to build the schedule.')}
+            </p>
+          ) : (
+            <div className="mt-4 space-y-2" data-testid="rent-ledger">
+              {ledger.periods.map((p) => {
+                const amount = Number(p.record?.amount ?? household.monthly_rent) || 0
+                const paidOnValue = paidOn[p.due] ?? today
+                const chk = checkPaidOn(p.due, paidOnValue, today)
+                return (
+                  <div key={p.due} className="flex flex-wrap items-center gap-3 rounded-lg border border-line-divider/60 px-4 py-2.5 text-[13px]" data-state={p.state}>
+                    <span className="font-mono font-semibold">{p.due}</span>
+                    {amount > 0 && <span className="text-body-3">${amount.toLocaleString()}</span>}
+                    {!p.onSchedule && p.state === 'due' && (
+                      <span className="text-[11px] text-body-3" data-testid="rent-off-schedule">{zh ? '不在每月账期上 · 不计入欠款合计' : 'Not on the monthly schedule · not counted in arrears'}</span>
+                    )}
+                    <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                      {p.state === 'paid' || p.state === 'late' ? (
+                        <span className="rounded-md px-2 py-0.5 font-mono text-[10px] font-bold"
+                          style={p.state === 'paid' ? { color: '#047857', background: '#04785714' } : { color: '#DC2626', background: '#DC262614' }}>
+                          {p.state === 'paid' ? (zh ? '✓ 已付' : '✓ PAID') : (zh ? '已付 · 迟付' : 'PAID LATE')}
+                        </span>
+                      ) : p.state === 'upcoming' ? (
+                        <span className="font-mono text-[10px] font-bold text-body-3">{zh ? '未到期' : 'UPCOMING'}</span>
+                      ) : (
+                        <>
+                          <span className="font-mono text-[10px] font-bold text-amber-700">{p.upcoming ? (zh ? '待付 · 未到期' : 'DUE · UPCOMING') : (zh ? '待付' : 'DUE')}</span>
+                          <label className="flex items-center gap-1.5 text-[11px] text-body-3">
+                            {zh ? '付款日期' : 'Paid on'}
+                            <input type="date" value={paidOnValue} min={earliestPaidOn(p.due, today)} max={today} data-testid="rent-paid-on"
+                              aria-label={zh ? `${p.due} 这一期的付款日期` : `Payment date for the ${p.due} period`}
+                              onChange={(e) => setPaidOn((m) => ({ ...m, [p.due]: e.target.value }))}
+                              className="rounded-md border border-line-divider bg-white px-2 py-1 text-[12px] text-ink" />
+                          </label>
+                          {chk.ok && chk.late && (
+                            <span className="text-[11px] text-amber-700" data-testid="rent-paid-on-late">
+                              {zh
+                                ? `将记为迟付 ${chk.daysLate} 天${chk.countsTowardS58 ? '（超过 7 天，计入 s.58 次数）' : ''} · 不是这天付的请改成实际日期`
+                                : `Will be recorded ${chk.daysLate} day(s) late${chk.countsTowardS58 ? ' (over 7 days — counts toward s.58)' : ''} · not paid that day? Change it to the actual date`}
+                            </span>
+                          )}
+                          {!chk.ok && <span className="text-[11px] text-danger">{zh ? '付款日期不能晚于今天，也不能早于到期日 62 天以上。' : 'The payment date cannot be after today or more than 62 days before the due date.'}</span>}
+                          <button onClick={() => void markPaid(p.due, paidOnValue)} disabled={busy || !chk.ok}
+                            className="rounded-md border border-line-divider px-3 py-1 text-[11px] font-bold hover:border-[#00ACE4] disabled:opacity-50">
+                            {zh ? '标记已付' : 'Mark paid'}
+                          </button>
+                        </>
                       )}
                     </span>
                   </div>
@@ -408,6 +569,16 @@ export default function HouseholdHub() {
       )}
     </Shell>
   )
+}
+
+function markPaidError(message: string, zh: boolean): string {
+  if (/future_period/.test(message)) return zh ? '这一期还没到期，到期后再标记。' : 'This period is not due yet; mark it once it is due.'
+  if (/not_a_member/.test(message)) return zh ? '只有这份租约的成员可以记录租金。' : 'Only members of this tenancy can record rent.'
+  if (/before_lease/.test(message)) return zh ? '这一期早于起租日，不能记录。' : 'This period is before the lease start.'
+  if (/no_rent_amount/.test(message)) return zh ? '租约上没有月租金额，无法记录。' : 'The lease has no monthly rent to record.'
+  if (/bad_paid_date/.test(message)) return zh ? '付款日期不对：不能晚于今天，也不能早于到期日 62 天以上。' : 'Check the payment date: it cannot be after today or more than 62 days before the due date.'
+  if (/after_lease/.test(message)) return zh ? '这一期在上一期租约结束之后，属于新租约的账期。' : 'This period is after the previous lease ended; it belongs to the new lease.'
+  return zh ? `没有记录成功：${message}` : `Not recorded: ${message}`
 }
 
 function Shell({ zh, children }: { zh: boolean; children: React.ReactNode }) {

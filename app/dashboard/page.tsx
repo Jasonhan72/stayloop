@@ -21,6 +21,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
   const [deletingListing, setDeletingListing] = useState<Listing | null>(null)
+  // Deleted (archived) listings stay on the account with their photos and price history;
+  // they used to vanish from every page while still blocking a re-list of the same unit.
+  const [archivedListings, setArchivedListings] = useState<Listing[]>([])
+  const [showArchived, setShowArchived] = useState(false)
   const [deleteReason, setDeleteReason] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [origin, setOrigin] = useState('')
@@ -137,13 +141,15 @@ export default function Dashboard() {
 
   async function fetchAll() {
     setLoading(true)
-    const [appsRes, listingsRes, planRes] = await Promise.all([
+    const [appsRes, listingsRes, planRes, archivedRes] = await Promise.all([
       supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
       supabase.from('listings').select('*').eq('landlord_id', landlord!.landlordId).neq('status', 'archived').order('created_at', { ascending: false }),
       supabase.from('landlords').select('plan').or(`id.eq.${landlord!.landlordId},auth_id.eq.${landlord!.landlordId}`).maybeSingle(),
+      supabase.from('listings').select('id, slug, address, unit, city, monthly_rent, status, is_active').eq('landlord_id', landlord!.landlordId).eq('status', 'archived').order('created_at', { ascending: false }).limit(50),
     ])
     if (appsRes.data) setApplications(appsRes.data as Application[])
     if (listingsRes.data) setListings(listingsRes.data as Listing[])
+    if (archivedRes.data) setArchivedListings(archivedRes.data as unknown as Listing[])
     if (planRes.data?.plan) setPlan(planRes.data.plan as Plan)
     setLoading(false)
   }
@@ -173,6 +179,7 @@ export default function Dashboard() {
         .eq('id', deletingListing.id)
       if (error) throw error
       setListings((prev) => prev.filter((l) => l.id !== deletingListing.id))
+      setArchivedListings((prev) => [{ ...deletingListing, is_active: false }, ...prev])
       setDeletingListing(null)
       setDeleteReason('')
     } catch (e: any) {
@@ -180,6 +187,14 @@ export default function Dashboard() {
     } finally {
       setDeleteLoading(false)
     }
+  }
+
+  // Back into the list, still off market — the landlord relists it with the 上架 toggle or the editor.
+  async function restoreArchived(l: Listing) {
+    const { error } = await supabase.from('listings').update({ status: 'active', is_active: false }).eq('id', l.id)
+    if (error) { alert(error.message); return }
+    setArchivedListings((prev) => prev.filter((x) => x.id !== l.id))
+    void fetchAll()
   }
 
   async function toggleListingActive(id: string, currentlyActive: boolean) {
@@ -523,6 +538,31 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+
+          {archivedListings.length > 0 && (
+            <div className="-mt-4 mb-8" data-testid="archived-listings">
+              <button onClick={() => setShowArchived((v) => !v)} className="text-[12.5px] font-semibold text-body-2 underline underline-offset-2 hover:text-body">
+                {lang === 'zh' ? `已删除的房源（${archivedListings.length}）${showArchived ? ' ▴' : ' ▾'}` : `Deleted listings (${archivedListings.length})${showArchived ? ' ▴' : ' ▾'}`}
+              </button>
+              {showArchived && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-[12px] text-body-3">{lang === 'zh' ? '删除只是从工作台隐藏，照片和价格记录都还在。同一套房再出租时，恢复它就行，不用重新发布。' : 'Deleting only hides a listing from the workspace; its photos and price history are kept. When the unit is for rent again, restore it instead of publishing it again.'}</p>
+                  {archivedListings.map((l) => (
+                    <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line-divider bg-white px-4 py-2.5 text-[13px]">
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold">{l.address}{l.unit ? `, ${l.unit}` : ''}</div>
+                        <div className="font-mono text-[11px] text-body-3">${l.monthly_rent?.toLocaleString()}/mo · {l.city}</div>
+                      </div>
+                      <div className="flex gap-2 text-[12px] font-semibold">
+                        <button onClick={() => void restoreArchived(l)} className="rounded-md border border-line-strong px-2.5 py-1.5 text-body transition hover:border-brand hover:text-brand">{lang === 'zh' ? '恢复到列表（下架）' : 'Restore (off market)'}</button>
+                        <Link href={`/dashboard/listings/${l.id}/edit?relist=1`} className="rounded-md border border-line-strong px-2.5 py-1.5 text-brand transition hover:border-brand">{lang === 'zh' ? '核对后重新上架 →' : 'Review & relist →'}</Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Applications */}
           <div className="sl-card overflow-hidden">

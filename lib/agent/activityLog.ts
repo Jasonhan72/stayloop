@@ -51,8 +51,9 @@ export function buildActivity(threads: ThreadListRow[], events: ActivityRow[]): 
     const tid = threadIdOf(e)
     const t = tid ? byThread.get(tid) : undefined
     if (t) {
-      if (/^executed_|^work_order_/.test(e.action)) t.executed++
-      else if (e.action === 'approval_undone') t.undone++
+      if (isNotDoneAction(e.action)) { /* nothing ran — not an execution */ }
+      else if (/^executed_|^work_order_/.test(e.action)) t.executed++
+      else if (e.action === 'approval_undone' || e.action === 'approval_abandoned') t.undone++
       else if (/_rejected$/.test(e.action)) t.rejected++
       else if (/_approved$/.test(e.action)) t.approved++
       if (ts(e.created_at) > ts(t.at)) t.at = e.created_at
@@ -76,10 +77,15 @@ export function activityGroups<T extends { at: string }>(items: T[], lang: Lang,
   return (['today', 'yesterday', 'earlier'] as const).filter((k) => g[k].length).map((k) => ({ key: k, label: label[k], rows: g[k] }))
 }
 
+/** Events that say something did NOT happen (sweep 2026-10-01): never drawn or counted as done. */
+const NOT_DONE = new Set(['work_order_dispatch_no_candidate'])
+export const isNotDoneAction = (action: string): boolean => NOT_DONE.has(action)
+
 /** A glyph per action family — the log should scan by shape, not by reading every line. */
 export function activityIcon(action: string): string {
+  if (isNotDoneAction(action)) return '⚠'
   if (/^executed_|^work_order_/.test(action)) return '✓'
-  if (/^approval_undone|_rejected$|^rejected/.test(action)) return '↩'
+  if (/^approval_undone|^approval_abandoned|_rejected$|^rejected/.test(action)) return '↩'
   if (/^approval|_approved$/.test(action)) return '✓'
   if (/memory/.test(action)) return '🧠'
   if (/listing|search/.test(action)) return '🔎'

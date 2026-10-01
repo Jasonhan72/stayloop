@@ -16,6 +16,7 @@ import { applyRetractions, canRetract, CHANNEL_LABEL, fmtSize, FORMAL_COPY_NOTE,
 import { notifyMessagesChanged } from '@/lib/messages/unread'
 import { takeDraft } from '@/lib/messages/openThread'
 import { roleLabel, type Person } from '@/lib/threads/shared'
+import { isSendKey } from '@/components/messages/composerKeys'
 
 export type ThreadViewer = 'tenant' | 'landlord' | 'provider' | 'agent' | 'admin'
 
@@ -155,25 +156,51 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   }, [maxId, open, me, mark])
   useEffect(() => { if (open) endRef.current?.scrollIntoView({ block: 'end' }) }, [msgs.length, open])
 
-  async function notify(threadId: string) {
+  // The notify route announces exactly this message (it checks the id is the
+  // caller's, on this thread) — not "the sender's newest", which a quick second
+  // message would have replaced (sweep 2026-10-01).
+  async function notify(threadId: string, messageId: number | null) {
     const token = await jwt()
     if (!token) return
-    void fetch('/api/threads/notify', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ thread_id: threadId }) }).catch(() => undefined)
+    void fetch('/api/threads/notify', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ thread_id: threadId, message_id: messageId }) }).catch(() => undefined)
   }
+  // A ref, not `busy`: a second Enter in the same tick (key repeat, double tap)
+  // must not insert the same line twice into an append-only record.
+  const sendingRef = useRef(false)
   async function send() {
+    if (sendingRef.current) return
     const body = draft.trim()
-    if (!me || (!body && pending.length === 0)) return
+    const atts = pending
+    if (!me || (!body && atts.length === 0)) return
+    sendingRef.current = true
     setBusy(true); setErr(null)
-    const id = await ensureThreadId()
-    if (!id) { setBusy(false); return }
-    const senderKind = viewer === 'admin' ? 'admin' : viewer
-    const { error } = await supabase.from('thread_messages').insert({ thread_id: id, sender_id: me, sender_kind: senderKind, acting_role: viewer, kind: 'message', body: body || (zh ? '（附件）' : '(attachment)'), attachments: pending })
-    if (error) { setErr(error.message); setBusy(false); return }
+    // Clear at once so nothing can be sent twice; put it back if the send fails.
     setDraft(''); setPending([])
-    await load()
-    void notify(id)
-    notifyMessagesChanged()
-    setBusy(false)
+    const restore = () => {
+      setDraft((cur) => (cur.trim() ? `${body}\n${cur}` : body))
+      setPending((cur) => [...atts, ...cur.filter((a) => !atts.some((x) => x.path === a.path))])
+    }
+    try {
+      let sent: { id: string; messageId: number | null } | null = null
+      try {
+        const id = await ensureThreadId()
+        if (!id) { restore(); return }
+        const senderKind = viewer === 'admin' ? 'admin' : viewer
+        const { data, error } = await supabase.from('thread_messages').insert({ thread_id: id, sender_id: me, sender_kind: senderKind, acting_role: viewer, kind: 'message', body: body || (zh ? '（附件）' : '(attachment)'), attachments: atts }).select('id').single()
+        if (error) { setErr(error.message); restore(); return }
+        sent = { id, messageId: data ? Number((data as { id: number }).id) : null }
+      } catch (e) {
+        setErr((e as Error).message || 'send failed'); restore(); return
+      }
+      if (!sent) return
+      // Sent — from here on nothing puts the text back.
+      void notify(sent.id, sent.messageId)
+      notifyMessagesChanged()
+      await load().catch(() => undefined)
+    } finally {
+      sendingRef.current = false
+      setBusy(false)
+    }
   }
   async function retract(m: ThreadMessage) {
     if (!tid || !me) return
@@ -287,7 +314,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
             <div className="flex gap-2">
               <textarea ref={inputRef} data-testid="thread-input" className="min-h-[40px] flex-1 resize-y rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]" rows={1} value={draft} placeholder={zh ? '输入消息… Enter 发送，Shift+Enter 换行' : 'Type a message… Enter to send, Shift+Enter for a new line'}
                 onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send() } }} />
+                onKeyDown={(e) => { if (isSendKey(e)) { e.preventDefault(); void send() } }} />
               {allowAttachments && (
                 <>
                   <input ref={fileRef} type="file" className="hidden" multiple accept="image/*,.heic,.heif,application/pdf,.txt,.doc,.docx" onChange={(e) => void upload(e.target.files)} aria-label={zh ? '添加附件' : 'Add attachment'} />

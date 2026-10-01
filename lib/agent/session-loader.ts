@@ -11,7 +11,7 @@ import type {
   WorkflowState,
 } from './types'
 import { getUserMemories } from './memory'
-import { getPendingActions } from './approval-engine'
+import { getApprovedUnexecuted, getPendingActions, type DecidedAction } from './approval-engine'
 import { readAssistantProfile } from './assistantProfile'
 import {
   ROLE_META,
@@ -34,13 +34,16 @@ export async function loadAgentSession(
   client: SupabaseClient,
   role: AgentRole,
   opts: Options = {}
-): Promise<AgentSessionResponse> {
+): Promise<AgentSessionResponse & { approvedUnexecuted: DecidedAction[] }> {
   // 1. Atomic bootstrap (config + active task_memory + session + audit).
   //    Time-bounded so a stalled request fails fast to the demo fallback
   //    rather than hanging the workspace on its loading skeleton.
   //    The RLS-scoped reads that do not depend on its result (own config by
   //    role, active task, memories, pending cards) run alongside it — one
   //    round trip instead of two (perf review 2026-09-23).
+  // Approved cards that never ran (the page closed during the undo window, or
+  // the run failed) — the hook resumes the countdown or offers 现在执行 / 放弃.
+  const approvedP = getApprovedUnexecuted(client, role).catch((): DecidedAction[] => [])
   const bootP = withTimeout(
     client.rpc('bootstrap_agent_session', { p_role: role }),
     8000,
@@ -116,5 +119,6 @@ export async function loadAgentSession(
     memories,
     pendingActions,
     recommendations: buildRecommendations(role, workflow),
+    approvedUnexecuted: await approvedP,
   }
 }

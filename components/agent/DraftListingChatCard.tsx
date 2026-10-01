@@ -1,14 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import type { DraftListing } from '@/lib/agent/types'
-import { LISTING_EDIT_DRAFT_PREFIX, LISTING_PUBLISH_MSG, buildListingPatch, buildListingRow, computeListingSource, makeListingSlug, publishListing, resolveLandlordId, updateListing } from '@/lib/listingPublish'
-
-const DRAFT_KEY = 'stayloop-draft-listing'
+import { LISTING_EDIT_DRAFT_PREFIX, LISTING_PUBLISH_MSG, buildListingPatch, buildListingRow, computeListingSource, draftCardKey, draftDoneKey, draftSlotKey, makeListingSlug, markDraftDone, publishListing, readDraftDone, readDraftSlot, resolveLandlordId, saveDraftSlot, updateListing, type DraftDone, type ExistingListing, type UpdatedListingRow } from '@/lib/listingPublish'
 
 type Props = {
   draft: DraftListing
@@ -33,33 +31,64 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
   const changedFields = form.changed_fields ?? []
   const photosChanged = JSON.stringify(photos) !== JSON.stringify(draft.images ?? [])
   const nothingToUpdate = isUpdate && changedFields.length === 0 && !photosChanged
-  const [updatedRow, setUpdatedRow] = useState<{ slug: string | null; is_active: boolean; verification_status: string | null; source: string | null } | null>(null)
+  const [updatedRow, setUpdatedRow] = useState<UpdatedListingRow | null>(null)
+  const [done, setDone] = useState<DraftDone | null>(null)
+  const [existing, setExisting] = useState<ExistingListing | null>(null)
+  // This card's own slot (user × card), not one global slot shared by every card in the
+  // thread and every account on the browser (sweep 2026-10-01). The key comes from the
+  // card's original draft, which the chat thread stores unchanged.
+  const cardKey = useMemo(() => draftCardKey(draft), [draft])
+  const uid = user?.id ?? null
 
   const reloadFromStorage = useCallback(() => {
-    // The shared new-listing draft slot belongs to new drafts only.
+    if (!uid) return
+    let store: Storage
+    try { store = window.localStorage } catch { return }
+    // Published or updated already (here, or from the editor page): render as done after a reload.
+    const d = readDraftDone(store, uid, cardKey)
+    if (d) {
+      setDone(d)
+      if (d.row) setUpdatedRow(d.row)
+      setPublished(true)
+      return
+    }
+    // An edit saved in the draft editor (new drafts only — a rewrite edits the listing itself).
     if (draft.listing_id) return
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY)
-      if (raw) {
-        const d = JSON.parse(raw) as DraftListing
-        setForm(d)
-        setPhotos(d.images ?? [])
-        setPhotoIdx(0)
-      }
-    } catch {}
-  }, [draft.listing_id])
+    const saved = readDraftSlot(store, uid, cardKey)
+    if (saved) {
+      setForm(saved)
+      setPhotos(saved.images ?? [])
+      setPhotoIdx(0)
+    }
+  }, [uid, cardKey, draft.listing_id])
 
   useEffect(() => {
-    const onFocus = () => reloadFromStorage()
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
-  }, [reloadFromStorage])
+    reloadFromStorage()
+    const onVisible = () => { if (document.visibilityState === 'visible') reloadFromStorage() }
+    const onStorage = (e: StorageEvent) => { if (uid && (e.key === draftSlotKey(uid, cardKey) || e.key === draftDoneKey(uid, cardKey))) reloadFromStorage() }
+    window.addEventListener('focus', reloadFromStorage)
+    window.addEventListener('pageshow', reloadFromStorage)
+    window.addEventListener('storage', onStorage)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('focus', reloadFromStorage)
+      window.removeEventListener('pageshow', reloadFromStorage)
+      window.removeEventListener('storage', onStorage)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [reloadFromStorage, uid, cardKey])
+
+  const recordDone = (d: Omit<DraftDone, 'at'>) => {
+    if (!uid) return
+    try { markDraftDone(window.localStorage, uid, cardKey, d) } catch {}
+  }
 
   const openEditPage = () => {
     if (isUpdate && form.listing_id) {
       // The listing's own editor, pre-filled with ONLY the AI's changes (the editor loads everything else
       // from the database; photos travel only if changed here). Nothing is saved until the landlord saves there.
-      const stash: Record<string, unknown> = { changed_fields: changedFields }
+      // base_updated_at: the editor refuses to apply a card older than the listing without asking.
+      const stash: Record<string, unknown> = { changed_fields: changedFields, base_updated_at: form.base_updated_at ?? null }
       for (const k of changedFields) stash[k] = (form as Record<string, unknown>)[k]
       if (photosChanged) { stash.images = photos; stash.changed_fields = [...changedFields.filter((k) => k !== 'images'), 'images'] }
       try { localStorage.setItem(LISTING_EDIT_DRAFT_PREFIX + form.listing_id, JSON.stringify(stash)) }
@@ -67,8 +96,11 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
       router.push(`/dashboard/listings/${form.listing_id}/edit?from=agent`)
       return
     }
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...form, images: photos }))
-    router.push('/dashboard/listings/edit')
+    if (!uid) { setError(zh ? '请先登录再编辑草稿。' : 'Sign in to edit the draft.'); return }
+    let ok = false
+    try { ok = saveDraftSlot(window.localStorage, uid, cardKey, { ...form, images: photos }) } catch {}
+    if (!ok) { setError(zh ? '草稿太大，没能带到编辑页（通常是照片太多）。可以直接在卡片上发布，发布后再到房源编辑页调整照片。' : 'The draft is too large to carry to the editor (usually photos). Publish from the card, then adjust the photos in the listing editor.'); return }
+    router.push(`/dashboard/listings/edit?card=${encodeURIComponent(cardKey)}`)
   }
 
   const den = !!form.has_den
@@ -96,6 +128,7 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
     if (!user || !form.address || !form.monthly_rent) return
     setPublishing(true)
     setError(null)
+    setExisting(null)
     try {
       const client = getSupabaseBrowser()
       if (isUpdate && form.listing_id) {
@@ -103,6 +136,7 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
         if (res.error !== null || !res.row) throw new Error(res.error ?? 'update failed')
         setUpdatedRow(res.row)
         setPublished(true)
+        recordDone({ kind: 'updated', slug: res.row.slug, address: form.address, unit: form.unit ?? null, listing_id: form.listing_id, row: res.row })
         onPublished?.(res.row.slug || form.listing_slug || '')
         return
       }
@@ -111,9 +145,11 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
       if (!landlordId) throw new Error(zh ? LISTING_PUBLISH_MSG.landlordNotFound.zh : LISTING_PUBLISH_MSG.landlordNotFound.en)
       const slug = makeListingSlug(form.address)
       const row = buildListingRow(form, { landlordId, slug, photos })
-      const { error: publishErr } = await publishListing(client, row, { zh })
+      const { error: publishErr, existing: dup } = await publishListing(client, row, { zh })
+      if (dup) setExisting(dup)
       if (publishErr) throw new Error(publishErr)
       setPublished(true)
+      recordDone({ kind: 'published', slug, address: form.address, unit: form.unit ?? null, source: computeListingSource(form) })
       onPublished?.(slug)
     } catch (e) {
       setError((e as Error).message)
@@ -130,7 +166,7 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#047857" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6 9 17l-5-5" /></svg>
           </div>
           <div className="text-[15px] font-bold text-success" data-testid="draft-card-done">{isUpdate ? (zh ? '房源已更新' : 'Listing updated') : (zh ? '房源已发布' : 'Published!')}</div>
-          <div className="text-[12px] text-body-3">{form.address}{form.unit ? ` · ${form.unit}` : ''}</div>
+          <div className="text-[12px] text-body-3">{done?.address ?? form.address}{(done ? done.unit : form.unit) ? ` · ${done ? done.unit : form.unit}` : ''}</div>
           <div className="mt-1 text-[11.5px] text-body-3">
             {isUpdate && updatedRow
               ? (() => {
@@ -147,7 +183,7 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
                     {!live && form.listing_id && <> <a href={`/dashboard/listings/${form.listing_id}/edit`} className="font-semibold text-brand">{zh ? '去编辑页 →' : 'Open the editor →'}</a></>}
                   </>)
                 })()
-              : computeListingSource(form) === 'realtor'
+              : (done?.source ?? computeListingSource(form)) === 'realtor'
               ? (zh ? '已提交审核 · 通过后上线并标注 Realtor.ca 来源' : 'Submitted for review · goes live with a Realtor.ca source badge once approved')
               : (zh ? '待 Stayloop 验证,通过后公开展示并打上 VERIFIED 标' : 'Pending Stayloop verification — goes public with a VERIFIED badge once approved')}
           </div>
@@ -270,7 +306,12 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
           {publishing ? '…' : isUpdate ? (zh ? '更新房源' : 'Update listing') : zh ? '发布房源' : 'Publish'}
         </button>
       </div>
-      {error && <div className="bg-danger/5 px-4 py-2 text-[11px] text-danger">{error}</div>}
+      {error && (
+        <div className="bg-danger/5 px-4 py-2 text-[11px] text-danger">
+          {error}
+          {existing && <> <a href={`/dashboard/listings/${existing.id}/edit${existing.is_active ? '' : '?relist=1'}`} className="font-semibold text-brand underline underline-offset-2">{zh ? '打开原房源 →' : 'Open the existing listing →'}</a></>}
+        </div>
+      )}
     </div>
   )
 }

@@ -8,7 +8,7 @@ export default function PendingActionsPanel({
   onDecide,
 }: {
   actions: PendingAction[]
-  onDecide: (id: string, decision: 'approved' | 'rejected', option?: 'A' | 'B') => void | Promise<void>
+  onDecide: (id: string, decision: 'approved' | 'rejected', option?: 'A' | 'B') => void | Promise<unknown>
 }) {
   if (!actions?.length) return null
   return (

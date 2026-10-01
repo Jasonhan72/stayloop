@@ -7,7 +7,7 @@
 // actor from the row, this component only offers the buttons.
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { canAct, invoiceWithinEstimate, WO_STATUS_LABEL, type ActorKind, type WoAction, type WorkOrderStatus } from '@/lib/marketplace/workOrders'
+import { canAct, invoiceWithinEstimate, quoteExpired, torontoToday, WO_STATUS_LABEL, type ActorKind, type WoAction, type WorkOrderStatus } from '@/lib/marketplace/workOrders'
 import { TRADES } from '@/lib/marketplace/trades'
 import { DECLINE_CODES, DECLINE_LABEL, declineText, slaLabel, slaState, type DeclineCode } from '@/lib/marketplace/sla'
 import { openHtmlFromPost } from '@/lib/export/openHtml'
@@ -26,6 +26,14 @@ export type WorkOrderLite = {
 type Ev = { id: number; actor_kind: string; event: string; payload: Record<string, unknown>; created_at: string }
 
 const money = (n: number | string | null | undefined) => (n == null || n === '' ? '—' : `$${Number(n).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
+/** ISO → the value a datetime-local input takes, in the viewer's clock (blank when none). */
+export function isoToLocalInput(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
 const whenIn = (s: string | null | undefined, zh: boolean) => (s ? new Date(s).toLocaleString(zh ? 'zh-CN' : 'en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' }) : '—')
 const EVENT_LABEL: Record<string, { zh: string; en: string }> = { quote_overdue: { zh: '报价逾期 · 系统已提醒服务商', en: 'Quote overdue · contractor reminded' }, offered: { zh: '已派单', en: 'Offered' }, accept: { zh: '接单并报价', en: 'Accepted with a quote' }, quote: { zh: '更新报价', en: 'Quote revised' }, decline: { zh: '婉拒', en: 'Declined' }, approve_quote: { zh: '房东批准报价', en: 'Quote approved' }, reject_quote: { zh: '房东拒绝报价', en: 'Quote rejected' }, arrive: { zh: '已到场', en: 'Arrived' }, complete: { zh: '已完工', en: 'Completed' }, tenant_confirm: { zh: '租客确认已解决', en: 'Tenant confirmed' }, accept_completion: { zh: '房东验收', en: 'Accepted by landlord' }, request_rework: { zh: '要求返工', en: 'Rework requested' }, dispute: { zh: '提出争议', en: 'Disputed' }, resolve_dispute: { zh: '争议已裁定', en: 'Dispute resolved' }, mark_paid: { zh: '已标记付款', en: 'Marked paid' }, close: { zh: '归档', en: 'Closed' }, cancel: { zh: '取消', en: 'Cancelled' } }
 const ACTOR_LABEL: Record<string, { zh: string; en: string }> = { landlord: { zh: '房东', en: 'landlord' }, tenant: { zh: '租客', en: 'tenant' }, provider: { zh: '服务商', en: 'provider' }, external: { zh: '服务商', en: 'contractor' }, system: { zh: '系统', en: 'system' }, admin: { zh: 'Stayloop', en: 'Stayloop' } }
@@ -39,6 +47,14 @@ const REASON: Record<string, { zh: string; en: string }> = {
   no_tenant_email: { zh: '这份在管租约还没有已加入的租客，发不出进入通知。请先让租客接受邀请，或标为紧急件。', en: 'No tenant has joined this tenancy yet, so no entry notice can go out. Have the tenant accept the invitation first, or mark it an emergency.' },
   decline_reason_required: { zh: '婉拒需要选一个原因；选「其他」时请写明。', en: 'Pick a reason to decline; add a note when choosing “Other”.' },
   work_order_already_answered: { zh: '服务商已经回应了这张工单，没有什么可撤回的。', en: 'The contractor has answered this work order — nothing to withdraw.' },
+  ticket_closed: { zh: '这张报修已完成或已取消，不能再派单。', en: 'This repair request is done or cancelled; it cannot be dispatched.' },
+  quote_type: { zh: '请选择报价方式（固定价 / 工时估算）。', en: 'Pick a quote type (fixed / hourly estimate).' },
+  quote_amount: { zh: '请填写有效的报价金额。', en: 'Enter a valid quote amount.' },
+  quote_schedule_past: { zh: '到场时间已经过去了，请改一个新的时间段。', en: 'The visit window is in the past — pick a new one.' },
+  quote_schedule: { zh: '到场时间不对：结束不能早于开始。', en: 'The visit window is invalid: it cannot end before it starts.' },
+  quote_valid_until: { zh: '报价有效期不是有效日期。', en: 'The quote expiry is not a valid date.' },
+  quote_valid_until_past: { zh: '报价有效期已经过去了，请改成今天或以后的日期，或留空。', en: 'The quote expiry date is in the past — pick today or later, or leave it blank.' },
+  invoice_amount: { zh: '账单金额无效。', en: 'The invoice amount is invalid.' },
 }
 export function explain(code: string, zh: boolean): string { const r = REASON[code]; return r ? (zh ? r.zh : r.en) : code }
 
@@ -82,6 +98,16 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
   // 节点 3: the contractor's clock while the offer is unanswered.
   const sla = wo.status === 'offered' ? slaState(wo.quote_due_at) : null
 
+  // A form opens with what is already on the row: a revision changes only what
+  // the contractor edits; a second completion after rework keeps the invoice.
+  function openQuote() {
+    setForm((f) => ({ ...f, amount: wo.quote_amount != null ? String(wo.quote_amount) : '', type: wo.quote_type === 'hourly_estimate' ? 'hourly_estimate' : 'fixed', note: wo.quote_note || '', schedule_start: isoToLocalInput(wo.schedule_start), schedule_end: isoToLocalInput(wo.schedule_end), valid_until: wo.quote_valid_until && !quoteExpired(wo.quote_valid_until) ? wo.quote_valid_until : '' }))
+    setOpen(open === 'quote' ? null : 'quote')
+  }
+  function openComplete() {
+    setForm((f) => ({ ...f, note: wo.completion_note || '', invoice_amount: wo.invoice_amount != null && wo.invoice_amount !== '' ? String(wo.invoice_amount) : '' }))
+    setOpen(open === 'complete' ? null : 'complete')
+  }
   async function run(action: WoAction, payload: Record<string, unknown> = {}) {
     setBusy(action); setErr(null)
     const r = await actOn(wo.id, action, payload)
@@ -107,7 +133,7 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
       </div>
       {!compact && wo.scope && <p className="mt-1.5 text-[12.5px] text-body-2">{wo.scope}</p>}
       <div className="mt-2 grid gap-1 text-[12px] text-body-2 sm:grid-cols-2">
-        {wo.quote_amount != null && <div>{zh ? '报价' : 'Quote'}: <b>{money(wo.quote_amount)}</b>{wo.quote_type === 'hourly_estimate' ? (zh ? '（工时估算）' : ' (hourly est.)') : ''}{(wo.quote_version ?? 0) > 1 ? <span data-testid="quote-version">{zh ? ` · 第 ${wo.quote_version} 版` : ` · v${wo.quote_version}`}</span> : null}{wo.quote_valid_until ? (zh ? ` · 有效期至 ${wo.quote_valid_until}` : ` · valid until ${wo.quote_valid_until}`) : ''}{wo.quote_note ? ` · ${wo.quote_note}` : ''}</div>}
+        {wo.quote_amount != null && <div>{zh ? '报价' : 'Quote'}: <b>{money(wo.quote_amount)}</b>{wo.quote_type === 'hourly_estimate' ? (zh ? '（工时估算）' : ' (hourly est.)') : ''}{(wo.quote_version ?? 0) > 1 ? <span data-testid="quote-version">{zh ? ` · 第 ${wo.quote_version} 版` : ` · v${wo.quote_version}`}</span> : null}{wo.quote_valid_until ? (quoteExpired(wo.quote_valid_until) ? (zh ? ` · 已于 ${wo.quote_valid_until} 过期` : ` · expired ${wo.quote_valid_until}`) : (zh ? ` · 有效期至 ${wo.quote_valid_until}` : ` · valid until ${wo.quote_valid_until}`)) : ''}{wo.quote_note ? ` · ${wo.quote_note}` : ''}</div>}
         {wo.schedule_start && <div>{zh ? '到场时间' : 'Window'}: {when(wo.schedule_start)}{wo.schedule_end ? ` – ${when(wo.schedule_end)}` : ''}</div>}
         {wo.entry_permission && <div>{zh ? '进入方式' : 'Entry'}: {wo.entry_permission === 'tenant_present' ? (zh ? '须租客在场' : 'tenant present') : wo.entry_permission === 'call_first' ? (zh ? '先电话' : 'call first') : (zh ? '按通知进入' : 'per notice')}{wo.entry_notice_sent_at ? (zh ? ' · 进入通知已发' : ' · notice sent') : ''}</div>}
         {wo.arrived_at && <div>{zh ? '到场' : 'Arrived'}: {when(wo.arrived_at)}</div>}
@@ -123,15 +149,15 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
       {/* Actions by viewer */}
       <div className="mt-3 flex flex-wrap gap-2">
         {(viewer === 'provider' || viewer === 'external') && (<>
-          {can('accept') && <button className={primary} disabled={!!busy} onClick={() => setOpen(open === 'quote' ? null : 'quote')}>{zh ? '接单并报价' : 'Accept & quote'}</button>}
-          {can('quote') && wo.status === 'quoted' && <button className={secondary} disabled={!!busy} onClick={() => setOpen(open === 'quote' ? null : 'quote')}>{zh ? '修改报价' : 'Revise quote'}</button>}
+          {can('accept') && <button className={primary} disabled={!!busy} onClick={openQuote}>{zh ? '接单并报价' : 'Accept & quote'}</button>}
+          {can('quote') && wo.status === 'quoted' && <button className={secondary} disabled={!!busy} onClick={openQuote}>{zh ? '修改报价' : 'Revise quote'}</button>}
           {can('decline') && <button className={danger} disabled={!!busy} onClick={() => setOpen(open === 'decline' ? null : 'decline')}>{zh ? '婉拒' : 'Decline'}</button>}
           {can('arrive') && <button className={primary} disabled={!!busy} onClick={() => void run('arrive')}>{zh ? '已到场' : 'Arrived'}</button>}
-          {can('complete') && <button className={primary} disabled={!!busy} onClick={() => setOpen(open === 'complete' ? null : 'complete')}>{zh ? '完工 + 账单' : 'Complete + invoice'}</button>}
+          {can('complete') && <button className={primary} disabled={!!busy} onClick={openComplete}>{zh ? '完工 + 账单' : 'Complete + invoice'}</button>}
           {can('cancel') && wo.status !== 'offered' && <button className={secondary} disabled={!!busy} onClick={() => setOpen(open === 'cancel' ? null : 'cancel')}>{zh ? '取消' : 'Cancel'}</button>}
         </>)}
         {viewer === 'landlord' && (<>
-          {can('approve_quote') && <button className={primary} disabled={!!busy} onClick={() => void run('approve_quote', { expected_amount: wo.quote_amount })}>{zh ? '批准报价（会发进入通知）' : 'Approve quote (sends entry notice)'}</button>}
+          {can('approve_quote') && <button className={primary} disabled={!!busy} onClick={() => void run('approve_quote', { expected_amount: wo.quote_amount, expected_version: wo.quote_version ?? null, expected_quoted_at: wo.quoted_at })}>{zh ? '批准报价（会发进入通知）' : 'Approve quote (sends entry notice)'}</button>}
           {can('reject_quote') && <button className={danger} disabled={!!busy} onClick={() => void run('reject_quote')}>{zh ? '拒绝报价' : 'Reject quote'}</button>}
           {can('accept_completion') && <button className={primary} disabled={!!busy} onClick={() => void run('accept_completion')}>{zh ? '验收' : 'Accept work'}</button>}
           {can('request_rework') && <button className={secondary} disabled={!!busy} onClick={() => setOpen(open === 'rework' ? null : 'rework')}>{zh ? '要求返工' : 'Request rework'}</button>}
@@ -157,8 +183,8 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
           <label className="text-[11px] text-body-3">{zh ? '可到场 从' : 'Window from'}<input type="datetime-local" className={input + ' mt-1 w-full'} value={form.schedule_start} onChange={(e) => setForm({ ...form, schedule_start: e.target.value })} /></label>
           <label className="text-[11px] text-body-3">{zh ? '到' : 'to'}<input type="datetime-local" className={input + ' mt-1 w-full'} value={form.schedule_end} onChange={(e) => setForm({ ...form, schedule_end: e.target.value })} /></label>
           <input className={input} placeholder={zh ? '范围说明（材料 / 不含项）' : 'Scope note (materials / exclusions)'} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-          <label className="text-[11px] text-body-3">{zh ? '报价有效期至（可选）' : 'Quote valid until (optional)'}<input type="date" className={input + ' mt-1 w-full'} value={form.valid_until} onChange={(e) => setForm({ ...form, valid_until: e.target.value })} /></label>
-          <div className="sm:col-span-2"><button className={primary} disabled={!!busy || form.amount === ''} onClick={() => void run(wo.status === 'offered' ? 'accept' : 'quote', { amount: Number(form.amount), type: form.type, note: form.note, valid_until: form.valid_until || undefined, schedule_start: form.schedule_start ? new Date(form.schedule_start).toISOString() : undefined, schedule_end: form.schedule_end ? new Date(form.schedule_end).toISOString() : undefined })}>{wo.status === 'offered' ? (zh ? '发送报价' : 'Send quote') : (zh ? `发送第 ${(wo.quote_version ?? 0) + 1} 版报价` : `Send quote v${(wo.quote_version ?? 0) + 1}`)}</button></div>
+          <label className="text-[11px] text-body-3">{zh ? '报价有效期至（可选）' : 'Quote valid until (optional)'}<input type="date" min={torontoToday()} className={input + ' mt-1 w-full'} value={form.valid_until} onChange={(e) => setForm({ ...form, valid_until: e.target.value })} /></label>
+          <div className="sm:col-span-2"><button className={primary} disabled={!!busy || form.amount === ''} onClick={() => void run(wo.status === 'offered' ? 'accept' : 'quote', { amount: Number(form.amount), type: form.type, note: form.note, valid_until: form.valid_until || null, schedule_start: form.schedule_start ? new Date(form.schedule_start).toISOString() : null, schedule_end: form.schedule_end ? new Date(form.schedule_end).toISOString() : null })}>{wo.status === 'offered' ? (zh ? '发送报价' : 'Send quote') : (zh ? `发送第 ${(wo.quote_version ?? 0) + 1} 版报价` : `Send quote v${(wo.quote_version ?? 0) + 1}`)}</button></div>
           <p className="text-[11px] text-body-3 sm:col-span-2">{zh ? '报价一经房东批准，最终账单不得超出 10%，除非增项经房东再次批准（安省《消费者保护法》）。' : 'Once approved, the invoice may not exceed the quote by more than 10% unless extras are re-approved (Ontario CPA).'}</p>
         </div>
       )}

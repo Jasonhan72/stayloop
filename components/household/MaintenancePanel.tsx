@@ -7,6 +7,7 @@
 // transition is a server call.
 import { WORK_ORDER_COLUMNS } from '@/lib/marketplace/workOrders'
 import { notifyTicket } from '@/lib/household/notifyTicket'
+import { notifyPendingChanged } from '@/lib/agent/pendingCount'
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -14,7 +15,7 @@ import WorkOrderCard, { type WorkOrderLite } from '@/components/marketplace/Work
 import DispatchModal from '@/components/marketplace/DispatchModal'
 import ThreadPanel from '@/components/threads/ThreadPanel'
 import MessageButton from '@/components/messages/MessageButton'
-import { CATEGORY_LABEL, MAINTENANCE_CATEGORIES } from '@/lib/agent/maintenanceTriage'
+import { CATEGORY_LABEL, isEmergencyMaintenance, MAINTENANCE_CATEGORIES } from '@/lib/agent/maintenanceTriage'
 
 export type Ticket = { id: string; title: string; description: string | null; category: string | null; priority: string; status: string; created_at: string; resolved_at: string | null; opened_by: string | null; photos: string[] | null }
 type Wo = WorkOrderLite & { ticket_id: string }
@@ -45,7 +46,7 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
   const [orders, setOrders] = useState<Wo[]>([])
   const [names, setNames] = useState<Record<string, string>>(providerNames ?? {})
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: '', description: '', priority: 'medium', category: 'other' })
+  const [form, setForm] = useState({ title: '', description: '', priority: 'medium', category: 'other', entry: 'call_first' })
   const [dispatchFor, setDispatchFor] = useState<Ticket | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -84,15 +85,24 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
     if (!form.title.trim() || !user) return
     setBusy(true); setErr(null)
     const id = crypto.randomUUID()
-    const { error } = await supabase.from('maintenance_tickets').insert({ id, household_id: householdId, opened_by: user.id, title: form.title.trim().slice(0, 200), description: form.description.trim().slice(0, 2000) || null, priority: form.priority, category: form.category, status: 'new' })
+    const row: Record<string, unknown> = { id, household_id: householdId, opened_by: user.id, title: form.title.trim().slice(0, 200), description: form.description.trim().slice(0, 2000) || null, priority: form.priority, category: form.category, status: 'new' }
+    // The tenant says how a contractor may enter; it travels to the dispatch and the s.27 notice.
+    if (myRole === 'tenant') row.entry_permission = form.entry
+    // An emergency (RTA s.26) is what the problem is, not the priority chosen (review 2026-10-01).
+    row.emergency = isEmergencyMaintenance({ title: row.title, description: row.description, category: row.category })
+    let { error } = await supabase.from('maintenance_tickets').insert(row)
+    if (error && /entry_permission|emergency/.test(error.message)) { delete row.entry_permission; delete row.emergency; ({ error } = await supabase.from('maintenance_tickets').insert(row)) }
     if (error) setErr(error.message)
-    else { void notifyTicket(id); setForm({ title: '', description: '', priority: 'medium', category: 'other' }); setShowForm(false); await load() }
+    else { void notifyTicket(id); setForm({ title: '', description: '', priority: 'medium', category: 'other', entry: 'call_first' }); setShowForm(false); await load() }
     setBusy(false)
   }
   async function setStatus(t: Ticket, status: string) {
     setBusy(true); setErr(null)
     const { error } = await supabase.from('maintenance_tickets').update({ status, resolved_at: status === 'done' ? new Date().toISOString() : null }).eq('id', t.id)
     if (error) setErr(error.message)
+    // The DB expires the pending dispatch suggestion once the ticket leaves 'new'
+    // (20261001 trigger); the to-do badge should drop it now.
+    else if (t.status === 'new') notifyPendingChanged()
     await load(); setBusy(false)
   }
   const input = 'w-full rounded-lg border border-line-divider bg-white px-3 py-2.5 text-[14px]'
@@ -111,6 +121,11 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
             <select className="rounded-lg border border-line-divider bg-white px-2 py-2 text-[13px]" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}>
               <option value="low">{zh ? '低' : 'Low'}</option><option value="medium">{zh ? '中' : 'Medium'}</option><option value="high">{zh ? '高 · 紧急' : 'High / urgent'}</option>
             </select>
+            {myRole === 'tenant' && (
+              <select aria-label={zh ? '维修人员上门' : 'Entry for the repair'} className="rounded-lg border border-line-divider bg-white px-2 py-2 text-[13px]" value={form.entry} onChange={(e) => setForm((f) => ({ ...f, entry: e.target.value }))} data-testid="ticket-entry-select">
+                <option value="call_first">{zh ? '进入前先电话联系我' : 'Call me before entering'}</option><option value="anytime">{zh ? '按 24 小时通知可进入' : 'Enter on 24-hour notice'}</option><option value="tenant_present">{zh ? '须我本人在场' : 'I must be present'}</option>
+              </select>
+            )}
             <button onClick={() => void createTicket()} disabled={busy || !form.title.trim()} className="rounded-lg px-5 py-2 text-[13px] font-bold text-white disabled:opacity-50" style={{ background: '#00ACE4' }}>{zh ? '提交' : 'Submit'}</button>
             <button onClick={() => setShowForm(false)} className="text-[12.5px] text-body-3 underline">{zh ? '取消' : 'Cancel'}</button>
           </div>

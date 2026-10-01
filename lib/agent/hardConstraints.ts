@@ -123,12 +123,22 @@ export function petsFromMemories(memories: MemoryItem[]): boolean | null {
 
 export type SearchLike = { max_price?: number | null; min_beds?: number | null; pets?: boolean | null }
 
+/** Memories that may become THIS hat's hard constraints: learned under this hat, or role-less
+ *  (this turn's fresh writes). A client's budget saved as an agent, or a unit's bedroom count saved
+ *  as a landlord, is not the person's own home search (sweep 2026-10-01). */
+export function memoriesForHat(memories: MemoryItem[], role?: string | null): MemoryItem[] {
+  if (!role) return memories
+  return memories.filter((m) => !m.role || m.role === role)
+}
+
 /**
  * Merge the deterministic constraints into the model's search object.
  * Message > memory; the model may tighten (a lower cap, more bedrooms) but
  * never loosen or drop a constraint the person stated.
+ * opts.role keeps other hats' memories out; opts.fresh = this turn's memory writes (newest first).
  */
-export function applyHardConstraints(message: string, memories: MemoryItem[], search: SearchLike): { search: SearchLike; constraints: HardConstraints } {
+export function applyHardConstraints(message: string, allMemories: MemoryItem[], search: SearchLike, opts?: { role?: string | null; fresh?: MemoryItem[] }): { search: SearchLike; constraints: HardConstraints } {
+  const memories = [...(opts?.fresh ?? []).map((m) => ({ ...m, role: undefined })), ...memoriesForHat(allMemories, opts?.role)]
   const noLimit = NO_LIMIT_RE.test(message)
   const msgBudget = noLimit ? null : budgetFromText(message)
   const memBudget = noLimit ? null : budgetFromMemories(memories)

@@ -27,6 +27,42 @@ export const ROLE_CHANGED_EVENT = 'sl-role-changed'
  *  the same browser was shown the agent identity on /settings (2026-09-25). */
 export const roleStorageKey = (uid?: string | null): string => (uid ? `${ROLE_KEY}:${uid}` : ROLE_KEY)
 
+// ── The person's own profile photo (not the AI Agent's avatar) ──────────────
+// Cached per account: one unowned 'stayloop-avatar' key showed account A's
+// photo to account B on the same browser, and sign-out never cleared it
+// (sweep 2026-10-01). The upload lives in user_metadata.custom_avatar_url —
+// its own key, because a Google sign-in merges the identity's avatar_url into
+// user_metadata and replaced the uploaded photo.
+const PHOTO_KEY = 'stayloop-avatar'
+export const profilePhotoKey = (uid: string): string => `${PHOTO_KEY}:${uid}`
+export function readCachedProfilePhoto(uid: string | null | undefined): string | null {
+  if (!uid || typeof window === 'undefined') return null
+  try { return window.localStorage.getItem(profilePhotoKey(uid)) } catch { return null }
+}
+export function writeCachedProfilePhoto(uid: string, url: string | null): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (url) window.localStorage.setItem(profilePhotoKey(uid), url)
+    else window.localStorage.removeItem(profilePhotoKey(uid))
+  } catch { /* storage full or blocked: the photo still shows from user_metadata */ }
+}
+/** Drop every cached photo except the signed-in account's (all of them when signed out). */
+export function clearCachedProfilePhotos(keepUid?: string | null): void {
+  if (typeof window === 'undefined') return
+  try {
+    for (const k of Object.keys(window.localStorage)) {
+      if ((k === PHOTO_KEY || k.startsWith(`${PHOTO_KEY}:`)) && !(keepUid && k === profilePhotoKey(keepUid))) window.localStorage.removeItem(k)
+    }
+  } catch { /* ignore */ }
+}
+/** The photo to show: the person's own upload, else the sign-in provider's picture. */
+export function profilePhotoOf(user: User | null | undefined): string | null {
+  const m = (user?.user_metadata ?? {}) as { custom_avatar_url?: unknown; avatar_url?: unknown }
+  if (typeof m.custom_avatar_url === 'string' && m.custom_avatar_url) return m.custom_avatar_url
+  if (typeof m.avatar_url === 'string' && m.avatar_url) return m.avatar_url
+  return null
+}
+
 /**
  * V5 client-side auth hook. Reads Supabase session and exposes the
  * "active role" (tenant / landlord / agent) selected during onboarding.
@@ -85,6 +121,7 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
 
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return
+      clearCachedProfilePhotos(data.session?.user?.id ?? null)
       apply(data.session ?? null)
     })
 
@@ -95,6 +132,8 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
       if (event === 'SIGNED_OUT' && typeof window !== 'undefined') {
         for (const k of Object.keys(window.localStorage)) if (k === ROLE_KEY || k.startsWith(`${ROLE_KEY}:`)) window.localStorage.removeItem(k)
       }
+      // Another account's cached photo never survives a sign-out or an account switch.
+      if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') clearCachedProfilePhotos(s?.user?.id ?? null)
       apply(s ?? null, event)
     })
 
@@ -131,6 +170,7 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
   const signOut = async () => {
     clearCachedAiNames()
     clearStoredAvatar()
+    clearCachedProfilePhotos()
     const supabase = getSupabaseBrowser()
     await supabase.auth.signOut()
     setRole(null)

@@ -156,7 +156,7 @@ export async function reflectUser(admin: SupabaseClient, userId: string): Promis
     // What the person wrote into the profile themselves (assistant settings, 2026-09-25) survives every reflection.
     admin.from('user_memories').select('value').eq('user_id', userId).eq('role', 'self').eq('memory_type', 'system').eq('key', USER_MODEL_KEY).maybeSingle(),
   ])
-  const overrides = readUserOverrides((prevQ.data as { value?: unknown } | null)?.value)
+  let overrides = readUserOverrides((prevQ.data as { value?: unknown } | null)?.value)
   const turns = (turnsQ.data ?? []) as Array<{ action?: string; metadata?: Record<string, unknown>; created_at?: string }>
   if (turns.length < 3) return false // not enough signal to learn from yet
   const convo = turns
@@ -186,6 +186,9 @@ export async function reflectUser(admin: SupabaseClient, userId: string): Promis
     meta: { userId, slot: 'turn', source: 'agent/reflection' },
   })
   const model = sanitizeUserModel(parseModelJson(text), turns.length)
+  // The model call takes up to a minute; a field the person wrote in the settings tab
+  // meanwhile must not be dropped with its override (sweep 2026-10-01) — re-read just before writing.
+  overrides = await latestOverrides(admin, userId, overrides)
   if (!model) {
     // Review 2026-09-14: returning without a row left needsReflection()
     // true forever, so every later turn re-ran this 12k-char call. Stamp an
@@ -216,6 +219,17 @@ export async function reflectUser(admin: SupabaseClient, userId: string): Promis
     return false
   }
   return true
+}
+
+/** The person's overrides as stored right now (falls back to what was read earlier). */
+async function latestOverrides(client: SupabaseClient, userId: string, fallback: Partial<UserOverrides>): Promise<Partial<UserOverrides>> {
+  try {
+    const { data, error } = await client.from('user_memories').select('value').eq('user_id', userId).eq('role', 'self').eq('memory_type', 'system').eq('key', USER_MODEL_KEY).maybeSingle()
+    if (error) return fallback
+    return readUserOverrides((data as { value?: unknown } | null)?.value)
+  } catch {
+    return fallback
+  }
 }
 
 /** Cron sweep: reflect every user active in the last REFLECT_WINDOW_HOURS. */

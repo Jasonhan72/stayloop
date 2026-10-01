@@ -6,6 +6,7 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendLeaseInvitation, type LeaseForSend } from '@/lib/lease/sendLease'
+import { leaseHasTerms } from '@/lib/lease/leaseState'
 
 export const runtime = 'edge'
 
@@ -30,13 +31,21 @@ export async function POST(req: Request) {
   // the lease's landlord (review 2026-09-19).
   const { data: lease, error: le } = await sb
     .from('lease_documents')
-    .select('id, landlord_id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, landlord_signature, tenant_signature')
+    .select('id, landlord_id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, sent_at, landlord_signature, tenant_signature')
     .eq('id', body.lease_id)
     .maybeSingle()
   if (le || !lease) return NextResponse.json({ error: 'lease not found' }, { status: 404 })
   const { data: mine } = await sb.from('landlords').select('id').eq('auth_id', ud.user.id)
   if (!(mine ?? []).some((l: { id: string }) => l.id === lease.landlord_id)) {
     return NextResponse.json({ error: 'only the landlord can send this lease' }, { status: 403 })
+  }
+  // Imported / quick-entered records (status imported / active / ended) are not in the signing
+  // flow: sending one only minted a token for nothing to sign (sweep 2026-10-01).
+  if (!leaseHasTerms(lease.terms)) {
+    return NextResponse.json({ error: 'lease_no_terms', detail: 'only a drafted lease with full terms can be sent for signing' }, { status: 409 })
+  }
+  if (!['draft', 'sent'].includes(String(lease.status))) {
+    return NextResponse.json({ error: 'lease_not_sendable', detail: 'this lease is no longer waiting to be sent (signed or ended)' }, { status: 409 })
   }
   if (!(await underHourlyLimit(`mail:lease-send:${ud.user.id}`, 10, false))) {
     return NextResponse.json({ error: 'hourly send limit reached' }, { status: 429, headers: { 'Retry-After': '3600' } })

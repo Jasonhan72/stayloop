@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
-import { buildListingRow, publishListing } from '@/lib/listingPublish'
+import { buildListingRow, findExistingListing, existingListingMessage, listingSaveOutcomeText, listingStateAfterSave, publishListing, relistExisting, type ExistingListing } from '@/lib/listingPublish'
 import { useLandlord } from '@/lib/useLandlord'
 import { invalidateHats } from '@/lib/useHats'
 import { RegistrantDisclosureModal, useRegistrantProfile } from '@/components/RegistrantDisclosure'
@@ -99,7 +99,10 @@ export default function NewListingPage() {
   }
   const toggleUtility = (id: string) => setForm((f) => ({ ...f, utilities_included: f.utilities_included.includes(id) ? f.utilities_included.filter((x) => x !== id) : [...f.utilities_included, id] }))
 
-  const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
+  const set = (k: string, v: any) => {
+    setForm((f) => ({ ...f, [k]: v }))
+    if (k === 'address' || k === 'unit') { setExisting(null); setRelistDone(null) }
+  }
   const toggleAmenity = (a: string) =>
     setForm((f) => ({
       ...f,
@@ -113,25 +116,27 @@ export default function NewListingPage() {
   const registrant = useRegistrantProfile()
   const [disclosureOpen, setDisclosureOpen] = useState(false)
   const [disclosed, setDisclosed] = useState(false)
+  // The retry after the disclosure runs from the closure of the render that opened it
+  // (disclosed still false there) — the ref is what it can see.
+  const disclosedRef = useRef(false)
 
-  async function submit() {
-    if (!landlord) return
-    if (!form.address.trim() || !form.monthly_rent.trim()) {
-      setError(lang === 'zh' ? '请先填写地址和月租金' : 'Address and monthly rent are required')
-      return
-    }
-    setError(null)
-    if (registrant.profile && !disclosed) { setDisclosureOpen(true); return }
-    setSubmitting(true)
-    const slug =
-      form.address
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .slice(0, 50) +
-      '-' +
-      Math.random().toString(36).slice(2, 6)
-    const row = buildListingRow(
+  // The landlord's own earlier listing at this address + unit (sweep 2026-10-01):
+  // checked when step 1 is done, so a unit that was rented and later taken down
+  // is offered back BEFORE the landlord re-enters everything — and again at publish.
+  const [existing, setExisting] = useState<ExistingListing | null>(null)
+  const [relisting, setRelisting] = useState(false)
+  const [relistDone, setRelistDone] = useState<string | null>(null)
+  const relistIntent = useRef(false)
+  const existingRef = useRef<HTMLDivElement>(null)
+  const [dupAtPublish, setDupAtPublish] = useState(false)
+  async function checkExisting() {
+    setDupAtPublish(false)
+    if (!landlord || !form.address.trim()) { setExisting(null); return }
+    try { setExisting(await findExistingListing(supabase, landlord.landlordId, form.address, form.unit)) } catch { /* the publish step checks again */ }
+  }
+
+  function wizardRow(slug: string) {
+    return buildListingRow(
       {
         address: form.address,
         unit: form.unit,
@@ -152,11 +157,55 @@ export default function NewListingPage() {
         title: form.title.trim() || undefined,
         description: form.description.trim() || undefined,
       },
-      { landlordId: landlord.landlordId, slug, slim: true, photos },
+      { landlordId: landlord!.landlordId, slug, slim: true, photos },
     )
-    const { slug: newSlug, error: e } = await publishListing(supabase, row, { zh: lang === 'zh', selectSlug: true })
+  }
+
+  // Bring the existing row back with what was entered here (same id, slug and price history).
+  async function relist() {
+    if (!landlord || !existing || relisting) return
+    if (!form.monthly_rent.trim() || photos.length === 0) {
+      setError(lang === 'zh' ? '重新上架前请填好月租（第 3 步）并至少保留 1 张照片（第 2 步）。' : 'Before relisting, enter the rent (step 3) and keep at least one photo (step 2).')
+      return
+    }
+    // TRESA s.32: going back on the market is a listing going live, same disclosure as publishing.
+    if (registrant.profile && !disclosed && !disclosedRef.current) { relistIntent.current = true; setDisclosureOpen(true); return }
+    setRelisting(true); setError(null)
+    const res = await relistExisting(supabase, existing, wizardRow(existing.slug || ''), { zh: lang === 'zh' })
+    setRelisting(false)
+    if (res.error !== null || !res.row) { setError(res.error ?? 'relist failed'); return }
+    invalidateHats()
+    setRelistDone(listingSaveOutcomeText(listingStateAfterSave(res.row), lang === 'zh'))
+  }
+
+  async function submit() {
+    if (!landlord) return
+    if (!form.address.trim() || !form.monthly_rent.trim()) {
+      setError(lang === 'zh' ? '请先填写地址和月租金' : 'Address and monthly rent are required')
+      return
+    }
+    setError(null)
+    if (registrant.profile && !disclosed && !disclosedRef.current) { setDisclosureOpen(true); return }
+    setSubmitting(true)
+    const slug =
+      form.address
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 50) +
+      '-' +
+      Math.random().toString(36).slice(2, 6)
+    const row = wizardRow(slug)
+    const { slug: newSlug, error: e, existing: dup } = await publishListing(supabase, row, { zh: lang === 'zh', selectSlug: true })
     setSubmitting(false)
     if (e) {
+      if (dup) {
+        // The offer to bring it back sits at the top of the page; say so next to the button
+        // too and bring the panel into view (the landlord is at the bottom of step 5).
+        setExisting(dup); setError(null); setDupAtPublish(true)
+        requestAnimationFrame(() => existingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+        return
+      }
       setError(e)
       return
     }
@@ -184,7 +233,7 @@ export default function NewListingPage() {
           profile={registrant.profile}
           context="listing_publish"
           zh={lang === 'zh'}
-          onDone={() => { setDisclosureOpen(false); setDisclosed(true); setTimeout(() => { void submit() }, 0) }}
+          onDone={() => { setDisclosureOpen(false); setDisclosed(true); disclosedRef.current = true; const again = relistIntent.current; relistIntent.current = false; setTimeout(() => { void (again ? relist() : submit()) }, 0) }}
           onCancel={() => setDisclosureOpen(false)}
         />
       )}
@@ -301,6 +350,41 @@ export default function NewListingPage() {
             })}
           </div>
 
+          {existing && (
+            <div ref={existingRef} className="mb-4 scroll-mt-24 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900" data-testid="existing-listing">
+              {relistDone ? (
+                <>
+                  <div className="font-semibold text-success">{lang === 'zh' ? '✓ 原房源已重新上架' : '✓ Your listing is back on the market'}</div>
+                  <div className="mt-1 text-body-2">{relistDone}</div>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    <Link href="/dashboard" className="font-semibold text-brand underline underline-offset-2">{lang === 'zh' ? '回到工作台 →' : 'Back to workspace →'}</Link>
+                    <Link href={`/dashboard/listings/${existing.id}/edit`} className="font-semibold text-brand underline underline-offset-2">{lang === 'zh' ? '去编辑页再看看 →' : 'Open the editor →'}</Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>{existingListingMessage(existing, lang === 'zh', form.unit)}</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    {!existing.is_active && (
+                      <button onClick={() => void relist()} disabled={relisting} className="sl-btn-primary !px-4 !py-[8px] !text-[12.5px] disabled:opacity-50" data-testid="relist-existing">
+                        {relisting ? (lang === 'zh' ? '处理中…' : 'Working…') : (lang === 'zh' ? '用这次填写的内容重新上架它' : 'Relist it with what you entered here')}
+                      </button>
+                    )}
+                    <Link href={`/dashboard/listings/${existing.id}/edit${existing.is_active ? '' : '?relist=1'}`} className="font-semibold text-brand underline underline-offset-2">
+                      {lang === 'zh' ? '打开原房源编辑 →' : 'Open the existing listing →'}
+                    </Link>
+                  </div>
+                  {error && step !== 5 && <div className="mt-2 rounded-md bg-danger/10 px-3 py-2 text-[12.5px] text-danger">{error}</div>}
+                  {!existing.is_active && (
+                    <p className="mt-1.5 text-[12px] text-amber-800">
+                      {lang === 'zh' ? '重新上架会保留原来的链接与价格记录，并用这里填写的内容（含照片）覆盖原内容；改了租金或户型的已认证房源会回到审核。' : 'Relisting keeps the original link and price history and replaces the content (including photos) with what you entered here; a verified listing whose rent or layout changed goes back to review.'}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           <div className="sl-card p-7 sm:p-8">
             {step === 1 && (
               <div className="space-y-4">
@@ -381,7 +465,7 @@ export default function NewListingPage() {
                     : 'Only the amenities you tap are published; untapped ones are not shown as absent — they simply do not appear.'}
                 </p>
 
-                <button onClick={() => setStep(2)} className="sl-btn-primary w-full !py-[12px]">{lang === 'zh' ? '下一步 · 照片' : 'Next · Photos'}</button>
+                <button onClick={() => { void checkExisting(); setStep(2) }} className="sl-btn-primary w-full !py-[12px]">{lang === 'zh' ? '下一步 · 照片' : 'Next · Photos'}</button>
               </div>
             )}
 
@@ -594,6 +678,14 @@ export default function NewListingPage() {
                 </div>
 
                 {error && <div className="rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</div>}
+                {dupAtPublish && existing && !relistDone && (
+                  <div className="rounded-md bg-amber-50 px-3 py-2 text-[13px] text-amber-900" data-testid="publish-existing-note">
+                    {lang === 'zh' ? '没有发布：这套房源已在你的账号里——见页面上方，可以把它恢复或直接去编辑。' : 'Not published: this listing is already on your account — see the top of the page to bring it back or edit it.'}{' '}
+                    <button type="button" onClick={() => existingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="font-semibold underline underline-offset-2">
+                      {lang === 'zh' ? '回到上方 ↑' : 'Go to it ↑'}
+                    </button>
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <button onClick={() => setStep(4)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
                   <button onClick={submit} disabled={submitting || photos.length === 0} title={photos.length === 0 ? (lang === 'zh' ? '请先在第 2 步添加照片' : 'Add a photo in step 2 first') : undefined} className="sl-btn-primary flex-1 !py-[12px] disabled:opacity-50">

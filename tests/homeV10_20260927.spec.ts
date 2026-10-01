@@ -22,9 +22,11 @@ describe('the homepage no longer hosts the conversation', () => {
     expect(home).toContain('<LoginCard className="mx-auto mt-8 w-full max-w-[400px] scroll-mt-24 sm:mt-10" />')
     expect(home).toContain('href="#login"') // the closing「免费开始 ↑」scrolls back up to it
     expect(home).toContain("const TRY_HREF = '/tenant/agent'") // the free, no-account demo lives on the preview page
-    expect(home).toContain('租房路上的每一步，')
-    expect(home).toContain('你自己的 AI 助理')
+    // 2026-10-01 user: one line, 「租房的事，交给AI助理」
+    expect(home).toContain('<span className="whitespace-nowrap">租房的事，交给<em className="not-italic" style={{ color: \'#00ACE4\' }}>AI助理</em></span>')
+    expect(home).not.toContain('租房路上的每一步')
     expect(home).not.toContain('sm:text-[52px]') // 44px h1 stays (2026-09-25)
+    expect(home).toContain('text-[clamp(22px,7.6vw,30px)]') // one line down to 320px
   })
   it('a signed-in visitor is redirected with the login page’s predicate; the first render never branches on auth', () => {
     expect(home).toMatch(/const signedIn = !auth\.loading && !!auth\.user && !\(auth\.user as \{ is_anonymous\?: boolean \}\)\.is_anonymous/)

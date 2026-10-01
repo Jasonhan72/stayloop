@@ -244,12 +244,16 @@ export async function runAgentTurn(args: {
 
   if (turn.error) throw new Error(turn.error)
 
-  const memoryWrites = anonymous ? [] : (turn.memory_writes ?? [])
+  const modelWrites = anonymous ? [] : (turn.memory_writes ?? [])
 
   // §05 — persist implicit memory (RLS-scoped). Best-effort. Never for
   // anonymous turns (no user, and the server already strips the writes).
-  if (live && !anonymous && memoryWrites.length && client && userId) {
-    await upsertMemories(client, userId, role, memoryWrites)
+  // The session merges the rows AS STORED (role, the pinned memory_type, source),
+  // never the model's raw items — those can carry a type the row does not have,
+  // and the panel's forget / edit then matched nothing (sweep 2026-10-01, C3).
+  let memoryWrites: MemoryItem[] = []
+  if (live && !anonymous && modelWrites.length && client && userId) {
+    memoryWrites = await upsertMemories(client, userId, role, modelWrites)
   }
 
   // Build the pending action. The model only proposes; this is an approval card.

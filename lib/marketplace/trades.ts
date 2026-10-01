@@ -96,11 +96,63 @@ export function cityMatch(served: string, city: string): boolean {
   return a === 'toronto' && TORONTO_AREAS.includes(b)
 }
 
-/** Days until the earliest required credential expires (null = nothing expiring). */
+/**
+ * A credential row is superseded when the same provider holds a VERIFIED row
+ * of the same kind that runs longer (or never expires): the renewal is on
+ * file and checked, so the old row's expiry no longer means anything — no
+ * banner, no "dispatch paused" reminder (sweep 2026-10-01). An unverified
+ * renewal does not supersede: if it is not checked in time, coverage really
+ * does drop.
+ */
+export function isSuperseded(c: CredentialLite, all: CredentialLite[]): boolean {
+  if (!c.expires_at) return false
+  return all.some((d) => d !== c && d.kind === c.kind && !!d.verified_at && (d.expires_at == null || d.expires_at > c.expires_at!))
+}
+
+/**
+ * Where a provider stands on one credential kind while renewing it, by the
+ * same rule coverageFor applies: 'live' (a verified, unexpired row of that kind
+ * is on file — no gap while the renewal is checked), 'grace' (only a verified
+ * row inside the admin grace window; counts until graceUntil), 'unverified'
+ * (the row is unexpired but was never verified, so it never counted) or
+ * 'lapsed' (expired — until the renewal is verified, trades needing it are not
+ * covered). The renewal hint must not say "the old record stays valid" unless
+ * it does.
+ */
+export function renewalStanding(c: CredentialLite, all: CredentialLite[], today = new Date(), graceDays = 0): { state: 'live' | 'grace' | 'unverified' | 'lapsed'; graceUntil?: string } {
+  const t = today.toISOString().slice(0, 10)
+  const g = clampGraceDays(graceDays)
+  const same = [c, ...all.filter((d) => d !== c && d.kind === c.kind)]
+  if (same.some((d) => d.verified_at && (!d.expires_at || d.expires_at >= t))) return { state: 'live' }
+  if (g > 0 && GRACE_ELIGIBLE_KINDS.includes(c.kind as CredentialKind)) {
+    const graceCut = new Date(today.getTime() - g * 86_400_000).toISOString().slice(0, 10)
+    const graced = same.filter((d) => d.verified_at && d.expires_at && d.expires_at >= graceCut).map((d) => d.expires_at as string).sort()
+    if (graced.length) {
+      const until = new Date(new Date(graced[graced.length - 1] + 'T00:00:00Z').getTime() + g * 86_400_000).toISOString().slice(0, 10)
+      return { state: 'grace', graceUntil: until }
+    }
+  }
+  if (!c.verified_at && (!c.expires_at || c.expires_at >= t)) return { state: 'unverified' }
+  return { state: 'lapsed' }
+}
+
+/** The renewal hint on the onboarding page, worded by renewalStanding. */
+export function renewHintText(kind: CredentialKind, standing: ReturnType<typeof renewalStanding>, zh: boolean): string {
+  const name = zh ? CREDENTIAL_LABEL[kind].zh : CREDENTIAL_LABEL[kind].en
+  const head = zh ? `续期「${name}」：填新编号（如有）和新的到期日后添加。` : `Renewing "${name}": enter the new number (if any) and the new expiry, then add. `
+  switch (standing.state) {
+    case 'live': return head + (zh ? '旧记录在新记录核验通过前继续有效，核验通过后不再提醒，可再删除。' : 'The old record stays valid until the new one is verified; after that it sends no reminders and can be removed.')
+    case 'grace': return head + (zh ? `旧记录已过期，宽限期内（到 ${standing.graceUntil}）仍计入覆盖；新记录要在此之前核验通过，否则需要它的工种不计入覆盖，派单会跳过你。` : `The old record has expired but still counts during the grace period (until ${standing.graceUntil}); if the new one is not verified by then, trades that need it stop counting and dispatch skips you.`)
+    case 'unverified': return head + (zh ? '旧记录还没有核验，本来就不计入覆盖；新记录核验通过后才计入。' : 'The old record was never verified, so it does not count toward coverage; the new one counts once verified.')
+    default: return head + (zh ? '旧记录已过期；新记录核验通过前，需要它的工种不计入覆盖，派单会跳过你。' : 'The old record has expired; until the new one is verified, trades that need it do not count toward coverage and dispatch skips you.')
+  }
+}
+
+/** Days until the earliest required credential expires (null = nothing expiring). Superseded rows are ignored. */
 export function earliestExpiry(creds: CredentialLite[], today = new Date()): { kind: string; days: number } | null {
   let best: { kind: string; days: number } | null = null
   for (const c of creds) {
-    if (!c.expires_at) continue
+    if (!c.expires_at || isSuperseded(c, creds)) continue
     const d = Math.round((new Date(c.expires_at + 'T00:00:00Z').getTime() - Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())) / 86_400_000)
     if (!best || d < best.days) best = { kind: c.kind, days: d }
   }

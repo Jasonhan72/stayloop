@@ -9,11 +9,13 @@
 // row role=self · key=user_model — where the person's own edits are kept as
 // user_overrides and outrank every later reflection. Every item is edited in
 // place; preview sessions only look.
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
-import { PERSONA_MAX, readAssistantProfile, sanitizePersona, sanitizeVibe, saveAssistantPersona, saveAssistantVibe, VIBE_MAX } from '@/lib/agent/assistantProfile'
+import { checkPersona, checkVibe, OVERRIDE_REJECTED, PERSONA_MAX, readAssistantProfile, saveAssistantPersona, saveAssistantVibe, VIBE_MAX } from '@/lib/agent/assistantProfile'
+import { MEMORIES_CHANGED_EVENT, notifyMemoriesChanged } from '@/lib/agent/memory'
+import { ACTIVITY_CHANGED_EVENT } from '@/lib/agent/useActivityLog'
 import { loadTurnModels, saveTurnModel, type TurnModelState } from '@/lib/agent/modelCatalog'
 import { writeAuditEvent } from '@/lib/agent/audit'
 import PushSettingsCard from '@/components/mobile/PushSettingsCard'
@@ -42,6 +44,16 @@ type Profile = Partial<Record<ListField, string[]>> & Partial<Record<TextField, 
   updated_at?: string
   turns_analyzed?: number
   user_overrides?: Partial<Record<ListField, string[]> & Record<TextField, string>>
+}
+
+/** A field edit merges into the value (value.updated_at) without moving the row's reflection
+ *  stamp, so 「更新于」 shows whichever is later. */
+function latestDate(a: string | null | undefined, b: string | null | undefined): string | null {
+  const ta = a ? Date.parse(a) : NaN
+  const tb = b ? Date.parse(b) : NaN
+  if (!Number.isFinite(ta)) return Number.isFinite(tb) ? (b as string) : null
+  if (!Number.isFinite(tb)) return a as string
+  return tb > ta ? (b as string) : (a as string)
 }
 
 function fmtDate(iso: string | null | undefined, zh: boolean): string {
@@ -75,27 +87,36 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
   const [personaEditing, setPersonaEditing] = useState(false)
   const [personaDraft, setPersonaDraft] = useState('')
   const [personaSaving, setPersonaSaving] = useState(false)
+  const [vibeErr, setVibeErr] = useState<string | null>(null)
+  const [personaErr, setPersonaErr] = useState<string | null>(null)
   useEffect(() => {
     if (!uid) { setVibe(null); setPersona(null); setVibeReady(true); return }
     let cancelled = false
     readAssistantProfile(supabase).then((p) => { if (!cancelled) { setVibe(p?.vibe ?? null); setPersona(p?.persona ?? null); setVibeReady(true) } })
     return () => { cancelled = true }
   }, [uid])
+  // Text the injection filter rejects is never written (it used to be saved as NULL over the
+  // stored style / persona while the editor closed as if saved — sweep 2026-10-01): the editor
+  // stays open with the reason. Only an explicitly empty draft clears the field.
   async function saveVibe() {
     if (!uid) return
-    const next = sanitizeVibe(draft)
-    setSaving(true)
+    const c = checkVibe(draft)
+    if (!c.ok) { setVibeErr(zh ? OVERRIDE_REJECTED.zh : OVERRIDE_REJECTED.en); return }
+    const next = c.value
+    setSaving(true); setVibeErr(null)
     const ok = await saveAssistantVibe(supabase, uid, next)
     setSaving(false)
-    if (ok) { setVibe(next); setEditing(false) }
+    if (ok) { setVibe(next); setEditing(false) } else setVibeErr(zh ? '没有保存成功，请再试一次。' : 'Could not save; please try again.')
   }
   async function savePersona() {
     if (!uid) return
-    const next = sanitizePersona(personaDraft)
-    setPersonaSaving(true)
+    const c = checkPersona(personaDraft)
+    if (!c.ok) { setPersonaErr(zh ? OVERRIDE_REJECTED.zh : OVERRIDE_REJECTED.en); return }
+    const next = c.value
+    setPersonaSaving(true); setPersonaErr(null)
     const ok = await saveAssistantPersona(supabase, uid, next)
     setPersonaSaving(false)
-    if (ok) { setPersona(next); setPersonaEditing(false) }
+    if (ok) { setPersona(next); setPersonaEditing(false) } else setPersonaErr(zh ? '没有保存成功，请再试一次。' : 'Could not save; please try again.')
   }
 
   // Answering model — user_model_preferences (same store as the input bar and /settings/models).
@@ -121,10 +142,12 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
   const [fieldEditing, setFieldEditing] = useState<Field | null>(null)
   const [fieldDraft, setFieldDraft] = useState('')
   const [fieldBusy, setFieldBusy] = useState(false)
-  useEffect(() => {
+  const [fieldErr, setFieldErr] = useState<string | null>(null)
+  // Loaded on open and re-read whenever it may have moved underneath the tab: the window
+  // regains focus, a turn finished (reflection runs right after one), or another surface wrote memories.
+  const loadProfile = useCallback(async (cancelled?: () => boolean) => {
     if (!uid) { setProfile(null); setProfileReady(true); return }
-    let cancelled = false
-    supabase
+    const { data } = await supabase
       .from('user_memories')
       .select('value, updated_at')
       .eq('user_id', uid)
@@ -132,63 +155,92 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
       .eq('memory_type', 'system')
       .eq('key', USER_MODEL_KEY)
       .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return
-        const row = data as { value?: unknown; updated_at?: string | null } | null
-        setProfile(row ? { value: (row.value && typeof row.value === 'object' ? (row.value as Profile) : {}), updated_at: row.updated_at ?? null } : null)
-        setProfileReady(true)
-      })
-    return () => { cancelled = true }
+    if (cancelled?.()) return
+    const row = data as { value?: unknown; updated_at?: string | null } | null
+    setProfile(row ? { value: (row.value && typeof row.value === 'object' ? (row.value as Profile) : {}), updated_at: row.updated_at ?? null } : null)
+    setProfileReady(true)
   }, [uid])
+  useEffect(() => {
+    let cancelled = false
+    void loadProfile(() => cancelled)
+    const again = () => { void loadProfile(() => cancelled) }
+    window.addEventListener('focus', again)
+    window.addEventListener(MEMORIES_CHANGED_EVENT, again)
+    window.addEventListener(ACTIVITY_CHANGED_EVENT, again)
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', again)
+      window.removeEventListener(MEMORIES_CHANGED_EVENT, again)
+      window.removeEventListener(ACTIVITY_CHANGED_EVENT, again)
+    }
+  }, [loadProfile])
   const isList = (f: Field): f is ListField => (LIST_FIELDS as readonly string[]).includes(f)
   function startField(f: Field) {
     const v = profile?.value[f]
     setFieldDraft(isList(f) ? ((v as string[] | undefined) ?? []).join('\n') : ((v as string | undefined) ?? ''))
+    setFieldErr(null)
     setFieldEditing(f)
   }
-  async function writeProfile(next: Profile, field: Field, cleared: boolean) {
+  /** Change ONE field server-side (set_user_model_field: jsonb merge of value[f] and
+   *  value.user_overrides[f], upsert when there is no row). The tab used to write its whole
+   *  snapshot back — a reflection that finished after the tab opened was replaced by the old
+   *  profile, and with no row loaded the insert hit a duplicate key (sweep 2026-10-01). */
+  async function writeField(f: Field, val: string[] | string | null, release: boolean) {
     if (!uid) return
     setFieldBusy(true)
+    setFieldErr(null)
     try {
-      const now = new Date().toISOString()
-      const value = { ...next, updated_at: now.slice(0, 10) }
-      if (profile) {
-        const { error } = await supabase.from('user_memories').update({ value, source: 'user_edit', updated_at: now }).eq('user_id', uid).eq('role', 'self').eq('memory_type', 'system').eq('key', USER_MODEL_KEY)
-        if (error) { alert(error.message); return }
+      type SavedRow = { value?: unknown; updated_at?: string | null }
+      let saved: SavedRow | null = null
+      const { data, error } = await supabase.rpc('set_user_model_field', { p_field: f, p_value: release ? null : val, p_release: release })
+      if (!error) {
+        saved = (data ?? null) as SavedRow | null
+      } else if (error.code === 'PGRST202' || /could not find the function|does not exist/i.test(error.message)) {
+        // The migration is not applied yet: re-read right now and change only this field.
+        const { data: cur, error: readErr } = await supabase.from('user_memories').select('value').eq('user_id', uid).eq('role', 'self').eq('memory_type', 'system').eq('key', USER_MODEL_KEY).maybeSingle()
+        if (readErr) { setFieldErr(readErr.message); return }
+        const prev = ((cur as { value?: unknown } | null)?.value && typeof (cur as { value?: unknown }).value === 'object' ? (cur as { value: Profile }).value : {}) as Profile
+        if (release && !cur) { setFieldEditing(null); return }
+        const overrides: Record<string, unknown> = { ...(prev.user_overrides ?? {}) }
+        if (release) delete overrides[f]
+        else overrides[f] = val
+        const now = new Date().toISOString()
+        const value = release ? { ...prev, user_overrides: overrides } : { ...prev, [f]: val, user_overrides: overrides, updated_at: now.slice(0, 10) }
+        const { data: up, error: upErr } = await supabase.from('user_memories').upsert({ user_id: uid, role: 'self', memory_type: 'system', key: USER_MODEL_KEY, label: '用户画像', value, confidence: 1, source: 'user_edit', updated_at: now }, { onConflict: 'user_id,role,memory_type,key' }).select('value, updated_at').maybeSingle()
+        if (upErr) { setFieldErr(upErr.message); return }
+        saved = (up as SavedRow | null)
       } else {
-        const { error } = await supabase.from('user_memories').insert({ user_id: uid, role: 'self', memory_type: 'system', key: USER_MODEL_KEY, label: '用户画像', value, confidence: 1, source: 'user_edit', updated_at: now })
-        if (error) { alert(error.message); return }
+        setFieldErr(error.message)
+        return
       }
-      setProfile({ value, updated_at: now })
+      if (saved && saved.value && typeof saved.value === 'object') setProfile({ value: saved.value as Profile, updated_at: saved.updated_at ?? null })
       setFieldEditing(null)
-      void writeAuditEvent(supabase, { actorId: uid, action: 'memory_edited', targetType: 'user_memory', metadata: { key: USER_MODEL_KEY, memory_type: 'system', role: 'self', field, cleared } })
+      notifyMemoriesChanged()
+      void writeAuditEvent(supabase, { actorId: uid, action: 'memory_edited', targetType: 'user_memory', metadata: { key: USER_MODEL_KEY, memory_type: 'system', role: 'self', field: f, cleared: release } })
     } finally {
       setFieldBusy(false)
     }
   }
   /** Save the person's own wording for a field — it outranks reflection from now on (user_overrides). */
   async function saveField(f: Field) {
-    const prev = profile?.value ?? {}
     const val = isList(f)
       ? fieldDraft.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 8).map((s) => s.slice(0, 80))
       : fieldDraft.trim().slice(0, 160)
-    const overrides = { ...(prev.user_overrides ?? {}), [f]: val }
-    await writeProfile({ ...prev, [f]: val, user_overrides: overrides }, f, false)
+    await writeField(f, val, false)
   }
   /** Drop the person's wording for a field: the next reflection fills it in again. */
   async function releaseField(f: Field) {
-    const prev = profile?.value ?? {}
-    const overrides = { ...(prev.user_overrides ?? {}) }
-    delete overrides[f]
-    await writeProfile({ ...prev, user_overrides: overrides }, f, true)
+    await writeField(f, null, true)
   }
   async function forgetProfile() {
     if (!uid || !profile) return
     if (!window.confirm(zh ? '忘掉它对你的画像（包括你自己写的项）？下一轮对话后它会重新学习。' : 'Forget its profile of you, including what you wrote? It relearns after the next conversation.')) return
-    const { error } = await supabase.from('user_memories').delete().eq('user_id', uid).eq('role', 'self').eq('memory_type', 'system').eq('key', USER_MODEL_KEY)
-    if (error) return
+    const { data: hit, error } = await supabase.from('user_memories').delete().eq('user_id', uid).eq('role', 'self').eq('memory_type', 'system').eq('key', USER_MODEL_KEY).select('key')
+    if (error) { setFieldErr(error.message); return }
     setProfile(null)
     setFieldEditing(null)
+    notifyMemoriesChanged()
+    if (!hit || !hit.length) return
     void writeAuditEvent(supabase, { actorId: uid, action: 'memory_forgotten', targetType: 'user_memory', metadata: { key: USER_MODEL_KEY, memory_type: 'system', role: 'self' } })
   }
 
@@ -231,9 +283,10 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
             />
             <div className="mt-1.5 flex items-center gap-2">
               <button type="submit" disabled={personaSaving} className="rounded-full px-3.5 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50" style={{ background: '#1B1B3C' }}>{personaSaving ? '…' : zh ? '保存' : 'Save'}</button>
-              <button type="button" onClick={() => setPersonaEditing(false)} className="rounded-full px-3 py-1.5 text-[12.5px] font-bold text-body-3">{zh ? '取消' : 'Cancel'}</button>
+              <button type="button" onClick={() => { setPersonaEditing(false); setPersonaErr(null) }} className="rounded-full px-3 py-1.5 text-[12.5px] font-bold text-body-3">{zh ? '取消' : 'Cancel'}</button>
               <span className="ml-auto font-mono text-[10.5px] text-body-3">{personaDraft.length}/{PERSONA_MAX}</span>
             </div>
+            {personaErr && <p role="alert" data-testid="persona-error" className="mt-1.5 text-[12px] leading-snug text-danger">{personaErr}</p>}
           </form>
         ) : (
           <>
@@ -265,9 +318,10 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
             />
             <div className="mt-1.5 flex items-center gap-2">
               <button type="submit" disabled={saving} className="rounded-full px-3.5 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50" style={{ background: '#1B1B3C' }}>{saving ? '…' : zh ? '保存' : 'Save'}</button>
-              <button type="button" onClick={() => setEditing(false)} className="rounded-full px-3 py-1.5 text-[12.5px] font-bold text-body-3">{zh ? '取消' : 'Cancel'}</button>
+              <button type="button" onClick={() => { setEditing(false); setVibeErr(null) }} className="rounded-full px-3 py-1.5 text-[12.5px] font-bold text-body-3">{zh ? '取消' : 'Cancel'}</button>
               <span className="ml-auto font-mono text-[10.5px] text-body-3">{draft.length}/{VIBE_MAX}</span>
             </div>
+            {vibeErr && <p role="alert" data-testid="vibe-error" className="mt-1.5 text-[12px] leading-snug text-danger">{vibeErr}</p>}
           </form>
         ) : (
           <>
@@ -324,7 +378,7 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
           <div className="text-[17px] font-extrabold tracking-tight">{zh ? '画像' : 'Profile'}</div>
           <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-white/75">{zh ? '只有你能看到' : 'Only you can see this'}</div>
           <div className="mt-6 text-[12px] text-white/90">{zh ? '它对你的理解 · 可改' : 'What it has learned about you · editable'}</div>
-          <div className="mt-0.5 font-mono text-[11px] text-white/75">{!profileReady ? '…' : profile ? fmtDate(profile.updated_at ?? profile.value.updated_at, zh) || (zh ? '已生成' : 'ready') : (zh ? '尚未生成 · 可自己写' : 'not yet · write your own')}</div>
+          <div className="mt-0.5 font-mono text-[11px] text-white/75">{!profileReady ? '…' : profile ? fmtDate(latestDate(profile.updated_at, profile.value.updated_at), zh) || (zh ? '已生成' : 'ready') : (zh ? '尚未生成 · 可自己写' : 'not yet · write your own')}</div>
         </button>
         <button
           type="button"
@@ -383,8 +437,9 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
                           />
                           <div className="mt-1 flex gap-1.5">
                             <button type="submit" disabled={fieldBusy} className="rounded-full px-3 py-1 text-[12px] font-bold text-white disabled:opacity-50" style={{ background: '#1B1B3C' }}>{fieldBusy ? '…' : zh ? '保存' : 'Save'}</button>
-                            <button type="button" onClick={() => setFieldEditing(null)} className="rounded-full px-2.5 py-1 text-[12px] font-bold text-body-3">{zh ? '取消' : 'Cancel'}</button>
+                            <button type="button" onClick={() => { setFieldEditing(null); setFieldErr(null) }} className="rounded-full px-2.5 py-1 text-[12px] font-bold text-body-3">{zh ? '取消' : 'Cancel'}</button>
                           </div>
+                          {fieldErr && <p role="alert" className="mt-1 text-[12px] text-danger">{fieldErr}</p>}
                         </form>
                       ) : empty ? (
                         <div className="mt-0.5 text-[12.5px] text-body-3">{zh ? '（空）' : '(empty)'}</div>
@@ -400,11 +455,12 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
               <div className="mt-3 flex items-center justify-between border-t border-line-soft pt-2">
                 <span className="font-mono text-[10.5px] text-body-3">
                   {profile
-                    ? (zh ? `更新于 ${fmtDate(profile.updated_at ?? p?.updated_at, zh)}` : `Updated ${fmtDate(profile.updated_at ?? p?.updated_at, zh)}`)
+                    ? (zh ? `更新于 ${fmtDate(latestDate(profile.updated_at, p?.updated_at), zh)}` : `Updated ${fmtDate(latestDate(profile.updated_at, p?.updated_at), zh)}`)
                     : (zh ? '尚未生成' : 'Not yet')}
                 </span>
                 {profile && <button type="button" onClick={() => void forgetProfile()} className="text-[12px] font-bold text-danger">{zh ? '忘掉画像' : 'Forget'}</button>}
               </div>
+              {fieldErr && !fieldEditing && <p role="alert" className="mt-1 text-[12px] text-danger">{fieldErr}</p>}
               <p className="mt-2 text-[11px] text-body-3">{zh ? `画像跨三种身份合成，只在你（${role === 'landlord' ? '房东' : role === 'agent' ? '经纪' : '租客'}或其他身份）与它对话时使用。` : 'One profile across your hats, used only when you talk with it.'}</p>
             </>
           )}

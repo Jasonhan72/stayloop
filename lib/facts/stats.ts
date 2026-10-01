@@ -6,6 +6,7 @@
 // under a rail that said 租中 (external review 2026-09-26).
 import { isApplicationOpen, isLeaseInForce, isRentOutstanding, isTicketOpen, leaseDisplayState, type LeaseDisplayState } from '@/lib/matters/states'
 import { daysBetween, parseDateOnly, todayUtc } from '@/lib/dates'
+import { successorLease } from '@/lib/agent/renewalStages'
 import type { AgentFactsRaw, AnyFacts, LandlordFactsRaw, TenantFactsRaw } from './useFacts'
 import type { AgentRole } from '@/lib/agent/types'
 
@@ -59,7 +60,8 @@ export function landlordStats(f: LandlordFactsRaw, today = new Date()): Stats {
     if (days < 0 || days > RENEWAL_WINDOW_DAYS) return null
     return days <= 30 ? '30d' : days <= 60 ? '60d' : '90d'
   }
-  const stages = inForce.map(stageOf)
+  // A lease already followed by a signed one on the same unit is not up for renewal (sweep 2026-10-01).
+  const stages = inForce.filter((l) => !successorLease(l, f.leases)).map(stageOf)
   const renewal = { d90: stages.filter((s) => s === '90d').length, d60: stages.filter((s) => s === '60d').length, d30: stages.filter((s) => s === '30d').length }
   const month = f.rent_month
   const rentMonth = month.length

@@ -19,8 +19,10 @@ import { supabase, getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import type { ApplicationFile } from '@/types'
 import ApprovalActionCard from '@/components/agent/ApprovalActionCard'
-import { decidePendingAction } from '@/lib/agent/approval-engine'
+import { decidePendingAction, PENDING_EXPIRED_EVENT } from '@/lib/agent/approval-engine'
+import { notifyPendingChanged } from '@/lib/agent/pendingCount'
 import type { PendingAction } from '@/lib/agent/types'
+import { inUndoWindow, noticeConfirmedSent, noticeControls, noticeDecisionOf, noticeReasonText, pickNoticeCards, type NoticeDecision, type NoticeRow } from '../noticeState'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -74,6 +76,8 @@ type AppDetail = {
   status: string | null
   created_at: string
   archived_at?: string | null
+  decision_notified_at: string | null
+  decision_reason: string | null
   files: ApplicationFile[] | null
   listing: { address: string | null; unit: string | null; monthly_rent: number | null } | null
 }
@@ -97,8 +101,19 @@ function RealApplicantDetail({ id }: { id: string }) {
   // The real pipeline writes its result on the screening row, not on
   // applications.ai_score (legacy column) — read it from here (e2e 2026-09-23).
   const [linked, setLinked] = useState<LinkedScreening | null>(null)
-  const [noticeCard, setNoticeCard] = useState<PendingAction | null>(null)
+  // The newest pending notice card, and the newest approved one that never went
+  // out (a failed send stays approved with executed_at null — it must not vanish).
+  const [noticeCard, setNoticeCard] = useState<(PendingAction & NoticeRow) | null>(null)
+  const [stuckCard, setStuckCard] = useState<(PendingAction & NoticeRow) | null>(null)
+  const [noticeBusy, setNoticeBusy] = useState(false)
   const [noticeDone, setNoticeDone] = useState<string | null>(null)
+  // A neutral outcome that is neither sent nor failed (another page holds the send).
+  const [noticeInfo, setNoticeInfo] = useState<string | null>(null)
+  // Cards this page already tried to send: a failed attempt is no longer "waiting
+  // out the undo window", whatever decided_at says.
+  const [triedHere, setTriedHere] = useState<ReadonlySet<string>>(() => new Set())
+  // A card the landlord rejected on this page (e.g. to fix a typo in the reason).
+  const [lastRejected, setLastRejected] = useState<{ decision: NoticeDecision; reason: string | null } | null>(null)
   const [needsMoreOpen, setNeedsMoreOpen] = useState(false)
   const [needsMoreText, setNeedsMoreText] = useState('')
 
@@ -113,7 +128,7 @@ function RealApplicantDetail({ id }: { id: string }) {
       const { data } = await supabase
         .from('applications')
         .select(
-          'id, first_name, last_name, ai_extracted_name, monthly_income, employer_name, job_title, ai_score, ai_summary, ai_dimension_notes, doc_authenticity_score, payment_ability_score, court_records_score, stability_score, behavior_signals_score, info_consistency_score, ltb_records_found, status, created_at, archived_at, files, viewed_at, listing:listings(address, unit, monthly_rent)',
+          'id, first_name, last_name, ai_extracted_name, monthly_income, employer_name, job_title, ai_score, ai_summary, ai_dimension_notes, doc_authenticity_score, payment_ability_score, court_records_score, stability_score, behavior_signals_score, info_consistency_score, ltb_records_found, status, created_at, archived_at, decision_notified_at, decision_reason, files, viewed_at, listing:listings(address, unit, monthly_rent)',
         )
         .eq('id', id)
         .maybeSingle()
@@ -142,24 +157,71 @@ function RealApplicantDetail({ id }: { id: string }) {
     } finally { setScreenBusy(false) }
   }
 
-  // Load an existing screening link + any pending decision card for this application.
+  const appId = app && app !== 'missing' ? app.id : null
+
+  // The decision lives on the application row; re-read it after a notice goes out
+  // (the executor writes status / decision_notified_at — never this page).
+  const reloadApp = useCallback(async () => {
+    if (!appId) return null
+    const { data } = await supabase.from('applications').select('status, decision_notified_at, decision_reason').eq('id', appId).maybeSingle()
+    const row = (data as Pick<AppDetail, 'status' | 'decision_notified_at' | 'decision_reason'> | null) ?? null
+    if (row) setApp((cur) => (cur && cur !== 'missing' ? { ...cur, ...row } : cur))
+    return row
+  }, [appId])
+
+  const loadCards = useCallback(async () => {
+    if (!appId) return
+    const { data } = await supabase.from('agent_pending_actions').select('*').eq('action_type', 'send_decision').in('status', ['pending', 'approved']).is('executed_at', null).contains('metadata', { application_id: appId }).order('created_at', { ascending: false }).limit(10)
+    const { pending, stuck } = pickNoticeCards(((data ?? []) as unknown) as (PendingAction & NoticeRow)[])
+    setNoticeCard(pending)
+    setStuckCard(stuck)
+  }, [appId])
+
+  // Load an existing screening link + the live decision cards for this application.
   useEffect(() => {
-    if (!app || app === 'missing' || !user) return
+    if (!appId || !user) return
     let cancelled = false
     ;(async () => {
-      const [{ data: sc }, { data: pa }] = await Promise.all([
-        supabase.from('screenings').select('id, status, ai_score, ai_summary, ai_summary_zh, v3_tier, hard_gates_triggered, verification').eq('application_id', app.id).order('created_at', { ascending: false }).limit(1),
-        supabase.from('agent_pending_actions').select('*').eq('action_type', 'send_decision').eq('status', 'pending').contains('metadata', { application_id: app.id }).order('created_at', { ascending: false }).limit(1),
-      ])
+      const { data: sc } = await supabase.from('screenings').select('id, status, ai_score, ai_summary, ai_summary_zh, v3_tier, hard_gates_triggered, verification').eq('application_id', appId).order('created_at', { ascending: false }).limit(1)
       if (cancelled) return
       if (sc && sc.length) { setScreeningId(sc[0].id as string); setLinked(sc[0] as unknown as LinkedScreening) }
-      if (pa && pa.length) setNoticeCard(pa[0] as PendingAction)
     })()
+    void loadCards()
     return () => { cancelled = true }
-  }, [app, user])
+  }, [appId, user, loadCards])
 
-  async function proposeNotice(decision: 'approved' | 'declined' | 'needs_more', reason?: string) {
-    if (!app || app === 'missing' || !user) return
+  // The card's preview found it retired elsewhere (e.g. a newer notice drafted in
+  // another tab) and the landlord chose 「从列表移除」: drop it and show what is live now.
+  const noticeCardId = noticeCard?.id ?? null
+  useEffect(() => {
+    if (!noticeCardId) return
+    const onExpired = (e: Event) => {
+      if ((e as CustomEvent<{ id?: string }>).detail?.id !== noticeCardId) return
+      setNoticeInfo(noticeReasonText('card_retired', zh))
+      void Promise.all([reloadApp(), loadCards()])
+    }
+    window.addEventListener(PENDING_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(PENDING_EXPIRED_EVENT, onExpired)
+  }, [noticeCardId, zh, reloadApp, loadCards])
+
+  async function proposeNotice(decision: NoticeDecision, reason?: string): Promise<boolean> {
+    if (!app || app === 'missing' || !user) return false
+    // One live notice per application (sweep 2026-10-01): an older card left in
+    // the to-do list would otherwise send the opposite decision later. Approved
+    // cards still waiting to be sent are superseded too; a claimed one (executed_at
+    // set) is already on its way and is left alone.
+    // A card carrying the SAME decision (a second request for documents, a re-drafted decline) is
+    // only superseded by the new draft; 'decision_changed' is said only when it really changed.
+    const retire = (reason: 'superseded' | 'decision_changed', meta: Record<string, unknown>) => supabase.from('agent_pending_actions')
+      .update({ status: 'expired', execution_result: { ok: false, reason } })
+      .eq('action_type', 'send_decision').in('status', ['pending', 'approved']).is('executed_at', null)
+      .contains('metadata', meta)
+    const same = await retire('superseded', { application_id: app.id, decision })
+    const changed = await retire('decision_changed', { application_id: app.id })
+    const expErr = same.error ?? changed.error
+    // The executor also refuses a notice that contradicts the recorded decision, so a
+    // failed clean-up here must not block drafting the new one.
+    if (expErr) console.warn('[applicant] could not retire older notices', expErr.message)
     const listingAddr = app.listing ? `${(app.listing as { address?: string }).address ?? ''}` : ''
     const title = decision === 'approved' ? `录取通知：${name} · ${listingAddr}` : decision === 'declined' ? `婉拒通知：${name} · ${listingAddr}` : `补材料通知：${name} · ${listingAddr}`
     // Relay principle (找得到人 2026-09-30): the card names the applicant, never
@@ -175,55 +237,160 @@ function RealApplicantDetail({ id }: { id: string }) {
       risk_level: decision === 'declined' ? 'medium' : 'low', status: 'pending', requires_approval: true,
       metadata: { application_id: app.id, decision, reason: reason || null, source: 'applicant_page' },
     }).select('*').single()
-    if (error || !row) { setErr(error?.message || 'could not create card'); return }
-    setNoticeCard(row as PendingAction)
+    // The header's red dot counts pending cards; this page drafts, retires and decides them.
+    notifyPendingChanged()
+    if (error || !row) { setErr(error?.message || 'could not create card'); await loadCards(); return false }
+    setNoticeCard(row as PendingAction & NoticeRow)
+    setStuckCard(null)
+    setLastRejected(null)
     setNoticeDone(null)
+    setNoticeInfo(null)
+    return true
+  }
+
+  // A request for documents goes through the same busy gate as approve / decline:
+  // two drafts racing could each expire before either inserts, leaving two live cards.
+  async function draftNeedsMore(text: string) {
+    if (busy || !text) return
+    setBusy(true); setErr(null)
+    try {
+      if (await proposeNotice('needs_more', text)) setNeedsMoreOpen(false)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Send an approved card now. Success and a card the executor retired (409
+  // expired) end the card; "already" only means another request holds the claim,
+  // so the row is re-read before anything is called sent. Any other failure
+  // leaves it approved and unsent, shown with 「重试发送」.
+  async function runNotice(card: PendingAction & NoticeRow) {
+    setTriedHere((s) => new Set(s).add(card.id))
+    setNoticeInfo(null)
+    const { data: sess } = await supabase.auth.getSession()
+    let res: Response | null = null
+    let j: { executed?: boolean; already?: boolean; reason?: string; expired?: boolean } = {}
+    try {
+      res = await fetch('/api/agent/execute', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sess.session?.access_token ?? ''}` }, body: JSON.stringify({ action_id: card.id }) })
+      j = (await res.json().catch(() => ({}))) as typeof j
+    } catch {
+      j = { reason: 'network' }
+    }
+    const sentLine = zh ? `通知已通过邮件发给${applicantWho}，副本留在下方的申请对话里` : `Notice emailed to ${applicantWhoEn}; a copy is in the application conversation below`
+    if (j.executed && j.already) {
+      // Someone else holds the claim; their send may still be in flight or fail.
+      const [appRow, cardRes] = await Promise.all([
+        reloadApp(),
+        supabase.from('agent_pending_actions').select('executed_at, execution_result').eq('id', card.id).maybeSingle(),
+        loadCards(),
+      ])
+      const latest = (cardRes.data as { executed_at?: string | null; execution_result?: { ok?: boolean } | null } | null) ?? null
+      if (noticeConfirmedSent(card, latest, appRow)) setNoticeDone(sentLine)
+      else setNoticeInfo(noticeReasonText('in_flight', zh))
+      return
+    }
+    if (j.executed) {
+      setStuckCard(null)
+      setNoticeDone(sentLine)
+    } else {
+      setErr(noticeReasonText(j.expired ? j.reason || 'expired' : j.reason, zh))
+    }
+    await Promise.all([reloadApp(), loadCards()])
   }
 
   async function decideNotice(id: string, d: 'approved' | 'rejected') {
-    if (!user) return
-    await decidePendingAction(getSupabaseBrowser(), id, d)
-    if (d === 'rejected') { setNoticeCard(null); return }
-    const { data: sess } = await supabase.auth.getSession()
-    const res = await fetch('/api/agent/execute', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sess.session?.access_token ?? ''}` }, body: JSON.stringify({ action_id: id }) })
-    const j = (await res.json().catch(() => ({}))) as { executed?: boolean; reason?: string; result?: { sent_to?: string; decision?: string } }
-    setNoticeCard(null)
-    if (j.executed) {
-      setNoticeDone(zh ? `通知已通过邮件发给${applicantWho}，副本留在下方的申请对话里` : `Notice emailed to ${applicantWhoEn}; a copy is in the application conversation below`)
-      if (app && app !== 'missing' && j.result?.decision) setApp({ ...app, status: j.result.decision === 'needs_more' ? 'reviewing' : j.result.decision })
-    } else setErr(j.reason || 'send failed')
-  }
-
-  const decide = useCallback(
-    async (status: 'approved' | 'declined', reason?: string) => {
-      if (!app || app === 'missing' || !user) return
-      setBusy(true)
-      setErr(null)
-      const { error } = await supabase.from('applications').update({ status }).eq('id', app.id)
-      if (error) {
-        setErr(error.message)
-        setBusy(false)
+    if (!user || noticeBusy) return
+    const card = noticeCard && noticeCard.id === id ? noticeCard : null
+    setNoticeBusy(true); setErr(null); setNoticeDone(null); setNoticeInfo(null)
+    try {
+      let row: PendingAction | null = null
+      try {
+        row = await decidePendingAction(getSupabaseBrowser(), id, d)
+      } catch (e) {
+        const msg = (e as Error).message
+        setErr(/action is not pending/i.test(msg) ? noticeReasonText('action is not pending', zh) : msg)
+      }
+      // Handled elsewhere (sent, rejected or retired on another page): show what is true now.
+      if (!row) { await Promise.all([reloadApp(), loadCards()]); return }
+      setNoticeCard(null)
+      notifyPendingChanged()
+      if (row.status === 'expired') { setErr(noticeReasonText('expired', zh)); await loadCards(); return }
+      if (d === 'rejected') {
+        // Nothing was sent and the application keeps no decision — the landlord can draft again.
+        const dec = noticeDecisionOf(card ?? row)
+        if (dec) setLastRejected({ decision: dec, reason: typeof (card ?? row).metadata?.reason === 'string' ? ((card ?? row).metadata.reason as string) : null })
         return
       }
-      // Decision trail — required by the RTA notice below (insert-self policy).
-      await supabase.from('agent_audit_events').insert({
-        actor_id: user.id,
-        actor_type: 'user',
-        action: status === 'approved' ? 'application_approved' : 'application_declined',
-        target_type: 'application',
-        target_id: app.id,
-        metadata: reason ? { reason } : {},
-      })
-      setApp({ ...app, status })
-      setDeclineOpen(false)
-      setBusy(false)
-      // The decision is recorded; the notice goes out only after the landlord
-      // previews and approves the card below.
-      void proposeNotice(status, reason)
+      await runNotice({ ...(card ?? (row as PendingAction & NoticeRow)), status: 'approved' })
+    } finally {
+      setNoticeBusy(false)
+    }
+  }
+
+  async function retryStuck() {
+    if (!stuckCard || noticeBusy) return
+    setNoticeBusy(true); setErr(null); setNoticeDone(null)
+    try { await runNotice(stuckCard) } finally { setNoticeBusy(false) }
+  }
+
+  async function withdrawStuck() {
+    if (!stuckCard || noticeBusy) return
+    setNoticeBusy(true); setErr(null); setNoticeInfo(null)
+    try {
+      const { data: hit, error } = await supabase.from('agent_pending_actions').update({ status: 'expired', execution_result: { ok: false, reason: 'withdrawn' } }).eq('id', stuckCard.id).eq('status', 'approved').is('executed_at', null).select('id')
+      if (error) { setErr(error.message); await loadCards(); return }
+      if (!hit || hit.length === 0) {
+        // Another tab or the to-do page got there first: it claimed the card (being
+        // sent, or sent) or retired it (a newer notice was drafted).
+        const [{ data: now }] = await Promise.all([
+          supabase.from('agent_pending_actions').select('status, executed_at').eq('id', stuckCard.id).maybeSingle(),
+          reloadApp(),
+          loadCards(),
+        ])
+        const retired = (now as { status?: string; executed_at?: string | null } | null)?.status === 'expired'
+        setNoticeInfo(noticeReasonText(retired ? 'card_retired' : 'withdraw_too_late', zh))
+        return
+      }
+      const dec = noticeDecisionOf(stuckCard)
+      if (dec) setLastRejected({ decision: dec, reason: typeof stuckCard.metadata?.reason === 'string' ? (stuckCard.metadata.reason as string) : null })
+      await loadCards()
+    } finally { setNoticeBusy(false) }
+  }
+
+  // The landlord's choice becomes a notice card; the application's status changes
+  // only when the executor sends it (sweep 2026-10-01: writing it here first told
+  // the applicant before any notice went out, and a rejected or failed card left
+  // the decision stuck with no way to send it).
+  const decide = useCallback(
+    async (decision: 'approved' | 'declined', reason?: string) => {
+      if (!app || app === 'missing' || !user || busy) return
+      setBusy(true)
+      setErr(null)
+      try {
+        // Decision trail — the RTA notice below says the reason is logged (insert-self policy).
+        await supabase.from('agent_audit_events').insert({
+          actor_id: user.id,
+          actor_type: 'user',
+          action: 'application_decision_drafted',
+          target_type: 'application',
+          target_id: app.id,
+          metadata: reason ? { decision, reason } : { decision },
+        })
+        if (await proposeNotice(decision, reason)) setDeclineOpen(false)
+      } finally {
+        setBusy(false)
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [app, user],
+    [app, user, busy],
   )
+
+  function redraft(decision: NoticeDecision, reason: string | null) {
+    setErr(null)
+    if (decision === 'declined') { setDeclineReason(reason ?? ''); setDeclineOpen(true) }
+    else if (decision === 'needs_more') { setNeedsMoreText(reason ?? ''); setNeedsMoreOpen(true) }
+    else void decide('approved')
+  }
 
   const [preview, setPreview] = useState<{ path: string; name: string } | null>(null)
 
@@ -275,6 +442,10 @@ function RealApplicantDetail({ id }: { id: string }) {
   const tierLabel = (t: string | null | undefined) =>
     t === 'proceed' ? (zh ? '建议通过' : 'Proceed') : t === 'review' ? (zh ? '建议复核' : 'Review') : t === 'conditional' ? (zh ? '附条件' : 'Conditional') : t === 'decline' ? (zh ? '建议拒绝' : 'Decline') : zh ? '需面谈' : 'Needs interview'
   const files = app.files ?? []
+  const controls = noticeControls({ status: app.status, decision_notified_at: app.decision_notified_at ?? null }, { pending: noticeCard, stuck: stuckCard })
+  const decisionWord = (d: NoticeDecision | null) => d === 'approved' ? (zh ? '录取' : 'Acceptance') : d === 'declined' ? (zh ? '婉拒' : 'Decline') : (zh ? '补材料' : 'Request for documents')
+  const stuckDecision = noticeDecisionOf(stuckCard)
+  const stuckWaiting = !!stuckCard && inUndoWindow(stuckCard) && !triedHere.has(stuckCard.id)
 
   return (
     <WorkspaceShell role="landlord" hideAside>
@@ -377,9 +548,42 @@ function RealApplicantDetail({ id }: { id: string }) {
             </p>
             {err && <p className="mt-2 text-[12.5px] font-semibold text-danger">{err}</p>}
             {noticeDone && <p className="mt-2 rounded-lg bg-success/10 px-3 py-2 text-[12.5px] font-semibold text-success">✓ {noticeDone}</p>}
+            {noticeInfo && <p className="mt-2 rounded-lg bg-surface-chip px-3 py-2 text-[12.5px] text-body-2" data-testid="notice-info">{noticeInfo}</p>}
             {noticeCard && (
               <div className="mt-4">
                 <ApprovalActionCard action={noticeCard} compact onDecide={(id, d) => decideNotice(id, d)} />
+              </div>
+            )}
+            {stuckCard && (
+              <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-amber-900" data-testid="notice-unsent">
+                <b>{zh ? `${decisionWord(stuckDecision)}通知已批准，但还没有发出。` : `${decisionWord(stuckDecision)} notice approved but not sent yet.`}</b>
+                {stuckWaiting
+                  ? (zh ? ' 刚批准，还在 60 秒撤销窗口内——批准它的页面一直开着的话，窗口结束后会自动发出；也可以现在就发。' : ' Just approved and still inside the 60-second undo window — it goes out when the window ends if the page where you approved it stays open, or you can send it now.')
+                  : stuckCard.execution_result?.reason ? ` ${noticeReasonText(stuckCard.execution_result.reason, zh)}` : ''}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" disabled={noticeBusy} onClick={() => void retryStuck()} className="rounded-lg bg-amber-900 px-3 py-1.5 text-[12.5px] font-semibold text-white disabled:opacity-50" data-testid="notice-retry">
+                    {noticeBusy ? '…' : stuckWaiting ? (zh ? '现在发出' : 'Send now') : (zh ? '重试发送' : 'Retry sending')}
+                  </button>
+                  <button type="button" disabled={noticeBusy} onClick={() => void withdrawStuck()} className="rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-[12.5px] font-semibold disabled:opacity-50">
+                    {zh ? '撤回这张通知' : 'Withdraw this notice'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {!noticeCard && !stuckCard && controls.redraft && (
+              <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-amber-900" data-testid="notice-redraft">
+                {zh ? `这份申请已标为「${controls.redraft === 'approved' ? '录取' : '婉拒'}」，但决定通知还没有发出（通知里带《消费者报告法》s.10(7) 与 OHRC 声明）。` : `This application is marked “${controls.redraft === 'approved' ? 'approved' : 'declined'}”, but the decision notice has not been sent (it carries the s.10(7) and OHRC wording).`}
+                <button type="button" disabled={busy} onClick={() => redraft(controls.redraft!, app.decision_reason)} className="ml-1 font-semibold underline underline-offset-2 disabled:opacity-50" data-testid="notice-redraft-button">
+                  {zh ? '重新起草通知' : 'Draft the notice again'}
+                </button>
+              </div>
+            )}
+            {!noticeCard && !stuckCard && !controls.redraft && lastRejected && (
+              <div className="mt-4 rounded-lg bg-surface-chip px-3 py-2.5 text-[12.5px] leading-relaxed text-body-2" data-testid="notice-rejected">
+                {zh ? `${decisionWord(lastRejected.decision)}通知没有发出，申请的决定也没有改。可以重新选择，或` : `The ${decisionWord(lastRejected.decision).toLowerCase()} notice was not sent and the application’s decision is unchanged. Choose again, or `}
+                <button type="button" disabled={busy} onClick={() => redraft(lastRejected.decision, lastRejected.reason)} className="font-semibold text-brand underline underline-offset-2 disabled:opacity-50">
+                  {zh ? '重新起草通知' : 'draft the notice again'}
+                </button>
               </div>
             )}
             <div className="mt-4 flex flex-col gap-2">
@@ -392,16 +596,16 @@ function RealApplicantDetail({ id }: { id: string }) {
               </button>
               <button
                 className="rounded-lg border border-success/50 bg-white px-4 py-[10px] text-[13.5px] font-semibold text-success disabled:opacity-50"
-                disabled={busy || app.status === 'approved'}
+                disabled={busy || !controls.canApprove}
                 onClick={() => decide('approved')}
               >
-                {app.status === 'approved' ? (zh ? '✓ 已录取' : '✓ Approved') : zh ? '✓ 录取 · 起草通知' : '✓ Approve · draft the notice'}
+                {app.status === 'approved' ? (zh ? '✓ 已录取' : '✓ Approved') : noticeDecisionOf(noticeCard) === 'approved' ? (zh ? '✓ 录取通知待你批准（见上）' : '✓ Acceptance notice awaiting your approval (above)') : zh ? '✓ 录取 · 起草通知' : '✓ Approve · draft the notice'}
               </button>
               {needsMoreOpen ? (
                 <div className="rounded-lg border border-line-divider p-3">
                   <input value={needsMoreText} onChange={(e) => setNeedsMoreText(e.target.value)} placeholder={zh ? '需要补充什么（如：最近两张工资单）' : 'What is missing (e.g. two recent pay stubs)'} className="w-full rounded-md border border-line-divider px-3 py-2 text-[13px]" />
                   <div className="mt-2 flex gap-2">
-                    <button className="sl-btn-primary flex-1 !py-2 !text-[13px]" disabled={!needsMoreText.trim()} onClick={() => { void proposeNotice('needs_more', needsMoreText.trim()); setNeedsMoreOpen(false) }}>{zh ? '起草补材料通知' : 'Draft the request'}</button>
+                    <button className="sl-btn-primary flex-1 !py-2 !text-[13px]" disabled={busy || !needsMoreText.trim()} onClick={() => void draftNeedsMore(needsMoreText.trim())}>{zh ? '起草补材料通知' : 'Draft the request'}</button>
                     <button className="sl-btn-secondary flex-1" onClick={() => setNeedsMoreOpen(false)}>{zh ? '取消' : 'Cancel'}</button>
                   </div>
                 </div>
@@ -447,13 +651,18 @@ function RealApplicantDetail({ id }: { id: string }) {
               ) : (
                 <button
                   className="rounded-lg border border-danger/40 bg-white px-4 py-[10px] text-[13.5px] font-semibold text-danger disabled:opacity-50"
-                  disabled={busy || app.status === 'declined'}
+                  disabled={busy || !controls.canDecline}
                   onClick={() => setDeclineOpen(true)}
                 >
-                  {app.status === 'declined' ? (zh ? '✗ 已拒绝' : '✗ Declined') : zh ? '✗ 不合适（需选理由）' : '✗ Not a fit (reason required)'}
+                  {app.status === 'declined' ? (zh ? '✗ 已拒绝' : '✗ Declined') : noticeDecisionOf(noticeCard) === 'declined' ? (zh ? '✗ 婉拒通知待你批准（见上）' : '✗ Decline notice awaiting your approval (above)') : zh ? '✗ 不合适（需选理由）' : '✗ Not a fit (reason required)'}
                 </button>
               )}
             </div>
+            <p className="mt-3 text-[11.5px] leading-relaxed text-body-3" data-testid="decision-note">
+              {app.decision_notified_at && (app.status === 'approved' || app.status === 'declined')
+                ? (zh ? `决定通知已于 ${app.decision_notified_at.slice(0, 10)} 发出，这里不能再改决定；需要更正时请在下方的申请对话里说明。` : `The decision notice went out on ${app.decision_notified_at.slice(0, 10)}; the decision cannot be changed here — explain any correction in the application conversation below.`)
+                : (zh ? '选择录取或婉拒只是起草通知；你批准通知、邮件发出后，决定才记到这份申请上，申请人那边也才会看到。' : 'Choosing approve or decline drafts a notice; the decision is recorded on the application — and shown to the applicant — only once you approve the notice and the email goes out.')}
+            </p>
             <p className="mt-3 rounded-lg bg-danger/[0.06] px-3 py-2.5 text-[11.5px] leading-relaxed text-body-2">
               <b className="text-danger">⚠️ {zh ? 'RTA 提示：' : 'RTA notice: '}</b>
               {zh

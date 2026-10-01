@@ -8,13 +8,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { CREDENTIAL_LABEL, coverageFor, providerEligible, tradeForCategory, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
+import { isEmergencyMaintenance } from '@/lib/agent/maintenanceTriage'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; status: string; verified_at: string | null }
 type Cred = { provider_id: string; kind: string; expires_at: string | null; verified_at: string | null }
 
-export default function DispatchModal({ ticketId, category, priority, city, zh, onClose, onDone }: {
+export default function DispatchModal({ ticketId, category, city, zh, onClose, onDone }: {
   ticketId: string
   category: string | null
+  /** Kept for callers; emergency is read from the ticket itself, not inferred from priority. */
   priority: string
   city: string | null
   zh: boolean
@@ -28,12 +30,26 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
   const [pick, setPick] = useState<string | null>(null)
   const [own, setOwn] = useState({ name: '', email: '' })
   const [entry, setEntry] = useState<'anytime' | 'call_first' | 'tenant_present'>('call_first')
-  const [emergency, setEmergency] = useState(priority === 'high')
+  // Emergency (RTA s.26 entry without notice) is the ticket's problem, not its priority (review
+  // 2026-10-01): "urgent · 24 h" on a dripping tap is not one. Read from the ticket below.
+  const [emergency, setEmergency] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   // Coverage chips use the same grace rule the server enforces (节点 3).
   const { graceDays } = useMarketplaceConfig()
+  // Start from what the tenant said on the ticket ("I must be present" must not
+  // silently become "call first"); the landlord can still change it here.
+  useEffect(() => {
+    let cancelled = false
+    supabase.from('maintenance_tickets').select('entry_permission, emergency, title, description, category').eq('id', ticketId).maybeSingle().then(({ data }) => {
+      const row = data as { entry_permission?: string | null; emergency?: boolean | null; title?: string | null; description?: string | null; category?: string | null } | null
+      const v = row?.entry_permission
+      if (!cancelled && (v === 'anytime' || v === 'call_first' || v === 'tenant_present')) setEntry(v)
+      if (!cancelled && row) setEmergency(typeof row.emergency === 'boolean' ? row.emergency : isEmergencyMaintenance({ title: row.title, description: row.description, category: row.category }))
+    })
+    return () => { cancelled = true }
+  }, [ticketId])
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -66,7 +82,7 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
     const body = mode === 'network' ? { ticket_id: ticketId, provider_id: pick, entry_permission: entry, emergency, trade } : { ticket_id: ticketId, external_email: own.email.trim(), external_name: own.name.trim(), entry_permission: entry, emergency, trade }
     const res = await fetch('/api/work-orders/dispatch', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
     const j = (await res.json().catch(() => ({}))) as { error?: string }
-    if (!res.ok) { setErr(j.error === 'pro_required' ? (zh ? '已核验服务商网络是 Pro 功能。派给你自己的联系人在所有计划都可用。' : 'The verified provider network is a Pro feature. Dispatching to your own contact works on every plan.') : (j.error || `HTTP ${res.status}`)); setBusy(false); return }
+    if (!res.ok) { setErr(j.error === 'pro_required' ? (zh ? '已核验服务商网络是 Pro 功能。派给你自己的联系人在所有计划都可用。' : 'The verified provider network is a Pro feature. Dispatching to your own contact works on every plan.') : j.error === 'ticket_closed' ? (zh ? '这张报修已完成或已取消，不能再派单。' : 'This repair request is done or cancelled; it cannot be dispatched.') : (j.error || `HTTP ${res.status}`)); setBusy(false); return }
     await onDone(); setBusy(false); onClose()
   }
   const input = 'rounded-md border border-line-divider bg-white px-2.5 py-1.5 text-[13px]'

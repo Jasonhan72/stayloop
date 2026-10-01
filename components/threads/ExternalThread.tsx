@@ -5,8 +5,9 @@
 // attachments and no read marks from this side — the token is a capability
 // URL, not an identity; landlord and tenant see these messages as
 // "服务商（邮件链接）".
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { PARTY_LABEL, type ThreadMessage } from '@/lib/threads/shared'
+import { isSendKey } from '@/components/messages/composerKeys'
 
 export type ExternalMessage = Pick<ThreadMessage, 'id' | 'sender_kind' | 'sender_label' | 'kind' | 'body' | 'created_at'>
 
@@ -15,14 +16,32 @@ export default function ExternalThread({ token, messages, zh, onSent }: { token:
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const when = (iso: string) => new Date(iso).toLocaleString(zh ? 'zh-CN' : 'en-CA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  // Same guards as ThreadPanel (sweep 2026-10-01): a ref blocks a second Enter in
+  // the same tick, the draft clears at once and comes back if the send fails.
+  const sendingRef = useRef(false)
   async function send() {
+    if (sendingRef.current) return
     const body = draft.trim()
     if (!body) return
+    sendingRef.current = true
     setBusy(true); setErr(null)
-    const res = await fetch(`/api/w/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'message', payload: { body } }) })
-    const j = (await res.json().catch(() => ({}))) as { error?: string }
-    if (!res.ok) setErr(j.error || `HTTP ${res.status}`); else { setDraft(''); await onSent() }
-    setBusy(false)
+    setDraft('')
+    const restore = () => setDraft((cur) => (cur.trim() ? `${body}\n${cur}` : body))
+    try {
+      let res: Response
+      try {
+        res = await fetch(`/api/w/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'message', payload: { body } }) })
+      } catch (e) {
+        setErr((e as Error).message || 'send failed'); restore(); return
+      }
+      const j = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) { setErr(j.error || `HTTP ${res.status}`); restore(); return }
+      // Sent: a failed refresh must not put the text back as if it were unsent.
+      await Promise.resolve(onSent()).catch(() => undefined)
+    } finally {
+      sendingRef.current = false
+      setBusy(false)
+    }
   }
   const visible = messages.filter((m) => m.kind !== 'retraction')
   return (
@@ -45,7 +64,7 @@ export default function ExternalThread({ token, messages, zh, onSent }: { token:
         })}
       </div>
       <div className="flex gap-2 border-t border-line-divider p-3">
-        <textarea className="min-h-[44px] flex-1 resize-y rounded-lg border border-line-divider bg-white px-3 py-2 text-[15px]" rows={1} value={draft} placeholder={zh ? '给房东 / 租客留言…' : 'Message the landlord / tenant…'} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send() } }} />
+        <textarea className="min-h-[44px] flex-1 resize-y rounded-lg border border-line-divider bg-white px-3 py-2 text-[15px]" rows={1} value={draft} placeholder={zh ? '给房东 / 租客留言…' : 'Message the landlord / tenant…'} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (isSendKey(e)) { e.preventDefault(); void send() } }} />
         <button type="button" onClick={() => void send()} disabled={busy || !draft.trim()} className="rounded-lg bg-brand px-4 text-[14px] font-bold text-white disabled:opacity-50">{zh ? '发送' : 'Send'}</button>
       </div>
       {err && <p className="px-4 pb-3 text-[12px] text-danger">{err}</p>}

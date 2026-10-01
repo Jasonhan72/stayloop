@@ -3,9 +3,15 @@
 // Scans REAL leases (lease_documents) for renewal windows — Ontario N2
 // requires 90 days' notice, so anything ending within 120 days needs a
 // decision soon — and idempotently creates a `send_renewal_letter` pending
-// action for each. The proposal carries computed options (keep / +2.5%
-// guideline) in metadata; the landlord approves on the agent page and
-// /api/agent/execute then actually sends the letter.
+// action for each. The proposal carries computed options (keep / the
+// guideline for the year the increase takes effect) in metadata; the landlord
+// approves on the agent page and /api/agent/execute then actually sends the
+// letter.
+//
+// "In force" is the shared definition (lib/matters/states isLeaseInForce):
+// signed_both / active / imported (a signed lease keyed in from paper),
+// started, not ended. Sweep 2026-10-01: imported leases used to be shown as
+// "options prepared" on /landlord/leases while both scans skipped them.
 //
 // Two entry modes:
 //   • User mode (default): runs on the caller's OWN JWT (RLS-scoped) — it can
@@ -23,7 +29,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isoDate, todayUtc } from '@/lib/dates'
-import { WINDOW_DAYS, marketFromRows, planRenewalActions, type ExistingRenewalAction, type MarketLine } from '@/lib/agent/renewalStages'
+import { isLeaseInForce } from '@/lib/matters/states'
+import { IN_FORCE_STATUSES, STALE_EXPIRED_BY, SUCCESSOR_STATUSES, WINDOW_DAYS, marketFromRows, planRenewalActions, replacedInForceBy, staleRenewalCards, type ExistingRenewalAction, type LeaseSlot, type MarketLine, type RenewalIntent, type StaleRenewalReason } from '@/lib/agent/renewalStages'
 import { buildInviteReminderProposal, buildRelistProposal, inviteNeedsReminder, leaseNeedsRelist, RELIST_LOOKBACK_DAYS, type EndedLeaseRow, type InviteRow } from '@/lib/agent/proactiveExtras'
 import { notifyUser } from '@/lib/push/notify'
 import { runMarketplaceSweep } from '@/lib/marketplace/sweep'
@@ -48,11 +55,92 @@ type LeaseRow = {
   id: string
   household_id?: string | null
   landlord_id?: string | null
+  listing_id?: string | null
   tenant_name: string | null
   tenant_email: string | null
   unit_label: string | null
   monthly_rent: number | string | null
+  start_date?: string | null
   end_date: string
+  status: string | null
+}
+
+const LEASE_COLS = 'id, landlord_id, listing_id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status'
+// Existing renewal cards carry their execution stamp: a letter counts as sent
+// only when executed_at is set and execution_result.ok is true (contract C8).
+const EXISTING_COLS = 'id, action_type, status, metadata, executed_at, execution_result'
+// What the client merges into its pending list — the same shape
+// approval-engine reads, so the A/B buttons have their rent figures (#59).
+const CREATED_COLS = 'id, user_id, workflow_id, role, action_type, title, summary, recipient_label, data_scope, excluded_data, risk_level, status, requires_approval, created_at, expires_at, metadata'
+
+/**
+ * Successor leases on the same units (signed, not ended) and the tenants'
+ * recorded renewal intents — the planner skips renewed tenancies and does not
+ * ask questions the tenant already answered (sweep 2026-10-01). Runs under
+ * whichever client the mode uses (service role, or the caller's RLS).
+ */
+async function loadRenewalContext(sb: SupabaseClient, leases: LeaseRow[], intentLeaseIds: string[], today: Date): Promise<{ laterLeases: LeaseSlot[]; intents: RenewalIntent[] }> {
+  if (!leases.length) return { laterLeases: [], intents: [] }
+  const landlordIds = Array.from(new Set(leases.map((l) => l.landlord_id).filter(Boolean))) as string[]
+  const loadLater = async (): Promise<LeaseSlot[]> => {
+    if (!landlordIds.length) return []
+    const { data, error } = await sb
+      .from('lease_documents')
+      .select('id, landlord_id, unit_label, listing_id, tenant_email, start_date, end_date, status')
+      .in('landlord_id', landlordIds)
+      .in('status', [...SUCCESSOR_STATUSES])
+      .or(`end_date.is.null,end_date.gte.${iso(todayUtc(today))}`)
+      .limit(1000)
+    if (error) console.error('proactive successor scan failed:', error.message)
+    return (data ?? []) as LeaseSlot[]
+  }
+  // The hub writes lease_id = the household's current lease; an answer saved with
+  // no lease id belongs to the household the lease is current on. The execute
+  // route's renewalBlocker and the rail read both, so the planner must too — a
+  // household-level 'leave' used to reach only the executor, which then refused
+  // the letter the sweep had just proposed (review 2026-10-01).
+  const loadIntents = async (): Promise<RenewalIntent[]> => {
+    if (!intentLeaseIds.length) return []
+    const wanted = new Set(intentLeaseIds)
+    const hhIds = Array.from(new Set(leases.filter((l) => wanted.has(l.id)).map((l) => l.household_id).filter(Boolean))) as string[]
+    const [byLease, byHousehold] = await Promise.all([
+      sb.from('renewal_intents').select('lease_id, household_id, intent, created_at').in('lease_id', intentLeaseIds).order('created_at', { ascending: false }).limit(500),
+      hhIds.length
+        ? sb.from('renewal_intents').select('lease_id, household_id, intent, created_at').in('household_id', hhIds).is('lease_id', null).order('created_at', { ascending: false }).limit(500)
+        : Promise.resolve({ data: [] as RenewalIntent[], error: null }),
+    ])
+    if (byLease.error) console.error('proactive intent scan failed:', byLease.error.message)
+    if (byHousehold.error) console.error('proactive household intent scan failed:', byHousehold.error.message)
+    return [...((byLease.data ?? []) as RenewalIntent[]), ...((byHousehold.data ?? []) as RenewalIntent[])]
+  }
+  const [laterLeases, intents] = await Promise.all([loadLater(), loadIntents()])
+  return { laterLeases, intents }
+}
+
+/**
+ * Expire touchpoint cards the planner no longer stands behind (renewed /
+ * re-let lease, tenant leaving — staleRenewalCards). Only rows that never ran
+ * and still await a person; the `by` marker lets the planner propose again if
+ * the reason stops being true. Runs under the mode's client (the caller's own
+ * rows under RLS, or the service role scoped to `userId`).
+ */
+async function expireStaleRenewalCards(sb: SupabaseClient, userId: string, stale: { id: string; reason: StaleRenewalReason }[]): Promise<number> {
+  let n = 0
+  for (const reason of ['lease_superseded', 'tenant_leaving', 'tenant_answered'] as const) {
+    const ids = stale.filter((c) => c.reason === reason).map((c) => c.id)
+    if (!ids.length) continue
+    const { data, error } = await sb
+      .from('agent_pending_actions')
+      .update({ status: 'expired', execution_result: { ok: false, reason, by: STALE_EXPIRED_BY, at: new Date().toISOString() } })
+      .eq('user_id', userId)
+      .in('id', ids)
+      .in('status', ['pending', 'approved'])
+      .is('executed_at', null)
+      .select('id')
+    if (error) console.error('proactive stale-card expiry failed:', error.message)
+    else n += data?.length ?? 0
+  }
+  return n
 }
 
 async function loadMarket(sb: SupabaseClient): Promise<MarketLine | null> {
@@ -114,10 +202,10 @@ async function runRenewalSweep(): Promise<NextResponse> {
   const horizon = new Date(today.getTime() + WINDOW_DAYS * 86_400_000)
 
   // 1) Renewal windows across ALL landlords.
-  const { data: renewalLeases, error: leaseErr } = await admin
+  const { data: renewalRows, error: leaseErr } = await admin
     .from('lease_documents')
-    .select('id, landlord_id, tenant_name, tenant_email, unit_label, monthly_rent, end_date')
-    .in('status', ['active', 'signed_both'])
+    .select(LEASE_COLS)
+    .in('status', [...IN_FORCE_STATUSES])
     // Not yet started = not in force: no renewal touchpoints for it (节点 1 2026-09-26).
     .or(`start_date.is.null,start_date.lte.${iso(todayUtc(today))}`)
     .gte('end_date', iso(todayUtc(today)))
@@ -128,6 +216,7 @@ async function runRenewalSweep(): Promise<NextResponse> {
     console.error('proactive lease scan failed:', leaseErr.message)
     return NextResponse.json({ error: 'lease scan failed' }, { status: 500 })
   }
+  const renewalLeases = ((renewalRows ?? []) as LeaseRow[]).filter((l) => isLeaseInForce(l, today))
 
   // 2) Month-end rent reminders for the 1st of next month (cron mode only).
   //    Only proposed when today falls in the last REMINDER_TAIL_DAYS of the
@@ -140,8 +229,8 @@ async function runRenewalSweep(): Promise<NextResponse> {
   if (inReminderWindow) {
     const { data, error } = await admin
       .from('lease_documents')
-      .select('id, landlord_id, tenant_name, tenant_email, unit_label, monthly_rent, end_date')
-      .in('status', ['active', 'signed_both'])
+      .select(LEASE_COLS)
+      .in('status', [...IN_FORCE_STATUSES])
       // Rent is only due once the term has begun (节点 1 2026-09-26).
       .or(`start_date.is.null,start_date.lte.${dueDate}`)
       .gte('end_date', dueDate)
@@ -156,12 +245,15 @@ async function runRenewalSweep(): Promise<NextResponse> {
 
   // The 30-day email links the tenant to /h/<household>?intent=… — attach the
   // managed tenancy created from each lease (P1 2026-09-23).
-  const renewalIds = ((renewalLeases ?? []) as LeaseRow[]).map((l) => l.id)
+  const renewalIds = renewalLeases.map((l) => l.id)
   if (renewalIds.length) {
     const { data: hhs } = await admin.from('households').select('id, current_lease_id').in('current_lease_id', renewalIds)
     const byLease = new Map(((hhs ?? []) as { id: string; current_lease_id: string | null }[]).map((h) => [h.current_lease_id as string, h.id]))
-    for (const l of renewalLeases as LeaseRow[]) l.household_id = byLease.get(l.id) ?? null
+    for (const l of renewalLeases) l.household_id = byLease.get(l.id) ?? null
   }
+  // Renewed / re-let units and recorded intents, for both the renewal planner
+  // and the rent reminders (a lease replaced by the due date is not billed).
+  const renewalCtx = await loadRenewalContext(admin, [...renewalLeases, ...reminderLeases], renewalIds, today)
 
   // 3) Unaccepted tenancy invitations older than a few days (P1 2026-09-23).
   const { data: inviteRows } = await admin
@@ -183,7 +275,7 @@ async function runRenewalSweep(): Promise<NextResponse> {
   const lookback = new Date(today.getTime() - RELIST_LOOKBACK_DAYS * 86_400_000)
   const { data: endedRows } = await admin
     .from('lease_documents')
-    .select('id, landlord_id, tenant_name, unit_label, end_date, status')
+    .select('id, landlord_id, listing_id, tenant_name, unit_label, end_date, status')
     .in('status', ['active', 'signed_both', 'ended', 'imported'])
     .gte('end_date', iso(todayUtc(lookback)))
     .lt('end_date', iso(todayUtc(today)))
@@ -192,13 +284,20 @@ async function runRenewalSweep(): Promise<NextResponse> {
   let newerOnUnit = new Set<string>()
   if (endedLeases.length) {
     const llIds = Array.from(new Set(endedLeases.map((l) => l.landlord_id).filter(Boolean))) as string[]
-    const { data: newer } = await admin.from('lease_documents').select('id, landlord_id, unit_label, start_date, status').in('landlord_id', llIds).in('status', ['sent', 'signed_tenant', 'signed_both', 'active']).gte('start_date', iso(todayUtc(lookback))).limit(CRON_SCAN_LIMIT)
+    const { data: newer } = await admin.from('lease_documents').select('id, landlord_id, unit_label, start_date, status').in('landlord_id', llIds).in('status', ['sent', 'signed_tenant', 'signed_both', 'active', 'imported']).gte('start_date', iso(todayUtc(lookback))).limit(CRON_SCAN_LIMIT)
     newerOnUnit = new Set(((newer ?? []) as { id: string; landlord_id: string | null; unit_label: string | null }[]).filter((n) => n.unit_label).map((n) => `${n.landlord_id}:${n.unit_label!.trim().toLowerCase()}`))
   }
   // No unit label → we cannot tell units apart → no re-list card (review 2026-09-23).
-  const relistLeases = endedLeases.filter((l) => !!l.unit_label && leaseNeedsRelist(l, today, newerOnUnit.has(`${l.landlord_id}:${l.unit_label!.trim().toLowerCase()}`)))
+  let relistLeases = endedLeases.filter((l) => !!l.unit_label && leaseNeedsRelist(l, today, newerOnUnit.has(`${l.landlord_id}:${l.unit_label!.trim().toLowerCase()}`)))
+  // The original listing is already live again → nothing to prompt.
+  const relistListingIds = Array.from(new Set(relistLeases.map((l) => l.listing_id).filter(Boolean))) as string[]
+  if (relistListingIds.length) {
+    const { data: lst } = await admin.from('listings').select('id, is_active').in('id', relistListingIds)
+    const live = new Set(((lst ?? []) as { id: string; is_active: boolean | null }[]).filter((x) => x.is_active).map((x) => x.id))
+    relistLeases = relistLeases.filter((l) => !l.listing_id || !live.has(l.listing_id))
+  }
 
-  const allLeases = [...((renewalLeases ?? []) as LeaseRow[]), ...reminderLeases, ...relistLeases.map((l) => ({ ...l, tenant_email: null, monthly_rent: null, end_date: l.end_date || '' }) as LeaseRow)]
+  const allLeases = [...renewalLeases, ...reminderLeases, ...relistLeases.map((l) => ({ ...l, tenant_email: null, monthly_rent: null, end_date: l.end_date || '' }) as LeaseRow)]
   if (allLeases.length === 0 && invites.length === 0) {
     return NextResponse.json({ created: 0, mode: 'cron' })
   }
@@ -241,7 +340,7 @@ async function runRenewalSweep(): Promise<NextResponse> {
   // renewals are one-per-lease ever; reminders are one per lease per due_date.
   const { data: existing, error: existErr } = await admin
     .from('agent_pending_actions')
-    .select('user_id, action_type, status, metadata')
+    .select('id, user_id, action_type, status, metadata, executed_at, execution_result')
     .in('action_type', [...RENEWAL_TYPES, ...EXTRA_TYPES, 'rent_reminder'])
     .in('user_id', affectedUserIds)
   if (existErr) {
@@ -258,7 +357,7 @@ async function runRenewalSweep(): Promise<NextResponse> {
     if (r.action_type === 'relist_prompt') { if (m?.lease_id) relistProposed.add(m.lease_id); continue }
     if (!m?.lease_id) continue
     if (r.action_type === 'rent_reminder') { if (m.due_date) reminderProposed.add(`${m.lease_id}:${m.due_date}`) }
-    else renewalExisting.push({ user_id: r.user_id as string, action_type: r.action_type as string, status: r.status as string, metadata: m })
+    else renewalExisting.push({ id: r.id as string, user_id: r.user_id as string, action_type: r.action_type as string, status: r.status as string, metadata: m, executed_at: (r.executed_at as string | null) ?? null, execution_result: (r.execution_result as ExistingRenewalAction['execution_result']) ?? null })
   }
 
   const market = await loadMarket(admin)
@@ -266,18 +365,23 @@ async function runRenewalSweep(): Promise<NextResponse> {
   // Plan per landlord so the (lease, stage) idempotency is scoped to the
   // user who will see the card.
   const byUser = new Map<string, LeaseRow[]>()
-  for (const l of (renewalLeases ?? []) as LeaseRow[]) {
+  for (const l of renewalLeases) {
     const userId = resolve(l)
     if (!userId) continue
     byUser.set(userId, [...(byUser.get(userId) ?? []), l])
   }
+  let expired = 0
   for (const [userId, leases] of byUser) {
     const ex = renewalExisting.filter((a) => a.user_id === userId)
-    inserts.push(...planRenewalActions(userId, leases, ex, today, market))
+    expired += await expireStaleRenewalCards(admin, userId, staleRenewalCards(leases, ex, renewalCtx))
+    inserts.push(...planRenewalActions(userId, leases, ex, today, market, renewalCtx))
   }
   for (const l of reminderLeases) {
     const userId = resolve(l)
     if (!userId || !l.tenant_email || reminderProposed.has(`${l.id}:${dueDate}`)) continue
+    // Rent on the due date is owed under a newer lease on the unit that is in
+    // force by then (and that lease gets its own reminder) — not under this one.
+    if (replacedInForceBy(l, renewalCtx.laterLeases, dueDate)) continue
     inserts.push(buildRentReminderProposal(userId, l, dueDate))
   }
   for (const i of invites) {
@@ -291,7 +395,7 @@ async function runRenewalSweep(): Promise<NextResponse> {
   }
 
   if (inserts.length === 0) {
-    return NextResponse.json({ created: 0, mode: 'cron' })
+    return NextResponse.json({ created: 0, expired, mode: 'cron' })
   }
   const { error: insErr } = await admin.from('agent_pending_actions').insert(inserts)
   if (insErr) {
@@ -315,7 +419,7 @@ async function runRenewalSweep(): Promise<NextResponse> {
       url: '/landlord/todo',
     })
   }))
-  return NextResponse.json({ created: inserts.length, pushed, mode: 'cron' })
+  return NextResponse.json({ created: inserts.length, expired, pushed, mode: 'cron' })
 }
 
 // Cron mode = the renewal / reminder sweep above + the marketplace sweep
@@ -379,11 +483,11 @@ export async function POST(req: Request) {
   if (!landlordIds.length) return NextResponse.json({ created: 0, skipped: 'not_a_landlord' })
   const today = new Date()
   const horizon = new Date(today.getTime() + WINDOW_DAYS * 86_400_000)
-  const { data: leases, error: leaseErr } = await sb
+  const { data: leaseRows, error: leaseErr } = await sb
     .from('lease_documents')
-    .select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status')
+    .select(LEASE_COLS)
     .in('landlord_id', landlordIds)
-    .in('status', ['active', 'signed_both'])
+    .in('status', [...IN_FORCE_STATUSES])
     // Not yet started = not in force: no renewal touchpoints for it (节点 1 2026-09-26).
     .or(`start_date.is.null,start_date.lte.${iso(todayUtc(today))}`)
     .gte('end_date', iso(todayUtc(today)))
@@ -394,43 +498,48 @@ export async function POST(req: Request) {
     console.error('proactive lease scan failed:', leaseErr.message)
     return NextResponse.json({ error: 'lease scan failed' }, { status: 500 })
   }
-  if (!leases || leases.length === 0) {
+  const leases = ((leaseRows ?? []) as LeaseRow[]).filter((l) => isLeaseInForce(l, today))
+  if (leases.length === 0) {
     return NextResponse.json({ created: 0, actions: [] })
   }
   {
     const { data: hhs } = await sb.from('households').select('id, current_lease_id').in('current_lease_id', leases.map((l) => l.id))
     const byLease = new Map(((hhs ?? []) as { id: string; current_lease_id: string | null }[]).map((h) => [h.current_lease_id as string, h.id]))
-    for (const l of leases as LeaseRow[]) l.household_id = byLease.get(l.id) ?? null
+    for (const l of leases) l.household_id = byLease.get(l.id) ?? null
   }
 
   // Idempotency: one proposal per lease per stage, ever (approved, rejected
   // or still pending — never re-nag a decided touchpoint).
-  const [{ data: existing }, market] = await Promise.all([
+  const [{ data: existing }, market, renewalCtx] = await Promise.all([
     sb
       .from('agent_pending_actions')
-      .select('action_type, status, metadata')
+      .select(EXISTING_COLS)
       .eq('user_id', userId)
       .in('action_type', RENEWAL_TYPES),
     loadMarket(sb),
+    loadRenewalContext(sb, leases, leases.map((l) => l.id), today),
   ])
+  const existingCards = (existing ?? []) as ExistingRenewalAction[]
+  const expired = await expireStaleRenewalCards(sb, userId, staleRenewalCards(leases, existingCards, renewalCtx))
   const inserts = planRenewalActions(
     userId,
-    leases as LeaseRow[],
-    ((existing ?? []) as ExistingRenewalAction[]),
+    leases,
+    existingCards,
     today,
     market,
+    renewalCtx,
   )
 
   if (inserts.length === 0) {
-    return NextResponse.json({ created: 0, actions: [] })
+    return NextResponse.json({ created: 0, expired, actions: [] })
   }
   const { data: created, error: insErr } = await sb
     .from('agent_pending_actions')
     .insert(inserts)
-    .select('id, title, summary, recipient_label, action_type, risk_level, data_scope, excluded_data, status, created_at')
+    .select(CREATED_COLS)
   if (insErr) {
     console.error('proactive proposal insert failed:', insErr.message)
     return NextResponse.json({ error: 'proposal insert failed' }, { status: 500 })
   }
-  return NextResponse.json({ created: created?.length ?? 0, actions: created ?? [] })
+  return NextResponse.json({ created: created?.length ?? 0, expired, actions: created ?? [] })
 }

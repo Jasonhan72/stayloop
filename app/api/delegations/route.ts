@@ -8,14 +8,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
-import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { isRegistrationLive } from '@/lib/agentProfile'
-import { ensureThread, replyTokenFor } from '@/lib/threads/server'
-import { replyAddress } from '@/lib/threads/emailReply'
-import { ACTION_LABEL, BASIS_VERSION, SCOPE_LABEL, validateProposal, type DelegationAction, type DelegationScope } from '@/lib/delegations/shared'
+import { BASIS_VERSION, validateProposal, type DelegationAction, type DelegationScope } from '@/lib/delegations/shared'
+import { sendDelegationLink } from './confirmEmail'
 
 export const runtime = 'edge'
-const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')
 
 export async function POST(req: Request) {
   const authHeader = (req.headers.get('authorization') || '').replace(/[^\x20-\x7E]/g, '').trim()
@@ -55,18 +52,14 @@ export async function POST(req: Request) {
   }).select('id, status, expires_at, scope, allowed_actions').maybeSingle()
   if (error || !row) return NextResponse.json({ error: error?.message || 'insert failed' }, { status: 500 })
 
-  const link = `${SITE()}/delegate/${token}`
-  const scopeZh = (v.value.scope as DelegationScope[]).map((s) => SCOPE_LABEL[s].zh).join('、'); const scopeEn = (v.value.scope as DelegationScope[]).map((s) => SCOPE_LABEL[s].en).join(', ')
-  const actZh = (v.value.allowed_actions as DelegationAction[]).map((a) => ACTION_LABEL[a].zh).join('、'); const actEn = (v.value.allowed_actions as DelegationAction[]).map((a) => ACTION_LABEL[a].en).join(', ')
-  const subject = `经纪 ${p.legal_name} 请你确认委托 / ${p.legal_name} asks you to confirm a delegation`
-  const text =
-    `${c.name} 你好，\n\n经纪 ${p.legal_name}（RECO 注册号 ${p.reco_number} · ${p.brokerage_name}）请求你确认一份 Stayloop 委托：\n\n  • 范围：${scopeZh}\n  • 允许的动作：${actZh}\n  • 有效期至：${expiresAt.slice(0, 10)}\n  • 依据：你们已签署的书面代表协议（${BASIS_VERSION}）\n\n请用这个邮箱（${c.email}）登录 Stayloop 后打开链接确认；你随时可以在「设置 → 委托」里撤销，撤销立即生效。\n${link}\n\n` +
-    `Hi ${c.name},\n\n${p.legal_name} (RECO #${p.reco_number}, ${p.brokerage_name}) asks you to confirm a Stayloop delegation:\n\n  • Scope: ${scopeEn}\n  • Allowed actions: ${actEn}\n  • Until: ${expiresAt.slice(0, 10)}\n  • Basis: your signed written representation agreement (${BASIS_VERSION})\n\nSign in to Stayloop with this email (${c.email}) and open the link to confirm; you can revoke any time under Settings → Delegations, effective immediately.\n${link}`
-  const { html, text: plain } = renderAgentMessageEmail({ subject, body: text })
-  // Relay (消息系统 A 期): the client's reply lands in the agent ↔ client conversation.
-  const th = await ensureThread(admin, 'agent_client', c.id, { title: c.name, createdBy: ud.user.id })
-  const tok = th ? await replyTokenFor(admin, th.id, c.email, { kind: (c as { client_role?: string }).client_role === 'landlord' ? 'landlord' : 'tenant', userId: null, label: c.name }) : null
-  const sent = await sendEmail({ to: c.email, subject, html, text: plain, replyTo: tok ? replyAddress(tok) : undefined, fromName: `${p.legal_name} 经 Stayloop` })
+  // Whether the link actually left is stored on the row and returned: the agent is told
+  // when it did not, and can resend or withdraw from the client book (sweep 2026-10-01).
+  const emailed = await sendDelegationLink(admin, {
+    delegationId: (row as { id: string }).id, token, to: c.email.trim().toLowerCase(), clientName: c.name, clientId: c.id, clientRole: c.client_role,
+    agentAuthId: ud.user.id, agent: { legal_name: p.legal_name, reco_number: p.reco_number, brokerage_name: p.brokerage_name },
+    scope: v.value.scope as DelegationScope[], actions: v.value.allowed_actions as DelegationAction[], expiresAt,
+  })
+  const sent = { ok: emailed }
   await admin.from('agent_audit_events').insert({ actor_id: ud.user.id, actor_type: 'user', action: 'delegation_proposed', target_type: 'delegation', target_id: (row as { id: string }).id, acting_role: 'agent', delegation_id: (row as { id: string }).id, metadata: { client_id: c.id, scope: v.value.scope, allowed_actions: v.value.allowed_actions, expires_at: expiresAt, emailed: sent.ok } }).then(() => undefined, () => undefined)
   return NextResponse.json({ delegation: row, emailed: sent.ok })
 }

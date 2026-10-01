@@ -32,3 +32,25 @@ export function moveInWindowOpen(startDate: string | null, progress: { done: num
   const start = new Date(startDate + 'T00:00:00Z').getTime()
   return today.getTime() >= start - 30 * 86_400_000
 }
+
+export const MOVE_IN_NOTE_MAX = 500
+
+export function normalizeChecklistNote(s: string | null | undefined): string | null {
+  return (s ?? '').trim().slice(0, MOVE_IN_NOTE_MAX) || null
+}
+
+export type ChecklistAction = { kind: 'tick'; done: boolean; userId: string; at?: string } | { kind: 'note'; note: string | null }
+
+// Only the columns an action changes. Writing a snapshot of the row as this page
+// last saw it erased the other party's tick or note (sweep 2026-10-01). A trigger
+// re-stamps done_by / done_at server-side; a note edit never carries them.
+export function checklistWrite(householdId: string, key: string, a: ChecklistAction): Record<string, unknown> {
+  if (a.kind === 'note') return { household_id: householdId, item_key: key, note: normalizeChecklistNote(a.note) }
+  return {
+    household_id: householdId,
+    item_key: key,
+    done: a.done,
+    done_by: a.done ? a.userId : null,
+    done_at: a.done ? (a.at ?? new Date().toISOString()) : null,
+  }
+}

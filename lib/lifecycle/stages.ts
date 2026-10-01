@@ -11,7 +11,8 @@
 import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
 import { isLeaseInForce } from '@/lib/matters/states'
 import { n1DeadlineFor } from '@/lib/ontario/rules'
-import { RELIST_LOOKBACK_DAYS } from '@/lib/agent/proactiveExtras'
+import { RELIST_LOOKBACK_DAYS, relistHref } from '@/lib/agent/proactiveExtras'
+import { renewalLetterSent, successorLease } from '@/lib/agent/renewalStages'
 import type { AgentRole } from '@/lib/agent/types'
 
 export type Bi = { zh: string; en: string }
@@ -37,11 +38,11 @@ export type Lifecycle = { role: AgentRole; current: PhaseKey; phases: Phase[]; e
 // ---------------------------------------------------------------------------
 // Facts (all optional so partial loads still render something honest)
 // ---------------------------------------------------------------------------
-export type LeaseFact = { id: string; status: string | null; start_date: string | null; end_date: string | null; unit_label: string | null; tenant_name?: string | null; monthly_rent?: number | null }
+export type LeaseFact = { id: string; status: string | null; start_date: string | null; end_date: string | null; unit_label: string | null; tenant_name?: string | null; tenant_email?: string | null; monthly_rent?: number | null; listing_id?: string | null }
 export type HouseholdFact = { id: string; current_lease_id: string | null; verified: boolean | null; status: string | null; end_date: string | null; address?: string | null; unit?: string | null; monthly_rent?: number | null }
 export type RentFact = { lease_id: string | null; due_date: string; status: string | null; amount?: number | null }
 export type TicketFact = { household_id: string | null; status: string | null }
-export type RenewalCardFact = { lease_id?: string; stage?: string; status: string; action_type: string }
+export type RenewalCardFact = { lease_id?: string; stage?: string; status: string; action_type: string; executed_at?: string | null; execution_result?: { ok?: unknown } | null }
 
 export type LandlordFacts = {
   listings: { id: string; verification_status: string | null; is_active: boolean | null; address?: string | null; unit?: string | null; images?: unknown }[]
@@ -74,7 +75,8 @@ export type TenantFacts = {
 export type AgentFacts = { profileStatus: string | null; profileExpiresAt?: string | null; pendingCards: number; clients?: { stage: string; representation_agreement_at: string | null; info_guide_given_at: string | null }[] }
 
 const RENEWAL_WINDOW_DAYS = 120
-const SIGNED = new Set(['signed_both', 'active'])
+// `imported` = a signed lease keyed in from paper (lib/matters/states LEASE_SIGNED_STATUSES).
+const SIGNED = new Set(['signed_both', 'active', 'imported'])
 
 function clockFor(dateIso: string, today: Date, label: Bi, warnAt = 30): Clock {
   const d = parseDateOnly(dateIso) ?? today
@@ -135,7 +137,9 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
   const openTickets = f.tickets.filter((t) => t.status && !['done', 'cancelled'].includes(t.status))
   // Only a lease that is IN FORCE has a renewal window — a signed lease that has not
   // started yet is 已签待起租 (lib/matters/states, 节点 1 2026-09-26), whatever its end date.
-  const inWindow = signedLeases.filter((l) => isLeaseInForce(l, today) && l.end_date && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) <= RENEWAL_WINDOW_DAYS && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) >= 0)
+  // A lease already followed by a signed one on the same unit was renewed or re-let —
+  // no renewal window for it (same rule as the proactive planner, sweep 2026-10-01).
+  const inWindow = signedLeases.filter((l) => isLeaseInForce(l, today) && l.end_date && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) <= RENEWAL_WINDOW_DAYS && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) >= 0 && !successorLease(l, f.leases))
   // "退租 → 重新挂牌" only for a term that ended within the lookback window,
   // with no newer signed lease on the same unit and no verified household
   // still attached (a continued tenancy is month-to-month under RTA s.38, not a
@@ -149,21 +153,52 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
     if (since < 0 || since > RELIST_LOOKBACK_DAYS) return false
     const hh = hhByLeaseId.get(l.id)
     if (hh?.verified && hh.status !== 'ended') return false
+    // The original listing is already live again — same rule as the cron's re-list card.
+    if (l.listing_id && f.listings.some((x) => x.id === l.listing_id && !!x.is_active)) return false
     return !f.leases.some((o) => o.id !== l.id && SIGNED.has(o.status ?? '') && unitKey(o) === unitKey(l) && (o.start_date || '') > (l.end_date || ''))
   })
-  // A letter counts as sent only once approved (pending is still waiting on the landlord).
-  const renewalSent = new Set(f.renewalCards.filter((c) => c.action_type === 'send_renewal_letter' && c.status === 'approved').map((c) => c.lease_id))
-  const renewalPending = new Set(f.renewalCards.filter((c) => c.action_type === 'send_renewal_letter' && c.status === 'pending').map((c) => c.lease_id))
-  // Newest intent per household → counted against the leases in the window.
-  const intentByHh = new Map<string, string>()
-  for (const i of f.renewalIntents ?? []) if (!intentByHh.has(i.household_id)) intentByHh.set(i.household_id, i.intent)
+  // A letter counts as sent only once the executor stamped a successful send
+  // (contract C8) — approval alone is not delivery. Facts from an RPC that
+  // predates the stamp carry no executed_at key at all: unknown, so read the
+  // approval as before rather than calling every letter that went out unsent.
+  const stampKnown = (c: RenewalCardFact) => c.executed_at !== undefined
+  const isLetter = (c: RenewalCardFact) => c.action_type === 'send_renewal_letter'
+  const renewalSent = new Set(f.renewalCards.filter((c) => (stampKnown(c) ? renewalLetterSent(c) : isLetter(c) && c.status === 'approved')).map((c) => c.lease_id))
+  const renewalPending = new Set(f.renewalCards.filter((c) => isLetter(c) && c.status === 'pending').map((c) => c.lease_id))
+  const renewalUnsent = new Set(f.renewalCards.filter((c) => isLetter(c) && c.status === 'approved' && stampKnown(c) && !renewalLetterSent(c)).map((c) => c.lease_id))
+  // Approved, never claimed: the to-do list still offers 「现在执行」 on it.
+  const renewalRunnable = new Set(f.renewalCards.filter((c) => isLetter(c) && c.status === 'approved' && c.executed_at === null).map((c) => c.lease_id))
+  // Re-list goes to the original listing (edit page → 已上架), never the new-listing wizard.
+  const relistTo = relistHref(ended.find((l) => l.listing_id)?.listing_id)
+  // The tenant's newest answer for each lease in the window — same matching as
+  // the planner (latestIntentFor): the lease itself, or its household when the
+  // row has no lease. renewalIntents arrive newest first.
   const hhByLease = new Map(f.households.filter((h) => h.current_lease_id).map((h) => [h.current_lease_id as string, h.id]))
+  const intentFor = (l: LeaseFact): string | undefined => {
+    const hid = hhByLease.get(l.id)
+    for (const i of f.renewalIntents ?? []) {
+      const mine = i.lease_id ? i.lease_id === l.id : !!hid && i.household_id === hid
+      if (mine && (i.intent === 'renew' || i.intent === 'leave' || i.intent === 'negotiate')) return i.intent
+    }
+    return undefined
+  }
   const intentCounts = { renew: 0, leave: 0, negotiate: 0, total: 0 }
   for (const l of inWindow) {
-    const hid = hhByLease.get(l.id)
-    const it = hid ? intentByHh.get(hid) : undefined
+    const it = intentFor(l)
     if (it === 'renew' || it === 'leave' || it === 'negotiate') { intentCounts[it] += 1; intentCounts.total += 1 }
   }
+  // A tenant who said they are leaving gets no renewal letter (the planner
+  // proposes none) — those leases stay in the window, not in the letter step.
+  const needLetter = inWindow.filter((l) => intentFor(l) !== 'leave')
+  const letterDetail: Bi | undefined = needLetter.some((l) => renewalPending.has(l.id))
+    ? { zh: '有续约函等你批准', en: 'A letter is waiting for your approval' }
+    : needLetter.some((l) => renewalRunnable.has(l.id) && !renewalSent.has(l.id))
+      ? { zh: '续约函已批准，但还没有发出 · 去待办点「现在执行」', en: 'A letter was approved but has not been sent — open your to-do list and tap “Run now”' }
+      : needLetter.some((l) => renewalUnsent.has(l.id) && !renewalSent.has(l.id))
+        ? { zh: '续约函已批准，但还没有发出', en: 'A letter was approved but has not been sent' }
+        : inWindow.length && !needLetter.length
+          ? { zh: '租客已表示搬离，无需续约函', en: 'The tenant said they are leaving — no renewal letter needed' }
+          : undefined
 
   // ── 租前
   pre.steps = [
@@ -208,9 +243,9 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
   // ── 租后
   post.steps = [
     { key: 'window', label: { zh: '续约窗口', en: 'Renewal window' }, state: inWindow.length ? 'current' : signedLeases.length ? 'todo' : 'todo', detail: inWindow.length ? { zh: `${inWindow.length} 份 120 天内到期`, en: `${inWindow.length} ending within 120 days` } : undefined, href: '/landlord/leases' },
-    { key: 'letter', label: { zh: '续约函 A/B', en: 'Renewal letter A/B' }, state: inWindow.length && inWindow.every((l) => renewalSent.has(l.id)) ? 'done' : inWindow.length ? 'current' : 'todo', detail: inWindow.some((l) => renewalPending.has(l.id)) ? { zh: '有续约函等你批准', en: 'A letter is waiting for your approval' } : undefined, href: '/landlord/todo' },
+    { key: 'letter', label: { zh: '续约函 A/B', en: 'Renewal letter A/B' }, state: !inWindow.length ? 'todo' : needLetter.every((l) => renewalSent.has(l.id)) ? 'done' : 'current', detail: letterDetail, href: '/landlord/todo' },
     { key: 'intent', label: { zh: '租客意向', en: 'Tenant intent' }, state: intentCounts.total ? 'done' : inWindow.length ? 'current' : 'todo', detail: intentCounts.total ? { zh: `续 ${intentCounts.renew} · 走 ${intentCounts.leave} · 谈 ${intentCounts.negotiate}`, en: `renew ${intentCounts.renew} · leave ${intentCounts.leave} · negotiate ${intentCounts.negotiate}` } : { zh: '租客在 30 天触点邮件里一键回复', en: 'The tenant answers from the 30-day email' }, href: '/landlord/leases' },
-    { key: 'turnover', label: { zh: '退租 → 重新挂牌', en: 'Move-out → re-list' }, state: ended.length ? 'current' : 'todo', detail: ended.length ? { zh: `${ended.length} 份已到期`, en: `${ended.length} ended` } : undefined, href: '/dashboard/listings/new' },
+    { key: 'turnover', label: { zh: '退租 → 重新挂牌', en: 'Move-out → re-list' }, state: ended.length ? 'current' : 'todo', detail: ended.length ? { zh: `${ended.length} 份已到期`, en: `${ended.length} ended` } : undefined, href: relistTo },
   ]
   post.state = inWindow.length || ended.length ? 'active' : signedLeases.length ? 'idle' : 'idle'
   const soonest = inWindow.map((l) => l.end_date!).sort()[0]
@@ -226,8 +261,13 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
       ? { zh: '到期前 120 天起自动生成 90 / 60 / 30 天触点。', en: 'Touchpoints at 90 / 60 / 30 days start 120 days before the end.' }
       : { zh: '有生效租约后，这里会跟进续约与退租。', en: 'Once a lease is active, renewal and move-out are followed up here.' }
   }
-  post.next = inWindow.some((l) => !renewalSent.has(l.id)) ? { label: { zh: '批准续约函', en: 'Approve the renewal letter' }, href: '/landlord/todo' }
-    : ended.length ? { label: { zh: '重新挂牌', en: 'Re-list the unit' }, href: '/dashboard/listings/new' }
+  // "Approve" only when there is a card to approve; an approved letter that
+  // never ran can still be sent from the to-do list (「现在执行」); anything
+  // else (not proposed yet, rejected, expired) sends the landlord to the leases.
+  post.next = needLetter.some((l) => renewalPending.has(l.id) && !renewalSent.has(l.id)) ? { label: { zh: '批准续约函', en: 'Approve the renewal letter' }, href: '/landlord/todo' }
+    : needLetter.some((l) => renewalRunnable.has(l.id) && !renewalSent.has(l.id)) ? { label: { zh: '发出已批准的续约函', en: 'Send the approved renewal letter' }, href: '/landlord/todo' }
+    : needLetter.some((l) => !renewalSent.has(l.id)) ? { label: { zh: '查看续约窗口', en: 'Review the renewal window' }, href: '/landlord/leases' }
+    : ended.length ? { label: ended.some((l) => l.listing_id) ? { zh: '重新上架原房源', en: 'Re-list the original listing' } : { zh: '重新挂牌', en: 'Re-list the unit' }, href: relistTo }
     : undefined
 
   const current: PhaseKey = post.state === 'active' ? 'post' : mid.state === 'active' ? 'mid' : mid.state === 'done' && pre.state !== 'active' ? 'mid' : 'pre'

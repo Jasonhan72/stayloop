@@ -195,6 +195,11 @@ export function buildIdeas(args: {
 export function auditActionLabel(action: string, lang: Lang, metadata?: Record<string, unknown>): string {
   const m = metadata || {}
   const to = typeof m.sent_to === 'string' ? m.sent_to : ''
+  // Receipts say what actually went out (review 2026-10-01): a ticket whose email failed,
+  // a needs-more request (not a decision), a quote approved without an entry notice.
+  const ticketEmailed = m.emailed !== false
+  const needsMore = m.decision === 'needs_more'
+  const entryNoticeSent = m.entry_notice_sent !== false
   const map: Record<string, { zh: string; en: string }> = {
     turn: { zh: '和你对话了一轮', en: 'A conversation turn' },
     agent_turn: { zh: '和你对话了一轮', en: 'A conversation turn' },
@@ -214,11 +219,17 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     pending_action_approved: { zh: '你批准了一张待批卡', en: 'You approved a card' },
     pending_action_rejected: { zh: '你拒绝了一张待批卡', en: 'You rejected a card' },
     approval_undone: { zh: '你在 60 秒内撤销了一次批准', en: 'You undid an approval within 60 s' },
-    executed_maintenance_request: { zh: `报修工单已建立并通知房东${to ? ` · ${to}` : ''}`, en: `Repair ticket filed and the landlord notified${to ? ` · ${to}` : ''}` },
-    executed_send_decision: { zh: `发出录取 / 婉拒通知${to ? ` · ${to}` : ''}`, en: `Decision notice sent${to ? ` · ${to}` : ''}` },
+    executed_maintenance_request: ticketEmailed
+      ? { zh: `报修工单已建立并通知房东${to ? ` · ${to}` : ''}`, en: `Repair ticket filed and the landlord notified${to ? ` · ${to}` : ''}` }
+      : { zh: '报修工单已建立，但通知房东的邮件没有发出', en: 'Repair ticket filed, but the email to the landlord did not go out' },
+    executed_send_decision: needsMore
+      ? { zh: `发出补材料通知${to ? ` · ${to}` : ''}`, en: `Request for more documents sent${to ? ` · ${to}` : ''}` }
+      : { zh: `发出录取 / 婉拒通知${to ? ` · ${to}` : ''}`, en: `Decision notice sent${to ? ` · ${to}` : ''}` },
     executed_send_lease: { zh: `发出租约签署邀请${to ? ` · ${to}` : ''}`, en: `Lease sent for signature${to ? ` · ${to}` : ''}` },
     executed_dispatch_work_order: { zh: '按你的批准派出了维修工单', en: 'Work order dispatched as approved' },
-    executed_approve_quote: { zh: '按你的批准通过了报价并发出进入通知', en: 'Quote approved and the entry notice sent' },
+    executed_approve_quote: entryNoticeSent
+      ? { zh: '按你的批准通过了报价并发出进入通知', en: 'Quote approved and the entry notice sent' }
+      : { zh: '按你的批准通过了报价；进入通知没有发出', en: 'Quote approved; the entry notice did not go out' },
     executed_accept_completion: { zh: '按你的批准验收了完工', en: 'Completion accepted as approved' },
     executed_relist_prompt: { zh: '重新挂牌提醒已知悉', en: 'Re-list prompt acknowledged' },
     work_order_dispatched: { zh: '你派出了一张维修工单', en: 'You dispatched a work order' },
@@ -245,6 +256,13 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     maintenance_ticket_notified: { zh: '报修工单已通知对方', en: 'The other side was told about the repair ticket' },
     trust_api_screen_started: { zh: '合作方通过 Stayloop API 发起了筛查', en: 'A partner started a screening through the Stayloop API' },
     trust_api_passport_verify: { zh: '合作方通过 Stayloop API 读取了你授权的护照范围', en: 'A partner read the passport scopes you shared through the Stayloop API' },
+    // Sweep 2026-10-01: events the fix pass started writing.
+    work_order_dispatch_no_candidate: { zh: '没有符合资质的服务商可派——需要你在报修单上手动指派', en: 'No qualified provider to dispatch — assign one on the ticket' },
+    delegation_link_resent: { zh: '你重新发送了委托确认链接', en: 'You re-sent a delegation confirmation link' },
+    application_decision_drafted: { zh: '你起草了一份申请决定通知（等你批准后才发出）', en: 'You drafted an application decision notice (sent only once you approve it)' },
+    approval_abandoned: { zh: '你放弃了一张已批准但还没执行的卡片，什么也没有发出', en: 'You dropped an approved card that had not run — nothing was sent' },
+    household_lease_attached_from_esign: { zh: '双签完成，新租约已接到原来的在管租约上', en: 'Both signed — the new lease was attached to the existing managed tenancy' },
+    household_import_corrected: { zh: '你更正了导入的在管租约信息', en: 'You corrected an imported tenancy record' },
   }
   const hit = map[action] ?? map[action.replace(/^(tenant|landlord|agent)_/, '')]
   if (hit) return hit[lang]

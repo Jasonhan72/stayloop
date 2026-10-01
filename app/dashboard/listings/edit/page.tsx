@@ -9,9 +9,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import type { DraftListing } from '@/lib/agent/types'
-import { LISTING_PUBLISH_MSG, buildListingRow, makeListingSlug, publishListing, resolveLandlordId } from '@/lib/listingPublish'
-
-const DRAFT_KEY = 'stayloop-draft-listing'
+import { LEGACY_DRAFT_KEY, LISTING_PUBLISH_MSG, buildListingRow, computeListingSource, makeListingSlug, markDraftDone, publishListing, readDraftSlot, resolveLandlordId, saveDraftSlot, type ExistingListing } from '@/lib/listingPublish'
 
 const AMENITY_OPTIONS: { id: string; zh: string; en: string }[] = [
   { id: 'central_ac', zh: '中央空调', en: 'Central A/C' },
@@ -41,7 +39,7 @@ export default function EditDraftListingPage() {
   const router = useRouter()
   const { lang } = useT()
   const zh = lang === 'zh'
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [form, setForm] = useState<DraftListing | null>(null)
@@ -49,23 +47,37 @@ export default function EditDraftListingPage() {
   const [publishing, setPublishing] = useState(false)
   const [published, setPublished] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [existing, setExisting] = useState<ExistingListing | null>(null)
+  // The chat card that opened this page (sweep 2026-10-01): its own slot, keyed by user × card.
+  const [cardKey, setCardKey] = useState<string | null>(null)
+  const [resolved, setResolved] = useState(false)
 
   useEffect(() => {
+    if (authLoading) return
+    // Signed out: drafts are per account, so there is nothing to show — say so instead of '…' forever.
+    if (!user) { setResolved(true); return }
     try {
-      const raw = localStorage.getItem(DRAFT_KEY)
-      if (raw) {
-        const d = JSON.parse(raw) as DraftListing
-        setForm(d)
-        setPhotos(d.images ?? [])
+      // The old single shared slot leaked one card's draft into every other card and account.
+      localStorage.removeItem(LEGACY_DRAFT_KEY)
+      const key = new URLSearchParams(window.location.search).get('card')
+      if (key) {
+        setCardKey(key)
+        const d = readDraftSlot(localStorage, user.id, key)
+        if (d) { setForm(d); setPhotos(d.images ?? []) }
       }
     } catch {}
-  }, [])
+    setResolved(true)
+  }, [user, authLoading])
 
   if (!form) {
     return (
       <WorkspaceShell role="landlord" hideAside>
-        <div className="flex min-h-[60vh] items-center justify-center text-body-3">
-          {zh ? '没有找到草稿数据' : 'No draft found'}
+        <div className="flex min-h-[60vh] items-center justify-center text-body-3" data-testid="draft-edit-empty">
+          {!resolved
+            ? '…'
+            : !user
+              ? (zh ? '请先登录：房源草稿保存在你自己的账号下。登录后回到对话，在草稿卡片上点「编辑」。' : 'Sign in first: listing drafts are kept under your own account. Then go back to the chat and press “Edit” on the draft card.')
+              : zh ? '没有找到草稿数据——请回到对话，在草稿卡片上点「编辑」。' : 'No draft found — go back to the chat and press “Edit” on the draft card.'}
         </div>
       </WorkspaceShell>
     )
@@ -105,8 +117,11 @@ export default function EditDraftListingPage() {
   }
 
   const handleSave = () => {
-    const updated = { ...form, images: photos }
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(updated))
+    if (!user || !cardKey) { setError(zh ? '没能保存草稿：请回到对话，在草稿卡片上重新点「编辑」。' : 'Could not save the draft: go back to the chat and press “Edit” on the card again.'); return }
+    let ok = false
+    try { ok = saveDraftSlot(localStorage, user.id, cardKey, { ...form, images: photos }) } catch {}
+    if (!ok) { setError(zh ? '草稿太大，这台设备存不下（通常是照片太多）。可以删掉几张照片再保存，或直接发布。' : 'The draft is too large to keep on this device (usually photos). Remove a few photos and save again, or publish directly.'); return }
+    // The card reloads its own slot when the chat page shows again.
     router.back()
   }
 
@@ -114,17 +129,22 @@ export default function EditDraftListingPage() {
     if (!user || !form.address || !form.monthly_rent) return
     setPublishing(true)
     setError(null)
+    setExisting(null)
     try {
       const client = getSupabaseBrowser()
       const landlordId = await resolveLandlordId(client, user.id)
       if (!landlordId) throw new Error(zh ? LISTING_PUBLISH_MSG.landlordNotFound.zh : LISTING_PUBLISH_MSG.landlordNotFound.en)
       const slug = makeListingSlug(form.address)
       const row = buildListingRow(form, { landlordId, slug, photos })
-      const { error: publishErr } = await publishListing(client, row, { zh })
+      const { error: publishErr, existing: dup } = await publishListing(client, row, { zh })
+      if (dup) setExisting(dup)
       if (publishErr) throw new Error(publishErr)
-      localStorage.removeItem(DRAFT_KEY)
+      // The chat card that opened this page renders as published from now on (and its slot is cleared),
+      // so it cannot publish the pre-edit version a second time.
+      if (cardKey) markDraftDone(localStorage, user.id, cardKey, { kind: 'published', slug, address: form.address, unit: form.unit ?? null, source: computeListingSource(form) })
       setPublished(true)
-      setTimeout(() => router.push('/listings/' + slug), 1500)
+      // A new listing waits for Stayloop review — its public page is not live yet.
+      setTimeout(() => router.push('/dashboard'), 1500)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -139,8 +159,8 @@ export default function EditDraftListingPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/10">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#047857" strokeWidth="2.5" strokeLinecap="round"><path d="M20 6 9 17l-5-5" /></svg>
           </div>
-          <div className="text-[18px] font-bold text-success">{zh ? '房源已发布！' : 'Listing published!'}</div>
-          <div className="text-[13px] text-body-3">{zh ? '正在跳转...' : 'Redirecting...'}</div>
+          <div className="text-[18px] font-bold text-success">{zh ? '房源已提交' : 'Listing submitted'}</div>
+          <div className="text-[13px] text-body-3">{zh ? '待 Stayloop 审核，通过后公开展示。正在回到工作台…' : 'Waiting for Stayloop review; it goes public once approved. Returning to your workspace…'}</div>
         </div>
       </WorkspaceShell>
     )
@@ -341,7 +361,12 @@ export default function EditDraftListingPage() {
         </section>
 
         {/* Action bar */}
-        {error && <div className="mt-6 rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</div>}
+        {error && (
+          <div className="mt-6 rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">
+            {error}
+            {existing && <> <a href={`/dashboard/listings/${existing.id}/edit${existing.is_active ? '' : '?relist=1'}`} className="font-semibold text-brand underline underline-offset-2">{zh ? '打开原房源 →' : 'Open the existing listing →'}</a></>}
+          </div>
+        )}
         <div className="sticky bottom-0 mt-8 flex gap-3 border-t border-line-divider bg-surface py-4">
           <button onClick={handleSave} className="sl-btn-secondary flex-1 !py-3">
             {zh ? '✓ 保存草稿' : '✓ Save draft'}

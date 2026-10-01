@@ -10,7 +10,7 @@
 //                   otherwise compose here, with a line naming everyone who will
 //                   read it (one thread per matter, no private side-channel).
 // A deep link (?new=<kind>:<ref>) starts at step 3 for that matter.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import {
@@ -174,20 +174,28 @@ export default function NewMessage({ zh, hat, initial, onClose, onSent, onOpenTh
   }
 
   const nobodyElse = !!people && people.filter((p) => !p.is_me).length === 0
+  const sendingRef = useRef(false)
   async function send() {
+    if (sendingRef.current) return
     const body = draft.trim()
     if (!auth.user || (!body && !files.length) || nobodyElse) return
+    sendingRef.current = true
     setBusy(true); setErr(null)
-    const id = await ensureThread()
-    if (!id) { setBusy(false); return }
-    const acting = hat === 'provider' ? 'provider' : hat
-    const { error } = await supabase.from('thread_messages').insert({ thread_id: id, sender_id: auth.user.id, sender_kind: 'tenant', acting_role: acting, kind: 'message', body: body || (zh ? '（附件）' : '(attachment)'), attachments: files })
-    if (error) { setErr(error.message); setBusy(false); return }
-    const token = await jwt()
-    if (token) void fetch('/api/threads/notify', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ thread_id: id }) }).catch(() => undefined)
-    notifyMessagesChanged()
-    setBusy(false)
-    onSent(id)
+    try {
+      const id = await ensureThread()
+      if (!id) return
+      const acting = hat === 'provider' ? 'provider' : hat
+      const { data, error } = await supabase.from('thread_messages').insert({ thread_id: id, sender_id: auth.user.id, sender_kind: 'tenant', acting_role: acting, kind: 'message', body: body || (zh ? '（附件）' : '(attachment)'), attachments: files }).select('id').single()
+      if (error) { setErr(error.message); return }
+      // Announce exactly this message (sweep 2026-10-01).
+      const token = await jwt()
+      if (token) void fetch('/api/threads/notify', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ thread_id: id, message_id: data ? Number((data as { id: number }).id) : null }) }).catch(() => undefined)
+      notifyMessagesChanged()
+      onSent(id)
+    } finally {
+      sendingRef.current = false
+      setBusy(false)
+    }
   }
 
   const step: 'who' | 'which' | 'write' = target ? 'write' : card ? 'which' : 'who'

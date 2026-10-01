@@ -94,10 +94,15 @@ export default function MessageCenter({ hat }: { hat: 'tenant' | 'landlord' | 'a
 
   // A conversation with no message yet (opened from a 「发消息」 button) is not in my_threads — the
   // inbox lists conversations, not empty shells — but it must still open (review 2026-09-30).
+  // The shell is kept across inbox reloads: clearing it on every reload unmounted the
+  // conversation for a render and wiped a half-written first message (sweep 2026-10-01).
+  // It only matters while `selected` is not in rows; `current` ignores a shell for another id.
   const [extra, setExtra] = useState<ThreadSummary | null>(null)
+  const extraIdRef = useRef<string | null>(null)
+  extraIdRef.current = extra?.id ?? null
   useEffect(() => {
-    setExtra(null)
     if (!selected || !rows || rows.some((r) => r.id === selected)) return
+    if (extraIdRef.current === selected) return
     let on = true
     ;(async () => {
       const [{ data: t }, { data: party }, { data: ppl }] = await Promise.all([

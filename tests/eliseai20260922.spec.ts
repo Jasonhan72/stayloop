@@ -58,14 +58,15 @@ describe('renewal touchpoints 90 / 60 / 30 (item F)', () => {
     expect(out.map((o) => o.action_type)).toEqual(['renewal_checkpoint'])
     expect(out[0].metadata.stage).toBe('60d')
     expect(out[0].summary).toContain('N1')
-    const approved = [{ action_type: 'send_renewal_letter', status: 'approved', metadata: { lease_id: 'l1', stage: '90d' } }]
+    // Sweep 2026-10-01 (contract C8): "sent" = executed with ok:true, not merely approved.
+    const approved = [{ action_type: 'send_renewal_letter', status: 'approved', metadata: { lease_id: 'l1', stage: '90d' }, executed_at: '2026-09-01T00:00:00Z', execution_result: { ok: true } }]
     expect(planRenewalActions('u', [lease(plusDays(55))], approved, today)).toHaveLength(0)
     const seen = [...existingPending, { action_type: 'renewal_checkpoint', status: 'pending', metadata: { lease_id: 'l1', stage: '60d' } }]
     expect(planRenewalActions('u', [lease(plusDays(55))], seen, today)).toHaveLength(0)
   })
 
   it('30d: intent-ask email when the letter was sent, otherwise a "call them" checkpoint', () => {
-    const sent = [{ action_type: 'send_renewal_letter', status: 'approved', metadata: { lease_id: 'l1', stage: '90d' } }]
+    const sent = [{ action_type: 'send_renewal_letter', status: 'approved', metadata: { lease_id: 'l1', stage: '90d' }, executed_at: '2026-09-01T00:00:00Z', execution_result: { ok: true } }]
     const ask = planRenewalActions('u', [lease(plusDays(20))], sent, today)
     expect(ask[0].action_type).toBe('send_message')
     expect(ask[0].metadata.to_email).toBe('mia@example.com')

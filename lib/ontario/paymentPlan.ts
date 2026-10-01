@@ -77,3 +77,58 @@ export function paymentPlanText(i: PaymentPlanInput, plan: PaymentPlan): { subje
     `  • Please reply whether this works, or suggest the number of instalments you can manage.\n\nThank you!`
   return { subject, body }
 }
+
+// ── The to-do card (sweep 2026-10-01) ─────────────────────────────────────────
+// The card stores its inputs, not just frozen text: the executor re-checks
+// rent_payments against missed_due_dates and refuses ('arrears_changed') once a
+// listed period is recorded; mark_rent_paid() expires a pending card that listed
+// the period. One pending card per lease — re-drafting updates it.
+export const PAYMENT_PLAN_STAGE = 'payment_plan'
+
+export type PaymentPlanCardMeta = {
+  stage: typeof PAYMENT_PLAN_STAGE
+  source: 'household_hub'
+  lease_id: string
+  household_id: string
+  to_email: string
+  missed_due_dates: string[]
+  installments: number
+  first_due: string
+  arrears_total: number
+  monthly_rent: number
+  subject: string
+  body: string
+}
+
+export function paymentPlanCardMetadata(a: { leaseId: string; householdId: string; toEmail: string; input: PaymentPlanInput; plan: PaymentPlan }): PaymentPlanCardMeta {
+  const { subject, body } = paymentPlanText(a.input, a.plan)
+  return {
+    stage: PAYMENT_PLAN_STAGE,
+    source: 'household_hub',
+    lease_id: a.leaseId,
+    household_id: a.householdId,
+    to_email: a.toEmail,
+    missed_due_dates: Array.from(new Set(a.input.missed.map((d) => d.slice(0, 10)))).sort(),
+    installments: a.input.installments,
+    first_due: a.input.firstDue,
+    arrears_total: a.plan.total,
+    monthly_rent: a.input.monthlyRent,
+    subject,
+    body,
+  }
+}
+
+/** True when a stored card was drafted for exactly the periods that are unpaid now. */
+export function planCardMatchesMissed(meta: unknown, missed: string[]): boolean {
+  const listed = (meta as { missed_due_dates?: unknown } | null)?.missed_due_dates
+  if (!Array.isArray(listed)) return false
+  const a = Array.from(new Set(listed.map((d) => String(d).slice(0, 10)))).sort()
+  const b = Array.from(new Set(missed.map((d) => d.slice(0, 10)))).sort()
+  return a.length === b.length && a.every((d, i) => d === b[i])
+}
+
+/** Newest pending card is reused; any older duplicates are superseded. */
+export function splitPlanCards<T extends { id: string; created_at: string }>(cards: T[]): { reuse: T | null; supersede: T[] } {
+  const sorted = [...cards].sort((x, y) => (x.created_at < y.created_at ? 1 : x.created_at > y.created_at ? -1 : 0))
+  return { reuse: sorted[0] ?? null, supersede: sorted.slice(1) }
+}

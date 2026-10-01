@@ -23,6 +23,14 @@ const FILE_KINDS: { kind: FileKind; label: { zh: string; en: string }; hint: { z
 ]
 // Same cap as the tenant-files bucket (25 MB since 2026-08-25); the page used to say ten.
 const MAX_BYTES = 25 * 1024 * 1024
+// attach_application_files refuses a manifest longer than this.
+const MAX_FILES = 20
+
+// The insert policy requires a phone (sweep 2026-10-01: the field looked optional,
+// and a blank one failed every submission with a generic error).
+function phoneLooksValid(v: string): boolean {
+  return (v.match(/\d/g) ?? []).length >= 7
+}
 
 export default function ApplyPage() {
   const params = useParams<{ slug: string }>()
@@ -42,7 +50,16 @@ export default function ApplyPage() {
   const [disclosure, setDisclosure] = useState<{ listingId: string } | null>(null)
   const disclosedRef = useRef(false)
   // Application row created by a previous (partially failed) attempt — reused on retry.
+  // Once it exists the form above the documents is locked: anonymous applicants
+  // cannot update the row, so an edit made before the retry would be silently lost.
   const createdAppIdRef = useRef<string | null>(null)
+  const [createdAppId, setCreatedAppId] = useState<string | null>(null)
+  // Files that already reached the bucket on an earlier attempt (keyed by the picked
+  // File) — a retry reuses their manifest entries instead of uploading them again.
+  const uploadedRef = useRef(new Map<File, ApplicationFile[]>())
+  const submittingRef = useRef(false)
+  // A signed-in applicant who already applied to this listing (by their login email).
+  const [existingApp, setExistingApp] = useState<{ id: string; created_at: string } | null>(null)
   const [files, setFiles] = useState<Record<FileKind, File[]>>({
     id: [],
     paystub: [],
@@ -98,6 +115,10 @@ export default function ApplyPage() {
         .or(LISTING_VISIBILITY_OR)
         .maybeSingle()
       if (!cancelled && listing) setSummary(listing as never)
+      if (!cancelled && listing && !auth.loading && auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous) {
+        const prior = await findExistingApplication((listing as { id: string }).id)
+        if (!cancelled) setExistingApp(prior)
+      }
       if (!cancelled && listing && (listing as { landlord_id?: string | null }).landlord_id && !auth.loading && auth.user) {
         const uid = auth.user.id
         const lid = (listing as { landlord_id: string }).landlord_id
@@ -130,11 +151,41 @@ export default function ApplyPage() {
     setFiles((prev) => ({ ...prev, [kind]: prev[kind].filter((_, i) => i !== idx) }))
   }
 
+  async function findExistingApplication(listingId: string): Promise<{ id: string; created_at: string } | null> {
+    // applicant_applications matches the login email to applications.email (no scores in it).
+    const { data } = await supabase.from('applicant_applications').select('id, created_at').eq('listing_id', listingId).order('created_at', { ascending: false }).limit(1)
+    return ((data ?? [])[0] as { id: string; created_at: string } | undefined) ?? null
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (loading) return  // double-submit guard — a slow upload must not fork a second application
+    // A ref, not `loading`: two clicks in the same tick must not fork a second application.
+    if (submittingRef.current || loading) return
+    submittingRef.current = true
+    try {
+      await submitOnce()
+    } catch (err) {
+      console.warn('apply submit failed', err)
+      setLoading(false)
+      setUploadProgress(null)
+      setError(zh ? '提交失败，请检查网络后再试。' : 'Submission failed — check your connection and try again.')
+    } finally {
+      submittingRef.current = false
+    }
+  }
+
+  async function submitOnce() {
     if (!form.consent_screening) {
       setError(zh ? '请勾选授权同意以继续。' : 'Please check the consent box to continue.')
+      return
+    }
+    if (!createdAppIdRef.current && !phoneLooksValid(form.phone)) {
+      setError(zh ? '请填写电话号码（至少 7 位数字）——房东需要用它联系你，没有电话无法提交。' : 'Please enter a phone number (at least 7 digits) — the landlord needs it to reach you, and the application cannot be submitted without one.')
+      return
+    }
+    const fileCount = (Object.keys(files) as FileKind[]).reduce((n, k) => n + files[k].length, 0)
+    if (fileCount > MAX_FILES) {
+      setError(zh ? `最多附 ${MAX_FILES} 个文件，现在有 ${fileCount} 个，请移除一些。` : `Attach at most ${MAX_FILES} files — you have ${fileCount}. Please remove some.`)
       return
     }
     setError(null)
@@ -175,6 +226,17 @@ export default function ApplyPage() {
     // second one — otherwise every retry leaves another orphaned application
     // and can trigger another landlord notification email.
     let inserted: { id: string } | null = createdAppIdRef.current ? { id: createdAppIdRef.current } : null
+    // Signed in and already applied to this listing: point to that application
+    // instead of creating a second one (sweep 2026-10-01).
+    if (!inserted && auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous) {
+      const prior = await findExistingApplication(listing.id)
+      if (prior) {
+        setExistingApp(prior)
+        setLoading(false)
+        setError(zh ? '你已经申请过这套房源（页面上方有入口查看进度），这次没有重复提交。' : 'You have already applied to this listing (see its progress at the top of the page); nothing was submitted twice.')
+        return
+      }
+    }
     if (!inserted) {
       // Review 2026-09-14: anonymous applicants have no SELECT policy on
       // applications and Postgres applies SELECT policies to
@@ -188,7 +250,7 @@ export default function ApplyPage() {
       // because prev_move_in / prev_move_out have no input at all and the
       // other three date fields are optional (review 2026-09-19; the last
       // blocker behind production's 0 applications).
-      const cleaned: Record<string, unknown> = { ...form }
+      const cleaned: Record<string, unknown> = { ...form, phone: form.phone.trim() }
       for (const k of Object.keys(cleaned)) if (cleaned[k] === '') cleaned[k] = null
       const { error: insertError } = await supabase
         .from('applications')
@@ -206,13 +268,23 @@ export default function ApplyPage() {
       const created = insertError ? null : { id: newId }
       if (insertError || !created) {
         setLoading(false)
-        setError(insertError?.message?.includes('own_listing')
+        const msg = insertError?.message || ''
+        // The insert policy checks the listing, email, phone, consent and a 30-a-day cap per listing.
+        const rls = insertError?.code === '42501' || /row-level security/i.test(msg)
+        setError(msg.includes('own_listing')
           ? (zh ? '不能向自己发布的房源提交申请。' : 'You cannot apply to your own listing.')
-          : (zh ? '提交失败,请稍后再试。' : 'Submission failed, please try again.'))
+          : rls
+            ? (!phoneLooksValid(form.phone)
+              ? (zh ? '请填写电话号码——没有电话无法提交。' : 'Please enter a phone number — the application cannot be submitted without one.')
+              : !form.email.trim()
+                ? (zh ? '请填写邮箱。' : 'Please enter your email.')
+                : (zh ? '提交被拒绝：这套房源可能已下架，或 24 小时内收到的申请已达上限。请稍后再试。' : 'The submission was refused: this listing may have been taken down, or it has reached its limit of applications for the past 24 hours. Please try again later.'))
+            : (zh ? '提交失败,请稍后再试。' : 'Submission failed, please try again.'))
         return
       }
       inserted = created
       createdAppIdRef.current = created.id
+      setCreatedAppId(created.id)
     }
 
     // Upload files
@@ -224,6 +296,8 @@ export default function ApplyPage() {
 
     for (let i = 0; i < allEntries.length; i++) {
       const { kind, file: raw } = allEntries[i]
+      const already = uploadedRef.current.get(raw)
+      if (already) { uploaded.push(...already); continue }
       setUploadProgress(zh ? `正在上传 ${i + 1} / ${allEntries.length}: ${raw.name}` : `Uploading ${i + 1} / ${allEntries.length}: ${raw.name}`)
       // Same preparation as the screening upload: big photos are downscaled
       // before they go to the bucket (and later to the models), one at a time
@@ -237,6 +311,7 @@ export default function ApplyPage() {
       }
       // Every prepared file is uploaded — an oversize PDF comes back as one image per page (review 2026-09-25: only the first was kept).
       const outFiles = prep.accepted.length ? prep.accepted.map((a) => a.file) : [raw]
+      const forThis: ApplicationFile[] = []
       for (const [n, file] of outFiles.entries()) {
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
         const path = `${inserted.id}/${kind}/${Date.now()}_${n}_${safeName}`
@@ -249,7 +324,7 @@ export default function ApplyPage() {
           setError(zh ? `${file.name} 上传失败: ${upErr.message}` : `${file.name} upload failed: ${upErr.message}`)
           return
         }
-        uploaded.push({
+        forThis.push({
           kind,
           type: kind,
           path,
@@ -259,6 +334,15 @@ export default function ApplyPage() {
           uploaded_at: new Date().toISOString(),
         })
       }
+      uploadedRef.current.set(raw, forThis)
+      uploaded.push(...forThis)
+    }
+
+    if (uploaded.length > MAX_FILES) {
+      setLoading(false)
+      setUploadProgress(null)
+      setError(zh ? `大文件拆成页面后一共 ${uploaded.length} 个，超过 ${MAX_FILES} 个的上限，请移除一些再提交。` : `Large files split into ${uploaded.length} pages in total, over the limit of ${MAX_FILES} — please remove some and submit again.`)
+      return
     }
 
     if (uploaded.length > 0) {
@@ -337,9 +421,16 @@ export default function ApplyPage() {
                   ? '房东会尽快审阅你的申请并联系你。我们也会通过你的 AI 助理通知你进度。'
                   : 'The landlord will review your application and reach out soon. Your AI Agent will also keep you posted on progress.'}
               </p>
-              <Link href="/listings" className="sl-btn-secondary mt-6 inline-flex">
-                {zh ? '继续浏览房源' : 'Keep browsing listings'}
-              </Link>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                {createdAppId && auth.user && auth.user.email && auth.user.email.toLowerCase() === form.email.trim().toLowerCase() && (
+                  <Link href={`/tenant/applications/${createdAppId}`} className="sl-btn-primary inline-flex">
+                    {zh ? '查看申请进度 →' : 'See its progress →'}
+                  </Link>
+                )}
+                <Link href="/listings" className="sl-btn-secondary inline-flex">
+                  {zh ? '继续浏览房源' : 'Keep browsing listings'}
+                </Link>
+              </div>
             </div>
           </div>
         </main>
@@ -401,13 +492,29 @@ export default function ApplyPage() {
             </div>
           )}
 
+          {existingApp && (
+            <div data-testid="apply-existing" className="mt-6 rounded-xl border border-brand/30 bg-[#EAF6FD] px-4 py-3 text-[13px] leading-relaxed text-ink">
+              {zh ? `你已经在 ${existingApp.created_at.slice(0, 10)} 申请过这套房源。` : `You already applied to this listing on ${existingApp.created_at.slice(0, 10)}.`}{' '}
+              <Link href={`/tenant/applications/${existingApp.id}`} className="font-semibold text-brand underline underline-offset-2">{zh ? '查看申请进度 →' : 'See its progress →'}</Link>
+              <div className="mt-1 text-[12px] text-body-2">{zh ? '要补充材料或说明，请在那份申请的对话里告诉房东，不用再交一份。' : 'To add documents or context, use that application’s conversation — no need to apply again.'}</div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+            {createdAppId && (
+              <div data-testid="apply-locked" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
+                {zh
+                  ? '你的申请已经建立，上面填写的资料已随第一次提交保存，现在不能再改。只需处理下面的文件后再点一次提交；已经传上去的文件不会重复上传。资料如有错误，提交后在申请对话里告诉房东。'
+                  : 'Your application already exists: the details above were saved with your first submit and can no longer be changed. Just sort out the files below and submit again — files already uploaded are not sent twice. If a detail is wrong, tell the landlord in the application conversation after submitting.'}
+              </div>
+            )}
+            <fieldset disabled={!!createdAppId} className="m-0 min-w-0 space-y-5 border-0 p-0">
             <Section tag="01" title={zh ? '个人信息' : 'Personal info'}>
               <Grid>
                 <Field label={zh ? '名 *' : 'First name *'}><Input required value={form.first_name} onChange={(e: any) => set('first_name', e.target.value)} /></Field>
                 <Field label={zh ? '姓 *' : 'Last name *'}><Input required value={form.last_name} onChange={(e: any) => set('last_name', e.target.value)} /></Field>
                 <Field label={zh ? '邮箱 *' : 'Email *'}><Input required type="email" value={form.email} onChange={(e: any) => set('email', e.target.value)} /></Field>
-                <Field label={zh ? '电话' : 'Phone'}><Input type="tel" value={form.phone} onChange={(e: any) => set('phone', e.target.value)} /></Field>
+                <Field label={zh ? '电话 *' : 'Phone *'}><Input required type="tel" autoComplete="tel" value={form.phone} onChange={(e: any) => set('phone', e.target.value)} /></Field>
                 <Field label={zh ? '出生日期' : 'Date of birth'}><Input type="date" value={form.date_of_birth} onChange={(e: any) => set('date_of_birth', e.target.value)} /></Field>
               </Grid>
               <div className="mt-4">
@@ -454,6 +561,8 @@ export default function ApplyPage() {
                 <Field label={zh ? '期望入住' : 'Desired move-in'}><Input type="date" value={form.move_in_date} onChange={(e: any) => set('move_in_date', e.target.value)} /></Field>
               </Grid>
             </Section>
+
+            </fieldset>
 
             <Section tag="05" title={zh ? '证明文件 (建议上传)' : 'Supporting documents (recommended)'}>
               <p className="mb-4 text-[12.5px] leading-relaxed text-body-2">
@@ -510,6 +619,7 @@ export default function ApplyPage() {
               </div>
             </Section>
 
+            <fieldset disabled={!!createdAppId} className="m-0 min-w-0 border-0 p-0">
             <div className="rounded-2xl border border-warning/40 bg-warning/5 p-5 sm:p-6">
               <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-warning">
                 CONSENT · PIPEDA
@@ -538,6 +648,7 @@ export default function ApplyPage() {
                 <span>{zh ? '我同意房东对我进行信用查询。' : 'I consent to the landlord running a credit check.'}</span>
               </label>
             </div>
+            </fieldset>
 
             {error && (
               <div className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-[13px] text-danger">
@@ -550,7 +661,7 @@ export default function ApplyPage() {
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="sl-btn-primary w-full !py-[16px] !text-[15px]">
+            <button type="submit" disabled={loading || (!!existingApp && !createdAppId)} className="sl-btn-primary w-full !py-[16px] !text-[15px] disabled:opacity-60">
               {loading ? (uploadProgress ? (zh ? '上传中…' : 'Uploading…') : (zh ? '提交中…' : 'Submitting…')) : (zh ? '提交申请 →' : 'Submit application →')}
             </button>
           </form>

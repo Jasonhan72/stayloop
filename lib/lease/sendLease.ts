@@ -16,9 +16,17 @@ export type LeaseForSend = {
   sign_token: string | null
   landlord_signature: unknown
   tenant_signature: unknown
+  /** When loaded, a failed email restores it instead of leaving a send that never happened. */
+  sent_at?: string | null
 }
 
+// Only a lease still waiting for the tenant can go out for signature; an ended,
+// executed or imported record has nothing to sign (sweep 2026-10-01).
+const SENDABLE_STATUSES = ['draft', 'sent', 'signed_tenant']
+
 export function leaseSendPreflight(lease: LeaseForSend): { ok: true } | { ok: false; status: number; error: string } {
+  if (lease.status === 'ended') return { ok: false, status: 409, error: 'lease_ended' }
+  if (lease.status && !SENDABLE_STATUSES.includes(lease.status)) return { ok: false, status: 409, error: 'lease_not_sendable' }
   if (!lease.tenant_email) return { ok: false, status: 422, error: 'lease has no tenant email' }
   if (lease.tenant_signature) return { ok: false, status: 409, error: 'tenant has already signed' }
   const terms = lease.terms as { landlord_legal_name?: string; rent?: { amount?: number } } | null
@@ -71,7 +79,13 @@ export async function sendLeaseInvitation(admin: SupabaseClient, lease: LeaseFor
   const link = `${siteUrl}/lease/sign/${token}`
   const mail = buildLeaseInvite(lease, link)
   const result = await sendEmail({ to: lease.tenant_email!, subject: mail.subject, html: mail.html, text: mail.text })
-  if (!result.ok) return { ok: false, status: 502, error: result.error || 'email failed' }
+  if (!result.ok) {
+    // Nothing reached the tenant: a draft goes back to draft (terms stay editable);
+    // a re-send keeps its earlier sent_at when the caller loaded it. The token stays for the retry.
+    const revert: Record<string, unknown> = lease.status === 'draft' ? { status: 'draft', sent_at: null } : lease.sent_at !== undefined ? { sent_at: lease.sent_at } : {}
+    if (Object.keys(revert).length) await admin.from('lease_documents').update(revert).eq('id', lease.id)
+    return { ok: false, status: 502, error: result.error || 'email failed' }
+  }
   await admin.from('agent_audit_events').insert({
     actor_id: actorId,
     actor_type: 'user',

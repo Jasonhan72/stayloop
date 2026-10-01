@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
-import { MOVE_IN_ITEMS, moveInProgress } from '@/lib/household/moveIn'
+import { MOVE_IN_ITEMS, checklistWrite, moveInProgress, normalizeChecklistNote, type ChecklistAction } from '@/lib/household/moveIn'
 
 type Row = { item_key: string; done: boolean; done_by: string | null; done_at: string | null; note: string | null }
 
@@ -27,22 +27,27 @@ export default function MoveInChecklist({ householdId, zh, compact = false }: { 
     setRows((data ?? []) as Row[])
   }, [householdId])
   useEffect(() => { void load() }, [load])
+  // Both parties edit this list; refresh when the tab comes back so a stale page does not
+  // show (and act on) the state from when it was opened.
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === 'visible') void load() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [load])
   if (!rows) return null
   const byKey = new Map(rows.map((r) => [r.item_key, r]))
   const progress = moveInProgress(rows)
 
-  async function toggle(key: string, nextDone: boolean, noteOnly = false) {
+  // Writes only the changed columns (checklistWrite): a tick never carries a note, a note
+  // never carries who ticked — the other party's tick or note survives a stale page.
+  async function write(key: string, action: ChecklistAction) {
     if (!user) return
     setBusy(key)
-    const prev = byKey.get(key)
-    const note = (noteDraft[key] ?? prev?.note ?? '').trim().slice(0, 500) || null
-    // A note edit must not re-stamp who ticked and when (review 2026-09-23).
-    const row = noteOnly && prev
-      ? { household_id: householdId, item_key: key, done: prev.done, done_by: prev.done_by, done_at: prev.done_at, note }
-      : { household_id: householdId, item_key: key, done: nextDone, done_by: nextDone ? user.id : null, done_at: nextDone ? new Date().toISOString() : null, note }
-    const { error } = await supabase.from('move_in_checklist').upsert(row, { onConflict: 'household_id,item_key' })
-    setErr(error ? error.message : null)
+    const { error } = await supabase.from('move_in_checklist').upsert(checklistWrite(householdId, key, action), { onConflict: 'household_id,item_key' })
+    setErr(error ? (error.code === '42501' || /row-level security/i.test(error.message) ? (zh ? '没有保存成功：只有这份租约的成员可以修改清单。' : 'Not saved: only members of this tenancy can edit the checklist.') : error.message) : null)
     await load()
+    // Drop the local draft once saved so the input shows the stored value (and later edits by the other party).
+    if (!error && action.kind === 'note') setNoteDraft((d) => { const n = { ...d }; delete n[key]; return n })
     setBusy(null)
   }
 
@@ -66,7 +71,7 @@ export default function MoveInChecklist({ householdId, zh, compact = false }: { 
                 return (
                   <div key={it.key} className="px-3 py-2.5">
                     <div className="flex items-start gap-3">
-                      <button type="button" role="checkbox" aria-checked={done} aria-label={zh ? it.label.zh : it.label.en} disabled={busy === it.key} onClick={() => void toggle(it.key, !done)}
+                      <button type="button" role="checkbox" aria-checked={done} aria-label={zh ? it.label.zh : it.label.en} disabled={busy === it.key} onClick={() => void write(it.key, { kind: 'tick', done: !done, userId: user?.id ?? '' })}
                         className="-m-1.5 flex h-9 w-9 flex-none items-center justify-center p-1.5">
                         <span className={'flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold ' + (done ? 'bg-success text-white' : 'border border-line-strong text-body-3')}>{done ? '✓' : ''}</span>
                       </button>
@@ -79,7 +84,12 @@ export default function MoveInChecklist({ householdId, zh, compact = false }: { 
                           <input
                             value={noteDraft[it.key] ?? r?.note ?? ''}
                             onChange={(e) => setNoteDraft((d) => ({ ...d, [it.key]: e.target.value }))}
-                            onBlur={() => { if ((noteDraft[it.key] ?? '') !== (r?.note ?? '') && noteDraft[it.key] !== undefined) void toggle(it.key, done, true) }}
+                            onBlur={() => {
+                              const draft = noteDraft[it.key]
+                              if (draft === undefined) return
+                              if (normalizeChecklistNote(draft) !== normalizeChecklistNote(r?.note)) void write(it.key, { kind: 'note', note: draft })
+                              else setNoteDraft((d) => { const n = { ...d }; delete n[it.key]; return n })
+                            }}
                             placeholder={zh ? it.needsNote.zh : it.needsNote.en}
                             className="mt-1 w-full max-w-[360px] rounded-md border border-line-divider px-2 py-1 text-[12px]"
                           />

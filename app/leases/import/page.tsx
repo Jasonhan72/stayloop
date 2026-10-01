@@ -11,7 +11,7 @@ export const runtime = 'edge'
 // attach RPC — that order, because the bucket's RLS needs the membership row
 // the RPC creates).
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
@@ -22,6 +22,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import type { LeaseImportExtraction } from '@/lib/household/importExtract'
+import { sameTenancyAddress } from '@/lib/lease/householdMatch'
 
 type Role = 'landlord' | 'tenant' | 'agent'
 type Step = 'role' | 'files' | 'confirm' | 'invite' | 'done'
@@ -44,6 +45,19 @@ const EMPTY_FORM: FormState = {
   start_date: '', end_date: '', tenant_name: '', tenant_email: '',
 }
 
+// my_households_for_import(): households the caller is in, or invited to.
+type MyHousehold = {
+  id: string; address: string; unit: string | null; city: string | null; status: string; verified: boolean; source: string
+  monthly_rent: number | null; rent_due_day: number | null; start_date: string | null; end_date: string | null
+  relation: 'member' | 'invited'; my_role: string | null; is_creator: boolean; invite_token: string | null; lease_status: string | null
+  tenant_name: string | null; tenant_email: string | null
+  /** Another active member (the invitee, an agent or PM) — absent before the 20261001_A4 function. */
+  others_joined?: boolean | null
+}
+
+/** The creator may correct an import until the other side joins (any other active member) and confirms it. */
+const correctable = (h: MyHousehold) => h.relation === 'member' && h.is_creator && !h.verified && h.source === 'imported' && h.status === 'active' && !h.others_joined
+
 export default function LeaseImportPage() {
   const { user, loading, role: rememberedRole } = useAuth()
   const hats = useHats()
@@ -64,9 +78,109 @@ export default function LeaseImportPage() {
   const [invites, setInvites] = useState<Array<{ email: string; role: string }>>([{ email: '', role: 'landlord' }])
   const [inviting, setInviting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Sweep 2026-10-01 (#18): the same tenancy already in Stayloop — re-importing, or the other
+  // party importing the same lease, used to create a second household every time.
+  const [matches, setMatches] = useState<MyHousehold[] | null>(null)
+  // ?edit=<household>: correct an unconfirmed import instead of importing it again.
+  const [editing, setEditing] = useState<MyHousehold | null>(null)
+  const [corrected, setCorrected] = useState(false)
 
-  const set = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  useEffect(() => {
+    if (!user) return
+    const id = new URLSearchParams(window.location.search).get('edit')
+    if (!id) return
+    let cancelled = false
+    void supabase.rpc('my_households_for_import').then(({ data }) => {
+      if (cancelled) return
+      const h = ((data ?? []) as MyHousehold[]).find((x) => x.id === id)
+      if (!h || !correctable(h)) {
+        setError(zh ? '这份在管租约不能在这里修改：只有导入它的人，在对方加入并确认之前可以更正。' : 'This tenancy cannot be corrected here: only the person who imported it can, before the other side joins and confirms.')
+        return
+      }
+      setEditing(h)
+      setForm(formFromHousehold(h))
+      setStep('confirm')
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
+
+  function formFromHousehold(h: MyHousehold): FormState {
+    return {
+      address: h.address || '', unit: h.unit || '', city: h.city || '',
+      monthly_rent: h.monthly_rent != null ? String(h.monthly_rent) : '',
+      rent_due_day: h.rent_due_day != null ? String(h.rent_due_day) : '1',
+      start_date: h.start_date || '', end_date: h.end_date || '',
+      tenant_name: h.tenant_name || '', tenant_email: h.tenant_email || '',
+    }
+  }
+
+  async function uploadInto(id: string, attach: boolean) {
+    // Unique names: an existing household's earlier file is never overwritten.
+    const stamp = Date.now().toString(36)
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i]
+      const ext = f.name.split('.').pop()?.toLowerCase() || 'pdf'
+      const path = `${id}/lease-${stamp}-${i + 1}.${ext}`
+      const { error: upErr } = await supabase.storage.from('tenancy-files').upload(path, f, { upsert: false })
+      if (!upErr && i === 0 && attach) {
+        await supabase.rpc('attach_household_lease_file', { p_household: id, p_path: path })
+      }
+    }
+  }
+
+  async function correctHousehold(h: MyHousehold) {
+    setError(null)
+    if (form.address.trim().length < 5) { setError(zh ? '请填写房屋地址' : 'Address is required'); return }
+    setCreating(true)
+    try {
+      const { error: rpcErr } = await supabase.rpc('update_household_import', {
+        p_household: h.id,
+        p_address: form.address.trim(),
+        p_unit: form.unit.trim() || null,
+        p_city: form.city.trim() || null,
+        p_monthly_rent: form.monthly_rent ? Number(form.monthly_rent) : null,
+        p_rent_due_day: form.rent_due_day ? Number(form.rent_due_day) : null,
+        p_start_date: form.start_date || null,
+        p_end_date: form.end_date || null,
+        p_tenant_name: form.tenant_name.trim() || null,
+        p_tenant_email: form.tenant_email.trim() || null,
+      })
+      if (rpcErr) {
+        // The other side joined (or confirmed) since this page loaded: the facts they saw stay as they are.
+        if (/counterparty_joined|household_verified/.test(rpcErr.message)) {
+          throw new Error(zh ? '对方已经加入这份在管租约，导入的信息不能再改；有出入请在租约对话里和对方说明。' : 'The other side has already joined this tenancy, so the imported details can no longer be changed — raise any difference with them in the tenancy conversation.')
+        }
+        throw new Error(rpcErr.message)
+      }
+      if (files.length) await uploadInto(h.id, h.lease_status === 'imported')
+      setHouseholdId(h.id)
+      setCorrected(true)
+      setMatches(null)
+      setStep('done')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'update failed')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  async function attachFilesTo(h: MyHousehold) {
+    setCreating(true); setError(null)
+    try {
+      await uploadInto(h.id, h.lease_status === 'imported' && h.source === 'imported')
+      router.push(`/h/${h.id}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'upload failed')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const set = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }))
+    if (k === 'address' || k === 'unit') setMatches(null)
+  }
 
   async function runExtract(selected: File[]) {
     setFiles(selected)
@@ -103,14 +217,20 @@ export default function LeaseImportPage() {
     }
   }
 
-  async function createHousehold() {
+  async function createHousehold(force = false) {
     setError(null)
     if (form.address.trim().length < 5) {
       setError(zh ? '请填写房屋地址' : 'Address is required')
       return
     }
+    if (editing) { await correctHousehold(editing); return }
     setCreating(true)
     try {
+      if (!force) {
+        const { data: mine } = await supabase.rpc('my_households_for_import')
+        const same = ((mine ?? []) as MyHousehold[]).filter((h) => sameTenancyAddress({ address: form.address, unit: form.unit }, { address: h.address, unit: h.unit }))
+        if (same.length) { setMatches(same); return }
+      }
       const { data: hid, error: rpcErr } = await supabase.rpc('create_household_import', {
         p_address: form.address.trim(),
         p_unit: form.unit.trim() || null,
@@ -126,18 +246,11 @@ export default function LeaseImportPage() {
       if (rpcErr || !hid) throw new Error(rpcErr?.message || 'create failed')
       const id = hid as string
       setHouseholdId(id)
+      setMatches(null)
 
       // Upload the lease file(s) now that membership exists, then link the
       // first one as the lease document.
-      for (let i = 0; i < files.length; i++) {
-        const f = files[i]
-        const ext = f.name.split('.').pop()?.toLowerCase() || 'pdf'
-        const path = `${id}/lease-${i + 1}.${ext}`
-        const { error: upErr } = await supabase.storage.from('tenancy-files').upload(path, f, { upsert: true })
-        if (!upErr && i === 0) {
-          await supabase.rpc('attach_household_lease_file', { p_household: id, p_path: path })
-        }
-      }
+      await uploadInto(id, true)
 
       const defaultInviteRole = role === 'tenant' ? 'landlord' : 'tenant'
       setInvites([{ email: '', role: defaultInviteRole }])
@@ -309,13 +422,58 @@ export default function LeaseImportPage() {
                 <label className={label}>{zh ? '租客邮箱(用于护照租金记录,可留空)' : 'Tenant email (optional)'}</label>
                 <input className={input} type="email" value={form.tenant_email} onChange={set('tenant_email')} />
 
+                {matches && matches.length > 0 && (
+                  <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900" data-testid="import-existing">
+                    <div className="font-semibold">{zh ? '这个地址和单元在 Stayloop 上已经有在管租约了' : 'This address and unit is already a managed tenancy on Stayloop'}</div>
+                    <p className="mt-1 text-[12.5px]">{zh ? '同一份租约导入两次会出现两份在管租约，各自有对话、报修和租金记录。先看看是不是这一份：' : 'Importing the same lease twice makes two managed tenancies, each with its own chat, maintenance and rent records. Check whether it is this one first:'}</p>
+                    <ul className="mt-2 space-y-2">
+                      {matches.map((h) => (
+                        <li key={h.id} className="rounded-md border border-amber-200 bg-white px-3 py-2">
+                          <div className="text-[13px] font-semibold text-body">{h.address}{h.unit ? ` · ${h.unit}` : ''}</div>
+                          <div className="text-[12px] text-body-3">
+                            {h.relation === 'invited'
+                              ? (zh ? '你已被邀请加入这份在管租约（还没接受）' : 'You were invited to this tenancy (not accepted yet)')
+                              : h.verified
+                                ? (zh ? '你在这份在管租约里 · 双方已确认' : 'You are in this tenancy · confirmed by both sides')
+                                : h.is_creator
+                                  ? (zh ? '你之前导入的 · 对方还没确认' : 'You imported it earlier · not yet confirmed by the other side')
+                                  : (zh ? '你在这份在管租约里' : 'You are in this tenancy')}
+                          </div>
+                          <div className="mt-1.5 flex flex-wrap gap-3 text-[12.5px] font-semibold">
+                            {h.relation === 'invited' && h.invite_token
+                              ? <Link href={`/join/${h.invite_token}`} className="text-[#00ACE4] underline underline-offset-2">{zh ? '去接受邀请 →' : 'Accept the invitation →'}</Link>
+                              : <Link href={`/h/${h.id}`} className="text-[#00ACE4] underline underline-offset-2">{zh ? '打开它 →' : 'Open it →'}</Link>}
+                            {correctable(h) && (
+                              <button onClick={() => void correctHousehold(h)} disabled={creating} className="text-[#00ACE4] underline underline-offset-2 disabled:opacity-50">
+                                {zh ? '用这次确认的信息更正它' : 'Correct it with these details'}
+                              </button>
+                            )}
+                            {h.relation === 'member' && files.length > 0 && !correctable(h) && (
+                              <button onClick={() => void attachFilesTo(h)} disabled={creating} className="text-[#00ACE4] underline underline-offset-2 disabled:opacity-50">
+                                {zh ? '把这次的文件附上去' : 'Attach this file to it'}
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <button onClick={() => void createHousehold(true)} disabled={creating} className="mt-3 text-[12.5px] text-body-2 underline underline-offset-2 disabled:opacity-50">
+                      {zh ? '不是同一份（例如这个单元的新租客）——仍然新建一份在管租约' : 'Not the same tenancy (e.g. a new tenant in this unit) — create a new one anyway'}
+                    </button>
+                  </div>
+                )}
+
                 <button
                   onClick={() => void createHousehold()}
                   disabled={creating}
                   className="mt-6 w-full rounded-lg py-3 text-[14px] font-bold text-white disabled:opacity-60"
                   style={{ background: '#00ACE4' }}
                 >
-                  {creating ? (zh ? '创建中…' : 'Creating…') : (zh ? '确认并创建' : 'Confirm & create')}
+                  {creating
+                    ? (zh ? '处理中…' : 'Working…')
+                    : editing
+                      ? (zh ? '保存更正' : 'Save corrections')
+                      : (zh ? '确认并创建' : 'Confirm & create')}
                 </button>
               </>
             )}
@@ -372,9 +530,11 @@ export default function LeaseImportPage() {
         {step === 'done' && (
           <div className="mt-8 rounded-xl border border-line-divider bg-white p-8 text-center">
             <div className="text-[40px]">✓</div>
-            <h2 className="mt-2 text-[18px] font-extrabold">{zh ? '在管租约已创建' : 'Managed tenancy created'}</h2>
+            <h2 className="mt-2 text-[18px] font-extrabold">{corrected ? (zh ? '在管租约已更正' : 'Managed tenancy corrected') : (zh ? '在管租约已创建' : 'Managed tenancy created')}</h2>
             <p className="mt-1 text-[13px] text-body-3">
-              {zh ? '对方加入后,对话、报修、租金记录都会在这里汇合。' : 'Once the others join, chat, maintenance and rent records all live here.'}
+              {corrected
+                ? (zh ? '没有另建一份；已发出的邀请仍然有效。' : 'No second tenancy was created; invitations already sent still work.')
+                : (zh ? '对方加入后,对话、报修、租金记录都会在这里汇合。' : 'Once the others join, chat, maintenance and rent records all live here.')}
             </p>
             <button
               onClick={() => householdId && router.push(`/h/${householdId}`)}

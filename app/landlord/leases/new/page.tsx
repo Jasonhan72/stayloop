@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
 import { useT } from '@/lib/i18n'
 import { checkLeaseTerms } from '@/lib/ontario/rules'
+import { leaseIsEditableDraft, leaseIsWithdrawable } from '@/lib/lease/leaseState'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -69,6 +70,18 @@ type PrefillApplication = {
   } | null
 }
 
+type PriorLeaseRow = { id: string; status: string; sent_at: string | null; signed_at: string | null; landlord_signature: unknown; tenant_signature: unknown }
+type PriorLease = { id: string; status: string; withdrawable: boolean; signed: boolean }
+
+const PRIOR_STATUS: Record<string, { zh: string; en: string }> = {
+  draft: { zh: '草稿', en: 'draft' },
+  sent: { zh: '已发送，等租客签署', en: 'sent, waiting for the tenant to sign' },
+  signed_tenant: { zh: '租客已签，等你回签', en: 'signed by the tenant, waiting for your signature' },
+  signed_both: { zh: '双方已签', en: 'signed by both' },
+  active: { zh: '生效中', en: 'in force' },
+  imported: { zh: '导入的记录', en: 'an imported record' },
+}
+
 function NewLeasePageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -87,15 +100,124 @@ function NewLeasePageInner() {
 
   // ?application_id= → one-click draft from an applicant
   const applicationParam = searchParams.get('application_id')
+  // ?edit= → keep editing an unsent draft (sweep 2026-10-01: a saved draft could not be
+  // corrected anywhere, so every fix added another lease for the same application).
+  const editParam = searchParams.get('edit')
+  // ?from_lease= → a standard lease for a tenancy recorded by import / quick entry.
+  const fromLeaseParam = searchParams.get('from_lease')
   const [applicationId, setApplicationId] = useState<string | null>(null)
   const [listingId, setListingId] = useState<string | null>(null)
   const [prefillNote, setPrefillNote] = useState<{ kind: 'ok' | 'fail'; text: string } | null>(null)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editBlocked, setEditBlocked] = useState<string | null>(null)
+  // A lease already drafted from this application (sent, signed or in force): a new one is a
+  // replacement the landlord has to ask for, not a silent second copy.
+  const [priorLease, setPriorLease] = useState<PriorLease | null>(null)
+  const [replaceOk, setReplaceOk] = useState(false)
+
+  useEffect(() => {
+    if (authLoading || !landlord) return
+    if (!editParam || !UUID_RE.test(editParam)) return
+    let cancelled = false
+    const run = async () => {
+      const { data, error } = await supabase
+        .from('lease_documents')
+        .select('id, form_type, status, terms, tenant_email, application_id, listing_id, sent_at, signed_at, landlord_signature, tenant_signature')
+        .eq('id', editParam)
+        .maybeSingle()
+      if (cancelled) return
+      if (error || !data) { setEditBlocked(editParam); setPrefillNote({ kind: 'fail', text: zh ? '没有找到这份草稿（或无权限查看）。' : 'Draft not found (or no access).' }); return }
+      if (!leaseIsEditableDraft(data)) { setEditBlocked(data.id); return }
+      const ft: FormType = data.form_type === 'trreb' ? 'trreb' : 'ontario_standard'
+      setFormType(ft)
+      if (ft === 'trreb') setTt({ ...emptyTrrebTerms(), ...((data.terms || {}) as Partial<TrrebLeaseTerms>) })
+      else setT({ ...emptyOntarioTerms(), ...((data.terms || {}) as Partial<OntarioLeaseTerms>) })
+      setTenantEmail(data.tenant_email || '')
+      setApplicationId(data.application_id ?? null)
+      setListingId(data.listing_id ?? null)
+      setEditId(data.id)
+      setEditBlocked(null)
+      setPrefillNote({
+        kind: 'ok',
+        text: searchParams.get('reopened') === '1'
+          ? (zh ? '这份申请已经有一份还没发送的租约草稿，已为你打开继续编辑（没有另建一份）。' : 'This application already has an unsent lease draft — it is open here to keep editing (no second copy was made).')
+          : (zh ? '正在编辑草稿：保存后才生效，发送给租客之前都可以再改。' : 'Editing the draft: nothing changes until you save, and you can keep editing until it is sent.'),
+      })
+    }
+    void run()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, landlord, editParam])
+
+  useEffect(() => {
+    if (authLoading || !landlord) return
+    if (!fromLeaseParam || !UUID_RE.test(fromLeaseParam)) return
+    let cancelled = false
+    const run = async () => {
+      const [{ data: src }, { data: hhs }] = await Promise.all([
+        supabase.from('lease_documents').select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, application_id, listing_id').eq('id', fromLeaseParam).maybeSingle(),
+        supabase.from('households').select('address, unit, city').eq('current_lease_id', fromLeaseParam).limit(1),
+      ])
+      if (cancelled) return
+      if (!src) { setPrefillNote({ kind: 'fail', text: zh ? '没有找到这份租约记录，已回退到空白表单。' : 'Lease record not found — starting from a blank form.' }); return }
+      const hh = ((hhs ?? []) as { address: string | null; unit: string | null; city: string | null }[])[0]
+      const names = String(src.tenant_name || '').split(/\s*(?:&|,|\band\b)\s*/i).map((x) => x.trim()).filter(Boolean)
+      const street = hh?.address || ''
+      const unit = hh?.unit || (hh ? '' : String(src.unit_label || ''))
+      setApplicationId(src.application_id ?? null)
+      setListingId(src.listing_id ?? null)
+      setTenantEmail(src.tenant_email || '')
+      setT((prev) => ({
+        ...prev,
+        tenant_names: names.length ? names : prev.tenant_names,
+        unit: { ...prev.unit, street: street || prev.unit.street, unit: unit || prev.unit.unit, city: hh?.city || prev.unit.city },
+        term: { ...prev.term, start_date: src.start_date || prev.term.start_date, end_date: src.end_date || prev.term.end_date, type: src.end_date ? 'fixed' : prev.term.type },
+        rent: { ...prev.rent, amount: Number(src.monthly_rent) || prev.rent.amount },
+      }))
+      setTt((prev) => ({
+        ...prev,
+        tenant_names: names.length ? names : prev.tenant_names,
+        premises: { ...prev.premises, street: street || prev.premises.street, unit: unit || prev.premises.unit, city: hh?.city || prev.premises.city },
+        term: { ...prev.term, start_date: src.start_date || prev.term.start_date, end_date: src.end_date || prev.term.end_date },
+        rent: { ...prev.rent, amount: Number(src.monthly_rent) || prev.rent.amount },
+      }))
+      // What happens on signing is decided by the sign route's matcher (same unit AND same
+      // tenant email, in a tenancy this account manages as landlord) — say only that.
+      setPrefillNote({
+        kind: 'ok',
+        text: hh
+          ? (zh
+            ? '已从这份租约记录预填租客、地址、租金和日期——请核对后补全其余条款。双方签署后，如果地址、单元和租客邮箱都与这份在管租约一致，它会接到这份在管租约上，不另建一份；改了其中任何一项，会另建一份在管租约。'
+            : 'Prefilled the tenant, address, rent and dates from the recorded lease — review and complete the rest. Once both sign, it joins this managed tenancy if the address, unit and tenant email still match it; if you change any of them, a separate managed tenancy is created.')
+          : (zh
+            ? '已从这份租约记录预填租客、地址、租金和日期——请核对后补全其余条款。这份记录还没有在管租约，双方签署后会为它建立一份。'
+            : 'Prefilled the tenant, address, rent and dates from the recorded lease — review and complete the rest. This record has no managed tenancy yet; one is created once both sign.'),
+      })
+    }
+    void run()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, landlord, fromLeaseParam])
 
   useEffect(() => {
     if (authLoading || !landlord) return
     if (!applicationParam || !UUID_RE.test(applicationParam)) return
     let cancelled = false
     const run = async () => {
+      // One application, one lease (sweep 2026-10-01): an unsent draft reopens for editing;
+      // a sent / signed one is shown and a new one needs an explicit "draft a replacement".
+      const { data: prior } = await supabase
+        .from('lease_documents')
+        .select('id, status, sent_at, signed_at, landlord_signature, tenant_signature')
+        .eq('application_id', applicationParam)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      if (cancelled) return
+      const priorRows = (prior ?? []) as PriorLeaseRow[]
+      const draft = priorRows.find((r) => leaseIsEditableDraft(r))
+      if (draft) { router.replace(`/landlord/leases/new?edit=${draft.id}&reopened=1`); return }
+      const live = priorRows.find((r) => r.status !== 'ended')
+      if (live) setPriorLease({ id: live.id, status: live.status, withdrawable: leaseIsWithdrawable(live), signed: !!(live.signed_at || live.landlord_signature || live.tenant_signature) })
       const { data, error } = await supabase
         .from('applications')
         .select('id, first_name, last_name, email, move_in_date, num_occupants, listing_id, listing:listings(address, unit, city, postal_code, monthly_rent, parking)')
@@ -161,6 +283,11 @@ function NewLeasePageInner() {
 
   const save = async () => {
     if (saving || !landlord) return
+    if (editBlocked) return
+    if (priorLease && !replaceOk && !editId) {
+      setErr(zh ? '这份申请已经有一份租约。要替代它，请先在上方选择「起草替代租约」。' : 'This application already has a lease. To replace it, choose “Draft a replacement” above first.')
+      return
+    }
     const isTrreb = formType === 'trreb'
     if (isTrreb) {
       if (!tt.landlord_legal_name.trim() || !tt.tenant_names[0]?.trim() || !tt.premises.street.trim() || !tt.rent.amount || !tt.term.start_date) {
@@ -227,6 +354,53 @@ function NewLeasePageInner() {
           start_date: t.term.start_date,
           end_date: t.term.type === 'fixed' ? t.term.end_date : null,
         }
+    if (editId) {
+      // Only while it is still an unsent draft (the guard freezes terms once sent).
+      const { data: upd, error: upErr } = await supabase
+        .from('lease_documents')
+        .update({ form_type: formType, terms: isTrreb ? tt : t, tenant_email: tenantEmail.trim() || null, ...derived })
+        .eq('id', editId)
+        .eq('status', 'draft')
+        .is('sent_at', null)
+        .select('id')
+      setSaving(false)
+      if (upErr || !(upd ?? []).length) { setErr(upErr?.message || (zh ? '没有保存：这份草稿已经发送或被删除。' : 'Not saved: this draft was sent or deleted meanwhile.')); return }
+      router.push(`/landlord/leases/${editId}`)
+      return
+    }
+    // A replacement withdraws the unsigned version it replaces FIRST, so the tenant can never
+    // sign both — and if the tenant signed it in the meantime nothing is replaced.
+    let withdrew = false
+    if (priorLease && replaceOk && priorLease.withdrawable) {
+      const { data: gone, error: delErr } = await supabase
+        .from('lease_documents')
+        .delete()
+        .eq('id', priorLease.id)
+        .in('status', ['draft', 'sent'])
+        .is('signed_at', null)
+        .is('landlord_signature', null)
+        .is('tenant_signature', null)
+        .select('id')
+      if (delErr || !(gone ?? []).length) {
+        const { data: still } = await supabase
+          .from('lease_documents')
+          .select('id, status, sent_at, signed_at, landlord_signature, tenant_signature')
+          .eq('id', priorLease.id)
+          .maybeSingle<PriorLeaseRow>()
+        if (still) {
+          setSaving(false)
+          setPriorLease({ id: still.id, status: still.status, withdrawable: leaseIsWithdrawable(still), signed: !!(still.signed_at || still.landlord_signature || still.tenant_signature) })
+          setReplaceOk(false)
+          setErr(zh
+            ? '旧租约在你保存前已被签署（或状态已变），没有撤回，也没有另建替代租约。请打开它确认后再决定。'
+            : 'The old lease was signed (or changed) before you saved, so it was not withdrawn and no replacement was created. Open it to check, then decide.')
+          return
+        }
+        // Already gone (withdrawn elsewhere): go ahead with the replacement.
+      } else {
+        withdrew = true
+      }
+    }
     const { data, error } = await supabase
       .from('lease_documents')
       .insert({
@@ -241,8 +415,16 @@ function NewLeasePageInner() {
       })
       .select('id')
       .single()
+    if (error || !data) {
+      setSaving(false)
+      if (withdrew) {
+        // The old one is already withdrawn; the form still holds the replacement, so saving again is safe.
+        setPriorLease(null)
+        setErr((zh ? '旧租约已撤回，但新租约没能保存，请再点一次保存。' : 'The old lease was withdrawn, but the new one was not saved — press save again.') + (error?.message ? ` (${error.message})` : ''))
+      } else setErr(error?.message || 'save failed')
+      return
+    }
     setSaving(false)
-    if (error || !data) { setErr(error?.message || 'save failed'); return }
     router.push(`/landlord/leases/${data.id}`)
   }
 
@@ -268,7 +450,9 @@ function NewLeasePageInner() {
               {formType === 'trreb' ? 'TRREB FORM 400' : 'ONTARIO STANDARD LEASE'} · {zh ? '起草' : 'DRAFT'}
             </div>
             <h1 className="mt-1 text-[24px] font-bold tracking-tight sm:text-[30px]">
-              {formType === 'trreb'
+              {editId
+                ? (zh ? '编辑租约草稿' : 'Edit the lease draft')
+                : formType === 'trreb'
                 ? (zh ? '起草 TRREB 租赁协议' : 'Draft a TRREB Agreement to Lease')
                 : (zh ? '起草安省标准租约' : 'Draft an Ontario Standard Lease')}
             </h1>
@@ -298,6 +482,33 @@ function NewLeasePageInner() {
           >
             <span>{prefillNote.text}</span>
             <button onClick={() => setPrefillNote(null)} aria-label={zh ? '关闭' : 'Dismiss'} className="font-bold opacity-60 transition hover:opacity-100">✕</button>
+          </div>
+        )}
+
+        {editBlocked && (
+          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-[12.5px] text-amber-800" data-testid="lease-edit-blocked">
+            {zh ? '这份租约已经发送或签署，条款已冻结（租客签的必须是他看到的版本），不能再修改。' : 'This lease was already sent or signed; its terms are frozen (the tenant must sign what they were shown) and cannot be edited.'}{' '}
+            <Link href={`/landlord/leases/${editBlocked}`} className="font-semibold underline underline-offset-2">{zh ? '打开这份租约 →' : 'Open the lease →'}</Link>
+          </div>
+        )}
+        {priorLease && !editId && (
+          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-900" data-testid="lease-prior">
+            <div>
+              {zh ? `这份申请已经有一份租约（${PRIOR_STATUS[priorLease.status]?.zh ?? priorLease.status}）。` : `This application already has a lease (${PRIOR_STATUS[priorLease.status]?.en ?? priorLease.status}).`}{' '}
+              <Link href={`/landlord/leases/${priorLease.id}`} className="font-semibold underline underline-offset-2">{zh ? '打开它 →' : 'Open it →'}</Link>
+            </div>
+            <label className="mt-2 flex items-start gap-2">
+              <input type="checkbox" checked={replaceOk} onChange={(e) => setReplaceOk(e.target.checked)} className="mt-0.5 h-4 w-4 accent-landlord" />
+              <span>
+                {zh ? '起草替代租约' : 'Draft a replacement'}
+                {' — '}
+                {priorLease.withdrawable
+                  ? (zh ? '保存后，旧的那份（还没有人签字）会被撤回删除，租客手上的旧签署链接会失效。' : 'when you save, the old one (nobody has signed it) is withdrawn and deleted; the tenant’s old signing link stops working.')
+                  : priorLease.signed
+                    ? (zh ? '已签署的那份保留不动；新的是另一份文件（例如更正或续约）。双方签署后，如果地址、单元和租客邮箱都没变，它会接到原来的在管租约上。' : 'the signed one stays as it is; the new one is a separate document (a correction or renewal). Once both sign, it joins the existing managed tenancy if the address, unit and tenant email are unchanged.')
+                    : (zh ? '原来的那份保留不动。' : 'the existing one stays as it is.')}
+              </span>
+            </label>
           </div>
         )}
 
@@ -539,8 +750,8 @@ function NewLeasePageInner() {
             {err && <div className="rounded-lg bg-red-50 px-4 py-3 text-[13px] text-red-700">{err}</div>}
 
             <div className="flex gap-2">
-              <button onClick={save} disabled={saving} className="sl-btn-primary !px-6 !py-[12px] !text-[14px]">
-                {saving ? (zh ? '保存中…' : 'Saving…') : (zh ? '保存草稿 → 下一步发送签署' : 'Save draft → next: send for signing')}
+              <button onClick={save} disabled={saving || !!editBlocked || (!!priorLease && !replaceOk && !editId)} className="sl-btn-primary !px-6 !py-[12px] !text-[14px] disabled:opacity-40">
+                {saving ? (zh ? '保存中…' : 'Saving…') : editId ? (zh ? '保存草稿修改' : 'Save draft changes') : (zh ? '保存草稿 → 下一步发送签署' : 'Save draft → next: send for signing')}
               </button>
             </div>
           </div>

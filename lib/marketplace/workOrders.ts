@@ -59,6 +59,14 @@ export function canAct(action: WoAction, status: WorkOrderStatus, by: ActorKind)
 
 export type QuoteInput = { amount: number; type: 'fixed' | 'hourly_estimate'; note?: string; valid_until?: string; schedule_start?: string; schedule_end?: string }
 
+/** Today's calendar date in Toronto (YYYY-MM-DD). A quote "valid until" a date is valid through that whole Toronto day — validation and approval both compare against this. */
+export function torontoToday(now = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
+}
+export function quoteExpired(validUntil: string | null | undefined, now = new Date()): boolean {
+  return !!validUntil && validUntil < torontoToday(now)
+}
+
 export function validateQuote(q: Partial<QuoteInput>, now = new Date()): { ok: boolean; reason?: string; value?: QuoteInput } {
   const amount = Number(q.amount)
   if (!Number.isFinite(amount) || amount < 0 || amount > 100_000) return { ok: false, reason: 'amount' }
@@ -71,7 +79,77 @@ export function validateQuote(q: Partial<QuoteInput>, now = new Date()): { ok: b
   // A window in the past cannot be an entry notice (review 2026-09-23).
   if (start && start.getTime() < now.getTime() - 5 * 60_000) return { ok: false, reason: 'schedule_past' }
   if (q.valid_until && !/^\d{4}-\d{2}-\d{2}$/.test(q.valid_until)) return { ok: false, reason: 'valid_until' }
+  // A quote that is already expired when sent can never be approved (approval returns quote_expired).
+  if (quoteExpired(q.valid_until, now)) return { ok: false, reason: 'valid_until_past' }
   return { ok: true, value: { amount: Math.round(amount * 100) / 100, type, note: (q.note || '').trim().slice(0, 2000) || undefined, valid_until: q.valid_until || undefined, schedule_start: start ? start.toISOString() : undefined, schedule_end: end ? end.toISOString() : undefined } }
+}
+
+/**
+ * A quote is a whole set of terms (amount, type, window, note, validity). A
+ * revision may send only what changed: a key that is ABSENT keeps the row's
+ * value; a key sent as null / '' clears it (sweep 2026-10-01 — "修改报价"
+ * rebuilt the quote from an empty form and wiped the window, so approval then
+ * dead-ended on entry_window_no_window).
+ */
+export type QuoteRowTerms = { quote_amount: number | string | null; quote_type: string | null; quote_note: string | null; quote_valid_until: string | null; schedule_start: string | null; schedule_end: string | null }
+export function mergeQuote(prev: QuoteRowTerms, p: Record<string, unknown>, now = new Date()): Partial<QuoteInput> {
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(p, k) && p[k] !== undefined
+  const str = (v: unknown) => (v == null || v === '' ? undefined : String(v))
+  // A kept validity that has already lapsed is dropped: otherwise a price-only
+  // revision re-sends the expired date and approval dead-ends on quote_expired
+  // again. A date the contractor sends explicitly is still validated (and refused if past).
+  const keptValidUntil = prev.quote_valid_until && !quoteExpired(prev.quote_valid_until, now) ? prev.quote_valid_until : undefined
+  return {
+    amount: has('amount') ? Number(p.amount) : prev.quote_amount == null ? NaN : Number(prev.quote_amount),
+    type: (has('type') ? str(p.type) : prev.quote_type ?? undefined) as QuoteInput['type'],
+    note: has('note') ? str(p.note) : prev.quote_note ?? undefined,
+    valid_until: has('valid_until') ? str(p.valid_until) : keptValidUntil,
+    schedule_start: has('schedule_start') ? str(p.schedule_start) : prev.schedule_start ?? undefined,
+    schedule_end: has('schedule_end') ? str(p.schedule_end) : prev.schedule_end ?? undefined,
+  }
+}
+
+/**
+ * The approval is bound to the version of the quote the landlord saw. Any of
+ * expected amount / version / quoted_at that the caller sends must match the
+ * row (a re-quote in a stale tab or inside the 60 s undo window otherwise gets
+ * approved blind — on a new amount or a new entry window).
+ */
+export function quoteStillAsSeen(row: { quote_amount: number | string | null; quote_version: number | null; quoted_at: string | null }, p: Record<string, unknown>): boolean {
+  if (p.expected_amount != null && p.expected_amount !== '' && Number(p.expected_amount) !== Number(row.quote_amount)) return false
+  if (p.expected_version != null && p.expected_version !== '' && Number(p.expected_version) !== Number(row.quote_version ?? 0)) return false
+  if (typeof p.expected_quoted_at === 'string' && p.expected_quoted_at && row.quoted_at && new Date(p.expected_quoted_at).getTime() !== new Date(row.quoted_at).getTime()) return false
+  return true
+}
+
+/**
+ * Completing again after rework: what the payload omits is kept from the row
+ * (the first invoice must survive a second "完工" with only a note, or the CPA
+ * check, the acceptance card and the receipt lose the bill).
+ */
+export type CompletionRow = { invoice_amount: number | string | null; invoice_note: string | null; completion_note: string | null; completion_photos: string[] | null }
+export function mergeCompletion(prev: CompletionRow, p: Record<string, unknown>): { ok: true; value: { invoice_amount: number | null; invoice_note: string | null; completion_note: string | null; completion_photos: string[] } } | { ok: false; reason: 'invoice_amount' } {
+  const given = p.invoice_amount != null && p.invoice_amount !== ''
+  const invoice = given ? Number(p.invoice_amount) : prev.invoice_amount == null || prev.invoice_amount === '' ? null : Number(prev.invoice_amount)
+  if (given && (!Number.isFinite(invoice) || (invoice as number) < 0)) return { ok: false, reason: 'invoice_amount' }
+  const photos = Array.isArray(p.photos) ? (p.photos as unknown[]).filter((x) => typeof x === 'string').slice(0, 12) as string[] : []
+  return {
+    ok: true,
+    value: {
+      invoice_amount: invoice,
+      invoice_note: String(p.invoice_note ?? '').trim().slice(0, 1000) || prev.invoice_note || null,
+      completion_note: String(p.note ?? '').trim().slice(0, 2000) || prev.completion_note || null,
+      completion_photos: photos.length ? photos : prev.completion_photos ?? [],
+    },
+  }
+}
+
+/** Entry permission on a dispatch: an explicit choice, else what the tenant said on the ticket, else "call first" (never a silent "enter while you are out"). */
+export const ENTRY_PERMISSIONS = ['anytime', 'call_first', 'tenant_present'] as const
+export type EntryPermission = (typeof ENTRY_PERMISSIONS)[number]
+export function resolveEntryPermission(explicit: unknown, ticket: unknown): EntryPermission {
+  const ok = (v: unknown): v is EntryPermission => typeof v === 'string' && (ENTRY_PERMISSIONS as readonly string[]).includes(v)
+  return ok(explicit) ? explicit : ok(ticket) ? ticket : 'call_first'
 }
 
 /** CPA 2002 s.10: an invoice may exceed the approved estimate by at most 10% unless new work was approved. */
@@ -112,6 +190,19 @@ export function entryNoticeText(i: { unit: string; scheduleStart?: string | null
   const body =
     `您好，\n\n为处理报修「${i.scope}」，服务商 ${i.provider} 将于 ${window} 进入 ${i.unit}。${perm.zh}\n\n${legal.zh}\n\n如时间不便，请直接回复本邮件。\n\n谢谢！\n\n` +
     `Hi,\n\nTo carry out the repair "${i.scope}", ${i.provider} will enter ${i.unit} on ${window}. ${perm.en}\n\n${legal.en}\n\nIf the time does not work for you, reply to this email.\n\nThank you!`
+  return { subject, body }
+}
+
+/** The tenant was formally told someone would enter; when the visit is called off they are told the same way. */
+export function entryCancelText(i: { unit: string; scheduleStart?: string | null; scheduleEnd?: string | null; provider: string; scope: string; byContractor: boolean; reason?: string | null }): { subject: string; body: string } {
+  const fmt = (s?: string | null) => (s ? new Date(s).toLocaleString('en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' }) : '待定 / TBD')
+  const window = `${fmt(i.scheduleStart)} – ${fmt(i.scheduleEnd)}`
+  const who = i.byContractor ? { zh: '服务商取消了这次上门', en: 'The contractor cancelled this visit' } : { zh: '房东取消了这次上门', en: 'The landlord cancelled this visit' }
+  const reason = (i.reason || '').trim()
+  const subject = `进入取消 · ${i.unit} · ${window} / Entry cancelled`
+  const body =
+    `您好，\n\n此前通知您：服务商 ${i.provider} 将于 ${window} 进入 ${i.unit} 处理「${i.scope}」。${who.zh}，届时不会有人进入，您无需为此留出时间。${reason ? `原因：${reason}` : ''}\n\n如需重新安排，您会再收到一份新的进入通知。如有疑问，请直接回复本邮件。\n\n` +
+    `Hi,\n\nYou were told that ${i.provider} would enter ${i.unit} on ${window} for "${i.scope}". ${who.en}; nobody will enter at that time and you do not need to keep the window free.${reason ? ` Reason: ${reason}` : ''}\n\nIf it is rescheduled you will receive a new notice of entry. Reply to this email with any questions.`
   return { subject, body }
 }
 

@@ -108,7 +108,7 @@ export default function ProviderJobsPage() {
 
       {/* Six tiles (报告 7) */}
       <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" data-testid="provider-tiles">
-        <TILE href="#invites" n={tiles.invites} label={zh ? '新邀请' : 'New invitations'} sub={tiles.urgent ? (zh ? `${tiles.urgent} 张临近 / 已过报价截止` : `${tiles.urgent} near / past the quote deadline`) : (zh ? '48 小时内回应' : 'answer within the window')} warn={tiles.urgent > 0} />
+        <TILE href="#invites" n={tiles.invites} label={zh ? '新邀请' : 'New invitations'} sub={tiles.urgent ? (zh ? `${tiles.urgent} 张临近 / 已过报价截止` : `${tiles.urgent} near / past the quote deadline`) : (zh ? '在房东设定的时限内回应' : 'answer within the window')} warn={tiles.urgent > 0} />
         <TILE href="#quoted" n={tiles.quoted} label={zh ? '已报价 · 等房东' : 'Quoted · landlord'} />
         <TILE href="#active" n={tiles.active} label={zh ? '进行中' : 'In progress'} />
         <TILE href="#awaiting" n={tiles.awaiting} label={zh ? '待验收' : 'Awaiting acceptance'} />

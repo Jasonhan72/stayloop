@@ -27,6 +27,15 @@ export const CATEGORIES = [
   { id: 'lock', icon: '🔑', label: { zh: '钥匙 / 锁', en: 'Keys / lock' } },
 ]
 
+// What the tenant allows for entry — carried to the dispatch and the RTA s.27
+// notice (sweep 2026-10-01: it used to be lost, and the notice then said the
+// contractor would enter while the tenant was out).
+export const ENTRY = [
+  { id: 'call_first', label: { zh: '进入前先电话联系我', en: 'Call me before entering' } },
+  { id: 'anytime', label: { zh: '按 24 小时通知可进入', en: 'Enter on 24-hour notice' } },
+  { id: 'tenant_present', label: { zh: '须我本人在场', en: 'I must be present' } },
+]
+
 export const URGENCY = [
   { id: 'low', label: { zh: '不急 · 7 天内', en: 'Low · within 7 days' } },
   { id: 'medium', label: { zh: '普通 · 48 小时内', en: 'Normal · within 48 hrs' } },
@@ -43,6 +52,7 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
   const auth = useAuth()
   const [cat, setCat] = useState('')
   const [urg, setUrg] = useState('medium')
+  const [entry, setEntry] = useState('call_first')
   const [desc, setDesc] = useState('')
   const [photos, setPhotos] = useState<Photo[]>([])
   const [notice, setNotice] = useState<string | null>(null)
@@ -104,7 +114,7 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
     setBusy('saving')
     // Ticket first, photos second: a request must reach the landlord even
     // when one upload fails; the paths are attached once they exist.
-    const { error: insErr } = await supabase.from('maintenance_tickets').insert({
+    const row: Record<string, unknown> = {
       id: ticketId,
       household_id: hh.id,
       opened_by: auth.user.id,
@@ -114,7 +124,13 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
       priority,
       status: 'new',
       photos: [],
-    })
+      entry_permission: entry,
+      // The problem decides the RTA s.26 emergency entry, not the urgency picked (review 2026-10-01).
+      emergency,
+    }
+    let { error: insErr } = await supabase.from('maintenance_tickets').insert(row)
+    // Until the entry_permission / emergency columns exist the request must still go through.
+    if (insErr && /entry_permission|emergency/.test(insErr.message)) { delete row.entry_permission; delete row.emergency; ({ error: insErr } = await supabase.from('maintenance_tickets').insert(row)) }
     if (insErr) { setErr(insErr.message); setBusy(false); return }
     let failed = 0
     const paths: string[] = []
@@ -241,6 +257,27 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Entry permission */}
+            <div className="mt-5" data-testid="ticket-entry">
+              <div className="sl-eyebrow">{zh ? '维修人员上门' : 'Entry for the repair'}</div>
+              <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {ENTRY.map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => setEntry(e.id)}
+                    className={
+                      'rounded-xl border-2 px-3 py-3 text-center text-[12.5px] font-semibold transition ' +
+                      (entry === e.id ? 'border-brand bg-brand/5 text-brand' : 'border-line-strong bg-white text-body hover:border-brand/40')
+                    }
+                  >
+                    {e.label[lang]}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[11px] text-body-3">{zh ? '非紧急维修，房东须提前 24 小时书面通知（RTA s.27）；你的选择会写进派单和进入通知。' : 'For non-emergency repairs the landlord must give 24 hours’ written notice (RTA s.27); your choice goes into the dispatch and the notice of entry.'}</p>
             </div>
 
             {/* Photos */}

@@ -70,7 +70,7 @@ describe('executors, preview and undo', () => {
   it('approval executes after a 60s undo window; undo puts the row back to pending and audits', () => {
     expect(hook).toMatch(/const UNDO_MS = 60_000/)
     expect(hook).toMatch(/action: 'approval_undone'/)
-    expect(hook).toMatch(/\.update\(\{ status: 'pending' \}\)\.eq\('id', actionId\)\.eq\('status', 'approved'\)\.is\('executed_at', null\)/)
+    expect(hook).toMatch(/\.update\(\{ status: 'pending', decided_at: null \}\)\.eq\('id', actionId\)\.eq\('status', 'approved'\)\.is\('executed_at', null\)/) // decided_at cleared with the approval (sweep 2026-10-01)
     expect(card).toMatch(/preview: true/)
   })
 })

@@ -17,6 +17,7 @@ export type LeaseRow = {
   id: string; status: string | null; start_date: string | null; end_date: string | null; unit_label: string | null
   tenant_name?: string | null; tenant_email?: string | null; monthly_rent?: number | null
   application_id?: string | null; sent_at?: string | null; signed_at?: string | null; created_at?: string | null
+  listing_id?: string | null
 }
 export type HouseholdRow = {
   id: string; current_lease_id: string | null; verified: boolean | null; status: string | null; end_date: string | null
@@ -24,7 +25,8 @@ export type HouseholdRow = {
 }
 export type RentRow = { id?: string; lease_id: string | null; due_date: string; status: string | null; amount?: number | null; paid_at?: string | null; method?: string | null }
 export type TicketRow = { household_id: string | null; status: string | null }
-export type CardRow = { action_type: string; status: string; metadata: { lease_id?: string; stage?: string } | null }
+// executed_at + execution_result.ok decide whether a renewal letter really went out (contract C8).
+export type CardRow = { action_type: string; status: string; metadata: { lease_id?: string; stage?: string } | null; executed_at?: string | null; execution_result?: { ok?: unknown; reason?: unknown } | null }
 
 export type LandlordFactsRaw = {
   listings: { id: string; address?: string | null; unit?: string | null; verification_status: string | null; is_active: boolean | null; source?: string | null }[]

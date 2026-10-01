@@ -83,6 +83,18 @@ export function rankReason(c: Candidate, preferredId: string | null | undefined,
   return zh ? '资质有效、覆盖该区域' : 'credentials valid, serves the area'
 }
 
+/**
+ * Contractors this ticket already went to without result — declined, let the
+ * offer expire, or cancelled (overdue withdrawal, rejected quote, a cancel by
+ * either side). Suggestions and auto-dispatch never offer the same ticket to
+ * them again; a decline used to exclude only the latest one, so two decliners
+ * ping-ponged (sweep 2026-10-01). The landlord may still pick them by hand.
+ */
+export function deadProviderIds(rows: { provider_id: string | null; status: string }[]): string[] {
+  const dead = new Set(['declined', 'expired', 'cancelled'])
+  return Array.from(new Set(rows.filter((r) => r.provider_id && dead.has(r.status)).map((r) => r.provider_id as string)))
+}
+
 export function shouldAutoDispatch(policy: DispatchPolicy, emergency: boolean, candidates: number): boolean {
   if (candidates < 1) return false
   return policy.mode === 'auto_all' || (policy.mode === 'auto_emergency' && emergency)

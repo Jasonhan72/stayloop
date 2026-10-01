@@ -5,7 +5,8 @@
 // proposed_action, next_stage }. The client persists results via its own
 // RLS-scoped Supabase client (same pattern as memory.ts / approval-engine.ts).
 // The Anthropic key stays server-side only.
-import { sanitizeActionMetadata } from '@/lib/agent/maintenanceTriage'
+import { droppedProposalNote, gateProposedAction, sanitizeActionMetadata } from '@/lib/agent/maintenanceTriage'
+import { tenantCardRecipient } from '@/lib/agent/chatCopy'
 import { NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
@@ -218,16 +219,13 @@ function normalizeOutput(parsed: Record<string, unknown> | null, fallbackReply: 
     : []
 
   const pa = parsed.proposed_action as Record<string, unknown> | null | undefined
-  // A turn can't populate the lease metadata (tenant_email, current_rent…) the
-  // send_renewal_letter executor needs — approving it would 422 forever. Those
-  // letters must originate from the proactive sweep (which carries the lease
-  // data). Downgrade any turn-proposed renewal to an approval-only note.
-  const rawType = pa && typeof pa === 'object' ? String(pa.action_type) : ''
-  const safeType = rawType === 'send_renewal_letter' ? 'renewal_note' : rawType
+  // Which types may become a card at all is decided after the guardrail
+  // (gateProposedAction): renewal letters, lease sends and applicant decisions
+  // carry ids a chat turn never has, so they are dropped there, not renamed.
   const proposedAction =
     pa && typeof pa === 'object' && typeof pa.action_type === 'string'
       ? {
-          action_type: safeType,
+          action_type: String(pa.action_type),
           title: String(pa.title ?? (lang === 'zh' ? '待你确认' : 'Awaiting your confirmation')),
           summary: String(pa.summary ?? ''),
           recipient_label: pa.recipient_label ? String(pa.recipient_label) : null,
@@ -476,6 +474,7 @@ export async function POST(req: Request) {
         .from('listings')
         .select('title,description,images,amenities,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,is_active,verification_status,source,slug')
         .in('landlord_id', ids)
+        .or('status.is.null,status.neq.archived')
         .order('created_at', { ascending: false })
         .limit(20)
       if (myListings && myListings.length) {
@@ -745,6 +744,21 @@ export async function POST(req: Request) {
       void svcC.from('compliance_events').insert(flags.slice(0, 10).map((f) => ({ user_id: anonymous ? null : turnUserId, role, source: 'guardrail', rule_id: /ohrc|protected|discrimin/i.test(f) ? 'OHRC-protected-grounds' : /pet/i.test(f) ? 'RTA-14-no-pet-clause' : /fee|deposit/i.test(f) ? 'RTA-134-no-fees' : `guardrail:${f}`.slice(0, 80), severity: 'block', metadata: { flag: f } })))
     } catch { /* telemetry only */ }
   }
+  // Only cards an executor can carry out from a chat turn survive (sweep
+  // 2026-10-01). Runs after the guardrail so a discriminatory rejection still
+  // gets its OHRC correction before the card is dropped; the note says plainly
+  // that nothing was created or sent, and where the step is done.
+  const gate = gateProposedAction(role, out.proposedAction)
+  if (gate.dropped) {
+    out.proposedAction = null
+    out.reply += droppedProposalNote(role, gate.dropped, uiLang !== 'en' || /[\u4e00-\u9fff]/.test(message))
+  }
+  // The executor sends a tenant's card to their CURRENT landlord, whoever the model named
+  // ("1001 Bay St 的房东" would reach the landlord of the home they live in): the card says so.
+  if (out.proposedAction) {
+    const fixed = tenantCardRecipient(role, out.proposedAction.action_type, (out.proposedAction as { metadata?: Record<string, unknown> | null }).metadata, uiLang !== 'en')
+    if (fixed) out.proposedAction.recipient_label = fixed
+  }
 
   // Listing search (tenant): when the model flags intent, search Stayloop's
   // own listings first, then fall back to external (Realtor.ca).
@@ -813,12 +827,14 @@ export async function POST(req: Request) {
       // message wins, a remembered budget / bedrooms / pets applies when the
       // model left the field empty, and the model can only tighten — a $13,800
       // house never sits in a $2,800 search because the model forgot the cap.
+      // Only this hat's memories (plus this turn's writes) can cap the search — an
+      // agent's client budget or a landlord unit's bedrooms are not the tenant's own.
       const hc = role === 'tenant' && !commercialAsk
         ? applyHardConstraints(message, memories, {
             max_price: typeof search.max_price === 'number' ? search.max_price : null,
             min_beds: typeof search.min_beds === 'number' ? search.min_beds : null,
             pets: typeof search.pets === 'boolean' ? search.pets : null,
-          })
+          }, { role, fresh: out.memoryWrites })
         : null
       if (hc) Object.assign(searchObj, { max_price: hc.search.max_price, min_beds: hc.search.min_beds ?? null, pets: hc.search.pets, hard_constraints: hc.constraints })
       const result = await searchListings({
@@ -1022,7 +1038,9 @@ export async function POST(req: Request) {
       try {
         const { data: lp } = await sbAuth.from('landlords').select('id').or(`id.eq.${turnUserId},auth_id.eq.${turnUserId}`)
         const ids = Array.from(new Set([...(lp ?? []).map((r: { id: string }) => r.id), turnUserId]))
-        const { data: rows } = await sbAuth.from('listings').select('*').in('landlord_id', ids).limit(60)
+        // Deleted (archived) listings are gone from the dashboard: never turn a rewrite into an
+        // update of one (it would go public again while staying hidden from its owner).
+        const { data: rows } = await sbAuth.from('listings').select('*').in('landlord_id', ids).or('status.is.null,status.neq.archived').limit(60)
         const hit = matchOwnedListing(draftListing, (rows ?? []) as OwnedListingRow[])
         if (hit) {
           draftListing = mergeWithExisting(hit, draftListing, message, urlImages)

@@ -2,14 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { activeHat, useHats } from '@/lib/useHats'
-import { readAssistantProfile, sanitizeVibe, saveAssistantAvatar, saveAssistantName, saveAssistantVibe, VIBE_MAX } from '@/lib/agent/assistantProfile'
+import { checkVibe, OVERRIDE_REJECTED, readAssistantProfile, saveAssistantAvatar, saveAssistantName, saveAssistantVibe, VIBE_MAX } from '@/lib/agent/assistantProfile'
 import AvatarPicker from '@/components/agent/AvatarPicker'
 import { AssistantAvatar, getStoredAvatar, setStoredAvatar } from '@/lib/agent/avatars'
 import Link from 'next/link'
 import WorkspaceShell, { type WorkspaceRole } from '@/components/WorkspaceShell'
-import { useAuth } from '@/lib/useAuth'
+import { profilePhotoOf, readCachedProfilePhoto, useAuth, writeCachedProfilePhoto } from '@/lib/useAuth'
 import { useI18n } from '@/lib/i18n'
-import { getStoredAIName, invalidateAiName, setAIName, GENERIC_AI_NAME, displayAiName, genericAiName, isGenericAiName } from '@/lib/aiName'
+import { getStoredAIName, invalidateAiName, resolveAccountNameFor, setAIName, GENERIC_AI_NAME, displayAiName, genericAiName, isGenericAiName } from '@/lib/aiName'
+import { isRegistrationLive, statusLabel } from '@/lib/agentProfile'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import SubscriptionCard from '@/components/settings/SubscriptionCard'
@@ -40,32 +41,57 @@ export default function SettingsPage() {
 
   const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()
   // The name the person gave it, or 「AI 助理」/「AI Agent」 in the interface language (2026-09-28).
-  const aiName = displayAiName(getStoredAIName(auth.user?.id ?? null), zh ? 'zh' : 'en')
+  // The cache can be empty (signed out and back in via /login?next=/settings, a new browser), so
+  // the account's assistant_profiles.name is resolved too (sweep 2026-10-01).
+  const [storedName, setStoredName] = useState<string | null>(null)
+  // A save that lands before the account read returns must win: the late read would put the old name back.
+  const nameGen = useRef(0)
+  const onNameSaved = (name: string) => { nameGen.current++; setStoredName(name) }
+  useEffect(() => {
+    const uid = auth.user?.id ?? null
+    setStoredName(getStoredAIName(auth.user?.id ?? null))
+    if (!uid) return
+    let on = true
+    const gen = ++nameGen.current
+    resolveAccountNameFor(uid).then(({ uid: u, name }) => {
+      if (!on || gen !== nameGen.current || u !== uid || !name) return
+      setAIName(name, uid)
+      setStoredName(name)
+    }).catch(() => {})
+    return () => { on = false }
+  }, [auth.user])
+  const aiName = displayAiName(storedName, zh ? 'zh' : 'en')
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [photoErr, setPhotoErr] = useState<string | null>(null)
 
+  // The account's own photo only; the cache is per account (sweep 2026-10-01).
   useEffect(() => {
-    const cached = typeof window !== 'undefined' ? localStorage.getItem('stayloop-avatar') : null
-    if (cached) setAvatarUrl(cached)
-    const meta = (auth.user?.user_metadata as any)?.avatar_url
-    if (meta && typeof meta === 'string') {
-      setAvatarUrl(meta)
-      try { localStorage.setItem('stayloop-avatar', meta) } catch {}
-    }
+    const uid = auth.user?.id
+    if (!uid) { setAvatarUrl(null); return }
+    const meta = profilePhotoOf(auth.user)
+    if (meta) { setAvatarUrl(meta); writeCachedProfilePhoto(uid, meta) } else setAvatarUrl(readCachedProfilePhoto(uid))
   }, [auth.user])
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file || !auth.user) return
     e.target.value = ''
+    setPhotoErr(null)
     const dataUrl = await resizeAvatar(file, 200, 0.75)
     setAvatarUrl(dataUrl)
-    try { localStorage.setItem('stayloop-avatar', dataUrl) } catch {}
-    if (auth.user) {
-      try {
-        await getSupabaseBrowser().auth.updateUser({ data: { avatar_url: dataUrl } })
-      } catch {}
+    writeCachedProfilePhoto(auth.user.id, dataUrl)
+    // Its own key: a Google sign-in merges the identity's avatar_url into user_metadata and
+    // replaced an upload stored there. A data-URL avatar_url is a legacy upload of ours — dropped.
+    const legacy = (auth.user.user_metadata as { avatar_url?: unknown } | undefined)?.avatar_url
+    const data: Record<string, unknown> = { custom_avatar_url: dataUrl }
+    if (typeof legacy === 'string' && legacy.startsWith('data:')) data.avatar_url = null
+    try {
+      const { error } = await getSupabaseBrowser().auth.updateUser({ data })
+      if (error) setPhotoErr(zh ? '照片没有保存到账号，只在这台设备上显示。请稍后再试。' : 'The photo was not saved to your account; it only shows on this device. Try again later.')
+    } catch {
+      setPhotoErr(zh ? '照片没有保存到账号，只在这台设备上显示。请稍后再试。' : 'The photo was not saved to your account; it only shows on this device. Try again later.')
     }
   }
 
@@ -103,17 +129,21 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="mt-4 text-[20px] font-bold tracking-tight">{auth.fullName || '—'}</div>
-              <div className="mt-0.5 text-[13px] text-body-3">Toronto, Canada</div>
+              {photoErr && <div role="alert" className="mt-1 text-[11.5px] leading-snug text-danger">{photoErr}</div>}
 
-              <div className="mt-5 grid w-full grid-cols-2 gap-3 border-t border-line-divider pt-5">
+              {/* Only facts the account has (sweep 2026-10-01: a fixed 「✓ 已验证」 tile and a hard-coded city
+                  showed for every account, verified or not). The agent hat shows its real RECO status. */}
+              <div className={'mt-5 grid w-full gap-3 border-t border-line-divider pt-5 ' + (hats.agent ? 'grid-cols-2' : 'grid-cols-1')}>
                 <div className="text-center">
                   <div className="text-[18px] font-bold" style={{ color }}>{ROLE_LABELS[shellRole]?.[zh ? 'zh' : 'en'] || '—'}</div>
                   <div className="text-[11px] text-body-3">{zh ? '角色' : 'Role'}</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-[18px] font-bold" style={{ color }}>✓</div>
-                  <div className="text-[11px] text-body-3">{zh ? '已验证' : 'Verified'}</div>
-                </div>
+                {hats.agent && (
+                  <div className="text-center" data-testid="settings-reco-status">
+                    <div className="text-[18px] font-bold" style={{ color: isRegistrationLive(hats.agent) ? color : undefined }}>{isRegistrationLive(hats.agent) ? '✓' : '—'}</div>
+                    <div className="text-[11px] text-body-3">{statusLabel(hats.agent, zh ? 'zh' : 'en')}</div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -159,7 +189,7 @@ export default function SettingsPage() {
                 label={zh ? '修改 AI 助理名字' : 'Change AI Agent name'}
                 desc={zh ? `当前：${aiName}` : `Current: ${aiName}`}
               >
-                <AssistantNameEditor role={shellRole} zh={zh} user={auth.user} color={color} />
+                <AssistantNameEditor zh={zh} user={auth.user} color={color} current={storedName} onSaved={onNameSaved} />
               </QuickAction>
               <QuickAction
                 label={zh ? '修改 AI 助理头像' : 'Change AI Agent avatar'}
@@ -219,11 +249,13 @@ function QuickAction({ label, desc, children }: { label: string; desc: string; c
   )
 }
 
-function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: boolean; user: any; color: string }) {
-  const stored = getStoredAIName(user?.id ?? null)
-  const currentName = isGenericAiName(stored) ? '' : (stored ?? '').trim()
+function AssistantNameEditor({ zh, user, color, current, onSaved }: { zh: boolean; user: any; color: string; current: string | null; onSaved: (name: string) => void }) {
+  // Initialised from the account's resolved name (page-level), not only the browser cache.
+  const currentName = isGenericAiName(current) ? '' : (current ?? '').trim()
   const placeholderName = genericAiName(zh ? 'zh' : 'en')
   const [value, setValue] = useState(currentName)
+  const [dirty, setDirty] = useState(false)
+  useEffect(() => { if (!dirty) setValue(currentName) }, [currentName, dirty])
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -238,6 +270,8 @@ function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: bool
         invalidateAiName()
       } catch {}
     }
+    onSaved(trimmed)
+    setDirty(false)
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -250,7 +284,7 @@ function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: bool
         <input
           type="text"
           value={value}
-          onChange={(e) => { setValue(e.target.value); setSaved(false) }}
+          onChange={(e) => { setValue(e.target.value); setDirty(true); setSaved(false) }}
           placeholder={placeholderName}
           maxLength={20}
           className="min-w-0 flex-1 border-none bg-transparent text-[16px] font-semibold outline-none"
@@ -265,7 +299,7 @@ function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: bool
           {saving ? '...' : saved ? '✓' : (zh ? '保存' : 'Save')}
         </button>
         {!isGenericAiName(value) && (
-          <button onClick={() => { setValue(''); setSaved(false) }} className="text-[12px] text-body-3 hover:text-body-2">
+          <button onClick={() => { setValue(''); setDirty(true); setSaved(false) }} className="text-[12px] text-body-3 hover:text-body-2">
             {zh ? '恢复默认' : 'Reset'}
           </button>
         )}
@@ -318,13 +352,18 @@ function VibeEditor({ zh, user }: { zh: boolean; user: any }) {
     readAssistantProfile(getSupabaseBrowser()).then((p) => { if (!cancelled) { setValue(p?.vibe ?? ''); setLoaded(true) } })
     return () => { cancelled = true }
   }, [user])
+  const [err, setErr] = useState<string | null>(null)
   const handleSave = async () => {
     if (!user) return
+    // Rejected text is never written as NULL over the saved style (sweep 2026-10-01); the text stays for editing.
+    const c = checkVibe(value)
+    if (!c.ok) { setErr(zh ? OVERRIDE_REJECTED.zh : OVERRIDE_REJECTED.en); return }
+    const next = c.value
+    setErr(null)
     setSaving(true)
-    const next = sanitizeVibe(value)
     const ok = await saveAssistantVibe(getSupabaseBrowser(), user.id, next)
     setSaving(false)
-    if (ok) { setValue(next ?? ''); setSaved(true); setTimeout(() => setSaved(false), 2000) }
+    if (ok) { setValue(next ?? ''); setSaved(true); setTimeout(() => setSaved(false), 2000) } else setErr(zh ? '没有保存成功，请再试一次。' : 'Could not save; please try again.')
   }
   return (
     <div className="space-y-3">
@@ -345,6 +384,7 @@ function VibeEditor({ zh, user }: { zh: boolean; user: any }) {
         <span className="font-mono text-[11px] text-body-3">{value.length}/{VIBE_MAX}</span>
         <span className="text-[12px] text-body-3">{zh ? '不改变它遵守的规则和能做的事' : 'Never the rules it follows or what it may do'}</span>
       </div>
+      {err && <p role="alert" data-testid="vibe-error" className="text-[12px] leading-snug text-danger">{err}</p>}
     </div>
   )
 }

@@ -49,7 +49,7 @@ describe('SLA: the contractor clock', () => {
     expect(ex).toContain("action: 'cancel', by: 'landlord', actorId: userId")
     expect(ex).toContain("excludeProviderIds: row.provider_id ? [row.provider_id] : [], because: 'overdue'")
     const s = read('lib/marketplace/server.ts')
-    expect(s).toContain('if (exclude.has(p.id)) continue')
+    expect(s).toContain('if (exclude.has(p.id)) { if (ok) excludedEligible++; continue }')
     expect(s).toContain("because: 'declined'")
   })
   it('the proactive cron runs the marketplace sweep beside the renewal sweep', () => {

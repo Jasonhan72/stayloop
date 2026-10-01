@@ -26,6 +26,18 @@ export const runtime = 'edge'
 
 const UUID = /^[0-9a-f-]{36}$/i
 
+const SHOWING_NOTE = '批准 = 同意安排看房：我会邮件告诉对方，你们在「消息」里的这段对话约时间（双方都看不到对方的私人邮箱）；拒绝则不回复。也可以直接去对话里回复。'
+const QUESTION_NOTE = '批准 = 我邮件告诉对方你收到了，你在「消息」里的这段对话回答（双方都看不到对方的私人邮箱）；也可以直接去对话里回复。'
+const OHRC_NOTE = ' 按 OHRC 租房政策，看房与回答提问不得因受保护特征区别对待。'
+
+type Merged = { kind?: string; message?: string | null; move_in_date?: string | null; intent_id?: string; at?: string }
+
+function lineOf(kind: 'showing' | 'question', moveIn: string | null, message: string): string {
+  return kind === 'showing'
+    ? `想看房${moveIn ? `，期望入住 ${moveIn}` : ''}${message ? `：${message}` : ''}`
+    : `提问：${message}`
+}
+
 export async function POST(req: Request) {
   const rawAuth = req.headers.get('authorization') || ''
   const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
@@ -56,6 +68,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '3600' } })
   }
 
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  )
+  const { data: listing } = await admin
+    .from('listings')
+    .select('id, address, unit, landlord_id, source, is_active, status')
+    .eq('id', listingId)
+    .maybeSingle()
+  // Off the market (sweep 2026-10-01): a request nobody can grant is not recorded or sent.
+  if (listing && (listing.is_active === false || listing.status === 'archived')) {
+    return NextResponse.json({ error: 'listing_inactive' }, { status: 409 })
+  }
+
   // Tenant hat — claim_tenant() creates the tenants row on first use.
   const { data: tenant, error: tErr } = await sb.rpc('claim_tenant')
   const tenantRow = tenant as { id: string; email: string; full_name: string | null } | null
@@ -77,16 +104,6 @@ export async function POST(req: Request) {
   }
 
   // Mirror onto the landlord's agent (service role).
-  const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  )
-  const { data: listing } = await admin
-    .from('listings')
-    .select('id, address, unit, landlord_id, source')
-    .eq('id', listingId)
-    .maybeSingle()
   if (!listing) return NextResponse.json({ ok: true, intent_id: intentId, delivered: false, reason: 'listing_not_found' })
   const { data: ll } = await admin
     .from('landlords')
@@ -115,14 +132,12 @@ export async function POST(req: Request) {
   }
   const hubUrl = th ? messageCenterHref(th.id) : '/landlord/todo'
   const actionType = kind === 'showing' ? 'showing_request' : 'listing_inquiry'
-  const line = kind === 'showing'
-    ? `想看房${moveIn ? `，期望入住 ${moveIn}` : ''}${message ? `：${message}` : ''}`
-    : `提问：${message}`
+  const line = lineOf(kind, moveIn, message)
 
   // One open card per (tenant, listing): append to it if it exists.
   const { data: open } = await admin
     .from('agent_pending_actions')
-    .select('id, summary, metadata')
+    .select('id, action_type, summary, metadata')
     .eq('user_id', landlordAuthId)
     .eq('status', 'pending')
     .in('action_type', ['showing_request', 'listing_inquiry'])
@@ -131,16 +146,68 @@ export async function POST(req: Request) {
     .maybeSingle()
   if (open) {
     const meta = (open.metadata as Record<string, unknown>) || {}
-    const messages = Array.isArray(meta.messages) ? (meta.messages as unknown[]) : []
-    await admin
-      .from('agent_pending_actions')
-      .update({
-        summary: `${String(open.summary || '')}\n· ${line}`.slice(0, 4000),
-        metadata: { ...meta, thread_id: th?.id ?? meta.thread_id ?? null, messages: [...messages, { kind, message, move_in_date: moveIn, intent_id: intentId, at: new Date().toISOString() }].slice(-20) },
-      })
-      .eq('id', open.id)
-    await notifyUser(admin, landlordAuthId, { kind: 'approval', title: kind === 'showing' ? `看房请求 · ${addr}` : `房源提问 · ${addr}`, body: `${who}：${line.slice(0, 120)}`, url: hubUrl })
-    return NextResponse.json({ ok: true, intent_id: intentId, delivered: true, merged: true, thread_id: th?.id ?? null })
+    const prior = (Array.isArray(meta.messages) ? (meta.messages as Merged[]) : []).filter((x) => x && typeof x === 'object')
+    // The executor answers every merged entry (each carries its intent_id); the
+    // first message may predate the messages[] list, so it is folded in.
+    const firstId = typeof meta.intent_id === 'string' ? meta.intent_id : null
+    const base: Merged[] = firstId && !prior.some((x) => x.intent_id === firstId)
+      ? [{ kind: meta.kind === 'question' ? 'question' : 'showing', message: typeof meta.message === 'string' ? meta.message : '', move_in_date: typeof meta.move_in_date === 'string' ? meta.move_in_date : null, intent_id: firstId }, ...prior]
+      : prior
+    const messages = [...base, { kind, message, move_in_date: moveIn, intent_id: intentId, at: new Date().toISOString() }].slice(-20)
+    // A viewing joining a question card turns it into a showing card: approving
+    // it must accept the viewing, and its summary must say so (sweep 2026-10-01).
+    const upgrade = kind === 'showing' && open.action_type !== 'showing_request'
+    if (upgrade) {
+      // Never rewrite what approving does under a landlord who may be looking at
+      // the 「房源提问」 card (review 2026-10-01): the question card is retired
+      // ('superseded' — a click on it then fails as "not pending" and the to-dos
+      // are re-read) and a fresh showing card carries every merged request.
+      const { data: retired } = await admin
+        .from('agent_pending_actions')
+        .update({ status: 'expired', execution_result: { ok: false, reason: 'superseded', superseded_by: 'showing_request' } })
+        .eq('id', open.id)
+        .eq('status', 'pending')
+        .select('id')
+      if (retired && retired.length) {
+        const summary = `${who} ${messages.map((x) => lineOf(x.kind === 'question' ? 'question' : 'showing', x.move_in_date ?? null, x.message ?? '')).join('；')}。${SHOWING_NOTE}${OHRC_NOTE}`
+        const { error: upErr } = await admin.from('agent_pending_actions').insert({
+          user_id: landlordAuthId,
+          role: 'landlord',
+          action_type: 'showing_request',
+          title: `看房请求：${who} · ${addr}`,
+          summary: summary.slice(0, 4000),
+          recipient_label: who,
+          data_scope: ['房源地址', '这段对话的链接'],
+          excluded_data: ['你的私人邮箱', '筛查报告', '其他申请人信息'],
+          risk_level: 'low',
+          status: 'pending',
+          requires_approval: true,
+          metadata: { ...meta, intent_id: firstId ?? intentId, listing_id: listingId, tenant_auth_id: user.id, kind: 'showing', source: 'listing_page', thread_id: th?.id ?? meta.thread_id ?? null, messages, supersedes: open.id },
+        })
+        if (!upErr) {
+          await notifyUser(admin, landlordAuthId, { kind: 'approval', title: `看房请求 · ${addr}`, body: `${who}：${line.slice(0, 120)}`, url: hubUrl })
+          return NextResponse.json({ ok: true, intent_id: intentId, delivered: true, merged: true, thread_id: th?.id ?? null })
+        }
+        console.error('[showing-intent] superseding showing card insert failed:', upErr.message)
+      }
+    } else {
+      const summary = `${String(open.summary || '')}\n· ${line}`
+      // Only while still pending: a card the landlord decided in the meantime is
+      // never rewritten, and this request then gets a card of its own below.
+      const { data: mergedRows } = await admin
+        .from('agent_pending_actions')
+        .update({
+          summary: summary.slice(0, 4000),
+          metadata: { ...meta, thread_id: th?.id ?? meta.thread_id ?? null, messages },
+        })
+        .eq('id', open.id)
+        .eq('status', 'pending')
+        .select('id')
+      if (mergedRows && mergedRows.length) {
+        await notifyUser(admin, landlordAuthId, { kind: 'approval', title: kind === 'showing' ? `看房请求 · ${addr}` : `房源提问 · ${addr}`, body: `${who}：${line.slice(0, 120)}`, url: hubUrl })
+        return NextResponse.json({ ok: true, intent_id: intentId, delivered: true, merged: true, thread_id: th?.id ?? null })
+      }
+    }
   }
 
   const { error: aErr } = await admin.from('agent_pending_actions').insert({
@@ -148,12 +215,7 @@ export async function POST(req: Request) {
     role: 'landlord',
     action_type: actionType,
     title: kind === 'showing' ? `看房请求：${who} · ${addr}` : `房源提问：${who} · ${addr}`,
-    summary:
-      `${who} ${line}。` +
-      (kind === 'showing'
-        ? '批准 = 同意安排看房：我会邮件告诉对方，你们在「消息」里的这段对话约时间（双方都看不到对方的私人邮箱）；拒绝则不回复。也可以直接去对话里回复。'
-        : '批准 = 我邮件告诉对方你收到了，你在「消息」里的这段对话回答（双方都看不到对方的私人邮箱）；也可以直接去对话里回复。') +
-      ' 按 OHRC 租房政策，看房与回答提问不得因受保护特征区别对待。',
+    summary: `${who} ${line}。` + (kind === 'showing' ? SHOWING_NOTE : QUESTION_NOTE) + OHRC_NOTE,
     recipient_label: who,
     data_scope: ['房源地址', '这段对话的链接'],
     excluded_data: ['你的私人邮箱', '筛查报告', '其他申请人信息'],

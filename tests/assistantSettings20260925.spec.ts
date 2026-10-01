@@ -142,8 +142,9 @@ describe('the assistant’s definition: stored, editable, and in every prompt', 
     const s = read('components/agent/AssistantSettings.tsx')
     expect(s).toContain("const LIST_FIELDS = ['goals', 'preferences', 'constraints', 'worked_well', 'avoid'] as const")
     expect(s).toContain("const TEXT_FIELDS = ['current_focus', 'communication_style'] as const")
-    expect(s).toContain('const overrides = { ...(prev.user_overrides ?? {}), [f]: val }')
-    expect(s).toContain("insert({ user_id: uid, role: 'self', memory_type: 'system', key: USER_MODEL_KEY, label: '用户画像', value, confidence: 1, source: 'user_edit', updated_at: now })")
+    // sweep 2026-10-01: one field merged server-side (no stale whole-value write, no raw duplicate-key insert)
+    expect(s).toContain("supabase.rpc('set_user_model_field', { p_field: f, p_value: release ? null : val, p_release: release })")
+    expect(read('supabase/migrations/20261001_A8_profiles_settings.sql')).toContain("|| jsonb_build_object(p_field, p_value)),")
     expect(s).toContain("{zh ? '交回自动' : 'Let it learn'}")
   })
   it('model and notifications are edited in place too — same stores as the input bar and /settings', () => {

@@ -18,7 +18,9 @@ export function landlordFactsToLifecycle(f: LandlordFactsRaw, today = new Date()
     rent: f.rent as RentFact[],
     tickets: f.tickets as TicketFact[],
     renewalIntents: f.intents,
-    renewalCards: cards.filter((c) => ['send_renewal_letter', 'renewal_checkpoint'].includes(c.action_type)).map((c) => ({ action_type: c.action_type, status: c.status, lease_id: c.metadata?.lease_id, stage: c.metadata?.stage })),
+    // executed_at stays undefined when the RPC row has no such key (an RPC that
+    // predates the execution stamp): the rail then treats "sent" as unknown.
+    renewalCards: cards.filter((c) => ['send_renewal_letter', 'renewal_checkpoint'].includes(c.action_type)).map((c) => ({ action_type: c.action_type, status: c.status, lease_id: c.metadata?.lease_id, stage: c.metadata?.stage, executed_at: 'executed_at' in c ? c.executed_at ?? null : undefined, execution_result: c.execution_result ?? null })),
   }, today)
 }
 

@@ -16,7 +16,7 @@ describe('lifecycle stages are derived from rows, not from the model', () => {
       households: [{ id: 'H1', current_lease_id: 'LE1', verified: true, status: 'active', end_date: '2026-12-19' }],
       rent: [{ lease_id: 'LE1', due_date: '2026-10-01', status: 'due' }],
       tickets: [{ household_id: 'H1', status: 'new' }],
-      renewalCards: [{ action_type: 'send_renewal_letter', status: 'approved', lease_id: 'LE1', stage: '90d' }],
+      renewalCards: [{ action_type: 'send_renewal_letter', status: 'approved', lease_id: 'LE1', stage: '90d', executed_at: '2026-09-20T00:00:00Z', execution_result: { ok: true } }],
     }, today)
     expect(lc.current).toBe('post')
     const [pre, mid, post] = lc.phases

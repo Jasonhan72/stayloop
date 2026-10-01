@@ -19,6 +19,21 @@ import { ACTION_LABEL, SCOPE_LABEL, STATUS_LABEL, type DelegationAction, type De
 
 type Peek = { id: string; status: DelegationStatus; scope: DelegationScope[]; allowed_actions: DelegationAction[]; expires_at: string; basis_version: string; created_at: string; principal_email_masked: string; principal_name: string | null; agent: { legal_name: string; reco_number: string; brokerage_name: string; category: string } | null }
 
+/** The confirm route's refusals in words (sweep 2026-10-01) — never its raw code. */
+function confirmErrorText(code: string | undefined, status: number, zh: boolean, maskedTo?: string): string {
+  const c = code || ''
+  if (c === 'email_mismatch') return zh ? `这份委托发给了 ${maskedTo || '另一个邮箱'}，请用那个邮箱登录。` : `This delegation was sent to ${maskedTo || 'another email'}; sign in with that email.`
+  if (c === 'client_email_changed') return zh ? '经纪在发出这个链接之后改了你在客户表里的邮箱，这个链接已不能确认。请让经纪按新邮箱重新发起委托。' : 'Your agent changed your email in their client table after this link went out, so it can no longer be confirmed. Ask your agent to propose the delegation again to the new email.'
+  if (c === 'expired' || c === 'status_expired') return zh ? '这份委托已过期，不能再确认。请让经纪重新发起。' : 'This delegation has expired and can no longer be confirmed. Ask your agent to propose it again.'
+  if (c === 'status_active') return zh ? '这份委托已经确认过了。' : 'This delegation was already confirmed.'
+  if (c === 'status_revoked') return zh ? '这份委托已被撤回，不能再确认。' : 'This delegation was withdrawn and can no longer be confirmed.'
+  if (c === 'status_changed' || c.startsWith('status_')) return zh ? '这份委托的状态刚刚变了（可能已在别处确认或撤回），页面已刷新，请看最新状态。' : 'This delegation just changed (it may have been confirmed or withdrawn elsewhere). The page was refreshed to show its current state.'
+  if (c === 'not found') return zh ? '链接无效或已使用。委托确认链接只能用一次；请让经纪重新发起。' : 'This link is invalid or already used. A confirmation link works once; ask your agent to propose again.'
+  if (c === 'sign_in_required') return zh ? '请先登录。' : 'Sign in first.'
+  if (c === 'rate_limited') return zh ? '尝试次数太多，请一小时后再试。' : 'Too many attempts — try again in an hour.'
+  return zh ? `确认没有成功，请稍后再试${status ? `（HTTP ${status}）` : ''}。` : `The confirmation did not go through — try again shortly${status ? ` (HTTP ${status})` : ''}.`
+}
+
 function Shell({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-screen flex-col bg-white"><Header variant="transparent" /><div className="mx-auto w-full max-w-[640px] flex-1 px-5 py-10">{children}</div><Footer /></div>
 }
@@ -47,8 +62,11 @@ export default function DelegateConfirmPage() {
     if (!jwt) { setErr(zh ? '请先登录。' : 'Sign in first.'); setBusy(false); return }
     const res = await fetch('/api/delegations/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` }, body: JSON.stringify({ token }) })
     const j = (await res.json().catch(() => ({}))) as { error?: string; principal_email_masked?: string }
-    if (!res.ok) setErr(j.error === 'email_mismatch' ? (zh ? `这份委托发给了 ${j.principal_email_masked}，请用那个邮箱登录。` : `This delegation was sent to ${j.principal_email_masked}; sign in with that email.`) : j.error || `HTTP ${res.status}`)
-    else { setDone(true); await load() }
+    if (!res.ok) {
+      setErr(confirmErrorText(j.error, res.status, zh, j.principal_email_masked))
+      // A state change (confirmed / withdrawn / expired elsewhere): show the delegation as it is now.
+      if (res.status === 409) await load()
+    } else { setDone(true); await load() }
     setBusy(false)
   }
 
