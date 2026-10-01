@@ -327,53 +327,62 @@ export default function HomeNext() {
       <Header variant="transparent" />
 
       {/* ================= HERO: message + login card ================= */}
-      {/* One centered column (user 2026-09-29: titles centered, the sign-in block as simple as Muse's). */}
-      <section style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
-        <div className="mx-auto max-w-[1100px] px-5 pb-12 pt-10 text-center sm:px-7 sm:pb-14 sm:pt-14 lg:pt-[64px]">
-          <div className="min-w-0">
-            <h1 className="mx-auto max-w-[900px] text-[clamp(22px,7.6vw,30px)] font-extrabold leading-[1.15] tracking-tight sm:text-[44px]">
+      {/* One centered column (user 2026-09-29: titles centered, the sign-in block as simple as Muse's).
+          2026-10-01, after measuring muse.ai and america.gov: the hero is the whole first screen with its
+          content centered, a big light headline (60px, weight 700), a 24px muted line, Muse-sized fields,
+          and a 「了解更多 ↓」 pill at the bottom. Screen minus the header (56 / 66px) and, on phones, the
+          bottom bar (64px). */}
+      <section className="flex min-h-[calc(100svh-120px)] flex-col md:min-h-[calc(100svh-66px)]" style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
+        <div className="mx-auto flex w-full max-w-[1100px] flex-1 flex-col items-center justify-center px-5 pt-10 text-center sm:px-7 sm:pt-12" data-testid="home-hero">
+          <div className="w-full min-w-0">
+            <h1 className="mx-auto max-w-[1000px] text-[clamp(22px,8.2vw,34px)] font-bold leading-[1.1] tracking-[-0.02em] sm:text-[48px] lg:text-[60px]">
               {zh
                 ? <span className="whitespace-nowrap">租房的事，交给<em className="not-italic" style={{ color: '#00ACE4' }}>AI助理</em></span>
                 : <>Leave renting to <em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>an AI Agent</em></>}
             </h1>
             {/* 2026-10-01 user: one line, simpler — like america.gov ("Whatever you need from government, start here."). */}
-            <p className="mx-auto mt-3 text-[clamp(15px,4.6vw,18px)] leading-snug text-body-2 sm:mt-4 sm:text-[22px]">
+            <p className="mx-auto mt-4 text-[clamp(15px,4.6vw,18px)] leading-snug text-body-3 sm:mt-5 sm:text-[22px] lg:text-[24px]">
               {zh
                 ? <span className="whitespace-nowrap">找房到续约，它去办，你来批准。</span>
                 : 'From search to renewal: it does the work, you approve.'}
             </p>
           </div>
-          <LoginCard className="mx-auto mt-8 w-full max-w-[400px] scroll-mt-24 sm:mt-10" />
-          <Link href={TRY_HREF} className="mt-5 inline-block text-[14px] font-semibold text-brand hover:underline">{zh ? '先免登录试一试 →' : 'Try it without signing in →'}</Link>
+          <LoginCard className="mx-auto mt-10 w-full max-w-[408px] scroll-mt-24 sm:mt-12" />
+          <Link href={TRY_HREF} className="mt-5 inline-block text-[15px] font-semibold text-brand hover:underline">{zh ? '先免登录试一试 →' : 'Try it without signing in →'}</Link>
+        </div>
+        <div className="flex justify-center pb-6 pt-8 sm:pb-8">
+          <a href="#how-it-works" data-testid="home-learn-more" className="inline-flex h-[42px] items-center gap-2 rounded-full border border-line-divider bg-white/80 px-5 text-[14px] font-medium text-body-2 transition hover:border-body-3 hover:text-ink">
+            {zh ? '了解更多' : 'Learn more'} <span aria-hidden>↓</span>
+          </a>
         </div>
       </section>
 
       {/* ================= HOW IT WORKS: three people, three assistants, one unit ================= */}
-      <section id="how-it-works" className="border-t border-line-divider">
-        <div className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7 sm:py-16">
+      <section id="how-it-works" className="scroll-mt-16">
+        <div className="mx-auto max-w-[1100px] px-5 py-16 sm:px-7 sm:py-24">
           <div className="text-center">
             <div className="mx-auto max-w-[760px]">
-              <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? 'Stayloop 是怎么工作的' : 'How Stayloop works'}</h2>
-              <p className="mt-2 text-[16px] leading-relaxed text-body-2 [text-wrap:pretty]">
+              <h2 className="text-[28px] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[40px]">{zh ? 'Stayloop 是怎么工作的' : 'How Stayloop works'}</h2>
+              <p className="mx-auto mt-4 max-w-[600px] text-[16px] leading-[1.6] text-body-3 [text-wrap:pretty] sm:text-[18px]">
                 {zh
                   ? '租客、房东、经纪各有自己的 AI 助理，事情在三个助理之间接力。下面用同一套房，从委托挂牌演到续约。'
                   : 'Tenants, landlords and agents each have their own AI Agent, and work passes from one to the next. Below, one unit from listing to renewal.'}
               </p>
             </div>
-            <Link href="/platform" className="mt-3 inline-block text-[14px] font-semibold text-brand hover:underline">{zh ? '看完整产品结构 →' : 'See the full product →'}</Link>
+            <Link href="/platform" className="mt-4 inline-block text-[15px] font-semibold text-brand hover:underline">{zh ? '看完整产品结构 →' : 'See the full product →'}</Link>
           </div>
-          <div className="mt-8" data-testid="home-film">
+          <div className="mt-10 sm:mt-12" data-testid="home-film">
             <ThreeRoleFilm />
           </div>
           {/* the loop the film plays, in four lines — the only place the approval rule is spelled out */}
-          <div className="mt-10 border-t border-line-divider pt-6">
-            <div className="text-center text-[16px] font-extrabold text-ink">{zh ? '它提议，你决定。' : 'It proposes. You decide.'}</div>
-            <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-0" data-testid="home-flow">
+          <div className="mt-14 border-t border-line-divider pt-10">
+            <div className="text-center text-[22px] font-bold tracking-[-0.01em] text-ink sm:text-[24px]">{zh ? '它提议，你决定。' : 'It proposes. You decide.'}</div>
+            <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-0" data-testid="home-flow">
               {FLOW.map((s, i) => (
                 <div key={s.h.en} className={`min-w-0 ${i > 0 ? 'lg:border-l lg:border-dashed lg:border-line-divider lg:pl-6' : ''} lg:pr-6`}>
                   <div className="font-mono text-[12px] font-bold text-brand">0{i + 1}</div>
-                  <div className="mt-2 text-[16px] font-extrabold text-ink">{pick(s.h, lang)}</div>
-                  <p className="mt-1 text-[13.5px] leading-relaxed text-body-2">{pick(s.p, lang)}</p>
+                  <div className="mt-2 text-[18px] font-bold text-ink">{pick(s.h, lang)}</div>
+                  <p className="mt-1.5 text-[15px] leading-[1.6] text-body-3">{pick(s.p, lang)}</p>
                 </div>
               ))}
             </div>
@@ -382,25 +391,25 @@ export default function HomeNext() {
       </section>
 
       {/* ================= ROLES ================= */}
-      <section id="roles" className="border-t border-line-divider" style={{ background: '#F3F8FC' }}>
-        <div className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7 sm:py-16">
+      <section id="roles" style={{ background: '#F3F8FC' }}>
+        <div className="mx-auto max-w-[1100px] px-5 py-16 sm:px-7 sm:py-24">
           <div className="mx-auto max-w-[640px] text-center">
-            <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '四种身份，各自的入口' : 'Four roles, each with its own entry'}</h2>
-            <p className="mt-2 text-[16px] text-body-2">{zh ? '同一个 AI 助理按你的身份办事，立场只对你负责；服务商用自己的工单工作台。' : 'One AI Agent works in whichever role you are in and answers only to you; providers use their own work-order desk.'}</p>
+            <h2 className="text-[28px] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[40px]">{zh ? '四种身份，各自的入口' : 'Four roles, each with its own entry'}</h2>
+            <p className="mx-auto mt-4 max-w-[600px] text-[16px] leading-[1.6] text-body-3 sm:text-[18px]">{zh ? '同一个 AI 助理按你的身份办事，立场只对你负责；服务商用自己的工单工作台。' : 'One AI Agent works in whichever role you are in and answers only to you; providers use their own work-order desk.'}</p>
           </div>
           <RoleTabs lang={lang} />
         </div>
       </section>
 
       {/* ================= RULES: Ontario law with ids ================= */}
-      <section className="border-t border-line-divider">
-        <div className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7 sm:py-16">
+      <section>
+        <div className="mx-auto max-w-[1100px] px-5 py-16 sm:px-7 sm:py-24">
           <div className="mx-auto max-w-[680px] text-center">
-            <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '安省规则内置，每条有编号。' : 'Ontario rules built in, each with an id.'}</h2>
-            <p className="mt-2 text-[16px] text-body-2">{zh ? '发布房源、保存租约、发出通知之前自动检查；对话里的建议也受同一套规则约束。规则、法条与生效日期公开可查。' : 'Checked before a listing is published, a lease is saved or a notice goes out; the AI Agent’s advice is bound by the same set. Rules, statutes and effective dates are public.'}</p>
-            <Link href="/rules" className="mt-4 inline-block text-[14px] font-bold text-brand hover:underline">{zh ? `全部 ${ONTARIO_RULES.length} 条规则 →` : `All ${ONTARIO_RULES.length} rules →`}</Link>
+            <h2 className="text-[28px] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[40px]">{zh ? '安省规则内置，每条有编号。' : 'Ontario rules built in, each with an id.'}</h2>
+            <p className="mx-auto mt-4 max-w-[600px] text-[16px] leading-[1.6] text-body-3 sm:text-[18px]">{zh ? '发布房源、保存租约、发出通知之前自动检查；对话里的建议也受同一套规则约束。规则、法条与生效日期公开可查。' : 'Checked before a listing is published, a lease is saved or a notice goes out; the AI Agent’s advice is bound by the same set. Rules, statutes and effective dates are public.'}</p>
+            <Link href="/rules" className="mt-5 inline-block text-[15px] font-semibold text-brand hover:underline">{zh ? `全部 ${ONTARIO_RULES.length} 条规则 →` : `All ${ONTARIO_RULES.length} rules →`}</Link>
           </div>
-          <div className="mt-8 flex flex-wrap justify-center gap-2.5" data-testid="home-rules">
+          <div className="mt-10 flex flex-wrap justify-center gap-2.5" data-testid="home-rules">
             {RULE_CHIPS.map((r) => (
               <Link key={r.id} href="/rules" className="inline-flex max-w-full items-baseline gap-2 rounded-full border border-line-divider bg-white px-3.5 py-2 text-[13.5px] transition hover:border-[#00ACE4]">
                 <span className="font-mono text-[11px] font-bold text-brand-strong">{statuteShort(r.statute)}</span>
@@ -411,12 +420,12 @@ export default function HomeNext() {
         </div>
       </section>
 
-      {/* ================= VERIFY: live numbers ================= */}
-      <section className="mx-auto max-w-[1100px] px-5 pb-16 sm:px-7">
-        <div className="rounded-2xl px-7 py-12 text-white sm:px-12" style={{ background: '#1B1B3C' }}>
-          <h2 className="text-center text-[26px] font-extrabold leading-tight tracking-tight sm:text-[34px]">{zh ? '不给形容词，给可以验证的东西' : 'No adjectives — only things you can verify'}</h2>
-          <p className="mt-2 text-center text-[15px]" style={{ color: '#B7C2D6' }}>{zh ? '下面的每个数字都是此刻从线上数据库读出来的，不是写死的。' : 'Every number below is read from the production database right now, not typed in.'}</p>
-          <div className="mt-9 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      {/* ================= VERIFY: live numbers — a full-width band, like Muse's alternating panels ================= */}
+      <section className="text-white" style={{ background: '#1B1B3C' }}>
+        <div className="mx-auto max-w-[1100px] px-5 py-16 sm:px-7 sm:py-24">
+          <h2 className="text-center text-[26px] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[40px]">{zh ? '不给形容词，给可以验证的东西' : 'No adjectives — only things you can verify'}</h2>
+          <p className="mx-auto mt-4 max-w-[600px] text-center text-[16px] leading-[1.6] sm:text-[18px]" style={{ color: '#B7C2D6' }}>{zh ? '下面的每个数字都是此刻从线上数据库读出来的，不是写死的。' : 'Every number below is read from the production database right now, not typed in.'}</p>
+          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             <Fact n={fmt(stats?.screenings)} s={zh ? <>份筛查报告已生成，<i>每条结论注明所依据的数值</i></> : <>screening reports generated, <i>every conclusion cites its numbers</i></>} />
             <Fact n={fmt(stats?.ltbOrders)} s={zh ? <>份 LTB 判令已入库可查，<i>姓名命中须地址佐证</i></> : <>LTB orders on file and searchable, <i>name hits need address corroboration</i></>} />
             <Fact n={fmt(stats?.trrebQuarters)} s={zh ? <>个季度的 TRREB 官方成交数据，<i>行情有据</i></> : <>quarters of official TRREB data, <i>market answers with sources</i></>} />
@@ -426,20 +435,20 @@ export default function HomeNext() {
       </section>
 
       {/* ================= FAQ ================= */}
-      <section id="faq" className="mx-auto max-w-[1100px] px-5 pb-16 sm:px-7">
-        <div className="mx-auto max-w-[760px]">
+      <section id="faq" style={{ background: '#F3F8FC' }}>
+        <div className="mx-auto max-w-[760px] px-5 py-16 sm:px-7 sm:py-24">
           <div className="text-center">
-            <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '你可能想问' : 'You may be wondering'}</h2>
-            <p className="mt-2 text-[16px] text-body-2">{zh ? '答案只写已经上线、能在页面上核对的事；各身份更细的问题在角色页。' : 'Answers name only what is live and checkable; role-specific questions live on the role pages.'}</p>
+            <h2 className="text-[28px] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[40px]">{zh ? '你可能想问' : 'You may be wondering'}</h2>
+            <p className="mx-auto mt-4 max-w-[600px] text-[16px] leading-[1.6] text-body-3 sm:text-[18px]">{zh ? '答案只写已经上线、能在页面上核对的事；各身份更细的问题在角色页。' : 'Answers name only what is live and checkable; role-specific questions live on the role pages.'}</p>
           </div>
-          <div className="mt-8" data-testid="home-faq">
+          <div className="mt-10" data-testid="home-faq">
             {FAQ.map((f, i) => (
-              <details key={f.q.en} className="group border-t border-line-divider py-4 last:border-b" open={i === 0}>
-                <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-[17px] font-semibold leading-snug text-body [&::-webkit-details-marker]:hidden">
+              <details key={f.q.en} className="group border-t border-line-divider py-5 last:border-b" open={i === 0}>
+                <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-[18px] font-semibold leading-snug text-body [&::-webkit-details-marker]:hidden">
                   <span>{pick(f.q, lang)}</span>
                   <span className="mt-0.5 flex-none font-mono text-[18px] leading-none text-body-3 transition-transform group-open:rotate-45">+</span>
                 </summary>
-                <p className="mt-3 max-w-[640px] text-[14.5px] leading-relaxed text-body-2">
+                <p className="mt-3 max-w-[640px] text-[16px] leading-[1.6] text-body-2">
                   {pick(f.a, lang)} <Link href={f.href} className="font-semibold text-brand hover:underline">{pick(f.more, lang)}</Link>
                 </p>
               </details>
@@ -450,22 +459,22 @@ export default function HomeNext() {
       </section>
 
       {/* ================= START: three steps + the two doors ================= */}
-      <section className="border-t border-line-divider">
-        <div className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7 sm:py-16">
+      <section>
+        <div className="mx-auto max-w-[1100px] px-5 py-16 sm:px-7 sm:py-24">
           <div className="mx-auto max-w-[640px] text-center">
-            <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '三步开始' : 'Three steps to start'}</h2>
-            <p className="mt-2 text-[16px] text-body-2">{zh ? '登录后就是对话。租客永远免费。' : 'After sign-in, it is a conversation. Free for tenants, always.'}</p>
+            <h2 className="text-[28px] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[40px]">{zh ? '三步开始' : 'Three steps to start'}</h2>
+            <p className="mx-auto mt-4 max-w-[600px] text-[16px] leading-[1.6] text-body-3 sm:text-[18px]">{zh ? '登录后就是对话。租客永远免费。' : 'After sign-in, it is a conversation. Free for tenants, always.'}</p>
           </div>
-          <div className="mt-8 grid gap-6 md:grid-cols-3">
+          <div className="mt-12 grid gap-8 md:grid-cols-3">
             {STEPS.map((s, i) => (
               <div key={s.h.en} className="border-t-2 border-line-divider pt-5 text-center">
                 <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full font-mono text-[13px] font-bold text-white" style={{ background: '#00ACE4' }}>{i + 1}</div>
-                <div className="mt-3 text-[17px] font-bold">{pick(s.h, lang)}</div>
-                <p className="mt-1.5 text-[14.5px] leading-relaxed text-body-2 [text-wrap:pretty]">{pick(s.p, lang)}</p>
+                <div className="mt-3 text-[18px] font-bold">{pick(s.h, lang)}</div>
+                <p className="mt-1.5 text-[15px] leading-[1.6] text-body-3 [text-wrap:pretty]">{pick(s.p, lang)}</p>
               </div>
             ))}
           </div>
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
             <a href="#login" className="sl-btn-primary">{zh ? '免费开始 ↑' : 'Start free ↑'}</a>
             <Link href={TRY_HREF} className="sl-btn-secondary">{zh ? '先免登录试一试' : 'Try it without signing in'}</Link>
           </div>
@@ -535,11 +544,11 @@ function RoleTabs({ lang }: { lang: Lang }) {
           )
         })}
       </div>
-      <div className="mt-6 rounded-2xl border border-line-divider bg-white p-6 sm:p-8">
+      <div className="mt-8 rounded-[24px] border border-line-divider bg-white p-6 sm:p-10">
         <div className="grid min-w-0 gap-8 lg:grid-cols-[5fr_6fr] lg:gap-12">
           <div className="min-w-0">
-            <h3 className="text-[24px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{withName(r.h2, lang)}</h3>
-            <p className="mt-3 text-[15px] leading-relaxed text-body-2">{withName(r.lead, lang)}</p>
+            <h3 className="text-[24px] font-bold leading-[1.2] tracking-[-0.01em] sm:text-[30px]">{withName(r.h2, lang)}</h3>
+            <p className="mt-3 text-[16px] leading-[1.6] text-body-3">{withName(r.lead, lang)}</p>
             <ul className="mt-6 space-y-4">
               {r.benefits.map((b) => (
                 <li key={b.b.en} className="flex gap-3">

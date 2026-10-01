@@ -30,7 +30,7 @@ describe('the homepage is centered', () => {
   it('the hero is one centered column; the two-column layouts are gone', () => {
     const hero = home.slice(home.indexOf('HERO: message + login card'), home.indexOf('{/* ================= HOW IT WORKS'))
     expect(hero).toContain('text-center')
-    expect(hero).toContain('<LoginCard className="mx-auto mt-8 w-full max-w-[400px] scroll-mt-24 sm:mt-10" />')
+    expect(hero).toContain('<LoginCard className="mx-auto mt-10 w-full max-w-[408px] scroll-mt-24 sm:mt-12" />')
     expect(hero).toContain('先免登录试一试 →')
     for (const gone of ['lg:grid-cols-[1.15fr_0.85fr]', 'lg:grid-cols-[5fr_7fr]', 'lg:grid-cols-[4fr_7fr]', 'flex flex-wrap items-end justify-between gap-4']) expect(home, gone).not.toContain(gone)
   })
@@ -42,7 +42,7 @@ describe('the homepage is centered', () => {
       expect(before, title).toMatch(/text-center/)
     }
     expect(home).toContain('className="relative flex flex-wrap justify-center gap-2"') // the role tabs under the centered heading
-    expect(home).toContain('className="mt-8 flex flex-wrap justify-center gap-2.5" data-testid="home-rules"')
+    expect(home).toContain('className="mt-10 flex flex-wrap justify-center gap-2.5" data-testid="home-rules"')
   })
 })
 

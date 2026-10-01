@@ -73,11 +73,14 @@ export default function LoginCard({ className = '', next, intent = 'signin' }: {
     else toPassword()
   }
 
+  // Sizes after Muse's sign-in (measured 2026-10-01: field 54px, radius 20, 16px text, a filled field
+  // with no border; buttons 44–48px, 16px). The fill is a shade darker than the pale-blue hero; focus
+  // turns it white with a blue edge.
   const root = `text-center ${className}`
-  const input = 'sl-input !rounded-full !bg-white !px-5 !py-[13px] text-left'
-  const primary = 'sl-btn-primary w-full !py-[13px] disabled:opacity-50'
-  const googleBtn = 'flex w-full items-center justify-center gap-2 rounded-full border border-line-strong bg-white px-4 py-[12px] text-[14px] font-semibold transition hover:border-body-3 hover:bg-surface-chip'
-  const label = 'text-[14px] text-body-2'
+  const input = 'sl-input !h-[54px] !rounded-[20px] !border-transparent !bg-[#E6EEF5] !px-5 !py-0 !text-[16px] text-left placeholder:text-body-3 focus:!border-[#00ACE4] focus:!bg-white focus:!shadow-none'
+  const primary = 'sl-btn-primary w-full !h-[48px] !py-0 !text-[16px] disabled:opacity-50'
+  const googleBtn = 'flex h-[48px] w-full items-center justify-center gap-2 rounded-full border border-line-strong bg-white px-4 text-[16px] font-semibold transition hover:border-body-3 hover:bg-surface-chip'
+  const label = 'text-[15px] text-body-2'
   const link = 'font-semibold text-brand hover:underline'
 
   if (f.sent) {
