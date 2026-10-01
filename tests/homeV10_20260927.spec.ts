@@ -27,6 +27,9 @@ describe('the homepage no longer hosts the conversation', () => {
     expect(home).not.toContain('租房路上的每一步')
     expect(home).not.toContain('sm:text-[52px]') // 44px h1 stays (2026-09-25)
     expect(home).toContain('text-[clamp(22px,7.6vw,30px)]') // one line down to 320px
+    // 2026-10-01 user: the line under the headline is one short sentence too (reference: america.gov)
+    expect(home).toContain('<span className="whitespace-nowrap">找房到续约，它去办，你来批准。</span>')
+    expect(home).not.toContain('安省规则内置，全程留痕')
   })
   it('a signed-in visitor is redirected with the login page’s predicate; the first render never branches on auth', () => {
     expect(home).toMatch(/const signedIn = !auth\.loading && !!auth\.user && !\(auth\.user as \{ is_anonymous\?: boolean \}\)\.is_anonymous/)

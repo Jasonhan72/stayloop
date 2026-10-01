@@ -336,10 +336,11 @@ export default function HomeNext() {
                 ? <span className="whitespace-nowrap">租房的事，交给<em className="not-italic" style={{ color: '#00ACE4' }}>AI助理</em></span>
                 : <>Leave renting to <em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>an AI Agent</em></>}
             </h1>
-            <p className="mx-auto mt-3 max-w-[620px] text-[15px] leading-relaxed text-body-2 [text-wrap:pretty] sm:mt-4 sm:text-[17px]">
+            {/* 2026-10-01 user: one line, simpler — like america.gov ("Whatever you need from government, start here."). */}
+            <p className="mx-auto mt-3 text-[clamp(15px,4.6vw,18px)] leading-snug text-body-2 sm:mt-4 sm:text-[22px]">
               {zh
-                ? <>找房、筛查、租约、维修、续约都由它去办；会影响到别人的动作先经你批准，<br className="hidden sm:block" />安省规则内置，全程留痕。</>
-                : 'Search, screening, leases, repairs and renewals are its job; anything that reaches another person waits for your approval, Ontario rules built in, every step logged.'}
+                ? <span className="whitespace-nowrap">找房到续约，它去办，你来批准。</span>
+                : 'From search to renewal: it does the work, you approve.'}
             </p>
           </div>
           <LoginCard className="mx-auto mt-8 w-full max-w-[400px] scroll-mt-24 sm:mt-10" />
