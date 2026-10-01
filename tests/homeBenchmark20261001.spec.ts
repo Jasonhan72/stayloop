@@ -28,15 +28,22 @@ describe('sign-in block (shared with /login, /register, onboarding)', () => {
   })
 })
 
-describe('sections', () => {
-  it('headings are 40px / 700, never extra-bold', () => {
-    expect(home).not.toContain('font-extrabold')
-    expect((home.match(/sm:text-\[40px\]/g) ?? []).length).toBeGreaterThanOrEqual(6)
+describe('sections (plan A, 2026-10-01 — supersedes the 40px / 700 pass)', () => {
+  it('two weights only: 600 headings via .sl-type-head, never bold or extra-bold on the page', () => {
+    expect(home).not.toMatch(/font-extrabold|font-bold leading/)
+    expect(home).toContain("const H2 = 'sl-type-head text-[28px] leading-[1.18] text-ink sm:text-[44px] sm:leading-[1.12]'")
+    const css = readFileSync('app/globals.css', 'utf8')
+    expect(css).toContain(".sl-type-head {\n  font-weight: 600;")
+    expect(css).toContain(":lang(zh) .sl-type-head { letter-spacing: 0.01em; word-break: keep-all; overflow-wrap: anywhere; }") // no negative tracking on Chinese; break at punctuation, never inside a word
+    expect(css).toContain("font-feature-settings: 'palt';") // proportional CJK punctuation
   })
-  it('64 / 96px padding and alternating full-width bands (roles + FAQ tinted, live numbers dark)', () => {
-    expect((home.match(/py-16 sm:px-7 sm:py-24/g) ?? []).length).toBeGreaterThanOrEqual(6)
-    expect(home).toContain('<section id="roles" style={{ background: \'#F3F8FC\' }}>')
-    expect(home).toContain('<section id="faq" style={{ background: \'#F3F8FC\' }}>')
+  it('80 / 112px padding, alternating full-width bands, one idea per panel', () => {
+    expect((home.match(/py-20 sm:px-7 sm:py-28/g) ?? []).length).toBeGreaterThanOrEqual(4)
+    expect(home).toContain("<section style={{ background: tint ? '#F3F8FC' : '#FFFFFF' }} data-testid={testId}>")
     expect(home).toContain('<section className="text-white" style={{ background: \'#1B1B3C\' }}>')
+  })
+  it('scroll-in is CSS-only and honours reduced motion (nothing waits for JavaScript to appear)', () => {
+    const css = readFileSync('app/globals.css', 'utf8')
+    expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{\s*@supports \(animation-timeline: view\(\)\)/)
   })
 })

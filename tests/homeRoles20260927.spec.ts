@@ -12,12 +12,13 @@ import { existsSync, readFileSync } from 'node:fs'
 const home = readFileSync('components/home/HomeNext.tsx', 'utf8')
 
 describe('four roles on the homepage', () => {
-  it('provider is the fourth tab: pilot tag, facts instead of chips, real entry points; the heading says four', () => {
+  it('provider is the fourth role panel: pilot label, facts instead of an example, real entry points (panels since 2026-10-01)', () => {
     expect(home).toMatch(/key: 'provider',\s*pilot: true,\s*tag: \{ zh: '服务商', en: 'Provider' \}/)
     expect(home).toContain("href: '/provider/onboard'")
     expect(home).toMatch(/chips: \[\],\s*facts: \[/)
-    expect(home).toContain("{zh ? '试点' : 'PILOT'}")
-    expect(home).toContain("{zh ? '四种身份，各自的入口' : 'Four roles, each with its own entry'}")
+    expect(home).toContain("const PANEL_ROLES: HomeRole[] = ['tenant', 'landlord', 'agent', 'provider']")
+    expect(home).toContain("eyebrow: { zh: '服务商 · 试点', en: 'Providers · pilot' }")
+    expect(home).toContain('data-testid="provider-facts"')
     expect(home).not.toContain('三种角色')
     // the provider has no assistant: the tab's modules open the work-order desk
     expect(home).toContain("href: '/provider/jobs'")
@@ -36,9 +37,9 @@ describe('four roles on the homepage', () => {
     expect(home).toContain('data-testid="role-modules"')
   })
   it('the example sentences open the role’s assistant preview (V0.7) — one helper spells the URL', () => {
-    expect(home).toContain('assistantPromptHref(chatRole, pick(c.prompt, lang))')
+    expect(home).toContain('assistantPromptHref(chatRole, pick(r.chips[0].prompt, lang))')
     expect(home).not.toContain('点一下就发到上面的对话里')
-    expect(home).toContain("'试一试 · 打开 AI 助理预览，不用登录'")
+    expect(home).toContain("'问 AI 助理试试 · 不用登录'")
   })
   it('the copy names only what ships: no invented features, no "coming soon" for a live pilot, no vendor-only model claim', () => {
     for (const bad of ['在线收租', '自动对账', '佣金对账', '短信', '路线规划', '工单大厅', '在线结算', '即将上线', '内测邀约', '14 天', '$39', '82/100', 'Anthropic Claude']) expect(home, bad).not.toContain(bad)
@@ -53,12 +54,11 @@ describe('four roles on the homepage', () => {
     expect(home).toContain('Claude · GPT · Gemini')
     for (const fact of ['试点阶段 · 多伦多及周边', '付款线下 · Stayloop 不经手资金', '没有公开目录']) expect(home).toContain(fact)
   })
-  it('the selected tab is one pill that slides — eased, no spring — and the first frame paints the active button itself', () => {
-    expect(home).toContain("transition: 'left .25s ease, top .25s ease, width .25s ease'")
-    expect(home).not.toMatch(/cubic-bezier\([^)]*1\.[2-9]\)/)
-    expect(home).toContain("background: ind ? 'transparent' : '#1B1B3C'")
-    expect(home).toContain('data-testid="role-tab-indicator"')
-    expect(home).toContain('role="tablist"')
+  it('the roles are four panels, one per screen, each with its 3D scene — no tabs hide them (2026-10-01, after muse.ai)', () => {
+    expect(home).not.toContain('role="tablist"')
+    expect(home).not.toContain('function RoleTabs')
+    expect(home).toContain('testId={`home-role-${role}`}')
+    for (const img of ['mia-sofa.webp', 'sarah-report.webp', 'david-lobby.webp', 'provider-repair.webp']) expect(existsSync(`public/home/film/${img}`), img).toBe(true)
   })
 })
 
@@ -83,7 +83,7 @@ describe('homepage FAQ', () => {
     expect(block).not.toMatch(/\$\d|每月|per month/)
   })
   it('one story, each point once: what it is → how it works → for each role → rules → numbers → questions → how to start (2026-09-28)', () => {
-    const order = ['HERO: message + ask box', 'HOW IT WORKS', 'ROLES', 'RULES', 'VERIFY: live numbers', 'FAQ', 'START'].map((k) => home.indexOf(`{/* ================= ${k}`))
+    const order = ['HERO: message + ask box', 'STATEMENT', 'HOW IT WORKS', 'PANELS', 'ROLES', 'RULES', 'VERIFY: live numbers', 'FAQ', 'START'].map((k) => home.indexOf(`{/* ================= ${k}`))
     for (const i of order) expect(i).toBeGreaterThan(-1)
     for (let i = 1; i < order.length; i++) expect(order[i], String(i)).toBeGreaterThan(order[i - 1])
     // retired because each repeated something told elsewhere on the page

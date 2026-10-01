@@ -290,3 +290,29 @@ html, body {
 @media (min-width: 768px) {
   .sl-msg-col { height: calc(100vh - 67px); }
 }
+
+/* Homepage typography, plan A (2026-10-01 · after muse.ai / america.gov): the same sans faces
+   (Inter Tight + PingFang / YaHei), two weights only (600 headings, 400 text), balanced heading
+   lines, proportional CJK punctuation so 「，」 does not leave a gap, and no negative tracking on
+   Chinese (it crowds the characters) — English headings keep −0.02em. */
+.sl-type-head {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  font-feature-settings: 'palt';
+}
+/* Chinese headings break at punctuation and spaces, never inside a word (「续｜约」); the emergency
+   overflow-wrap keeps a long punctuation-free run from overflowing a phone. */
+:lang(zh) .sl-type-head { letter-spacing: 0.01em; word-break: keep-all; overflow-wrap: anywhere; }
+.sl-type-text { text-wrap: pretty; }
+:lang(zh) .sl-type-text { letter-spacing: 0.01em; }
+.sl-type-num { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+/* Scroll-in for homepage blocks — CSS only (scroll-driven animations). Where unsupported, or with
+   reduced motion, content simply shows: nothing is hidden waiting for JavaScript. */
+@keyframes sl-reveal { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .sl-reveal { animation: sl-reveal linear both; animation-timeline: view(); animation-range: entry 0% cover 28%; }
+  }
+}

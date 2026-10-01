@@ -2963,3 +2963,19 @@ H1 96px 衬线 / 400、小字 24px 65% 墨色、上下留白 256px。我们原�
 - **免登录预览成了正门**：限额 8 → 15 次 / IP / 小时、400 → 600 次 / 全站 / 小时，统一在 `lib/agent/anonLimits.ts`；超出个人额度与全站繁忙两种 429 文案分开
   （`orchestrator` 把 Retry-After 带进错误）；预览里访客一旦提问，示范待批卡（Sarah Wang · Unit 1207）在对话、侧栏待办、重开胶囊里都不再出现。
 - 顺带：回复里已经说明「禁宠 / 超额押金条款无效」时，guardrail 不再追加「我不会写进租约」。
+
+## 首页第二屏以后按 muse.ai / america.gov 重排 · 方案 A（2026-10-01 · 用户「除了第一屏，第二屏以后的那些…要包含字体的美化和调整」→「按照你推荐的方案A，开始做吧」）
+
+方案 A = 保留现有无衬线字体（Inter Tight + 苹方 / 雅黑），只调字号、字重、行距、断行；不引入衬线体。页头 / 页脚 / logo / 配色不动。守卫
+`tests/homeBenchmark20261001.spec.ts`、`tests/homeRoles20260927.spec.ts`、`tests/homeCentered20260929.spec.tsx`、`tests/homeV10_20260927.spec.ts`、`tests/threeRoleFilm20260928.spec.ts`。
+- **顺序**：HERO（问一句的对话框，未动）→ **STATEMENT**（america.gov 式一句话整屏：「Stayloop 用 AI 把租房的**每一步办完**…会影响别人的事，**先等你点头**…」，
+  44 / 36 / 26px、500 字重、两处 #00ACE4 高亮，滚动淡入）→ **HOW IT WORKS**（居中标题 + 灰色导语 + 动画放进白色大圆角媒体卡，Muse 式）→ **PANELS**（图文交替，白 /
+  浅蓝底交替：① 它提议，你决定——图是真实的 `ApprovalActionCard`（`components/home/ApprovalSample.tsx`，Mia Chen 看房请求，标「示例」，`inert` + `aria-hidden`），文字是四步；
+  ②–⑤ 租客 / 房东 / 经纪 / 服务商（试点）各一屏，图是 3D 场景（服务商新图 `public/home/film/provider-repair.webp`，gpt-image-2 以 david 场景为参照生成），取代原身份选项卡）→
+  **RULES**（规则面板：右侧是条文索引列表——编号在上、规则在下、细线分隔；原芯片云在长编号处换行很乱，已弃）→ **VERIFY**（深色数字带，56px 数字）→ **FAQ**（两栏：左标题右问答）→
+  **START**（「从一句话开始」收尾带 + 两个按钮 + 三步小行）。
+- **字体规则**（`app/globals.css`）：`.sl-type-head` = 600 字重、平衡断行、`palt` 比例标点；中文标题不用负字距、**只在标点和空格处断行**（`word-break: keep-all`，
+  另加 `overflow-wrap: anywhere` 兜底，手机上无标点的长句才会被硬断）——此前「续｜约」「规｜则」「每一步办｜完」都被拆开；高亮词另加 `whitespace-nowrap`。`.sl-type-text`
+  = `text-wrap: pretty`；`.sl-type-num` = 等宽数字。全页只用 600 / 400 两种字重（陈述句 500 例外）。字号：H2 44 / 28、面板标题 36 / 26、导语 20 / 17、正文 17 / 16（行高 1.75）。
+- **滚动淡入** `.sl-reveal` 用 CSS scroll-driven animation，包在 `@supports (animation-timeline: view())` 与 `prefers-reduced-motion: no-preference` 里——不支持或减少动态时内容直接可见，不依赖 JS。
+- 本地核对（CDP 无头 Chrome，减少动态模式截全页）：1440 / 390 / 320 零横向溢出，页面高 10583 / 13590px，全部标题 600 字重。

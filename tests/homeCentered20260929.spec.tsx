@@ -31,17 +31,16 @@ describe('the homepage is centered', () => {
     const hero = home.slice(home.indexOf('HERO: message + ask box'), home.indexOf('{/* ================= HOW IT WORKS'))
     expect(hero).toContain('text-center')
     expect(hero).toContain('<HeroComposer zh={zh} className="mt-10 w-full sm:mt-12" />')
-    for (const gone of ['lg:grid-cols-[1.15fr_0.85fr]', 'lg:grid-cols-[5fr_7fr]', 'lg:grid-cols-[4fr_7fr]', 'flex flex-wrap items-end justify-between gap-4']) expect(home, gone).not.toContain(gone)
+    for (const gone of ['lg:grid-cols-[1.15fr_0.85fr]', 'lg:grid-cols-[5fr_7fr]', 'lg:grid-cols-[4fr_7fr]', 'flex flex-wrap items-end justify-between gap-4']) expect(hero, gone).not.toContain(gone)
   })
-  it('every section heading sits in a centered block', () => {
-    for (const title of ['Stayloop 是怎么工作的', '四种身份，各自的入口', '安省规则内置，每条有编号。', '不给形容词，给可以验证的东西', '你可能想问', '三步开始']) {
+  it('section headings are centered; the picture-and-words panels and the FAQ read left to right (2026-10-01, after muse.ai)', () => {
+    for (const title of ['Stayloop 是怎么工作的', '不给形容词，给可以验证的东西', '从一句话开始']) {
       const at = home.indexOf(`'${title}'`)
       expect(at, title).toBeGreaterThan(0)
       const before = home.slice(Math.max(0, at - 420), at)
       expect(before, title).toMatch(/text-center/)
     }
-    expect(home).toContain('className="relative flex flex-wrap justify-center gap-2"') // the role tabs under the centered heading
-    expect(home).toContain('className="mt-10 flex flex-wrap justify-center gap-2.5" data-testid="home-rules"')
+    expect(home).toContain('<ul className="divide-y divide-line-divider" data-testid="home-rules">')
   })
 })
 

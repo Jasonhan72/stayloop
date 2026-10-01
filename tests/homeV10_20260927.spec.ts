@@ -28,7 +28,7 @@ describe('the homepage hosts no conversation of its own (the ask box sends it to
     expect(home).toContain('<span className="whitespace-nowrap">租房的事，交给<em className="not-italic" style={{ color: \'#00ACE4\' }}>AI助理</em></span>')
     expect(home).not.toContain('租房路上的每一步')
     // 2026-10-01 (muse.ai / america.gov benchmark): 60px desktop, 48px tablet, one line on phones down to 320px
-    expect(home).toContain('text-[clamp(22px,8.2vw,34px)] font-bold leading-[1.1] tracking-[-0.02em] sm:text-[48px] lg:text-[60px]')
+    expect(home).toContain('sl-type-head mx-auto max-w-[1000px] text-[clamp(22px,8.2vw,34px)] leading-[1.1] sm:text-[48px] lg:text-[60px]') // 600 via .sl-type-head (plan A, 2026-10-01)
     // 2026-10-01 user: the line under the headline is one short sentence too (reference: america.gov)
     expect(home).toContain('<span className="whitespace-nowrap">找房到续约，它去办，你来批准。</span>')
     expect(home).not.toContain('安省规则内置，全程留痕')
@@ -42,8 +42,8 @@ describe('the homepage hosts no conversation of its own (the ask box sends it to
     // the marketing page renders while auth is still loading (matches the prerendered HTML); no useState reading window
     expect(home).not.toMatch(/useState\([^)]*window/)
   })
-  it('every「试一试」opens the assistant preview; the landing tiles are gone — the role tabs are the one place roles are told (2026-09-28)', () => {
-    expect(home).toContain('assistantPromptHref(chatRole, pick(c.prompt, lang))')
+  it('every「试一试」opens the assistant preview; the landing tiles are gone — the role panels are the one place roles are told (2026-09-28, panels 2026-10-01)', () => {
+    expect(home).toContain('assistantPromptHref(chatRole, pick(r.chips[0].prompt, lang))')
     expect(home).not.toContain('const TILES')
     expect(home).not.toContain('data-testid="home-tiles"')
     expect(home).not.toContain('登录后，你会直接进入')
@@ -66,9 +66,10 @@ describe('the homepage hosts no conversation of its own (the ask box sends it to
     expect(home).toContain("r.id === 'RTA-120-guideline' ? `（${pick(GUIDELINE_TEXT, lang)}）` : ''") // the guideline numbers come from the table, never typed
     expect(home).not.toMatch(/2\.5%/) // the cap is not this year's figure
   })
-  it('no pricing, no invented numbers, no photos', () => {
+  it('no pricing, no invented numbers, no real photos (pictures are the film’s 3D scenes)', () => {
     expect(home).not.toMatch(/\$19|\$29|每月 \$|per month/)
-    expect(home).not.toMatch(/<img|next\/image/)
+    expect(home).not.toMatch(/next\/image/)
+    for (const src of [...home.matchAll(/img: '([^']+)'/g)].map((m) => m[1])) expect(src, src).toMatch(/^\/home\/film\/[a-z-]+\.webp$/)
     // the only numerals in prose are statutory (days, years, sections) or the live-stats placeholders
     expect(home).toContain("if (n == null) return '—'")
   })

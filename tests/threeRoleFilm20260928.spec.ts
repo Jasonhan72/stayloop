@@ -303,9 +303,9 @@ describe('on the homepage', () => {
     expect(hero).not.toContain('<ThreeRoleFilm />')
     expect(hero).toContain('<HeroComposer zh={zh} className="mt-10 w-full sm:mt-12" />')
     const section = home.slice(home.indexOf('{/* ================= HOW IT WORKS'), home.indexOf('{/* ================= ROLES'))
-    expect(section).toContain('<section id="how-it-works" className="scroll-mt-16">')
+    expect(section).toContain('<section id="how-it-works" className="scroll-mt-16" style={{ background: \'#F3F8FC\' }}>')
     expect(section).toContain("{zh ? 'Stayloop 是怎么工作的' : 'How Stayloop works'}")
-    expect(section).toContain('text-[28px] font-bold leading-[1.15] tracking-[-0.02em] sm:text-[40px]') // the homepage's section heading (2026-10-01: 40px / 700)
+    expect(section).toContain('<h2 className={H2}>') // the homepage's section heading (plan A 2026-10-01: 44px / 600)
     expect(section.indexOf('<h2')).toBeLessThan(section.indexOf('<ThreeRoleFilm />'))
     expect(section).toContain('data-testid="home-film"')
     // the lead only sets the scene; the approval rule is spelled out once, in the four-step loop under the film
