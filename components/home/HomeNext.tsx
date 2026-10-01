@@ -5,14 +5,15 @@
 // Until V0.6 the hero WAS the live assistant ("首页就是助手", 2026-09-06). The
 // user's verdict after three weeks: the box was too small to show what the
 // assistant does, and the page never explained the system. So now:
-//   1. The hero explains Stayloop in one screen and carries the login card
-//      (Google / email + password sign-in and registration — the same hook as /login and /register).
+//   1. The hero explains Stayloop in one screen and carries the ask box (components/home/HeroComposer,
+//      2026-10-01, after America.gov): the question goes to the chosen role's AI Agent page; sign-in /
+//      sign-up are one line under it (the sign-in block itself lives on /login and /register).
 //   2. Signed-in visitors never see this page: they are sent straight to the
 //      assistant of the hat they wear (providers to their work-order desk),
 //      the same predicate the login page uses (homeForHats).
-//   3. The free, no-account demo still exists — on the assistant preview
-//      pages, where the conversation gets the whole screen. Every「试一试」
-//      here and every legacy `/?role=&ask=` link (middleware) lands there.
+//   3. The free, no-account conversation happens on the AI Agent preview pages, where it gets the
+//      whole screen. The ask box, the role tabs' examples and every legacy `/?role=&ask=` link
+//      (middleware) land there.
 // One story, each point told once (user 2026-09-28: "动画和这个图片重复了…要把
 // stayloop 的故事讲清晰和简单"): what it is (hero) → how it works (the film +
 // the four-step loop) → what it does for each role (tabs) → why you can trust
@@ -27,7 +28,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import LoginCard from '@/components/home/LoginCard'
+import HeroComposer from '@/components/home/HeroComposer'
 import { useT, type Lang } from '@/lib/i18n'
 import { roleStorageKey, useAuth } from '@/lib/useAuth'
 import { useHats } from '@/lib/useHats'
@@ -242,7 +243,6 @@ function fmt(n: number | null | undefined): string {
   return n.toLocaleString('en-CA')
 }
 
-const TRY_HREF = '/tenant/agent'
 
 // The film (2026-09-28): Mia, Sarah and David — tenant, landlord, agent — each
 // with their own assistant, one unit from listing to renewal. Their phones run
@@ -326,14 +326,13 @@ export default function HomeNext() {
     <div style={{ background: '#FFFFFF' }} className="text-body">
       <Header variant="transparent" />
 
-      {/* ================= HERO: message + login card ================= */}
-      {/* One centered column (user 2026-09-29: titles centered, the sign-in block as simple as Muse's).
-          2026-10-01, after measuring muse.ai and america.gov: the hero is the whole first screen with its
-          content centered, a big light headline (60px, weight 700), a 24px muted line, Muse-sized fields,
-          and a 「了解更多 ↓」 pill at the bottom. Screen minus the header (56 / 66px) and, on phones, the
-          bottom bar (64px). */}
+      {/* ================= HERO: message + ask box ================= */}
+      {/* One centered column (user 2026-09-29: titles centered). 2026-10-01, after measuring muse.ai and
+          america.gov: the hero is the whole first screen (minus the 56 / 66px header and, on phones, the
+          64px bottom bar) with a big light headline (60px, weight 700) and a 24px muted line; under it
+          America.gov's ask box over a photo card (components/home/HeroComposer). */}
       <section className="flex min-h-[calc(100svh-120px)] flex-col md:min-h-[calc(100svh-66px)]" style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
-        <div className="mx-auto flex w-full max-w-[1100px] flex-1 flex-col items-center justify-center px-5 pt-10 text-center sm:px-7 sm:pt-12" data-testid="home-hero">
+        <div className="mx-auto flex w-full max-w-[1100px] flex-1 flex-col items-center justify-center px-4 pb-12 pt-10 text-center sm:px-7 sm:pb-16 sm:pt-12" data-testid="home-hero">
           <div className="w-full min-w-0">
             <h1 className="mx-auto max-w-[1000px] text-[clamp(22px,8.2vw,34px)] font-bold leading-[1.1] tracking-[-0.02em] sm:text-[48px] lg:text-[60px]">
               {zh
@@ -347,13 +346,9 @@ export default function HomeNext() {
                 : 'From search to renewal: it does the work, you approve.'}
             </p>
           </div>
-          <LoginCard className="mx-auto mt-10 w-full max-w-[408px] scroll-mt-24 sm:mt-12" />
-          <Link href={TRY_HREF} className="mt-5 inline-block text-[15px] font-semibold text-brand hover:underline">{zh ? '先免登录试一试 →' : 'Try it without signing in →'}</Link>
-        </div>
-        <div className="flex justify-center pb-6 pt-8 sm:pb-8">
-          <a href="#how-it-works" data-testid="home-learn-more" className="inline-flex h-[42px] items-center gap-2 rounded-full border border-line-divider bg-white/80 px-5 text-[14px] font-medium text-body-2 transition hover:border-body-3 hover:text-ink">
-            {zh ? '了解更多' : 'Learn more'} <span aria-hidden>↓</span>
-          </a>
+          {/* 2026-10-01: America.gov's ask box over a photo card replaces the sign-in block — ask first,
+              no account; sign-in / sign-up are one line under it (and in the header menu). */}
+          <HeroComposer zh={zh} className="mt-10 w-full sm:mt-12" />
         </div>
       </section>
 
@@ -475,8 +470,8 @@ export default function HomeNext() {
             ))}
           </div>
           <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
-            <a href="#login" className="sl-btn-primary">{zh ? '免费开始 ↑' : 'Start free ↑'}</a>
-            <Link href={TRY_HREF} className="sl-btn-secondary">{zh ? '先免登录试一试' : 'Try it without signing in'}</Link>
+            <Link href="/register" className="sl-btn-primary">{zh ? '免费注册' : 'Create a free account'}</Link>
+            <a href="#ask" className="sl-btn-secondary">{zh ? '先问一句试试 ↑' : 'Ask something first ↑'}</a>
           </div>
         </div>
       </section>

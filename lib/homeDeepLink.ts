@@ -2,8 +2,8 @@
 //
 // Until V0.6 the homepage's hero WAS the assistant, and role / screening pages
 // fed an example question into it with `/?role=<r>&ask=<q>` (EliseAI benchmark
-// item C, 2026-09-22). The homepage is a marketing + login page now, so the
-// same links land in the role's assistant page instead: anonymous visitors get
+// item C, 2026-09-22). Since V0.7 those links — and, from 2026-10-01, the homepage's own ask box —
+// land in the role's AI Agent page instead: anonymous visitors get
 // the preview there (no account, hourly limit), signed-in users their real
 // assistant. `send=1` keeps the old behaviour — the question is sent once on
 // arrival (usePromptDeepLink never auto-sends a text with an unfilled 【…】).

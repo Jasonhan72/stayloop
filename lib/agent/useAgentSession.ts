@@ -5,6 +5,7 @@
 // if the data fetch stalls / the migration isn't applied) falls back to a
 // local demo session so the page ALWAYS renders. Guaranteed to leave the
 // loading state within a few seconds — it can never hang on a skeleton.
+import { ANON_TURNS_PER_HOUR } from './anonLimits'
 import { notifyPendingChanged } from '@/lib/agent/pendingCount'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LISTINGS_PAGE } from '@/lib/agent/listingPaging'
@@ -1044,15 +1045,19 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
         } catch (e) {
           console.warn('[agent] anonymous turn failed —', (e as Error).message)
           const msg = (e as Error).message || ''
-          result = /429/.test(msg)
+          result = /429/.test(msg) && /retry-after=600/.test(msg)
+            ? (zhUi
+                ? { title: '体验人数太多', body: '⚠️ 匿名体验现在访问量过大，请过几分钟再试，或者登录后继续 —— 登录后不受这个限制。' }
+                : { title: 'The preview is busy', body: '⚠️ The anonymous preview is busy right now. Try again in a few minutes, or sign in to continue — signed-in use has no such limit.' })
+            : /429/.test(msg)
             ? (zhUi
                 ? {
                     title: '体验额度用完了',
-                    body: '⚠️ 匿名体验每小时限 8 条消息，这个小时的额度用完了。登录后继续 —— 不受此额度限制，而且我能真正记住你的偏好、替你跟进申请。点右上角「登录」即可，1 分钟搞定。',
+                    body: `⚠️ 匿名体验每小时限 ${ANON_TURNS_PER_HOUR} 条消息，这个小时的额度用完了。登录后继续 —— 不受此额度限制，而且我能真正记住你的偏好、替你跟进申请。点右上角「登录」即可，1 分钟搞定。`,
                   }
                 : {
                     title: 'Preview quota used up',
-                    body: '⚠️ The anonymous preview allows 8 messages per hour, and this hour\'s quota is used up. Sign in to continue — no such limit applies, and I can truly remember your preferences and follow up on applications for you. Click "Sign in" at the top right; it takes a minute.',
+                    body: `⚠️ The anonymous preview allows ${ANON_TURNS_PER_HOUR} messages per hour, and this hour's quota is used up. Sign in to continue — no such limit applies, and I can truly remember your preferences and follow up on applications for you. Click "Sign in" at the top right; it takes a minute.`,
                   })
             : /llm truncated/i.test(msg)
               ? (zhUi

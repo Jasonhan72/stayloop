@@ -207,7 +207,8 @@ export async function runAgentTurn(args: {
       body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, exclude: exclude ?? [], history: history ?? [], lang }),
       signal: AbortSignal.timeout(100_000),
     })
-    if (!res.ok) throw new Error(`turn failed: ${res.status}`)
+    // A 429 says which limit: Retry-After 600 = the site-wide anonymous cap, 3600 = this visitor's hour.
+    if (!res.ok) throw new Error(`turn failed: ${res.status}${res.status === 429 ? ` retry-after=${res.headers.get('Retry-After') ?? ''}` : ''}`)
     // The route streams heartbeat whitespace then the JSON body; errors that
     // occur mid-stream arrive as { error } inside a 200 body.
     rawBody = await res.text()

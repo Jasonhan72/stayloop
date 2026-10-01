@@ -10,7 +10,8 @@ import { tenantCardRecipient } from '@/lib/agent/chatCopy'
 import { NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
-import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback } from '@/lib/agent/prompts'
+import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback, landlordRenewalFacts } from '@/lib/agent/prompts'
+import { ANON_TURNS_PER_HOUR, ANON_TURNS_SITE_PER_HOUR } from '@/lib/agent/anonLimits'
 import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
 import { matchOwnedListing, mergeWithExisting, type OwnedListingRow } from '@/lib/agent/draftExisting'
 import { flattenMarkdown, isProviderCapacityError } from '@/lib/agent/turnHelpers'
@@ -34,12 +35,12 @@ export const runtime = 'edge'
 // - Authorization header present → must be a valid Supabase session
 //   (401 otherwise), then per-user hourly limit via bump_agent_rate_limit.
 // - No Authorization header → ANONYMOUS PREVIEW mode: real reasoning for
-//   the homepage's 免注册体验, strictly limited (8/hour per hashed IP via
+//   the homepage's ask box, strictly limited (ANON_TURNS_PER_HOUR per hashed IP via
 //   bump_anon_rate_limit, service-role only, fail-closed), zero persistence
 //   (memory_writes/proposed_action forced empty server-side).
 const RATE_LIMIT_PER_HOUR = 60
-const ANON_RATE_LIMIT_PER_HOUR = 8
-const ANON_GLOBAL_PER_HOUR = 400
+const ANON_RATE_LIMIT_PER_HOUR = ANON_TURNS_PER_HOUR
+const ANON_GLOBAL_PER_HOUR = ANON_TURNS_SITE_PER_HOUR
 
 // Appended to the system prompt for anonymous preview turns. The server also
 // hard-strips memory_writes/proposed_action from the output — this is the
@@ -383,6 +384,10 @@ export async function POST(req: Request) {
     .join('\n')
   const renewalCtx =
     role === 'tenant' && (RENEWAL_INTENT_RE.test(message) || RENEWAL_INTENT_RE.test(histUserText))
+  // Landlords asking about renewal get the same RTA facts (guideline by effective year, N1, the 2018
+  // exemption) — without them the model quotes an old 2.5% (homepage example, 2026-10-01).
+  const landlordRenewalCtx =
+    role === 'landlord' && (RENEWAL_INTENT_RE.test(message) || RENEWAL_INTENT_RE.test(histUserText))
   // Lease-derived market hints (area/beds), used when the model's search
   // object doesn't carry them — the negotiation evidence should be priced
   // against WHERE THE TENANT LIVES, not a generic Toronto sample.
@@ -549,6 +554,7 @@ export async function POST(req: Request) {
   const system =
     buildSystemPrompt(role, agentName, memories, workflow, typeof body.stageLabel === 'string' ? body.stageLabel.slice(0, 80) : undefined, uiLang, vibe, persona) +
     renewalAddendum +
+    (landlordRenewalCtx ? landlordRenewalFacts() : '') +
     landlordAddendum +
     userContextAddendum +
     (anonymous ? ANON_PROMPT_ADDENDUM : '')

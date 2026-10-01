@@ -12,11 +12,10 @@ describe('hero', () => {
     expect(home).toContain('min-h-[calc(100svh-120px)] flex-col md:min-h-[calc(100svh-66px)]')
     expect(home).toContain('flex-1 flex-col items-center justify-center')
   })
-  it('a 60px / 700 headline, a 24px muted line, and a 「了解更多 ↓」 pill to the next section', () => {
+  it('a 60px / 700 headline and a 24px muted line (the 「了解更多 ↓」 pill gave way to the ask box’s controls)', () => {
     expect(home).toContain('lg:text-[60px]')
     expect(home).not.toMatch(/<h1[^>]*font-extrabold/)
     expect(home).toContain('lg:text-[24px]')
-    expect(home).toContain('href="#how-it-works" data-testid="home-learn-more"')
   })
 })
 

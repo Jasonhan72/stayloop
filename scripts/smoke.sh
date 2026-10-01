@@ -5,7 +5,7 @@
 #   bash scripts/smoke.sh https://preview.url  # probes a preview deploy
 #
 # All probes are READ-ONLY: GETs on public pages plus at most TWO anonymous
-# /api/agent/turn calls (the anon lane is limited to 8/hour per IP — do not
+# /api/agent/turn calls (the anon lane is limited to 15/hour per IP — do not
 # add more turn probes, and re-runs within the hour may see 429 → SKIP).
 set -u
 
@@ -54,13 +54,13 @@ probe_page "public share invalid-token page" \
   "/p/smoke-invalid-token-000000000000000000" \
   "已失效|no longer active"
 
-# ── Anonymous agent-turn probes (max 2 — anon limit is 8/h per IP) ──────────
+# ── Anonymous agent-turn probes (max 2 — anon limit is 15/h per IP) ──────────
 turn_probe() { # name payload_file assert_py
   local name="$1" payload="$2" assert="$3" code
   code=$(curl -sS -o "$TMP/turn" -w '%{http_code}' --max-time 120 \
     -H 'Content-Type: application/json' \
     -X POST --data @"$payload" "$BASE/api/agent/turn" 2>"$TMP/err") || { bad "$name" "curl: $(cat "$TMP/err")"; return; }
-  if [ "$code" = "429" ]; then skip "$name" "anon rate limit (8/h) — rerun later"; return; fi
+  if [ "$code" = "429" ]; then skip "$name" "anon rate limit (15/h) — rerun later"; return; fi
   [ "$code" = "200" ] || { bad "$name" "http $code: $(head -c 160 "$TMP/turn")"; return; }
   if out=$(python3 -c "$assert" "$TMP/turn" 2>&1); then
     ok "$name${out:+ ($out)}"

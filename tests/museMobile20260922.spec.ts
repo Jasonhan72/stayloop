@@ -87,7 +87,7 @@ describe('phone workspace wiring', () => {
     const s = readFileSync('components/agent/AgentWorkspacePage.tsx', 'utf8')
     expect(s).not.toMatch(/PendingActionsPanel/)
     expect(s).toMatch(/hidden lg:flex lg:w-\[360px\]/)
-    expect(s).toMatch(/pendingActions=\{pendingActions\}/)
+    expect(s).toMatch(/pendingActions=\{chatCards\}/) // preview hides demo cards once the visitor asks (2026-10-01)
   })
   it('memories are editable only for live sessions and leave audit events', () => {
     const m = readFileSync('components/agent/PrivateMemorySnapshot.tsx', 'utf8')

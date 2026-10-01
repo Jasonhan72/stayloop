@@ -14,14 +14,16 @@ import { ONTARIO_RULES, ruleById } from '../lib/ontario/rules'
 const read = (p: string) => readFileSync(p, 'utf8')
 const home = read('components/home/HomeNext.tsx')
 
-describe('the homepage no longer hosts the conversation', () => {
+describe('the homepage hosts no conversation of its own (the ask box sends it to the AI Agent page)', () => {
   it('no chat, no agent session, no ?ask= reader; the hero is message + login card', () => {
     for (const gone of ['AgentChat', 'useAgentSession', "sp.get('ask')", 'AssistantPanel', 'function Pain', 'useAIName', 'compactHeader']) expect(home, gone).not.toContain(gone)
-    expect(home).toContain("import LoginCard from '@/components/home/LoginCard'")
+    // 2026-10-01: the hero is America.gov's ask box now; the sign-in block lives on /login and /register
+    expect(home).toContain("import HeroComposer from '@/components/home/HeroComposer'")
+    expect(home).not.toContain('LoginCard')
     // 2026-09-29: one centered column, the sign-in block under the headline (Muse-style)
-    expect(home).toContain('<LoginCard className="mx-auto mt-10 w-full max-w-[408px] scroll-mt-24 sm:mt-12" />')
-    expect(home).toContain('href="#login"') // the closing「免费开始 ↑」scrolls back up to it
-    expect(home).toContain("const TRY_HREF = '/tenant/agent'") // the free, no-account demo lives on the preview page
+    expect(home).toContain('<HeroComposer zh={zh} className="mt-10 w-full sm:mt-12" />')
+    expect(home).toContain('href="#ask"') // the closing「先问一句试试 ↑」scrolls back up to the ask box
+    expect(home).toContain('href="/register"')
     // 2026-10-01 user: one line, 「租房的事，交给AI助理」
     expect(home).toContain('<span className="whitespace-nowrap">租房的事，交给<em className="not-italic" style={{ color: \'#00ACE4\' }}>AI助理</em></span>')
     expect(home).not.toContain('租房路上的每一步')

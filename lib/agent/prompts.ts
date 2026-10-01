@@ -119,6 +119,17 @@ ${RTA_RENEWAL_FACTS}
 ${leaseBlock}`
 }
 
+/** 房东问续约 / 涨租时注入同一份 RTA 事实包(2026-10-01 · 首页示例「续约最多能涨多少」)——
+ *  不附租客的谈判剧本,也不附行情卡说明。 */
+export function landlordRenewalFacts(): string {
+  return `
+
+# 续约 / 涨租(本轮已激活 · 房东)
+用户在问续约或涨租。涨幅上限、N1 通知时间、12 个月一次、2018-11-15 豁免、AGI 一律只引用下面的事实包;不确定涨租生效年份时请对方给出租约到期日。绝不手写行情价格,也不要替房东起草超过指导线的涨租通知。
+
+${RTA_RENEWAL_FACTS}`
+}
+
 /** 无租约/未登录时的 leaseBlock 兜底文案。 */
 export function renewalLeaseFallback(kind: 'none' | 'anonymous'): string {
   return kind === 'anonymous'

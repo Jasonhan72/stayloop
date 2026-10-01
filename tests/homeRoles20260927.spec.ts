@@ -83,13 +83,13 @@ describe('homepage FAQ', () => {
     expect(block).not.toMatch(/\$\d|每月|per month/)
   })
   it('one story, each point once: what it is → how it works → for each role → rules → numbers → questions → how to start (2026-09-28)', () => {
-    const order = ['HERO: message + login card', 'HOW IT WORKS', 'ROLES', 'RULES', 'VERIFY: live numbers', 'FAQ', 'START'].map((k) => home.indexOf(`{/* ================= ${k}`))
+    const order = ['HERO: message + ask box', 'HOW IT WORKS', 'ROLES', 'RULES', 'VERIFY: live numbers', 'FAQ', 'START'].map((k) => home.indexOf(`{/* ================= ${k}`))
     for (const i of order) expect(i).toBeGreaterThan(-1)
     for (let i = 1; i < order.length; i++) expect(order[i], String(i)).toBeGreaterThan(order[i - 1])
     // retired because each repeated something told elsewhere on the page
     for (const gone of ['LANDING MAP', 'PROPOSE / DECIDE', 'PRODUCTS: one flow', '================= STEPS', '================= FINAL']) expect(home, gone).not.toContain(gone)
     // the closing section carries the steps and both doors
     const start = home.slice(home.indexOf('{/* ================= START'), home.indexOf('<Footer />'))
-    for (const s of ["{zh ? '三步开始' : 'Three steps to start'}", 'href="#login"', 'href={TRY_HREF}', 'STEPS.map']) expect(start, s).toContain(s)
+    for (const s of ["{zh ? '三步开始' : 'Three steps to start'}", 'href="/register"', 'href="#ask"', 'STEPS.map']) expect(start, s).toContain(s)
   })
 })

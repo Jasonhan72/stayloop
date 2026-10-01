@@ -299,9 +299,9 @@ describe('on the homepage', () => {
     expect(film).toContain('min-h-[74px]')
     expect(film).toContain('md:min-h-[52px]')
     // the hero (message + login card) is followed directly by the film's section; the hero itself carries no film
-    const hero = home.slice(home.indexOf('HERO: message + login card'), home.indexOf('{/* ================= HOW IT WORKS'))
+    const hero = home.slice(home.indexOf('HERO: message + ask box'), home.indexOf('{/* ================= HOW IT WORKS'))
     expect(hero).not.toContain('<ThreeRoleFilm />')
-    expect(hero).toContain('<LoginCard className="mx-auto mt-10 w-full max-w-[408px] scroll-mt-24 sm:mt-12" />')
+    expect(hero).toContain('<HeroComposer zh={zh} className="mt-10 w-full sm:mt-12" />')
     const section = home.slice(home.indexOf('{/* ================= HOW IT WORKS'), home.indexOf('{/* ================= ROLES'))
     expect(section).toContain('<section id="how-it-works" className="scroll-mt-16">')
     expect(section).toContain("{zh ? 'Stayloop 是怎么工作的' : 'How Stayloop works'}")

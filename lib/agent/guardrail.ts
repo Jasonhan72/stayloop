@@ -108,7 +108,9 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'e
   // 2) Illegal lease terms — never draft a void clause.
   if (ILLEGAL_LEASE.test(reply) || (action && ILLEGAL_LEASE.test(`${action.title} ${action.summary}`))) {
     flags.push('illegal_lease_term')
-    reply += zh
+    // A reply that already says the clause is void needs no note (2026-10-01: the homepage's pets and
+    // deposit examples got 「我不会写进租约」 appended to correct answers nobody asked to draft).
+    if (!/无效|不可执行|不能执行|\bvoid\b|unenforceable|not (?:legally )?(?:valid|enforceable)/i.test(reply)) reply += zh
       ? '\n\n注：安省 RTA 下「禁止养宠」「押金超过一个月」等条款无效,我不会写进租约。'
       : '\n\nNote: under the Ontario RTA, clauses like "no pets" or "deposit above one month" are void — I won\'t write them into a lease.'
   }

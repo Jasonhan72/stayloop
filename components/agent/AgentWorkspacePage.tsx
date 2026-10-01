@@ -65,7 +65,12 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
   const shownName = displayAiName(agent.agent_name, lang)
   const stageLabel = lifecycle ? (zh ? lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.zh ?? '' : lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.en ?? '') : ''
   // Approved-but-not-run cards on the list (stalled: 现在执行 / 放弃) are waiting on you too.
-  const pending = pendingActions.filter((a) => a.status === 'pending' || a.status === 'approved')
+  // Preview (not signed in): the demo approval cards explain the approval step under the greeting, but
+  // once the visitor asks their own question — the homepage's ask box sends people straight here — a
+  // sample card about Sarah Wang's Unit 1207 under it would read as the AI's answer (2026-10-01). The
+  // chat, the panel's to-do tab and the reopen pill all read the same list.
+  const chatCards = live || !messages.some((m) => m.role === 'user') ? pendingActions : []
+  const pending = chatCards.filter((a) => a.status === 'pending' || a.status === 'approved')
   const pendingCount = pending.length
   const reads = PREVIEW_READS[role]
 
@@ -104,7 +109,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
               messages={messages}
               onSend={sendMessage}
               onListingsShown={markListingsShown}
-              pendingActions={pendingActions}
+              pendingActions={chatCards}
               onDecide={decide}
               live={live}
               memoryCount={memories.length}
@@ -116,7 +121,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
         </div>
         {panelOpen && (
           <aside className="hidden lg:flex lg:w-[360px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider">
-            <AssistantPanel role={role} agentName={shownName} pendingActions={pendingActions} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onClose={() => setPanelOpen(false)} />
+            <AssistantPanel role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onClose={() => setPanelOpen(false)} />
           </aside>
         )}
       </div>
