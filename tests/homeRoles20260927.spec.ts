@@ -54,11 +54,22 @@ describe('four roles on the homepage', () => {
     expect(home).toContain('Claude · GPT · Gemini')
     for (const fact of ['试点阶段 · 多伦多及周边', '付款线下 · Stayloop 不经手资金', '没有公开目录']) expect(home).toContain(fact)
   })
-  it('the roles are four panels, one per screen, each with its 3D scene — no tabs hide them (2026-10-01, after muse.ai)', () => {
+  it('the roles are four panels (640px+: one per screen; phones: one swipe row with anchor chips), each with its 3D scene — no tabs (2026-10-01)', () => {
     expect(home).not.toContain('role="tablist"')
     expect(home).not.toContain('function RoleTabs')
     expect(home).toContain('testId={`home-role-${role}`}')
     for (const img of ['mia-sofa.webp', 'sarah-report.webp', 'david-lobby.webp', 'provider-repair.webp']) expect(existsSync(`public/home/film/${img}`), img).toBe(true)
+  })
+})
+
+describe('agent screening copy (2026-09-29 rule, corrected on the homepage 2026-10-01)', () => {
+  it('a RECO-registered agent screens directly; a delegation only files screenings started from the client book under the client too', () => {
+    expect(home).toContain('RECO 注册有效就能直接筛查申请人')
+    expect(home).toContain('从客户表发起的筛查也进客户自己的账号')
+    for (const stale of [/有委托，才/, /有效委托下代客筛查/, /才能替他发起筛查/, /needs a delegation/, /only under a delegation/, /under a live delegation/]) expect(home).not.toMatch(stale)
+    const onboarding = readFileSync('app/onboarding/name/page.tsx', 'utf8')
+    expect(onboarding).not.toContain('客户委托后代为发起筛查')
+    expect(onboarding).toContain('RECO 核验后直接发起筛查')
   })
 })
 

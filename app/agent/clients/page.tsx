@@ -122,11 +122,11 @@ export default function AgentClientsPage() {
         ]}
       />
 
-      {/* Screening for a client — only through a confirmed delegation (节点 5):
-          the client book's "发起筛查" appears once the landlord confirms. */}
+      {/* Screening for a client (2026-09-29: a RECO-registered agent screens directly; a delegation the
+          client confirms only adds the report to the client's own account). */}
       <SectionCard
         className="mb-4"
-        title={zh ? '替房东客户筛查，先有委托' : 'Screening for a landlord client starts with a delegation'}
+        title={zh ? '替房东客户筛查' : 'Screening for a landlord client'}
         action={
           <a href="#client-book" className="sl-btn-primary !px-4 !py-2 !text-[12px]">
             {zh ? '去客户表 ↑' : 'Go to the client book ↑'}
@@ -134,9 +134,9 @@ export default function AgentClientsPage() {
         }
       >
         <ol className="space-y-1 text-[12.5px] leading-relaxed text-body-2">
-          <li>{zh ? '① 在客户表里添加房东客户，记下书面代表协议与 RECO Information Guide 的日期，再点「发起委托」，确认链接会发到客户邮箱' : '① Add the landlord to your client book, record the representation agreement and RECO Information Guide dates, then Propose delegation; the confirmation link goes to the client’s email'}</li>
-          <li>{zh ? '② 客户用自己的账号确认后，这一行出现「发起筛查」：上传申请人自愿提交、并书面同意核查的材料，报告按付款能力、信用、租务与司法历史、核验四项打分，附法庭与 LTB 记录' : '② Once the client confirms from their own account, the row shows Screen: upload the documents the applicant chose to submit and agreed in writing to have checked; the report scores ability to pay, credit, rental and legal history, and verification, with court and LTB records'}</li>
-          <li>{zh ? '③ 报告在你和房东客户各自的账号里都能看到，也能下载 PDF；录取与否由房东本人决定，委托一撤销你就看不到了' : '③ The report shows up in your account and your client’s, and downloads as a PDF; the landlord makes the decision, and revoking the delegation removes your access at once'}</li>
+          <li>{zh ? '① RECO 注册核验有效就能直接筛查：在客户表那一行点「发起筛查」，或打开筛查页，上传申请人自愿提交、并书面同意核查的材料；报告按付款能力、信用、租务与司法历史、核验四项打分，附法庭与 LTB 记录，记在你名下' : '① With a verified RECO registration you can screen directly: press Screen on the client’s row or open the screening page, then upload the documents the applicant chose to submit and agreed in writing to have checked; the report scores ability to pay, credit, rental and legal history, and verification, with court and LTB records, and sits under your name'}</li>
+          <li>{zh ? '② 想让房东客户在自己的账号里也看到报告：记下书面代表协议与 RECO Information Guide 的日期，点「发起委托」，确认链接会发到客户邮箱；客户确认后，从那一行发起的筛查同时记在客户名下' : '② To let the landlord client see the report in their own account: record the representation agreement and RECO Information Guide dates and Propose delegation; once the client confirms from the emailed link, screenings started from that row are also filed under the client'}</li>
+          <li>{zh ? '③ 录取与否由房东本人决定；委托一撤销，你就看不到记在客户名下的报告了' : '③ The landlord makes the decision; revoking the delegation removes your access to reports filed under the client'}</li>
         </ol>
         <Link
           href={`/agent/agent?prompt=${encodeURIComponent(zh ? '给我讲讲代客筛查：委托怎么发、房东客户怎么确认、我能做什么不能做什么？' : 'Explain screening for a client: how the delegation is sent, how the landlord client confirms it, and what I can and cannot do.')}`}

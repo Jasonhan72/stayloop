@@ -141,13 +141,13 @@ const ROLES: {
   {
     key: 'agent',
     tag: { zh: '经纪 × {ai}', en: 'Agent × {ai}' },
-    h2: { zh: '行政事务交给 AI，时间留给专业工作。', en: 'Hand the admin to AI, keep your time for the work that closes.' },
+    h2: { zh: '行政事务交给 AI，时间留给\u200b专业工作。', en: 'Hand the admin to AI, keep your time for the work that closes.' },
     lead: {
-      zh: '客户、定价、带看准备交给 {ai}；客户在邮件链接里确认过委托，你才能替他发起筛查。',
-      en: 'Clients, pricing and showing prep go to {ai}; screening for a client needs a delegation the client has confirmed from an email link.',
+      zh: '客户、定价、带看准备交给 {ai}；RECO 注册有效就能直接筛查申请人，客户确认委托后，从客户表发起的筛查也进客户自己的账号。',
+      en: 'Clients, pricing and showing prep go to {ai}; with a verified RECO registration you screen applicants directly, and once the client confirms a delegation, screenings started from your client book land in their account too.',
     },
     benefits: [
-      { b: { zh: '有委托，才代客筛查', en: 'Screen for a client only under a delegation' }, s: { zh: 'TRESA 两个日期记录齐、客户确认委托后才能发起；报告房东直接看得到。', en: 'Both TRESA dates recorded and the delegation confirmed by the client; the landlord sees the report directly.' } },
+      { b: { zh: '租客筛查，直接发起', en: 'Run tenant screening yourself' }, s: { zh: 'RECO 注册核验有效即可，报告记在你名下；客户确认委托后，从客户表那一行发起的筛查，房东客户在自己的账号里也看得到。', en: 'A verified RECO registration is enough and the report sits under your name; once the client confirms a delegation, screenings started from their row in your client book show in their own account too.' } },
       { b: { zh: '{ai} 记住每位客户', en: '{ai} remembers every client' }, s: { zh: '预算、区域、偏好只说一次；下次开口它就接上。', en: 'Budget, area, preferences said once; next time it picks up where you left off.' } },
       { b: { zh: '挂牌定价有依据', en: 'Pricing with sources' }, s: { zh: '同区实时挂牌加 TRREB 官方成交做比价，写明样本与来源。', en: 'Live listings nearby plus official TRREB data, with the sample and the source stated.' } },
     ],
@@ -157,7 +157,7 @@ const ROLES: {
       { label: { zh: '合规边界', en: 'Compliance boundaries' }, prompt: { zh: '带看和收申请时：哪些问题不能问（人权法）、哪些话不能替房东答、TRESA 要我先给客户什么文件？', en: 'At showings and intake: which questions are off-limits (Human Rights Code), what must I not answer for the landlord, and what does TRESA require me to give a client first?' } },
     ],
     modules: [
-      { h: { zh: '客户表与委托', en: 'Client book and delegations' }, s: { zh: 'TRESA 两个日期 · 委托由客户确认 · 有效委托下代客筛查', en: 'Two TRESA dates · delegation confirmed by the client · screen for a client under a live delegation' }, href: '/agent/clients' },
+      { h: { zh: '客户表与委托', en: 'Client book and delegations' }, s: { zh: 'TRESA 两个日期 · 委托由客户确认 · 委托下发起的筛查客户也看得到', en: 'Two TRESA dates · delegation confirmed by the client · screenings under a delegation show in the client’s account' }, href: '/agent/clients' },
       { h: { zh: '挂牌定价与带看准备', en: 'Pricing and showing prep' }, s: { zh: '实时挂牌 + TRREB 比价 · 带看准备包 · 租约与押金规则', en: 'Live listings + TRREB benchmark · showing prep pack · lease and deposit rules' }, href: '/agent/agent' },
       { h: { zh: '规则与合规边界', en: 'Rules and boundaries' }, s: { zh: 'RTA · OHRC · TRESA 条文与编号 · 发布与租约保存前自动检查', en: 'RTA · OHRC · TRESA clauses with ids · checked before a listing or lease is saved' }, href: '/rules' },
     ],
@@ -168,7 +168,7 @@ const ROLES: {
     key: 'provider',
     pilot: true,
     tag: { zh: '服务商', en: 'Provider' },
-    h2: { zh: '想接多伦多租房市场的\u200b维修工单？先把资质核了。', en: 'Want repair work orders from Toronto rentals? Get your credentials verified first.' },
+    h2: { zh: '想接多伦多\u200b租房市场的\u200b维修工单？先把资质核了。', en: 'Want repair work orders from Toronto rentals? Get your credentials verified first.' },
     lead: {
       zh: '房东在 Stayloop 里给报修派单，只会派给资质已核验的服务商，或自己的联系人。入驻填工种与资质，管理员对照公开注册库核验后，你就会出现在派单候选里。',
       en: 'Landlords dispatch repairs inside Stayloop only to providers whose credentials were verified, or to their own contacts. Enter your trades and credentials; an admin checks them against the public registries, and you appear among the dispatch candidates.',
@@ -211,6 +211,11 @@ const RULE_IDS = [
   'RTA-27-entry-notice', 'OHRC-no-income-cutoff', 'OREG9-18-standard-lease', 'TRESA-32-registrant-disclosure', 'CRA-10-7-notice',
 ] as const
 const RULE_CHIPS: Rule[] = RULE_IDS.map((id) => ruleById(id)).filter((r): r is Rule => !!r)
+// Phones leave out four rules that the page says again elsewhere (the entry notice in the tenant and
+// provider cards, OHRC and s.10(7) in the FAQ, the standard lease in the landlord card); all ten are one
+// tap away through 「全部 N 条规则 →」 in the same panel (2026-10-01, phone trim; TRESA s.32 stays because
+// nothing else on the page says it).
+const PHONE_HIDDEN_RULES = new Set<string>(['RTA-27-entry-notice', 'OHRC-no-income-cutoff', 'OREG9-18-standard-lease', 'CRA-10-7-notice'])
 const statuteShort = (s: string) => s.split(' · ')[0]
 
 const STEPS: { h: Bi; p: Bi }[] = [
@@ -372,7 +377,7 @@ export default function HomeNext() {
       {/* ================= STATEMENT: what Stayloop is, in one sentence ================= */}
       {/* america.gov's second screen: one sentence, big, nothing else (2026-10-01, plan A). */}
       <section data-testid="home-statement">
-        <div className="mx-auto max-w-[1000px] px-5 py-24 text-center sm:px-7 sm:py-36 lg:py-44">
+        <div className="mx-auto max-w-[1000px] px-5 py-16 text-center sm:px-7 sm:py-36 lg:py-44">
           <p className="sl-reveal sl-type-head mx-auto max-w-[920px] text-[26px] font-medium leading-[1.45] text-ink sm:text-[36px] lg:text-[44px] lg:leading-[1.4]">
             {zh
               ? <>Stayloop 用 AI 把租房的<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>每一步办完</em>：找房、筛查、租约、维修、续约。会影响别人的事，<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>先等你点头</em>；规则来自安省法律，每一步都留痕。</>
@@ -384,17 +389,17 @@ export default function HomeNext() {
       {/* ================= HOW IT WORKS: three people, three assistants, one unit ================= */}
       {/* Muse's "Built around your whole life": a centered heading, a muted lead, then one big media card. */}
       <section id="how-it-works" className="scroll-mt-16" style={{ background: '#F3F8FC' }}>
-        <div className="mx-auto max-w-[1180px] px-4 py-20 sm:px-7 sm:py-28">
+        <div className="mx-auto max-w-[1180px] px-4 py-12 sm:px-7 sm:py-28">
           <div className="sl-reveal mx-auto max-w-[760px] text-center">
             <h2 className={H2}>{zh ? 'Stayloop 是怎么工作的' : 'How Stayloop works'}</h2>
-            <p className={`mx-auto mt-5 max-w-[640px] ${LEAD}`}>
+            <p className={`mx-auto mt-3 max-w-[640px] sm:mt-5 ${LEAD}`}>
               {zh
                 ? '租客、房东、经纪各有自己的 AI 助理，事情在三个助理之间接力。下面用同一套房，从委托挂牌演到续约。'
                 : 'Tenants, landlords and agents each have their own AI Agent, and work passes from one to the next. Below, one unit from listing to renewal.'}
             </p>
-            <Link href="/platform" className={`mt-5 inline-block ${TEXT_LINK}`}>{zh ? '看完整产品结构 →' : 'See the full product →'}</Link>
+            <Link href="/platform" className={`mt-3 inline-block sm:mt-5 ${TEXT_LINK}`}>{zh ? '看完整产品结构 →' : 'See the full product →'}</Link>
           </div>
-          <div className="mt-12 rounded-[28px] bg-white p-3 shadow-[0_30px_80px_-40px_rgba(27,27,60,0.35)] sm:mt-16 sm:rounded-[36px] sm:p-8" data-testid="home-film">
+          <div className="mt-8 rounded-[28px] bg-white p-3 shadow-[0_30px_80px_-40px_rgba(27,27,60,0.35)] sm:mt-16 sm:rounded-[36px] sm:p-8" data-testid="home-film">
             <ThreeRoleFilm />
           </div>
         </div>
@@ -406,33 +411,52 @@ export default function HomeNext() {
           product's own components, never drawings of UI. */}
       <Panel
         tint={false}
-        media={<div className="rounded-[28px] p-5 sm:rounded-[36px] sm:p-10" style={{ background: 'linear-gradient(160deg,#E9F5FD 0%,#F3F8FC 100%)' }}><ApprovalSample zh={zh} /></div>}
+        hideLeadOnPhone
+        media={<div className="rounded-[28px] p-4 sm:rounded-[36px] sm:p-10" style={{ background: 'linear-gradient(160deg,#E9F5FD 0%,#F3F8FC 100%)' }}><ApprovalSample zh={zh} /></div>}
         eyebrow={zh ? '批准' : 'Approval'}
         title={zh ? '它提议，你决定。' : 'It proposes. You decide.'}
         lead={zh ? '会影响到别人的动作先变成一张卡片：发给谁、分享什么、不分享什么，都写在上面。你批准才执行，批准后 60 秒内可撤销，每一步写进审计记录。' : 'Anything that reaches another person becomes a card first: who it goes to, what is shared and what is not. Nothing runs until you approve; an approval can be undone for 60 seconds, and every step is logged.'}
       >
-        <ol className="mt-8 grid gap-5 sm:grid-cols-2" data-testid="home-flow">
+        <ol className="mt-6 grid gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5" data-testid="home-flow">
           {FLOW.map((x, i) => (
             <li key={x.h.en} className="min-w-0">
-              <div className="font-mono text-[12px] font-bold text-brand">0{i + 1}</div>
-              <div className="sl-type-head mt-1 text-[17px] text-ink">{pick(x.h, lang)}</div>
+              <div className="font-mono text-[12px] font-bold text-brand max-sm:mr-2 max-sm:inline">0{i + 1}</div>
+              <div className="sl-type-head mt-1 text-[17px] text-ink max-sm:inline">{pick(x.h, lang)}</div>
               <p className={`mt-1 ${SMALL}`}>{pick(x.p, lang)}</p>
             </li>
           ))}
         </ol>
       </Panel>
       {/* ================= ROLES: the four roles as four panels (they replace the tabs) ================= */}
-      {PANEL_ROLES.map((key, i) => <RolePanel key={key} role={key} lang={lang} tint={i % 2 === 0} flip={i % 2 === 0} />)}
+      {/* Phones (<640px, 2026-10-01 「手机端的首页确实有点长」): the four panels become one swipe row of cards
+          under a heading and four anchor chips (one tap to any card). At 640px and up both wrappers carry
+          no styles and the heading block is display:none, so the panels stack exactly as before. The
+          scroll-driven reveal is switched off inside the row (a horizontal scroller gives it no range). */}
+      <div className="max-sm:bg-[#F3F8FC] max-sm:py-12" data-testid="home-roles">
+        <div className="px-5 text-center sm:hidden">
+          <h2 className={H2}>{zh ? '四种身份，各自的入口' : 'Four roles, each with its own entry'}</h2>
+          <nav aria-label={zh ? '四种身份' : 'Four roles'} className="mt-4 flex flex-wrap justify-center gap-2">
+            {PANEL_ROLES.map((k) => (
+              <a key={k} href={`#home-role-${k}`} onClick={() => focusCardSoon(`home-role-${k}`)} className="inline-flex min-h-[44px] items-center rounded-full border border-line-divider bg-white px-4 text-[15px] font-semibold text-ink">{pick(ROLE_ART[k].eyebrow, lang)}</a>
+            ))}
+          </nav>
+          <p aria-hidden className="mt-2 text-[13px] text-body-3">{zh ? '← 左右滑动 →' : '← Swipe →'}</p>
+        </div>
+        <RoleRow>
+          {PANEL_ROLES.map((key, i) => <RolePanel key={key} role={key} lang={lang} tint={i % 2 === 0} flip={i % 2 === 0} />)}
+        </RoleRow>
+      </div>
       {/* ================= RULES: Ontario law with ids ================= */}
       <Panel
         tint
         flip
+        phoneWhite
         media={
           <div className="rounded-[28px] bg-white px-5 py-2 shadow-[0_24px_60px_-36px_rgba(27,27,60,0.35)] sm:rounded-[36px] sm:px-8 sm:py-4">
             {/* an index, not a cloud of chips: the statute sits above its rule, so long ids never wrap mid-chip */}
             <ul className="divide-y divide-line-divider" data-testid="home-rules">
               {RULE_CHIPS.map((r) => (
-                <li key={r.id}>
+                <li key={r.id} className={PHONE_HIDDEN_RULES.has(r.id) ? 'max-sm:hidden' : undefined}>
                   <Link href="/rules" className="group block py-3">
                     <span className="block font-mono text-[11px] font-bold tracking-wide text-brand-strong">{statuteShort(r.statute)}</span>
                     <span className="sl-type-text mt-0.5 block text-[15px] leading-[1.55] text-ink group-hover:text-brand">{pick(r.title, lang)}{r.id === 'RTA-120-guideline' ? `（${pick(GUIDELINE_TEXT, lang)}）` : ''}</span>
@@ -451,12 +475,12 @@ export default function HomeNext() {
 
       {/* ================= VERIFY: live numbers — a full-width band ================= */}
       <section className="text-white" style={{ background: '#1B1B3C' }}>
-        <div className="mx-auto max-w-[1180px] px-5 py-20 sm:px-7 sm:py-28">
+        <div className="mx-auto max-w-[1180px] px-5 py-12 sm:px-7 sm:py-28">
           <div className="sl-reveal mx-auto max-w-[760px] text-center">
             <h2 className={`${H2} text-white`}>{zh ? '不给形容词，给可以验证的东西' : 'No adjectives — only things you can verify'}</h2>
             <p className={`mx-auto mt-5 max-w-[640px] text-[17px] leading-[1.6] sl-type-text sm:text-[20px]`} style={{ color: '#B7C2D6' }}>{zh ? '下面的每个数字都是此刻从线上数据库读出来的，不是写死的。' : 'Every number below is read from the production database right now, not typed in.'}</p>
           </div>
-          <div className="mt-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:mt-14 sm:gap-10 lg:grid-cols-4">
             <Fact n={fmt(stats?.screenings)} s={zh ? <>份筛查报告已生成，<i>每条结论注明所依据的数值</i></> : <>screening reports generated, <i>every conclusion cites its numbers</i></>} />
             <Fact n={fmt(stats?.ltbOrders)} s={zh ? <>份 LTB 判令已入库可查，<i>姓名命中须地址佐证</i></> : <>LTB orders on file and searchable, <i>name hits need address corroboration</i></>} />
             <Fact n={fmt(stats?.trrebQuarters)} s={zh ? <>个季度的 TRREB 官方成交数据，<i>行情有据</i></> : <>quarters of official TRREB data, <i>market answers with sources</i></>} />
@@ -468,19 +492,19 @@ export default function HomeNext() {
       {/* ================= FAQ ================= */}
       {/* Muse's "Learn more": the heading on the left, the answers on the right. */}
       <section id="faq">
-        <div className="mx-auto grid max-w-[1180px] gap-10 px-5 py-20 sm:px-7 sm:py-28 lg:grid-cols-[5fr_7fr] lg:gap-16">
+        <div className="mx-auto grid max-w-[1180px] gap-6 px-5 py-12 sm:px-7 sm:py-28 sm:gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16">
           <div className="sl-reveal min-w-0">
             <h2 className={H2}>{zh ? '你可能想问' : 'You may be wondering'}</h2>
             <p className={`mt-5 max-w-[460px] ${LEAD}`}>{zh ? '答案只写已经上线、能在页面上核对的事；各身份更细的问题在角色页。' : 'Answers name only what is live and checkable; role-specific questions live on the role pages.'}</p>
           </div>
           <div className="min-w-0" data-testid="home-faq">
             {FAQ.map((f, i) => (
-              <details key={f.q.en} className="group border-t border-line-divider py-6 last:border-b" open={i === 0}>
-                <summary className="sl-type-head flex cursor-pointer list-none items-start justify-between gap-4 text-[18px] leading-snug text-ink sm:text-[20px] [&::-webkit-details-marker]:hidden">
+              <details key={f.q.en} className="group border-t border-line-divider py-6 last:border-b max-sm:py-0" open={i === 0}>
+                <summary className="sl-type-head flex cursor-pointer list-none items-start justify-between gap-4 text-[18px] leading-snug text-ink sm:text-[20px] [&::-webkit-details-marker]:hidden max-sm:py-4">
                   <span>{pick(f.q, lang)}</span>
                   <span className="mt-0.5 flex-none font-mono text-[20px] font-normal leading-none text-body-3 transition-transform group-open:rotate-45">+</span>
                 </summary>
-                <p className={`mt-3 max-w-[640px] ${BODY}`}>
+                <p className={`mt-3 max-w-[640px] max-sm:mt-0 max-sm:pb-4 ${BODY}`}>
                   {pick(f.a, lang)} <Link href={f.href} className="font-semibold text-brand hover:underline">{pick(f.more, lang)}</Link>
                 </p>
               </details>
@@ -493,14 +517,14 @@ export default function HomeNext() {
       {/* ================= START: one closing band ================= */}
       {/* america.gov's closing band: a big heading, one line, one door — the three steps as a single row. */}
       <section style={{ background: '#F3F8FC' }}>
-        <div className="sl-reveal mx-auto max-w-[900px] px-5 py-24 text-center sm:px-7 sm:py-32">
+        <div className="sl-reveal mx-auto max-w-[900px] px-5 py-16 text-center sm:px-7 sm:py-32">
           <h2 className="sl-type-head text-[32px] leading-[1.15] text-ink sm:text-[52px]">{zh ? '从一句话开始' : 'Start with one sentence'}</h2>
           <p className={`mx-auto mt-5 max-w-[620px] ${LEAD}`}>{zh ? '不用登录就能问；登录后它会记住你、替你跟进。租客永远免费。' : 'Ask without an account; sign in and it remembers you and follows up. Free for tenants, always.'}</p>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:mt-10">
             <a href="#ask" className="sl-btn-primary !h-[52px] !px-7 !text-[16px]">{zh ? '先问一句试试 ↑' : 'Ask something first ↑'}</a>
             <Link href="/register" className="sl-btn-secondary !h-[52px] !px-7 !text-[16px]">{zh ? '免费注册' : 'Create a free account'}</Link>
           </div>
-          <ol className="mx-auto mt-12 grid max-w-[760px] gap-4 text-left sm:grid-cols-3" aria-label={zh ? '三步开始' : 'Three steps to start'}>
+          <ol className="mx-auto mt-8 grid max-w-[760px] gap-4 text-left sm:mt-12 sm:grid-cols-3" aria-label={zh ? '三步开始' : 'Three steps to start'}>
             {STEPS.map((x, i) => (
               <li key={x.h.en} className="flex gap-3">
                 <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full font-mono text-[12px] font-bold text-white" style={{ background: '#00ACE4' }}>{i + 1}</span>
@@ -521,24 +545,83 @@ export default function HomeNext() {
 
 function Fact({ n, s }: { n: string; s: ReactNode }) {
   return (
-    <div className="border-t pt-6 text-center" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
-      <div className="sl-type-num text-[44px] font-semibold leading-none sm:text-[56px]" style={{ color: '#33BCEA' }}>{n}</div>
-      <div className="mt-4 text-[15px] leading-[1.6]" style={{ color: '#D3E3EF' }}>{s}</div>
+    <div className="min-w-0 border-t pt-5 text-center sm:pt-6" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+      <div className="sl-type-num text-[clamp(26px,8.5vw,44px)] font-semibold leading-none sm:text-[56px]" style={{ color: '#33BCEA' }}>{n}</div>
+      <div className="mt-3 text-[15px] leading-[1.6] sm:mt-4" style={{ color: '#D3E3EF' }}>{s}</div>
     </div>
   )
 }
 
 // One block of the panel run: picture on one side, words on the other (stacked on phones, picture
 // first), backgrounds alternating white / pale blue (Muse's alternating panels, 2026-10-01).
-function Panel({ tint, flip, media, eyebrow, title, lead, children, testId }: { tint: boolean; flip?: boolean; media: ReactNode; eyebrow: string; title: string; lead: string; children?: ReactNode; testId?: string }) {
+// The phone swipe row of role cards (<640px). At 640px and up every class is inert and the handlers
+// do nothing (the row only scrolls sideways on phones). Review 2026-10-01: (1) Tab into a card that
+// only peeks in at the right edge scrolls the row so the whole card shows; (2) a swipe made while
+// reading the bottom of a tall card lands on the next card, so if that card's top is above the screen
+// the page scrolls up to it; the trailing 24px spacer lets the last card snap flush, pb-8 keeps the
+// card shadow from being clipped.
+const ROW_CLASS = 'max-sm:mt-5 max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:items-start max-sm:gap-3 max-sm:overflow-x-auto max-sm:scroll-px-4 max-sm:px-4 max-sm:pb-8 max-sm:after:block max-sm:after:w-6 max-sm:after:flex-none max-sm:[&_.sl-reveal]:[animation:none]'
+const CARD_SEL = '[data-testid^="home-role-"]'
+function RoleRow({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const row = ref.current
+    if (!row) return
+    const swipes = () => row.scrollWidth > row.clientWidth + 1
+    const smooth = (): ScrollBehavior => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth')
+    const cards = () => Array.from(row.querySelectorAll<HTMLElement>(CARD_SEL))
+    const current = () => {
+      const left = row.getBoundingClientRect().left
+      let best = 0, dist = Infinity
+      cards().forEach((c, i) => { const d = Math.abs(c.getBoundingClientRect().left - left - 16); if (d < dist) { dist = d; best = i } })
+      return best
+    }
+    let shown = 0, timer = 0
+    const onFocus = (e: FocusEvent) => {
+      if (!swipes()) return
+      const card = (e.target as Element | null)?.closest<HTMLElement>(CARD_SEL)
+      if (!card) return
+      const r = row.getBoundingClientRect(), c = card.getBoundingClientRect()
+      if (c.left < r.left + 1 || c.right > r.right - 1) {
+        shown = cards().indexOf(card) // a keyboard move: the page must not jump away from the focused link
+        row.scrollTo({ left: row.scrollLeft + c.left - r.left - 16, behavior: smooth() })
+      }
+    }
+    const onScroll = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        if (!swipes()) return
+        const i = current()
+        if (i === shown) return
+        shown = i
+        const top = cards()[i]?.getBoundingClientRect().top ?? 0
+        if (top < 64) window.scrollBy({ top: top - 72, behavior: smooth() })
+      }, 140)
+    }
+    row.addEventListener('focusin', onFocus)
+    row.addEventListener('scroll', onScroll, { passive: true })
+    return () => { row.removeEventListener('focusin', onFocus); row.removeEventListener('scroll', onScroll); window.clearTimeout(timer) }
+  }, [])
+  return <div ref={ref} className={ROW_CLASS}>{children}</div>
+}
+// After a chip's own jump, move focus to the card it points at (screen readers follow focus).
+function focusCardSoon(id: string) {
+  window.requestAnimationFrame(() => document.getElementById(id)?.focus({ preventScroll: true }))
+}
+
+// Phones (<640px, 2026-10-01): tighter rhythm (48px band padding), a role panel becomes a card in the
+// swipe row (`card`), the rules panel turns white so it doesn't merge with the pale roles band
+// (`phoneWhite`), and a lead that only repeats what the panel shows can be skipped (`hideLeadOnPhone`).
+const CARD_ON_PHONE = 'max-sm:w-[calc(100%-36px)] max-sm:flex-none max-sm:snap-start max-sm:scroll-mt-20 max-sm:rounded-[24px] max-sm:!bg-white max-sm:shadow-[0_18px_40px_-28px_rgba(27,27,60,0.35)]'
+function Panel({ tint, flip, media, eyebrow, title, lead, children, testId, card, phoneWhite, hideLeadOnPhone }: { tint: boolean; flip?: boolean; media: ReactNode; eyebrow: string; title: string; lead: string; children?: ReactNode; testId?: string; card?: boolean; phoneWhite?: boolean; hideLeadOnPhone?: boolean }) {
   return (
-    <section style={{ background: tint ? '#F3F8FC' : '#FFFFFF' }} data-testid={testId}>
-      <div className="mx-auto grid max-w-[1180px] items-center gap-10 px-5 py-20 sm:px-7 sm:py-28 lg:grid-cols-2 lg:gap-20">
+    <section id={testId} tabIndex={card ? -1 : undefined} style={{ background: tint ? '#F3F8FC' : '#FFFFFF' }} data-testid={testId} className={card ? `${CARD_ON_PHONE} focus:outline-none` : phoneWhite ? 'max-sm:!bg-white' : undefined}>
+      <div className={`mx-auto grid max-w-[1180px] items-center gap-7 px-5 py-12 sm:px-7 sm:py-28 sm:gap-10 lg:grid-cols-2 lg:gap-20${card ? ' max-sm:items-start max-sm:gap-5 max-sm:p-3 max-sm:pb-6' : ''}`}>
         <div className={`sl-reveal min-w-0 ${flip ? 'lg:order-2' : ''}`}>{media}</div>
         <div className="sl-reveal min-w-0">
           <div className="text-[14px] font-semibold text-brand">{eyebrow}</div>
-          <h3 className="sl-type-head mt-3 text-[26px] leading-[1.2] text-ink sm:text-[36px]">{title}</h3>
-          <p className={`mt-5 max-w-[540px] ${LEAD}`}>{lead}</p>
+          <h3 className="sl-type-head mt-2 text-[26px] leading-[1.2] text-ink sm:mt-3 sm:text-[36px]">{title}</h3>
+          <p className={`mt-3 max-w-[540px] sm:mt-5 ${LEAD}${hideLeadOnPhone ? ' max-sm:hidden' : ''}`}>{lead}</p>
           {children}
         </div>
       </div>
@@ -565,16 +648,17 @@ function RolePanel({ role, lang, tint, flip }: { role: HomeRole; lang: Lang; tin
     <Panel
       tint={tint}
       flip={flip}
+      card
       testId={`home-role-${role}`}
       media={
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={art.img} alt={pick(art.alt, lang)} loading="lazy" decoding="async" className="aspect-square w-full rounded-[28px] object-cover sm:rounded-[36px]" />
+        <img src={art.img} alt={pick(art.alt, lang)} loading="eager" decoding="async" className="aspect-[3/2] w-full rounded-[16px] object-cover sm:aspect-square sm:rounded-[36px]" />
       }
       eyebrow={pick(art.eyebrow, lang)}
       title={withName(r.h2, lang)}
       lead={withName(r.lead, lang)}
     >
-      <ul className="mt-7 space-y-4">
+      <ul className="mt-5 space-y-3 sm:mt-7 sm:space-y-4">
         {r.benefits.map((b) => (
           <li key={b.b.en} className="flex gap-3">
             <span className="mt-[9px] h-1.5 w-1.5 flex-none rounded-full" style={{ background: b.soon ? '#9FBBD0' : '#00ACE4' }} />
@@ -586,7 +670,7 @@ function RolePanel({ role, lang, tint, flip }: { role: HomeRole; lang: Lang; tin
         ))}
       </ul>
       {chatRole && r.chips[0] ? (
-        <Link href={assistantPromptHref(chatRole, pick(r.chips[0].prompt, lang))} className="mt-7 flex max-w-[540px] items-center justify-between gap-3 rounded-2xl border border-line-divider bg-white px-4 py-3 transition hover:border-[#00ACE4]">
+        <Link href={assistantPromptHref(chatRole, pick(r.chips[0].prompt, lang))} className="mt-5 flex max-w-[540px] items-center justify-between gap-3 rounded-2xl border border-line-divider bg-white px-4 py-3 transition hover:border-[#00ACE4] sm:mt-7">
           <span className="min-w-0">
             <span className="block text-[12px] font-semibold text-body-3">{zh ? '问 AI 助理试试 · 不用登录' : 'Ask the AI Agent · no account'}</span>
             <span className="mt-0.5 block truncate text-[15px] text-ink">{pick(r.chips[0].prompt, lang)}</span>
@@ -594,18 +678,18 @@ function RolePanel({ role, lang, tint, flip }: { role: HomeRole; lang: Lang; tin
           <span className="flex-none text-[15px] font-bold" style={{ color: '#00ACE4' }}>→</span>
         </Link>
       ) : (
-        <ul className="mt-7 space-y-2" data-testid="provider-facts">
+        <ul className="mt-5 space-y-2 sm:mt-7" data-testid="provider-facts">
           {(r.facts ?? []).map((f) => (
             <li key={f.en} className={`flex gap-2 ${SMALL}`}><span aria-hidden>·</span><span>{pick(f, lang)}</span></li>
           ))}
         </ul>
       )}
-      <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2" data-testid="role-modules">
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 sm:mt-6" data-testid="role-modules">
         {r.modules.map((m) => (
           <Link key={m.href} href={m.href} className={TEXT_LINK} title={pick(m.s, lang)}>{pick(m.h, lang)} →</Link>
         ))}
       </div>
-      <Link href={r.href} className="sl-btn-secondary mt-8 inline-flex">{withName(r.cta, lang)}</Link>
+      <Link href={r.href} className="sl-btn-secondary mt-6 inline-flex sm:mt-8">{withName(r.cta, lang)}</Link>
     </Panel>
   )
 }

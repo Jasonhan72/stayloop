@@ -109,7 +109,7 @@ const ROLE_CONFIG: Record<AgentRole, {
     helps: [
       { zh: '客户表 · 代表协议与 Information Guide 日期', en: 'Client book · representation agreement and Information Guide dates' },
       { zh: '挂牌定价 · 同区挂牌 + TRREB 数据', en: 'Listing pricing · live comparables + TRREB data' },
-      { zh: '带看准备包 · 客户委托后代为发起筛查', en: 'Showing prep pack · screening on a client’s behalf once delegated' },
+      { zh: '带看准备包 · RECO 核验后直接发起筛查', en: 'Showing prep pack · screen applicants directly once RECO-verified' },
       { zh: 'RECO / TRESA 合规边界 · 每步留痕', en: 'RECO / TRESA boundaries · every step audited' },
     ],
     cta: {

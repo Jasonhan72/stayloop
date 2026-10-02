@@ -37,9 +37,10 @@ describe('sections (plan A, 2026-10-01 — supersedes the 40px / 700 pass)', () 
     expect(css).toContain(":lang(zh) .sl-type-head { letter-spacing: 0.01em; word-break: keep-all; overflow-wrap: anywhere; }") // no negative tracking on Chinese; break at punctuation, never inside a word
     expect(css).toContain("font-feature-settings: 'palt';") // proportional CJK punctuation
   })
-  it('80 / 112px padding, alternating full-width bands, one idea per panel', () => {
-    expect((home.match(/py-20 sm:px-7 sm:py-28/g) ?? []).length).toBeGreaterThanOrEqual(4)
-    expect(home).toContain("<section style={{ background: tint ? '#F3F8FC' : '#FFFFFF' }} data-testid={testId}>")
+  it('48 / 112px padding (phones / 640px+), alternating full-width bands, one idea per panel', () => {
+    expect((home.match(/py-12 sm:px-7 sm:py-28/g) ?? []).length).toBeGreaterThanOrEqual(4)
+    expect(home).not.toContain('py-20 sm:px-7')
+    expect(home).toContain("<section id={testId} tabIndex={card ? -1 : undefined} style={{ background: tint ? '#F3F8FC' : '#FFFFFF' }} data-testid={testId} className={card ? `${CARD_ON_PHONE} focus:outline-none` : phoneWhite ? 'max-sm:!bg-white' : undefined}>")
     expect(home).toContain('<section className="text-white" style={{ background: \'#1B1B3C\' }}>')
   })
   it('scroll-in is CSS-only and honours reduced motion (nothing waits for JavaScript to appear)', () => {
@@ -47,7 +48,8 @@ describe('sections (plan A, 2026-10-01 — supersedes the 40px / 700 pass)', () 
     expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{\s*@supports \(animation-timeline: view\(\)\)/)
   })
   it('long Chinese runs without punctuation carry an explicit break point, never an emergency mid-word break (production check 2026-10-01: 「…维修工单 / ？先把…」「…申请 / 人？」)', () => {
-    expect(home).toContain("'想接多伦多租房市场的\\u200b维修工单？先把资质核了。'")
+    expect(home).toContain("'想接多伦多\\u200b租房市场的\\u200b维修工单？先把资质核了。'")
+    expect(home).toContain("'行政事务交给 AI，时间留给\\u200b专业工作。'") // the phone card column is narrower (2026-10-01)
     expect(home).toContain("'筛查报告会不会\\u200b一票否决申请人？'")
     // highlighted words never split across lines either
     expect(home).toContain('whitespace-nowrap" style={{ color: \'#00ACE4\' }}>每一步办完</em>')
@@ -55,3 +57,63 @@ describe('sections (plan A, 2026-10-01 — supersedes the 40px / 700 pass)', () 
     expect(home).toContain("name: pick(f.q, lang).replace(/\\u200b/g, '')")
   })
 })
+
+// 2026-10-01 user: 「手机端的首页确实有点长」 — 13,590px at 390 → about 8,200. Every change is phone-only
+// (base / max-sm: classes with sm: restores); 640px and up was measured element-for-element identical.
+describe('phones (2026-10-01 「手机端的首页确实有点长」)', () => {
+  it('phone values are paired with their 640px+ restores', () => {
+    expect(home).toContain('py-16 text-center sm:px-7 sm:py-36 lg:py-44') // statement
+    expect(home).toContain('py-16 text-center sm:px-7 sm:py-32') // closing band
+    expect(home).toContain('mt-8 rounded-[28px] bg-white p-3 shadow-[0_30px_80px_-40px_rgba(27,27,60,0.35)] sm:mt-16') // film card
+    expect(home).toContain('aspect-[3/2] w-full rounded-[16px] object-cover sm:aspect-square sm:rounded-[36px]') // whole 3:2 scenes on phones
+    expect(home).toContain('mt-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:mt-14 sm:gap-10 lg:grid-cols-4') // numbers 2 × 2
+    expect(home).toContain('text-[clamp(26px,8.5vw,44px)] font-semibold leading-none sm:text-[56px]')
+    expect(home).toContain('[&::-webkit-details-marker]:hidden max-sm:py-4') // the FAQ tap target is the summary
+  })
+  it('the four roles are one swipe row on phones: heading, four anchor chips, cards with every word kept', () => {
+    const row = home.slice(home.indexOf('data-testid="home-roles"'), home.indexOf('{/* ================= RULES'))
+    expect(row).toContain('<div className="px-5 text-center sm:hidden">')
+    expect(row).toContain("'四种身份，各自的入口' : 'Four roles, each with its own entry'")
+    expect(row).toContain('href={`#home-role-${k}`} onClick={() => focusCardSoon(`home-role-${k}`)} className="inline-flex min-h-[44px]')
+    expect(row).toContain('<p aria-hidden className="mt-2 text-[13px] text-body-3">')
+    // every layout class of the row is phone-only, and the scroll reveal is off inside it
+    expect(row).toContain('<RoleRow>')
+    const scroller = home.match(/const ROW_CLASS = '([^']+)'/)?.[1] ?? ''
+    expect(scroller.split(' ').every((c) => c.startsWith('max-sm:'))).toBe(true)
+    expect(scroller).toContain('max-sm:snap-x max-sm:snap-mandatory')
+    expect(scroller).toContain('max-sm:[&_.sl-reveal]:[animation:none]')
+    // review 2026-10-01: the last card snaps flush (24px spacer) and the card shadow is not clipped
+    expect(scroller).toContain('max-sm:after:w-6')
+    expect(scroller).toContain('max-sm:pb-8')
+    expect(home).toMatch(/const CARD_ON_PHONE = '(max-sm:\S+ ?)+'/)
+    // the provider lead stays on phones: 「只派给已核验的服务商，或自己的联系人」 is said nowhere else
+    expect(home).not.toContain('hideLeadOnPhone={role')
+    expect((home.match(/^\s+hideLeadOnPhone$/gm) ?? []).length).toBe(1) // the approval panel only
+    // behaviour on phones: keyboard focus brings a peeking card into the row; a swipe shows the next card's top;
+    // a chip moves focus to its card (sections are focusable only when they are cards)
+    expect(home).toContain("row.addEventListener('focusin', onFocus)")
+    expect(home).toContain('if (top < 64) window.scrollBy({ top: top - 72, behavior: smooth() })')
+    expect(home).toContain('onClick={() => focusCardSoon(`home-role-${k}`)}')
+    expect(home).toContain('loading="eager" decoding="async"')
+    expect(home).toMatch(/<Panel\n\s+tint=\{tint\}\n\s+flip=\{flip\}\n\s+card\n/)
+  })
+  it('only repeats are left out on phones, never with sr-only, and all of it is one tap away', () => {
+    const hidden = home.match(/const PHONE_HIDDEN_RULES = new Set<string>\(\[([^\]]+)\]\)/)?.[1] ?? ''
+    const ids = [...hidden.matchAll(/'([^']+)'/g)].map((m) => m[1])
+    expect(ids).toHaveLength(4)
+    // each hidden rule is said again on the page (outside the rules list itself)
+    const said: Record<string, string> = { 'RTA-27-entry-notice': 'RTA s.27', 'OHRC-no-income-cutoff': 'OHRC 租房政策', 'OREG9-18-standard-lease': '安省标准租约起草与电子签', 'CRA-10-7-notice': '《消费者报告法》s.10(7)' }
+    for (const id of ids) expect(home, id).toContain(said[id])
+    // TRESA s.32 is said nowhere else, so it stays visible on phones
+    expect(ids).not.toContain('TRESA-32-registrant-disclosure')
+    const all = [...(home.match(/const RULE_IDS = \[([\s\S]*?)\] as const/)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1])
+    for (const id of ids) expect(all).toContain(id)
+    // N1 and N4 are said nowhere else on the page, so they stay on phones
+    expect(ids).not.toContain('RTA-116-n1-90-days')
+    expect(ids).not.toContain('RTA-59-n4-7-days')
+    expect(home).toContain("className={PHONE_HIDDEN_RULES.has(r.id) ? 'max-sm:hidden' : undefined}")
+    expect(home).toContain("${hideLeadOnPhone ? ' max-sm:hidden' : ''}")
+    expect(home).not.toMatch(/sr-only/)
+  })
+})
+

@@ -61,8 +61,9 @@ describe('no "verify once, go anywhere" promise', () => {
 // tenants "all four stamps free to earn", and the agent client page's sample
 // block said screening yields a "6-dimension report", a report link goes
 // straight to the landlord (sharing is not live) and the client's passport
-// "travels with the application". Screening scores four dimensions, and an agent
-// screens for a client only through a delegation the landlord confirms.
+// "travels with the application". Screening scores four dimensions. Since 2026-09-29 a
+// RECO-registered agent screens directly; a delegation the landlord confirms only
+// files the screening under the client as well (card corrected 2026-10-01).
 describe('pricing and the agent screening card say what ships', () => {
   it('pricing no longer offers stamps to earn', () => {
     const s = read('app/pricing/page.tsx')
@@ -71,11 +72,14 @@ describe('pricing and the agent screening card say what ships', () => {
     expect(s).toMatch(/房东的筛查与核验费用也不能转给你（安省 RTA s\.134）/)
   })
 
-  it('the agent client page describes the delegated screening flow', () => {
+  it('the agent client page describes screening (direct for registered agents; a delegation adds the client’s copy)', () => {
     const s = read('app/agent/clients/page.tsx')
     for (const gone of ['6 维', '6-dimension', '四枚章', 'four stamps', 'travels with the application', '直接转发房东', 'auto-CRM', '自动 CRM', '补齐', '盖上收入章'])
       expect(s, gone).not.toContain(gone)
-    expect(s).toMatch(/替房东客户筛查，先有委托/)
+    // 2026-10-01: since 2026-09-29 a RECO-registered agent screens directly; the delegation only adds the client's copy
+    expect(s).toMatch(/替房东客户筛查/)
+    expect(s).not.toMatch(/先有委托|starts with a delegation/)
+    expect(s).toMatch(/RECO 注册核验有效就能直接筛查/)
     expect(s).toMatch(/发起委托/)
     expect(s).toMatch(/付款能力、信用、租务与司法历史、核验四项打分/)
     expect(s).toMatch(/href="#client-book"/)
