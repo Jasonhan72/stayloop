@@ -37,10 +37,10 @@ describe('sections (plan A, 2026-10-01 — supersedes the 40px / 700 pass)', () 
     expect(css).toContain(":lang(zh) .sl-type-head { letter-spacing: 0.01em; word-break: keep-all; overflow-wrap: anywhere; }") // no negative tracking on Chinese; break at punctuation, never inside a word
     expect(css).toContain("font-feature-settings: 'palt';") // proportional CJK punctuation
   })
-  it('48 / 112px padding (phones / 640px+), alternating full-width bands, one idea per panel', () => {
+  it('48 / 112px padding (phones / 1024px+; tablets 80px, see below), alternating full-width bands, one idea per panel', () => {
     expect((home.match(/py-12 sm:px-7 sm:py-28/g) ?? []).length).toBeGreaterThanOrEqual(4)
     expect(home).not.toContain('py-20 sm:px-7')
-    expect(home).toContain("<section id={testId} tabIndex={card ? -1 : undefined} style={{ background: tint ? '#F3F8FC' : '#FFFFFF' }} data-testid={testId} className={card ? `${CARD_ON_PHONE} focus:outline-none` : phoneWhite ? 'max-sm:!bg-white' : undefined}>")
+    expect(home).toContain("<section id={testId} tabIndex={card ? -1 : undefined} style={{ background: tint ? '#F3F8FC' : '#FFFFFF' }} data-testid={testId} className={card ? `${CARD_ON_PHONE} ${CARD_ON_TABLET} focus:outline-none` : phoneWhite ? 'max-sm:!bg-white sm:max-lg:!bg-white' : undefined}>")
     expect(home).toContain('<section className="text-white" style={{ background: \'#1B1B3C\' }}>')
   })
   it('scroll-in is CSS-only and honours reduced motion (nothing waits for JavaScript to appear)', () => {
@@ -72,10 +72,10 @@ describe('phones (2026-10-01 「手机端的首页确实有点长」)', () => {
   })
   it('the four roles are one swipe row on phones: heading, four anchor chips, cards with every word kept', () => {
     const row = home.slice(home.indexOf('data-testid="home-roles"'), home.indexOf('{/* ================= RULES'))
-    expect(row).toContain('<div className="px-5 text-center sm:hidden">')
+    expect(row).toContain('<div className="px-5 text-center lg:hidden">') // phones and tablets (2026-10-02)
     expect(row).toContain("'四种身份，各自的入口' : 'Four roles, each with its own entry'")
     expect(row).toContain('href={`#home-role-${k}`} onClick={() => focusCardSoon(`home-role-${k}`)} className="inline-flex min-h-[44px]')
-    expect(row).toContain('<p aria-hidden className="mt-2 text-[13px] text-body-3">')
+    expect(row).toContain('<p aria-hidden className="mt-2 text-[13px] text-body-3 sm:max-lg:hidden">') // the swipe hint is phone-only (at 1024px+ its block is hidden)
     // every layout class of the row is phone-only, and the scroll reveal is off inside it
     expect(row).toContain('<RoleRow>')
     const scroller = home.match(/const ROW_CLASS = '([^']+)'/)?.[1] ?? ''
@@ -133,3 +133,48 @@ describe('links do not split across lines on phones (2026-10-01)', () => {
   })
 })
 
+
+// 2026-10-02 user: 「平板端的首页也一起缩短吧」 — 640–1023px was the longest of all (14,577px at 768 vs 10,749 at 1024).
+// Every change is a range class (sm:max-lg: = 640–1023, md:max-lg: = 768–1023) appended after the existing ones, so
+// below 640 and from 1024 the page was measured element-for-element identical (geometry + 49 computed properties).
+describe('tablets (2026-10-02 「平板端的首页也一起缩短吧」)', () => {
+  it('only range classes: every max-lg: class is sm:max-lg: or md:max-lg:, nothing is hidden on tablets but the swipe hint', () => {
+    const ranged = home.match(/\S*max-lg:\S*/g) ?? []
+    expect(ranged.length).toBeGreaterThan(20)
+    for (const c of ranged) expect(c, c).toMatch(/^[`'"]?\$?\{?(?:sm|md):max-lg:/)
+    expect((home.match(/max-lg:hidden/g) ?? []).length).toBe(1) // the aria-hidden swipe hint
+    expect(home).not.toMatch(/(?<![a-z]:)max-lg:/) // never a bare max-lg: (it would reach phones)
+  })
+  it('the four roles are a 2 × 2 grid of equal-height cards under the phone heading and chips', () => {
+    const row = home.match(/const ROW_ON_TABLET = '([^']+)'/)?.[1] ?? ''
+    expect(row.split(' ').every((c) => c.startsWith('sm:max-lg:'))).toBe(true)
+    expect(row).toContain('sm:max-lg:grid sm:max-lg:grid-cols-2')
+    expect(row).not.toContain('items-start') // equal-height cards (grid stretch)
+    expect(home).toContain('className={`${ROW_CLASS} ${ROW_ON_TABLET}`}')
+    expect(home).toMatch(/const CARD_ON_TABLET = '(sm:max-lg:\S+ ?)+'/)
+    expect(home).toContain("max-sm:p-3 max-sm:pb-6 sm:max-lg:gap-5 sm:max-lg:p-3 sm:max-lg:pb-6' : ' sm:max-lg:py-20'}")
+    expect(home).toContain("${card ? ' sm:max-lg:text-[26px]' : ''}")
+    expect(home).toContain("${card ? ' sm:max-lg:text-[17px]' : ''}")
+    expect(home).toContain('sm:aspect-square sm:rounded-[36px] sm:max-lg:aspect-[3/2] sm:max-lg:rounded-[16px]')
+    expect(home).toContain('<div className="max-sm:bg-[#F3F8FC] max-sm:py-12 sm:max-lg:bg-[#F3F8FC] sm:max-lg:py-20" data-testid="home-roles">')
+  })
+  it('from 768px the approval card and its words sit side by side (the real card gets the wider column)', () => {
+    expect((home.match(/^\s+splitFromMd$/gm) ?? []).length).toBe(1)
+    expect(home).toContain("${splitFromMd ? ' md:max-lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : ''}")
+    expect(home).toContain("${splitFromMd ? ' md:max-lg:text-[30px]' : ''}")
+    expect(home).toContain("${splitFromMd ? ' md:max-lg:text-[18px]' : ''}")
+    expect(home).toContain('sm:grid-cols-2 sm:gap-5 md:max-lg:grid-cols-1" data-testid="home-flow"')
+    expect(home).toContain('sm:rounded-[36px] sm:p-10 sm:max-lg:rounded-[28px] sm:max-lg:p-6')
+  })
+  it('rules, numbers, FAQ and the bands: two-column index, 80px bands, the FAQ side by side from 768', () => {
+    expect(home).toContain('divide-y divide-line-divider sm:max-lg:grid sm:max-lg:grid-cols-2 sm:max-lg:gap-x-8 sm:max-lg:[&>li:nth-child(2)]:!border-t-0')
+    expect(home).toContain("phoneWhite ? 'max-sm:!bg-white sm:max-lg:!bg-white'") // after the pale roles band
+    expect(home).toContain('sm:py-36 lg:py-44 sm:max-lg:py-24') // statement
+    expect(home).toContain('px-4 py-12 sm:px-7 sm:py-28 sm:max-lg:py-20') // how it works
+    expect(home).toContain('sm:p-8 sm:max-lg:mt-10" data-testid="home-film"')
+    expect(home).toContain('px-5 py-12 sm:px-7 sm:py-28 sm:max-lg:py-20">') // numbers
+    expect(home).toContain('sm:gap-10 lg:grid-cols-4 sm:max-lg:mt-10') // numbers stay 2 × 2 (big numbers need the width)
+    expect(home).toContain('lg:gap-16 sm:max-lg:py-20 md:max-lg:grid-cols-[5fr_7fr]') // FAQ
+    expect(home).toContain('sm:px-7 sm:py-32 sm:max-lg:py-20') // closing band
+  })
+})

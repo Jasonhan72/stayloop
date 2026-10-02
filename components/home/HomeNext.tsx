@@ -377,7 +377,7 @@ export default function HomeNext() {
       {/* ================= STATEMENT: what Stayloop is, in one sentence ================= */}
       {/* america.gov's second screen: one sentence, big, nothing else (2026-10-01, plan A). */}
       <section data-testid="home-statement">
-        <div className="mx-auto max-w-[1000px] px-5 py-16 text-center sm:px-7 sm:py-36 lg:py-44">
+        <div className="mx-auto max-w-[1000px] px-5 py-16 text-center sm:px-7 sm:py-36 lg:py-44 sm:max-lg:py-24">
           <p className="sl-reveal sl-type-head mx-auto max-w-[920px] text-[26px] font-medium leading-[1.45] text-ink sm:text-[36px] lg:text-[44px] lg:leading-[1.4]">
             {zh
               ? <>Stayloop 用 AI 把租房的<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>每一步办完</em>：找房、筛查、租约、维修、续约。会影响别人的事，<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>先等你点头</em>；规则来自安省法律，每一步都留痕。</>
@@ -389,7 +389,7 @@ export default function HomeNext() {
       {/* ================= HOW IT WORKS: three people, three assistants, one unit ================= */}
       {/* Muse's "Built around your whole life": a centered heading, a muted lead, then one big media card. */}
       <section id="how-it-works" className="scroll-mt-16" style={{ background: '#F3F8FC' }}>
-        <div className="mx-auto max-w-[1180px] px-4 py-12 sm:px-7 sm:py-28">
+        <div className="mx-auto max-w-[1180px] px-4 py-12 sm:px-7 sm:py-28 sm:max-lg:py-20">
           <div className="sl-reveal mx-auto max-w-[760px] text-center">
             <h2 className={H2}>{zh ? 'Stayloop 是怎么工作的' : 'How Stayloop works'}</h2>
             <p className={`mx-auto mt-3 max-w-[640px] sm:mt-5 ${LEAD}`}>
@@ -399,7 +399,7 @@ export default function HomeNext() {
             </p>
             <Link href="/platform" className={`mt-3 inline-block sm:mt-5 ${TEXT_LINK}`}>{zh ? '看完整产品结构 →' : 'See the full product →'}</Link>
           </div>
-          <div className="mt-8 rounded-[28px] bg-white p-3 shadow-[0_30px_80px_-40px_rgba(27,27,60,0.35)] sm:mt-16 sm:rounded-[36px] sm:p-8" data-testid="home-film">
+          <div className="mt-8 rounded-[28px] bg-white p-3 shadow-[0_30px_80px_-40px_rgba(27,27,60,0.35)] sm:mt-16 sm:rounded-[36px] sm:p-8 sm:max-lg:mt-10" data-testid="home-film">
             <ThreeRoleFilm />
           </div>
         </div>
@@ -412,12 +412,13 @@ export default function HomeNext() {
       <Panel
         tint={false}
         hideLeadOnPhone
-        media={<div className="rounded-[28px] p-4 sm:rounded-[36px] sm:p-10" style={{ background: 'linear-gradient(160deg,#E9F5FD 0%,#F3F8FC 100%)' }}><ApprovalSample zh={zh} /></div>}
+        splitFromMd
+        media={<div className="rounded-[28px] p-4 sm:rounded-[36px] sm:p-10 sm:max-lg:rounded-[28px] sm:max-lg:p-6" style={{ background: 'linear-gradient(160deg,#E9F5FD 0%,#F3F8FC 100%)' }}><ApprovalSample zh={zh} /></div>}
         eyebrow={zh ? '批准' : 'Approval'}
         title={zh ? '它提议，你决定。' : 'It proposes. You decide.'}
         lead={zh ? '会影响到别人的动作先变成一张卡片：发给谁、分享什么、不分享什么，都写在上面。你批准才执行，批准后 60 秒内可撤销，每一步写进审计记录。' : 'Anything that reaches another person becomes a card first: who it goes to, what is shared and what is not. Nothing runs until you approve; an approval can be undone for 60 seconds, and every step is logged.'}
       >
-        <ol className="mt-6 grid gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5" data-testid="home-flow">
+        <ol className="mt-6 grid gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5 md:max-lg:grid-cols-1" data-testid="home-flow">
           {FLOW.map((x, i) => (
             <li key={x.h.en} className="min-w-0">
               <div className="font-mono text-[12px] font-bold text-brand max-sm:mr-2 max-sm:inline">0{i + 1}</div>
@@ -429,18 +430,20 @@ export default function HomeNext() {
       </Panel>
       {/* ================= ROLES: the four roles as four panels (they replace the tabs) ================= */}
       {/* Phones (<640px, 2026-10-01 「手机端的首页确实有点长」): the four panels become one swipe row of cards
-          under a heading and four anchor chips (one tap to any card). At 640px and up both wrappers carry
-          no styles and the heading block is display:none, so the panels stack exactly as before. The
-          scroll-driven reveal is switched off inside the row (a horizontal scroller gives it no range). */}
-      <div className="max-sm:bg-[#F3F8FC] max-sm:py-12" data-testid="home-roles">
-        <div className="px-5 text-center sm:hidden">
+          under a heading and four anchor chips (one tap to any card). Tablets (640–1023px, 2026-10-02
+          「平板端的首页也一起缩短吧」): the same heading, chips and cards as a 2 × 2 grid of equal-height cards
+          (nothing to swipe, so no hint). From 1024px both wrappers carry no styles and the heading block is
+          display:none: four full-width panels. The scroll-driven reveal is switched off inside the phone row
+          (a horizontal scroller gives it no range). */}
+      <div className="max-sm:bg-[#F3F8FC] max-sm:py-12 sm:max-lg:bg-[#F3F8FC] sm:max-lg:py-20" data-testid="home-roles">
+        <div className="px-5 text-center lg:hidden">
           <h2 className={H2}>{zh ? '四种身份，各自的入口' : 'Four roles, each with its own entry'}</h2>
           <nav aria-label={zh ? '四种身份' : 'Four roles'} className="mt-4 flex flex-wrap justify-center gap-2">
             {PANEL_ROLES.map((k) => (
               <a key={k} href={`#home-role-${k}`} onClick={() => focusCardSoon(`home-role-${k}`)} className="inline-flex min-h-[44px] items-center rounded-full border border-line-divider bg-white px-4 text-[15px] font-semibold text-ink">{pick(ROLE_ART[k].eyebrow, lang)}</a>
             ))}
           </nav>
-          <p aria-hidden className="mt-2 text-[13px] text-body-3">{zh ? '← 左右滑动 →' : '← Swipe →'}</p>
+          <p aria-hidden className="mt-2 text-[13px] text-body-3 sm:max-lg:hidden">{zh ? '← 左右滑动 →' : '← Swipe →'}</p>
         </div>
         <RoleRow>
           {PANEL_ROLES.map((key, i) => <RolePanel key={key} role={key} lang={lang} tint={i % 2 === 0} flip={i % 2 === 0} />)}
@@ -454,7 +457,7 @@ export default function HomeNext() {
         media={
           <div className="rounded-[28px] bg-white px-5 py-2 shadow-[0_24px_60px_-36px_rgba(27,27,60,0.35)] sm:rounded-[36px] sm:px-8 sm:py-4">
             {/* an index, not a cloud of chips: the statute sits above its rule, so long ids never wrap mid-chip */}
-            <ul className="divide-y divide-line-divider" data-testid="home-rules">
+            <ul className="divide-y divide-line-divider sm:max-lg:grid sm:max-lg:grid-cols-2 sm:max-lg:gap-x-8 sm:max-lg:[&>li:nth-child(2)]:!border-t-0" data-testid="home-rules">
               {RULE_CHIPS.map((r) => (
                 <li key={r.id} className={PHONE_HIDDEN_RULES.has(r.id) ? 'max-sm:hidden' : undefined}>
                   <Link href="/rules" className="group block py-3">
@@ -475,12 +478,12 @@ export default function HomeNext() {
 
       {/* ================= VERIFY: live numbers — a full-width band ================= */}
       <section className="text-white" style={{ background: '#1B1B3C' }}>
-        <div className="mx-auto max-w-[1180px] px-5 py-12 sm:px-7 sm:py-28">
+        <div className="mx-auto max-w-[1180px] px-5 py-12 sm:px-7 sm:py-28 sm:max-lg:py-20">
           <div className="sl-reveal mx-auto max-w-[760px] text-center">
             <h2 className={`${H2} text-white`}>{zh ? '不给形容词，给可以验证的东西' : 'No adjectives — only things you can verify'}</h2>
             <p className={`mx-auto mt-5 max-w-[640px] text-[17px] leading-[1.6] sl-type-text sm:text-[20px]`} style={{ color: '#B7C2D6' }}>{zh ? '下面的每个数字都是此刻从线上数据库读出来的，不是写死的。' : 'Every number below is read from the production database right now, not typed in.'}</p>
           </div>
-          <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:mt-14 sm:gap-10 lg:grid-cols-4">
+          <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:mt-14 sm:gap-10 lg:grid-cols-4 sm:max-lg:mt-10">
             <Fact n={fmt(stats?.screenings)} s={zh ? <>份筛查报告已生成，<i>每条结论注明所依据的数值</i></> : <>screening reports generated, <i>every conclusion cites its numbers</i></>} />
             <Fact n={fmt(stats?.ltbOrders)} s={zh ? <>份 LTB 判令已入库可查，<i>姓名命中须地址佐证</i></> : <>LTB orders on file and searchable, <i>name hits need address corroboration</i></>} />
             <Fact n={fmt(stats?.trrebQuarters)} s={zh ? <>个季度的 TRREB 官方成交数据，<i>行情有据</i></> : <>quarters of official TRREB data, <i>market answers with sources</i></>} />
@@ -492,7 +495,7 @@ export default function HomeNext() {
       {/* ================= FAQ ================= */}
       {/* Muse's "Learn more": the heading on the left, the answers on the right. */}
       <section id="faq">
-        <div className="mx-auto grid max-w-[1180px] gap-6 px-5 py-12 sm:px-7 sm:py-28 sm:gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16">
+        <div className="mx-auto grid max-w-[1180px] gap-6 px-5 py-12 sm:px-7 sm:py-28 sm:gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16 sm:max-lg:py-20 md:max-lg:grid-cols-[5fr_7fr]">
           <div className="sl-reveal min-w-0">
             <h2 className={H2}>{zh ? '你可能想问' : 'You may be wondering'}</h2>
             <p className={`mt-5 max-w-[460px] ${LEAD}`}>{zh ? '答案只写已经上线、能在页面上核对的事；各身份更细的问题在角色页。' : 'Answers name only what is live and checkable; role-specific questions live on the role pages.'}</p>
@@ -517,7 +520,7 @@ export default function HomeNext() {
       {/* ================= START: one closing band ================= */}
       {/* america.gov's closing band: a big heading, one line, one door — the three steps as a single row. */}
       <section style={{ background: '#F3F8FC' }}>
-        <div className="sl-reveal mx-auto max-w-[900px] px-5 py-16 text-center sm:px-7 sm:py-32">
+        <div className="sl-reveal mx-auto max-w-[900px] px-5 py-16 text-center sm:px-7 sm:py-32 sm:max-lg:py-20">
           <h2 className="sl-type-head text-[32px] leading-[1.15] text-ink sm:text-[52px]">{zh ? '从一句话开始' : 'Start with one sentence'}</h2>
           <p className={`mx-auto mt-5 max-w-[620px] ${LEAD}`}>{zh ? '不用登录就能问；登录后它会记住你、替你跟进。租客永远免费。' : 'Ask without an account; sign in and it remembers you and follows up. Free for tenants, always.'}</p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:mt-10">
@@ -554,13 +557,15 @@ function Fact({ n, s }: { n: string; s: ReactNode }) {
 
 // One block of the panel run: picture on one side, words on the other (stacked on phones, picture
 // first), backgrounds alternating white / pale blue (Muse's alternating panels, 2026-10-01).
-// The phone swipe row of role cards (<640px). At 640px and up every class is inert and the handlers
-// do nothing (the row only scrolls sideways on phones). Review 2026-10-01: (1) Tab into a card that
+// The phone swipe row of role cards (<640px). At 640px and up every ROW_CLASS class is inert (tablets get
+// ROW_ON_TABLET, a 2 × 2 grid) and the handlers do nothing (the row only scrolls sideways on phones).
+// Review 2026-10-01: (1) Tab into a card that
 // only peeks in at the right edge scrolls the row so the whole card shows; (2) a swipe made while
 // reading the bottom of a tall card lands on the next card, so if that card's top is above the screen
 // the page scrolls up to it; the trailing 24px spacer lets the last card snap flush, pb-8 keeps the
 // card shadow from being clipped.
 const ROW_CLASS = 'max-sm:mt-5 max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:items-start max-sm:gap-3 max-sm:overflow-x-auto max-sm:scroll-px-4 max-sm:px-4 max-sm:pb-8 max-sm:after:block max-sm:after:w-6 max-sm:after:flex-none max-sm:[&_.sl-reveal]:[animation:none]'
+const ROW_ON_TABLET = 'sm:max-lg:mt-8 sm:max-lg:grid sm:max-lg:grid-cols-2 sm:max-lg:gap-4 sm:max-lg:px-7'
 const CARD_SEL = '[data-testid^="home-role-"]'
 function RoleRow({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -602,7 +607,7 @@ function RoleRow({ children }: { children: ReactNode }) {
     row.addEventListener('scroll', onScroll, { passive: true })
     return () => { row.removeEventListener('focusin', onFocus); row.removeEventListener('scroll', onScroll); window.clearTimeout(timer) }
   }, [])
-  return <div ref={ref} className={ROW_CLASS}>{children}</div>
+  return <div ref={ref} className={`${ROW_CLASS} ${ROW_ON_TABLET}`}>{children}</div>
 }
 // After a chip's own jump, move focus to the card it points at (screen readers follow focus).
 function focusCardSoon(id: string) {
@@ -612,16 +617,21 @@ function focusCardSoon(id: string) {
 // Phones (<640px, 2026-10-01): tighter rhythm (48px band padding), a role panel becomes a card in the
 // swipe row (`card`), the rules panel turns white so it doesn't merge with the pale roles band
 // (`phoneWhite`), and a lead that only repeats what the panel shows can be skipped (`hideLeadOnPhone`).
+// Tablets (640–1023px, 2026-10-02 「平板端的首页也一起缩短吧」): a role panel is the same card in a 2 × 2 grid with
+// the phone card's padding and type (26 / 17px); the other panels keep their layout with 80px band padding, the
+// rules panel is white here too (it follows the pale roles band), and `splitFromMd` puts the approval card and
+// its words side by side from 768px (the real card gets the wider 7fr column, the title 30px, the lead 18px).
+const CARD_ON_TABLET = 'sm:max-lg:scroll-mt-20 sm:max-lg:rounded-[24px] sm:max-lg:!bg-white sm:max-lg:shadow-[0_18px_40px_-28px_rgba(27,27,60,0.35)]'
 const CARD_ON_PHONE = 'max-sm:w-[calc(100%-36px)] max-sm:flex-none max-sm:snap-start max-sm:scroll-mt-20 max-sm:rounded-[24px] max-sm:!bg-white max-sm:shadow-[0_18px_40px_-28px_rgba(27,27,60,0.35)]'
-function Panel({ tint, flip, media, eyebrow, title, lead, children, testId, card, phoneWhite, hideLeadOnPhone }: { tint: boolean; flip?: boolean; media: ReactNode; eyebrow: string; title: string; lead: string; children?: ReactNode; testId?: string; card?: boolean; phoneWhite?: boolean; hideLeadOnPhone?: boolean }) {
+function Panel({ tint, flip, media, eyebrow, title, lead, children, testId, card, phoneWhite, hideLeadOnPhone, splitFromMd }: { tint: boolean; flip?: boolean; media: ReactNode; eyebrow: string; title: string; lead: string; children?: ReactNode; testId?: string; card?: boolean; phoneWhite?: boolean; hideLeadOnPhone?: boolean; splitFromMd?: boolean }) {
   return (
-    <section id={testId} tabIndex={card ? -1 : undefined} style={{ background: tint ? '#F3F8FC' : '#FFFFFF' }} data-testid={testId} className={card ? `${CARD_ON_PHONE} focus:outline-none` : phoneWhite ? 'max-sm:!bg-white' : undefined}>
-      <div className={`mx-auto grid max-w-[1180px] items-center gap-7 px-5 py-12 sm:px-7 sm:py-28 sm:gap-10 lg:grid-cols-2 lg:gap-20${card ? ' max-sm:items-start max-sm:gap-5 max-sm:p-3 max-sm:pb-6' : ''}`}>
+    <section id={testId} tabIndex={card ? -1 : undefined} style={{ background: tint ? '#F3F8FC' : '#FFFFFF' }} data-testid={testId} className={card ? `${CARD_ON_PHONE} ${CARD_ON_TABLET} focus:outline-none` : phoneWhite ? 'max-sm:!bg-white sm:max-lg:!bg-white' : undefined}>
+      <div className={`mx-auto grid max-w-[1180px] items-center gap-7 px-5 py-12 sm:px-7 sm:py-28 sm:gap-10 lg:grid-cols-2 lg:gap-20${card ? ' max-sm:items-start max-sm:gap-5 max-sm:p-3 max-sm:pb-6 sm:max-lg:gap-5 sm:max-lg:p-3 sm:max-lg:pb-6' : ' sm:max-lg:py-20'}${splitFromMd ? ' md:max-lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : ''}`}>
         <div className={`sl-reveal min-w-0 ${flip ? 'lg:order-2' : ''}`}>{media}</div>
         <div className="sl-reveal min-w-0">
           <div className="text-[14px] font-semibold text-brand">{eyebrow}</div>
-          <h3 className="sl-type-head mt-2 text-[26px] leading-[1.2] text-ink sm:mt-3 sm:text-[36px]">{title}</h3>
-          <p className={`mt-3 max-w-[540px] sm:mt-5 ${LEAD}${hideLeadOnPhone ? ' max-sm:hidden' : ''}`}>{lead}</p>
+          <h3 className={`sl-type-head mt-2 text-[26px] leading-[1.2] text-ink sm:mt-3 sm:text-[36px]${card ? ' sm:max-lg:text-[26px]' : ''}${splitFromMd ? ' md:max-lg:text-[30px]' : ''}`}>{title}</h3>
+          <p className={`mt-3 max-w-[540px] sm:mt-5 ${LEAD}${hideLeadOnPhone ? ' max-sm:hidden' : ''}${card ? ' sm:max-lg:text-[17px]' : ''}${splitFromMd ? ' md:max-lg:text-[18px]' : ''}`}>{lead}</p>
           {children}
         </div>
       </div>
@@ -652,7 +662,7 @@ function RolePanel({ role, lang, tint, flip }: { role: HomeRole; lang: Lang; tin
       testId={`home-role-${role}`}
       media={
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={art.img} alt={pick(art.alt, lang)} loading="eager" decoding="async" className="aspect-[3/2] w-full rounded-[16px] object-cover sm:aspect-square sm:rounded-[36px]" />
+        <img src={art.img} alt={pick(art.alt, lang)} loading="eager" decoding="async" className="aspect-[3/2] w-full rounded-[16px] object-cover sm:aspect-square sm:rounded-[36px] sm:max-lg:aspect-[3/2] sm:max-lg:rounded-[16px]" />
       }
       eyebrow={pick(art.eyebrow, lang)}
       title={withName(r.h2, lang)}

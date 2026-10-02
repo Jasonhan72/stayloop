@@ -40,7 +40,7 @@ describe('the homepage is centered', () => {
       const before = home.slice(Math.max(0, at - 420), at)
       expect(before, title).toMatch(/text-center/)
     }
-    expect(home).toContain('<ul className="divide-y divide-line-divider" data-testid="home-rules">')
+    expect(home).toContain('<ul className="divide-y divide-line-divider sm:max-lg:grid sm:max-lg:grid-cols-2 sm:max-lg:gap-x-8 sm:max-lg:[&>li:nth-child(2)]:!border-t-0" data-testid="home-rules">') // two columns on tablets (2026-10-02)
   })
 })
 

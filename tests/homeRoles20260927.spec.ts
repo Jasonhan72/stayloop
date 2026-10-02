@@ -54,7 +54,7 @@ describe('four roles on the homepage', () => {
     expect(home).toContain('Claude · GPT · Gemini')
     for (const fact of ['试点阶段 · 多伦多及周边', '付款线下 · Stayloop 不经手资金', '没有公开目录']) expect(home).toContain(fact)
   })
-  it('the roles are four panels (640px+: one per screen; phones: one swipe row with anchor chips), each with its 3D scene — no tabs (2026-10-01)', () => {
+  it('the roles are four panels (1024px+: one per screen; tablets: a 2 × 2 grid of cards; phones: one swipe row with anchor chips), each with its 3D scene — no tabs (2026-10-01 / 10-02)', () => {
     expect(home).not.toContain('role="tablist"')
     expect(home).not.toContain('function RoleTabs')
     expect(home).toContain('testId={`home-role-${role}`}')
