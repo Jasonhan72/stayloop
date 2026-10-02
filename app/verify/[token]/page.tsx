@@ -147,7 +147,8 @@ export default function VerifyPage() {
     from: (n: string | null) => zh ? `邀请来自房东 ${n || ''}` : `Invitation from landlord ${n || ''}`,
     hi: (n: string | null) => n ? (zh ? `${n}，你好` : `Hello ${n}`) : (zh ? '你好' : 'Hello'),
     expired: zh ? '这条链接已过期。请联系房东重新发送。' : 'This link has expired. Ask the landlord to send a new one.',
-    missing: zh ? '链接无效。' : 'This link is not valid.',
+    missingTitle: zh ? '链接无效' : 'Link not valid',
+    missing: zh ? '这条核验链接无效。请检查链接是否完整，或联系房东重新发送。' : 'This verification link is not valid. Check that the link is complete, or ask the landlord to send a new one.',
     steps: {
       id: { t: zh ? '身份核验' : 'Identity', d: zh ? '证件 + 自拍活体，由 Veriff 完成，约 2 分钟。' : 'Document + selfie liveness with Veriff, about 2 minutes.' },
       bank: { t: zh ? '银行流水' : 'Bank statements', d: zh ? '通过 Flinks 安全连接你的银行，只读近 90 天；我们不保存你的网银密码。' : 'Connect your bank securely through Flinks — read-only, last 90 days; we never store your banking password.' },
@@ -175,7 +176,12 @@ export default function VerifyPage() {
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">Stayloop · {L.title}</div>
 
         {view === null && <div className="mt-6 h-[120px] animate-pulse rounded-xl border border-line-divider bg-surface-muted" />}
-        {view === 'missing' && <div className="mt-6 rounded-xl border border-line-divider bg-white p-5 text-[14px]">{L.missing}</div>}
+        {view === 'missing' && (
+          <>
+            <h1 className="mt-2 text-[26px] font-extrabold tracking-tight">{L.missingTitle}</h1>
+            <div className="mt-6 rounded-xl border border-line-divider bg-white p-5 text-[14px]">{L.missing}</div>
+          </>
+        )}
 
         {view && view !== 'missing' && (
           <>

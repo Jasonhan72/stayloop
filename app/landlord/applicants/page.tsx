@@ -137,6 +137,9 @@ type AppRow = {
   // Applicant-authorised third-party verification on the linked screening
   // (Veriff / Flinks / Equifax), filled in from screenings.verification.
   verified_tier?: number
+  // Status of the latest linked screening (null = none started). "Scoring" is said only while
+  // it is uploading / scoring (site test 2026-10-02: unscreened rows read "AI scoring in progress").
+  latest_screening_status?: string | null
 }
 
 // Decision grouping mirrors the design's three buckets. Explicit landlord
@@ -166,9 +169,13 @@ export function verifiedTierFromSnapshot(v: unknown): number {
 function qualLine(row: AppRow): { zh: string; en: string } {
   if (row.ai_score == null) {
     const n = row.files?.length ?? 0
-    return n > 0
+    if (n === 0) return { zh: '仅表单 · 未上传材料', en: 'Form only · no documents uploaded' }
+    const st = row.latest_screening_status
+    return st === 'uploading' || st === 'scoring'
       ? { zh: `材料 ${n} 份 · AI 评分中`, en: `${n} documents · AI scoring in progress` }
-      : { zh: '仅表单 · 未上传材料', en: 'Form only · no documents uploaded' }
+      : st
+        ? { zh: `材料 ${n} 份 · 筛查未完成`, en: `${n} documents · screening not completed` }
+        : { zh: `材料 ${n} 份 · 未筛查`, en: `${n} documents · not screened` }
   }
   // No income-to-rent verdict here: a 3× line is the cut-off the OHRC rental
   // policy forbids (review 2026-09-23). The stated income is shown as a fact.
@@ -245,11 +252,13 @@ export default function LandlordApplicantsPage() {
         const { data: sc } = await supabase.from('screenings').select('application_id, ai_score, status, verification').in('application_id', ids).order('created_at', { ascending: false })
         const byApp = new Map<string, number>()
         const vt = new Map<string, number>()
+        const latest = new Map<string, string | null>()
         for (const r of (sc ?? []) as { application_id: string; ai_score: number | null; status: string | null; verification: unknown }[]) {
+          if (!latest.has(r.application_id)) latest.set(r.application_id, r.status ?? null)
           if (r.status === 'scored' && typeof r.ai_score === 'number' && !byApp.has(r.application_id)) byApp.set(r.application_id, r.ai_score)
           vt.set(r.application_id, Math.max(vt.get(r.application_id) ?? 0, verifiedTierFromSnapshot(r.verification)))
         }
-        list = list.map((r) => ({ ...r, ai_score: r.ai_score ?? byApp.get(r.id) ?? null, verified_tier: vt.get(r.id) ?? 0 }))
+        list = list.map((r) => ({ ...r, ai_score: r.ai_score ?? byApp.get(r.id) ?? null, verified_tier: vt.get(r.id) ?? 0, latest_screening_status: latest.get(r.id) ?? null }))
       }
       if (!cancelled) setRows(list)
     })()

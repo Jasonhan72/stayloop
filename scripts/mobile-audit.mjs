@@ -12,8 +12,9 @@
 //   node scripts/mobile-audit.mjs --authed           # + signed-in routes (needs .env.local)
 //   BASE=http://localhost:3000 node scripts/mobile-audit.mjs
 //
-// Requires the globally-installed playwright (`/opt/homebrew/lib/node_modules`)
-// and its cached chrome-headless-shell — neither is a project dependency.
+// Requires the globally-installed playwright (`/opt/homebrew/lib/node_modules`) —
+// not a project dependency. Browser: CHROME_PATH=<executable> if set, else
+// playwright's bundled chromium, else the system Google Chrome (channel 'chrome').
 
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
@@ -29,7 +30,7 @@ const LANGS = ['zh', 'en']
 const PUBLIC_ROUTES = [
   '/', '/pricing', '/tenant', '/landlord', '/agent', '/platform', '/stayloop-api', '/about',
   '/partners', '/contact', '/disputes', '/listings', '/privacy', '/terms',
-  '/login', '/register', '/screening',
+  '/login', '/register', '/screening', '/services', '/rules', '/stayloop-api/docs',
 ]
 
 const AUTHED_ROUTES = [
@@ -41,6 +42,20 @@ const AUTHED_ROUTES = [
   '/agent/agent', '/agent/calendar', '/agent/clients', '/agent/earnings', '/agent/tasks',
   '/screening/app', '/leases/import',
 ]
+
+// The script used to pin a version-numbered Playwright headless-shell cache path,
+// which disappeared in the build-machine cleanup and made the audit unrunnable
+// (site test 2026-10-02, L6-public:D8). Order: CHROME_PATH override → whatever
+// browser the installed playwright ships with → the system Google Chrome.
+async function launchBrowser() {
+  if (process.env.CHROME_PATH) return chromium.launch({ executablePath: process.env.CHROME_PATH })
+  try {
+    return await chromium.launch()
+  } catch (err) {
+    console.error(`playwright's own chromium is not installed (${String(err.message || err).split('\n')[0]}); falling back to system Chrome`)
+    return chromium.launch({ channel: 'chrome' })
+  }
+}
 
 function env() {
   const out = {}
@@ -102,9 +117,7 @@ async function main() {
     }
   }
 
-  const browser = await chromium.launch({
-    executablePath: `${process.env.HOME}/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell`,
-  })
+  const browser = await launchBrowser()
 
   const routes = [
     ...PUBLIC_ROUTES.map((p) => ({ path: p, anon: true })),

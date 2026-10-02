@@ -20,7 +20,7 @@ const CFG: RoleLandingConfig = {
   ctaNote: { zh: '纯 SaaS · 不抽佣金 · RECO 合规内建', en: 'Pure SaaS · zero commission cut · RECO compliance built in' },
   agentPoints: [
     { zh: '客户与材料,一键就绪', en: 'Clients & materials, one click' },
-    { zh: '日历排程 · 路线规划', en: 'Calendar & route planning' },
+    { zh: '带看准备包 · 一句话生成', en: 'Showing prep packs from one sentence' },
     { zh: '跟进清单,AI 帮你整理', en: 'Follow-up lists, organised by AI' },
     { zh: 'RECO 合规提醒 · 留痕', en: 'RECO reminders · audit trail' },
     { zh: '替客户下单租客筛查,几分钟出报告', en: 'Order tenant screening for clients — report in minutes' },
@@ -29,10 +29,10 @@ const CFG: RoleLandingConfig = {
   demo: {
     ask: { zh: '明天 3 个带看,资料帮我备好。', en: 'Three showings tomorrow — prep everything for me.' },
     reply: {
-      zh: '3 份带看包已生成:业主披露、社区数据、比价表。路线已按日历排好,跟进清单也列好了。',
-      en: 'Three showing packs ready: owner disclosures, neighbourhood data, comps. Route is on your calendar, and the follow-up list is drafted.',
+      zh: '3 份带看包已生成:业主披露、社区数据、比价表。跟进清单也列好了。',
+      en: 'Three showing packs ready: owner disclosures, neighbourhood data, comps. The follow-up list is drafted too.',
     },
-    task: { zh: '材料包 · 路线 · 跟进清单 · 看房记录', en: 'Packs · route · follow-up list · showing notes' },
+    task: { zh: '材料包 · 跟进清单 · 看房记录', en: 'Packs · follow-up list · showing notes' },
     note: { zh: '带看结束,记录自动归档留痕。', en: 'After each showing, notes are filed and audited automatically.' },
   },
   journey: [
@@ -59,16 +59,16 @@ const CFG: RoleLandingConfig = {
       file: 'david-03-payout.jpg',
       fallback: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=700&q=80&fit=crop&auto=format',
       label: { zh: '当晚归档', en: 'Filed that night' },
-      text: { zh: '带看记录当晚自动归档留痕。月度回顾:带看 32 次、保留率 94%、Toronto West 区域 Top 8%。', en: 'Showing notes filed and audited the same night. Monthly review: 32 showings, 94% retention, top 8% in Toronto West.' },
+      text: { zh: '带看记录当晚归档留痕;下一步跟进进了客户表的任务,谁该联系一眼可见。', en: 'Showing notes filed and audited the same night; the next follow-ups went into the client-book tasks, so who needs a call is visible at a glance.' },
     },
   ],
   scenario: {
     name: 'David Park',
     meta: { zh: '35 · 持牌经纪 · RECO 6 年', en: '35 · Licensed agent · 6 years with RECO' },
     quote: { zh: '不是没机会,是时间被行政碎片化了。', en: "It's not that there's no opportunity — my time is fragmented by admin." },
-    before: { zh: '70% 的时间耗在整理材料、排时间、催跟进上;收入不稳,客户一忙就跟丢。', en: '70% of his time went to prepping materials, juggling schedules and chasing follow-ups; income swung, and busy weeks meant lost clients.' },
-    after: { zh: 'AI 编排杂活、记录当晚归档,他只做带看与专业判断 —— 同样的一周,接得下两倍的客户。', en: 'AI orchestrates the busywork and files the notes the same night; he only does showings and judgment — the same week now fits twice the clients.' },
-    delta: { zh: '时薪 $25 → $43', en: 'Hourly $25 → $43' },
+    before: { zh: '大半时间耗在整理材料、排时间、催跟进上;客户一忙就跟丢。', en: 'Most of his time went to prepping materials, juggling schedules and chasing follow-ups; busy weeks meant lost clients.' },
+    after: { zh: 'AI 备材料、列跟进,记录当晚归档;他把时间留给带看与专业判断。', en: 'AI preps the materials and lists the follow-ups, and the notes are filed the same night; he keeps his time for showings and judgment.' },
+    delta: { zh: '杂活交给 AI · 判断留给你', en: 'Busywork to AI · judgment stays yours' },
   },
   chips: [
     { label: { zh: 'RECO 注册人工核验 · 不传证件', en: 'RECO registration checked by hand · no ID upload' }, href: '/agent/verify' },

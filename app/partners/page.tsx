@@ -123,7 +123,7 @@ export default function PartnersPage() {
                 {p.note && <p className="mt-2 text-[12.5px] leading-relaxed text-body-3">{p.note[lang]}</p>}
                 {p.href && (
                   <a href={p.href} target="_blank" rel="noopener noreferrer" className="mt-auto pt-3 text-[12.5px] font-semibold text-brand">
-                    {p.href.replace(/^https?:\/\//, '').replace(/\/$/, '')} ↗
+                    {p.href.replace(/^https?:\/\//, '').replace(/\/$/, '')}{'\u00a0'}↗
                   </a>
                 )}
               </div>
@@ -133,7 +133,7 @@ export default function PartnersPage() {
             {zh
               ? 'Stayloop API（房源合规检查、申请人出示的核验结论、发起筛查）三个端点已上线，目前没有外部调用方；有需要请通过'
               : 'The Stayloop API (listing compliance, applicant-presented verification, screening) is live with three endpoints and no external callers yet; reach us via '}
-            <Link href="/contact" className="underline">{zh ? '联系页' : 'the contact page'}</Link>
+            <Link href="/contact" className="whitespace-nowrap underline">{zh ? '联系页' : 'the contact page'}</Link>
             {zh ? '联系。' : '.'}
           </p>
         </div>

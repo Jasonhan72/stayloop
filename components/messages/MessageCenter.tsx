@@ -340,8 +340,10 @@ export default function MessageCenter({ hat }: { hat: 'tenant' | 'landlord' | 'a
                 <PersonAvatar name={firstName(current)} role={firstRole(current)} zh={zh} size={36} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[15.5px] font-bold text-ink" data-testid="conversation-name">{nameLine(current)}</div>
-                  <div className="truncate text-[11.5px] text-body-3">
-                    {zh ? '关于 ' : 'About '}{matterOf(current)}{current.kind !== 'support' ? <> · <Link href={threadHref(current.kind, current.ref_id, current.household_id, viewer)} className="text-brand">{zh ? '查看这件事 →' : 'Open the matter →'}</Link></> : null}
+                  {/* Only the subject truncates; the link never does (site test 2026-10-02 · L6 D6: at 390 it was clipped off the line). */}
+                  <div className="flex min-w-0 items-baseline gap-1 text-[11.5px] text-body-3" data-testid="conversation-subject">
+                    <span className="min-w-0 truncate">{zh ? '关于 ' : 'About '}{matterOf(current)}</span>
+                    {current.kind !== 'support' ? <><span aria-hidden className="flex-none">·</span><Link href={threadHref(current.kind, current.ref_id, current.household_id, viewer)} className="flex-none whitespace-nowrap text-brand" data-testid="open-matter">{zh ? '查看这件事 →' : 'Open the matter →'}</Link></> : null}
                   </div>
                 </div>
                 <div className="relative" ref={menuRef}>

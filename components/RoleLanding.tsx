@@ -387,7 +387,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
       <section style={{ background: '#F3F8FC' }}>
         <div className="mx-auto max-w-[1180px] px-5 py-24 sm:px-8 lg:py-28">
           <div className="v8-eyebrow" style={{ color: c }}>
-            {lang === 'zh' ? '真实场景' : 'REAL SCENARIO'}
+            {lang === 'zh' ? '场景示例' : 'EXAMPLE SCENARIO'}
           </div>
           <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
             {lang === 'zh' ? '一段被 AI 改写的租住。' : 'A tenancy rewritten by AI.'}

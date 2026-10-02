@@ -3,6 +3,7 @@
 export const runtime = 'edge'
 
 import { summaryFor } from '@/lib/screening/summaryText'
+import { signalLabel } from '@/lib/screening/signalLabels'
 import FilePreviewModal from '@/components/landlord/FilePreviewModal'
 import ThreadPanel from '@/components/threads/ThreadPanel'
 import MessageButton from '@/components/messages/MessageButton'
@@ -428,6 +429,9 @@ function RealApplicantDetail({ id }: { id: string }) {
     : zh ? '房源未关联' : 'No listing linked'
   const linkedScored = !!linked && linked.status === 'scored' && typeof linked.ai_score === 'number'
   const scored = app.ai_score != null || linkedScored
+  // "Scoring" only while a linked screening is actually running (site test 2026-10-02: an
+  // applicant nobody had screened carried a "Scoring" chip above "not screened yet").
+  const linkedRunning = !!linked && (linked.status === 'uploading' || linked.status === 'scoring')
   const overall = app.ai_score ?? (linkedScored ? linked!.ai_score : null)
   const recommended = app.status === 'approved' || (overall != null && overall >= 75 && app.status !== 'declined')
   // Stamps mean applicant-authorised third-party verification (Veriff /
@@ -491,13 +495,19 @@ function RealApplicantDetail({ id }: { id: string }) {
             </span>
           ) : (
             <span className="rounded-md bg-warning/10 px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-warning">
-              {scored ? tierLabel(linked?.v3_tier) : zh ? '评分中' : 'Scoring'}
+              {scored
+                ? tierLabel(linked?.v3_tier)
+                : linkedRunning
+                  ? (zh ? '评分中' : 'Scoring')
+                  : linked
+                    ? (zh ? '筛查未完成' : 'Screening not completed')
+                    : (zh ? '未筛查' : 'Not screened')}
             </span>
           )}
         </div>
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         {linkedScored && linked ? (
           <div className="sl-card self-start p-7">
             <div className="flex items-baseline justify-between">
@@ -511,11 +521,11 @@ function RealApplicantDetail({ id }: { id: string }) {
             {Array.isArray(linked.hard_gates_triggered) && linked.hard_gates_triggered.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {linked.hard_gates_triggered.map((g) => (
-                  <span key={g} className="max-w-full break-words rounded-full bg-danger/10 px-2 py-0.5 font-mono text-[11px] font-bold text-danger">{g}</span>
+                  <span key={g} title={g} className="max-w-full break-words rounded-full bg-danger/10 px-2 py-0.5 text-[11px] font-bold text-danger">{signalLabel(g, zh)}</span>
                 ))}
               </div>
             )}
-            <p className="mt-4 text-[11.5px] text-body-3">{zh ? '评分与档位仅供参考 · 非拒绝依据（OHRC 租房政策）。完整报告含五个维度、取证、法庭与 LTB 检索。' : 'Score and tier are information only — never grounds to decline (OHRC). The full report has the five dimensions, forensics, court and LTB checks.'}</p>
+            <p className="mt-4 text-[11.5px] text-body-3">{zh ? '评分与档位仅供参考 · 非拒绝依据（OHRC 租房政策）。完整报告含四项评分（付款能力、信用、租务与司法历史、核验）、取证、法庭与 LTB 检索。' : 'Score and tier are information only — never grounds to decline (OHRC). The full report has the four scored items (ability to pay, credit, rental and legal history, verification), forensics, court and LTB checks.'}</p>
             <Link href={`/screening/${linked.id}/report`} className="sl-btn-primary mt-4 inline-block !py-[10px] text-center">{zh ? '打开完整报告 →' : 'Open the full report →'}</Link>
           </div>
         ) : (
@@ -705,7 +715,7 @@ function RealApplicantDetail({ id }: { id: string }) {
             {preview && <FilePreviewModal path={preview.path} name={preview.name} zh={zh} onClose={() => setPreview(null)} />}
           </div>
 
-          <div className="sl-card p-6" data-testid="application-thread">
+          <div className="sl-card min-w-0 p-4 sm:p-6 [&_textarea]:min-w-0" data-testid="application-thread">
             <h3 className="text-[15px] font-bold tracking-tight">{zh ? '与申请人的对话' : 'Thread with the applicant'}</h3>
             <p className="mt-1 text-[12px] text-body-3">{zh ? '申请人会收到新消息提醒邮件；TA 可以登录 Stayloop 在这里回复，也可以直接回复那封提醒邮件——都会进这段对话。对话经 Stayloop 中转，这里不会显示任何一方的邮箱。决定通知的副本也留在这里；记录只追加、带服务器时间。' : 'The applicant gets a new-message email; they can reply here after signing in to Stayloop, or simply reply to that email — either way it lands in this conversation. Messages are relayed by Stayloop; this conversation never shows either side’s email address. Copies of decision notices land here too; append-only, server-timed.'}</p>
             <div className="mt-3"><ThreadPanel kind="application" refId={app.id} viewer="landlord" zh={zh} title={zh ? '申请对话' : 'Application thread'} /></div>
@@ -772,7 +782,7 @@ function DemoApplicantDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <div className="self-start">
           <ApplicantReport
             lang={lang}

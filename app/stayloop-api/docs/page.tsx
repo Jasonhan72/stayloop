@@ -10,6 +10,17 @@ import { useT } from '@/lib/i18n'
 
 const BASE = 'https://www.stayloop.ai/api/v1'
 
+// Cloudflare's Email Address Obfuscation rewrites any address it finds in a
+// text run of the served HTML into an <a class="__cf_email__"> + decoder
+// script. When the address sat inside a longer React text node the hydrated
+// DOM no longer matched and React threw #418 on every load (site test
+// 2026-10-02, L6-public:D1 / L7-anon:D-07). Splitting the address across
+// elements means no single text run ever contains it, so Cloudflare leaves
+// it alone and server and client render the same nodes.
+function ContactEmail() {
+  return <span translate="no" className="whitespace-nowrap"><span>privacy</span><span>@</span><span>stayloop.ai</span></span>
+}
+
 function Code({ children }: { children: string }) {
   return <pre className="mt-3 overflow-x-auto rounded-xl border border-line-divider bg-[#0f1b33] p-4 font-mono text-[12.5px] leading-relaxed text-[#D6E2EE]"><code>{children}</code></pre>
 }
@@ -43,7 +54,7 @@ export default function TrustApiDocsPage() {
           <li>{zh ? 'Stayloop 不是《消费者报告法》意义上的报告机构。核验结论只在申请人签发的 token 有效期内、按申请人勾选的范围返回。' : 'Stayloop is not a consumer reporting agency under the Consumer Reporting Act. Conclusions are returned only within an applicant-issued token’s validity and only for the scopes the applicant ticked.'}</li>
           <li>{zh ? '筛查分数与档位是房东自行决定的参考信息，不是拒绝依据（OHRC 租房政策）；不得设收入比截止线。' : 'Screening score and tier are information for the landlord’s own decision, never grounds to decline (OHRC housing policy); no income-ratio cut-offs.'}</li>
           <li>{zh ? '面向金融机构的用途尚未开放，待法律意见。' : 'Use by financial institutions is not yet open, pending legal advice.'}</li>
-          <li>{zh ? '密钥由 Stayloop 发放（联系 privacy@stayloop.ai），限流：verify 120/分钟，screen 20/分钟，compliance 每 IP 120/小时。' : 'Keys are issued by Stayloop (privacy@stayloop.ai). Limits: verify 120/min, screen 20/min, compliance 120/h per IP.'}</li>
+          <li>{zh ? <>密钥由 Stayloop 发放（联系 <ContactEmail />），限流：verify 120/分钟，screen 20/分钟，compliance 每 IP 120/小时。</> : <>Keys are issued by Stayloop (<ContactEmail />). Limits: verify 120/min, screen 20/min, compliance 120/h per IP.</>}</li>
         </ul>
       </section>
 
@@ -112,7 +123,7 @@ export default function TrustApiDocsPage() {
             ))}
           </tbody>
         </table>
-        <p className="mt-8 text-[13px] text-body-3">{zh ? '申请密钥或试点：privacy@stayloop.ai。数据来源目录见 ' : 'Keys and pilots: privacy@stayloop.ai. Data sources: '}<Link href="/partners" className="underline">/partners</Link>.</p>
+        <p className="mt-8 text-[13px] text-body-3">{zh ? <>申请密钥或试点：<ContactEmail />。数据来源目录见 </> : <>Keys and pilots: <ContactEmail />. Data sources: </>}<Link href="/partners" className="underline">/partners</Link>.</p>
       </section>
       <Footer />
     </div>

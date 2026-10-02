@@ -15,7 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
-import { leaseActionErrorText, leaseErrorNeedsReload, leaseHasTerms, leaseIsEditableDraft, leaseIsRecordOnly, leaseIsSendable, leaseIsSignable, leaseIsWithdrawable } from '@/lib/lease/leaseState'
+import { leaseActionErrorText, leaseErrorNeedsReload, leaseHasTerms, leaseIsEditableDraft, leaseIsRecordOnly, leaseIsSendable, leaseIsSignable, leaseIsWithdrawable, leaseTermsRenderable } from '@/lib/lease/leaseState'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -171,15 +171,19 @@ function RealLeaseDetail({ id }: { id: string }) {
   const l = lease
   const fullySigned = !!l.landlord_signature && !!l.tenant_signature
   const tenantLink = l.sign_token ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.stayloop.ai'}/lease/sign/${l.sign_token}` : null
-  // Both terms schemas carry landlord_legal_name — a filled one means a real document.
-  const hasTerms = !!l.terms && !!(l.terms as OntarioLeaseTerms).landlord_legal_name
+  // A document only when the form's renderer can draw it: every nested block it reads must be
+  // there (site test 2026-10-02 — a row without `contact` crashed the page). Anything less falls
+  // back to the record-only view below, never to the renderer.
+  const hasTerms = leaseTermsRenderable(l.terms, l.form_type)
+  // Terms that name a landlord and a rent but are missing blocks: not a quick entry, an incomplete document.
+  const incompleteTerms = leaseHasTerms(l.terms) && !hasTerms
   // What this row allows (lib/lease/leaseState): imported and quick-entered records have no
   // document to send or sign — they get their file and a "draft a standard lease" action instead.
-  const sendable = leaseIsSendable(l)
-  const signable = leaseIsSignable(l)
+  const sendable = leaseIsSendable(l) && hasTerms
+  const signable = leaseIsSignable(l) && hasTerms
   const editableDraft = leaseIsEditableDraft(l)
   const withdrawable = leaseIsWithdrawable(l)
-  const recordOnly = leaseIsRecordOnly(l) || !leaseHasTerms(l.terms)
+  const recordOnly = leaseIsRecordOnly(l) || !hasTerms
   // Unknown/legacy form_type falls back to the Ontario renderer (back-compat).
   const isTrreb = l.form_type === 'trreb'
 
@@ -228,9 +232,9 @@ function RealLeaseDetail({ id }: { id: string }) {
 
           {recordOnly && (
             <div className="mt-4 rounded-lg border border-line-strong bg-white px-4 py-3 text-[13px] text-body" data-testid="lease-record-only">
-              <div className="font-semibold">{l.status === 'imported' ? (zh ? '这是导入的已签租约记录' : 'This is an imported record of a signed lease') : (zh ? '这是快速录入的租约记录' : 'This is a quick-entered lease record')}</div>
+              <div className="font-semibold">{l.status === 'imported' ? (zh ? '这是导入的已签租约记录' : 'This is an imported record of a signed lease') : incompleteTerms ? (zh ? '这份租约的条款文档不完整，无法在这里显示' : 'This lease’s terms document is incomplete and cannot be shown here') : (zh ? '这是快速录入的租约记录' : 'This is a quick-entered lease record')}</div>
               <p className="mt-1 text-[12.5px] text-body-2">
-                {zh ? '它没有在 Stayloop 上签署的条款文档，所以不能在线发送或签署。要给租客一份可在线签署的安省标准租约，从这份记录起草一份即可（会预填租客、地址、租金和日期）。' : 'It has no terms document signed on Stayloop, so it cannot be sent or signed online. To give the tenant an Ontario standard lease to sign online, draft one from this record (tenant, address, rent and dates are prefilled).'}
+                {incompleteTerms ? (zh ? '条款缺少部分内容（例如通知地址或水电费由谁支付），所以不能在线显示、发送或签署。租约状态与签署记录照常保留。要给租客一份完整、可在线签署的安省标准租约，从这份记录起草一份即可（会预填租客、地址、租金和日期）。' : 'Parts of the terms are missing (for example the notice address or who pays utilities), so the document cannot be shown, sent or signed online. The lease status and signature record are kept as they are. To give the tenant a complete Ontario standard lease to sign online, draft one from this record (tenant, address, rent and dates are prefilled).') : zh ? '它没有在 Stayloop 上签署的条款文档，所以不能在线发送或签署。要给租客一份可在线签署的安省标准租约，从这份记录起草一份即可（会预填租客、地址、租金和日期）。' : 'It has no terms document signed on Stayloop, so it cannot be sent or signed online. To give the tenant an Ontario standard lease to sign online, draft one from this record (tenant, address, rent and dates are prefilled).'}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 {l.pdf_path && (
@@ -313,8 +317,8 @@ function RealLeaseDetail({ id }: { id: string }) {
           ) : (
             <div className="p-8 text-center text-[13.5px] text-body-3">
               {zh
-                ? `这份租约没有完整的条款文档（导入或快速录入的记录）。${aiName} 用它跟踪租期与续约窗口；如需可在线签署的标准租约，请用上面的「起草这份租约的标准租约」。`
-                : `This lease has no full terms document (an imported or quick-entered record). ${aiName} uses it to track the term and renewal window; for a standard lease to sign online, use “Draft a standard lease for this tenancy” above.`}
+                ? `这份租约没有完整的条款文档${incompleteTerms ? '' : '（导入或快速录入的记录）'}。${aiName} 用它跟踪租期与续约窗口；如需可在线签署的标准租约，请用上面的「起草这份租约的标准租约」。`
+                : `This lease has no full terms document${incompleteTerms ? '' : ' (an imported or quick-entered record)'}. ${aiName} uses it to track the term and renewal window; for a standard lease to sign online, use “Draft a standard lease for this tenancy” above.`}
             </div>
           )}
         </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from './supabase'
 
@@ -31,6 +31,10 @@ export function useLandlord(): UseLandlordReturn {
   const [landlord, setLandlord] = useState<LandlordSession | null>(null)
   const [loading, setLoading] = useState(true)
   const [signedIn, setSignedIn] = useState(false)
+  // refresh() runs on mount and on every auth event (INITIAL_SESSION, TOKEN_REFRESHED…):
+  // send a hat-less account to /landlord/become once, not once per event
+  // (site test 2026-10-02, L6 D1 — WorkspaceShell's guard redirects too).
+  const becomeSent = useRef(false)
 
   const refresh = useCallback(async (cancelled?: { current: boolean }) => {
     setLoading(true)
@@ -67,7 +71,8 @@ export function useLandlord(): UseLandlordReturn {
       // test report 2026-09-24): send the signed-in user to the explicit
       // "become a landlord" page instead; it comes back here afterwards.
       setLandlord(null)
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/landlord/become')) {
+      if (typeof window !== 'undefined' && !becomeSent.current && !window.location.pathname.startsWith('/landlord/become')) {
+        becomeSent.current = true
         router.replace('/landlord/become?next=' + encodeURIComponent(window.location.pathname + window.location.search))
       }
     } finally {

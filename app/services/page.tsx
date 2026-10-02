@@ -35,7 +35,7 @@ const AUDIENCES: { eyebrow: string; title: Bi; steps: Bi[]; cta: Bi; href: strin
       { zh: '派单策略：只建议（默认）/ 紧急件自动派 / 全部自动派，紧急报价可预授权一个上限', en: 'Dispatch policy: suggest only (default) / auto-dispatch emergencies / auto-dispatch all, with an optional pre-approved cap for emergency quotes' },
       { zh: '报价卡、验收卡都进你的待办，60 秒内可撤销', en: 'Quote and acceptance cards sit in your to-do list with a 60-second undo' },
     ],
-    cta: { zh: '去派单 · 服务商与策略 →', en: 'Dispatch · providers & policy →' },
+    cta: { zh: '去派单 · 服务商与策略\u00a0→', en: 'Dispatch · providers & policy\u00a0→' },
     href: '/landlord/providers',
   },
   {
@@ -47,7 +47,7 @@ const AUDIENCES: { eyebrow: string; title: Bi; steps: Bi[]; cta: Bi; href: strin
       { zh: '接单前只看到城市；接单后看到完整地址与房东联系方式', en: 'Before accepting you see the city only; after accepting, the full address and landlord contact' },
       { zh: '不收入驻费、不抽成；付款由房东直接结算', en: 'No onboarding fee, no commission; the landlord pays you directly' },
     ],
-    cta: { zh: '申请入驻 →', en: 'Apply to join →' },
+    cta: { zh: '申请入驻\u00a0→', en: 'Apply to join\u00a0→' },
     href: '/provider/onboard',
   },
   {
@@ -59,7 +59,7 @@ const AUDIENCES: { eyebrow: string; title: Bi; steps: Bi[]; cta: Bi; href: strin
       { zh: '完工后你确认问题已解决；验收后 14 天内可给服务商评价', en: 'After completion you confirm the problem is solved; you can review the provider within 14 days of acceptance' },
       { zh: '你的照片只有房东和被派单的服务商能看到', en: 'Your photos are visible only to the landlord and the dispatched provider' },
     ],
-    cta: { zh: '我的报修 →', en: 'My repairs →' },
+    cta: { zh: '我的报修\u00a0→', en: 'My repairs\u00a0→' },
     href: '/tenant/maintenance',
   },
 ]

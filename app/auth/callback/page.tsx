@@ -1,5 +1,5 @@
 'use client'
-import { homeForHats, type HatsLite } from '@/lib/landlordHat'
+import { landingAfterSignIn, type HatsLite } from '@/lib/landlordHat'
 import { roleStorageKey } from '@/lib/useAuth'
 
 import { useEffect, useState } from 'react'
@@ -107,7 +107,11 @@ export default function AuthCallback() {
           }
           if (candidate && AGENT_HOME[candidate]) {
             const { data: hats } = await supabase.rpc('my_hats')
-            dest = homeForHats(candidate, hats as HatsLite)
+            // A remembered hat is the person's choice; a config / signup role is
+            // only a hint, and a 'tenant' hint never outranks a pure provider's
+            // jobs page (site test 2026-10-02, L7 D6).
+            const fromStored = !!stored && candidate === stored
+            dest = landingAfterSignIn(fromStored ? candidate : null, fromStored ? null : candidate, hats as HatsLite)
             const landed = (Object.keys(AGENT_HOME) as string[]).find((r) => AGENT_HOME[r] === dest)
             if (landed && signedIn) window.localStorage.setItem(roleStorageKey(signedIn.id), landed)
           } else {

@@ -18,13 +18,6 @@ export const runtime = 'edge'
  * the caller's RLS (brokerages_owner is a FOR ALL self policy).
  */
 export async function POST(req: NextRequest) {
-  // Referral / commission engine is FROZEN (decision 2026-09-13, awaiting
-  // legal advice). Until then nothing may create Express accounts or move
-  // money: review 2026-09-14 found any signed-in account could spawn a
-  // live Connect account here.
-  if (process.env.STAYLOOP_COMMISSION_ENGINE !== 'enabled') {
-    return NextResponse.json({ error: 'commission engine disabled' }, { status: 501 })
-  }
   try {
     const authHeader = req.headers.get('authorization') || ''
     if (!authHeader.toLowerCase().startsWith('bearer ')) {
@@ -40,6 +33,23 @@ export async function POST(req: NextRequest) {
     const { data: { user }, error: userErr } = await supabase.auth.getUser()
     if (userErr || !user) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+    }
+
+    // Referral / commission engine is FROZEN (decision 2026-09-13, awaiting
+    // legal advice). Until then nothing may create Express accounts or move
+    // money: review 2026-09-14 found any signed-in account could spawn a
+    // live Connect account here. Checked after auth so anonymous callers get
+    // 401, and answered with 410 (a deliberate, permanent-for-now refusal) —
+    // never a 5xx (site test 2026-10-02, L4:D4).
+    if (process.env.STAYLOOP_COMMISSION_ENGINE !== 'enabled') {
+      return NextResponse.json(
+        {
+          error: 'commission_engine_frozen',
+          message: 'Referral fees and Stripe Connect payouts are paused while we take legal advice. Nothing was created or charged.',
+          message_zh: '转介佣金与 Stripe Connect 出账已暂停（等待律师意见），本次没有创建任何账户或收取任何费用。',
+        },
+        { status: 410 },
+      )
     }
 
     let body: { name?: string } = {}

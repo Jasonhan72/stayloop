@@ -19,6 +19,25 @@ export function leaseHasTerms(terms: unknown): boolean {
   return !!t && !!t.landlord_legal_name && !!t.rent?.amount
 }
 
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+
+/** Nested objects each renderer dereferences without a guard (site test 2026-10-02: a signed_both
+ *  row written outside the app's builder had no `contact` / `utilities`, and the landlord detail page
+ *  crashed with "Application error"). */
+const RENDER_SHAPE: Record<'ontario_standard' | 'trreb', string[]> = {
+  ontario_standard: ['unit', 'contact', 'term', 'rent', 'services', 'utilities'],
+  trreb: ['premises', 'term', 'rent', 'deposit', 'use', 'services'],
+}
+
+/** The terms are a complete document the form's renderer can draw. Unknown / legacy form types
+ *  fall back to the Ontario renderer, so they are checked against the Ontario shape. */
+export function leaseTermsRenderable(terms: unknown, formType?: string | null): boolean {
+  if (!leaseHasTerms(terms) || !isObj(terms)) return false
+  if (!Array.isArray(terms.tenant_names)) return false
+  const keys = RENDER_SHAPE[formType === 'trreb' ? 'trreb' : 'ontario_standard']
+  return keys.every((k) => isObj(terms[k]))
+}
+
 const SIGNABLE = ['draft', 'sent', 'signed_tenant']
 const SENDABLE = ['draft', 'sent']
 

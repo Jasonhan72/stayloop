@@ -63,7 +63,10 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const endRef = useRef<HTMLDivElement>(null)
+  // The message list's own scroll container. Never scrollIntoView: it scrolls
+  // every scrollable ancestor, document included (site test 2026-10-02 · L6 D4:
+  // the landlord applicant page opened 933px down, header and decisions off-screen).
+  const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const nameOf = useCallback((m: ThreadMessage): string | null => {
     if (m.sender_label) return m.sender_label
@@ -154,7 +157,10 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
     if (!maxId || !me) return
     void mark(open ? { last_delivered_id: maxId, last_opened_id: maxId } : { last_delivered_id: maxId })
   }, [maxId, open, me, mark])
-  useEffect(() => { if (open) endRef.current?.scrollIntoView({ block: 'end' }) }, [msgs.length, open])
+  useEffect(() => {
+    const el = listRef.current
+    if (open && el) el.scrollTop = el.scrollHeight
+  }, [msgs.length, open])
 
   // The notify route announces exactly this message (it checks the id is the
   // caller's, on this thread) — not "the sender's newest", which a quick second
@@ -258,7 +264,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
       </button>}
       {open && (
         <div className={fill ? 'flex min-h-0 flex-1 flex-col' : 'border-t border-line-divider'}>
-          <div className={fill ? 'min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-6' : 'max-h-[420px] min-h-[120px] overflow-y-auto px-4 py-3'}>
+          <div ref={listRef} data-testid="thread-list" className={fill ? 'min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-6' : 'max-h-[420px] min-h-[120px] overflow-y-auto px-4 py-3'}>
             {visible === 0 && <p className="py-6 text-center text-[12.5px] text-body-3">{zh ? '还没有消息。这里的每一条都带服务器时间与发送身份，只能追加、不能改。' : 'No messages yet. Every line here carries server time and the sender’s hat; the record is append-only.'}</p>}
             {view.map((m) => {
               const isMine = !!me && m.sender_id === me
@@ -303,7 +309,6 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
                 </div>
               )
             })}
-            <div ref={endRef} />
           </div>
           <div className="border-t border-line-divider p-3" data-testid="thread-composer">
             {pending.length > 0 && (
@@ -312,13 +317,13 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
               </div>
             )}
             <div className="flex gap-2">
-              <textarea ref={inputRef} data-testid="thread-input" className="min-h-[40px] flex-1 resize-y rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]" rows={1} value={draft} placeholder={zh ? '输入消息… Enter 发送，Shift+Enter 换行' : 'Type a message… Enter to send, Shift+Enter for a new line'}
+              <textarea ref={inputRef} data-testid="thread-input" aria-label={zh ? '输入消息' : 'Message'} className="min-h-[40px] flex-1 resize-y rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]" rows={1} value={draft} placeholder={zh ? '输入消息… Enter 发送，Shift+Enter 换行' : 'Type a message… Enter to send, Shift+Enter for a new line'}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (isSendKey(e)) { e.preventDefault(); void send() } }} />
               {allowAttachments && (
                 <>
                   <input ref={fileRef} type="file" className="hidden" multiple accept="image/*,.heic,.heif,application/pdf,.txt,.doc,.docx" onChange={(e) => void upload(e.target.files)} aria-label={zh ? '添加附件' : 'Add attachment'} />
-                  <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading || pending.length >= 6} className="rounded-lg border border-line-divider px-3 text-[13px] disabled:opacity-50" title={zh ? '附件（服务器计算 SHA-256）' : 'Attachment (server-hashed)'}>{uploading ? '…' : '📎'}</button>
+                  <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading || pending.length >= 6} className="rounded-lg border border-line-divider px-3 text-[13px] disabled:opacity-50" aria-label={zh ? '添加附件' : 'Add attachment'} title={zh ? '附件（服务器计算 SHA-256）' : 'Attachment (server-hashed)'}>{uploading ? '…' : '📎'}</button>
                 </>
               )}
               <button type="button" onClick={() => void send()} disabled={busy || (!draft.trim() && pending.length === 0)} className="rounded-lg bg-brand px-4 text-[13px] font-bold text-white disabled:opacity-50">{zh ? '发送' : 'Send'}</button>

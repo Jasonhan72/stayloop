@@ -221,6 +221,9 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
         </span>
         {/* + button / heart position */}
         <button
+          type="button"
+          aria-label={hasPhotos ? (zh ? '再添加照片' : 'Add more photos') : (zh ? '添加照片' : 'Add photos')}
+          title={hasPhotos ? (zh ? '再添加照片' : 'Add more photos') : (zh ? '添加照片' : 'Add photos')}
           onClick={(e) => { e.stopPropagation(); fileRef.current?.click() }}
           className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/60"
         >
@@ -233,8 +236,8 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
         {/* photo nav */}
         {photos.length > 1 && (
           <>
-            <button onClick={(e) => { e.stopPropagation(); setPhotoIdx((i) => (i - 1 + photos.length) % photos.length) }} className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur">‹</button>
-            <button onClick={(e) => { e.stopPropagation(); setPhotoIdx((i) => (i + 1) % photos.length) }} className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur">›</button>
+            <button type="button" aria-label={zh ? '上一张照片' : 'Previous photo'} onClick={(e) => { e.stopPropagation(); setPhotoIdx((i) => (i - 1 + photos.length) % photos.length) }} className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur">‹</button>
+            <button type="button" aria-label={zh ? '下一张照片' : 'Next photo'} onClick={(e) => { e.stopPropagation(); setPhotoIdx((i) => (i + 1) % photos.length) }} className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur">›</button>
           </>
         )}
         {/* photo counter — same position as real listing */}

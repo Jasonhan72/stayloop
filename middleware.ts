@@ -5,10 +5,21 @@ import { homeAskRedirect } from '@/lib/homeDeepLink'
 // Security headers on every routed response. Full CSP is deliberately
 // omitted (Next inline scripts/styles would need nonces); frame-ancestors
 // is covered by X-Frame-Options.
+const PERMISSIONS_POLICY = 'camera=(), microphone=(self), geolocation=(self)'
+
 function withSecurityHeaders(res: NextResponse): NextResponse {
   res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
   res.headers.set('X-Frame-Options', 'DENY')
-  res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)')
+  // microphone=(self): the 🎙 voice-input button on every chat surface uses the
+  // browser's SpeechRecognition, which Chromium refuses outright while the
+  // origin's policy is microphone=() (site test 2026-10-02, L4:D1). Third-party
+  // frames (Flinks) still get no microphone. Nothing here uses the camera — the
+  // ID step hands off to Veriff by full navigation, and <input capture> opens
+  // the native camera without this policy — so camera stays off.
+  res.headers.set('Permissions-Policy', PERMISSIONS_POLICY)
+  // Pages rendered by the worker and every API response lacked nosniff; only
+  // static assets got it from the Pages platform (L4:D5).
+  res.headers.set('X-Content-Type-Options', 'nosniff')
   return res
 }
 

@@ -3,7 +3,7 @@
 export const runtime = 'edge'
 
 import Link from 'next/link'
-import { parkingStat } from '@/lib/listingDisplay'
+import { addressHasUnit, listingTitle, parkingStat } from '@/lib/listingDisplay'
 import ListingLocationMap from '@/components/ListingLocationMap'
 import { readTrrebBenchmark, type TrrebBenchmark } from '@/lib/agent/trrebRent'
 import { daysOnMarket, fmtDistance, groupFeatures, lastPriceChange, pricePerSqft, walkMinutes, type ListingTransit, type PriceEvent } from '@/lib/listingInsights'
@@ -159,7 +159,7 @@ const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: 
 const favSnapshot = (l: DBListing): Omit<FavListing, 'savedAt'> => ({
   key: favKey({ source: l.source, id: l.id, url: `/listings/${l.slug}`, address: l.address }),
   source: l.source === 'realtor' ? 'realtor' : 'stayloop',
-  title: l.address + (l.unit ? ` · Unit ${l.unit}` : ''),
+  title: l.address + (l.unit && !addressHasUnit(l.address, l.unit) ? ` · Unit ${l.unit}` : ''),
   address: l.address,
   neighborhood: l.neighborhood || undefined,
   city: l.city,
@@ -258,7 +258,7 @@ export default function ListingDetailPage() {
   const onShare = useCallback(async () => {
     const url = window.location.href
     const title = listing
-      ? `${listing.address}${listing.unit ? `, Unit ${listing.unit}` : ''} · $${listing.monthly_rent.toLocaleString()}/mo · Stayloop`
+      ? `${listing.address}${listing.unit && !addressHasUnit(listing.address, listing.unit) ? `, Unit ${listing.unit}` : ''} · $${listing.monthly_rent.toLocaleString()}/mo · Stayloop`
       : 'Stayloop'
     if (typeof navigator.share === 'function') {
       try {
@@ -379,7 +379,7 @@ export default function ListingDetailPage() {
           <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
             {/* Airbnb title row (user 2026-09-25): the address is the H1, Share / Save sit on the same
                 line, and the photos follow immediately — no crumb, no subtitle in between. */}
-            <h1 className="min-w-0 text-[26px] font-bold tracking-tight sm:text-[30px]">{listing.address}{listing.unit ? ` #${listing.unit}` : ''}</h1>
+            <h1 className="min-w-0 text-[26px] font-bold tracking-tight sm:text-[30px]">{listingTitle(listing.address, listing.unit)}</h1>
           {/* Share + Save — Airbnb-style light actions, top-right of the title row */}
           <div className="relative flex shrink-0 items-center gap-1">
             <button
@@ -497,7 +497,7 @@ export default function ListingDetailPage() {
               </div>
               <div className="mt-2 text-[15px] text-body-2">
                 {listing.address}
-                {listing.unit && `, Unit ${listing.unit}`} · {listing.neighborhood ?? ''}
+                {listing.unit && !addressHasUnit(listing.address, listing.unit) && `, Unit ${listing.unit}`} · {listing.neighborhood ?? ''}
                 {listing.neighborhood && ' · '}
                 {listing.city}, {listing.province}
               </div>
@@ -761,12 +761,12 @@ export default function ListingDetailPage() {
                       )}
                     </div>
                     <div className="mt-3 text-[13px] text-body-2">
-                      <span className="font-semibold text-body">{listing.address}{listing.unit ? ` #${listing.unit}` : ''}</span>
+                      <span className="font-semibold text-body">{listingTitle(listing.address, listing.unit)}</span>
                       {' · '}{listing.neighborhood ? `${listing.neighborhood} · ` : ''}{listing.city}{listing.postal_code ? ` · ${listing.postal_code}` : ''}
                     </div>
                   </div>
                   {insight && insight.lat != null && insight.lng != null && (
-                    <ListingLocationMap lat={insight.lat} lng={insight.lng} label={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`} stations={insight.transit.stations} zh={zh} />
+                    <ListingLocationMap lat={insight.lat} lng={insight.lng} label={listingTitle(listing.address, listing.unit)} stations={insight.transit.stations} zh={zh} />
                   )}
                 </div>
               </Section>
@@ -888,9 +888,13 @@ export default function ListingDetailPage() {
               <span className="sl-eyebrow">SUBMIT INTENT</span>
               <h3 className="mt-2 text-[20px] font-bold tracking-tight">{zh ? '想看这套？' : 'Want to see it?'}</h3>
               <p className="mt-2 text-[13px] leading-relaxed text-body-2">
-                {zh
-                  ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选一位帮你约看，或直接提交完整申请。Stayloop 不派单、不参与交易、不收费。'
-                  : 'Pick a Stayloop-verified (RECO-checked) agent to arrange a viewing, or submit a full application directly. Stayloop does not dispatch agents, takes no part in the trade and charges nothing.'}
+                {listing.source === 'realtor'
+                  ? (zh
+                      ? '这套房源来自 Realtor.ca，不由 Stayloop 上的房东管理，不能在 Stayloop 提交申请。请从 Stayloop 认证（RECO 注册已核）的经纪中自选一位帮你约看和申请。Stayloop 不派单、不参与交易、不收费。'
+                      : 'This listing comes from Realtor.ca and is not managed by a landlord on Stayloop, so you cannot apply through Stayloop. Pick a Stayloop-verified (RECO-checked) agent to arrange a viewing and apply. Stayloop does not dispatch agents, takes no part in the trade and charges nothing.')
+                  : (zh
+                      ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选一位帮你约看，或直接提交完整申请。Stayloop 不派单、不参与交易、不收费。'
+                      : 'Pick a Stayloop-verified (RECO-checked) agent to arrange a viewing, or submit a full application directly. Stayloop does not dispatch agents, takes no part in the trade and charges nothing.')}
               </p>
               {isOwnListing ? (
                 <div className="mt-4 rounded-[10px] border border-line-divider bg-surface-chip px-4 py-3 text-[12.5px] leading-relaxed text-body-2">
@@ -921,17 +925,25 @@ export default function ListingDetailPage() {
               ) : (
                 <button
                   onClick={() => setFieldAgentOpen(true)}
-                  className="sl-btn-primary mt-4 w-full !py-[12px]"
+                  data-testid="listing-realtor-viewing"
+                  className="sl-btn-primary mt-4 w-full !py-[12px] [text-wrap:balance]"
                 >
                   {zh ? '找认证经纪约看房' : 'Find a verified agent for a viewing'}
                 </button>
               )}
-              <Link
-                href={`/apply/${listing.slug}`}
-                className="mt-3 block rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
-              >
-                {zh ? '直接提交完整申请 →' : 'Submit a full application →'}
-              </Link>
+              {/* Realtor.ca imports have no Stayloop landlord — their landlord_id is
+                  the admin who imported them, so an application would land with
+                  the importer, not the listing broker (site test 2026-10-02 · D-01).
+                  /apply/<slug> refuses them too. */}
+              {listing.source !== 'realtor' && (
+                <Link
+                  href={`/apply/${listing.slug}`}
+                  data-testid="listing-apply"
+                  className="mt-3 block rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                >
+                  {zh ? '直接提交完整申请 →' : 'Submit a full application →'}
+                </Link>
+              )}
               {listing.source !== 'realtor' ? (
                 <button
                   onClick={() => setIntentKind('question')}
@@ -1057,7 +1069,7 @@ export default function ListingDetailPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{type} · {sl.neighborhood || sl.city}</div>
-                          <Link href={`/listings/${sl.slug}`} className="mt-0.5 block truncate text-[15px] font-bold text-brand-strong hover:underline">{sl.address}{sl.unit ? ` #${sl.unit}` : ''}</Link>
+                          <Link href={`/listings/${sl.slug}`} className="mt-0.5 block truncate text-[15px] font-bold text-brand-strong hover:underline">{listingTitle(sl.address, sl.unit)}</Link>
                         </div>
                         <button
                           type="button"
@@ -1089,13 +1101,13 @@ export default function ListingDetailPage() {
             zh={zh}
             kind={intentKind}
             listingId={listing.id}
-            listingAddress={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`}
+            listingAddress={listingTitle(listing.address, listing.unit)}
             signedIn={!auth.loading && !!auth.user}
             onClose={() => { setIntentKind(null); if (!inquiryThreadId) setInquiryCheck((n) => n + 1) }}
           />
         )}
         {fieldAgentOpen && (
-          <AgentPicker zh={zh} listingAddress={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`} onClose={() => setFieldAgentOpen(false)} excludeAuthIds={[auth.user?.id, listing.landlord_id, landlordAuthId]} />
+          <AgentPicker zh={zh} listingAddress={listingTitle(listing.address, listing.unit)} onClose={() => setFieldAgentOpen(false)} excludeAuthIds={[auth.user?.id, listing.landlord_id, landlordAuthId]} />
         )}
       </main>
       <Footer />

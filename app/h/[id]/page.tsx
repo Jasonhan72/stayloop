@@ -19,6 +19,7 @@ import { rentSchedule } from '@/lib/household/schedule'
 import { checkPaidOn, earliestPaidOn, latenessRows, ledgerStart, missedArrears, rentDueDay, rentLedger, torontoDate } from '@/lib/household/ledger'
 import { persistentLatePayment } from '@/lib/ontario/rules'
 import { tenancyClock } from '@/lib/household/clock'
+import { leaseDisplayState, leaseStateDetail } from '@/lib/matters/states'
 import MoveInChecklist from '@/components/household/MoveInChecklist'
 import MaintenancePanel from '@/components/household/MaintenancePanel'
 import PaymentPlanDraft from '@/components/household/PaymentPlanDraft'
@@ -222,6 +223,10 @@ export default function HouseholdHub() {
   // placeholder is arrears, not lateness.
   const lateness = persistentLatePayment(latenessRows(ledger.recordedRows))
   const clock = tenancyClock(household.start_date, household.end_date)
+  // A tenancy whose start date is still ahead has not begun. Only that case leaves "in tenancy":
+  // past the end date it carries on month-to-month (RTA s.38), which the end-date chip says.
+  const tenancyLease = { status: 'active', start_date: household.start_date, end_date: household.end_date }
+  const notStarted = leaseDisplayState(tenancyLease) === 'upcoming'
   const myRole = members.find((m) => m.user_id === user?.id)?.role ?? null
   // The importer (still a member) may correct an upload until the other side joins and confirms —
   // the same rule as the import page's ?edit= and update_household_import.
@@ -275,7 +280,13 @@ export default function HouseholdHub() {
         </span>
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5" data-testid="tenancy-clock">
-        <span className="rounded-full bg-brand/10 px-2.5 py-[3px] font-mono text-[11px] font-bold text-brand">{zh ? '租中' : 'IN TENANCY'}{clock.month ? (zh ? ` · 第 ${clock.month} 个月` : ` · month ${clock.month}`) : ''}</span>
+        {notStarted ? (
+          // Signed but the start date is ahead: the shared lease-state words (lib/matters/states.ts),
+          // not "in tenancy" (site test 2026-10-02: a lease starting 11-01 read 租中 on 10-02).
+          <span className="rounded-full bg-surface-chip px-2.5 py-[3px] font-mono text-[11px] font-bold text-body-2" data-testid="tenancy-upcoming">{leaseStateDetail(tenancyLease, zh)}</span>
+        ) : (
+          <span className="rounded-full bg-brand/10 px-2.5 py-[3px] font-mono text-[11px] font-bold text-brand">{zh ? '租中' : 'IN TENANCY'}{clock.month ? (zh ? ` · 第 ${clock.month} 个月` : ` · month ${clock.month}`) : ''}</span>
+        )}
         {clock.daysToEnd != null && (
           <span className={'rounded-full px-2.5 py-[3px] font-mono text-[11px] font-bold ' + (clock.daysToEnd < 0 ? 'bg-surface-chip text-body-2' : clock.daysToEnd <= 120 ? 'bg-amber-50 text-amber-800' : 'bg-surface-chip text-body-2')}>
             {clock.daysToEnd < 0 ? (zh ? `已到期 ${-clock.daysToEnd} 天 · 已转月租（RTA s.38）` : `Ended ${-clock.daysToEnd} days ago · month-to-month (RTA s.38)`) : zh ? `到期 ${clock.daysToEnd} 天（${household.end_date}）` : `${clock.daysToEnd} days to ${household.end_date}`}

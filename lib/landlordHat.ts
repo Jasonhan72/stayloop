@@ -40,3 +40,16 @@ export function isBrandNewAccount(hats: HatsLite, named: boolean): boolean {
 export function landingForAccount(stored: string | null | undefined, hats: HatsLite, named: boolean): string {
   return isBrandNewAccount(hats, named) ? '/onboarding/name' : homeForHats(stored, hats)
 }
+
+/** The sign-in callback's landing (site test 2026-10-02, L7 D6 / L6 D5). Only the
+ *  role remembered in this browser (`stored`) is the person's own choice; a
+ *  candidate read from the account's most recent agent_configs row (or the
+ *  signup metadata) is a hint. A 'tenant' hint must not outrank a held provider
+ *  hat on a pure service-provider account — every account holds the tenant
+ *  hat, so a provider who once opened /tenant/agent was sent to the tenant chat
+ *  on every new device while the homepage sent the same account to its jobs. */
+export function landingAfterSignIn(stored: string | null | undefined, hint: string | null | undefined, hats: HatsLite): string {
+  if (stored && stored in HOME) return homeForHats(stored, hats)
+  const providerOnly = !!hats?.provider && !hats?.landlord && !hats?.agent
+  return homeForHats(hint === 'tenant' && providerOnly ? null : hint, hats)
+}

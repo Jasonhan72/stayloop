@@ -27,7 +27,7 @@ const STAGES: Stage[] = [
     title: { zh: '租前', en: 'Before the lease' },
     lead: { zh: '从一句话找房，到房东手里一份有依据的筛查报告。', en: 'From a one-sentence search to a screening report the landlord can trust.' },
     caps: [
-      { t: { zh: '对话找房 · 真实挂牌 + TRREB 行情', en: 'Conversational search · live listings + TRREB data' }, href: '/?role=tenant' },
+      { t: { zh: '对话找房 · 真实挂牌 + TRREB 行情', en: 'Conversational search · live listings + TRREB data' }, href: '/tenant/agent' },
       { t: { zh: '房源发布 · 发布前合规检查', en: 'Listing publish · compliance checks before publish' }, href: '/dashboard/listings/new' },
       { t: { zh: '看房请求与提问 · 进房东待办', en: 'Showing requests & questions · into the landlord queue' }, href: '/listings' },
       { t: { zh: '在线申请 · 材料直达房东', en: 'Online application · documents straight to the landlord' }, href: '/listings' },
@@ -133,11 +133,11 @@ export default function PlatformPage() {
                 <div className="mt-4 rounded-2xl border border-line-divider bg-white p-5">
                   <div className="text-[20px] font-extrabold tracking-tight">{pick(st.title, lang)}</div>
                   <p className="mt-1 text-[13.5px] leading-relaxed text-body-2">{pick(st.lead, lang)}</p>
-                  <ul className="mt-4 space-y-2 text-[13.5px]">
+                  <ul className="mt-4 space-y-2 text-[13.5px] [text-wrap:pretty]">
                     {st.caps.map((c) => (
                       <li key={c.t.en} className="flex items-start gap-2">
                         <span className="mt-[7px] h-1.5 w-1.5 flex-none rounded-full" style={{ background: c.status ? '#CBD5E1' : '#00ACE4' }} />
-                        <span className="min-w-0">
+                        <span className="min-w-0 break-keep [overflow-wrap:anywhere] [text-wrap:pretty]">
                           {c.status ? <span className="text-body-2">{pick(c.t, lang)}</span> : <Link href={c.href} className="underline-offset-2 hover:underline">{pick(c.t, lang)}</Link>}
                           <StatusTag s={c.status} lang={lang} />
                         </span>
@@ -198,7 +198,7 @@ export default function PlatformPage() {
       <section className="mx-auto max-w-[1100px] px-5 py-16 text-center sm:px-7">
         <h2 className="text-[26px] font-extrabold leading-tight tracking-tight sm:text-[34px]">{zh ? '从任何一个阶段进来，都在同一条流程里。' : 'Enter at any stage — it is the same flow.'}</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/?role=tenant" className="sl-btn-secondary">{zh ? '我是租客' : 'I’m a tenant'}</Link>
+          <Link href="/tenant" className="sl-btn-secondary">{zh ? '我是租客' : 'I’m a tenant'}</Link>
           <Link href="/landlord" className="sl-btn-secondary">{zh ? '我是房东' : 'I’m a landlord'}</Link>
           <Link href="/agent" className="sl-btn-secondary">{zh ? '我是经纪' : 'I’m an agent'}</Link>
         </div>

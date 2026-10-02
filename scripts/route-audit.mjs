@@ -25,9 +25,14 @@ async function probe(name, url, opts = {}, expect = {}) {
   const ok = checks.every(c => c[1])
   results.push({ name, ok, ms, status: res.status, note: checks.filter(c => !c[1]).map(c => `${c[0]} (${c[2]})`).join('; ') })
 }
-const HDR = { 'strict-transport-security': /max-age=\d+/, 'x-frame-options': /DENY/i, 'referrer-policy': /strict-origin-when-cross-origin/ }
+// nosniff on worker-rendered pages and APIs, and the microphone allowed for the
+// site itself (the voice-input button) — site test 2026-10-02, L4:D1 / L4:D5.
+const HDR = { 'strict-transport-security': /max-age=\d+/, 'x-frame-options': /DENY/i, 'referrer-policy': /strict-origin-when-cross-origin/, 'x-content-type-options': /^nosniff$/i, 'permissions-policy': /microphone=\(self\)/ }
 const PUBLIC = ['/', '/pricing', '/tenant', '/landlord', '/agent', '/platform', '/stayloop-api', '/stayloop-api/docs', '/services', '/screening', '/about', '/partners', '/contact', '/disputes', '/listings', '/privacy', '/terms', '/login', '/register', '/onboarding/name?role=landlord', '/onboarding/tier1', '/leases/import', '/screening/app', '/dashboard', '/settings', '/landlord/agent', '/tenant/agent', '/agent/agent', '/agent/verify', '/notifications', '/provider/jobs', '/provider/history', '/delegate/not-a-real-token']
 for (const p of PUBLIC) await probe(`GET ${p}`, `${BASE}${p}${p.includes('?') ? '&' : '?'}${bust()}`, {}, { status: 200, headers: HDR })
+// Cloudflare Email Obfuscation must find no address in a text run here, or the
+// rewritten DOM breaks hydration (React #418) — L6-public:D1.
+await probe('docs page: no obfuscated address', `${BASE}/stayloop-api/docs?${bust()}`, {}, { status: 200, bodyExcludes: '__cf_email__' })
 await probe('404 unknown path', `${BASE}/no-such-page-${Date.now()}`, {}, { status: 404 })
 await probe('308 apex → www', `https://stayloop.ai/pricing`, {}, { status: 308, location: 'www.stayloop.ai/pricing' })
 await probe('308 /landlord/settings → /settings', `${BASE}/landlord/settings`, {}, { status: 308, location: '/settings' })
@@ -37,7 +42,7 @@ await probe('public share invalid token', `${BASE}/p/invalid-token-xyz?${bust()}
 await probe('listing detail 404 on unknown slug renders', `${BASE}/listings/no-such-slug-xyz?${bust()}`, {}, { status: [200, 404] })
 // APIs — anonymous
 const J = { headers: { 'content-type': 'application/json' } }
-await probe('public stats', `${BASE}/api/public/stats?${bust()}`, {}, { status: 200, json: j => (['screenings', 'ltbOrders', 'listings', 'trrebQuarters'].every(k => typeof j[k] === 'number' && j[k] >= 0)) || `keys: ${Object.keys(j)}` })
+await probe('public stats', `${BASE}/api/public/stats?${bust()}`, {}, { status: 200, headers: { 'x-content-type-options': /^nosniff$/i }, json: j => (['screenings', 'ltbOrders', 'listings', 'trrebQuarters'].every(k => typeof j[k] === 'number' && j[k] >= 0)) || `keys: ${Object.keys(j)}` })
 await probe('screen-score anon → 401', `${BASE}/api/screen-score`, { method: 'POST', ...J, body: '{}' }, { status: [401, 400] })
 await probe('deep-check anon → 401', `${BASE}/api/deep-check`, { method: 'POST', ...J, body: '{"employer_names":["x"],"applicant_name":"y"}' }, { status: [401, 403] })
 await probe('screening DELETE anon → 401', `${BASE}/api/screening/00000000-0000-0000-0000-000000000000`, { method: 'DELETE' }, { status: [401, 403] })
@@ -53,6 +58,9 @@ await probe('lease/send anon → 401', `${BASE}/api/lease/send`, { method: 'POST
 await probe('lease/sign bad token → 4xx', `${BASE}/api/lease/sign`, { method: 'POST', ...J, body: '{"token":"nope"}' }, { status: [400, 401, 404] })
 await probe('file-url anon → 401', `${BASE}/api/file-url`, { method: 'POST', ...J, body: '{"path":"x"}' }, { status: [400, 401] })
 await probe('ltb-search anon → 401', `${BASE}/api/ltb-search`, { method: 'POST', ...J, body: '{"name":"x"}' }, { status: [400, 401] })
+await probe('retired ai-score → 404', `${BASE}/api/ai-score`, { method: 'POST', ...J, body: '{"application_id":"zzz"}' }, { status: [404, 405], bodyExcludes: 'invalid input syntax' })
+await probe('stripe/connect/onboard anon → 401', `${BASE}/api/stripe/connect/onboard`, { method: 'POST', ...J, body: '{}' }, { status: 401 })
+await probe('stripe/connect/settle anon → 401', `${BASE}/api/stripe/connect/settle`, { method: 'POST', ...J, body: '{}' }, { status: 401 })
 await probe('retired trust/verify → 404', `${BASE}/api/trust/verify`, { method: 'POST', ...J, body: '{}' }, { status: [404, 405] })
 await probe('admin/model-discover anon → 401', `${BASE}/api/admin/model-discover`, {}, { status: [401, 403] })
 await probe('admin/diag-pdftext anon → 401', `${BASE}/api/admin/diag-pdftext`, {}, { status: [401, 403] })

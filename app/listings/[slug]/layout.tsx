@@ -12,6 +12,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
+import { listingTitle } from '@/lib/listingDisplay'
 
 export const runtime = 'edge'
 
@@ -56,7 +57,8 @@ export async function generateMetadata(
     if (!l) return fallback
 
     const where = [l.neighborhood, l.city].filter(Boolean).join(' · ') || 'Toronto'
-    const addr = [l.address, l.unit ? `#${l.unit}` : ''].filter(Boolean).join(' ').trim()
+    // Same helper as the H1: no second '#608' when the address already carries the unit (site test 2026-10-02, D-06).
+    const addr = listingTitle(l.address, l.unit)
     const beds = l.bedrooms != null ? (l.bedrooms === 0 ? 'Studio' : `${l.bedrooms} 房`) : null
     const rent = l.monthly_rent ? `${money(l.monthly_rent)}/月` : null
 

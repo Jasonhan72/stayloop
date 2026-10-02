@@ -270,6 +270,10 @@ export default function ListingsPage() {
         />
       </div>
 
+      {/* The page had no h1 element (site test 2026-10-02 · L7 D-08 / L6 D7). Visually
+          hidden so the designed search-first layout does not change. */}
+      <h1 className="sr-only" data-testid="listings-h1">{zh ? '出租房源' : 'Rental listings'}</h1>
+
       {/* Search row */}
       <section
         className="bg-white px-5 sm:px-8"

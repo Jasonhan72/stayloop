@@ -2,7 +2,7 @@
 
 import { isRegistrationLive } from '@/lib/agentProfile'
 import RepresentingStrip from '@/components/delegations/RepresentingStrip'
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -12,7 +12,7 @@ import { useI18n } from '@/lib/i18n'
 import { LiveRowsProvider, useLiveRowsTotal } from '@/lib/liveRows'
 import { SampleBanner } from './SampleNotice'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/lib/useAuth'
+import { roleStorageKey, useAuth } from '@/lib/useAuth'
 import { BulbIcon, ChatIcon, GearIcon, PhoneTabs, PlusIcon, ProgressIcon, RAIL_BY_ROLE, TodoIcon, type RailItem, type WorkspaceRole } from './workspace/rail'
 
 export type { WorkspaceRole } from './workspace/rail'
@@ -273,32 +273,104 @@ function AgentLockedState({ status, zh }: { status: string; zh: boolean }) {
 // agent without one is sent to /landlord/become — an explicit opt-in — rather
 // than silently shown (and, before, silently granted) the landlord tools.
 // Anonymous visitors keep the preview.
-function useLandlordHatGuard(role: WorkspaceRole): boolean {
+function rememberHeldHat(r: { uid: string; hat: string } | null) {
+  if (!r || typeof window === 'undefined') return
+  try { window.localStorage.setItem(roleStorageKey(r.uid), r.hat) } catch { /* storage blocked: the hat check still guards */ }
+}
+function useLandlordHatGuard(role: WorkspaceRole): { blocked: boolean; pending: boolean } {
   const auth = useAuth()
   const hats = useHats()
   const router = useRouter()
   const path = usePathnameSafe()
   const signedIn = !!auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous
   const blocked = role === 'landlord' && signedIn && !hats.loading && !hats.landlord
+  // Auth or hats not known yet: render nothing on /landlord/* until we know (site test
+  // 2026-10-02, L6 D5) — no landlord tool mounts for a hat-less account, and a real
+  // landlord's page mounts once (not mount → unmount while hats load → mount again).
+  // Server HTML and the first client render agree: auth is loading in both.
+  const pending = role === 'landlord' && (auth.loading || (signedIn && hats.loading))
+  const uid = auth.user?.id ?? null
+  const fallbackHat = bestHat(hats)
+  // Redirect exactly once per path. The effect used to depend on `auth` and
+  // `hats` — fresh objects every render — and call auth.setRole(), whose
+  // sl-role-changed event re-rendered every useAuth() instance, whose route
+  // effect wrote "landlord" back: setRole ↔ route effect ↔ router.replace
+  // ping-ponged forever (thousands of /landlord/become requests, tab stuck on
+  // "…" — site test 2026-10-02, L6 D1).
+  const redirectedFor = useRef<string | null>(null)
+  const rememberOnLeave = useRef<{ uid: string; hat: string } | null>(null)
   useEffect(() => {
-    if (!blocked) return
+    if (!blocked || redirectedFor.current === path) return
+    redirectedFor.current = path
     // Visiting /landlord/* remembered "landlord" for this account before the bounce,
     // and every neutral page (/notifications, /settings) then opened in the landlord
     // shell and bounced too (external review 2026-09-26, provider P1-2). Put the
-    // remembered hat back to one the account holds.
-    auth.setRole(bestHat(hats))
+    // remembered hat back to one the account holds — written straight to storage,
+    // not via auth.setRole(): its role-changed event is what re-armed
+    // the useAuth route effect above.
+    rememberOnLeave.current = uid ? { uid, hat: fallbackHat } : null
+    rememberHeldHat(rememberOnLeave.current)
     const q = typeof window !== 'undefined' ? window.location.search : ''
     router.replace('/landlord/become?next=' + encodeURIComponent(path + q))
-  }, [blocked, path, router, auth, hats])
-  return blocked
+  }, [blocked, path, uid, fallbackHat, router])
+  // Every useAuth() instance on a /landlord/* page remembers "landlord" when its
+  // session resolves — some after the guard ran. Write the held hat again as the
+  // page goes away (the become page is not remembered as a role).
+  useEffect(() => () => rememberHeldHat(rememberOnLeave.current), [])
+  return { blocked, pending }
+}
+
+// Every workspace page has exactly one h1 (site test 2026-10-02, L6 D7 / D8):
+// many pages show a visual title in a styled div, and the assistant pages show
+// the AI Agent's name. The shell adds a visually hidden h1 named after the page
+// only while no other visible h1 is on screen — never a second one. It starts
+// absent (server HTML = first client render) and is decided after mount.
+const TITLE_EN: Record<string, string> = { maint: 'Maintenance', apps: 'Applications', pay: 'Payments', lease: 'Leases', screen: 'Screening', fin: 'Finance', cal: 'Calendar' }
+const ROLE_TITLE: Record<WorkspaceRole, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'Tenant' }, landlord: { zh: '房东', en: 'Landlord' }, agent: { zh: '经纪', en: 'Agent' } }
+export function shellPageTitle(role: WorkspaceRole, path: string, zh: boolean): string {
+  const items: { key: string; href: string; label: { zh: string; en: string } }[] = [
+    { key: 'assistant', href: `/${role}/agent`, label: { zh: 'AI 助理', en: 'AI Agent' } },
+    { key: 'todo', href: `/${role}/todo`, label: { zh: '待办', en: 'To-do' } },
+    { key: 'ideas', href: `/${role}/ideas`, label: { zh: '想法', en: 'Ideas' } },
+    { key: 'progress', href: `/${role}/progress`, label: { zh: '进度', en: 'Progress' } },
+    ...RAIL_BY_ROLE[role].filter((it) => it.key !== 'home'),
+    { key: 'settings', href: '/settings', label: { zh: '设置', en: 'Settings' } },
+  ]
+  let best: (typeof items)[number] | null = null
+  for (const it of items) {
+    if ((path === it.href || path.startsWith(it.href + '/')) && (!best || it.href.length > best.href.length)) best = it
+  }
+  if (best) return zh ? best.label.zh : (TITLE_EN[best.key] ?? best.label.en)
+  return zh ? `${ROLE_TITLE[role].zh}工作台` : `${ROLE_TITLE[role].en} workspace`
+}
+function hasOtherVisibleH1(): boolean {
+  return Array.from(document.querySelectorAll('h1')).some((h) => !h.hasAttribute('data-shell-h1') && h.getClientRects().length > 0)
+}
+function useShellHeadingNeeded(): boolean {
+  const [needed, setNeeded] = useState(false)
+  useEffect(() => {
+    // Chat pages mutate the DOM constantly (typing, streaming, countdown rows): check at most
+    // every 250 ms instead of once per frame, so the layout read stays off the hot path.
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const check = () => { timer = null; setNeeded(!hasOtherVisibleH1()) }
+    const schedule = () => { if (!timer) timer = setTimeout(check, 250) }
+    check()
+    const mo = new MutationObserver(schedule)
+    mo.observe(document.body, { childList: true, subtree: true })
+    window.addEventListener('resize', schedule)
+    return () => { mo.disconnect(); window.removeEventListener('resize', schedule); if (timer) clearTimeout(timer) }
+  }, [])
+  return needed
 }
 
 export default function WorkspaceShell({ role, aside, children, hideAside, liveSlot, phoneApp = false }: Props) {
-  const hatBlocked = useLandlordHatGuard(role)
+  const hatGuard = useLandlordHatGuard(role)
+  const hatBlocked = hatGuard.blocked || hatGuard.pending
   const { gate, sampleNote, showDemo, setShowDemo } = useDemoGate()
   const agentStatus = useAgentVerification(role)
   const shellPath = usePathnameSafe()
   const { lang } = useI18n()
+  const headingNeeded = useShellHeadingNeeded()
   // On a gated route the aside is demo narrative too (Unit 1207 stories) —
   // an honest empty state beside a fixture-driven aside defeats the point.
   const asideHidden = hideAside || (gate != null && !showDemo)
@@ -312,6 +384,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
         <div className="md:flex md:min-h-[calc(100vh-66px)]">
           <Rail role={role} />
           <div className={phoneApp ? 'sl-phone-pb min-w-0 flex-1 p-0 md:p-0' : 'min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12'}>
+            {headingNeeded && <h1 data-shell-h1="" className="sr-only">{shellPageTitle(role, shellPath, lang === 'zh')}</h1>}
             {(sampleNote || role === 'agent') && (
               <div className={phoneApp ? 'px-5 pt-4 md:px-8 md:pt-4' : ''}>
                 {sampleNote && <SampleBanner zh={lang === 'zh'} note={sampleNote} />}

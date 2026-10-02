@@ -136,7 +136,7 @@ export const FAQS = [
 export const COMPARISON = [
   { zh: '文件取证(PDF 结构 · 生成工具指纹 · 增量修改痕迹 · CRA 扣缴复算)', en: 'Document forensics (PDF structure · generator fingerprints · edit trails · CRA deduction recomputation)', us: true, typical: false, typicalNoteZh: '一般只做字体/文本篡改扫描', typicalNoteEn: 'usually a font/text tamper scan only' },
   { zh: '信用分析层:DTI、循环利用率、逾期信号由确定性算术得出', en: 'Credit analysis layer: DTI, revolving utilisation, delinquency signals by deterministic arithmetic', us: true, typical: false, typicalNoteZh: '报告原样呈现', typicalNoteEn: 'report shown as-is' },
-  { zh: '可解释评分:五个维度、硬门槛与证据逐条列出', en: 'Explainable score: five dimensions, hard gates and evidence itemised', us: true, typical: false, typicalNoteZh: '不打分,或黑箱分数', typicalNoteEn: 'no score, or a black-box score' },
+  { zh: '可解释评分:四项评分、硬门槛与证据逐条列出', en: 'Explainable score: four scored items, hard gates and evidence itemised', us: true, typical: false, typicalNoteZh: '不打分,或黑箱分数', typicalNoteEn: 'no score, or a black-box score' },
   { zh: 'LTB 判令目录 + 安省法院门户按姓名实际检索,注明收录窗口', en: 'LTB Order Catalogue + Ontario Courts portal searched by name, coverage window stated', us: true, typical: true, typicalNoteZh: '', typicalNoteEn: '' },
   { zh: '申请人本人授权的身份与银行直连', en: 'Applicant-authorised identity and bank connection', us: true, typical: true, typicalNoteZh: '', typicalNoteEn: '' },
   { zh: '征信局直连', en: 'Direct bureau pull', us: false, typical: true, typicalNoteZh: '我们转录申请人自行上传的报告;本人授权直拉筹备中', typicalNoteEn: 'we transcribe the applicant’s own report; own-authorised pull in preparation' },

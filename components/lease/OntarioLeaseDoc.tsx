@@ -8,7 +8,29 @@
 // on-screen chrome may add zh hints with `print:hidden`.
 import type { OntarioLeaseTerms, LeaseSignature } from '@/lib/lease/ontario'
 
-const utilLabel = (v: 'landlord' | 'tenant') => (v === 'landlord' ? 'Landlord' : 'Tenant')
+// A missing value prints as a dash, never as a guess (an absent utilities block used to read "Tenant").
+const utilLabel = (v?: 'landlord' | 'tenant' | null) => (v === 'landlord' ? 'Landlord' : v === 'tenant' ? 'Tenant' : '—')
+
+const block = <T extends object>(v: unknown): Partial<T> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Partial<T>) : {})
+
+/** Terms as stored can lack nested blocks (rows written outside the app's builder — site test
+ *  2026-10-02: no `contact`, no `utilities`). Fill every block the renderer reads so a partial
+ *  document renders with dashes instead of crashing the page. Nothing is invented: missing
+ *  fields stay empty. */
+export function normalizeOntarioTerms(terms: unknown): OntarioLeaseTerms {
+  const raw = block<OntarioLeaseTerms>(terms)
+  return {
+    ...raw,
+    landlord_legal_name: typeof raw.landlord_legal_name === 'string' ? raw.landlord_legal_name : '',
+    tenant_names: Array.isArray(raw.tenant_names) ? raw.tenant_names.filter((n): n is string => typeof n === 'string') : [],
+    unit: { street: '', city: '', ...block<OntarioLeaseTerms['unit']>(raw.unit) },
+    contact: { ...block<OntarioLeaseTerms['contact']>(raw.contact) },
+    term: { start_date: '', ...block<OntarioLeaseTerms['term']>(raw.term) } as OntarioLeaseTerms['term'],
+    rent: { due_day: '', ...block<OntarioLeaseTerms['rent']>(raw.rent) } as OntarioLeaseTerms['rent'],
+    services: { ...block<OntarioLeaseTerms['services']>(raw.services) },
+    utilities: { ...block<OntarioLeaseTerms['utilities']>(raw.utilities) } as OntarioLeaseTerms['utilities'],
+  }
+}
 
 function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
@@ -41,7 +63,7 @@ export default function OntarioLeaseDoc({
   tenantSignature?: LeaseSignature | null
   status?: string
 }) {
-  const t = terms
+  const t = normalizeOntarioTerms(terms)
   const money = (n?: number | null) =>
     typeof n === 'number' && isFinite(n) ? `$${n.toLocaleString('en-CA', { minimumFractionDigits: 2 })}` : '—'
   const fullySigned = !!landlordSignature && !!tenantSignature
@@ -95,7 +117,7 @@ export default function OntarioLeaseDoc({
         <Field k="Start date" v={t.term.start_date} />
         <Field
           k="Term"
-          v={t.term.type === 'fixed' ? `Fixed term ending ${t.term.end_date || '—'} (continues month-to-month after unless renewed or properly ended)` : 'Month-to-month'}
+          v={t.term.type === 'fixed' ? `Fixed term ending ${t.term.end_date || '—'} (continues month-to-month after unless renewed or properly ended)` : t.term.type === 'monthly' ? 'Month-to-month' : '—'}
         />
       </Section>
 

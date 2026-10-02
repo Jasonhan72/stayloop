@@ -24,6 +24,8 @@ import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
 import PushSettingsCard from '@/components/mobile/PushSettingsCard'
 import MattersPanel from '@/components/matters/MattersPanel'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
+import { useAuth } from '@/lib/useAuth'
+import { useHats } from '@/lib/useHats'
 import { buildIdeas } from '@/lib/agent/ideas'
 import { useT } from '@/lib/i18n'
 import { displayAiName } from '@/lib/agent/assistantName'
@@ -54,6 +56,29 @@ function Skeleton({ role }: { role: AgentRole }) {
   )
 }
 
+// A signed-in account without the landlord hat must not start a landlord agent session
+// (bootstrap RPC, agent_configs write, *_session_started audit) on /landlord/todo|ideas|progress
+// before the shell's guard sends it to /landlord/become — the same gate as AgentWorkspacePage
+// (site test 2026-10-02, L6 D5). Until the hat is known only the shell (and its guard) renders.
+function useLandlordSessionAllowed(role: AgentRole): boolean {
+  const auth = useAuth()
+  const hats = useHats()
+  if (role !== 'landlord') return true
+  if (auth.loading) return false
+  const signedIn = !!auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous
+  return !signedIn || (!hats.loading && hats.landlord)
+}
+
+export function TodoPage({ role }: { role: AgentRole }) {
+  return useLandlordSessionAllowed(role) ? <TodoInner role={role} /> : <Skeleton role={role} />
+}
+export function IdeasPage({ role }: { role: AgentRole }) {
+  return useLandlordSessionAllowed(role) ? <IdeasInner role={role} /> : <Skeleton role={role} />
+}
+export function ProgressPage({ role }: { role: AgentRole }) {
+  return useLandlordSessionAllowed(role) ? <ProgressInner role={role} /> : <Skeleton role={role} />
+}
+
 function PageHead({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
   return (
     <div className="mb-5">
@@ -64,7 +89,7 @@ function PageHead({ eyebrow, title, sub }: { eyebrow: string; title: string; sub
   )
 }
 
-export function TodoPage({ role }: { role: AgentRole }) {
+function TodoInner({ role }: { role: AgentRole }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const { loading, live, data, decide, scheduled, undo, notice, dismissNotice } = useAgentSession(role)
@@ -129,7 +154,7 @@ function PreviewNote({ zh, what }: { zh: boolean; what: string }) {
   )
 }
 
-export function IdeasPage({ role }: { role: AgentRole }) {
+function IdeasInner({ role }: { role: AgentRole }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   // No countdown, 撤销 or outcome line here: approved cards are never resumed from this page.
@@ -178,7 +203,7 @@ export function IdeasPage({ role }: { role: AgentRole }) {
   )
 }
 
-export function ProgressPage({ role }: { role: AgentRole }) {
+function ProgressInner({ role }: { role: AgentRole }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const { loading, live, data } = useAgentSession(role, { resumeApproved: false })

@@ -62,6 +62,16 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
   const [done, setDone] = useState<{ ticketId: string; householdId: string; title: string; failedPhotos: number; notified: boolean } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Escape closes, like DispatchModal / FilePreviewModal (site test 2026-10-02 ·
+  // L7 D5) — but not mid-submit: the Cancel button is disabled then too.
+  const busyRef = useRef(busy)
+  busyRef.current = busy
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !busyRef.current) onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   // The tenant's most recent active tenancy (household membership as tenant).
   useEffect(() => {
     if (auth.loading) return

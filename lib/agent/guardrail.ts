@@ -74,6 +74,36 @@ export function hasUnfilledTemplate(message: string): boolean {
   return TEMPLATE_PLACEHOLDER_RE.test(message)
 }
 
+// A drafted refusal on a protected ground: the ground and a refusal verb in
+// the SAME sentence, and that sentence does not negate the refusal or call it
+// unlawful. A bag-of-words test over the whole reply fired on educational
+// answers ("screening never looks at race … / blanket no-pet rejections"),
+// telling the landlord not to send a correct explanation (site test
+// 2026-10-02, L7-anon D-03).
+const REFUSAL_VERB = /(拒绝|不合适|不租|婉拒|淘汰|reject|declin|refus)/i
+// Negation that governs the refusal: 「不能以家庭状况为由拒绝」「cannot be a
+// reason to reject」. It must sit right before the verb (same clause, ≤ 4
+// English words / 12 Chinese characters) — "We cannot accept your application
+// and must decline it because you have children" is still a refusal.
+// A double negative is an affirmation — 「不得不拒绝」「不能不婉拒」 are refusals (review 2026-10-02).
+const NEGATED_REFUSAL_ZH = /(?<!不)(不会|不得|不能|不可|不应|不该|绝不|从不|永不|无权|不允许|不准|不要)(?!不)[^，,；;。！？!?\n]{0,12}(拒绝|不租|婉拒|淘汰|不合适)/
+const NEGATED_REFUSAL_EN = /\b(?:never|not|no|cannot|can['’]t|won['’]t|don['’]t|doesn['’]t|mustn['’]t|shouldn['’]t|isn['’]t|aren['’]t)(?:\s+[\w'’-]+){0,4}?\s+(?:reject|declin|refus)/i
+// Negators inside an affirmative idiom do not negate the refusal: "no choice / option /
+// alternative but to decline", "cannot help but reject" (review 2026-10-02).
+const AFFIRMATIVE_IDIOM_EN = /\b(?:no|little)\s+(?:other\s+)?(?:choice|option|alternative)s?\s+(?:but|than|except)\s+to\b|\bcan(?:not|['’]t)\s+(?:help\s+)?but\b/gi
+// An explanation that calls the refusal unlawful is not a refusal letter.
+const UNLAWFUL_MARKER = /(违法|不合法|非法|违反(安省)?人权法|\bunlawful\b|\billegal\b|against the (ontario )?human rights code)/i
+export function hasDiscriminatoryRefusal(text: string): boolean {
+  const sentences = text.split(/\n+|(?<=[。！？!?])|(?<=\.)\s+/)
+  return sentences.some((sen) =>
+    PROTECTED_GROUNDS.test(sen)
+    && REFUSAL_VERB.test(sen)
+    && !NEGATED_REFUSAL_ZH.test(sen)
+    && !NEGATED_REFUSAL_EN.test(sen.replace(AFFIRMATIVE_IDIOM_EN, ' must '))
+    && !UNLAWFUL_MARKER.test(sen),
+  )
+}
+
 export type GuardrailResult = { out: TurnOutput; flags: string[] }
 
 export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'en' = 'zh'): GuardrailResult {
@@ -95,7 +125,7 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'e
         : "\n\n⚠️ That reason involves a protected ground (race / national origin / family status / sexual orientation, etc.), which under the Ontario Human Rights Code (OHRC) cannot be a basis for rejection. I won't generate that card for you. To reject, give a specific, lawful reason tied to ability to rent (e.g. insufficient income, incomplete documents)."
     }
   }
-  if ((role === 'landlord' || role === 'agent') && PROTECTED_GROUNDS.test(reply) && /(拒绝|不合适|不租|reject|decline)/i.test(reply)) {
+  if ((role === 'landlord' || role === 'agent') && hasDiscriminatoryRefusal(reply)) {
     // The reply itself is the deliverable (a drafted refusal); flagging
     // alone let the letter through unchanged. Append the same OHRC
     // correction the card path uses (review 2026-09-14).

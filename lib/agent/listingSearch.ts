@@ -670,7 +670,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
   return { cards: cards.slice(0, Math.min(c.count ?? LISTINGS_PAGE, 60)), statRows, external: externalFromStatuses(statuses) }
 }
 
-function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; rows: StatRow[] } {
+export function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; rows: StatRow[] } {
   const out: ListingCard[] = []
   // Every bed-matching row (address + price), BEFORE the budget cap — the
   // honest market sample for the area, not just what fits the user's budget.
@@ -699,7 +699,9 @@ function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; ro
     out.push({
       id: url ? url.split('/').slice(-2, -1)[0] || `r-${out.length}` : `r-${out.length}`,
       source: 'realtor',
-      title: hasDen ? `${beds}B + den` : beds ? `${beds}B 房源` : '工作室',
+      // Language-neutral: the search runs server-side without the viewer's UI
+      // language (site test 2026-10-02 · D-04 — the title was Chinese-only).
+      title: hasDen ? `${beds}B + den` : beds ? `${beds}B` : 'Studio',
       address: street || addrRaw,
       neighborhood,
       city: 'Toronto',
@@ -711,6 +713,7 @@ function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; ro
       url,
       tags: hasDen ? ['den'] : undefined,
       note: '外部房源 · Realtor.ca 实时 · 未经 Stayloop 验证',
+      note_en: 'External listing · Realtor.ca live · not verified by Stayloop',
     })
     if (out.length >= 40) break // safety cap; caller ranks + slices to 4
   }

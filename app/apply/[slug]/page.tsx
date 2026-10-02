@@ -13,6 +13,8 @@ import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { RegistrantDisclosureModal, useRegistrantProfile } from '@/components/RegistrantDisclosure'
+import { AgentPicker } from '@/components/AgentPicker'
+import { listingTitle } from '@/lib/listingDisplay'
 import type { ApplicationFile, FileKind } from '@/types'
 
 const FILE_KINDS: { kind: FileKind; label: { zh: string; en: string }; hint: { zh: string; en: string } }[] = [
@@ -100,7 +102,12 @@ export default function ApplyPage() {
   // Early slug validation on load — same visibility query as the submit path,
   // so an invalid/unpublished listing shows a branded notice instead of a form
   // that can only fail at submit time.
-  const [listingCheck, setListingCheck] = useState<'checking' | 'ok' | 'notfound'>('checking')
+  // 'realtor': a Realtor.ca import has no Stayloop landlord — its landlord_id is
+  // the admin who imported it, so an application would go to the importer, not
+  // the listing broker (site test 2026-10-02 · D-01). Refused with a pointer to
+  // the verified-agent picker.
+  const [listingCheck, setListingCheck] = useState<'checking' | 'ok' | 'notfound' | 'realtor'>('checking')
+  const [agentPickerOpen, setAgentPickerOpen] = useState(false)
   // What the applicant is applying for (three-role test report 2026-09-24, SL-T-02).
   const [summary, setSummary] = useState<{ address: string; unit: string | null; city: string | null; monthly_rent: number | null; bedrooms: number | null; bathrooms: number | null; images: string[] | null; title: string | null } | null>(null)
   useEffect(() => {
@@ -109,12 +116,16 @@ export default function ApplyPage() {
     ;(async () => {
       const { data: listing, error: qErr } = await supabase
         .from('listings')
-        .select('id, landlord_id, address, unit, city, monthly_rent, bedrooms, bathrooms, images, title')
+        .select('id, landlord_id, source, address, unit, city, monthly_rent, bedrooms, bathrooms, images, title')
         .eq('slug', params.slug)
         .eq('is_active', true)
         .or(LISTING_VISIBILITY_OR)
         .maybeSingle()
       if (!cancelled && listing) setSummary(listing as never)
+      if (!cancelled && listing && (listing as { source?: string | null }).source === 'realtor') {
+        setListingCheck('realtor')
+        return
+      }
       if (!cancelled && listing && !auth.loading && auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous) {
         const prior = await findExistingApplication((listing as { id: string }).id)
         if (!cancelled) setExistingApp(prior)
@@ -197,7 +208,7 @@ export default function ApplyPage() {
 
     const { data: listing } = await supabase
       .from('listings')
-      .select('id')
+      .select('id, source')
       .eq('slug', params.slug)
       .eq('is_active', true)
       .or(LISTING_VISIBILITY_OR)
@@ -205,6 +216,11 @@ export default function ApplyPage() {
 
     if (!listing) {
       setError(zh ? '找不到对应房源。' : 'Listing not found.')
+      setLoading(false)
+      return
+    }
+    if ((listing as { source?: string | null }).source === 'realtor') {
+      setListingCheck('realtor')
       setLoading(false)
       return
     }
@@ -401,6 +417,42 @@ export default function ApplyPage() {
           </div>
         </main>
         <Footer />
+      </>
+    )
+  }
+
+  if (listingCheck === 'realtor') {
+    const where = summary ? listingTitle(summary.address, summary.unit) : ''
+    return (
+      <>
+        <Header />
+        <main className="bg-surface">
+          <div className="mx-auto flex min-h-[60vh] max-w-md items-center justify-center px-4 py-12">
+            <div className="sl-card p-10 text-center" data-testid="apply-realtor-refused">
+              <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">REALTOR.CA</div>
+              <h1 className="mt-3 text-[24px] font-bold tracking-tight">
+                {zh ? '这套房源不能在 Stayloop 申请' : 'You can’t apply for this listing on Stayloop'}
+              </h1>
+              <p className="mt-2 text-[14px] leading-relaxed text-body-2">
+                {zh
+                  ? `${where ? `${where} ` : ''}来自 Realtor.ca，由挂牌经纪负责，不由 Stayloop 上的房东管理，申请不会送到房东手里。请从 Stayloop 认证（RECO 注册已核）的经纪中自选一位，由 TA 帮你约看和递交申请。Stayloop 不参与交易、不收费。`
+                  : `${where ? `${where} ` : 'This listing '}comes from Realtor.ca and is handled by the listing brokerage, not by a landlord on Stayloop, so an application here would not reach the landlord. Pick a Stayloop-verified (RECO-checked) agent to arrange a viewing and submit your application. Stayloop takes no part in the trade and charges nothing.`}
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                <button type="button" onClick={() => setAgentPickerOpen(true)} className="sl-btn-primary inline-flex">
+                  {zh ? '找认证经纪' : 'Find a verified agent'}
+                </button>
+                <Link href={`/listings/${params.slug}`} className="sl-btn-secondary inline-flex">
+                  {zh ? '回到房源' : 'Back to the listing'}
+                </Link>
+              </div>
+            </div>
+          </div>
+        </main>
+        <Footer />
+        {agentPickerOpen && (
+          <AgentPicker zh={zh} listingAddress={where} onClose={() => setAgentPickerOpen(false)} excludeAuthIds={[auth.user?.id]} />
+        )}
       </>
     )
   }

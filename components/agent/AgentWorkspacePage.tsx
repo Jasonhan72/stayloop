@@ -23,6 +23,8 @@ import { useAssistantPanel } from '@/lib/agent/useAssistantPanel'
 import { AssistantAvatar, getStoredAvatar, setStoredAvatar } from '@/lib/agent/avatars'
 import { usePromptDeepLink } from '@/lib/agent/usePromptDeepLink'
 import { useT } from '@/lib/i18n'
+import { useAuth } from '@/lib/useAuth'
+import { useHats } from '@/lib/useHats'
 import { displayAiName } from '@/lib/agent/assistantName'
 import type { AgentRole } from '@/lib/agent/types'
 
@@ -34,6 +36,26 @@ const PREVIEW_READS: Record<AgentRole, { zh: string; en: string }> = {
 }
 
 export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
+  const auth = useAuth()
+  const hats = useHats()
+  // A signed-in account without the landlord hat must never start a landlord
+  // session (bootstrap RPC, agent_configs bump, *_session_started audit) on its
+  // way to /landlord/become — the session hook used to run before the shell's
+  // guard could redirect (site test 2026-10-02, L6 D5). Until the hats are
+  // known only the shell renders; it redirects a hat-less account once.
+  const signedIn = !!auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous
+  const landlordHatUnknownOrMissing = role === 'landlord' && (auth.loading || (signedIn && (hats.loading || !hats.landlord)))
+  if (landlordHatUnknownOrMissing) {
+    return (
+      <WorkspaceShell role={role} hideAside>
+        <LoadingState />
+      </WorkspaceShell>
+    )
+  }
+  return <AgentWorkspaceInner role={role} />
+}
+
+function AgentWorkspaceInner({ role }: { role: AgentRole }) {
   const { lang } = useT()
   const { loading, live, data, status, messages, decide, sendMessage, markListingsShown, scheduled, undo, threadId, threadLoading, openThread } = useAgentSession(role)
   const [draft, setDraft] = useState<ComposerDraft | null>(null)
@@ -83,7 +105,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
               {zh
                 ? `预览模式 · 登录后 AI 助理会读取你真实的${reads.zh},审批将写入审计 · `
                 : `Preview mode · once you sign in, your AI Agent reads your real ${reads.en}, and approvals are written to the audit log · `}
-              <a href="/login" className="font-bold text-brand">{zh ? '登录 →' : 'Sign in →'}</a>
+              <a href="/login" className="whitespace-nowrap font-bold text-brand">{zh ? '登录 →' : 'Sign in →'}</a>
             </div>
           )}
           {live && <div className="md:hidden"><ContextStrip lifecycle={lifecycle} pending={pending.map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref={`/${role}/todo`} lang={lang} onPrompt={prefill} /></div>}
