@@ -38,7 +38,7 @@ describe('listing page details', () => {
   it('the Quebec note names the tribunal in full at its first mention (both languages)', () => {
     const zh = listingRulesNote('QC', 'zh')!
     const en = listingRulesNote('QC', 'en')!
-    expect(zh.indexOf('魁北克住房行政法庭（TAL）')).toBeLessThan(zh.indexOf('TAL 的强制表格'))
+    expect(zh.indexOf('魁北克住房行政法庭（TAL）')).toBeGreaterThanOrEqual(0)
     expect(zh.indexOf('魁北克住房行政法庭（TAL）')).toBeLessThanOrEqual(zh.indexOf('TAL'))
     expect(en.indexOf('Administrative Housing Tribunal (TAL)')).toBeLessThanOrEqual(en.indexOf('TAL'))
   })
@@ -76,5 +76,16 @@ describe('Ontario-only promises are kept off listings elsewhere', () => {
     expect(p).toContain("{outside ? `${provName} · ${zh ? '租约记录' : 'LEASE RECORD'}` : <>{isTrreb ? 'TRREB FORM 400' : 'ONTARIO STANDARD LEASE'} · {l.status.toUpperCase()}</>}")
     // The province is resolved before the lease is shown (no Ontario wording first).
     expect(p.indexOf('setProvince(')).toBeLessThan(p.indexOf('setLease(data)'))
+  })
+})
+
+// 2026-10-02: Quebec text cites only official sources — the March 2026 TAL ruling and the
+// reported leave to appeal were known only from the Montreal SPCA, so they are not stated.
+describe('Quebec pet wording uses official sources only', () => {
+  it('no mention of the SPCA-reported ruling or appeal', () => {
+    for (const lang of ['zh', 'en'] as const) {
+      const t = listingRulesNote('QC', lang)!
+      expect(t).not.toMatch(/据报|上诉|reportedly|appeal|2026 年 3 月|March 2026|Desjardins/)
+    }
   })
 })

@@ -153,9 +153,9 @@ const QC: ProvinceRules = {
   petFee: { allowed: false, cite: 'Civil Code of Québec, art. 1904 (2nd para.)' },
   petBanAllowed: {
     value: true,
-    zh: '房东一般可以通过租约或楼宇规定禁止养宠物；补偿残障的动物（如服务犬）受宪章保护，有医疗证明的治疗需要时禁令也可能不合理。2026 年 3 月 12 日 TAL 一项裁决曾宣告某一禁宠条款无效，据报已获准上诉，法律尚未定论（《魁北克民法典》第 1894、1901 条；《魁北克人权与自由宪章》）。',
-    en: 'A landlord may generally prohibit pets through the lease or the building by-laws; an animal that compensates for a disability (such as a service dog) is protected under the Charter, and a ban may be unreasonable against a tenant with medical evidence of therapeutic need. On 12 March 2026 a TAL decision annulled a no-pet clause; leave to appeal was reportedly granted, so the law is unsettled (Civil Code of Québec, arts. 1894, 1901; Charter of human rights and freedoms).',
-    cite: 'Civil Code of Québec, arts. 1894, 1901; Charter of human rights and freedoms, CQLR c C-12, ss. 1, 5, 10; mandatory lease form Schedule 5, Section E; Desjardins c. Amilis inc., 2026 QCTAL 8220 (12 March 2026)',
+    zh: '房东一般可以通过租约或楼宇规定禁止养宠物；补偿残障的动物（如服务犬）受宪章保护，有医疗证明的治疗需要时禁令也可能不合理（《魁北克民法典》第 1894、1901 条；《魁北克人权与自由宪章》）。',
+    en: 'A landlord may generally prohibit pets through the lease or the building by-laws; an animal that compensates for a disability (such as a service dog) is protected under the Charter, and a ban may be unreasonable against a tenant with medical evidence of therapeutic need (Civil Code of Québec, arts. 1894, 1901; Charter of human rights and freedoms).',
+    cite: 'Civil Code of Québec, arts. 1894, 1901; Charter of human rights and freedoms, CQLR c C-12, ss. 1, 5, 10; mandatory lease form Schedule 5, Section E',
     url: 'https://juridiqc.gouv.qc.ca/etre-locataire/trouver-un-logement/recherche-et-visite/animaux-de-compagnie-dans-le-logement-quels-sont-vos-droits-en-tant-que-locataire',
   },
   rentIncrease: {
@@ -187,8 +187,8 @@ const QC: ProvinceRules = {
   // No adverse-action notice duty for credit reports was found in Quebec law (verified absence).
   adverseDecision: null,
   listingNote: b(
-    '房东不能收取任何押金（包括钥匙押金和宠物押金），最多只能预收第一个月租金，也不能要求预开支票（《魁北克民法典》第 1904 条）。房东一般可以在租约中约定不允许养宠物，但补偿残障的动物（如服务犬）除外；2026 年 3 月魁北克住房行政法庭（TAL）一项裁决曾宣告某一禁宠条款无效，据报已获准上诉（第 1901 条；《魁北克人权与自由宪章》）。住宅租约必须使用 TAL 的强制表格，签约后 10 天内交给租客一份（第 1895 条）。',
-    'A landlord may not collect any deposit (key and pet deposits included), may collect at most the first month’s rent in advance, and may not require post-dated cheques (Civil Code of Québec, art. 1904). A landlord may generally prohibit pets in the lease, except an animal that compensates for a disability (such as a service dog); in March 2026 a decision of the Administrative Housing Tribunal (TAL) annulled a no-pet clause, and leave to appeal was reportedly granted (art. 1901; Charter of human rights and freedoms). Residential leases must use the TAL’s mandatory form, with a copy to the tenant within 10 days of signing (art. 1895).',
+    '房东不能收取任何押金（包括钥匙押金和宠物押金），最多只能预收第一个月租金，也不能要求预开支票（《魁北克民法典》第 1904 条）。房东一般可以在租约中约定不允许养宠物，但补偿残障的动物（如服务犬）除外（第 1901 条；《魁北克人权与自由宪章》）。住宅租约必须使用魁北克住房行政法庭（TAL）的强制表格，签约后 10 天内交给租客一份（第 1895 条）。',
+    'A landlord may not collect any deposit (key and pet deposits included), may collect at most the first month’s rent in advance, and may not require post-dated cheques (Civil Code of Québec, art. 1904). A landlord may generally prohibit pets in the lease, except an animal that compensates for a disability (such as a service dog) (art. 1901; Charter of human rights and freedoms). Residential leases must use the mandatory form of the Administrative Housing Tribunal (TAL), with a copy to the tenant within 10 days of signing (art. 1895).',
   ),
   notPermitted: [
     b('任何押金（含钥匙押金、宠物押金）', 'any deposit (key and pet deposits included)'),
