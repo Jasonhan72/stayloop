@@ -18,6 +18,7 @@ import { leaseStateDetail } from '@/lib/matters/states'
 import ThreadPanel from '@/components/threads/ThreadPanel'
 import MessageButton from '@/components/messages/MessageButton'
 import { useRealtorListings } from '@/lib/messages/realtorListings'
+import { effectiveProvince, rulesFor } from '@/lib/provinces'
 
 const OWNER: Record<string, { zh: string; en: string }> = {
   viewed: { zh: '房东', en: 'the landlord' },
@@ -50,6 +51,13 @@ export default function TenantApplicationPage({ params }: { params: Promise<{ id
   const current = steps.find((s) => s.state === 'current') ?? null
   const summary = app ? trackSummary(steps, zh) : null
   const declined = app?.status === 'declined' || app?.status === 'rejected'
+  // The listing's province, read from its address (the applicant view carries no province column).
+  // Outside Ontario the page names no Ontario lease or statute (2026-10-02 · 「外省的要查外省的法规，
+  // 不要用安省的法规和说法」): the province's own adverse-decision right, else its privacy-law access right.
+  const rules = app ? rulesFor(effectiveProvince({ address: app.listing_address })) : null
+  const next = (key: string) => rules && key === 'lease'
+    ? (zh ? '已录取。房东会和你联系签订租约。' : 'Approved. The landlord will be in touch about signing the lease.')
+    : (zh ? NEXT[key].zh : NEXT[key].en)
   return (
     <WorkspaceShell role="tenant" hideAside>
       <div className="mx-auto max-w-[760px]">
@@ -94,13 +102,15 @@ export default function TenantApplicationPage({ params }: { params: Promise<{ id
               </ol>
               {current && NEXT[current.key] && (
                 <p className="mt-3 rounded-xl bg-surface-chip px-3 py-2 text-[13px] text-body-2" data-testid="application-next-step">
-                  <b>{zh ? '下一步：' : 'Next: '}</b>{zh ? NEXT[current.key].zh : NEXT[current.key].en}
+                  <b>{zh ? '下一步：' : 'Next: '}</b>{next(current.key)}
                 </p>
               )}
               {declined && (
                 <p className="mt-3 rounded-xl bg-danger/5 px-3 py-2 text-[13px] text-body-2">
                   {zh ? '这份申请未被录取。' : 'This application was not accepted.'}{app.decision_reason ? ` ${zh ? '房东给出的说明：' : 'The landlord’s note: '}“${app.decision_reason}”` : ''}
-                  {' '}{zh ? '你有权在 60 天内索取所依据信息的性质与来源（《消费者报告法》s.10(7)）；申请时提供的材料不会被用于其他目的。' : 'Within 60 days you may ask for the nature and source of the information relied on (Consumer Reporting Act s.10(7)).'}
+                  {' '}{rules
+                    ? (zh ? (rules.adverseDecision ?? rules.privacyLaw.access).zh : (rules.adverseDecision ?? rules.privacyLaw.access).en)
+                    : zh ? '你有权在 60 天内索取所依据信息的性质与来源（《消费者报告法》s.10(7)）；申请时提供的材料不会被用于其他目的。' : 'Within 60 days you may ask for the nature and source of the information relied on (Consumer Reporting Act s.10(7)).'}
                 </p>
               )}
             </section>

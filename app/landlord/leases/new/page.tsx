@@ -8,6 +8,9 @@ export const runtime = 'edge'
 // a draft lease_documents row; the detail page then sends it to the tenant
 // for online signing. Arriving with ?application_id=<uuid> prefills the form
 // from that application + its listing (one-click draft from an applicant).
+// Both forms are Ontario forms: a home outside Ontario (2026-10-02 · 「外省的要查外省的
+// 法规，不要用安省的法规和说法」) gets no drafting form — that province's lease-form
+// rules from lib/provinces and the import path instead (ProvinceLeaseCard).
 import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -21,6 +24,9 @@ import { useLandlord } from '@/lib/useLandlord'
 import { useT } from '@/lib/i18n'
 import { checkLeaseTerms } from '@/lib/ontario/rules'
 import { leaseIsEditableDraft, leaseIsWithdrawable } from '@/lib/lease/leaseState'
+import { listingProvince, provinceName } from '@/lib/listingDisplay'
+import { leaseFormGuidance, rulesFor } from '@/lib/provinces/rules'
+import type { ProvinceCode, ProvinceRow } from '@/lib/provinces/detect'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -65,9 +71,23 @@ type PrefillApplication = {
     unit: string | null
     city: string | null
     postal_code: string | null
+    province: string | null
     monthly_rent: number
     parking: string | null
   } | null
+}
+
+// A home outside Ontario: which province, whose lease, and the lease already on file (if any).
+type ProvinceGate = { code: ProvinceCode; address: string; tenant: string; leaseId: string | null; leaseStatus: string | null }
+
+// The province of the home a lease is for: its listing when one is linked, else the address on
+// the form (RLS-scoped, like every read on this page).
+async function provinceForLease(listingId: string | null, place: { street?: string | null; city?: string | null; postal?: string | null } | null): Promise<ProvinceCode> {
+  if (listingId) {
+    const { data } = await supabase.from('listings').select('address, city, postal_code, province').eq('id', listingId).maybeSingle()
+    if (data) return listingProvince(data as ProvinceRow)
+  }
+  return listingProvince(place ? { address: place.street ?? null, city: place.city ?? null, postal_code: place.postal ?? null } : null)
 }
 
 type PriorLeaseRow = { id: string; status: string; sent_at: string | null; signed_at: string | null; landlord_signature: unknown; tenant_signature: unknown }
@@ -80,6 +100,72 @@ const PRIOR_STATUS: Record<string, { zh: string; en: string }> = {
   signed_both: { zh: '双方已签', en: 'signed by both' },
   active: { zh: '生效中', en: 'in force' },
   imported: { zh: '导入的记录', en: 'an imported record' },
+}
+
+// The lease page for a home outside Ontario: the province's lease-form rules (each line carries
+// its citation, lib/provinces/rules), the official link, and where the signed lease goes next.
+// Nothing here names an Ontario statute, form or body (tests/provinceLease20261002.spec.ts).
+function ProvinceLeaseCard({ gate, zh }: { gate: ProvinceGate; zh: boolean }) {
+  const lang = zh ? 'zh' : 'en'
+  const g = leaseFormGuidance(gate.code, lang)
+  const r = rulesFor(gate.code)
+  if (!g || !r) return null
+  const name = provinceName(gate.code, lang)
+  const who = [gate.tenant, gate.address].filter(Boolean).join(' · ')
+  const status = gate.leaseStatus ? PRIOR_STATUS[gate.leaseStatus] : null
+  return (
+    <div className="mx-auto max-w-[860px]" data-testid="lease-province-card">
+      <Link href="/landlord/leases" className="font-mono text-[12px] text-body-3 hover:text-body">
+        {zh ? '← 返回租约管理' : '← Back to leases'}
+      </Link>
+      <div className="mt-3">
+        <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
+          {name} · {zh ? '租约' : 'Lease'}
+        </div>
+        <h1 className="mt-1 text-[24px] font-bold tracking-tight sm:text-[30px]">
+          {zh ? `在${name}签租约` : `Signing a lease in ${name}`}
+        </h1>
+        {who && <div className="mt-1 font-mono text-[11.5px] text-body-3">{who}</div>}
+        <p className="mt-2 text-[13px] leading-relaxed text-body-2">
+          {zh
+            ? `这套房源在${name}，适用法律：${r.statute.zh}。Stayloop 不能为这套房源在线起草或电子签署租约，请按下面的规定签约。`
+            : `This home is in ${name}. Applicable law: ${r.statute.en}. Stayloop cannot draft or e-sign a lease for this home online — sign it as set out below.`}
+        </p>
+      </div>
+
+      {gate.leaseId && (
+        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-[12.5px] text-amber-900" data-testid="lease-province-prior">
+          {status
+            ? (zh ? `已有一份租约记录（${status.zh}）。` : `There is already a lease record (${status.en}).`)
+            : (zh ? '已有一份租约记录。' : 'There is already a lease record.')}{' '}
+          <Link href={`/landlord/leases/${gate.leaseId}`} className="font-semibold underline underline-offset-2">{zh ? '打开它 →' : 'Open it →'}</Link>
+        </div>
+      )}
+
+      <div className="mt-6 sl-card p-5">
+        <div className="mb-3 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-landlord">{zh ? '租约格式' : 'Lease form'}</div>
+        <div className="text-[15px] font-bold">{g.name}</div>
+        <ul className="mt-3 grid list-disc gap-2 pl-5 text-[13px] leading-relaxed text-body-2">
+          {g.lines.map((line, i) => <li key={i}>{line}</li>)}
+        </ul>
+        <a href={g.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-[13px] font-semibold text-brand underline underline-offset-2">
+          {zh ? '官方链接 ↗' : 'Official link ↗'}
+        </a>
+      </div>
+
+      <div className="mt-4 sl-card p-5">
+        <div className="mb-2 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-landlord">{zh ? '签好之后' : 'Once it is signed'}</div>
+        <p className="text-[13px] leading-relaxed text-body-2">
+          {zh
+            ? '租约签好后，在「导入已有租约」上传，之后的租金记录、报修和对话都可以在 Stayloop 里管理。'
+            : 'Once the lease is signed, upload it under “Import an existing lease” to keep the rent records, maintenance and conversation for this tenancy in Stayloop.'}
+        </p>
+        <Link href="/leases/import" className="sl-btn-primary mt-4 inline-block !px-6 !py-[12px] !text-[14px]" data-testid="lease-province-import">
+          {zh ? '去导入已有租约 →' : 'Import an existing lease →'}
+        </Link>
+      </div>
+    </div>
+  )
 }
 
 function NewLeasePageInner() {
@@ -114,11 +200,20 @@ function NewLeasePageInner() {
   // replacement the landlord has to ask for, not a silent second copy.
   const [priorLease, setPriorLease] = useState<PriorLease | null>(null)
   const [replaceOk, setReplaceOk] = useState(false)
+  // The home is outside Ontario: the province card replaces the drafting form. Until a prefill
+  // source (application / draft / lease record) has been read its province is unknown, so no
+  // form is shown before then (an Ontario form must never flash for a Québec home).
+  const [outside, setOutside] = useState<ProvinceGate | null>(null)
+  const sourceKey = [applicationParam, editParam, fromLeaseParam].map((p) => (p && UUID_RE.test(p) ? p : '')).join('|')
+  const [resolvedKey, setResolvedKey] = useState<string | null>(null)
+  const resolving = sourceKey !== '||' && resolvedKey !== sourceKey
+  useEffect(() => { setOutside(null) }, [sourceKey])
 
   useEffect(() => {
     if (authLoading || !landlord) return
     if (!editParam || !UUID_RE.test(editParam)) return
     let cancelled = false
+    const key = sourceKey
     const run = async () => {
       const { data, error } = await supabase
         .from('lease_documents')
@@ -127,6 +222,12 @@ function NewLeasePageInner() {
         .maybeSingle()
       if (cancelled) return
       if (error || !data) { setEditBlocked(editParam); setPrefillNote({ kind: 'fail', text: zh ? '没有找到这份草稿（或无权限查看）。' : 'Draft not found (or no access).' }); return }
+      // A lease for a home outside Ontario is never reopened on an Ontario form.
+      const terms = (data.terms || {}) as { unit?: { street?: string; city?: string; postal?: string }; premises?: { street?: string; city?: string; postal?: string }; tenant_names?: string[] }
+      const place = (data.form_type === 'trreb' ? terms.premises : terms.unit) ?? null
+      const code = await provinceForLease(data.listing_id ?? null, place)
+      if (cancelled) return
+      if (code !== 'ON') { setOutside({ code, address: place?.street || '', tenant: terms.tenant_names?.[0] || '', leaseId: data.id, leaseStatus: data.status ?? null }); return }
       if (!leaseIsEditableDraft(data)) { setEditBlocked(data.id); return }
       const ft: FormType = data.form_type === 'trreb' ? 'trreb' : 'ontario_standard'
       setFormType(ft)
@@ -144,7 +245,7 @@ function NewLeasePageInner() {
           : (zh ? '正在编辑草稿：保存后才生效，发送给租客之前都可以再改。' : 'Editing the draft: nothing changes until you save, and you can keep editing until it is sent.'),
       })
     }
-    void run()
+    void run().finally(() => { if (!cancelled) setResolvedKey(key) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, landlord, editParam])
@@ -153,6 +254,7 @@ function NewLeasePageInner() {
     if (authLoading || !landlord) return
     if (!fromLeaseParam || !UUID_RE.test(fromLeaseParam)) return
     let cancelled = false
+    const key = sourceKey
     const run = async () => {
       const [{ data: src }, { data: hhs }] = await Promise.all([
         supabase.from('lease_documents').select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, application_id, listing_id').eq('id', fromLeaseParam).maybeSingle(),
@@ -161,6 +263,9 @@ function NewLeasePageInner() {
       if (cancelled) return
       if (!src) { setPrefillNote({ kind: 'fail', text: zh ? '没有找到这份租约记录，已回退到空白表单。' : 'Lease record not found — starting from a blank form.' }); return }
       const hh = ((hhs ?? []) as { address: string | null; unit: string | null; city: string | null }[])[0]
+      const code = await provinceForLease(src.listing_id ?? null, hh ? { street: hh.address, city: hh.city } : { street: src.unit_label })
+      if (cancelled) return
+      if (code !== 'ON') { setOutside({ code, address: hh?.address || String(src.unit_label || ''), tenant: String(src.tenant_name || ''), leaseId: src.id, leaseStatus: null }); return }
       const names = String(src.tenant_name || '').split(/\s*(?:&|,|\band\b)\s*/i).map((x) => x.trim()).filter(Boolean)
       const street = hh?.address || ''
       const unit = hh?.unit || (hh ? '' : String(src.unit_label || ''))
@@ -194,7 +299,7 @@ function NewLeasePageInner() {
             : 'Prefilled the tenant, address, rent and dates from the recorded lease — review and complete the rest. This record has no managed tenancy yet; one is created once both sign.'),
       })
     }
-    void run()
+    void run().finally(() => { if (!cancelled) setResolvedKey(key) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, landlord, fromLeaseParam])
@@ -203,7 +308,15 @@ function NewLeasePageInner() {
     if (authLoading || !landlord) return
     if (!applicationParam || !UUID_RE.test(applicationParam)) return
     let cancelled = false
+    const key = sourceKey
     const run = async () => {
+      // The application (and its listing's province) is read alongside the prior leases.
+      const appRead = supabase
+        .from('applications')
+        .select('id, first_name, last_name, email, move_in_date, num_occupants, listing_id, listing:listings(address, unit, city, postal_code, province, monthly_rent, parking)')
+        .eq('id', applicationParam)
+        .maybeSingle<PrefillApplication>()
+        .then((r) => r)
       // One application, one lease (sweep 2026-10-01): an unsent draft reopens for editing;
       // a sent / signed one is shown and a new one needs an explicit "draft a replacement".
       const { data: prior } = await supabase
@@ -214,16 +327,25 @@ function NewLeasePageInner() {
         .limit(10)
       if (cancelled) return
       const priorRows = (prior ?? []) as PriorLeaseRow[]
+      const { data, error } = await appRead
+      if (cancelled) return
+      // A home outside Ontario: the province card, never the Ontario drafting form (nor a reopened draft on it).
+      const code = data?.listing ? listingProvince(data.listing) : 'ON'
+      if (code !== 'ON') {
+        const onFile = priorRows.find((r) => r.status !== 'ended') ?? priorRows[0] ?? null
+        setOutside({
+          code,
+          address: [data?.listing?.address, data?.listing?.unit ? `#${data.listing.unit}` : ''].filter(Boolean).join(' '),
+          tenant: [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim(),
+          leaseId: onFile?.id ?? null,
+          leaseStatus: onFile?.status ?? null,
+        })
+        return
+      }
       const draft = priorRows.find((r) => leaseIsEditableDraft(r))
       if (draft) { router.replace(`/landlord/leases/new?edit=${draft.id}&reopened=1`); return }
       const live = priorRows.find((r) => r.status !== 'ended')
       if (live) setPriorLease({ id: live.id, status: live.status, withdrawable: leaseIsWithdrawable(live), signed: !!(live.signed_at || live.landlord_signature || live.tenant_signature) })
-      const { data, error } = await supabase
-        .from('applications')
-        .select('id, first_name, last_name, email, move_in_date, num_occupants, listing_id, listing:listings(address, unit, city, postal_code, monthly_rent, parking)')
-        .eq('id', applicationParam)
-        .maybeSingle<PrefillApplication>()
-      if (cancelled) return
       if (error || !data) {
         setPrefillNote({
           kind: 'fail',
@@ -273,7 +395,7 @@ function NewLeasePageInner() {
           : `Prefilled from ${tenantName || 'the'} application — review and complete the remaining fields.`,
       })
     }
-    void run()
+    void run().finally(() => { if (!cancelled) setResolvedKey(key) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, landlord, applicationParam])
@@ -428,12 +550,20 @@ function NewLeasePageInner() {
     router.push(`/landlord/leases/${data.id}`)
   }
 
-  if (authLoading || !landlord) {
+  if (authLoading || !landlord || resolving) {
     return (
       <WorkspaceShell role="landlord" hideAside>
         <div className="flex min-h-[60vh] items-center justify-center">
           <span className="orb landlord pulse h-12 w-12" style={{ color: '#047857' }} />
         </div>
+      </WorkspaceShell>
+    )
+  }
+
+  if (outside) {
+    return (
+      <WorkspaceShell role="landlord" hideAside>
+        <ProvinceLeaseCard gate={outside} zh={zh} />
       </WorkspaceShell>
     )
   }

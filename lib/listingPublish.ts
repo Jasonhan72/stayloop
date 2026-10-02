@@ -2,14 +2,22 @@ import { hasUsablePhotos } from './listingVisibility'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DraftListing } from '@/lib/agent/types'
 import { splitAddress, streetKey } from '@/lib/lease/householdMatch'
+import {
+  PROVINCE_CODES, checkListingComplianceFor, effectiveProvince, normalizeProvince, petBanAllowed, provinceFromPostal, provinceName,
+  provinceTokenIn, rulesFor, type Bi, type Lang, type ProvinceCode, type ProvinceInput,
+} from '@/lib/provinces'
 
 // Form input for buildListingRow. Same shape as DraftListing, but the wizard
 // path passes parseInt(...) || null for numeric fields, so those allow null.
+// `province` is what the landlord confirmed on the form (a code or any spelling
+// normalizeProvince knows); `postal_code` is used only to detect the province.
 export type ListingFormInput = Omit<DraftListing, 'monthly_rent' | 'sqft' | 'deposit' | 'year_built'> & {
   monthly_rent: number | null
   sqft?: number | null
   deposit?: number | null
   year_built?: number | null
+  province?: string | null
+  postal_code?: string | null
 }
 
 export const LISTING_PUBLISH_MSG = {
@@ -67,16 +75,178 @@ type BuildListingRowOpts = {
   slim?: boolean
 }
 
+// ── Province (2026-10-02) ───────────────────────────────────────────────────
+// Every row used to be written with a hard-coded Ontario province, so the
+// Montréal listing ("1569 rue St-Hubert, Montréal, QC, H2L 3Z1") was stored as
+// Ontario and its page showed Ontario's rules (user: 「外省的要查外省的法规，不要
+// 用安省的法规和说法」). The row now carries the province the landlord confirmed on
+// the form, else what the address says (postal code > province token > city;
+// lib/provinces/detect). Province is not a trust field: guard_listing_trust_fields
+// does not send a listing back to review when it changes.
+
+/** The province a new / edited row is written with. */
+export function listingFormProvince(form: { province?: string | null; address?: string | null; city?: string | null; postal_code?: string | null }): ProvinceCode {
+  return normalizeProvince(form.province) ?? detectListingProvince(form.address, form.city, form.postal_code)
+}
+
+/** The province the typed address points to (ON when nothing says otherwise). The forms pass
+ *  no city while the city field still holds its untouched "Toronto" default, so a "Montréal"
+ *  in the address is not outvoted by it. */
+export function detectListingProvince(address: string | null | undefined, city?: string | null, postal?: string | null): ProvinceCode {
+  return effectiveProvince({ address, city, postal_code: postal })
+}
+
+/** What the address itself states about the province — a postal code or an explicit province
+ *  token — or null. The listing page reads this before the stored province, so the forms warn
+ *  when the landlord's choice disagrees with it. */
+export function addressProvinceEvidence(address: string | null | undefined, city?: string | null, postal?: string | null): ProvinceCode | null {
+  return provinceFromPostal(postal) ?? provinceFromPostal(address) ?? provinceFromPostal(city) ?? provinceTokenIn(address) ?? provinceTokenIn(city)
+}
+
+const POSTAL_IN_SEGMENT_RE = /\b[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ -]?\d[ABCEGHJ-NPRSTV-Z]\d\b/gi
+
+/** The city part of a typed address — "1569 rue St-Hubert, Montréal, QC, H2L 3Z1" → "Montréal";
+ *  null when the address has no separate city segment. Used only for a listing outside Ontario
+ *  whose city field was left empty (or at its Toronto default). */
+export function cityFromAddress(address: string | null | undefined): string | null {
+  const parts = String(address ?? '').split(',').map((x) => x.trim()).filter(Boolean)
+  if (parts.length < 2) return null
+  const rest = parts.slice(1).map((seg) => {
+    let t = seg.replace(POSTAL_IN_SEGMENT_RE, ' ').replace(/\s+/g, ' ').trim()
+    if (!t || /^canada$/i.test(t) || normalizeProvince(t)) return ''
+    // "Montréal QC" → "Montréal" (upper-case abbreviations only; "Ville de Québec" stays whole)
+    const m = t.match(/^(.+?)\s+([A-Z][A-Z.]{1,5})$/)
+    if (m && normalizeProvince(m[2])) t = m[1].trim()
+    return t
+  }).filter(Boolean)
+  return rest.length ? rest[rest.length - 1] : null
+}
+
+/** The 13 provinces and territories for the forms' select, named in the UI language. */
+export function provinceOptions(lang: Lang): { value: ProvinceCode; label: string }[] {
+  return PROVINCE_CODES.map((c) => ({ value: c, label: provinceName(c, lang) }))
+}
+
+// ── Lease-term guidance outside Ontario (2026-10-02) ────────────────────────
+// Ontario keeps its RTA wording in the forms (unchanged). Everything below is null for
+// Ontario and, elsewhere, only the verified facts in lib/provinces/rules.ts — no Ontario
+// statute, body or term; a topic with no verified fact says nothing.
+
+const pickBi = (t: Bi, lang: Lang) => (lang === 'zh' ? t.zh : t.en)
+
+/** The citation at the end of a verified fact sentence: "…（《魁北克民法典》第 1904、1893 条）。"
+ *  → "《魁北克民法典》第 1904、1893 条"; "…(Residential Tenancy Act, ss. 19(1), 20)." → its inside. */
+export function factCitation(text: string): string | null {
+  const s = text.trim().replace(/[。.]$/, '')
+  const close = s.endsWith('）') ? '）' : s.endsWith(')') ? ')' : null
+  if (!close) return null
+  const open = close === '）' ? '（' : '('
+  let depth = 0
+  for (let i = s.length - 1; i >= 0; i--) {
+    if (s[i] === close) depth++
+    else if (s[i] === open && --depth === 0) return s.slice(i + 1, s.length - 1).trim() || null
+  }
+  return null
+}
+
+const withCite = (label: string, fact: Bi, lang: Lang) => {
+  const c = factCitation(pickBi(fact, lang))
+  return c ? (lang === 'zh' ? `${label}（${c}）` : `${label} (${c})`) : label
+}
+
+const DEPOSIT_RULE_RE = /-(no-deposit|deposit-cap|no-key-deposit)$/
+
+/** The deposit rule for a listing outside Ontario (its verified fact sentence) and what is
+ *  wrong with the amount entered, if anything. Null for Ontario. */
+export function depositGuidanceFor(code: ProvinceInput, rent: number | null | undefined, deposit: number | null | undefined, lang: Lang): { rule: string; problems: string[] } | null {
+  const r = rulesFor(code)
+  if (!r) return null
+  const { findings } = checkListingComplianceFor(r.code, { monthly_rent: rent ?? null, deposit: deposit ?? null })
+  return { rule: pickBi(r.deposit, lang), problems: findings.filter((f) => DEPOSIT_RULE_RE.test(f.rule)).map((f) => f.message[lang]) }
+}
+
+/** The pet rule for a listing outside Ontario: its verified sentence (null where none was
+ *  verified — Nunavut) and whether the form may offer 「不允许」 (only where a ban is allowed).
+ *  Null for Ontario. */
+export function petGuidanceFor(code: ProvinceInput, lang: Lang): { note: string | null; banOption: boolean } | null {
+  const r = rulesFor(code)
+  if (!r) return null
+  return { note: r.petBanAllowed ? pickBi(r.petBanAllowed, lang) : null, banOption: petBanAllowed(r.code) === true }
+}
+
+const MONTHS: Record<string, Bi> = {
+  '0.5': { zh: '半个月', en: 'half a month’s' },
+  '0.75': { zh: '四分之三个月', en: 'three quarters of a month’s' },
+  '1': { zh: '一个月', en: 'one month’s' },
+}
+
+export type ListingCheckItem = { key: string; label: string; rules: string[] }
+
+/** The publish wizard's pre-publish checks for a listing outside Ontario, one line per topic the
+ *  province's facts cover; a line fails when checkListingComplianceFor returns one of its rules.
+ *  Null for Ontario (the wizard keeps its RTA lines). */
+export function listingCheckItemsFor(code: ProvinceInput, lang: Lang): ListingCheckItem[] | null {
+  const r = rulesFor(code)
+  if (!r) return null
+  const c = r.code
+  const zh = lang === 'zh'
+  const items: ListingCheckItem[] = []
+  const months = MONTHS[String(r.deposit.maxMonths)]
+  items.push({
+    key: 'deposit',
+    rules: [`${c}-no-deposit`, 'QC-CCQ-1904-no-deposit', `${c}-deposit-cap`, `${c}-no-key-deposit`],
+    label: withCite(
+      !r.deposit.allowed ? (zh ? '不收任何押金' : 'No deposit of any kind')
+        : months ? (zh ? `押金不超过${months.zh}租金` : `Deposit within ${months.en} rent`)
+        : (zh ? '押金在法定上限以内' : 'Deposit within the legal cap'),
+      r.deposit, lang,
+    ),
+  })
+  const k = r.keyOrOtherDeposits
+  const extras: Bi[] = []
+  if (r.deposit.allowed && !r.petDeposit.allowed) extras.push({ zh: '宠物押金', en: 'pet deposit' })
+  // "Damage deposit" is the everyday name of the security deposit outside Quebec — only a cleaning deposit is a separate one.
+  if (r.deposit.allowed && !(k.allowed && k.key === 'counts_toward_deposit')) extras.push({ zh: '清洁押金', en: 'cleaning deposit' })
+  if (r.petFee && !r.petFee.allowed) extras.push({ zh: '宠物费', en: 'pet fee' })
+  if (extras.length) {
+    items.push({
+      key: 'extra_deposits',
+      rules: [`${c}-no-pet-deposit`, `${c}-no-cleaning-deposit`, `${c}-no-pet-fee`, 'QC-CCQ-1904-no-pet-fee'],
+      label: zh ? `文案里没有${extras.map((x) => x.zh).join(' / ')}` : `No ${extras.map((x) => x.en).join(' / ')} in the copy`,
+    })
+  }
+  if (r.advanceRent.lastMonth === 'prohibited') {
+    items.push({
+      key: 'last_month',
+      rules: ['QC-CCQ-1904-advance-rent', `${c}-no-last-month-rent`],
+      label: withCite(zh ? '文案里没有预收最后一个月租金' : 'No prepaid last month’s rent in the copy', r.advanceRent, lang),
+    })
+  }
+  const fee = r.applicationFee
+  if (fee && (fee.allowed === false || c === 'QC')) {
+    items.push({
+      key: 'application_fee',
+      rules: [`${c}-no-application-fee`, 'QC-application-fee'],
+      label: withCite(
+        fee.allowed === false ? (zh ? '文案里没有申请费 / 筛查费' : 'No application / screening fee in the copy') : (zh ? '文案里没有申请费' : 'No application fee in the copy'),
+        fee, lang,
+      ),
+    })
+  }
+  return items
+}
+
 // Never include verification_status / verified_at / source overrides beyond
 // computeListingSource — the DB trigger guard_listing_trust_fields owns those.
 export function buildListingRow(form: ListingFormInput, opts: BuildListingRowOpts) {
+  const province = listingFormProvince(form)
   if (opts.slim) {
     return {
       landlord_id: opts.landlordId,
       address: form.address,
       unit: form.unit || null,
       city: form.city,
-      province: 'ON',
+      province,
       monthly_rent: form.monthly_rent,
       bedrooms: form.bedrooms,
       bathrooms: form.bathrooms,
@@ -104,8 +274,9 @@ export function buildListingRow(form: ListingFormInput, opts: BuildListingRowOpt
     landlord_id: opts.landlordId,
     address: form.address,
     unit: form.unit || null,
-    city: form.city || 'Toronto',
-    province: 'ON',
+    // The Toronto default is for Ontario rows only; elsewhere the city comes from the address.
+    city: form.city || (province === 'ON' ? 'Toronto' : cityFromAddress(form.address)),
+    province,
     monthly_rent: form.monthly_rent,
     bedrooms: form.bedrooms ?? null,
     bathrooms: form.bathrooms ?? null,

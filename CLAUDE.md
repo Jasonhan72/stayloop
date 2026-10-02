@@ -3045,8 +3045,26 @@ H1 96px 衬线 / 400、小字 24px 65% 墨色、上下留白 256px。我们原�
   **同日两项跟进（用户「是的，要改，另外 supabase 的检查也要开启」）**：
   - **房源详情页只对安省房源显示安省内容**：`lib/listingDisplay.ts isOntarioListing(province)`（空省份按安省算——产品只做安省、老数据没存省份）。
     外省房源不显示 RTA 说明、「入住前费用一览」卡片（押金上限 / 安省不允许收的费用）、TRREB 成交均价，也不再推荐 RECO（安省）注册经纪；
-    「租赁条件」下改为一句「安省租房规则不适用于这套房源（魁北克省）」（`ontarioRulesNotApplicable`）。守卫 `tests/listingProvince20261002.spec.ts`。
-    未改：外省房源的申请表仍是安省措辞（人权法、消费者报告法说明）。
+    「租赁条件」下改为一句「安省租房规则不适用于这套房源（魁北克省）」——**当天即被下一节取代**（用户：「外省的要查外省的法规…也不用特别加一句话」）。
   - **Supabase 泄露密码检查已开启**（`password_hibp_enabled: true`，经 Management API 只改这一项，改前改后 243 项逐项比对只有它变了）。
     Supabase 对泄露 / 太弱的密码返回 `weak_password`（reasons 含 `pwned`）；注册、重置密码、管理员改密码三处经
     `lib/auth/passwordError.ts passwordErrorMessage` 显示人话（「这个密码出现在已公开的数据泄露记录里……」）。守卫 `tests/leakedPassword20261002.spec.ts`。
+
+## 外省房源用外省法规 · 详情页单语 · 相似房源按地段（2026-10-02 · 用户「外省的要查外省的法规，不要用安省的法规和说法…也不用特别加一句话」+「房源详情这里不要中文和英文混杂…相似房源…首先是要地段相似，其次房型，再次价格」）
+
+**外省法规（`lib/provinces/`）**——取代同日的「安省规则不适用」一句话。
+- **事实来源**：12 个省 / 地区（QC BC AB MB SK NS NB PE NL YT NT NU）各 14 条住宅租赁事实（魁北克 20 条），研究员只用官方来源（各省法规网站、TAL 等官方审裁 / 政府页面；CanLII 屏蔽自动访问，LegisQuébec 对 WebFetch 返回 403，要用 curl + 浏览器 UA）并逐条附原文引语，**再由独立核查员逐条对照原文**（魁北克两位）；未通过核查的 4 条不上线。快照截至 2026-10-02，写在 `lib/provinces/rules.ts` 的数据里，每条带 citation 与官方 URL。**安省不在其中，仍走 `lib/ontario/rules.ts`，所有安省输出与改前逐字相同。**
+- **省份判定 `lib/provinces/detect.ts effectiveProvince(row)`**：邮编首字母（列，或地址里的邮编；X0A–X0C 努纳武特、X0E/X0G/X1A 西北地区）> 地址里的省份字样 > 存的 province > 城市字典 > ON。页面一律用 `listingProvince(listing)`，不直接读列。**发布向导与编辑页不再写死 'ON'**（蒙特利尔那套当初就是这样被存成 ON 的）：按地址自动识别，可在下拉里改正。
+- **各处改法（外省永远不出现 RTA / LTB / OHRC / RECO / TRESA / 安省标准租约 / N 表，也不写「不适用」）**：
+  - 详情页「租赁条件」= `listingRulesNote(code)`（魁北克：《魁北克民法典》第 1904 条不得收任何押金含钥匙押金、最多预收第一个月、不得要求预开支票；一般可约定不养宠物（残障辅助动物除外）；须用住房行政法庭 TAL 的强制租约格式、10 天内交租客一份，第 1895 条）；没有核实事实的话题什么都不写。「入住前费用一览」按 `moveInRules(code)` 重画（魁北克押金行「不得收取」，合计只有首月租金）；房源标了押金而该省不允许或超过上限时红色提示；可依法禁宠的省份 `pets_allowed='no'` 显示「不允许」。
+  - 申请页：外省用 `applyConsentText`（该省人权法、隐私法；魁北克加 P-39.1 s.8 告知），不再写「查询安省公开法庭记录」；**魁北克按 CAI 指引不收证件复印件**（去掉证件上传，出生日期只用于本人同意的信用查询，雇主与收入改为选填）。看房 / 提问弹窗的人权法句按省份。TRESA s.32 注册人披露只在安省房源上问（TRESA 是安省法）。
+  - 租约：外省房源的申请点「起草租约」不再出安省标准租约，改为该省租约卡（魁北克：TAL 强制格式 Schedule 5、10 天交副本、Section G 最低租金告知、法语优先），签好后去 `/leases/import`；导入的外省租约详情页不再标 ONTARIO STANDARD LEASE。决定通知 `send_decision` 页脚用 `decisionNoticeFooterFor(省份)`（该省人权法 + 隐私法查阅更正权 + 核实到的拒绝告知权），合规事件 rule id 为 `<省>-decision-notice`。申请人页、租客申请详情页、看房卡注释同步。
+  - AI：房东「你的房源」表给外省房源标省份并注入该省事实包 `aiFactsBlock`（模型只可引用）；三个角色的提示词加「省份边界」规则；草稿的禁宠改写与护栏的安省注释只对安省生效。
+- **没做（记录）**：在管租约中心与续约 90/60/30（`/h/[id]`、`renewalStages`）对外省租约仍是安省逻辑；筛查报告（不碰）对外省申请人仍查安省法院与 LTB；全站页脚「PIPEDA · OHRC · RTA 合规」是公司级的，未改；`/api/v1/listings/compliance` 仍只做安省。
+- 守卫：`tests/provinces20261002`、`provinceListing20261002`、`provincePublish20261002`、`provinceLease20261002`、`provinceAgent20261002`、`provinceReview20261002`、`provinceStage3Review20261002`。
+
+**详情页一种语言**（`lib/listingLang.ts`）：中文界面除地址、街道 / 社区 / 楼盘 / 经纪公司名、品牌、单位、法条引用外不出现英文，英文界面不出现中文。小节英文眉标只在英文界面显示；VERIFIED → 已核验、Condo → 共管公寓、Studio → 开间、+den → + 书房；房东写的双语内容（【中文】【English】、`---`、「中文 / English」、先中后英段落）按界面语言拆开；Realtor.ca 的设施 / 家电 / 供暖 / 外墙等用字典；只有另一种语言的描述与自由文本由 `/api/listings/enrich {id, lang, only:'translations'}` 用对话槽模型翻译一次（与交通 / 社区数据分开请求，不拖慢页面），缓存在 `listing_translations`（迁移 `20261002_listing_translations.sql`，已应用 prod，只有 service role 可读写；按源文本哈希失效；译文出现原文没有的数字即丢弃；全站每小时 300 次上限，失败关闭）。翻译未到时描述处显示「这段介绍目前只有英文原文」+「显示原文」，短字段显示「未说明」。地图 SDK 按界面语言加载；分享与收藏标题用 `listingTitle`。守卫 `tests/listingLang20261002`、`listingPageLang20261002`、`listingTranslations20261002`。
+
+**相似房源**（`lib/listingSimilar.ts rankSimilar`）：严格按 地段 → 户型 → 租金。地段档：同楼 / ≤1 km 或同社区 / ≤2.5 km / ≤6 km；>6 km、卧室差 >2、租金不在 0.5–2 倍之间的不算相似，**不拿远处的凑数**——没有就写「附近 6 km 内暂无户型、租金相近的在租房源」+「查看全部房源 →」（Avondale、蒙特利尔现在是这样）。卡片显示距离（同楼 / 350 m / 1.2 km）、同社区、户型（同户型 · 2 卧 / 多 1 卧）与租金差（比这套低 $1,210）。候选按坐标 ±6 km 框取最多 500 条（只含排序列），排序后再取前 12 条的卡片字段。守卫 `tests/listingSimilar20261002`。
+
+**顺带**：数据修正——8 Colvestone Road 的社区原来是经纪公司名「Forest Hill」、坐标错 8 km，改为 St. Andrew-Windfields 并按地址重新取坐标；238 Simcoe 城市「Toronto, ON」→「Toronto」（页面曾显示 Toronto, ON, ON）；三条 Realtor 导入行的联系人「Agents.」「Website」清空。`parkingStat('待确认…')` 不再显示「有」。经纪选择器不再向非测试账号显示名字以「[TEST]」开头的经纪。

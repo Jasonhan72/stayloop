@@ -14,7 +14,9 @@ import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { RegistrantDisclosureModal, useRegistrantProfile } from '@/components/RegistrantDisclosure'
 import { AgentPicker } from '@/components/AgentPicker'
-import { listingTitle } from '@/lib/listingDisplay'
+import { listingProvince, listingTitle } from '@/lib/listingDisplay'
+import { applyConsentText, provinceName, rulesFor, type ProvinceCode } from '@/lib/provinces'
+import { cityOnly } from '@/components/listing/labels'
 import type { ApplicationFile, FileKind } from '@/types'
 
 const FILE_KINDS: { kind: FileKind; label: { zh: string; en: string }; hint: { zh: string; en: string } }[] = [
@@ -22,6 +24,20 @@ const FILE_KINDS: { kind: FileKind; label: { zh: string; en: string }; hint: { z
   { kind: 'paystub',            label: { zh: '近期工资单', en: 'Recent pay stubs' },   hint: { zh: '过去 2-3 个月 (PDF 或图片)', en: 'Last 2–3 months (PDF or image)' } },
   { kind: 'bank_statement',     label: { zh: '银行对账单', en: 'Bank statement' },   hint: { zh: '最新一份，能看到工资到账', en: 'Most recent, showing payroll deposits' } },
   { kind: 'employment_letter',  label: { zh: '在职证明信', en: 'Employment letter' },   hint: { zh: '可选 — 来自雇主', en: 'Optional — from your employer' } },
+]
+// Quebec (2026-10-02 · Commission d’accès à l’information guidance, lib/provinces quebec.screeningLimits):
+// a landlord may look at an ID but not copy, photograph or record it, so a Quebec listing does not
+// collect an ID file; pay stubs, employment letters and bank details are volunteered only.
+function fileKindsFor(province: ProvinceCode) {
+  return province === 'QC' ? FILE_KINDS.filter((k) => k.kind !== 'id') : FILE_KINDS
+}
+const EMPLOYMENT_OPTIONS = [
+  { value: 'Full-time employed', zh: '全职' },
+  { value: 'Part-time employed', zh: '兼职' },
+  { value: 'Self-employed', zh: '自雇' },
+  { value: 'Student', zh: '学生' },
+  { value: 'Retired', zh: '退休' },
+  { value: 'Other', zh: '其他' },
 ]
 // Same cap as the tenant-files bucket (25 MB since 2026-08-25); the page used to say ten.
 const MAX_BYTES = 25 * 1024 * 1024
@@ -109,14 +125,14 @@ export default function ApplyPage() {
   const [listingCheck, setListingCheck] = useState<'checking' | 'ok' | 'notfound' | 'realtor'>('checking')
   const [agentPickerOpen, setAgentPickerOpen] = useState(false)
   // What the applicant is applying for (three-role test report 2026-09-24, SL-T-02).
-  const [summary, setSummary] = useState<{ address: string; unit: string | null; city: string | null; monthly_rent: number | null; bedrooms: number | null; bathrooms: number | null; images: string[] | null; title: string | null } | null>(null)
+  const [summary, setSummary] = useState<{ address: string; unit: string | null; city: string | null; monthly_rent: number | null; bedrooms: number | null; bathrooms: number | null; images: string[] | null; title: string | null; province: string | null; postal_code: string | null } | null>(null)
   useEffect(() => {
     if (!params?.slug) return
     let cancelled = false
     ;(async () => {
       const { data: listing, error: qErr } = await supabase
         .from('listings')
-        .select('id, landlord_id, source, address, unit, city, monthly_rent, bedrooms, bathrooms, images, title')
+        .select('id, landlord_id, source, address, unit, city, monthly_rent, bedrooms, bathrooms, images, title, province, postal_code')
         .eq('slug', params.slug)
         .eq('is_active', true)
         .or(LISTING_VISIBILITY_OR)
@@ -145,6 +161,25 @@ export default function ApplyPage() {
     })()
     return () => { cancelled = true }
   }, [params?.slug, auth.loading, auth.user])
+
+  // Whose rules apply (lib/provinces: postal code > address > stored province > city > ON). Until the
+  // listing is read the jurisdiction lines stay empty, so a Quebec listing never flashes Ontario law; a
+  // listing that could not be read keeps the Ontario form, as before (the submit-time check still guards).
+  const province: ProvinceCode = summary ? listingProvince(summary) : 'ON'
+  const provinceKnown = !!summary || listingCheck !== 'checking'
+  const isOntario = province === 'ON'
+  const quebec = province === 'QC'
+  const fileKinds = fileKindsFor(province)
+  // The federal PIPEDA label only where the province's verified privacy law is PIPEDA (Quebec,
+  // British Columbia and Alberta have their own private-sector laws).
+  // Not before the listing is read, so a Quebec listing never flashes the federal label either.
+  const showPipeda = provinceKnown && (isOntario || /^Personal Information Protection and Electronic Documents Act/.test(rulesFor(province)?.privacyLaw.cite ?? ''))
+  useEffect(() => {
+    if (!quebec) return
+    setFiles((prev) => (prev.id.length ? { ...prev, id: [] } : prev))
+    // Employment is volunteered only in Quebec: the status starts unanswered instead of pre-filled.
+    setForm((f) => (f.employment_status === 'Full-time employed' ? { ...f, employment_status: '' } : f))
+  }, [quebec])
 
   function addFiles(kind: FileKind, fileList: FileList | null) {
     if (!fileList) return
@@ -194,7 +229,8 @@ export default function ApplyPage() {
       setError(zh ? '请填写电话号码（至少 7 位数字）——房东需要用它联系你，没有电话无法提交。' : 'Please enter a phone number (at least 7 digits) — the landlord needs it to reach you, and the application cannot be submitted without one.')
       return
     }
-    const fileCount = (Object.keys(files) as FileKind[]).reduce((n, k) => n + files[k].length, 0)
+    const collected = new Set<FileKind>([...fileKindsFor(province).map((k) => k.kind), 'other'])
+    const fileCount = (Object.keys(files) as FileKind[]).filter((k) => collected.has(k)).reduce((n, k) => n + files[k].length, 0)
     if (fileCount > MAX_FILES) {
       setError(zh ? `最多附 ${MAX_FILES} 个文件，现在有 ${fileCount} 个，请移除一些。` : `Attach at most ${MAX_FILES} files — you have ${fileCount}. Please remove some.`)
       return
@@ -225,13 +261,14 @@ export default function ApplyPage() {
       return
     }
 
-    // TRESA s.32: a registrant leasing in their own interest discloses first.
-    if (registrant.loading) {
+    // TRESA s.32: a registrant leasing in their own interest discloses first. Ontario law: a listing in
+    // another province does not ask for it (2026-10-02 · no Ontario statutes outside Ontario).
+    if (isOntario && registrant.loading) {
       setLoading(false)
       setError(zh ? '正在核对你的账号信息，请稍后再提交。' : 'Still checking your account — please submit again in a moment.')
       return
     }
-    if (registrant.profile && !disclosedRef.current && !createdAppIdRef.current) {
+    if (isOntario && registrant.profile && !disclosedRef.current && !createdAppIdRef.current) {
       setLoading(false)
       setDisclosure({ listingId: listing.id })
       return
@@ -306,7 +343,7 @@ export default function ApplyPage() {
     // Upload files
     const uploaded: ApplicationFile[] = []
     const allEntries: { kind: FileKind; file: File }[] = []
-    ;(Object.keys(files) as FileKind[]).forEach((k) =>
+    ;(Object.keys(files) as FileKind[]).filter((k) => collected.has(k)).forEach((k) =>
       files[k].forEach((f) => allEntries.push({ kind: k, file: f }))
     )
 
@@ -518,15 +555,21 @@ export default function ApplyPage() {
           )}
           <div className="text-center">
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
-              RENTAL APPLICATION · ENCRYPTED · PIPEDA
+              {/* One language per page (2026-10-02): the Chinese UI gets a Chinese eyebrow; PIPEDA is a statute's name. */}
+              {zh ? (showPipeda ? '租房申请 · 加密存储 · PIPEDA' : '租房申请 · 加密存储') : showPipeda ? 'RENTAL APPLICATION · ENCRYPTED · PIPEDA' : 'RENTAL APPLICATION · ENCRYPTED'}
             </div>
             <h1 className="mt-3 text-[32px] font-extrabold tracking-tight sm:text-[40px]">
               {zh ? '提交申请' : 'Submit application'}
             </h1>
             <p className="mt-2 text-[14px] leading-relaxed text-body-2">
-              {zh
-                ? '所有字段都加密存储 · 房东只看到你授权的内容 · Toronto / Ontario 合规'
-                : 'Every field is encrypted · landlords only see what you authorize · Toronto / Ontario compliant'}
+              {!provinceKnown
+                ? (zh ? '所有字段都加密存储 · 房东只看到你授权的内容' : 'Every field is encrypted · landlords only see what you authorize')
+                : isOntario
+                ? (zh
+                    ? '所有字段都加密存储 · 房东只看到你授权的内容 · Toronto / Ontario 合规'
+                    : 'Every field is encrypted · landlords only see what you authorize · Toronto / Ontario compliant')
+                // Outside Ontario: where the listing is, with no compliance claim.
+                : [zh ? '所有字段都加密存储 · 房东只看到你授权的内容' : 'Every field is encrypted · landlords only see what you authorize', cityOnly(summary?.city), provinceName(province, zh)].filter(Boolean).join(' · ')}
             </p>
           </div>
 
@@ -538,7 +581,7 @@ export default function ApplyPage() {
                 : <div className="h-16 w-20 flex-none rounded-lg bg-surface-chip sm:h-20 sm:w-28" />}
               <div className="min-w-0">
                 <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '你在申请' : 'Applying for'}</div>
-                <div className="truncate text-[15px] font-bold">{summary.address}{summary.unit ? ` #${summary.unit}` : ''}{summary.city ? ` · ${summary.city}` : ''}</div>
+                <div className="truncate text-[15px] font-bold">{summary.address}{summary.unit ? ` #${summary.unit}` : ''}{summary.city && !summary.address.toLowerCase().includes(cityOnly(summary.city).toLowerCase()) ? ` · ${cityOnly(summary.city)}` : ''}</div>
                 <div className="text-[13px] text-body-2">{summary.monthly_rent != null ? `$${Number(summary.monthly_rent).toLocaleString('en-CA')}/${zh ? '月' : 'mo'}` : ''}{summary.bedrooms != null ? ` · ${summary.bedrooms} ${zh ? '卧' : 'bd'}` : ''}{summary.bathrooms != null ? ` · ${Number(summary.bathrooms)} ${zh ? '卫' : 'ba'}` : ''}</div>
               </div>
             </div>
@@ -567,7 +610,7 @@ export default function ApplyPage() {
                 <Field label={zh ? '姓 *' : 'Last name *'}><Input required value={form.last_name} onChange={(e: any) => set('last_name', e.target.value)} /></Field>
                 <Field label={zh ? '邮箱 *' : 'Email *'}><Input required type="email" value={form.email} onChange={(e: any) => set('email', e.target.value)} /></Field>
                 <Field label={zh ? '电话 *' : 'Phone *'}><Input required type="tel" autoComplete="tel" value={form.phone} onChange={(e: any) => set('phone', e.target.value)} /></Field>
-                <Field label={zh ? '出生日期' : 'Date of birth'}><Input type="date" value={form.date_of_birth} onChange={(e: any) => set('date_of_birth', e.target.value)} /></Field>
+                <Field label={quebec ? (zh ? '出生日期（仅用于你同意的信用查询）' : 'Date of birth (only for a credit check you consent to)') : zh ? '出生日期' : 'Date of birth'}><Input type="date" value={form.date_of_birth} onChange={(e: any) => set('date_of_birth', e.target.value)} /></Field>
               </Grid>
               <div className="mt-4">
                 <Field label={zh ? '现住地址' : 'Current address'}>
@@ -582,12 +625,14 @@ export default function ApplyPage() {
                   <Select
                     value={form.employment_status}
                     onChange={(e: any) => set('employment_status', e.target.value)}
-                    options={['Full-time employed', 'Part-time employed', 'Self-employed', 'Student', 'Retired', 'Other']}
+                    // Stored values stay English; the label follows the UI language (one language per page).
+                    options={[...(quebec ? [{ value: '', label: zh ? '不提供' : 'Prefer not to say' }] : []), ...EMPLOYMENT_OPTIONS.map((o) => ({ value: o.value, label: zh ? o.zh : o.value }))]}
                   />
                 </Field>
-                <Field label={zh ? '雇主 *' : 'Employer *'}><Input required value={form.employer_name} onChange={(e: any) => set('employer_name', e.target.value)} /></Field>
+                {/* Quebec: employer and salary are not required and may only be volunteered (CAI guidance). */}
+                <Field label={quebec ? (zh ? '雇主（可选）' : 'Employer (optional)') : zh ? '雇主 *' : 'Employer *'}><Input required={!quebec} value={form.employer_name} onChange={(e: any) => set('employer_name', e.target.value)} /></Field>
                 <Field label={zh ? '职位' : 'Job title'}><Input value={form.job_title} onChange={(e: any) => set('job_title', e.target.value)} /></Field>
-                <Field label={zh ? '月毛收入 (CAD) *' : 'Gross monthly income (CAD) *'}><Input required type="number" value={form.monthly_income} onChange={(e: any) => set('monthly_income', e.target.value)} /></Field>
+                <Field label={quebec ? (zh ? '月毛收入（加元，可选）' : 'Gross monthly income (CAD, optional)') : zh ? '月毛收入 (CAD) *' : 'Gross monthly income (CAD) *'}><Input required={!quebec} type="number" value={form.monthly_income} onChange={(e: any) => set('monthly_income', e.target.value)} /></Field>
                 <Field label={zh ? '入职日期' : 'Start date'}><Input type="date" value={form.employment_start_date} onChange={(e: any) => set('employment_start_date', e.target.value)} /></Field>
                 <Field label={zh ? '雇主电话' : 'Employer phone'}><Input type="tel" value={form.employer_phone} onChange={(e: any) => set('employer_phone', e.target.value)} /></Field>
               </Grid>
@@ -616,14 +661,18 @@ export default function ApplyPage() {
 
             </fieldset>
 
-            <Section tag="05" title={zh ? '证明文件 (建议上传)' : 'Supporting documents (recommended)'}>
-              <p className="mb-4 text-[12.5px] leading-relaxed text-body-2">
-                {zh
+            <Section tag="05" title={quebec ? (zh ? '证明文件（可选）' : 'Supporting documents (optional)') : zh ? '证明文件 (建议上传)' : 'Supporting documents (recommended)'}>
+              <p className="mb-4 text-[12.5px] leading-relaxed text-body-2" data-testid={quebec ? 'apply-quebec-limits' : undefined}>
+                {quebec
+                  ? (zh
+                      ? '这些文件都是可选的，只在你愿意时提供。房东可以查看你的身份证件，但不能复印、拍照或记录证件信息，所以这里不收证件文件（魁北克信息查阅委员会（CAI）指引）。PDF / JPG / PNG · 单个最大 25 MB（大照片会自动压缩）。'
+                      : 'These documents are optional — provide them only if you want to. A landlord may look at your ID but may not copy, photograph or record its details, so no ID file is collected here (Commission d’accès à l’information (CAI) guidance). PDF / JPG / PNG · 25 MB max each (large photos are compressed automatically).')
+                  : zh
                   ? '上传文件可让房东用 AI 即时核验你的资料。PDF / JPG / PNG · 单个最大 25 MB（大照片会自动压缩）。'
                   : 'Uploading documents lets the landlord verify your details instantly with AI. PDF / JPG / PNG · 25 MB max each (large photos are compressed automatically).'}
               </p>
               <div className="space-y-3">
-                {FILE_KINDS.map(({ kind, label, hint }) => (
+                {fileKinds.map(({ kind, label, hint }) => (
                   <div key={kind} className="rounded-xl border border-line-divider bg-white p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -674,10 +723,16 @@ export default function ApplyPage() {
             <fieldset disabled={!!createdAppId} className="m-0 min-w-0 border-0 p-0">
             <div className="rounded-2xl border border-warning/40 bg-warning/5 p-5 sm:p-6">
               <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-warning">
-                CONSENT · PIPEDA
+                {zh ? (showPipeda ? '授权 · PIPEDA' : '授权') : showPipeda ? 'CONSENT · PIPEDA' : 'CONSENT'}
               </div>
-              <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
-                {zh
+              <p className="mt-2 text-[12.5px] leading-relaxed text-body-2" data-province={provinceKnown ? province : undefined}>
+                {!provinceKnown
+                  ? null
+                  : !isOntario
+                  // The province's own wording (lib/provinces applyConsentText): its human-rights law, public records
+                  // without Ontario courts, and for Quebec the CAI limits on what an application may ask for.
+                  ? applyConsentText(province, zh ? 'zh' : 'en', { credit: 'if_checked', retentionDays: 90 })
+                  : zh
                   ? '提交即代表你授权房东和 Stayloop 核实信息、联系上家、查询 Ontario 公开法庭记录，以及（如勾选）拉取你的信用报告。数据保留 90 天后销毁，遵守《安大略省人权法典》。'
                   : 'By submitting, you authorize the landlord and Stayloop to verify your information, contact prior landlords, search Ontario public court records, and (if checked) pull your credit report. Data is deleted after 90 days, in compliance with the Ontario Human Rights Code.'}
               </p>

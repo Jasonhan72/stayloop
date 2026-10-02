@@ -9,7 +9,15 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import type { DraftListing } from '@/lib/agent/types'
-import { LEGACY_DRAFT_KEY, LISTING_PUBLISH_MSG, buildListingRow, computeListingSource, makeListingSlug, markDraftDone, publishListing, readDraftSlot, resolveLandlordId, saveDraftSlot, type ExistingListing } from '@/lib/listingPublish'
+import {
+  LEGACY_DRAFT_KEY, LISTING_PUBLISH_MSG, addressProvinceEvidence, buildListingRow, cityFromAddress, computeListingSource, depositGuidanceFor, detectListingProvince,
+  listingFormProvince, makeListingSlug, markDraftDone, petGuidanceFor, provinceOptions, publishListing, readDraftSlot, resolveLandlordId, saveDraftSlot, type ExistingListing,
+} from '@/lib/listingPublish'
+import { normalizeProvince, petBanAllowed, provinceName, type ProvinceCode } from '@/lib/provinces'
+
+// The draft carries the province the landlord confirmed here (2026-10-02); it rides along in the
+// draft slot, so the chat card publishes with it too (buildListingRow reads form.province).
+type DraftForm = DraftListing & { province?: ProvinceCode }
 
 const AMENITY_OPTIONS: { id: string; zh: string; en: string }[] = [
   { id: 'central_ac', zh: '中央空调', en: 'Central A/C' },
@@ -42,7 +50,9 @@ export default function EditDraftListingPage() {
   const { user, loading: authLoading } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [form, setForm] = useState<DraftListing | null>(null)
+  const [form, setForm] = useState<DraftForm | null>(null)
+  // The province follows the address until the landlord picks one.
+  const [provinceManual, setProvinceManual] = useState(false)
   const [photos, setPhotos] = useState<string[]>([])
   const [publishing, setPublishing] = useState(false)
   const [published, setPublished] = useState(false)
@@ -62,8 +72,12 @@ export default function EditDraftListingPage() {
       const key = new URLSearchParams(window.location.search).get('card')
       if (key) {
         setCardKey(key)
-        const d = readDraftSlot(localStorage, user.id, key)
-        if (d) { setForm(d); setPhotos(d.images ?? []) }
+        const d = readDraftSlot(localStorage, user.id, key) as DraftForm | null
+        if (d) {
+          if (normalizeProvince(d.province)) setProvinceManual(true)
+          setForm({ ...d, province: listingFormProvince(d) })
+          setPhotos(d.images ?? [])
+        }
       }
     } catch {}
     setResolved(true)
@@ -83,8 +97,29 @@ export default function EditDraftListingPage() {
     )
   }
 
-  const set = <K extends keyof DraftListing>(k: K, v: DraftListing[K]) =>
-    setForm((f) => (f ? { ...f, [k]: v } : f))
+  const set = <K extends keyof DraftForm>(k: K, v: DraftForm[K]) =>
+    setForm((f) => {
+      if (!f) return f
+      const next: DraftForm = { ...f, [k]: v }
+      if ((k === 'address' || k === 'city') && !provinceManual) next.province = detectListingProvince(next.address, next.city)
+      // A province without a lawful pet ban drops 「不允许」.
+      if (next.province !== f.province && next.pets_allowed === 'no' && petBanAllowed(next.province) !== true) next.pets_allowed = undefined
+      return next
+    })
+  const pickProvince = (raw: string) => {
+    const p = normalizeProvince(raw)
+    if (!p) return
+    setProvinceManual(true)
+    set('province', p)
+  }
+  const province: ProvinceCode = form.province ?? listingFormProvince(form)
+  const lang2 = zh ? 'zh' : 'en'
+  const provinceEvidence = addressProvinceEvidence(form.address, form.city)
+  const provinceMismatch = provinceEvidence && provinceEvidence !== province ? provinceEvidence : null
+  const deposit = depositGuidanceFor(province, form.monthly_rent, form.deposit, lang2)
+  const petNote = petGuidanceFor(province, lang2)?.note ?? null
+  // The Toronto default is Ontario's; elsewhere the city falls back to the address (as buildListingRow does).
+  const cityShown = form.city || (province === 'ON' ? 'Toronto' : cityFromAddress(form.address) ?? '')
 
   const toggleUtility = (id: string) => {
     setForm((f) => {
@@ -234,9 +269,22 @@ export default function EditDraftListingPage() {
                 <input className="sl-input" value={form.neighborhood || ''} onChange={(e) => set('neighborhood', e.target.value)} />
               </LabelField>
               <LabelField label={zh ? '城市' : 'City'}>
-                <input className="sl-input" value={form.city || 'Toronto'} onChange={(e) => set('city', e.target.value)} />
+                <input className="sl-input" value={cityShown} onChange={(e) => set('city', e.target.value)} />
               </LabelField>
             </div>
+            <LabelField label={zh ? '省份 / 地区' : 'Province / territory'}>
+              <select className="sl-input" value={province} onChange={(e) => pickProvince(e.target.value)} data-testid="listing-province">
+                {provinceOptions(lang2).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </LabelField>
+            {provinceMismatch && (
+              <p className="-mt-2 text-[12px] text-amber-800" data-testid="listing-province-note">
+                {zh ? `地址里的邮编或省份是${provinceName(provinceMismatch, 'zh')}，房源页按地址判断省份。` : `The address’s postal code or province says ${provinceName(provinceMismatch, 'en')}; the listing page goes by the address.`}
+                <button type="button" onClick={() => { setProvinceManual(false); set('province', provinceMismatch) }} className="ml-1 font-semibold underline underline-offset-2">
+                  {zh ? `改为${provinceName(provinceMismatch, 'zh')}` : `Use ${provinceName(provinceMismatch, 'en')}`}
+                </button>
+              </p>
+            )}
           </div>
         </section>
 
@@ -247,6 +295,13 @@ export default function EditDraftListingPage() {
             <div className="grid gap-4 sm:grid-cols-4">
               <LabelField label={zh ? '月租 (CAD) *' : 'Rent (CAD) *'}>
                 <input className="sl-input" type="number" value={form.monthly_rent} onChange={(e) => set('monthly_rent', Number(e.target.value) || 0)} required />
+              </LabelField>
+              {/* The AI's draft can carry a deposit; it is published with the listing, so it is shown and editable here. */}
+              <LabelField label={deposit ? (zh ? '押金 (CAD)' : 'Deposit (CAD)') : zh ? '租金押金 (CAD)' : 'Rent deposit (CAD)'}>
+                <input className="sl-input" type="number" value={form.deposit ?? ''} onChange={(e) => set('deposit', e.target.value ? Number(e.target.value) : undefined)} />
+                {!deposit && form.deposit != null && form.monthly_rent > 0 && form.deposit > form.monthly_rent && (
+                  <p className="mt-1 text-[11.5px] text-red-700">{zh ? '安省租金押金最多一个月租金，且只能抵最后一个月租金（RTA s.106）。' : 'Ontario caps the rent deposit at one month and it may only cover the last month (RTA s.106).'}</p>
+                )}
               </LabelField>
               <LabelField label={zh ? '卧室' : 'Bedrooms'}>
                 <input className="sl-input" type="number" value={form.bedrooms ?? ''} onChange={(e) => set('bedrooms', e.target.value ? Number(e.target.value) : undefined)} />
@@ -273,6 +328,13 @@ export default function EditDraftListingPage() {
               <input type="checkbox" checked={!!form.has_den} onChange={(e) => set('has_den', e.target.checked)} className="h-4 w-4 rounded border-line-strong accent-brand" />
               {zh ? '有 Den' : 'Has den'}
             </label>
+            {/* Outside Ontario: that province's verified deposit rule and what is wrong with the amount (lib/provinces/rules.ts). */}
+            {deposit && (
+              <div className="space-y-1.5" data-testid="province-deposit-rule">
+                {deposit.problems.map((m) => <p key={m} className="text-[11.5px] text-red-700">{m}</p>)}
+                <p className="text-[12px] text-body-3">{deposit.rule}</p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -288,6 +350,7 @@ export default function EditDraftListingPage() {
                 <option value="">{zh ? '未说明' : 'Not stated'}</option>
                 <option value="yes">{zh ? '允许' : 'Allowed'}</option>
                 <option value="restricted">{zh ? '有限制' : 'With restrictions'}</option>
+                {petBanAllowed(province) === true && <option value="no">{zh ? '不允许' : 'Not allowed'}</option>}
               </select>
             </LabelField>
             <LabelField label={zh ? '吸烟' : 'Smoking'}>
@@ -319,7 +382,9 @@ export default function EditDraftListingPage() {
                 )
               })}
             </div>
-            <p className="mt-2 text-[12px] text-body-3">{zh ? '安省 RTA 下「禁止养宠」条款无效，所以宠物只能写「允许 / 有限制」；吸烟政策可以由房东设定。' : '"No pets" clauses are void under the Ontario RTA, so pets can only be "allowed / with restrictions"; a smoking policy is the landlord\'s to set.'}</p>
+            {province === 'ON'
+              ? <p className="mt-2 text-[12px] text-body-3">{zh ? '安省 RTA 下「禁止养宠」条款无效，所以宠物只能写「允许 / 有限制」；吸烟政策可以由房东设定。' : '"No pets" clauses are void under the Ontario RTA, so pets can only be "allowed / with restrictions"; a smoking policy is the landlord\'s to set.'}</p>
+              : petNote && <p className="mt-2 text-[12px] text-body-3" data-testid="province-pet-rule">{petNote}</p>}
           </div>
         </section>
 

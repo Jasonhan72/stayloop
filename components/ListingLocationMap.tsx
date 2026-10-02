@@ -16,7 +16,7 @@ export default function ListingLocationMap({ lat, lng, label, stations, zh }: { 
   useEffect(() => {
     if (!apiKey || !ref.current) return
     let cancelled = false
-    loadGoogleMaps(apiKey)
+    loadGoogleMaps(apiKey, zh ? 'zh' : 'en')
       .then(() => {
         if (cancelled || !ref.current) return
         const g = window.google
@@ -46,7 +46,7 @@ export default function ListingLocationMap({ lat, lng, label, stations, zh }: { 
       })
       .catch(() => { if (!cancelled) setFailed(true) })
     return () => { cancelled = true }
-  }, [apiKey, lat, lng, label, stations])
+  }, [apiKey, lat, lng, label, stations, zh])
   if (!apiKey || failed) return null
   return (
     <div className="overflow-hidden rounded-[14px] border border-line-divider bg-surface-muted">

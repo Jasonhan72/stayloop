@@ -89,7 +89,16 @@ function tagIcon(google: any, label: string, isActive: boolean) {
 let scriptLoaded = false
 let scriptLoading: Promise<void> | null = null
 
-export function loadGoogleMaps(apiKey: string): Promise<void> {
+// The SDK draws its own controls and labels ("Map Data", "Terms", street names)
+// in the language it was loaded with, so it follows the UI switch instead of the
+// browser locale (2026-10-02 · one language per page). It loads once per page:
+// a language switch takes effect on the next load.
+function mapsLanguage(lang?: 'zh' | 'en'): 'zh' | 'en' {
+  if (lang) return lang
+  try { return document.documentElement.dataset.lang === 'en' ? 'en' : 'zh' } catch { return 'zh' }
+}
+
+export function loadGoogleMaps(apiKey: string, lang?: 'zh' | 'en'): Promise<void> {
   if (scriptLoaded) return Promise.resolve()
   if (scriptLoading) return scriptLoading
   scriptLoading = new Promise((resolve, reject) => {
@@ -115,7 +124,7 @@ export function loadGoogleMaps(apiKey: string): Promise<void> {
     s.defer = true
     s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
       apiKey,
-    )}&v=weekly`
+    )}&v=weekly&language=${mapsLanguage(lang) === 'zh' ? 'zh-CN' : 'en'}&region=CA`
     s.onload = () => {
       scriptLoaded = true
       resolve()

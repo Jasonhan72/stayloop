@@ -79,31 +79,46 @@ const UNIT_RE = /in-?\s?unit|ensuite|en-suite|dishwasher|washer|dryer|balcony|ha
 // Intercom, coin laundry, tennis / squash court, hot tub, parking) were landing under "室内".
 const BUILDING_RE = /concierge|doorman|gym|fitness|exercise|pool|sauna|whirlpool|hot tub|party|rooftop|roof|elevator|security|intercom|bike|storage|locker|visitor|parking|playroom|theat|media|bbq|guest suite|laundry room|laundry facilit|coin|recreation|games|meeting|common room|car wash|court|yoga|lounge|business|courtyard|garden|游泳|健身|前台|电梯|储物|停车|车位|派对|天台|访客|门禁|会所|24h|24 小时/i
 
+export type FeatureField = 'amenities' | 'building_features' | 'appliances'
+
 /** Unit features vs building amenities (StreetEasy splits "Home features" from
  *  "Building amenities"). Appliances are always the unit's; building_features
  *  always the building's; free-text amenities are classified by keyword —
- *  "in-unit" wins over a building word ("in-unit laundry" is not the laundry room). */
-export function groupFeatures(input: { amenities?: string[] | null; building_features?: string[] | null; appliances?: string[] | null }, lang: Lang): { unit: string[]; building: string[] } {
+ *  "in-unit" wins over a building word ("in-unit laundry" is not the laundry room).
+ *  `label` (2026-10-02, one language per page): the UI-language label for a
+ *  stored value, or null to leave it out — the detail page passes
+ *  lib/listingLang.ts resolveValue; without it, amenityLabel as before. */
+export function groupFeatures(
+  input: { amenities?: string[] | null; building_features?: string[] | null; appliances?: string[] | null },
+  lang: Lang,
+  label?: (raw: string, field: FeatureField, lang: Lang) => string | null,
+): { unit: string[]; building: string[] } {
   const unit: string[] = []
   const building: string[] = []
   const seen = new Set<string>()
-  const push = (arr: string[], label: string) => {
-    const k = label.toLowerCase()
-    if (!label || seen.has(k)) return
+  const push = (arr: string[], text: string | null) => {
+    if (!text) return
+    const k = text.toLowerCase()
+    if (seen.has(k)) return
     seen.add(k)
-    arr.push(label)
+    arr.push(text)
   }
+  const labelOf = (a: string, f: FeatureField, l: Lang) => (label ? label(a, f, l) : amenityLabel(a, l))
   const strings = (xs: unknown[] | null | undefined) => (xs || []).filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
-  for (const a of strings(input.appliances)) push(unit, amenityLabel(a, lang))
-  for (const a of strings(input.building_features)) push(building, amenityLabel(a, lang))
+  for (const a of strings(input.appliances)) push(unit, labelOf(a, 'appliances', lang))
+  for (const a of strings(input.building_features)) push(building, labelOf(a, 'building_features', lang))
   for (const a of strings(input.amenities)) {
-    const label = amenityLabel(a, lang)
+    const text = labelOf(a, 'amenities', lang)
+    if (!text) continue
     // Classify on the raw value AND both labels so the split does not depend on the UI language.
-    const probe = `${a} ${amenityLabel(a, 'zh')} ${amenityLabel(a, 'en')}`
-    if (/in-?\s?unit|ensuite|en-suite|室内/i.test(probe)) push(unit, label)
-    else if (BUILDING_RE.test(probe)) push(building, label)
-    else if (UNIT_RE.test(probe)) push(unit, label)
-    else push(unit, label)
+    const base = `${a} ${amenityLabel(a, 'zh')} ${amenityLabel(a, 'en')}` + (label ? ` ${label(a, 'amenities', 'en') ?? ''}` : '')
+    const probe = base + (label ? ` ${label(a, 'amenities', 'zh') ?? ''}` : '')
+    // 室内 is also "indoor" (室内停车 indoor parking, 室内泳池 indoor pool — the building's), and the
+    // Chinese dictionary label is left out of the in-unit test for the same reason.
+    if (/in-?\s?unit|ensuite|en-suite|室内/i.test(base.replace(/室内(?=停车|车位|泳池|游泳)/g, ''))) push(unit, text)
+    else if (BUILDING_RE.test(probe)) push(building, text)
+    else if (UNIT_RE.test(probe)) push(unit, text)
+    else push(unit, text)
   }
   return { unit, building }
 }

@@ -287,7 +287,7 @@ describe('#2 #3 #21 #37 #49 only cards an executor can carry out are proposable'
   it('the turn route gates after the guardrail and no longer renames renewals', () => {
     const r = read('app/api/agent/turn/route.ts')
     expect(r).not.toContain('renewal_note')
-    expect(r.indexOf('const gate = gateProposedAction(role, out.proposedAction)')).toBeGreaterThan(r.indexOf('applyGuardrail(role, normalized, uiLang)'))
+    expect(r.indexOf('const gate = gateProposedAction(role, out.proposedAction)')).toBeGreaterThan(r.indexOf('applyGuardrail(role, normalized, uiLang, turnProvince)'))
     expect(r).toContain('out.reply += droppedProposalNote(role, gate.dropped,')
   })
   it('prompts no longer invite cards without an executor, and route the work to real pages', () => {

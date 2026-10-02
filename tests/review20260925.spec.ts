@@ -195,8 +195,10 @@ describe('listing detail: failures are not facts, client writes cannot forge his
     expect(page).toContain("const dom = listing.source === 'realtor' ? null : daysOnMarket(listing.published_at || listing.created_at)")
     expect(page).toContain("h.event === 'imported' ? (zh ? '导入 Stayloop（Realtor.ca 挂牌）' : 'Imported (Realtor.ca listing)')")
     expect(page).toContain('xl:grid-cols-[1.15fr_1fr]')
-    expect(page).toContain('.filter((x) => hasUsablePhotos(x.images))')
-    expect(page).toContain(".ilike('city', `${String((data as DBListing).city || '').split(',')[0].trim()}%`)")
+    // 2026-10-02: photos are checked on the ranked shortlist (card columns are fetched for the best few only)
+    expect(page).toContain('.filter((m) => m.listing && hasUsablePhotos(m.listing.images) && m.listing.status !== \'archived\')')
+    // 2026-10-02: no city filter any more — a ±6 km box on lat / lng, ranked by lib/listingSimilar.ts
+    expect(page).toContain("q = q.gte('lat', box.minLat).lte('lat', box.maxLat).gte('lng', box.minLng).lte('lng', box.maxLng)")
     expect(page).not.toContain('function ScoreCard(')
     expect(page).not.toContain('useMemo')
     expect(page).toContain("n === 1 ? (zh ? '仅 1 套在租（非中位）'")

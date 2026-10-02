@@ -78,8 +78,8 @@ describe('wiring', () => {
   it('the turn route merges first, then runs the compliance filter, then the grounding check', () => {
     const r = read('app/api/agent/turn/route.ts')
     expect(r).toContain('draftListing = mergeWithExisting(hit, draftListing, message, urlImages)')
-    expect(r.indexOf('matchOwnedListing(draftListing')).toBeLessThan(r.indexOf('const sanitized = sanitizeDraftListing(draftListing, uiLang)'))
-    expect(r.indexOf('const sanitized = sanitizeDraftListing(draftListing, uiLang)')).toBeLessThan(r.indexOf('if (draftListing && !ownedMatch) {'))
+    expect(r.indexOf('matchOwnedListing(draftListing')).toBeLessThan(r.indexOf('const sanitized = sanitizeDraftListing(draftListing, uiLang, draftProvince)'))
+    expect(r.indexOf('const sanitized = sanitizeDraftListing(draftListing, uiLang, draftProvince)')).toBeLessThan(r.indexOf('if (draftListing && !ownedMatch) {'))
     expect(r).toContain("if (!ownedMatch && !(draftListing.monthly_rent > 0)) draftListing = undefined")
   })
   it('the client never re-reconciles a server-merged rewrite against an older card', () => {

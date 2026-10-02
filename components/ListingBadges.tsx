@@ -104,7 +104,8 @@ export function VerificationBadge({
     // Not exclusive: a verified realtor listing shows both chips.
     return (
       <>
-        {listing.verification_status === 'verified' && <span className="sl-chip fit">VERIFIED</span>}
+        {/* One language per page (2026-10-02): the Chinese UI says 已核验. */}
+        {listing.verification_status === 'verified' && <span className="sl-chip fit">{zh ? '已核验' : 'VERIFIED'}</span>}
         {status === 'pending' && (
           <span
             className="rounded-md border px-2.5 py-1 font-mono text-[10.5px] font-bold tracking-eyebrow"

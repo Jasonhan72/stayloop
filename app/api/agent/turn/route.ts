@@ -10,9 +10,10 @@ import { tenantCardRecipient } from '@/lib/agent/chatCopy'
 import { NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
-import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback, landlordRenewalFacts } from '@/lib/agent/prompts'
+import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback, landlordRenewalFacts, landlordListingsBlock } from '@/lib/agent/prompts'
 import { ANON_TURNS_PER_HOUR, ANON_TURNS_SITE_PER_HOUR } from '@/lib/agent/anonLimits'
-import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
+import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, nonOntarioProvince, provinceOfDraft, provinceOfOwnedListingInMessage, type TurnOutput } from '@/lib/agent/guardrail'
+import { effectiveProvince, type ProvinceCode, type ProvinceRow } from '@/lib/provinces'
 import { matchOwnedListing, mergeWithExisting, type OwnedListingRow } from '@/lib/agent/draftExisting'
 import { flattenMarkdown, isProviderCapacityError } from '@/lib/agent/turnHelpers'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
@@ -386,7 +387,8 @@ export async function POST(req: Request) {
     role === 'tenant' && (RENEWAL_INTENT_RE.test(message) || RENEWAL_INTENT_RE.test(histUserText))
   // Landlords asking about renewal get the same RTA facts (guideline by effective year, N1, the 2018
   // exemption) — without them the model quotes an old 2.5% (homepage example, 2026-10-01).
-  const landlordRenewalCtx =
+  // (Turned off below when the turn is clearly about the landlord's listing in another province.)
+  let landlordRenewalCtx =
     role === 'landlord' && (RENEWAL_INTENT_RE.test(message) || RENEWAL_INTENT_RE.test(histUserText))
   // Lease-derived market hints (area/beds), used when the model's search
   // object doesn't carry them — the negotiation evidence should be priced
@@ -465,7 +467,13 @@ export async function POST(req: Request) {
   // Without this the landlord agent had no listing data at all (search only
   // runs for tenants) and answered "我这边没有这个房源的记录" about a listing
   // sitting right in /dashboard/listings (case: 89 Estelle Avenue, 2026-08-23).
+  // The table (and the rules of any province outside Ontario it contains) is
+  // built by landlordListingsBlock in lib/agent/prompts.ts.
   let landlordAddendum = ''
+  // Province of the owned listing this message is about (2026-10-02 · 外省房源用外省法规):
+  // feeds the guardrail when the turn drafts nothing; null = Ontario behaviour.
+  let ownedRows: OwnedListingRow[] = []
+  let messageProvince: ProvinceCode | null = null
   if (role === 'landlord' && !anonymous && sbAuth) {
     try {
       // Dual-ID invariant: listings.landlord_id references landlords.id
@@ -477,40 +485,18 @@ export async function POST(req: Request) {
       const ids = Array.from(new Set([...(lp ?? []).map((r: { id: string }) => r.id), turnUserId].filter(Boolean))) as string[]
       const { data: myListings } = await sbAuth
         .from('listings')
-        .select('title,description,images,amenities,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,is_active,verification_status,source,slug')
+        .select('title,description,images,amenities,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,is_active,verification_status,source,slug,id,province,postal_code')
         .in('landlord_id', ids)
         .or('status.is.null,status.neq.archived')
         .order('created_at', { ascending: false })
         .limit(20)
       if (myListings && myListings.length) {
-        const line = (l: Record<string, unknown>) => {
-          const status = !l.is_active
-            ? '已下架'
-            : l.source === 'realtor'
-              ? '上架中(Realtor.ca 导入)'
-              : l.verification_status === 'verified'
-                ? '上架中(已验证)'
-                : '待审核(未公开)'
-          const imgs = Array.isArray(l.images) ? l.images.length : 0
-          const amen = Array.isArray(l.amenities) ? (l.amenities as string[]).slice(0, 10).join(', ') : ''
-          const desc = typeof l.description === 'string' && l.description.trim() ? l.description.trim().slice(0, 500) : ''
-          const head = `- ${[l.unit, l.address].filter(Boolean).join(' ')} · ${[l.neighborhood, l.city].filter(Boolean).join(' · ')} · $${l.monthly_rent}/月 · ${l.bedrooms ?? '?'}卧${l.bathrooms ?? '?'}浴${l.sqft ? ` · ${l.sqft}sqft` : ''} · 照片 ${imgs} 张 · 状态: ${status}${l.slug ? ` · /listings/${l.slug}` : ''}`
-          // 文案与照片是房东最常问的诊断对象 —— 把库里实际存的标题/描述/设施
-          // 一并注入（缺 = 库里真没有，让模型如实说并给补法，而不是说"没存到"）。
-          const details = [
-            l.title ? `  · 标题: ${String(l.title).slice(0, 120)}` : '  · 标题: (未填)',
-            desc ? `  · 描述(${desc.length >= 500 ? '前500字' : `全文 ${desc.length} 字`}): ${desc.replace(/\s+/g, ' ')}` : '  · 描述: (未填)',
-            amen ? `  · 设施: ${amen}` : null,
-          ].filter(Boolean).join('\n')
-          return `${head}\n${details}`
-        }
-        landlordAddendum =
-          `
-
-## 你的房源（Stayloop 数据库实时记录，共 ${myListings.length} 套 —— 回答房源相关问题时以此为准）
-` +
-          myListings.map(line).join('\n') +
-          '\n（只有当用户问到的房源不在上表时才说没有记录。缺的字段就是库里没有——如实说明并告诉用户到 /dashboard（房源管理）补充，不要臆测。诊断文案/照片时：直接引用并点评上面的实际标题与描述（长度、语言、是否有租客视角卖点），照片按张数评估数量是否足够；照片内容库里看不到，需要用户发图才能逐张点评。）'
+        landlordAddendum = landlordListingsBlock(myListings as Record<string, unknown>[])
+        ownedRows = myListings as unknown as OwnedListingRow[]
+        messageProvince = provinceOfOwnedListingInMessage(message, ownedRows)
+        // The RTA renewal pack is Ontario's: a renewal question about a listing in another
+        // province gets that province's facts (in the table block) instead.
+        if (nonOntarioProvince(messageProvince)) landlordRenewalCtx = false
       }
     } catch (e) {
       console.warn('[agent/turn] landlord listings lookup failed', (e as Error).message)
@@ -733,8 +719,18 @@ export async function POST(req: Request) {
       : "I couldn't produce a valid reply for that one (the output format broke). Please send the message again exactly as it was — no need to rephrase."
   const normalized = normalizeOutput(parsed, fallbackReply, uiLang)
 
+  // The province of the property this turn is about (2026-10-02): the drafted listing (its
+  // owned row, else its address / city), otherwise the owned listing the message names.
+  // Unknown → Ontario: the guardrail's Ontario notes stay as they were.
+  const dlRaw = role === 'landlord' ? (parsed?.draft_listing as Record<string, unknown> | null | undefined) : null
+  const turnProvince: ProvinceCode | null =
+    dlRaw && typeof dlRaw === 'object' && typeof dlRaw.address === 'string'
+      ? provinceOfDraft({ address: dlRaw.address, unit: typeof dlRaw.unit === 'string' ? dlRaw.unit : null, city: typeof dlRaw.city === 'string' ? dlRaw.city : null }, ownedRows)
+      : messageProvince
+  const otherProvince = nonOntarioProvince(turnProvince)
+
   // Compliance Guardrail — the deterministic backstop on every AI output.
-  const { out, flags } = applyGuardrail(role, normalized, uiLang)
+  const { out, flags } = applyGuardrail(role, normalized, uiLang, turnProvince)
   // Unfilled quick-action template: the assistant may only ask for the
   // missing details — never propose an action from example wording.
   if (hasUnfilledTemplate(message) && out.proposedAction) {
@@ -747,7 +743,8 @@ export async function POST(req: Request) {
   if (flags.length && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
       const svcC = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
-      void svcC.from('compliance_events').insert(flags.slice(0, 10).map((f) => ({ user_id: anonymous ? null : turnUserId, role, source: 'guardrail', rule_id: /ohrc|protected|discrimin/i.test(f) ? 'OHRC-protected-grounds' : /pet/i.test(f) ? 'RTA-14-no-pet-clause' : /fee|deposit/i.test(f) ? 'RTA-134-no-fees' : `guardrail:${f}`.slice(0, 80), severity: 'block', metadata: { flag: f } })))
+      // Ontario rule ids only for Ontario properties; elsewhere the raw flag + the province.
+      void svcC.from('compliance_events').insert(flags.slice(0, 10).map((f) => ({ user_id: anonymous ? null : turnUserId, role, source: 'guardrail', rule_id: otherProvince ? `guardrail:${f}`.slice(0, 80) : /ohrc|protected|discrimin/i.test(f) ? 'OHRC-protected-grounds' : /pet/i.test(f) ? 'RTA-14-no-pet-clause' : /fee|deposit/i.test(f) ? 'RTA-134-no-fees' : `guardrail:${f}`.slice(0, 80), severity: 'block', metadata: otherProvince ? { flag: f, province: otherProvince } : { flag: f } })))
     } catch { /* telemetry only */ }
   }
   // Only cards an executor can carry out from a chat turn survive (sweep
@@ -1040,6 +1037,8 @@ export async function POST(req: Request) {
     // to it — the stored listing is the base, its photos stay, and the card
     // updates it in place instead of publishing a duplicate.
     let ownedMatch = false
+    // The draft's province: the owned row it matches below (its postal code / province) wins.
+    let draftProvince: ProvinceCode | null = turnProvince
     if (draftListing && sbAuth && turnUserId) {
       try {
         const { data: lp } = await sbAuth.from('landlords').select('id').or(`id.eq.${turnUserId},auth_id.eq.${turnUserId}`)
@@ -1051,6 +1050,7 @@ export async function POST(req: Request) {
         if (hit) {
           draftListing = mergeWithExisting(hit, draftListing, message, urlImages)
           ownedMatch = true
+          draftProvince = effectiveProvince(hit as ProvinceRow)
         }
         // Not an owned listing and no rent: nothing publishable (as before).
         if (!ownedMatch && !(draftListing.monthly_rent > 0)) draftListing = undefined
@@ -1063,7 +1063,7 @@ export async function POST(req: Request) {
     // same OHRC/RTA compliance filters as the reply text.
     // Runs on the merged draft, so an owned listing's stored terms (pets, utilities …) count as confirmed.
     if (draftListing) {
-      const sanitized = sanitizeDraftListing(draftListing, uiLang)
+      const sanitized = sanitizeDraftListing(draftListing, uiLang, draftProvince)
       draftListing = sanitized.draft
       if (sanitized.flags.length) {
         flags.push(...sanitized.flags)

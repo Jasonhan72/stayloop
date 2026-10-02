@@ -4,7 +4,15 @@
 // guardrail is the non-negotiable filter that does not depend on the model
 // behaving. It rejects discrimination, over-reach, illegal lease terms, and
 // any output that claims a key action was executed (actions must be PROPOSED).
+//
+// Province (2026-10-02 · 用户「外省的要查外省的法规，不要用安省的法规和说法」): the notes
+// below name Ontario law (OHRC / RTA). When the turn is about a property in another
+// province, the guardrail still blocks protected-ground refusals but names THAT
+// province's human-rights law, and adds no RTA note — the facts live in lib/provinces.
+// Unknown province = Ontario (the Ontario strings stay byte-for-byte).
 import type { AgentRole, MemoryItem } from './types'
+import { matchOwnedListing, splitUnit, type OwnedListingRow } from './draftExisting'
+import { effectiveProvince, humanRights, normalizeProvince, provinceFromPostal, provinceFromText, provinceTokenIn, type NonOntarioCode, type ProvinceCode, type ProvinceRow } from '@/lib/provinces'
 
 export type ProposedAction = {
   action_type: string
@@ -106,8 +114,102 @@ export function hasDiscriminatoryRefusal(text: string): boolean {
 
 export type GuardrailResult = { out: TurnOutput; flags: string[] }
 
-export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'en' = 'zh'): GuardrailResult {
+// ── Province of the turn ─────────────────────────────────────────────────────
+
+/** A province outside Ontario, or null (Ontario, empty or unknown → the Ontario notes). */
+export function nonOntarioProvince(province: string | null | undefined): NonOntarioCode | null {
+  const c = normalizeProvince(province ?? null)
+  return c && c !== 'ON' ? c : null
+}
+
+/** The province of a drafted listing: the landlord's own listing it rewrites (its stored
+ *  postal code / province), else the draft's address and city. Null when nothing says. */
+export function provinceOfDraft(
+  draft: { address?: string | null; unit?: string | null; city?: string | null },
+  owned: OwnedListingRow[] = [],
+): ProvinceCode | null {
+  const address = typeof draft.address === 'string' ? draft.address : ''
+  if (!address.trim()) return null
+  const hit = owned.length ? matchOwnedListing({ address, unit: draft.unit ?? undefined }, owned) : null
+  if (hit) return effectiveProvince(hit as ProvinceRow)
+  return provinceFromPostal(address) ?? provinceFromText(address, draft.city ?? null)
+}
+
+// Street words that do not identify a street on their own ("rue", "St", "West" …).
+const GENERIC_STREET_WORDS = new Set([
+  'rue', 'st', 'ste', 'saint', 'sainte', 'street', 'ave', 'av', 'avenue', 'rd', 'road', 'blvd', 'boul', 'boulevard', 'dr', 'drive',
+  'cres', 'crescent', 'ct', 'court', 'pl', 'place', 'ln', 'lane', 'way', 'chemin', 'ch', 'de', 'du', 'des', 'la', 'le', 'les',
+  'the', 'east', 'west', 'north', 'south', 'est', 'ouest', 'nord', 'sud', 'unit', 'apt', 'suite',
+])
+const foldWords = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/['’]/g, '')
+    .replace(/([\u4e00-\u9fff])/g, ' $1 ').replace(/(\d)([a-z])/g, '$1 $2').replace(/([a-z])(\d)/g, '$1 $2')
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, ' ').trim().split(' ').filter(Boolean)
+
+/** True when the message names this street address: its street number and every
+ *  distinctive word of its street name ("1569 St-Hubert" ↔ "1569 rue St-Hubert, Montréal"). */
+function messageNamesAddress(msgWords: Set<string>, address: string): boolean {
+  const words = foldWords(splitUnit(address).street.split(/[,，]/)[0] ?? '')
+  const num = words.find((w) => /^\d+$/.test(w))
+  if (!num || !msgWords.has(num)) return false
+  const name = words.filter((w) => w !== num && !/^\d/.test(w) && w.length > 1 && !GENERIC_STREET_WORDS.has(w))
+  return name.length > 0 && name.every((w) => msgWords.has(w))
+}
+
+// "28 Avondale", "1569 rue St-Hubert": a street number and a street word. A number followed by a
+// quantity ("3 months", "2500 dollars", "2 bedrooms", "10 percent") is not an address — without
+// this, a renewal question about the landlord's only (Quebec) listing fell back to Ontario's pack.
+const QUANTITY_WORD = '(?:months?|mos?|years?|yrs?|days?|weeks?|wks?|hours?|hrs?|minutes?|mins?|dollars?|bucks|cad|usd|percent|pct|per|bedrooms?|beds?|bdrms?|baths?|bathrooms?|sq|sqft|square|feet|ft|units?|people|persons?|tenants?|applicants?|adults?|kids?|children|pets?|dogs?|cats?|times?|am|pm|and|or|to|the|of|in|at|on|for|is|was|off|more|less|max|min)'
+const OTHER_ADDRESS_RE = new RegExp(`\\b\\d{1,6}[a-z]?\\s+(?:rue\\s+|av\\s+|ave\\s+|avenue\\s+|boul\\s+|chemin\\s+)?(?!${QUANTITY_WORD}\\b)[a-z]{3,}`, 'i')
+
+/** The province of the landlord's own listing this message is about: one whose street
+ *  address the message names (all named listings must agree), or the landlord's only
+ *  listing — unless the message names some other street address or another province
+ *  outright ("安省…", "in Ontario"). Null when the message is not clearly about one. */
+export function provinceOfOwnedListingInMessage(message: string, owned: OwnedListingRow[]): ProvinceCode | null {
+  if (!owned.length) return null
+  const text = String(message ?? '')
+  const msgWords = new Set(foldWords(text))
+  const named = owned.filter((r) => typeof r.address === 'string' && messageNamesAddress(msgWords, r.address))
+  const codeOf = (r: OwnedListingRow) => effectiveProvince(r as ProvinceRow)
+  if (named.length) {
+    const codes = Array.from(new Set(named.map(codeOf)))
+    return codes.length === 1 ? codes[0] : null
+  }
+  if (owned.length !== 1) return null
+  const only = codeOf(owned[0])
+  if (OTHER_ADDRESS_RE.test(text)) return null // another address
+  const said = provinceFromPostal(text) ?? provinceTokenIn(text)
+  return said && said !== only ? null : only
+}
+
+/** One protected-ground note for a refusal, in the province's own law. */
+function provinceRefusalNote(code: NonOntarioCode, zh: boolean, kind: 'card' | 'reply'): string {
+  const hr = humanRights(code, zh ? 'zh' : 'en')
+  if (zh) {
+    const law = hr ? `按${hr.law}，` : ''
+    // The examples carry their own brackets ("有子女（民事状态）"), so they follow 「例如」 rather than nesting.
+    const eg = hr ? `，例如${hr.examples}` : ''
+    return kind === 'card'
+      ? `\n\n⚠️ 这个理由可能涉及受保护特征。${law}不能以受保护特征拒绝租客${eg}。我不会替你生成这张卡片。如果要拒绝，请给一个具体、与租住相关、不涉及受保护特征的理由。`
+      : `\n\n⚠️ 上面的措辞可能涉及受保护特征。${law}不能以受保护特征拒绝或区别对待申请人${eg}——请只使用与租住相关、不涉及受保护特征的具体理由，不要把这段话发给申请人。`
+  }
+  const under = (who: string) => (hr ? `Under ${hr.law}, ${who}` : who.charAt(0).toUpperCase() + who.slice(1))
+  const eg = hr ? ` (for example ${hr.examples})` : ''
+  return kind === 'card'
+    ? `\n\n⚠️ That reason may involve a protected ground. ${under('a tenant')} cannot be refused on a protected ground${eg}. I won't generate that card for you. To refuse, give a specific reason tied to the tenancy that does not involve a protected ground.`
+    : `\n\n⚠️ The wording above may touch a protected ground. ${under('an applicant')} cannot be refused or treated differently on a protected ground${eg} — use only specific reasons tied to the tenancy that do not involve a protected ground, and do not send this passage to the applicant.`
+}
+
+export function applyGuardrail(
+  role: AgentRole,
+  out: TurnOutput,
+  lang: 'zh' | 'en' = 'zh',
+  /** The province of the property this turn is about (draft / owned listing); unknown = Ontario. */
+  province?: string | null,
+): GuardrailResult {
   const zh = lang === 'zh'
+  const other = nonOntarioProvince(province)
   const flags: string[] = []
   let reply = out.reply
   let action = out.proposedAction
@@ -120,7 +222,7 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'e
     if (isRejection && PROTECTED_GROUNDS.test(blob)) {
       flags.push('blocked_discriminatory_rejection')
       action = null
-      reply += zh
+      reply += other ? provinceRefusalNote(other, zh, 'card') : zh
         ? '\n\n⚠️ 这个理由涉及受保护特征（种族 / 国籍 / 家庭状况 / 性取向等），按安省人权法（OHRC）不能作为拒绝依据。我不会替你生成这张卡片。如果要拒绝，请给一个具体、与租住能力相关的合法理由（如收入不足、材料不全）。'
         : "\n\n⚠️ That reason involves a protected ground (race / national origin / family status / sexual orientation, etc.), which under the Ontario Human Rights Code (OHRC) cannot be a basis for rejection. I won't generate that card for you. To reject, give a specific, lawful reason tied to ability to rent (e.g. insufficient income, incomplete documents)."
     }
@@ -130,13 +232,15 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'e
     // alone let the letter through unchanged. Append the same OHRC
     // correction the card path uses (review 2026-09-14).
     flags.push('discriminatory_language_in_reply')
-    reply += zh
+    reply += other ? provinceRefusalNote(other, zh, 'reply') : zh
       ? '\n\n⚠️ 上面的措辞涉及受保护特征（家庭状况 / 国籍 / 宗教 / 残障等）。按安省人权法（OHRC），这不能作为拒绝或区别对待的理由——请只使用与租住能力相关的具体、合法理由（如收入未能核实、材料不全），不要把这段话发给申请人。'
       : "\n\n⚠️ The wording above touches a protected ground (family status / national origin / creed / disability, etc.). Under the Ontario Human Rights Code that cannot be a reason to refuse or treat an applicant differently — use only specific, lawful reasons tied to ability to rent (e.g. income could not be verified, incomplete documents), and do not send this passage to the applicant."
   }
 
-  // 2) Illegal lease terms — never draft a void clause.
-  if (ILLEGAL_LEASE.test(reply) || (action && ILLEGAL_LEASE.test(`${action.title} ${action.summary}`))) {
+  // 2) Illegal lease terms — never draft a void clause. The list and the note are
+  //    Ontario's (RTA): a property in another province gets neither (2026-10-02 —
+  //    a Quebec landlord may lawfully ban pets; its rules reach the model as facts).
+  if (!other && (ILLEGAL_LEASE.test(reply) || (action && ILLEGAL_LEASE.test(`${action.title} ${action.summary}`)))) {
     flags.push('illegal_lease_term')
     // A reply that already says the clause is void needs no note (2026-10-01: the homepage's pets and
     // deposit examples got 「我不会写进租约」 appended to correct answers nobody asked to draft).
@@ -214,12 +318,20 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'e
  *  so it must pass the same OHRC/RTA filters as replies: no "no pets"
  *  (void under RTA), no child/family-status exclusions, no protected-ground
  *  screening criteria. Offending fields are stripped, not silently rewritten,
- *  and a note explains why. */
+ *  and a note explains why.
+ *  A property in another province (2026-10-02): the "no pets" rewrite is Ontario's
+ *  (RTA s.14) and is skipped — where the province lets a landlord ban pets the
+ *  landlord's "no pets" stays, and nothing is said where no fact covers it; the
+ *  protected-ground exclusions are still removed, and the note names that
+ *  province's human-rights law. */
 export function sanitizeDraftListing<T extends { title?: string; description?: string; pet_policy?: string; pets_allowed?: string; smoking_policy?: string; utilities_included?: string[]; furnished?: boolean }>(
   draft: T,
   lang: 'zh' | 'en' = 'zh',
+  /** The listing's province (effectiveProvince of its address / owned row); unknown = Ontario. */
+  province?: string | null,
 ): { draft: T; flags: string[]; note: string | null } {
   const zh = lang === 'zh'
+  const other = nonOntarioProvince(province)
   const flags: string[] = []
   const out = { ...draft }
   // Unconfirmed facts never reach the copy (external fix list 2026-09-22,
@@ -265,7 +377,7 @@ export function sanitizeDraftListing<T extends { title?: string; description?: s
     if (NO_KIDS.test(v) || EXCLUSION_SHAPED.test(v)) {
       flags.push(`draft_listing_protected_ground_${field}`)
       delete out[field]
-    } else if (NO_PETS.test(v)) {
+    } else if (!other && NO_PETS.test(v)) {
       flags.push(`draft_listing_illegal_term_${field}`)
       if (field === 'pet_policy') out.pet_policy = zh
         ? '宠物友好政策待定（安省 RTA 下"禁止养宠"条款无效）'
@@ -275,8 +387,14 @@ export function sanitizeDraftListing<T extends { title?: string; description?: s
   }
   const unconfirmed = flags.filter(f => f.startsWith('draft_listing_unconfirmed_'))
   const legal = flags.length - unconfirmed.length
+  // Outside Ontario only the protected-ground removals can have fired; the note names that province's law.
+  const hr = other ? humanRights(other, zh ? 'zh' : 'en') : null
+  const otherNote = zh
+    ? `注：草稿中排除特定人群的内容已被移除——${hr ? `按${hr.law}，` : ''}不能以受保护特征排除租客${hr ? `，例如${hr.examples}` : ''}；房源信息里不能写这类内容。`
+    : `Note: content in the draft that excluded groups of people has been removed — ${hr ? `under ${hr.law}, ` : ''}tenants cannot be excluded on a protected ground${hr ? ` (for example ${hr.examples})` : ''}, so it cannot appear in listing information.`
   const note = flags.length
     ? [
+        legal && other ? otherNote :
         legal ? (zh
           ? '注：草稿中涉及 OHRC 受保护特征或 RTA 无效条款（如"禁止养宠"/排除家庭）的内容已被移除——这些不能出现在房源信息里。'
           : 'Note: content in the draft touching OHRC protected grounds or RTA-void clauses (e.g. "no pets" / excluding families) has been removed — these cannot appear in listing information.') : '',

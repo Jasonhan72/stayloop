@@ -17,6 +17,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
+import { listingProvince } from '@/lib/listingDisplay'
+import { humanRights } from '@/lib/provinces'
 import { stripNul } from '@/lib/screening/jsonSafe'
 import { notifyUser } from '@/lib/push/notify'
 import { ensureListingThread, postSystemMessage } from '@/lib/threads/server'
@@ -29,6 +31,13 @@ const UUID = /^[0-9a-f-]{36}$/i
 const SHOWING_NOTE = '批准 = 同意安排看房：我会邮件告诉对方，你们在「消息」里的这段对话约时间（双方都看不到对方的私人邮箱）；拒绝则不回复。也可以直接去对话里回复。'
 const QUESTION_NOTE = '批准 = 我邮件告诉对方你收到了，你在「消息」里的这段对话回答（双方都看不到对方的私人邮箱）；也可以直接去对话里回复。'
 const OHRC_NOTE = ' 按 OHRC 租房政策，看房与回答提问不得因受保护特征区别对待。'
+// A listing outside Ontario names its own human-rights law (2026-10-02 · 「外省的要查外省的法规，不要用
+// 安省的法规和说法」); Ontario keeps OHRC_NOTE.
+function rightsNoteFor(listing: { address?: string | null; city?: string | null; postal_code?: string | null; province?: string | null } | null): string {
+  const code = listing ? listingProvince(listing) : 'ON'
+  const hr = code === 'ON' ? null : humanRights(code, 'zh')
+  return hr ? ` 按${hr.law}，不得因受保护特征拒绝或区别对待租房申请人。` : OHRC_NOTE
+}
 
 type Merged = { kind?: string; message?: string | null; move_in_date?: string | null; intent_id?: string; at?: string }
 
@@ -75,7 +84,7 @@ export async function POST(req: Request) {
   )
   const { data: listing } = await admin
     .from('listings')
-    .select('id, address, unit, landlord_id, source, is_active, status')
+    .select('id, address, unit, landlord_id, source, is_active, status, city, postal_code, province')
     .eq('id', listingId)
     .maybeSingle()
   // Off the market (sweep 2026-10-01): a request nobody can grant is not recorded or sent.
@@ -169,7 +178,7 @@ export async function POST(req: Request) {
         .eq('status', 'pending')
         .select('id')
       if (retired && retired.length) {
-        const summary = `${who} ${messages.map((x) => lineOf(x.kind === 'question' ? 'question' : 'showing', x.move_in_date ?? null, x.message ?? '')).join('；')}。${SHOWING_NOTE}${OHRC_NOTE}`
+        const summary = `${who} ${messages.map((x) => lineOf(x.kind === 'question' ? 'question' : 'showing', x.move_in_date ?? null, x.message ?? '')).join('；')}。${SHOWING_NOTE}${rightsNoteFor(listing)}`
         const { error: upErr } = await admin.from('agent_pending_actions').insert({
           user_id: landlordAuthId,
           role: 'landlord',
@@ -215,7 +224,7 @@ export async function POST(req: Request) {
     role: 'landlord',
     action_type: actionType,
     title: kind === 'showing' ? `看房请求：${who} · ${addr}` : `房源提问：${who} · ${addr}`,
-    summary: `${who} ${line}。` + (kind === 'showing' ? SHOWING_NOTE : QUESTION_NOTE) + OHRC_NOTE,
+    summary: `${who} ${line}。` + (kind === 'showing' ? SHOWING_NOTE : QUESTION_NOTE) + rightsNoteFor(listing),
     recipient_label: who,
     data_scope: ['房源地址', '这段对话的链接'],
     excluded_data: ['你的私人邮箱', '筛查报告', '其他申请人信息'],

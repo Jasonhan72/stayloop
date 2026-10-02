@@ -65,10 +65,13 @@ describe('EliseAI benchmark 2026-09-22 (additive items)', () => {
   })
 
   it('listing page shows the RTA move-in cost card with the banned-fee list and a deposit-over-cap warning', () => {
-    expect(listing).toMatch(/function MoveInCosts/)
-    expect(listing).toMatch(/<MoveInCosts zh=\{zh\} rent=\{listing\.monthly_rent\} deposit=\{listing\.deposit\} \/>/)
-    expect(listing).toMatch(/dep > rent \+ 0\.5/)
-    for (const w of ['申请费', '信用检查费', '宠物押金', '清洁押金']) expect(listing).toContain(w)
-    expect(listing).toMatch(/RTA s\.106/)
+    // 2026-10-02: the card lives in components/listing/MoveInCosts.tsx
+    const costs = readFileSync('components/listing/MoveInCosts.tsx', 'utf8')
+    expect(costs).toMatch(/export function MoveInCosts/)
+    // 2026-10-02: the province the page derives (listingProvince), never the raw column
+    expect(listing).toMatch(/<MoveInCosts zh=\{zh\} province=\{province\} rent=\{listing\.monthly_rent\} deposit=\{listing\.deposit\} \/>/)
+    expect(costs).toMatch(/dep > rent \+ 0\.5/)
+    for (const w of ['申请费', '信用检查费', '宠物押金', '清洁押金']) expect(costs).toContain(w)
+    expect(costs).toMatch(/RTA s\.106/)
   })
 })

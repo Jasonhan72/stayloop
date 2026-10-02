@@ -33,6 +33,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail, renderRentReminderEmail } from '@/lib/email'
 import { sendLeaseInvitation, leaseSendPreflight, buildLeaseInvite, type LeaseForSend } from '@/lib/lease/sendLease'
 import { decisionNoticeFooter, guidelineFor, n1DeadlineFor } from '@/lib/ontario/rules'
+import { decisionNoticeFooterFor } from '@/lib/provinces/rules'
+import { listingProvince } from '@/lib/listingDisplay'
 import { rentAmount } from '@/lib/agent/chatCopy'
 import { notifyUser } from '@/lib/push/notify'
 import { actOnWorkOrder, createWorkOrder, suggestDispatch } from '@/lib/marketplace/server'
@@ -1181,6 +1183,10 @@ The landlord has received your question${questions.length > 1 ? 's' : ''} about 
 // declined set the status; needs_more only moves an undecided application to
 // 'reviewing' and never touches a recorded decision or its reason. A card
 // older than the last notice, or contradicting a recorded decision, is spent.
+// The notice follows the listing's province (2026-10-02 · 「外省的要查外省的法规，不要用
+// 安省的法规和说法」): Ontario keeps the s.10(7) / OHRC footer, the standard-lease line and
+// rule CRA-10-7-notice; elsewhere decisionNoticeFooterFor(<province>), no Ontario form named,
+// and rule '<province>-decision-notice'.
 // ---------------------------------------------------------------------------
 const UNDECIDED_APPLICATION = [null, '', 'new', 'pending', 'reviewing']
 async function executeSendDecision(admin: Admin, userId: string, action: ActionRow, callerEmail: string | null, preview = false): Promise<NextResponse> {
@@ -1191,11 +1197,11 @@ async function executeSendDecision(admin: Admin, userId: string, action: ActionR
   if (!decision) return NextResponse.json({ executed: false, reason: 'decision missing' }, { status: 422 })
   const { data: app } = await admin
     .from('applications')
-    .select('id, first_name, last_name, email, status, decision_notified_at, listing:listings(id, address, unit, landlord_id)')
+    .select('id, first_name, last_name, email, status, decision_notified_at, listing:listings(id, address, unit, landlord_id, city, postal_code, province)')
     .eq('id', appId)
     .maybeSingle()
   if (!app) return NextResponse.json({ executed: false, reason: 'application not found' }, { status: 404 })
-  const listing = (Array.isArray(app.listing) ? app.listing[0] : app.listing) as { id: string; address: string; unit: string | null; landlord_id: string } | null
+  const listing = (Array.isArray(app.listing) ? app.listing[0] : app.listing) as { id: string; address: string; unit: string | null; landlord_id: string; city: string | null; postal_code: string | null; province: string | null } | null
   const { data: landlordRows } = await admin.from('landlords').select('id').or(`auth_id.eq.${userId},id.eq.${userId}`)
   const landlordIds = (landlordRows ?? []).map((r: { id: string }) => r.id)
   if (!listing || !landlordIds.includes(listing.landlord_id)) return NextResponse.json({ executed: false, reason: 'application is not on your listing' }, { status: 403 })
@@ -1221,10 +1227,19 @@ async function executeSendDecision(admin: Admin, userId: string, action: ActionR
   // Relay (消息系统 A 期): no personal address — the applicant replies to this email and it lands in the application conversation.
   void callerEmail
   const contact = '有问题直接回复这封邮件，回复会进这份申请的对话记录，房东会看到。 / Questions? Reply to this email — it goes into this application’s conversation and the landlord sees it.'
-  const footer = `${decisionNoticeFooter('zh')}\n\n${decisionNoticeFooter('en')}`
+  const province = listingProvince(listing)
+  const inOntario = province === 'ON'
+  const footer = inOntario
+    ? `${decisionNoticeFooter('zh')}\n\n${decisionNoticeFooter('en')}`
+    : `${decisionNoticeFooterFor(province, 'zh')}\n\n${decisionNoticeFooterFor(province, 'en')}`
+  const noticeRule = inOntario ? 'CRA-10-7-notice' : `${province}-decision-notice`
   let subject: string
   let body: string
-  if (decision === 'approved') {
+  if (decision === 'approved' && !inOntario) {
+    // Stayloop drafts and e-signs only Ontario's standard lease; elsewhere the landlord signs on their province's form.
+    subject = `申请已录取 · ${addr} / Your application was approved`
+    body = `${name} 你好，\n\n关于 ${addr} 的租房申请，房东已决定录取你。接下来房东会和你联系签订租约，请留意这个邮箱。\n${contact}\n\nHi ${name},\n\nGood news — the landlord has approved your application for ${addr}. The landlord will be in touch about signing the lease; watch this inbox.\n\n${footer}`
+  } else if (decision === 'approved') {
     subject = `申请已录取 · ${addr} / Your application was approved`
     body = `${name} 你好，\n\n关于 ${addr} 的租房申请，房东已决定录取你。接下来房东会通过 Stayloop 把安省标准租约发到这个邮箱，请留意签署链接。\n${contact}\n\nHi ${name},\n\nGood news — the landlord has approved your application for ${addr}. The Ontario standard lease will follow to this address through Stayloop; watch for the signing link.\n\n${footer}`
   } else if (decision === 'needs_more') {
@@ -1251,11 +1266,11 @@ async function executeSendDecision(admin: Admin, userId: string, action: ActionR
   } else {
     await admin.from('applications').update({ status: decision, decision_notified_at: new Date().toISOString(), decision_reason: reason || null }).eq('id', app.id)
   }
-  await admin.from('compliance_events').insert({ user_id: userId, role: 'landlord', source: 'decision_notice', rule_id: 'CRA-10-7-notice', severity: 'info', target_type: 'application', target_id: app.id, metadata: { decision } })
+  await admin.from('compliance_events').insert({ user_id: userId, role: 'landlord', source: 'decision_notice', rule_id: noticeRule, severity: 'info', target_type: 'application', target_id: app.id, metadata: inOntario ? { decision } : { decision, province } })
   // 节点 4: a copy of the decision notice in the application thread; the email is the notice.
   {
     const th = await ensureThread(admin, 'application', app.id, { title: addr, createdBy: userId })
-    if (th) await postSystemMessage(admin, th.id, { kind: 'formal_copy', senderKind: 'landlord', senderId: userId, actingRole: 'landlord', senderLabel: '房东 · 决定通知 / Landlord · decision notice', body: `${subject}\n\n${body}`, meta: { notice: 'decision', decision, sent_to: to, rule: 'CRA-10-7-notice' } })
+    if (th) await postSystemMessage(admin, th.id, { kind: 'formal_copy', senderKind: 'landlord', senderId: userId, actingRole: 'landlord', senderLabel: '房东 · 决定通知 / Landlord · decision notice', body: `${subject}\n\n${body}`, meta: { notice: 'decision', decision, sent_to: to, rule: noticeRule } })
   }
   const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: to, decision }
   return finalizeExecution(admin, userId, action, 'executed_send_decision', executionResult, { application_id: app.id, decision, sent_to: to, email_id: result.id, reason_given: !!reason })

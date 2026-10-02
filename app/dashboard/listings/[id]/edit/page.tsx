@@ -10,7 +10,8 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { hasUsablePhotos } from '@/lib/listingVisibility'
-import { LISTING_EDIT_DRAFT_PREFIX, LISTING_PUBLISH_MSG, changedKeys, isStaleBase, listingSaveOutcomeText, listingStateAfterSave, updateListing } from '@/lib/listingPublish'
+import { LISTING_EDIT_DRAFT_PREFIX, LISTING_PUBLISH_MSG, addressProvinceEvidence, changedKeys, depositGuidanceFor, isStaleBase, listingSaveOutcomeText, listingStateAfterSave, petGuidanceFor, provinceOptions, updateListing } from '@/lib/listingPublish'
+import { effectiveProvince, normalizeProvince, petBanAllowed, provinceName, type ProvinceCode } from '@/lib/provinces'
 import type { DraftListing } from '@/lib/agent/types'
 import { prepareUploads } from '@/lib/screening/prepareUpload'
 
@@ -35,6 +36,9 @@ type Form = {
   unit: string
   city: string
   neighborhood: string
+  // The province whose rules this listing follows (2026-10-02). Not a trust field: changing it does
+  // not send a verified listing back to review (guard_listing_trust_fields does not watch it).
+  province: ProvinceCode
   monthly_rent: number
   deposit: number | null
   bedrooms: number | null
@@ -105,6 +109,7 @@ function listingRowFromForm(form: Form, photos: string[]): Record<string, unknow
     address: form.address,
     unit: form.unit || null,
     city: form.city || 'Toronto',
+    province: form.province,
     neighborhood: form.neighborhood || null,
     monthly_rent: form.monthly_rent,
     deposit: form.deposit,
@@ -156,6 +161,10 @@ export default function EditPublishedListingPage() {
   const [outcome, setOutcome] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
   const [relistMode, setRelistMode] = useState(false)
+  // Province: follows the address until the landlord picks one. The stored value and postal code
+  // take part in the detection the way the listing page reads them (lib/provinces/detect).
+  const [provinceManual, setProvinceManual] = useState(false)
+  const [stored, setStored] = useState<{ province: string | null; postal_code: string | null }>({ province: null, postal_code: null })
   // Read (and clear) the AI's stash once, before loading — StrictMode runs the load effect twice.
   const agentStash = useRef<AgentStash | null | undefined>(undefined)
   if (agentStash.current === undefined && typeof window !== 'undefined' && id) {
@@ -184,12 +193,18 @@ export default function EditPublishedListingPage() {
         setSlug(data.slug || '')
         setBaseUpdatedAt((data.updated_at as string | null) ?? null)
         setRowStatus((data.status as string | null) ?? null)
+        setStored({ province: (data.province as string | null) ?? null, postal_code: (data.postal_code as string | null) ?? null })
+        // The form shows the province the listing page uses; the "before" snapshot keeps the stored
+        // one, so a row saved under the wrong province (the Montréal listing was stored as Ontario)
+        // is corrected on the next save. An empty stored value equals the detected one (no write).
+        const province = effectiveProvince(data)
         const loaded: Form = {
           title: data.title || '',
           address: data.address || '',
           unit: data.unit || '',
           city: data.city || 'Toronto',
           neighborhood: data.neighborhood || '',
+          province: normalizeProvince(data.province) ?? province,
           monthly_rent: data.monthly_rent || 0,
           deposit: data.deposit ?? null,
           bedrooms: data.bedrooms ?? null,
@@ -214,7 +229,7 @@ export default function EditPublishedListingPage() {
         const wantsRelist = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('relist') === '1'
         const offMarket = data.is_active === false || data.status === 'archived'
         if (wantsRelist && offMarket) setRelistMode(true)
-        setForm(wantsRelist && offMarket ? { ...loaded, is_active: true } : loaded)
+        setForm(wantsRelist && offMarket ? { ...loaded, province, is_active: true } : { ...loaded, province })
         setPhotos(loadedPhotos)
         const d = agentStash.current
         if (d && Array.isArray(d.changed_fields) && d.changed_fields.length) {
@@ -252,7 +267,26 @@ export default function EditPublishedListingPage() {
   }
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) =>
-    setForm((f) => (f ? { ...f, [k]: v } : f))
+    setForm((f) => {
+      if (!f) return f
+      const next = { ...f, [k]: v }
+      if ((k === 'address' || k === 'city') && !provinceManual) {
+        next.province = effectiveProvince({ address: next.address, city: next.city, postal_code: stored.postal_code, province: stored.province })
+      }
+      // A province without a lawful pet ban drops 「不允许」 (Ontario rows are left as stored).
+      if (next.province !== f.province && next.pets_allowed === 'no' && petBanAllowed(next.province) !== true) next.pets_allowed = ''
+      return next
+    })
+  const pickProvince = (raw: string) => {
+    const p = normalizeProvince(raw)
+    if (!p) return
+    setProvinceManual(true)
+    set('province', p)
+  }
+  const provinceEvidence = addressProvinceEvidence(form.address, form.city, stored.postal_code)
+  const provinceMismatch = provinceEvidence && provinceEvidence !== form.province ? provinceEvidence : null
+  const deposit = depositGuidanceFor(form.province, form.monthly_rent, form.deposit, zh ? 'zh' : 'en')
+  const petNote = petGuidanceFor(form.province, zh ? 'zh' : 'en')?.note ?? null
 
   const toggleAmenity = (aid: string) => {
     const cur = form.amenities
@@ -428,6 +462,19 @@ export default function EditPublishedListingPage() {
                 <input className="sl-input" value={form.city} onChange={(e) => set('city', e.target.value)} />
               </LabelField>
             </div>
+            <LabelField label={zh ? '省份 / 地区' : 'Province / territory'}>
+              <select className="sl-input" value={form.province} onChange={(e) => pickProvince(e.target.value)} data-testid="listing-province">
+                {provinceOptions(zh ? 'zh' : 'en').map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </LabelField>
+            {provinceMismatch && (
+              <p className="-mt-2 text-[12px] text-amber-800" data-testid="listing-province-note">
+                {zh ? `地址里的邮编或省份是${provinceName(provinceMismatch, 'zh')}，房源页按地址判断省份。` : `The address’s postal code or province says ${provinceName(provinceMismatch, 'en')}; the listing page goes by the address.`}
+                <button type="button" onClick={() => { setProvinceManual(false); set('province', provinceMismatch) }} className="ml-1 font-semibold underline underline-offset-2">
+                  {zh ? `改为${provinceName(provinceMismatch, 'zh')}` : `Use ${provinceName(provinceMismatch, 'en')}`}
+                </button>
+              </p>
+            )}
           </div>
         </section>
 
@@ -439,9 +486,9 @@ export default function EditPublishedListingPage() {
               <LabelField label={zh ? '月租 (CAD) *' : 'Rent (CAD) *'}>
                 <input className="sl-input" type="number" value={form.monthly_rent} onChange={(e) => set('monthly_rent', Number(e.target.value) || 0)} required />
               </LabelField>
-              <LabelField label={zh ? '租金押金 (CAD)' : 'Rent deposit (CAD)'}>
+              <LabelField label={deposit ? (zh ? '押金 (CAD)' : 'Deposit (CAD)') : zh ? '租金押金 (CAD)' : 'Rent deposit (CAD)'}>
                 <input className="sl-input" type="number" value={form.deposit ?? ''} onChange={(e) => set('deposit', e.target.value ? Number(e.target.value) : null)} />
-                {form.deposit != null && form.monthly_rent > 0 && form.deposit > form.monthly_rent && (
+                {!deposit && form.deposit != null && form.monthly_rent > 0 && form.deposit > form.monthly_rent && (
                   <p className="mt-1 text-[11.5px] text-red-700">{zh ? '安省租金押金最多一个月租金，且只能抵最后一个月租金（RTA s.106）。' : 'Ontario caps the rent deposit at one month and it may only cover the last month (RTA s.106).'}</p>
                 )}
               </LabelField>
@@ -470,6 +517,13 @@ export default function EditPublishedListingPage() {
               <input type="checkbox" checked={form.has_den} onChange={(e) => set('has_den', e.target.checked)} className="h-4 w-4 rounded border-line-strong accent-brand" />
               {zh ? '有 Den' : 'Has den'}
             </label>
+            {/* Outside Ontario: that province's verified deposit rule and what is wrong with the amount (lib/provinces/rules.ts). */}
+            {deposit && (
+              <div className="space-y-1.5" data-testid="province-deposit-rule">
+                {deposit.problems.map((m) => <p key={m} className="text-[11.5px] text-red-700">{m}</p>)}
+                <p className="text-[12px] text-body-3">{deposit.rule}</p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -485,6 +539,7 @@ export default function EditPublishedListingPage() {
                 <option value="">{zh ? '未说明' : 'Not stated'}</option>
                 <option value="yes">{zh ? '允许' : 'Allowed'}</option>
                 <option value="restricted">{zh ? '有限制' : 'With restrictions'}</option>
+                {petBanAllowed(form.province) === true && <option value="no">{zh ? '不允许' : 'Not allowed'}</option>}
               </select>
             </LabelField>
             <LabelField label={zh ? '吸烟' : 'Smoking'}>
@@ -516,7 +571,9 @@ export default function EditPublishedListingPage() {
                 )
               })}
             </div>
-            <p className="mt-2 text-[12px] text-body-3">{zh ? '安省 RTA 下「禁止养宠」条款无效，所以宠物只能写「允许 / 有限制」；吸烟政策可以由房东设定。' : '"No pets" clauses are void under the Ontario RTA, so pets can only be "allowed / with restrictions"; a smoking policy is the landlord\'s to set.'}</p>
+            {form.province === 'ON'
+              ? <p className="mt-2 text-[12px] text-body-3">{zh ? '安省 RTA 下「禁止养宠」条款无效，所以宠物只能写「允许 / 有限制」；吸烟政策可以由房东设定。' : '"No pets" clauses are void under the Ontario RTA, so pets can only be "allowed / with restrictions"; a smoking policy is the landlord\'s to set.'}</p>
+              : petNote && <p className="mt-2 text-[12px] text-body-3" data-testid="province-pet-rule">{petNote}</p>}
           </div>
         </section>
 

@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { humanRights, type ProvinceCode } from '@/lib/provinces'
 
 export type ShowingKind = 'showing' | 'question'
 
@@ -47,6 +48,7 @@ export function ShowingRequestModal({
   listingAddress,
   signedIn,
   onClose,
+  province,
 }: {
   zh: boolean
   kind: ShowingKind
@@ -54,6 +56,9 @@ export function ShowingRequestModal({
   listingAddress: string
   signedIn: boolean
   onClose: () => void
+  /** The listing's province (lib/listingDisplay listingProvince). Ontario (or none) keeps the OHRC
+   *  sentence; elsewhere the province's own human-rights law is named (2026-10-02). */
+  province?: ProvinceCode | null
 }) {
   const [moveIn, setMoveIn] = useState('')
   const [message, setMessage] = useState('')
@@ -63,6 +68,8 @@ export function ShowingRequestModal({
   // The listing went off the market: sending again cannot work.
   const [offMarket, setOffMarket] = useState(false)
   const isShowing = kind === 'showing'
+  // Outside Ontario: that province's human-rights law and its protected grounds (verified facts), never OHRC.
+  const hr = province && province !== 'ON' ? humanRights(province, zh ? 'zh' : 'en') : null
   const title = isShowing ? (zh ? '预约看房' : 'Request a viewing') : (zh ? '向房东提问' : 'Ask the landlord')
 
   async function submit() {
@@ -104,7 +111,8 @@ export function ShowingRequestModal({
       <div className="max-h-[92dvh] w-full max-w-[460px] overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{isShowing ? 'SHOWING REQUEST' : 'ASK THE LANDLORD'}</div>
+            {/* English eyebrow in the English UI only — the Chinese title stands alone (2026-10-02). */}
+            {!zh && <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{isShowing ? 'SHOWING REQUEST' : 'ASK THE LANDLORD'}</div>}
             <h3 className="mt-1 text-[19px] font-bold tracking-tight">{title}</h3>
             <p className="mt-1 truncate text-[12.5px] text-body-3">{listingAddress}</p>
           </div>
@@ -154,7 +162,11 @@ export function ShowingRequestModal({
               />
             </label>
             <p className="text-[11.5px] leading-relaxed text-body-3">
-              {zh
+              {hr
+                ? (zh
+                    ? `房东只会看到你的姓名和这里写的内容，看不到你的邮箱。看房与提问不需要、也不应提供受${hr.law}保护的个人信息，例如${hr.examples}。`
+                    : `The landlord sees only your name and what you write here — not your email. You need not — and should not — share information about any ground protected by ${hr.law}, for example ${hr.examples}.`)
+                : zh
                 ? '房东只会看到你的姓名和这里写的内容，看不到你的邮箱。按 OHRC 租房政策，看房与提问不需要、也不应提供家庭状况、国籍、收入来源等受保护信息。'
                 : 'The landlord sees only your name and what you write here — not your email. Under OHRC housing policy you need not — and should not — share protected information such as family status, nationality or source of income.'}
             </p>

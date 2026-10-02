@@ -31,11 +31,12 @@ export type AgentProfile = {
 export const RECO_REGISTER_URL = 'https://registrantsearch.reco.on.ca/'
 export const RECO_COMPLAINTS_URL = 'https://complaints.reco.on.ca/'
 
-/** Permitted descriptor for the category (O. Reg. 567/05 s.12.1(4)). */
+/** Permitted descriptor for the category (O. Reg. 567/05 s.12.1(4)). One
+ *  language at a time (2026-10-02): the English descriptor in the English UI only. */
 export function categoryLabel(c: AgentCategory, lang: 'zh' | 'en'): string {
-  if (c === 'broker_of_record') return lang === 'zh' ? '主管经纪 (Broker of Record)' : 'Broker of Record'
-  if (c === 'broker') return lang === 'zh' ? '经纪 (Broker)' : 'Broker'
-  return lang === 'zh' ? '地产销售代表 (Salesperson)' : 'Salesperson'
+  if (c === 'broker_of_record') return lang === 'zh' ? '主管经纪' : 'Broker of Record'
+  if (c === 'broker') return lang === 'zh' ? '经纪' : 'Broker'
+  return lang === 'zh' ? '地产销售代表' : 'Salesperson'
 }
 
 export function statusLabel(s: AgentStatus, lang: 'zh' | 'en'): string {

@@ -6,13 +6,16 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
-import { buildListingRow, findExistingListing, existingListingMessage, listingSaveOutcomeText, listingStateAfterSave, publishListing, relistExisting, type ExistingListing } from '@/lib/listingPublish'
+import {
+  addressProvinceEvidence, buildListingRow, cityFromAddress, depositGuidanceFor, detectListingProvince, findExistingListing, existingListingMessage,
+  listingCheckItemsFor, listingSaveOutcomeText, listingStateAfterSave, petGuidanceFor, provinceOptions, publishListing, relistExisting, type ExistingListing,
+} from '@/lib/listingPublish'
 import { useLandlord } from '@/lib/useLandlord'
 import { invalidateHats } from '@/lib/useHats'
 import { RegistrantDisclosureModal, useRegistrantProfile } from '@/components/RegistrantDisclosure'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
-import { checkListingCompliance } from '@/lib/ontario/rules'
+import { checkListingComplianceFor, normalizeProvince, petBanAllowed, provinceName, type ProvinceCode } from '@/lib/provinces'
 
 const STEPS = (aiName: string) => [
   { n: 1, nm: { zh: '基本信息', en: 'Basics' }, desc: { zh: '地址 + 户型 + 面积', en: 'Address + layout + size' } },
@@ -61,7 +64,9 @@ export default function NewListingPage() {
     address: '',
     unit: '',
     city: 'Toronto',
-    province: 'ON',
+    // Follows the address (postal code > province token > city) until the landlord picks one
+    // (2026-10-02 — the Montréal listing was saved as Ontario because this was fixed at 'ON').
+    province: 'ON' as ProvinceCode,
     monthly_rent: '',
     deposit: '',
     bedrooms: '1',
@@ -76,7 +81,8 @@ export default function NewListingPage() {
     // enter reaches the listing. "Not stated" is a valid published value.
     amenities: [] as string[],
     lease_term: '',
-    pets_allowed: '' as '' | 'yes' | 'restricted',
+    // 'no' is offered only where the province's verified facts allow a pet ban (never in Ontario).
+    pets_allowed: '' as '' | 'yes' | 'restricted' | 'no',
     smoking_policy: '' as '' | 'no' | 'outdoor_only' | 'yes',
     furnished: '' as '' | 'yes' | 'no',
     utilities_included: [] as string[],
@@ -99,9 +105,39 @@ export default function NewListingPage() {
   }
   const toggleUtility = (id: string) => setForm((f) => ({ ...f, utilities_included: f.utilities_included.includes(id) ? f.utilities_included.filter((x) => x !== id) : [...f.utilities_included, id] }))
 
+  // Province (2026-10-02): detected from the address as the landlord types; once they pick one in
+  // the select it sticks. The city field's "Toronto" default is Ontario's — while it is untouched it
+  // does not outvote a "Montréal" in the address, and a listing elsewhere takes its city from the address.
+  const [provinceManual, setProvinceManual] = useState(false)
+  const [cityTouched, setCityTouched] = useState(false)
+  type WizardForm = typeof form
+  const withProvince = (f: WizardForm, province: ProvinceCode, cityTyped: boolean): WizardForm => {
+    const next = { ...f, province }
+    if (!cityTyped) next.city = province === 'ON' ? 'Toronto' : (cityFromAddress(f.address) ?? '')
+    if (next.pets_allowed === 'no' && petBanAllowed(province) !== true) next.pets_allowed = ''
+    return next
+  }
+
   const set = (k: string, v: any) => {
-    setForm((f) => ({ ...f, [k]: v }))
+    const cityTyped = cityTouched || k === 'city'
+    if (k === 'city') setCityTouched(true)
+    setForm((f) => {
+      const next = { ...f, [k]: v }
+      if (k !== 'address' && k !== 'city') return next
+      if (!provinceManual) return withProvince(next, detectListingProvince(next.address, cityTyped ? next.city : null), cityTyped)
+      return cityTyped ? next : withProvince(next, next.province, false)
+    })
     if (k === 'address' || k === 'unit') { setExisting(null); setRelistDone(null) }
+  }
+  const pickProvince = (raw: string) => {
+    const p = normalizeProvince(raw)
+    if (!p) return
+    setProvinceManual(true)
+    setForm((f) => withProvince(f, p, cityTouched))
+  }
+  const applyAddressProvince = (p: ProvinceCode) => {
+    setProvinceManual(false)
+    setForm((f) => withProvince(f, p, cityTouched))
   }
   const toggleAmenity = (a: string) =>
     setForm((f) => ({
@@ -119,6 +155,9 @@ export default function NewListingPage() {
   // The retry after the disclosure runs from the closure of the render that opened it
   // (disclosed still false there) — the ref is what it can see.
   const disclosedRef = useRef(false)
+  // The notice is an Ontario statute's (TRESA, RECO): it is asked for an Ontario listing only —
+  // a listing in another province follows that province's rules, not Ontario's (2026-10-02).
+  const needsDisclosure = () => !!registrant.profile && form.province === 'ON' && !disclosed && !disclosedRef.current
 
   // The landlord's own earlier listing at this address + unit (sweep 2026-10-01):
   // checked when step 1 is done, so a unit that was rented and later taken down
@@ -141,6 +180,7 @@ export default function NewListingPage() {
         address: form.address,
         unit: form.unit,
         city: form.city,
+        province: form.province,
         monthly_rent: parseInt(form.monthly_rent) || null,
         bedrooms: parseInt(form.bedrooms),
         bathrooms: parseInt(form.bathrooms),
@@ -169,7 +209,7 @@ export default function NewListingPage() {
       return
     }
     // TRESA s.32: going back on the market is a listing going live, same disclosure as publishing.
-    if (registrant.profile && !disclosed && !disclosedRef.current) { relistIntent.current = true; setDisclosureOpen(true); return }
+    if (needsDisclosure()) { relistIntent.current = true; setDisclosureOpen(true); return }
     setRelisting(true); setError(null)
     const res = await relistExisting(supabase, existing, wizardRow(existing.slug || ''), { zh: lang === 'zh' })
     setRelisting(false)
@@ -185,7 +225,7 @@ export default function NewListingPage() {
       return
     }
     setError(null)
-    if (registrant.profile && !disclosed && !disclosedRef.current) { setDisclosureOpen(true); return }
+    if (needsDisclosure()) { setDisclosureOpen(true); return }
     setSubmitting(true)
     const slug =
       form.address
@@ -389,9 +429,37 @@ export default function NewListingPage() {
             {step === 1 && (
               <div className="space-y-4">
                 <h2 className="text-[18px] font-bold">{lang === 'zh' ? '1 · 基本信息' : '1 · Basics'}</h2>
-                <Field label={lang === 'zh' ? '地址 *' : 'Address *'}>
-                  <input className="sl-input" required value={form.address} onChange={(e) => set('address', e.target.value)} />
-                </Field>
+                <div className="grid gap-4 sm:grid-cols-[1fr_220px]">
+                  <Field label={lang === 'zh' ? '地址 *' : 'Address *'}>
+                    <input className="sl-input" required value={form.address} onChange={(e) => set('address', e.target.value)} />
+                  </Field>
+                  <Field label={lang === 'zh' ? '省份 / 地区' : 'Province / territory'}>
+                    <select className="sl-input" value={form.province} onChange={(e) => pickProvince(e.target.value)} data-testid="listing-province">
+                      {provinceOptions(lang).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </Field>
+                </div>
+                {(() => {
+                  // The listing page reads the address's own postal code / province before the stored
+                  // value, so a choice that contradicts the address is pointed out (2026-10-02).
+                  const evidence = addressProvinceEvidence(form.address, cityTouched ? form.city : null)
+                  const mismatch = evidence && evidence !== form.province ? evidence : null
+                  return (
+                    <p className="-mt-2 text-[12px] text-body-3" data-testid="listing-province-note">
+                      {provinceManual
+                        ? (lang === 'zh' ? '省份由你选择。' : 'Province chosen by you.')
+                        : (lang === 'zh' ? '省份按地址自动识别，不对可以在右侧修改。' : 'Province detected from the address; change it on the right if it is wrong.')}
+                      {mismatch && (
+                        <span className="text-amber-800">
+                          {lang === 'zh' ? ` 地址里的邮编或省份是${provinceName(mismatch, 'zh')}，房源页按地址判断省份。` : ` The address’s postal code or province says ${provinceName(mismatch, 'en')}; the listing page goes by the address.`}
+                          <button type="button" onClick={() => applyAddressProvince(mismatch)} className="ml-1 font-semibold underline underline-offset-2">
+                            {lang === 'zh' ? `改为${provinceName(mismatch, 'zh')}` : `Use ${provinceName(mismatch, 'en')}`}
+                          </button>
+                        </span>
+                      )}
+                    </p>
+                  )
+                })()}
                 <Field label={lang === 'zh' ? '物业类型' : 'Property type'}>
                   <div className="flex flex-wrap gap-2">
                     {([
@@ -507,7 +575,10 @@ export default function NewListingPage() {
               <div className="space-y-4">
                 <h2 className="text-[18px] font-bold">{lang === 'zh' ? '3 · 价格 + 条件' : '3 · Price + terms'}</h2>
                 <p className="text-[13px] text-body-2">
-                  {lang === 'zh'
+                  {form.province !== 'ON'
+                    // The price help pulls Toronto-area comparables and TRREB (an Ontario board) — not offered elsewhere.
+                    ? (lang === 'zh' ? '这里不预填任何价格。' : 'Nothing is pre-filled here.')
+                    : lang === 'zh'
                     ? <>不确定该挂多少？发布后在 <Link href="/landlord/agent" className="text-brand underline underline-offset-2">{aiName} 对话</Link>里问「这套该挂多少」，会拉同区域真实挂牌与 TRREB 官方数据——这里不预填任何价格。</>
                     : <>Not sure about the price? After publishing, ask {aiName} in <Link href="/landlord/agent" className="text-brand underline underline-offset-2">the chat</Link> — it pulls live comparables and TRREB data. Nothing is pre-filled here.</>}
                 </p>
@@ -515,11 +586,22 @@ export default function NewListingPage() {
                   <Field label={lang === 'zh' ? '月租 (CAD) *' : 'Monthly rent (CAD) *'}><input className="sl-input" type="number" required value={form.monthly_rent} onChange={(e) => set('monthly_rent', e.target.value)} /></Field>
                   <Field label={lang === 'zh' ? '押金 (CAD)' : 'Deposit (CAD)'}><input className="sl-input" type="number" value={form.deposit} onChange={(e) => set('deposit', e.target.value)} /></Field>
                 </div>
-                {parseInt(form.deposit) > parseInt(form.monthly_rent) && parseInt(form.monthly_rent) > 0 && (
+                {form.province === 'ON' && parseInt(form.deposit) > parseInt(form.monthly_rent) && parseInt(form.monthly_rent) > 0 && (
                   <div className="rounded-md bg-danger/10 px-3 py-2 text-[12.5px] text-danger">
                     {lang === 'zh' ? '押金超过一个月租金。安省 RTA s.106 只允许收最多一个月租金作为末月租押金（钥匙押金除外，且只能是可退还的成本价）。' : "The deposit exceeds one month's rent. Ontario RTA s.106 allows at most one month's rent as a last-month deposit (plus a refundable key deposit at cost)."}
                   </div>
                 )}
+                {(() => {
+                  // Outside Ontario: that province's verified deposit rule (lib/provinces/rules.ts), and what is wrong with the amount.
+                  const g = depositGuidanceFor(form.province, parseInt(form.monthly_rent) || null, parseInt(form.deposit) || null, lang)
+                  if (!g) return null
+                  return (
+                    <div className="space-y-1.5" data-testid="province-deposit-rule">
+                      {g.problems.map((m) => <div key={m} className="rounded-md bg-danger/10 px-3 py-2 text-[12.5px] text-danger">{m}</div>)}
+                      <p className="text-[12px] text-body-3">{g.rule}</p>
+                    </div>
+                  )
+                })()}
                 <div className="grid gap-4 sm:grid-cols-4">
                   <Field label={lang === 'zh' ? '租期' : 'Lease term'}><input className="sl-input" value={form.lease_term} onChange={(e) => set('lease_term', e.target.value)} placeholder={lang === 'zh' ? '如：12 个月 / 可短租' : 'e.g. 12 months / short-term OK'} /></Field>
                   <Field label={lang === 'zh' ? '宠物' : 'Pets'}>
@@ -527,6 +609,7 @@ export default function NewListingPage() {
                       <option value="">{lang === 'zh' ? '未说明' : 'Not stated'}</option>
                       <option value="yes">{lang === 'zh' ? '允许' : 'Allowed'}</option>
                       <option value="restricted">{lang === 'zh' ? '有限制' : 'With restrictions'}</option>
+                      {petBanAllowed(form.province) === true && <option value="no">{lang === 'zh' ? '不允许' : 'Not allowed'}</option>}
                     </select>
                   </Field>
                   <Field label={lang === 'zh' ? '吸烟' : 'Smoking'}>
@@ -557,9 +640,15 @@ export default function NewListingPage() {
                     })}
                   </div>
                 </Field>
-                <p className="text-[12px] text-body-3">
-                  {lang === 'zh' ? '安省 RTA 下「禁止养宠」条款无效，所以宠物只能写「允许 / 有限制」；吸烟政策可由房东设定。' : '"No pets" clauses are void under the Ontario RTA, so pets can only be "allowed / with restrictions"; a smoking policy is yours to set.'}
-                </p>
+                {form.province === 'ON' ? (
+                  <p className="text-[12px] text-body-3">
+                    {lang === 'zh' ? '安省 RTA 下「禁止养宠」条款无效，所以宠物只能写「允许 / 有限制」；吸烟政策可由房东设定。' : '"No pets" clauses are void under the Ontario RTA, so pets can only be "allowed / with restrictions"; a smoking policy is yours to set.'}
+                  </p>
+                ) : (() => {
+                  // Outside Ontario: only the province's verified pet rule; nothing where none was verified.
+                  const note = petGuidanceFor(form.province, lang)?.note
+                  return note ? <p className="text-[12px] text-body-3" data-testid="province-pet-rule">{note}</p> : null
+                })()}
                 <div className="flex gap-3">
                   <button onClick={() => setStep(2)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
                   <button onClick={() => setStep(4)} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '下一步 · 护照章' : 'Next · Passport stamps'}</button>
@@ -581,13 +670,14 @@ export default function NewListingPage() {
                         { n: 1, name: '身份章 🪪', desc: '申请人通过 Veriff 完成证件 + 活体核验。' },
                         { n: 2, name: '收入章 💼', desc: '工资单等收入文件，或银行直连识别出的工资入账。' },
                         { n: 3, name: '银行章 🏦', desc: '申请人本人授权 Flinks 银行直连，只分享摘要，不分享原始流水。' },
-                        { n: 4, name: '信用 + 法庭章 ⚖️', desc: '申请人提供或授权的信用报告，加安省公开记录检索。' },
+                        // The court / LTB search covers Ontario records only: a listing elsewhere is not promised it (2026-10-02).
+                        { n: 4, name: '信用 + 法庭章 ⚖️', desc: form.province === 'ON' ? '申请人提供或授权的信用报告，加安省公开记录检索。' : '申请人提供或授权的信用报告。' },
                       ]
                     : [
                         { n: 1, name: 'Identity stamp 🪪', desc: 'The applicant completes an ID + liveness check through Veriff.' },
                         { n: 2, name: 'Income stamp 💼', desc: 'Income documents such as pay stubs, or payroll deposits identified through a bank connection.' },
                         { n: 3, name: 'Bank stamp 🏦', desc: 'The applicant authorises a Flinks bank connection; only a summary is shared, never raw transactions.' },
-                        { n: 4, name: 'Credit + court stamp ⚖️', desc: 'A credit report the applicant provides or authorises, plus a search of Ontario public records.' },
+                        { n: 4, name: 'Credit + court stamp ⚖️', desc: form.province === 'ON' ? 'A credit report the applicant provides or authorises, plus a search of Ontario public records.' : 'A credit report the applicant provides or authorises.' },
                       ]
                   ).map((t) => (
                     <div
@@ -621,12 +711,13 @@ export default function NewListingPage() {
                   </div>
                   <dl className="mt-3 space-y-2 text-[13px]">
                     <Row k={lang === 'zh' ? '地址' : 'Address'} v={form.address} />
+                    <Row k={lang === 'zh' ? '省份 / 地区' : 'Province / territory'} v={provinceName(form.province, lang)} />
                     <Row k={lang === 'zh' ? '户型' : 'Layout'} v={lang === 'zh' ? `${form.bedrooms} 卧 · ${form.bathrooms} 卫 · ${form.sqft.trim() ? `${form.sqft} sqft` : `面积${NOT_PROVIDED.zh}`}` : `${form.bedrooms} bd · ${form.bathrooms} ba · ${form.sqft.trim() ? `${form.sqft} sqft` : `area ${NOT_PROVIDED.en}`}`} />
                     <Row k={lang === 'zh' ? '月租 / 押金' : 'Rent / deposit'} v={`${form.monthly_rent.trim() ? `$${form.monthly_rent}` : NOT_PROVIDED[lang]} / ${form.deposit.trim() ? `$${form.deposit}` : NOT_PROVIDED[lang]}`} />
                     <Row k={lang === 'zh' ? '配套' : 'Amenities'} v={form.amenities.map((id) => AMENITIES.find((a) => a.id === id)?.[lang] ?? id).join(' · ') || NOT_PROVIDED[lang]} />
                     <Row k={lang === 'zh' ? '照片' : 'Photos'} v={photos.length ? (lang === 'zh' ? `${photos.length} 张` : `${photos.length}`) : NOT_PROVIDED[lang]} />
                     <Row k={lang === 'zh' ? '租期' : 'Lease term'} v={form.lease_term.trim() || NOT_PROVIDED[lang]} />
-                    <Row k={lang === 'zh' ? '宠物' : 'Pets'} v={form.pets_allowed === 'yes' ? (lang === 'zh' ? '允许' : 'Allowed') : form.pets_allowed === 'restricted' ? (lang === 'zh' ? '有限制' : 'With restrictions') : NOT_PROVIDED[lang]} />
+                    <Row k={lang === 'zh' ? '宠物' : 'Pets'} v={form.pets_allowed === 'yes' ? (lang === 'zh' ? '允许' : 'Allowed') : form.pets_allowed === 'restricted' ? (lang === 'zh' ? '有限制' : 'With restrictions') : form.pets_allowed === 'no' ? (lang === 'zh' ? '不允许' : 'Not allowed') : NOT_PROVIDED[lang]} />
                     <Row k={lang === 'zh' ? '吸烟' : 'Smoking'} v={form.smoking_policy === 'no' ? (lang === 'zh' ? '禁止' : 'No smoking') : form.smoking_policy === 'outdoor_only' ? (lang === 'zh' ? '仅室外' : 'Outdoors only') : form.smoking_policy === 'yes' ? (lang === 'zh' ? '允许' : 'Allowed') : NOT_PROVIDED[lang]} />
                     <Row k={lang === 'zh' ? '家具' : 'Furnished'} v={form.furnished === 'yes' ? (lang === 'zh' ? '带家具' : 'Furnished') : form.furnished === 'no' ? (lang === 'zh' ? '不带家具' : 'Unfurnished') : NOT_PROVIDED[lang]} />
                     <Row k={lang === 'zh' ? '租金包含' : 'Included'} v={form.utilities_included.map((id) => UTILITY_OPTIONS.find((u) => u.id === id)?.[lang] ?? id).join(' · ') || NOT_PROVIDED[lang]} />
@@ -640,7 +731,7 @@ export default function NewListingPage() {
                       const d = draftListingCopy({
                         address: form.address, unit: form.unit, city: form.city, property_type: form.property_type,
                         bedrooms: parseInt(form.bedrooms), bathrooms: parseInt(form.bathrooms), sqft: parseInt(form.sqft) || null, monthly_rent: parseInt(form.monthly_rent) || null,
-                        lease_term: form.lease_term, pets_allowed: form.pets_allowed, smoking_policy: form.smoking_policy, furnished: form.furnished,
+                        lease_term: form.lease_term, pets_allowed: form.pets_allowed === 'no' ? '' : form.pets_allowed, smoking_policy: form.smoking_policy, furnished: form.furnished,
                         amenities: form.amenities.map((id) => AMENITIES.find((a) => a.id === id)).filter(Boolean) as { zh: string; en: string }[],
                         utilities: form.utilities_included.map((id) => UTILITY_OPTIONS.find((u) => u.id === id)).filter(Boolean) as { zh: string; en: string }[],
                       })
@@ -660,9 +751,22 @@ export default function NewListingPage() {
                   </div>
                   <ul className="mt-2 space-y-1 text-[12.5px] text-body-2">
                     {(() => {
-                      // Single source of Ontario rules (lib/ontario/rules.ts); the
-                      // same checks back /api/v1/listings/compliance.
-                      const { findings } = checkListingCompliance({ monthly_rent: parseInt(form.monthly_rent) || null, deposit: parseInt(form.deposit) || null, pets_allowed: form.pets_allowed || null })
+                      // The listing's own province: Ontario → lib/ontario/rules.ts unchanged (the same checks
+                      // back /api/v1/listings/compliance); elsewhere that province's verified facts
+                      // (lib/provinces/rules.ts), one line per topic they cover, no Ontario statute names.
+                      if (form.province !== 'ON') {
+                        const { findings } = checkListingComplianceFor(form.province, { monthly_rent: parseInt(form.monthly_rent) || null, deposit: parseInt(form.deposit) || null, pets_allowed: form.pets_allowed || null, title: form.title, description: form.description })
+                        return (listingCheckItemsFor(form.province, lang) ?? []).map((item) => {
+                          const hit = findings.find((f) => item.rules.includes(f.rule))
+                          return (
+                            <li key={item.key} data-testid="province-check">
+                              {hit ? (hit.severity === 'block' ? '✗ ' : '⚠ ') : '✓ '}{item.label}
+                              {hit && <div className="ml-4 text-[12px] text-danger">{hit.message[lang]}</div>}
+                            </li>
+                          )
+                        })
+                      }
+                      const { findings } = checkListingComplianceFor('ON', { monthly_rent: parseInt(form.monthly_rent) || null, deposit: parseInt(form.deposit) || null, pets_allowed: form.pets_allowed || null })
                       const hit = (id: string) => findings.find((f) => f.rule === id)
                       return (
                         <>

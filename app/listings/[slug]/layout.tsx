@@ -13,6 +13,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 import { listingTitle } from '@/lib/listingDisplay'
+import { descriptionParts } from '@/lib/listingLang'
 
 export const runtime = 'edge'
 
@@ -59,11 +60,13 @@ export async function generateMetadata(
     const where = [l.neighborhood, l.city].filter(Boolean).join(' · ') || 'Toronto'
     // Same helper as the H1: no second '#608' when the address already carries the unit (site test 2026-10-02, D-06).
     const addr = listingTitle(l.address, l.unit)
-    const beds = l.bedrooms != null ? (l.bedrooms === 0 ? 'Studio' : `${l.bedrooms} 房`) : null
+    const beds = l.bedrooms != null ? (l.bedrooms === 0 ? '开间' : `${l.bedrooms} 房`) : null
     const rent = l.monthly_rent ? `${money(l.monthly_rent)}/月` : null
 
-    // "1207 King West · 2 房 · $2,800/月 · Liberty Village · Stayloop"
-    const title = [addr || l.title || '房源', beds, rent, where, 'Stayloop']
+    // "1001 Bay St #1618 · Stayloop": the tab title is rendered on the server
+    // before the UI language is known, so it carries only the address — no
+    // "2 房 · $2,800/月", no Chinese marketing title (2026-10-02, one language per page).
+    const title = [addr || 'Stayloop', addr ? 'Stayloop' : null]
       .filter(Boolean)
       .join(' · ')
       .slice(0, 110)
@@ -73,8 +76,10 @@ export async function generateMetadata(
       l.bathrooms != null ? `${l.bathrooms} 浴` : null,
       l.sqft ? `${l.sqft} 平方英尺` : null,
     ].filter(Boolean).join(' · ')
+    // One language in the preview text too: the Chinese half of a bilingual description (zh is the primary UI language).
+    const parts = descriptionParts(l.description)
     const description = (
-      l.description?.trim() ||
+      parts.zh || parts.en ||
       `${where}的出租房源${specs ? `，${specs}` : ''}${rent ? `，租金 ${rent}` : ''}。平台已核验，可用租客护照一键申请。`
     ).slice(0, 200)
 

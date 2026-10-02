@@ -16,6 +16,8 @@ import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 import { leaseActionErrorText, leaseErrorNeedsReload, leaseHasTerms, leaseIsEditableDraft, leaseIsRecordOnly, leaseIsSendable, leaseIsSignable, leaseIsWithdrawable, leaseTermsRenderable } from '@/lib/lease/leaseState'
+import { listingProvince, provinceName } from '@/lib/listingDisplay'
+import type { ProvinceCode, ProvinceRow } from '@/lib/provinces/detect'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -36,6 +38,7 @@ type DbLease = {
   signed_at: string | null
   pdf_path: string | null
   application_id: string | null
+  listing_id: string | null
 }
 
 function RealLeaseDetail({ id }: { id: string }) {
@@ -51,18 +54,30 @@ function RealLeaseDetail({ id }: { id: string }) {
   // The household this lease is the current terms of (its uploaded file lives in that household's folder).
   const [householdId, setHouseholdId] = useState<string | null>(null)
   const [fileUrl, setFileUrl] = useState<string | null | 'denied'>(null)
+  // The province of the home (2026-10-02 · 「外省的要查外省的法规，不要用安省的法规和说法」): an imported
+  // or quick-entered record for a home outside Ontario is not offered Ontario's standard lease.
+  const [province, setProvince] = useState<ProvinceCode>('ON')
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from('lease_documents')
-      .select('id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, sent_at, landlord_signature, tenant_signature, signed_at, pdf_path, application_id')
+      .select('id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, sent_at, landlord_signature, tenant_signature, signed_at, pdf_path, application_id, listing_id')
       .eq('id', id)
       .maybeSingle<DbLease>()
-    setLease(error || !data ? 'missing' : data)
-    if (data) {
-      const { data: hh } = await supabase.from('households').select('id').eq('current_lease_id', data.id).limit(1)
-      setHouseholdId(((hh ?? []) as { id: string }[])[0]?.id ?? null)
-    }
+    if (error || !data) { setLease('missing'); return }
+    // The household (its file folder and address) and the linked listing are read before the page
+    // renders, so a record for a home outside Ontario never shows Ontario's lease wording first.
+    const [{ data: hh }, { data: lst }] = await Promise.all([
+      supabase.from('households').select('id, address, city').eq('current_lease_id', data.id).limit(1),
+      data.listing_id ? supabase.from('listings').select('address, city, postal_code, province').eq('id', data.listing_id).maybeSingle() : Promise.resolve({ data: null }),
+    ])
+    const home = ((hh ?? []) as { id: string; address: string | null; city: string | null }[])[0] ?? null
+    const unit = ((data.terms ?? {}) as { unit?: { street?: string; city?: string; postal?: string } }).unit
+    setProvince(lst
+      ? listingProvince(lst as ProvinceRow)
+      : listingProvince({ address: home?.address ?? unit?.street ?? data.unit_label, city: home?.city ?? unit?.city ?? null, postal_code: unit?.postal ?? null }))
+    setHouseholdId(home?.id ?? null)
+    setLease(data)
   }, [id])
   useEffect(() => { void load() }, [load])
 
@@ -186,6 +201,10 @@ function RealLeaseDetail({ id }: { id: string }) {
   const recordOnly = leaseIsRecordOnly(l) || !hasTerms
   // Unknown/legacy form_type falls back to the Ontario renderer (back-compat).
   const isTrreb = l.form_type === 'trreb'
+  // A record (no Stayloop document) for a home outside Ontario: no Ontario form named, no "draft the
+  // standard lease" offer — the new-lease page shows that province's lease-form rules instead.
+  const outside = recordOnly && province !== 'ON'
+  const provName = provinceName(province, zh)
 
   return (
     <WorkspaceShell role="landlord" hideAside>
@@ -197,7 +216,7 @@ function RealLeaseDetail({ id }: { id: string }) {
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
-                {isTrreb ? 'TRREB FORM 400' : 'ONTARIO STANDARD LEASE'} · {l.status.toUpperCase()}
+                {outside ? `${provName} · ${zh ? '租约记录' : 'LEASE RECORD'}` : <>{isTrreb ? 'TRREB FORM 400' : 'ONTARIO STANDARD LEASE'} · {l.status.toUpperCase()}</>}
               </div>
               <h1 className="mt-1 text-[22px] font-bold tracking-tight sm:text-[28px]">
                 {l.tenant_name || '—'} · {l.unit_label || '—'}
@@ -234,7 +253,7 @@ function RealLeaseDetail({ id }: { id: string }) {
             <div className="mt-4 rounded-lg border border-line-strong bg-white px-4 py-3 text-[13px] text-body" data-testid="lease-record-only">
               <div className="font-semibold">{l.status === 'imported' ? (zh ? '这是导入的已签租约记录' : 'This is an imported record of a signed lease') : incompleteTerms ? (zh ? '这份租约的条款文档不完整，无法在这里显示' : 'This lease’s terms document is incomplete and cannot be shown here') : (zh ? '这是快速录入的租约记录' : 'This is a quick-entered lease record')}</div>
               <p className="mt-1 text-[12.5px] text-body-2">
-                {incompleteTerms ? (zh ? '条款缺少部分内容（例如通知地址或水电费由谁支付），所以不能在线显示、发送或签署。租约状态与签署记录照常保留。要给租客一份完整、可在线签署的安省标准租约，从这份记录起草一份即可（会预填租客、地址、租金和日期）。' : 'Parts of the terms are missing (for example the notice address or who pays utilities), so the document cannot be shown, sent or signed online. The lease status and signature record are kept as they are. To give the tenant a complete Ontario standard lease to sign online, draft one from this record (tenant, address, rent and dates are prefilled).') : zh ? '它没有在 Stayloop 上签署的条款文档，所以不能在线发送或签署。要给租客一份可在线签署的安省标准租约，从这份记录起草一份即可（会预填租客、地址、租金和日期）。' : 'It has no terms document signed on Stayloop, so it cannot be sent or signed online. To give the tenant an Ontario standard lease to sign online, draft one from this record (tenant, address, rent and dates are prefilled).'}
+                {outside ? (zh ? `它没有在 Stayloop 上签署的条款文档。这套房源在${provName}，Stayloop 不能为它在线起草或电子签署租约；${provName}的租约规定见下面的链接。` : `It has no terms document signed on Stayloop. This home is in ${provName}: Stayloop cannot draft or e-sign a lease for it online — ${provName}'s lease rules are behind the link below.`) : incompleteTerms ? (zh ? '条款缺少部分内容（例如通知地址或水电费由谁支付），所以不能在线显示、发送或签署。租约状态与签署记录照常保留。要给租客一份完整、可在线签署的安省标准租约，从这份记录起草一份即可（会预填租客、地址、租金和日期）。' : 'Parts of the terms are missing (for example the notice address or who pays utilities), so the document cannot be shown, sent or signed online. The lease status and signature record are kept as they are. To give the tenant a complete Ontario standard lease to sign online, draft one from this record (tenant, address, rent and dates are prefilled).') : zh ? '它没有在 Stayloop 上签署的条款文档，所以不能在线发送或签署。要给租客一份可在线签署的安省标准租约，从这份记录起草一份即可（会预填租客、地址、租金和日期）。' : 'It has no terms document signed on Stayloop, so it cannot be sent or signed online. To give the tenant an Ontario standard lease to sign online, draft one from this record (tenant, address, rent and dates are prefilled).'}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 {l.pdf_path && (
@@ -245,7 +264,7 @@ function RealLeaseDetail({ id }: { id: string }) {
                       : <span className="text-[12.5px] text-body-3">{zh ? '正在准备文件…' : 'Preparing the file…'}</span>
                 )}
                 <Link href={`/landlord/leases/new?from_lease=${l.id}`} className="sl-btn-primary !px-4 !py-[8px] !text-[12.5px]" data-testid="lease-draft-standard">
-                  {zh ? '起草这份租约的标准租约 →' : 'Draft a standard lease for this tenancy →'}
+                  {outside ? (zh ? `${provName}的租约规定 →` : `${provName}'s lease rules →`) : zh ? '起草这份租约的标准租约 →' : 'Draft a standard lease for this tenancy →'}
                 </Link>
               </div>
             </div>
@@ -316,7 +335,9 @@ function RealLeaseDetail({ id }: { id: string }) {
             )
           ) : (
             <div className="p-8 text-center text-[13.5px] text-body-3">
-              {zh
+              {outside
+                ? (zh ? `这份租约没有完整的条款文档（导入或快速录入的记录）。${aiName} 用它跟踪租期。` : `This lease has no full terms document (an imported or quick-entered record). ${aiName} uses it to track the term.`)
+                : zh
                 ? `这份租约没有完整的条款文档${incompleteTerms ? '' : '（导入或快速录入的记录）'}。${aiName} 用它跟踪租期与续约窗口；如需可在线签署的标准租约，请用上面的「起草这份租约的标准租约」。`
                 : `This lease has no full terms document${incompleteTerms ? '' : ' (an imported or quick-entered record)'}. ${aiName} uses it to track the term and renewal window; for a standard lease to sign online, use “Draft a standard lease for this tenancy” above.`}
             </div>

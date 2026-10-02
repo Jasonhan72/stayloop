@@ -3,12 +3,20 @@
 export const runtime = 'edge'
 
 import Link from 'next/link'
-import { addressHasUnit, isOntarioListing, listingTitle, ontarioRulesNotApplicable, parkingStat } from '@/lib/listingDisplay'
+import { listingProvince, listingTitle, parkingStat } from '@/lib/listingDisplay'
+import { petBanAllowed, postalCodeIn, rulesFor } from '@/lib/provinces'
 import ListingLocationMap from '@/components/ListingLocationMap'
 import { readTrrebBenchmark, type TrrebBenchmark } from '@/lib/agent/trrebRent'
 import { daysOnMarket, fmtDistance, groupFeatures, lastPriceChange, pricePerSqft, walkMinutes, type ListingTransit, type PriceEvent } from '@/lib/listingInsights'
+import { localizeValue, resolveDescription, resolveList, resolveValue } from '@/lib/listingLang'
+import { SIMILAR_LIMIT, rankSimilar, similarSearchBox, type SimilarMatch } from '@/lib/listingSimilar'
+import { ListingSection as Section } from '@/components/listing/ListingSection'
+import { ListingRulesNote } from '@/components/listing/ListingRulesNote'
+import { ListingDescription } from '@/components/listing/ListingDescription'
+import { MoveInCosts, depositNote } from '@/components/listing/MoveInCosts'
+import { addressWithUnit, bedsText, cityOnly, cleanBrokerName, similarDistanceText, similarLayoutText, similarRentText } from '@/components/listing/labels'
 import { useParams } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/lib/useAuth'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -113,6 +121,8 @@ interface DBListing {
   lat: number | null
   lng: number | null
   enriched_at: string | null
+  /** 'archived' rows are excluded from similar homes. */
+  status?: string | null
 }
 
 /** What /api/listings/enrich returns: cached transit + two aggregates the anonymous RLS cannot compute. */
@@ -123,23 +133,35 @@ type Insight = {
   profile: { zh: string; en: string; generated_at: string } | null
   building: { other_active: number }
   neighborhood: { scope: 'neighborhood' | 'city'; name: string; all: { n: number; median: number | null }; same_beds: { n: number; median: number | null } }
+  /** Source string → translation into the requested UI language (2026-10-02); null while the translation is still running or recently failed. */
+  translations?: { lang: Lang; strings: Record<string, string> } | null
 }
 
-const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: string; en: string }[] }> = {
+// Similar homes are found in two steps: the ranking columns of every candidate in
+// the 6 km box (small rows, so the pool can be wide — downtown, a newest-first cut
+// would drop the unit next door once inventory grows), then the card columns of
+// the best few only.
+const SIMILAR_RANK_COLUMNS = 'id, slug, address, city, neighborhood, lat, lng, bedrooms, has_den, property_type, monthly_rent, created_at, status'
+const SIMILAR_CARD_COLUMNS = `${SIMILAR_RANK_COLUMNS}, unit, bathrooms, sqft, images, thumb_a, thumb_b, source, brokerage`
+const SIMILAR_POOL = 500
+/** Ranked candidates whose photos are checked; the first three with usable photos are shown. */
+const SIMILAR_SHORTLIST = 12
+
+const tierLabel: Record<number,{ name: { zh: string; en: string }; reqs: { zh: string; en: string }[] }> = {
   1: {
     name: { zh: '需 身份章', en: 'Identity stamp required' },
-    reqs: [{ zh: 'ID 验证', en: 'ID verification' }],
+    reqs: [{ zh: '身份证件验证', en: 'ID verification' }],
   },
   2: {
     name: { zh: '需 收入章', en: 'Income stamp required' },
     reqs: [
-      { zh: 'ID 验证', en: 'ID verification' },
+      { zh: '身份证件验证', en: 'ID verification' },
     ],
   },
   3: {
     name: { zh: '需 银行章', en: 'Bank stamp required' },
     reqs: [
-      { zh: 'ID 验证', en: 'ID verification' },
+      { zh: '身份证件验证', en: 'ID verification' },
       { zh: '银行透明度 90 天', en: '90-day bank transparency' },
       { zh: '现住址确认', en: 'Current address confirmed' },
     ],
@@ -147,7 +169,7 @@ const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: 
   4: {
     name: { zh: '需 信用 + 法庭章', en: 'Credit + court stamp required' },
     reqs: [
-      { zh: 'ID 验证', en: 'ID verification' },
+      { zh: '身份证件验证', en: 'ID verification' },
       { zh: '银行透明度 90 天', en: '90-day bank transparency' },
     ],
   },
@@ -159,7 +181,8 @@ const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: 
 const favSnapshot = (l: DBListing): Omit<FavListing, 'savedAt'> => ({
   key: favKey({ source: l.source, id: l.id, url: `/listings/${l.slug}`, address: l.address }),
   source: l.source === 'realtor' ? 'realtor' : 'stayloop',
-  title: l.address + (l.unit && !addressHasUnit(l.address, l.unit) ? ` · Unit ${l.unit}` : ''),
+  // Same title as the H1, in every language (2026-10-02: " · Unit 515" was English on the Chinese favourites list).
+  title: listingTitle(l.address, l.unit),
   address: l.address,
   neighborhood: l.neighborhood || undefined,
   city: l.city,
@@ -171,8 +194,6 @@ const favSnapshot = (l: DBListing): Omit<FavListing, 'savedAt'> => ({
   href: `/listings/${l.slug}`,
 })
 
-const UTILITY_ZH: Record<string, string> = { hydro: '电', water: '水', heat: '暖气', gas: '燃气', internet: '网络', cable: '有线电视' }
-
 export default function ListingDetailPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -183,26 +204,69 @@ export default function ListingDetailPage() {
   // and the TRREB benchmark for this bedroom count (public cache table).
   const [insight, setInsight] = useState<Insight | null | undefined>(undefined)
   const [benchmark, setBenchmark] = useState<TrrebBenchmark | null>(null)
+  // Transit, building and neighbourhood facts: one call per listing, without a
+  // language, so they never wait on the translation model (2026-10-02).
   useEffect(() => {
     if (!listing) return
     let cancelled = false
-    // 20 s cap: the route may wait on OSM + the model; the section shows its fallback instead of a spinner for a minute (review 2026-09-25).
+    // 20 s cap: the route may wait on OSM; the section shows its fallback instead of a spinner for a minute (review 2026-09-25).
     fetch('/api/listings/enrich', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: listing.id }), signal: AbortSignal.timeout(20_000) })
       .then((r) => (r.ok ? (r.json() as Promise<Insight>) : null))
       .then((v) => { if (!cancelled) setInsight(v) })
       .catch(() => { if (!cancelled) setInsight(null) })
+    return () => { cancelled = true }
+  }, [listing?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Stored text that exists only in the other language (Realtor.ca remarks,
+  // Chinese-only free text) comes back translated from the enrich route, per UI
+  // language (2026-10-02 · one language per page), in a call of its own
+  // (`only: 'translations'`) that runs alongside the facts call above — the
+  // route may wait up to 15 s for the model, and the transit / neighbourhood /
+  // similar sections no longer wait with it. A language already translated is
+  // not asked again; a translation still running is asked once more ~20 s later
+  // (the route finishes it after the response and caches it).
+  // Keyed `${listing id}:${lang}`, so another listing never reads this one's strings.
+  const [translations, setTranslations] = useState<Record<string, Record<string, string>>>({})
+  const translationsRef = useRef(translations)
+  translationsRef.current = translations
+  const trKey = listing ? `${listing.id}:${lang}` : ''
+  const tr = translations[trKey] ?? null
+  useEffect(() => {
+    if (!listing) return
+    const key = `${listing.id}:${lang}`
+    if (translationsRef.current[key]) return
+    let cancelled = false
+    let retry: ReturnType<typeof setTimeout> | undefined
+    const ask = (again: boolean) => {
+      fetch('/api/listings/enrich', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: listing.id, lang, only: 'translations' }), signal: AbortSignal.timeout(20_000) })
+        .then((r) => (r.ok ? (r.json() as Promise<Pick<Insight, 'translations'>>) : null))
+        .then((v) => {
+          if (cancelled) return
+          const t = v?.translations
+          if (t && t.lang === lang && t.strings && typeof t.strings === 'object') setTranslations((p) => ({ ...p, [key]: t.strings }))
+          else if (v && t === null && !again) retry = setTimeout(() => ask(true), 20_000)
+        })
+        .catch(() => { /* the page keeps the originals under their language label */ })
+    }
+    ask(false)
+    return () => { cancelled = true; if (retry) clearTimeout(retry) }
+  }, [listing?.id, lang]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!listing) return
+    let cancelled = false
     // TRREB publishes apartment / townhouse averages by bedroom count: a detached house or an unknown
     // bedroom count has no comparable row (an 8-bed house read "300% above the 3+ bed condo average").
     const trrebType = listing.property_type === 'townhouse' ? 'townhouse' : ['apartment', 'condo'].includes(listing.property_type || '') ? 'apartment' : null
     // TRREB covers the Toronto region: no benchmark for a listing outside Ontario (2026-10-02).
-    if (trrebType && listing.bedrooms != null && isOntarioListing(listing.province)) {
+    if (trrebType && listing.bedrooms != null && listingProvince(listing) === 'ON') {
       readTrrebBenchmark(listing.bedrooms, [listing.neighborhood, listing.city], trrebType)
         .then((b) => { if (!cancelled) setBenchmark(b) })
         .catch(() => { /* benchmark is optional */ })
     }
     return () => { cancelled = true }
   }, [listing?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [similar, setSimilar] = useState<DBListing[]>([])
+  // Similar homes nearby (2026-10-02 · user: location first, then layout, then rent):
+  // null = no section (still loading, or no location to compare), [] = the "nothing within 6 km" line.
+  const [similar, setSimilar] = useState<SimilarMatch<DBListing>[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [fieldAgentOpen, setFieldAgentOpen] = useState(false)
   // Showing request / question to the landlord → /api/showing-intent →
@@ -259,7 +323,7 @@ export default function ListingDetailPage() {
   const onShare = useCallback(async () => {
     const url = window.location.href
     const title = listing
-      ? `${listing.address}${listing.unit && !addressHasUnit(listing.address, listing.unit) ? `, Unit ${listing.unit}` : ''} · $${listing.monthly_rent.toLocaleString()}/mo · Stayloop`
+      ? `${listingTitle(listing.address, listing.unit)} · $${listing.monthly_rent.toLocaleString()}${zh ? '/月' : '/mo'} · Stayloop`
       : 'Stayloop'
     if (typeof navigator.share === 'function') {
       try {
@@ -276,7 +340,7 @@ export default function ListingDetailPage() {
     } catch {
       // Clipboard unavailable (permissions / insecure context) — no-op.
     }
-  }, [listing])
+  }, [listing, zh])
 
   useEffect(() => {
     if (!slug) return
@@ -295,33 +359,60 @@ export default function ListingDetailPage() {
       if (cancelled) return
       setListing((data || null) as DBListing | null)
       setLoading(false)
-
-      if (data) {
-        const { data: rest } = await supabase
-          .from('listings')
-          .select('*')
-          .eq('is_active', true)
-          .or(LISTING_VISIBILITY_OR)
-          .neq('id', (data as any).id)
-          // Same city (the table holds "Toronto" and "Toronto, ON"), newest first, a bounded candidate pool.
-          .ilike('city', `${String((data as DBListing).city || '').split(',')[0].trim()}%`)
-          .order('created_at', { ascending: false })
-          .limit(48)
-        if (!cancelled) {
-          // Similar = same neighbourhood, then same bedroom count, then closest rent (StreetEasy "Similar homes").
-          const me = data as DBListing
-          const score = (x: DBListing) =>
-            (x.neighborhood && me.neighborhood && x.neighborhood.toLowerCase() === me.neighborhood.toLowerCase() ? 0 : 2) +
-            ((x.bedrooms ?? -1) === (me.bedrooms ?? -2) ? 0 : 1) +
-            Math.min(3, (Math.abs(x.monthly_rent - me.monthly_rent) / Math.max(1, me.monthly_rent)) * 4)
-          setSimilar(((rest || []) as DBListing[]).filter((x) => hasUsablePhotos(x.images)).sort((a, b) => score(a) - score(b)).slice(0, 3))
-        }
-      }
     })()
     return () => {
       cancelled = true
     }
   }, [slug])
+
+  // Similar homes: candidates within 6 km (one bounding-box query on lat / lng,
+  // no city filter — the city strings are unreliable), ranked by
+  // lib/listingSimilar.ts: location tier, then layout, then rent; up to three,
+  // never padded with far listings. Coordinates come from the row, or from the
+  // enrich route's geocode for a listing published before it was geocoded; with
+  // neither, the same neighbourhood is the only location fact left.
+  const rowOrigin = listing && listing.lat != null && listing.lng != null && Number.isFinite(Number(listing.lat)) && Number.isFinite(Number(listing.lng))
+    ? { lat: Number(listing.lat), lng: Number(listing.lng) }
+    : null
+  const similarOrigin = rowOrigin ?? (insight && insight.lat != null && insight.lng != null ? { lat: insight.lat, lng: insight.lng } : null)
+  // Keyed on the location, so a late geocode (or a re-render) does not run the query again.
+  const similarKey = !listing ? null : similarOrigin ? `${similarOrigin.lat},${similarOrigin.lng}` : insight === undefined ? null : 'hood'
+  useEffect(() => {
+    if (!listing || !similarKey) return
+    const origin = similarOrigin
+    const hood = (listing.neighborhood || '').trim()
+    if (!origin && !hood) { setSimilar(null); return }
+    let cancelled = false
+    ;(async () => {
+      let q = supabase.from('listings').select(SIMILAR_RANK_COLUMNS).eq('is_active', true).or(LISTING_VISIBILITY_OR).neq('id', listing.id)
+      if (origin) {
+        const box = similarSearchBox(origin.lat, origin.lng)
+        q = q.gte('lat', box.minLat).lte('lat', box.maxLat).gte('lng', box.minLng).lte('lng', box.maxLng)
+      } else {
+        // Exact (case-insensitive) neighbourhood: escape the LIKE wildcards.
+        q = q.ilike('neighborhood', hood.replace(/[\\%_]/g, (c) => `\\${c}`))
+      }
+      const { data: rest, error } = await q.order('created_at', { ascending: false }).limit(SIMILAR_POOL)
+      if (cancelled) return
+      if (error) { setSimilar(null); return }
+      // Archiving sets is_active=false and status='archived'; status is nullable, so it is checked here, not with .neq (which drops NULLs).
+      const pool = ((rest || []) as unknown as DBListing[]).filter((x) => x.status !== 'archived')
+      const shortlist = rankSimilar(listing, pool, { origin, limit: SIMILAR_SHORTLIST })
+      if (!shortlist.length) { setSimilar([]); return }
+      const { data: cards, error: cardsError } = await supabase.from('listings').select(SIMILAR_CARD_COLUMNS).in('id', shortlist.map((m) => m.listing.id))
+      if (cancelled) return
+      if (cardsError) { setSimilar(null); return }
+      const byId = new Map(((cards || []) as unknown as DBListing[]).map((c) => [c.id, c]))
+      // Same order as the ranking; a card without a usable photo is skipped, never replaced by a worse match out of order.
+      setSimilar(
+        shortlist
+          .map((m) => ({ ...m, listing: byId.get(m.listing.id) as DBListing }))
+          .filter((m) => m.listing && hasUsablePhotos(m.listing.images) && m.listing.status !== 'archived')
+          .slice(0, SIMILAR_LIMIT),
+      )
+    })()
+    return () => { cancelled = true }
+  }, [listing?.id, similarKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
@@ -363,13 +454,23 @@ export default function ListingDetailPage() {
   const tierInfo = tier != null ? tierLabel[tier] : null
   const snap = favSnapshot(listing)
   const fav = isFav(snap.key)
-  // "整套公寓 (Condo) · 1 间卧室 · 1 间浴室 · 799 ft²" — the first line under the photos (Airbnb).
+  // "整套公寓 · 1 间卧室 + 书房 · 1 间浴室 · 799 ft²" — the first line under the photos (Airbnb).
+  // One language per page (2026-10-02): no "(Condo)" / "Duplex" / "Studio" / "+ den" in the Chinese UI.
   const summaryLine = [
-    ({ apartment: zh ? '整套公寓' : 'Entire apartment', condo: zh ? '整套公寓 (Condo)' : 'Entire condo', house: zh ? '整套独立屋' : 'Entire house', townhouse: zh ? '整套联排' : 'Entire townhouse', basement: zh ? '地下室套间' : 'Basement suite', duplex: zh ? '整套 Duplex' : 'Entire duplex' } as Record<string, string>)[listing.property_type || ''] || (zh ? '整套住宅' : 'Entire home'),
-    listing.bedrooms === 0 ? 'Studio' : `${listing.bedrooms ?? '—'}${listing.has_den ? ' + den' : ''} ${zh ? '间卧室' : (listing.bedrooms === 1 ? 'bedroom' : 'bedrooms')}`,
+    ({ apartment: zh ? '整套公寓' : 'Entire apartment', condo: zh ? '整套公寓' : 'Entire condo', house: zh ? '整套独立屋' : 'Entire house', townhouse: zh ? '整套联排' : 'Entire townhouse', basement: zh ? '地下室套间' : 'Basement suite', duplex: zh ? '整套双拼屋' : 'Entire duplex' } as Record<string, string>)[listing.property_type || ''] || (zh ? '整套住宅' : 'Entire home'),
+    bedsText(listing.bedrooms, listing.has_den, lang, 'summary'),
     listing.bathrooms != null ? `${listing.bathrooms} ${zh ? '间浴室' : (Number(listing.bathrooms) === 1 ? 'bathroom' : 'bathrooms')}` : null,
     listing.sqft ? `${listing.sqft} ft²` : null,
   ].filter(Boolean).join(' · ')
+  const city = cityOnly(listing.city)
+  // Whose rules apply: postal code > address > stored province > city > ON (lib/provinces/detect) —
+  // never the raw column. Outside Ontario the page speaks only that province's verified facts.
+  const province = listingProvince(listing)
+  const brokerName = cleanBrokerName(listing.broker_name)
+  // Stored free text in the UI language: split / dictionary / cached translation (lib/listingLang.ts).
+  const leaseTerm = resolveValue('lease_term', listing.lease_term, lang, tr)
+  const utilities = resolveList('utilities_included', listing.utilities_included, lang, tr)
+  const desc = resolveDescription(listing.description, lang, tr)
 
   return (
     <>
@@ -497,10 +598,9 @@ export default function ListingDetailPage() {
                 </div>
               </div>
               <div className="mt-2 text-[15px] text-body-2">
-                {listing.address}
-                {listing.unit && !addressHasUnit(listing.address, listing.unit) && `, Unit ${listing.unit}`} · {listing.neighborhood ?? ''}
-                {listing.neighborhood && ' · '}
-                {listing.city}, {listing.province}
+                {addressWithUnit(listing.address, listing.unit, lang)}
+                {' · '}{listing.neighborhood ? `${listing.neighborhood} · ` : ''}
+                {city}{listing.province || province !== 'ON' ? `, ${province}` : ''}
               </div>
               {/* Price facts (StreetEasy: $/ft², lease term, availability, days on market, last change) */}
               {(() => {
@@ -511,7 +611,7 @@ export default function ListingDetailPage() {
                 return (
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] tracking-eyebrow text-body-3">
                     {ppsf != null && <span>${ppsf}/ft²{zh ? ' · 月' : ' · mo'}</span>}
-                    {listing.lease_term && <span>{listing.lease_term}</span>}
+                    {leaseTerm && <span>{leaseTerm}</span>}
                     <span>{listing.available_date ? (zh ? `${listing.available_date.slice(0, 10)} 起` : `from ${listing.available_date.slice(0, 10)}`) : (zh ? '即可入住' : 'Available now')}</span>
                     {dom != null && <span>{dom === 0 ? (zh ? '今天上架' : 'Listed today') : zh ? `上架 ${dom} 天` : `${dom} days on market`}</span>}
                     {change && (
@@ -529,10 +629,10 @@ export default function ListingDetailPage() {
                   label={zh ? '卧室' : 'Bedrooms'}
                   value={
                     listing.bedrooms === 0
-                      ? 'Studio'
+                      ? (zh ? '开间' : 'Studio')
                       : listing.bedrooms_below_grade
                         ? `${listing.bedrooms_above_grade ?? listing.bedrooms} + ${listing.bedrooms_below_grade}`
-                        : `${listing.bedrooms}${listing.has_den ? ' + den' : ''}`
+                        : bedsText(listing.bedrooms, listing.has_den, lang, 'stat')
                   }
                 />
                 <Stat
@@ -565,28 +665,31 @@ export default function ListingDetailPage() {
             </div>
 
             {/* Section 1 — 关于这套房源 */}
-            <Section title={zh ? '关于这套房源' : 'About this listing'} eyebrow="ABOUT">
-              <p className="whitespace-pre-line text-[14.5px] leading-relaxed text-body-2">
-                {listing.description ||
-                  (zh
-                    ? `${listing.neighborhood ?? listing.city} 的整套${
-                        listing.bedrooms === 0
-                          ? 'Studio'
-                          : `${listing.bedrooms} 室${listing.bathrooms ?? ''} 卫`
-                      }房源。${listing.year_built ? `${listing.year_built} 年建。` : ''}`
-                    : `A full ${
-                        listing.bedrooms === 0
-                          ? 'studio'
-                          : `${listing.bedrooms}-bed ${listing.bathrooms ?? ''}-bath`
-                      } unit in ${listing.neighborhood ?? listing.city}.${
-                        listing.year_built ? ` Built ${listing.year_built}.` : ''
-                      }`)}
-              </p>
-              {listing.utilities_included && listing.utilities_included.length > 0 && (
+            <Section zh={zh} title={zh ? '关于这套房源' : 'About this listing'} eyebrow="ABOUT">
+              <ListingDescription
+                raw={listing.description}
+                lang={lang}
+                resolved={desc}
+                // An unknown bedroom / bathroom count is left out ("null 室" / "-bath" used to print).
+                fallback={zh
+                  ? `${listing.neighborhood ?? city} 的整套${
+                      listing.bedrooms === 0
+                        ? '开间'
+                        : `${listing.bedrooms != null ? `${listing.bedrooms} 室` : ''}${listing.bathrooms != null ? `${listing.bathrooms} 卫` : ''}`
+                    }房源。${listing.year_built ? `${listing.year_built} 年建。` : ''}`
+                  : `A full ${
+                      listing.bedrooms === 0
+                        ? 'studio'
+                        : [listing.bedrooms != null ? `${listing.bedrooms}-bed` : null, listing.bathrooms != null ? `${listing.bathrooms}-bath` : null].filter(Boolean).join(' ') || 'rental'
+                    } unit in ${listing.neighborhood ?? city}.${
+                      listing.year_built ? ` Built ${listing.year_built}.` : ''
+                    }`}
+              />
+              {utilities.length > 0 && (
                 <div className="mt-4 inline-flex flex-wrap gap-2">
-                  {listing.utilities_included.map((u) => (
+                  {utilities.map((u) => (
                     <span key={u} className="sl-chip fit">
-                      {zh ? `${UTILITY_ZH[u.toLowerCase()] ?? u} 包在租金内` : `${u} included`}
+                      {zh ? `${u} 包在租金内` : `${u} included`}
                     </span>
                   ))}
                 </div>
@@ -594,15 +697,17 @@ export default function ListingDetailPage() {
             </Section>
 
             {/* Section 2 — 租赁条件 (StreetEasy "Policies"): every term a tenant filters on, in one grid */}
-            <Section title={zh ? '租赁条件' : 'Lease terms & policies'} eyebrow="POLICIES">
+            <Section zh={zh} title={zh ? '租赁条件' : 'Lease terms & policies'} eyebrow="POLICIES">
               <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-[13.5px] sm:grid-cols-4">
                 <BuildingFact
                   label={zh ? '宠物' : 'Pets'}
                   value={
                     listing.pets_allowed === 'yes' ? (zh ? '允许' : 'Allowed')
                     : listing.pets_allowed === 'restricted' ? (zh ? '有限制' : 'With restrictions')
-                    : listing.pets_allowed === 'no' ? (zh ? '房东写「不允许」' : 'Listed as “no pets”')
-                    : listing.pet_policy || (zh ? '未说明' : 'Not stated')
+                    // Where the province lets a landlord ban pets, "no" is simply the landlord's rule (Ontario keeps its wording).
+                    : listing.pets_allowed === 'no' ? (province !== 'ON' && petBanAllowed(province) === true ? (zh ? '不允许' : 'Not allowed') : zh ? '房东写「不允许」' : 'Listed as “no pets”')
+                    // Free text in the UI language only; a value not yet translated reads 未说明, never the other language.
+                    : resolveValue('pet_policy', listing.pet_policy, lang, tr) || (zh ? '未说明' : 'Not stated')
                   }
                 />
                 <BuildingFact
@@ -610,26 +715,21 @@ export default function ListingDetailPage() {
                   value={listing.smoking_policy === 'no' ? (zh ? '禁止' : 'No smoking') : listing.smoking_policy === 'outdoor_only' ? (zh ? '仅室外' : 'Outdoors only') : listing.smoking_policy === 'yes' ? (zh ? '允许' : 'Allowed') : (zh ? '未说明' : 'Not stated')}
                 />
                 <BuildingFact label={zh ? '家具' : 'Furnished'} value={listing.furnished == null ? (zh ? '未说明' : 'Not stated') : listing.furnished ? (zh ? '带家具' : 'Furnished') : (zh ? '不带家具' : 'Unfurnished')} />
-                <BuildingFact label={zh ? '租期' : 'Lease term'} value={listing.lease_term || (zh ? '未说明' : 'Not stated')} />
-                <BuildingFact label={zh ? '押金' : 'Deposit'} value={listing.deposit != null ? `$${listing.deposit.toLocaleString()}` : (zh ? '房东未设置' : 'Not set')} />
-                <BuildingFact label={zh ? '车位' : 'Parking'} value={listing.parking_spaces ? `${listing.parking_spaces}${zh ? ' 个' : ''}` : listing.parking ? listing.parking : (zh ? '未说明' : 'Not stated')} />
-                <BuildingFact label={zh ? '租金包含' : 'Included'} value={listing.utilities_included && listing.utilities_included.length ? listing.utilities_included.map((u) => (zh ? UTILITY_ZH[u.toLowerCase()] ?? u : u)).join(' · ') : (zh ? '未说明' : 'Not stated')} />
+                <BuildingFact label={zh ? '租期' : 'Lease term'} value={leaseTerm || (zh ? '未说明' : 'Not stated')} />
+                <BuildingFact label={zh ? '押金' : 'Deposit'} value={listing.deposit != null ? `$${listing.deposit.toLocaleString()}` : rulesFor(province)?.deposit.allowed === false ? (zh ? '不得收取' : 'Not permitted') : (zh ? '房东未设置' : 'Not set')} warn={depositNote(province, listing.monthly_rent, listing.deposit, zh)} />
+                <BuildingFact label={zh ? '车位' : 'Parking'} value={listing.parking_spaces ? `${listing.parking_spaces}${zh ? ' 个' : ''}` : resolveValue('parking', listing.parking, lang, tr) || (zh ? '未说明' : 'Not stated')} />
+                <BuildingFact label={zh ? '租金包含' : 'Included'} value={utilities.length ? utilities.join(' · ') : (zh ? '未说明' : 'Not stated')} />
               </div>
-              <p className="mt-3 text-[12px] leading-relaxed text-body-3" data-testid="listing-rules-note">
-                {!isOntarioListing(listing.province)
-                  ? ontarioRulesNotApplicable(listing.province, zh)
-                  : zh
-                  ? '安省 RTA s.14：租约里的「禁止养宠」条款无效（共管大楼自身的规定除外）；押金只能是最后一月租金 + 钥匙押金（s.105–106、s.134）。'
-                  : 'Ontario RTA s.14: a “no pets” clause in a lease is void (condominium rules aside); the only deposits allowed are last month’s rent and a key deposit (s.105–106, s.134).'}
-              </p>
+              <ListingRulesNote zh={zh} province={province} />
             </Section>
 
             {/* Section 3 — 室内配置 / 楼宇设施 (StreetEasy splits home features from building amenities) */}
             {(() => {
-              const g = groupFeatures({ amenities: listing.amenities, building_features: listing.building_features, appliances: listing.appliances }, lang)
+              // Labels through lib/listingLang.ts: a value with no label in the UI language yet (translation pending) is left out.
+              const g = groupFeatures({ amenities: listing.amenities, building_features: listing.building_features, appliances: listing.appliances }, lang, (raw, field, l) => resolveValue(field, raw, l, l === lang ? tr : null))
               if (!g.unit.length && !g.building.length) return null
               return (
-                <Section title={zh ? '配置与设施' : 'Features & amenities'} eyebrow="AMENITIES">
+                <Section zh={zh} title={zh ? '配置与设施' : 'Features & amenities'} eyebrow="AMENITIES">
                   <div className="grid gap-6 sm:grid-cols-2">
                     {g.unit.length > 0 && (
                       <div>
@@ -648,62 +748,64 @@ export default function ListingDetailPage() {
               )
             })()}
 
-            {/* 入住前费用一览 — Ontario fixes the legal move-in charges (RTA s.105–106),
-                so this is a deterministic card from rent + deposit, no new columns
-                (2026-09-22, EliseAI benchmark item E). */}
-            {/* Ontario's legal move-in charges — not shown for a listing in another province (2026-10-02). */}
-            {isOntarioListing(listing.province) && <MoveInCosts zh={zh} rent={listing.monthly_rent} deposit={listing.deposit} />}
+            {/* 入住前费用一览 — Ontario's card, or the listing province's own facts; both live in components/listing/MoveInCosts.tsx. */}
+            <MoveInCosts zh={zh} province={province} rent={listing.monthly_rent} deposit={listing.deposit} />
 
             {/* Section 3 — 建筑信息 */}
-            <Section title={zh ? '建筑信息' : 'Building'} eyebrow="BUILDING">
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-[13.5px] sm:grid-cols-4">
-                {listing.property_type && (
-                  <BuildingFact
-                    label={zh ? '物业类型' : 'Building type'}
-                    value={
-                      { apartment: zh ? '出租公寓' : 'Apartment', condo: 'Condo', house: zh ? '独立屋' : 'House', townhouse: zh ? '联排' : 'Townhouse', basement: zh ? '地下室' : 'Basement', duplex: 'Duplex' }[listing.property_type] || listing.property_type
-                    }
-                  />
-                )}
-                {listing.ownership_title && (
-                  <BuildingFact label={zh ? '产权' : 'Title'} value={listing.ownership_title === 'condominium' ? (zh ? '共管产权 (Condominium)' : 'Condominium/Strata') : (zh ? '永久产权 (Freehold)' : 'Freehold')} />
-                )}
-                {listing.year_built && (
-                  <BuildingFact label={zh ? '建造年份' : 'Year built'} value={listing.year_built} />
-                )}
-                {listing.storeys && <BuildingFact label={zh ? '层数' : 'Storeys'} value={listing.storeys} />}
-                {listing.heating_type && (
-                  <BuildingFact
-                    label={zh ? '供暖' : 'Heating'}
-                    value={listing.heating_fuel ? `${listing.heating_type} (${listing.heating_fuel})` : listing.heating_type}
-                  />
-                )}
-                {listing.cooling && <BuildingFact label={zh ? '制冷' : 'Cooling'} value={listing.cooling} />}
-                {listing.basement_type && <BuildingFact label={zh ? '地下室' : 'Basement'} value={listing.basement_type} />}
-                {listing.exterior_finish && <BuildingFact label={zh ? '外墙' : 'Exterior'} value={listing.exterior_finish} />}
-                {listing.land_size && <BuildingFact label={zh ? '占地' : 'Land size'} value={listing.land_size} />}
-                {listing.maintenance_fee != null && (
-                  <BuildingFact label={zh ? '物业费' : 'Maintenance fee'} value={`$${listing.maintenance_fee}/${zh ? '月' : 'mo'}`} />
-                )}
-                {listing.management_company && (
-                  <BuildingFact label={zh ? '物业公司' : 'Management'} value={listing.management_company} />
-                )}
-                {listing.cross_streets && (
-                  <BuildingFact label={zh ? '十字路口' : 'Cross streets'} value={listing.cross_streets} />
-                )}
-                {listing.mls_number && <BuildingFact label="MLS®" value={listing.mls_number} />}
-                {insight && insight.building.other_active > 0 && (
-                  <BuildingFact label={zh ? '同楼在租' : 'Also for rent here'} value={zh ? `${insight.building.other_active} 套` : `${insight.building.other_active} unit${insight.building.other_active === 1 ? '' : 's'}`} />
-                )}
-                {listing.source === 'realtor' && <BuildingFact label={zh ? '来源' : 'Source'} value="Realtor.ca" />}
-                {listing.brokerage && (
-                  <BuildingFact label={zh ? '挂牌机构' : 'Brokerage'} value={listing.brokerage} />
-                )}
-                <BuildingFact
-                  label={zh ? '邮编' : 'Postal code'}
-                  value={listing.postal_code || (zh ? '未提供' : 'Not provided')}
-                />
-              </div>
+            <Section zh={zh} title={zh ? '建筑信息' : 'Building'} eyebrow="BUILDING">
+              {(() => {
+                // Enum codes through the shared dictionary (共管公寓 / Condo, 共管产权 / Condominium);
+                // Realtor.ca's English vocabulary ("Forced air (Natural gas)") through its rules or the
+                // cached translation. A value with no label in the UI language yet is left out.
+                const heat = resolveValue('heating_type', listing.heating_type, lang, tr)
+                const fuel = resolveValue('heating_fuel', listing.heating_fuel, lang, tr)
+                const ownership = resolveValue('ownership_title', listing.ownership_title, lang, tr)
+                const facts: [string, string | null][] = [
+                  [zh ? '供暖' : 'Heating', heat ? (fuel ? (zh ? `${heat}（${fuel}）` : `${heat} (${fuel})`) : heat) : null],
+                  [zh ? '制冷' : 'Cooling', resolveValue('cooling', listing.cooling, lang, tr)],
+                  [zh ? '地下室' : 'Basement', resolveValue('basement_type', listing.basement_type, lang, tr)],
+                  [zh ? '外墙' : 'Exterior', resolveValue('exterior_finish', listing.exterior_finish, lang, tr)],
+                  [zh ? '占地' : 'Land size', resolveValue('land_size', listing.land_size, lang, tr)],
+                ]
+                return (
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-[13.5px] sm:grid-cols-4">
+                    {listing.property_type && (
+                      <BuildingFact
+                        label={zh ? '物业类型' : 'Building type'}
+                        value={resolveValue('property_type', listing.property_type, lang, tr) || (zh ? '其他' : 'Other')}
+                      />
+                    )}
+                    {ownership && <BuildingFact label={zh ? '产权' : 'Title'} value={ownership} />}
+                    {listing.year_built && (
+                      <BuildingFact label={zh ? '建造年份' : 'Year built'} value={listing.year_built} />
+                    )}
+                    {listing.storeys && <BuildingFact label={zh ? '层数' : 'Storeys'} value={listing.storeys} />}
+                    {facts.map(([label, value]) => (value ? <BuildingFact key={label} label={label} value={value} /> : null))}
+                    {listing.maintenance_fee != null && (
+                      <BuildingFact label={zh ? '物业费' : 'Maintenance fee'} value={`$${listing.maintenance_fee}/${zh ? '月' : 'mo'}`} />
+                    )}
+                    {listing.management_company && (
+                      <BuildingFact label={zh ? '物业公司' : 'Management'} value={listing.management_company} />
+                    )}
+                    {listing.cross_streets && (
+                      <BuildingFact label={zh ? '十字路口' : 'Cross streets'} value={listing.cross_streets} />
+                    )}
+                    {listing.mls_number && <BuildingFact label="MLS®" value={listing.mls_number} />}
+                    {insight && insight.building.other_active > 0 && (
+                      <BuildingFact label={zh ? '同楼在租' : 'Also for rent here'} value={zh ? `${insight.building.other_active} 套` : `${insight.building.other_active} unit${insight.building.other_active === 1 ? '' : 's'}`} />
+                    )}
+                    {listing.source === 'realtor' && <BuildingFact label={zh ? '来源' : 'Source'} value="Realtor.ca" />}
+                    {listing.brokerage && (
+                      <BuildingFact label={zh ? '挂牌机构' : 'Brokerage'} value={listing.brokerage} />
+                    )}
+                    <BuildingFact
+                      label={zh ? '邮编' : 'Postal code'}
+                      // The column is empty on some rows whose address carries the code ("…, QC, H2L 3Z1").
+                      value={listing.postal_code || postalCodeIn(listing.address) || (zh ? '未提供' : 'Not provided')}
+                    />
+                  </div>
+                )
+              })()}
               {listing.virtual_tour_url && /^https?:\/\//i.test(listing.virtual_tour_url) && (
                 <a
                   href={listing.virtual_tour_url}
@@ -711,14 +813,14 @@ export default function ListingDetailPage() {
                   rel="noopener noreferrer"
                   className="mt-4 inline-block text-[13.5px] font-semibold text-purple-700 underline underline-offset-2"
                 >
-                  {zh ? '虚拟看房 / VR Tour →' : 'Virtual tour →'}
+                  {zh ? '虚拟看房 →' : 'Virtual tour →'}
                 </a>
               )}
             </Section>
 
             {/* Section 4 — 价格记录 (trigger-maintained price_history) */}
             {Array.isArray(listing.price_history) && listing.price_history.length > 0 && (
-              <Section title={zh ? '价格记录' : 'Price history'} eyebrow="PRICE HISTORY">
+              <Section zh={zh} title={zh ? '价格记录' : 'Price history'} eyebrow="PRICE HISTORY">
                 <div className="divide-y divide-line-divider rounded-[12px] border border-line-divider bg-white">
                   {[...listing.price_history].reverse().map((h, i) => (
                     <div key={`${h.date}-${i}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13.5px]">
@@ -733,7 +835,7 @@ export default function ListingDetailPage() {
 
             {/* Section 5 — 位置与交通: the transit list beside the listing's own map (user 2026-09-25: "交通这边要带地图，和房源位置在一起") */}
             {insight !== null && (
-              <Section title={zh ? '位置与交通' : 'Location & transit'} eyebrow="LOCATION">
+              <Section zh={zh} title={zh ? '位置与交通' : 'Location & transit'} eyebrow="LOCATION">
                 <div className="grid gap-5 xl:grid-cols-[1.15fr_1fr]">
                   <div>
                     {insight === undefined ? (
@@ -766,7 +868,7 @@ export default function ListingDetailPage() {
                     </div>
                     <div className="mt-3 text-[13px] text-body-2">
                       <span className="font-semibold text-body">{listingTitle(listing.address, listing.unit)}</span>
-                      {' · '}{listing.neighborhood ? `${listing.neighborhood} · ` : ''}{listing.city}{listing.postal_code ? ` · ${listing.postal_code}` : ''}
+                      {' · '}{listing.neighborhood ? `${listing.neighborhood} · ` : ''}{city}{listing.postal_code ? ` · ${listing.postal_code}` : ''}
                     </div>
                   </div>
                   {insight && insight.lat != null && insight.lng != null && (
@@ -778,17 +880,22 @@ export default function ListingDetailPage() {
 
             {/* Section 6 — 关于社区 (StreetEasy "About Murray Hill", one block): AI primer · asking · leased · this listing */}
             {(insight?.profile || (insight?.neighborhood && insight.neighborhood.all.n > 0) || benchmark) && (() => {
-              const bedLabel = listing.bedrooms === 0 ? 'Studio' : zh ? `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''} 卧` : `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''}-bed`
+              const bedLabel = listing.bedrooms === 0 ? (zh ? '开间' : 'Studio') : zh ? `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''} 卧` : `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''}-bed`
               const same = insight?.neighborhood?.same_beds
               const all = insight?.neighborhood?.all
               const rel = (v: number, what: string) => {
                 const d = Math.round(((listing.monthly_rent - v) / v) * 100)
-                if (zh) return d === 0 ? `与${what}持平` : `比${what}${d > 0 ? '高' : '低'} ${Math.abs(d)}%`
+                // A space before a Latin name ("比 TRREB 成交均价"), none before Chinese ("比同区中位挂牌价").
+                const w = /^[A-Za-z]/.test(what) ? ` ${what}` : what
+                if (zh) return d === 0 ? `与${w}持平` : `比${w}${d > 0 ? '高' : '低'} ${Math.abs(d)}%`
                 return d === 0 ? `at the ${what}` : `${Math.abs(d)}% ${d > 0 ? 'above' : 'below'} the ${what}`
               }
               const yoy = benchmark && benchmark.prev_avg ? Math.round(((benchmark.avg - benchmark.prev_avg) / benchmark.prev_avg) * 1000) / 10 : null
+              // "TRREB 全区 · 2026 年第 2 季度" / "TRREB Toronto C01 · 2026 Q1" — district codes stay as published.
+              const trrebArea = benchmark ? localizeValue('trreb_area', benchmark.area, lang) ?? benchmark.area : ''
+              const trrebSource = benchmark ? `${/TRREB/i.test(trrebArea) ? trrebArea : `TRREB ${trrebArea}`} · ${localizeValue('trreb_period', benchmark.period, lang) ?? benchmark.period}` : ''
               return (
-                <Section title={zh ? `关于 ${listing.neighborhood || listing.city}` : `About ${listing.neighborhood || listing.city}`} eyebrow="NEIGHBOURHOOD">
+                <Section zh={zh} title={zh ? `关于 ${listing.neighborhood || city}` : `About ${listing.neighborhood || city}`} eyebrow="NEIGHBOURHOOD">
                   {insight?.profile && (
                     <div className="mb-5">
                       <p className="text-[14.5px] leading-relaxed text-body-2">{zh ? insight.profile.zh : insight.profile.en}</p>
@@ -808,7 +915,7 @@ export default function ListingDetailPage() {
                     {benchmark && (
                       <div className="rounded-[12px] border border-line-divider bg-white p-4">
                         <div className="text-[13px] font-bold">{zh ? '出租 · 成交均价' : 'Rentals · leased'}</div>
-                        <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">TRREB {benchmark.area} · {benchmark.period}</div>
+                        <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{trrebSource}</div>
                         <div className="mt-2 text-[12px] text-body-3">{bedLabel} · {listing.property_type === 'townhouse' ? (zh ? '联排' : 'townhouse') : (zh ? '公寓' : 'apartment')}</div>
                         <div className="text-[22px] font-extrabold leading-tight">${benchmark.avg.toLocaleString()}</div>
                         <div className="text-[11.5px] text-body-3">{benchmark.leased?.toLocaleString() ?? '—'} {zh ? '宗成交' : 'leased'}{yoy != null ? <span className={`ml-1.5 ${yoy >= 0 ? 'text-red-600' : 'text-emerald-700'}`}>{zh ? '同比 ' : 'YoY '}{yoy >= 0 ? '+' : ''}{yoy}%</span> : null}</div>
@@ -832,12 +939,12 @@ export default function ListingDetailPage() {
 
             {/* Section 5 — 房客信用门槛 · 房东设置 */}
             {tier != null && tierInfo && (
-            <Section title={zh ? '房客信用门槛 · 房东设置' : 'Tenant criteria · set by landlord'} eyebrow="LANDLORD CRITERIA">
+            <Section zh={zh} title={zh ? '房客信用门槛 · 房东设置' : 'Tenant criteria · set by landlord'} eyebrow="LANDLORD CRITERIA">
               <div className="rounded-[12px] border border-line-divider bg-white p-5">
                 <div className="text-[14px] font-semibold">
                   {zh
-                    ? `${listing.broker_name || '房东'} 接受已盖「${stampForTier(tier).zh}」的申请人`
-                    : `${listing.broker_name || 'Landlord'} accepts applicants with the ${stampForTier(tier).en.toLowerCase()}`}
+                    ? `${brokerName || '房东'} 接受已盖「${stampForTier(tier).zh}」的申请人`
+                    : `${brokerName || 'Landlord'} accepts applicants with the ${stampForTier(tier).en.toLowerCase()}`}
                 </div>
                 <p className="mt-1 text-[12.5px] text-body-2">
                   {zh ? (
@@ -889,15 +996,21 @@ export default function ListingDetailPage() {
           <aside className="min-w-0 space-y-4 lg:sticky lg:top-24 lg:self-start">
             {/* Submit intent */}
             <div className="sl-card p-6">
-              <span className="sl-eyebrow">SUBMIT INTENT</span>
-              <h3 className="mt-2 text-[20px] font-bold tracking-tight">{zh ? '想看这套？' : 'Want to see it?'}</h3>
+              {/* English eyebrow in the English UI only — the Chinese title stands alone (2026-10-02). */}
+              {!zh && <span className="sl-eyebrow">SUBMIT INTENT</span>}
+              <h3 className={`${zh ? '' : 'mt-2 '}text-[20px] font-bold tracking-tight`}>{zh ? '想看这套？' : 'Want to see it?'}</h3>
               <p className="mt-2 text-[13px] leading-relaxed text-body-2">
-                {listing.source === 'realtor'
+                {listing.source === 'realtor' && province !== 'ON'
+                  // RECO registers Ontario agents only: a Realtor.ca import elsewhere points to its listing brokerage.
+                  ? (zh
+                      ? '这套房源来自 Realtor.ca，不由 Stayloop 上的房东管理，不能在 Stayloop 提交申请。请直接联系房源的挂牌经纪。Stayloop 不参与交易、不收费。'
+                      : 'This listing comes from Realtor.ca and is not managed by a landlord on Stayloop, so you cannot apply through Stayloop. Contact the listing brokerage directly. Stayloop takes no part in the trade and charges nothing.')
+                  : listing.source === 'realtor'
                   ? (zh
                       ? '这套房源来自 Realtor.ca，不由 Stayloop 上的房东管理，不能在 Stayloop 提交申请。请从 Stayloop 认证（RECO 注册已核）的经纪中自选一位帮你约看和申请。Stayloop 不派单、不参与交易、不收费。'
                       : 'This listing comes from Realtor.ca and is not managed by a landlord on Stayloop, so you cannot apply through Stayloop. Pick a Stayloop-verified (RECO-checked) agent to arrange a viewing and apply. Stayloop does not dispatch agents, takes no part in the trade and charges nothing.')
                   // RECO registers Ontario agents only: outside Ontario the card does not offer them (2026-10-02).
-                  : !isOntarioListing(listing.province)
+                  : province !== 'ON'
                   ? (zh
                       ? '向房东预约看房或提问，或直接提交完整申请。Stayloop 不参与交易、不收费。'
                       : 'Request a viewing or ask the landlord, or submit a full application directly. Stayloop takes no part in the trade and charges nothing.')
@@ -931,7 +1044,7 @@ export default function ListingDetailPage() {
                 >
                   {zh ? '预约看房' : 'Request a viewing'}
                 </button>
-              ) : (
+              ) : province !== 'ON' ? null : (
                 <button
                   onClick={() => setFieldAgentOpen(true)}
                   data-testid="listing-realtor-viewing"
@@ -960,7 +1073,7 @@ export default function ListingDetailPage() {
                 >
                   {zh ? '向房东提问' : 'Ask the landlord'}
                 </button>
-              ) : (
+              ) : province !== 'ON' ? null : (
                 <button
                   onClick={() => setFieldAgentOpen(true)}
                   className="mt-2 block w-full rounded-[10px] border border-tenant/30 bg-tenant/5 px-4 py-[10px] text-center text-[13.5px] font-semibold text-tenant transition hover:bg-tenant/10"
@@ -969,7 +1082,7 @@ export default function ListingDetailPage() {
                 </button>
               )}
               <div className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
-                {listing.source !== 'realtor' && !isOntarioListing(listing.province)
+                {listing.source !== 'realtor' && province !== 'ON'
                   ? (zh
                       ? '房东会在「消息」里的这段对话回复你；双方都看不到对方的私人邮箱。Stayloop 不参与交易、不收费。'
                       : 'The landlord replies in this conversation under Messages; neither side sees the other’s personal email. Stayloop takes no part in the trade and charges nothing.')
@@ -977,6 +1090,8 @@ export default function ListingDetailPage() {
                   ? (zh
                       ? <>房东会在「消息」里的这段对话回复你；双方都看不到对方的私人邮箱。也可以<button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">找认证经纪</button>陪同看房。Stayloop 不参与交易、不收费。</>
                       : <>The landlord replies in this conversation under Messages; neither side sees the other&apos;s personal email. You can also <button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">bring a verified agent</button>. Stayloop takes no part in the trade and charges nothing.</>)
+                  : province !== 'ON'
+                  ? (zh ? '请直接联系房源的挂牌经纪；Stayloop 不参与交易、不收费。' : 'Contact the listing brokerage directly; Stayloop takes no part in the trade and charges nothing.')
                   : (zh
                       ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选并直接联系；Stayloop 不参与交易、不收费。'
                       : 'Pick a Stayloop-verified (RECO-checked) agent and contact them directly; Stayloop takes no part in the trade and charges nothing.')}
@@ -1001,12 +1116,13 @@ export default function ListingDetailPage() {
                 />
                 <div>
                   <div className="text-[14px] font-bold">
-                    {listing.broker_name || (zh ? '房东' : 'Landlord')}
+                    {brokerName || (listing.brokerage ? (zh ? '挂牌经纪' : 'Listing agent') : (zh ? '房东' : 'Landlord'))}
                   </div>
                   <div className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
                     {listing.brokerage
                       ? (zh ? `${listing.brokerage} · 经纪` : `${listing.brokerage} · Agent`)
-                      : landlordIsRegistrant
+                      // A RECO registration speaks to Ontario only: outside Ontario the card stays neutral (2026-10-02).
+                      : landlordIsRegistrant && province === 'ON'
                         ? (zh ? '房东直租 · 房东为持牌经纪' : 'Direct from landlord · landlord is a registered agent')
                         : (zh ? '房东直租' : 'Direct from landlord')}
                   </div>
@@ -1058,16 +1174,27 @@ export default function ListingDetailPage() {
           </aside>
         </section>
 
-        {/* Similar homes — full cards (StreetEasy layout, user 2026-09-25): photo · type + area · address · rent · beds/baths/ft² · lister · heart */}
-        {similar.length > 0 && (
+        {/* Similar homes nearby — full cards (StreetEasy layout, user 2026-09-25): photo · type + area · address ·
+            rent · beds/baths/ft² · lister · heart. Ranked location → layout → rent (lib/listingSimilar.ts,
+            user 2026-10-02), and each card says why it is similar: distance, neighbourhood, layout, rent difference. */}
+        {similar && (
           <section className="mx-auto max-w-[1320px] px-6 pb-20 sm:px-8 lg:px-12">
-            <h2 className="text-[24px] font-extrabold tracking-tight">{zh ? '相似房源' : 'Similar homes'}</h2>
-            <p className="mt-1 text-[12.5px] text-body-3">{zh ? '同区或同户型、租金相近的在租房源' : 'Nearby or same-size listings at a similar rent'}</p>
+            <h2 className="text-[24px] font-extrabold tracking-tight">{zh ? '附近的相似房源' : 'Similar homes nearby'}</h2>
+            <p className="mt-1 text-[12.5px] text-body-3">{zh ? '先比位置，再比户型，最后比租金 · 距离为直线距离' : 'Ranked by location, then layout, then rent · straight-line distance'}</p>
+            {similar.length === 0 ? (
+              <p className="mt-4 text-[14px] text-body-2" data-testid="similar-empty">
+                {zh ? '附近 6 km 内暂无户型、租金相近的在租房源。' : 'No similar homes for rent within 6 km.'}{' '}
+                <Link href="/listings" className="whitespace-nowrap font-semibold text-brand-strong hover:underline">{zh ? '查看全部房源 →' : 'See all listings →'}</Link>
+              </p>
+            ) : (
             <div className="mt-4 flex snap-x gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-3 lg:overflow-visible">
-              {similar.map((sl) => {
+              {similar.map((m) => {
+                const sl = m.listing
                 const snapS = favSnapshot(sl)
                 const on = isFav(snapS.key)
-                const type = ({ apartment: zh ? '出租公寓' : 'Rental apartment', condo: 'Condo', house: zh ? '独立屋' : 'House', townhouse: zh ? '联排' : 'Townhouse', basement: zh ? '地下室套间' : 'Basement suite', duplex: 'Duplex' } as Record<string, string>)[sl.property_type || ''] || (zh ? '出租单元' : 'Rental unit')
+                const type = localizeValue('property_type', sl.property_type, lang) || (zh ? '出租单元' : 'Rental unit')
+                const dist = similarDistanceText(m, lang, (meters) => fmtDistance(meters, lang))
+                const layout = similarLayoutText(m, sl, listing, lang)
                 return (
                   <div key={sl.id} className="w-[280px] flex-none snap-start overflow-hidden rounded-[14px] border border-line-divider bg-white lg:w-auto">
                     <Link
@@ -1075,13 +1202,19 @@ export default function ListingDetailPage() {
                       className="relative block aspect-[16/10] bg-surface-muted"
                       style={{ background: sl.images && sl.images[0] ? `url(${sl.images[0]}) center/cover no-repeat` : `linear-gradient(135deg,${sl.thumb_a || '#D4C4A8'},${sl.thumb_b || '#94815C'})` }}
                     >
+                      {(dist || (m.same_neighbourhood && !m.same_building)) && (
+                        <span className="absolute left-2 top-2 flex flex-wrap gap-1">
+                          {dist && <span className="rounded-md bg-white/95 px-2 py-0.5 text-[11px] font-bold text-ink shadow-sm">{dist}</span>}
+                          {m.same_neighbourhood && !m.same_building && <span className="rounded-md bg-white/95 px-2 py-0.5 text-[11px] font-semibold text-body-2 shadow-sm">{zh ? '同社区' : 'Same neighbourhood'}</span>}
+                        </span>
+                      )}
                       {(sl.images?.length ?? 0) > 0 && <span className="absolute bottom-2 left-2 rounded-md bg-black/55 px-2 py-0.5 font-mono text-[10.5px] text-white">📷 {sl.images!.length}</span>}
                       {sl.source === 'realtor' && <span className="absolute right-2 top-2 rounded-md bg-white/90 px-2 py-0.5 font-mono text-[10px] font-bold text-body-2">REALTOR.CA</span>}
                     </Link>
                     <div className="p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{type} · {sl.neighborhood || sl.city}</div>
+                          <div className="font-mono text-[10px] tracking-eyebrow text-body-3">{type} · {sl.neighborhood || cityOnly(sl.city)}</div>
                           <Link href={`/listings/${sl.slug}`} className="mt-0.5 block truncate text-[15px] font-bold text-brand-strong hover:underline">{listingTitle(sl.address, sl.unit)}</Link>
                         </div>
                         <button
@@ -1094,9 +1227,17 @@ export default function ListingDetailPage() {
                           <svg width="16" height="16" viewBox="0 0 24 24" fill={on ? '#FB7185' : 'none'} stroke={on ? '#FB7185' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                         </button>
                       </div>
-                      <div className="mt-2 text-[22px] font-extrabold leading-tight">${sl.monthly_rent.toLocaleString()}<span className="ml-1 text-[12px] font-medium text-body-3">{zh ? '/ 月' : '/ month'}</span></div>
+                      <div className="mt-2 flex flex-wrap items-baseline gap-x-2">
+                        <span className="text-[22px] font-extrabold leading-tight">${sl.monthly_rent.toLocaleString()}<span className="ml-1 text-[12px] font-medium text-body-3">{zh ? '/ 月' : '/ month'}</span></span>
+                        <span className={`text-[12px] font-semibold ${m.rent_delta < 0 ? 'text-emerald-700' : m.rent_delta > 0 ? 'text-body-2' : 'text-body-3'}`}>{similarRentText(m.rent_delta, lang)}</span>
+                      </div>
+                      {layout && (
+                        <div className="mt-2">
+                          <span className={`inline-block rounded-md px-2 py-0.5 text-[11.5px] font-semibold ${m.unit_tier === 0 ? 'bg-emerald-50 text-emerald-800' : 'bg-surface-chip text-body-2'}`}>{layout}</span>
+                        </div>
+                      )}
                       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12.5px] text-body-2">
-                        <span>🛏 {sl.bedrooms === 0 ? 'Studio' : `${sl.bedrooms ?? '—'}${sl.has_den ? '+den' : ''} ${zh ? '卧' : 'bed'}`}</span>
+                        <span>🛏 {bedsText(sl.bedrooms, sl.has_den, lang, 'short')}</span>
                         <span>🛁 {sl.bathrooms ?? '—'} {zh ? '卫' : 'bath'}</span>
                         <span>📐 {sl.sqft ? `${sl.sqft} ft²` : '— ft²'}</span>
                       </div>
@@ -1106,6 +1247,7 @@ export default function ListingDetailPage() {
                 )
               })}
             </div>
+            )}
           </section>
         )}
 
@@ -1116,6 +1258,7 @@ export default function ListingDetailPage() {
             listingId={listing.id}
             listingAddress={listingTitle(listing.address, listing.unit)}
             signedIn={!auth.loading && !!auth.user}
+            province={province}
             onClose={() => { setIntentKind(null); if (!inquiryThreadId) setInquiryCheck((n) => n + 1) }}
           />
         )}
@@ -1128,6 +1271,7 @@ export default function ListingDetailPage() {
         <PhotoGallery
           images={listing.images}
           startIdx={galleryIdx}
+          zh={zh}
           onClose={() => setGalleryOpen(false)}
         />
       )}
@@ -1135,7 +1279,7 @@ export default function ListingDetailPage() {
   )
 }
 
-function PhotoGallery({ images, startIdx, onClose }: { images: string[]; startIdx: number; onClose: () => void }) {
+function PhotoGallery({ images, startIdx, zh, onClose }: { images: string[]; startIdx: number; zh: boolean; onClose: () => void }) {
   const [idx, setIdx] = useState(startIdx)
   const prev = useCallback(() => setIdx((i) => (i - 1 + images.length) % images.length), [images.length])
   const next = useCallback(() => setIdx((i) => (i + 1) % images.length), [images.length])
@@ -1154,7 +1298,7 @@ function PhotoGallery({ images, startIdx, onClose }: { images: string[]; startId
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90" onClick={onClose}>
       <div className="relative flex h-full w-full items-center justify-center" onClick={(e) => e.stopPropagation()}>
         {/* Close */}
-        <button onClick={onClose} className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20">
+        <button onClick={onClose} aria-label={zh ? '关闭' : 'Close'} className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
         </button>
         {/* Counter */}
@@ -1163,13 +1307,13 @@ function PhotoGallery({ images, startIdx, onClose }: { images: string[]; startId
         </div>
         {/* Prev */}
         {images.length > 1 && (
-          <button onClick={prev} className="absolute left-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20">
+          <button onClick={prev} aria-label={zh ? '上一张' : 'Previous photo'} className="absolute left-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
         )}
         {/* Next */}
         {images.length > 1 && (
-          <button onClick={next} className="absolute right-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20">
+          <button onClick={next} aria-label={zh ? '下一张' : 'Next photo'} className="absolute right-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
           </button>
         )}
@@ -1177,7 +1321,7 @@ function PhotoGallery({ images, startIdx, onClose }: { images: string[]; startId
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={images[idx]}
-          alt={`Photo ${idx + 1}`}
+          alt={zh ? `照片 ${idx + 1}` : `Photo ${idx + 1}`}
           className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
         />
       </div>
@@ -1190,30 +1334,6 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     <div className="sl-card p-4">
       <div className="sl-eyebrow">{label}</div>
       <div className="mt-1 text-[20px] font-bold tracking-tight">{value}</div>
-    </div>
-  )
-}
-
-function Section({
-  title,
-  eyebrow,
-  children,
-}: {
-  title: string
-  eyebrow?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="mt-10">
-      {eyebrow && (
-        <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-          {eyebrow}
-        </div>
-      )}
-      <h2 className="mt-1 border-b border-line-divider pb-2 text-[20px] font-bold tracking-tight">
-        {title}
-      </h2>
-      <div className="mt-4">{children}</div>
     </div>
   )
 }
@@ -1234,66 +1354,14 @@ function Li({ ok, children }: { ok?: boolean; children: React.ReactNode }) {
   )
 }
 
-function MoveInCosts({ zh, rent, deposit }: { zh: boolean; rent: number; deposit: number | null }) {
-  if (!rent || rent <= 0) return null
-  const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`
-  const dep = deposit != null && deposit > 0 ? deposit : null
-  const overCap = dep != null && dep > rent + 0.5
-  const total = rent + (dep ?? 0)
-  const banned = zh
-    ? ['申请费', '信用检查费', '宠物押金', '清洁押金', '最后一月以外的预付租金']
-    : ['application fee', 'credit-check fee', 'pet deposit', 'cleaning deposit', 'prepaid rent beyond the last month']
-  return (
-    <Section title={zh ? '入住前费用一览' : 'Move-in costs'} eyebrow="MOVE-IN COSTS">
-      <div className="overflow-hidden rounded-xl border border-line-divider">
-        <dl className="text-[13.5px]">
-          <Row k={zh ? '首月租金' : 'First month’s rent'} v={fmt(rent)} />
-          <Row
-            k={zh ? '租金押金（不超过一个月，只抵最后一月租金）' : 'Rent deposit (max one month, applied to the last month only)'}
-            v={dep != null ? fmt(dep) : (zh ? '房东未设置' : 'Not set by landlord')}
-            warn={overCap}
-          />
-          <Row k={zh ? '钥匙押金（不超过更换成本，退租时退还）' : 'Key deposit (no more than replacement cost, refundable)'} v={zh ? '以租约为准' : 'Per lease'} muted />
-          <Row k={zh ? '第一笔款合计' : 'First payment total'} v={fmt(total)} strong />
-        </dl>
-        {overCap && (
-          <div className="border-t border-line-divider bg-red-50 px-4 py-2.5 text-[12.5px] text-red-800">
-            {zh
-              ? '此房源标注的押金高于一个月租金。安省 RTA s.106 规定租金押金不得超过一个月租金，请与房东确认。'
-              : 'The listed deposit exceeds one month’s rent. Under RTA s.106 a rent deposit cannot exceed one month’s rent — confirm with the landlord.'}
-          </div>
-        )}
-        <div className="border-t border-line-divider bg-surface-chip px-4 py-2.5 text-[12px] leading-relaxed text-body-3">
-          {zh ? '安省不允许收取：' : 'Not permitted in Ontario: '}
-          {banned.map((b, i) => (
-            <span key={b}>
-              <s className="decoration-red-700/70">{b}</s>
-              {i < banned.length - 1 ? ' · ' : ''}
-            </span>
-          ))}
-          {zh ? '。押金每年按指导比例付息（RTA s.105–106）。' : '. Deposits earn annual interest at the guideline rate (RTA s.105–106).'}
-        </div>
-      </div>
-    </Section>
-  )
-}
-
-function Row({ k, v, strong, muted, warn }: { k: string; v: string; strong?: boolean; muted?: boolean; warn?: boolean }) {
-  return (
-    <div className={'flex items-baseline justify-between gap-4 px-4 py-2.5 [&+&]:border-t [&+&]:border-line-divider ' + (strong ? 'bg-surface font-bold text-body' : '')}>
-      <dt className={'min-w-0 ' + (strong ? '' : 'text-body-2')}>{k}</dt>
-      <dd className={'flex-none ' + (warn ? 'font-semibold text-red-700' : muted ? 'text-body-3' : strong ? '' : 'font-semibold text-body')}>{v}</dd>
-    </div>
-  )
-}
-
-function BuildingFact({ label, value }: { label: string; value: string | number }) {
+function BuildingFact({ label, value, warn }: { label: string; value: string | number; warn?: string | null }) {
   return (
     <div>
       <div className="font-mono text-[10px] uppercase tracking-eyebrowLg text-body-3">
         {label}
       </div>
-      <div className="mt-0.5 text-[14px] font-semibold text-body">{value}</div>
+      <div className={`mt-0.5 text-[14px] font-semibold ${warn ? 'text-red-700' : 'text-body'}`}>{value}</div>
+      {warn && <div className="mt-0.5 text-[11.5px] leading-snug text-red-700" data-testid="listing-deposit-warn">{warn}</div>}
     </div>
   )
 }

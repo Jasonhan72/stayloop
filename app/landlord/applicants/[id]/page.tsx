@@ -24,6 +24,8 @@ import { decidePendingAction, PENDING_EXPIRED_EVENT } from '@/lib/agent/approval
 import { notifyPendingChanged } from '@/lib/agent/pendingCount'
 import type { PendingAction } from '@/lib/agent/types'
 import { inUndoWindow, noticeConfirmedSent, noticeControls, noticeDecisionOf, noticeReasonText, pickNoticeCards, type NoticeDecision, type NoticeRow } from '../noticeState'
+import { listingProvince } from '@/lib/listingDisplay'
+import { humanRights, rulesFor } from '@/lib/provinces/rules'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -80,7 +82,27 @@ type AppDetail = {
   decision_notified_at: string | null
   decision_reason: string | null
   files: ApplicationFile[] | null
-  listing: { address: string | null; unit: string | null; monthly_rent: number | null } | null
+  listing: { address: string | null; unit: string | null; monthly_rent: number | null; city?: string | null; postal_code?: string | null; province?: string | null } | null
+}
+
+// The decision wording follows the listing's province (2026-10-02 · 「外省的要查外省的法规，不要用安省
+// 的法规和说法」): Ontario keeps its s.10(7) / OHRC / RTA copy below unchanged; elsewhere the notice
+// carries that province's human-rights law and privacy-law wording (lib/provinces/rules
+// decisionNoticeFooterFor, which the send_decision executor uses) and nothing Ontario.
+function provinceDecisionCopy(listing: AppDetail['listing']) {
+  const code = listing ? listingProvince(listing) : 'ON'
+  const r = rulesFor(code)
+  if (!r) return null
+  return {
+    code,
+    hr: { zh: humanRights(code, 'zh')!, en: humanRights(code, 'en')! },
+    // What every notice for this province carries — the human-rights statement and the privacy-law wording.
+    carries: {
+      zh: `${r.humanRights.law.zh}声明与${r.privacyLaw.zh}说明`,
+      en: `a statement under ${r.humanRights.law.en} and a note on ${r.privacyLaw.en}`,
+    },
+    screeningLimits: r.quebec?.screeningLimits ?? null,
+  }
 }
 
 function RealApplicantDetail({ id }: { id: string }) {
@@ -129,7 +151,7 @@ function RealApplicantDetail({ id }: { id: string }) {
       const { data } = await supabase
         .from('applications')
         .select(
-          'id, first_name, last_name, ai_extracted_name, monthly_income, employer_name, job_title, ai_score, ai_summary, ai_dimension_notes, doc_authenticity_score, payment_ability_score, court_records_score, stability_score, behavior_signals_score, info_consistency_score, ltb_records_found, status, created_at, archived_at, decision_notified_at, decision_reason, files, viewed_at, listing:listings(address, unit, monthly_rent)',
+          'id, first_name, last_name, ai_extracted_name, monthly_income, employer_name, job_title, ai_score, ai_summary, ai_dimension_notes, doc_authenticity_score, payment_ability_score, court_records_score, stability_score, behavior_signals_score, info_consistency_score, ltb_records_found, status, created_at, archived_at, decision_notified_at, decision_reason, files, viewed_at, listing:listings(address, unit, monthly_rent, city, postal_code, province)',
         )
         .eq('id', id)
         .maybeSingle()
@@ -227,7 +249,14 @@ function RealApplicantDetail({ id }: { id: string }) {
     const title = decision === 'approved' ? `录取通知：${name} · ${listingAddr}` : decision === 'declined' ? `婉拒通知：${name} · ${listingAddr}` : `补材料通知：${name} · ${listingAddr}`
     // Relay principle (找得到人 2026-09-30): the card names the applicant, never
     // shows their email — the executor reads the address from the application row.
-    const summary = decision === 'approved'
+    const pc = provinceDecisionCopy(app.listing)
+    const summary = pc
+      ? decision === 'approved'
+        ? `批准后我会给${applicantWhoSp}发录取通知（发到 TA 申请时填写的邮箱），并说明房东会联系签订租约。信里固定带${pc.carries.zh}。`
+        : decision === 'declined'
+          ? `批准后我会给${applicantWhoSp}发婉拒通知（发到 TA 申请时填写的邮箱）${reason ? `，理由：「${reason}」` : ''}。信里固定带${pc.carries.zh}；理由已写入审计。`
+          : `批准后我会给${applicantWhoSp}发补材料通知（发到 TA 申请时填写的邮箱）：${reason || '（未填）'}`
+      : decision === 'approved'
       ? `批准后我会给${applicantWhoSp}发录取通知（发到 TA 申请时填写的邮箱），并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。`
       : decision === 'declined'
         ? `批准后我会给${applicantWhoSp}发婉拒通知（发到 TA 申请时填写的邮箱）${reason ? `，理由：「${reason}」` : ''}。信里固定带 s.10(7) 索取权与 OHRC 声明；理由已写入审计。`
@@ -450,6 +479,8 @@ function RealApplicantDetail({ id }: { id: string }) {
   const decisionWord = (d: NoticeDecision | null) => d === 'approved' ? (zh ? '录取' : 'Acceptance') : d === 'declined' ? (zh ? '婉拒' : 'Decline') : (zh ? '补材料' : 'Request for documents')
   const stuckDecision = noticeDecisionOf(stuckCard)
   const stuckWaiting = !!stuckCard && inUndoWindow(stuckCard) && !triedHere.has(stuckCard.id)
+  // null = Ontario (or no listing): the Ontario copy below, unchanged.
+  const pc = provinceDecisionCopy(app.listing)
 
   return (
     <WorkspaceShell role="landlord" hideAside>
@@ -525,7 +556,11 @@ function RealApplicantDetail({ id }: { id: string }) {
                 ))}
               </div>
             )}
-            <p className="mt-4 text-[11.5px] text-body-3">{zh ? '评分与档位仅供参考 · 非拒绝依据（OHRC 租房政策）。完整报告含四项评分（付款能力、信用、租务与司法历史、核验）、取证、法庭与 LTB 检索。' : 'Score and tier are information only — never grounds to decline (OHRC). The full report has the four scored items (ability to pay, credit, rental and legal history, verification), forensics, court and LTB checks.'}</p>
+            <p className="mt-4 text-[11.5px] text-body-3">
+              {pc
+                ? (zh ? '评分与档位仅供参考 · 不能作为拒绝的依据，录取与否由你本人决定。完整报告含四项评分（付款能力、信用、租务与司法历史、核验）、取证与公开记录检索。' : 'Score and tier are information only — never grounds to decline; you make the decision yourself. The full report has the four scored items (ability to pay, credit, rental and legal history, verification), forensics and public-record checks.')
+                : (zh ? '评分与档位仅供参考 · 非拒绝依据（OHRC 租房政策）。完整报告含四项评分（付款能力、信用、租务与司法历史、核验）、取证、法庭与 LTB 检索。' : 'Score and tier are information only — never grounds to decline (OHRC). The full report has the four scored items (ability to pay, credit, rental and legal history, verification), forensics, court and LTB checks.')}
+            </p>
             <Link href={`/screening/${linked.id}/report`} className="sl-btn-primary mt-4 inline-block !py-[10px] text-center">{zh ? '打开完整报告 →' : 'Open the full report →'}</Link>
           </div>
         ) : (
@@ -582,7 +617,9 @@ function RealApplicantDetail({ id }: { id: string }) {
             )}
             {!noticeCard && !stuckCard && controls.redraft && (
               <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-amber-900" data-testid="notice-redraft">
-                {zh ? `这份申请已标为「${controls.redraft === 'approved' ? '录取' : '婉拒'}」，但决定通知还没有发出（通知里带《消费者报告法》s.10(7) 与 OHRC 声明）。` : `This application is marked “${controls.redraft === 'approved' ? 'approved' : 'declined'}”, but the decision notice has not been sent (it carries the s.10(7) and OHRC wording).`}
+                {pc
+                  ? (zh ? `这份申请已标为「${controls.redraft === 'approved' ? '录取' : '婉拒'}」，但决定通知还没有发出（通知里带${pc.carries.zh}）。` : `This application is marked “${controls.redraft === 'approved' ? 'approved' : 'declined'}”, but the decision notice has not been sent (it carries ${pc.carries.en}).`)
+                  : zh ? `这份申请已标为「${controls.redraft === 'approved' ? '录取' : '婉拒'}」，但决定通知还没有发出（通知里带《消费者报告法》s.10(7) 与 OHRC 声明）。` : `This application is marked “${controls.redraft === 'approved' ? 'approved' : 'declined'}”, but the decision notice has not been sent (it carries the s.10(7) and OHRC wording).`}
                 <button type="button" disabled={busy} onClick={() => redraft(controls.redraft!, app.decision_reason)} className="ml-1 font-semibold underline underline-offset-2 disabled:opacity-50" data-testid="notice-redraft-button">
                   {zh ? '重新起草通知' : 'Draft the notice again'}
                 </button>
@@ -613,7 +650,14 @@ function RealApplicantDetail({ id }: { id: string }) {
               </button>
               {needsMoreOpen ? (
                 <div className="rounded-lg border border-line-divider p-3">
-                  <input value={needsMoreText} onChange={(e) => setNeedsMoreText(e.target.value)} placeholder={zh ? '需要补充什么（如：最近两张工资单）' : 'What is missing (e.g. two recent pay stubs)'} className="w-full rounded-md border border-line-divider px-3 py-2 text-[13px]" />
+                  <input value={needsMoreText} onChange={(e) => setNeedsMoreText(e.target.value)} placeholder={pc?.screeningLimits ? (zh ? '需要补充什么（如：现任或前任房东的联系方式）' : 'What is missing (e.g. current or previous landlord’s contact details)') : zh ? '需要补充什么（如：最近两张工资单）' : 'What is missing (e.g. two recent pay stubs)'} className="w-full rounded-md border border-line-divider px-3 py-2 text-[13px]" />
+                  {pc?.screeningLimits && (
+                    // Quebec (CAI guidance under the private-sector privacy act): only what assessing the
+                    // application needs; job, pay and bank details may only be volunteered.
+                    <p className="mt-2 text-[11.5px] leading-relaxed text-body-3" data-testid="needs-more-province">
+                      {zh ? pc.screeningLimits.zh : pc.screeningLimits.en}
+                    </p>
+                  )}
                   <div className="mt-2 flex gap-2">
                     <button className="sl-btn-primary flex-1 !py-2 !text-[13px]" disabled={busy || !needsMoreText.trim()} onClick={() => void draftNeedsMore(needsMoreText.trim())}>{zh ? '起草补材料通知' : 'Draft the request'}</button>
                     <button className="sl-btn-secondary flex-1" onClick={() => setNeedsMoreOpen(false)}>{zh ? '取消' : 'Cancel'}</button>
@@ -673,12 +717,22 @@ function RealApplicantDetail({ id }: { id: string }) {
                 ? (zh ? `决定通知已于 ${app.decision_notified_at.slice(0, 10)} 发出，这里不能再改决定；需要更正时请在下方的申请对话里说明。` : `The decision notice went out on ${app.decision_notified_at.slice(0, 10)}; the decision cannot be changed here — explain any correction in the application conversation below.`)
                 : (zh ? '选择录取或婉拒只是起草通知；你批准通知、邮件发出后，决定才记到这份申请上，申请人那边也才会看到。' : 'Choosing approve or decline drafts a notice; the decision is recorded on the application — and shown to the applicant — only once you approve the notice and the email goes out.')}
             </p>
-            <p className="mt-3 rounded-lg bg-danger/[0.06] px-3 py-2.5 text-[11.5px] leading-relaxed text-body-2">
-              <b className="text-danger">⚠️ {zh ? 'RTA 提示：' : 'RTA notice: '}</b>
-              {zh
-                ? `「不合适」理由不能是种族 / 国籍 / 来源国 / 家庭情况 / 性取向。${aiName} 会过滤这些，但你拒绝时仍需具体理由 — 写入 audit log。`
-                : `A "not a fit" reason cannot be race / nationality / country of origin / family status / sexual orientation. ${aiName} filters these out, but you still need a specific reason when declining — it is written to the audit log.`}
-            </p>
+            {pc ? (
+              <p className="mt-3 rounded-lg bg-danger/[0.06] px-3 py-2.5 text-[11.5px] leading-relaxed text-body-2" data-testid="decision-rights-province">
+                <b className="text-danger">⚠️ {zh ? '人权提示：' : 'Human-rights notice: '}</b>
+                {zh
+                  ? `「不合适」的理由不能是受${pc.hr.zh.law}保护的特征，例如${pc.hr.zh.examples}。在这里婉拒时请写明具体理由，理由会写入审计记录。`
+                  : `A "not a fit" reason cannot be a ground protected by ${pc.hr.en.law} — for example ${pc.hr.en.examples}. When declining here, give a specific reason; it is written to the audit log.`}{' '}
+                <a href={pc.hr.zh.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline underline-offset-2">{zh ? '了解更多 ↗' : 'Learn more ↗'}</a>
+              </p>
+            ) : (
+              <p className="mt-3 rounded-lg bg-danger/[0.06] px-3 py-2.5 text-[11.5px] leading-relaxed text-body-2">
+                <b className="text-danger">⚠️ {zh ? 'RTA 提示：' : 'RTA notice: '}</b>
+                {zh
+                  ? `「不合适」理由不能是种族 / 国籍 / 来源国 / 家庭情况 / 性取向。${aiName} 会过滤这些，但你拒绝时仍需具体理由 — 写入 audit log。`
+                  : `A "not a fit" reason cannot be race / nationality / country of origin / family status / sexual orientation. ${aiName} filters these out, but you still need a specific reason when declining — it is written to the audit log.`}
+              </p>
+            )}
           </div>
 
           <div className="sl-card p-6">

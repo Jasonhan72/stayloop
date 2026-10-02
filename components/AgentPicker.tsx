@@ -11,12 +11,19 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { AgentBadge } from '@/components/AgentBadge'
 import { RECO_REGISTER_URL, categoryLabel, type AgentProfile } from '@/lib/agentProfile'
+import { useAuth } from '@/lib/useAuth'
+import { isTestViewer, visibleAgents } from '@/components/listing/testAccounts'
 
 type Row = Pick<AgentProfile, 'auth_id' | 'legal_name' | 'reco_number' | 'category' | 'brokerage_name' | 'business_email' | 'business_phone' | 'crea_member' | 'verified_at' | 'status'>
 
 export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [] }: { zh: boolean; listingAddress: string; onClose: () => void; excludeAuthIds?: Array<string | null | undefined> }) {
   const lang: 'zh' | 'en' = zh ? 'zh' : 'en'
-  const [rows, setRows] = useState<Row[] | null>(null)
+  const [allRows, setRows] = useState<Row[] | null>(null)
+  // Seeded "[TEST]" agents are listed only to test accounts (2026-10-02: the
+  // public saw the test agent on every Realtor.ca listing). Decided at render,
+  // so a session that resolves after the directory loads still applies.
+  const auth = useAuth()
+  const rows = allRows && visibleAgents(allRows, isTestViewer(auth.user))
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
