@@ -286,7 +286,7 @@ export default function ApprovalActionCard({
             disabled={busy !== null || approveBlocked}
             onClick={() => decide('approved')}
             data-decide="approved"
-            className="sl-btn-primary !px-4 !py-[10px] !text-[13.5px] disabled:opacity-60"
+            className="sl-btn-primary !px-4 !py-[10px] !text-[13.5px] text-center [text-wrap:balance] disabled:opacity-60"
           >
             {busy === 'approved' ? (zh ? '提交中…' : 'Submitting…') : ackOnly ? (zh ? '✓ 知悉' : '✓ Acknowledge') : zh ? '✓ 确认 · 替我执行' : '✓ Approve · Execute for me'}
           </button>

@@ -117,3 +117,19 @@ describe('phones (2026-10-01 「手机端的首页确实有点长」)', () => {
   })
 })
 
+// 2026-10-01 user: 「手机端的首页的英文页面的 sign 和 create a free account 被挤到了边上，还分成了二行」 — a link never breaks
+// inside itself on phones; buttons that must wrap at 320px wrap evenly and centred.
+describe('links do not split across lines on phones (2026-10-01)', () => {
+  const composer = readFileSync('components/home/HeroComposer.tsx', 'utf8')
+  it('the hero account links are one unbreakable group, on their own line below 640px', () => {
+    expect(composer).toContain('<span className="whitespace-nowrap max-sm:mt-1 max-sm:block" data-testid="home-ask-account-links">')
+    const group = composer.slice(composer.indexOf('data-testid="home-ask-account-links"'), composer.indexOf('</p>', composer.indexOf('data-testid="home-ask-account-links"')))
+    for (const s of ["'Sign in'", "'Create a free account'", "'登录'", "'免费注册'"]) expect(group, s).toContain(s)
+  })
+  it('the FAQ “more” link stays whole; wrapped buttons are balanced and centred', () => {
+    expect(home).toContain('<Link href={f.href} className="whitespace-nowrap font-semibold text-brand hover:underline">')
+    expect(home).toContain('className="sl-btn-secondary mt-6 inline-flex text-center [text-wrap:balance] sm:mt-8"')
+    expect(readFileSync('components/agent/ApprovalActionCard.tsx', 'utf8')).toContain('!text-[13.5px] text-center [text-wrap:balance] disabled:opacity-60')
+  })
+})
+

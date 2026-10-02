@@ -505,7 +505,7 @@ export default function HomeNext() {
                   <span className="mt-0.5 flex-none font-mono text-[20px] font-normal leading-none text-body-3 transition-transform group-open:rotate-45">+</span>
                 </summary>
                 <p className={`mt-3 max-w-[640px] max-sm:mt-0 max-sm:pb-4 ${BODY}`}>
-                  {pick(f.a, lang)} <Link href={f.href} className="font-semibold text-brand hover:underline">{pick(f.more, lang)}</Link>
+                  {pick(f.a, lang)} <Link href={f.href} className="whitespace-nowrap font-semibold text-brand hover:underline">{pick(f.more, lang)}</Link>
                 </p>
               </details>
             ))}
@@ -689,7 +689,7 @@ function RolePanel({ role, lang, tint, flip }: { role: HomeRole; lang: Lang; tin
           <Link key={m.href} href={m.href} className={TEXT_LINK} title={pick(m.s, lang)}>{pick(m.h, lang)} →</Link>
         ))}
       </div>
-      <Link href={r.href} className="sl-btn-secondary mt-6 inline-flex sm:mt-8">{withName(r.cta, lang)}</Link>
+      <Link href={r.href} className="sl-btn-secondary mt-6 inline-flex text-center [text-wrap:balance] sm:mt-8">{withName(r.cta, lang)}</Link>
     </Panel>
   )
 }

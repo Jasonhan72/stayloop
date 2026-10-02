@@ -277,11 +277,15 @@ export default function HeroComposer({ zh, className = '' }: { zh: boolean; clas
       </div>
       <p className="sr-only" aria-live="polite" data-testid="home-ask-said">{said}</p>
 
+      {/* 2026-10-01 user: on English phones the line broke inside 「Sign in」 / 「Create a free account」 and pushed
+          them to the edge. The two links are one unbreakable group, on its own line below 640px. */}
       <p className="mt-6 text-[14px] text-body-3" data-testid="home-ask-account">
         {zh ? '不用登录就能问 · 已有账户？' : 'No account needed to ask · Have an account? '}
-        <Link href="/login" className="font-semibold text-brand hover:underline">{zh ? '登录' : 'Sign in'}</Link>
-        <span className="mx-1.5">·</span>
-        <Link href="/register" className="font-semibold text-brand hover:underline">{zh ? '免费注册' : 'Create a free account'}</Link>
+        <span className="whitespace-nowrap max-sm:mt-1 max-sm:block" data-testid="home-ask-account-links">
+          <Link href="/login" className="font-semibold text-brand hover:underline">{zh ? '登录' : 'Sign in'}</Link>
+          <span className="mx-1.5">·</span>
+          <Link href="/register" className="font-semibold text-brand hover:underline">{zh ? '免费注册' : 'Create a free account'}</Link>
+        </span>
       </p>
     </div>
   )

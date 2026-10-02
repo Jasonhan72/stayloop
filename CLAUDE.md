@@ -3002,3 +3002,9 @@ H1 96px 衬线 / 400、小字 24px 65% 墨色、上下留白 256px。我们原�
 - **顺带更正（桌面同样生效）**：首页经纪卡、`/agent/clients` 示范卡、起名页经纪能力清单还在说「有委托才能代客筛查」——2026-09-29 起 RECO 注册有效的经纪
   直接筛查，客户确认委托后，**从客户表那一行发起的**筛查才同时记在客户名下。三处已按此改写并加守卫。
 - 平板（640–1023px）首页约 14,400px，比手机还长（面板到 1024px 才并排）；这次没动，等用户决定。
+- **同日跟进：链接不在手机上断成两半**（用户：「英文页面的 sign 和 create a free account 被挤到了边上，还分成了二行」）。对话框下那一行
+  「No account needed to ask · Have an account? Sign in · Create a free account」在英文手机上从「Sign | in」或「Create | a free account」中间断开。现在两个链接是
+  一个不可断开的整体，640px 以下自成一行（中文同样：「不用登录就能问 · 已有账户？」/「登录 · 免费注册」），桌面仍是一行。同一类问题一并修：FAQ 答案末尾的
+  「打开 AI 助理预览 →」等链接加 `whitespace-nowrap`（768 / 640 / 手机上原来也会断开）；320px 英文下必须折行的两个按钮（审批卡「Approve · Execute for me」、
+  房东卡「Let AI help manage your rentals →」）改为居中 + `text-wrap: balance`，不再剩一个词单独一行。检查办法：scratchpad `bench/wrap/scan.mjs`
+  在 412–320 五个宽度、中英两种语言里找出自身文字折行的链接与按钮。守卫 `tests/homeBenchmark20261001.spec.ts`「links do not split」段。
