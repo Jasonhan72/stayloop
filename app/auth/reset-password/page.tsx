@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
+import { passwordErrorMessage } from '@/lib/auth/passwordError'
 
 /**
  * Password recovery landing — target of resetPasswordForEmail's redirect.
@@ -69,7 +70,7 @@ export default function ResetPasswordPage() {
       // landlords into the tenant workspace after every reset.
       setTimeout(() => router.replace('/auth/callback'), 1400)
     } catch (e: unknown) {
-      setErr((e as { message?: string })?.message || (zh ? '重置失败，请重试。' : 'Reset failed, please try again.'))
+      setErr(passwordErrorMessage(e as Parameters<typeof passwordErrorMessage>[0], zh) ?? ((e as { message?: string })?.message || (zh ? '重置失败，请重试。' : 'Reset failed, please try again.')))
     } finally {
       setSaving(false)
     }

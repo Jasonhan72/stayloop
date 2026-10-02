@@ -3,7 +3,7 @@
 export const runtime = 'edge'
 
 import Link from 'next/link'
-import { addressHasUnit, listingTitle, parkingStat } from '@/lib/listingDisplay'
+import { addressHasUnit, isOntarioListing, listingTitle, ontarioRulesNotApplicable, parkingStat } from '@/lib/listingDisplay'
 import ListingLocationMap from '@/components/ListingLocationMap'
 import { readTrrebBenchmark, type TrrebBenchmark } from '@/lib/agent/trrebRent'
 import { daysOnMarket, fmtDistance, groupFeatures, lastPriceChange, pricePerSqft, walkMinutes, type ListingTransit, type PriceEvent } from '@/lib/listingInsights'
@@ -194,7 +194,8 @@ export default function ListingDetailPage() {
     // TRREB publishes apartment / townhouse averages by bedroom count: a detached house or an unknown
     // bedroom count has no comparable row (an 8-bed house read "300% above the 3+ bed condo average").
     const trrebType = listing.property_type === 'townhouse' ? 'townhouse' : ['apartment', 'condo'].includes(listing.property_type || '') ? 'apartment' : null
-    if (trrebType && listing.bedrooms != null) {
+    // TRREB covers the Toronto region: no benchmark for a listing outside Ontario (2026-10-02).
+    if (trrebType && listing.bedrooms != null && isOntarioListing(listing.province)) {
       readTrrebBenchmark(listing.bedrooms, [listing.neighborhood, listing.city], trrebType)
         .then((b) => { if (!cancelled) setBenchmark(b) })
         .catch(() => { /* benchmark is optional */ })
@@ -614,8 +615,10 @@ export default function ListingDetailPage() {
                 <BuildingFact label={zh ? '车位' : 'Parking'} value={listing.parking_spaces ? `${listing.parking_spaces}${zh ? ' 个' : ''}` : listing.parking ? listing.parking : (zh ? '未说明' : 'Not stated')} />
                 <BuildingFact label={zh ? '租金包含' : 'Included'} value={listing.utilities_included && listing.utilities_included.length ? listing.utilities_included.map((u) => (zh ? UTILITY_ZH[u.toLowerCase()] ?? u : u)).join(' · ') : (zh ? '未说明' : 'Not stated')} />
               </div>
-              <p className="mt-3 text-[12px] leading-relaxed text-body-3">
-                {zh
+              <p className="mt-3 text-[12px] leading-relaxed text-body-3" data-testid="listing-rules-note">
+                {!isOntarioListing(listing.province)
+                  ? ontarioRulesNotApplicable(listing.province, zh)
+                  : zh
                   ? '安省 RTA s.14：租约里的「禁止养宠」条款无效（共管大楼自身的规定除外）；押金只能是最后一月租金 + 钥匙押金（s.105–106、s.134）。'
                   : 'Ontario RTA s.14: a “no pets” clause in a lease is void (condominium rules aside); the only deposits allowed are last month’s rent and a key deposit (s.105–106, s.134).'}
               </p>
@@ -648,7 +651,8 @@ export default function ListingDetailPage() {
             {/* 入住前费用一览 — Ontario fixes the legal move-in charges (RTA s.105–106),
                 so this is a deterministic card from rent + deposit, no new columns
                 (2026-09-22, EliseAI benchmark item E). */}
-            <MoveInCosts zh={zh} rent={listing.monthly_rent} deposit={listing.deposit} />
+            {/* Ontario's legal move-in charges — not shown for a listing in another province (2026-10-02). */}
+            {isOntarioListing(listing.province) && <MoveInCosts zh={zh} rent={listing.monthly_rent} deposit={listing.deposit} />}
 
             {/* Section 3 — 建筑信息 */}
             <Section title={zh ? '建筑信息' : 'Building'} eyebrow="BUILDING">
@@ -821,7 +825,7 @@ export default function ListingDetailPage() {
                       </ul>
                     </div>
                   </div>
-                  <div className="mt-2 text-[11.5px] text-body-3">{zh ? '挂牌价来自 Stayloop 与 Realtor.ca 在租房源；成交均价来自 TRREB 季度租赁市场报告（成交，非挂牌）。' : 'Asking rents from Stayloop and Realtor.ca listings; leased averages from the TRREB quarterly rental report (leased, not asking).'}</div>
+                  <div className="mt-2 text-[11.5px] text-body-3">{zh ? `挂牌价来自 Stayloop 与 Realtor.ca 在租房源${benchmark ? '；成交均价来自 TRREB 季度租赁市场报告（成交，非挂牌）' : ''}。` : `Asking rents from Stayloop and Realtor.ca listings${benchmark ? '; leased averages from the TRREB quarterly rental report (leased, not asking)' : ''}.`}</div>
                 </Section>
               )
             })()}
@@ -892,6 +896,11 @@ export default function ListingDetailPage() {
                   ? (zh
                       ? '这套房源来自 Realtor.ca，不由 Stayloop 上的房东管理，不能在 Stayloop 提交申请。请从 Stayloop 认证（RECO 注册已核）的经纪中自选一位帮你约看和申请。Stayloop 不派单、不参与交易、不收费。'
                       : 'This listing comes from Realtor.ca and is not managed by a landlord on Stayloop, so you cannot apply through Stayloop. Pick a Stayloop-verified (RECO-checked) agent to arrange a viewing and apply. Stayloop does not dispatch agents, takes no part in the trade and charges nothing.')
+                  // RECO registers Ontario agents only: outside Ontario the card does not offer them (2026-10-02).
+                  : !isOntarioListing(listing.province)
+                  ? (zh
+                      ? '向房东预约看房或提问，或直接提交完整申请。Stayloop 不参与交易、不收费。'
+                      : 'Request a viewing or ask the landlord, or submit a full application directly. Stayloop takes no part in the trade and charges nothing.')
                   : (zh
                       ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选一位帮你约看，或直接提交完整申请。Stayloop 不派单、不参与交易、不收费。'
                       : 'Pick a Stayloop-verified (RECO-checked) agent to arrange a viewing, or submit a full application directly. Stayloop does not dispatch agents, takes no part in the trade and charges nothing.')}
@@ -960,7 +969,11 @@ export default function ListingDetailPage() {
                 </button>
               )}
               <div className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
-                {listing.source !== 'realtor'
+                {listing.source !== 'realtor' && !isOntarioListing(listing.province)
+                  ? (zh
+                      ? '房东会在「消息」里的这段对话回复你；双方都看不到对方的私人邮箱。Stayloop 不参与交易、不收费。'
+                      : 'The landlord replies in this conversation under Messages; neither side sees the other’s personal email. Stayloop takes no part in the trade and charges nothing.')
+                  : listing.source !== 'realtor'
                   ? (zh
                       ? <>房东会在「消息」里的这段对话回复你；双方都看不到对方的私人邮箱。也可以<button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">找认证经纪</button>陪同看房。Stayloop 不参与交易、不收费。</>
                       : <>The landlord replies in this conversation under Messages; neither side sees the other&apos;s personal email. You can also <button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">bring a verified agent</button>. Stayloop takes no part in the trade and charges nothing.</>)

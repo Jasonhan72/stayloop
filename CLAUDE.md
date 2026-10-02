@@ -3042,4 +3042,11 @@ H1 96px 衬线 / 400、小字 24px 65% 墨色、上下留白 256px。我们原�
 - 数据：`attach_household_lease_file` 只允许导入者在未核验、对方未加入时替换租约文件；新增每日 `screening-stuck-sweep`（13:25 UTC），超过 24 小时仍在
   uploading / scoring 的筛查标 error；11 份此前用 execute_sql 应用的迁移补记进 `supabase_migrations.schema_migrations`。
 - **用户决定（2026-10-02）**：蒙特利尔那套房源（`282fbbb1…`，真实房东，已核验在线，省份误存成 ON）**改为 QC**，保持在线（省份不在触发重新审核的字段里）。
-  仍待决定：Supabase「泄露密码检查」是否开启。注意：房源详情页的安省法规提示（RTA s.14 宠物条款、s.105–106 押金、「安省不允许收取的费用」）目前对所有房源都显示，包括这套魁北克房源。
+  **同日两项跟进（用户「是的，要改，另外 supabase 的检查也要开启」）**：
+  - **房源详情页只对安省房源显示安省内容**：`lib/listingDisplay.ts isOntarioListing(province)`（空省份按安省算——产品只做安省、老数据没存省份）。
+    外省房源不显示 RTA 说明、「入住前费用一览」卡片（押金上限 / 安省不允许收的费用）、TRREB 成交均价，也不再推荐 RECO（安省）注册经纪；
+    「租赁条件」下改为一句「安省租房规则不适用于这套房源（魁北克省）」（`ontarioRulesNotApplicable`）。守卫 `tests/listingProvince20261002.spec.ts`。
+    未改：外省房源的申请表仍是安省措辞（人权法、消费者报告法说明）。
+  - **Supabase 泄露密码检查已开启**（`password_hibp_enabled: true`，经 Management API 只改这一项，改前改后 243 项逐项比对只有它变了）。
+    Supabase 对泄露 / 太弱的密码返回 `weak_password`（reasons 含 `pwned`）；注册、重置密码、管理员改密码三处经
+    `lib/auth/passwordError.ts passwordErrorMessage` 显示人话（「这个密码出现在已公开的数据泄露记录里……」）。守卫 `tests/leakedPassword20261002.spec.ts`。

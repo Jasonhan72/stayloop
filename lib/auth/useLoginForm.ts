@@ -10,6 +10,7 @@
 import { useState, type FormEvent } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
+import { passwordErrorMessage } from '@/lib/auth/passwordError'
 
 export type LoginTab = 'signin' | 'register'
 /** What the「查收你的邮箱」state is waiting for. */
@@ -111,7 +112,8 @@ export function useLoginForm(initialTab: LoginTab = 'signin', opts: { next?: str
       }
       setSent('verify')
     } catch (e: unknown) {
-      setErr(message(e, zh ? '注册失败' : 'Registration failed'))
+      // Leaked-password protection is on (2026-10-02): a breached or weak password gets a readable message.
+      setErr(passwordErrorMessage(e as Parameters<typeof passwordErrorMessage>[0], zh) ?? message(e, zh ? '注册失败' : 'Registration failed'))
     } finally {
       setLoading(false)
     }

@@ -12,6 +12,7 @@ import Header from '@/components/Header'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
+import { passwordErrorMessage } from '@/lib/auth/passwordError'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const auth = useAuth()
@@ -54,7 +55,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       await supabase.rpc('admin_ack_password_changed')
       setMustChange(false)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'failed')
+      setErr(passwordErrorMessage(e as Parameters<typeof passwordErrorMessage>[0], zh) ?? (e instanceof Error ? e.message : 'failed'))
     } finally {
       setBusy(false)
     }

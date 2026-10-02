@@ -33,3 +33,34 @@ export function parkingStat(text: string | null | undefined, zh: boolean): strin
   }
   return zh ? '有' : 'Yes'
 }
+
+// Ontario-only content (RTA notes, the move-in cost card, TRREB averages) shows only on Ontario
+// listings; a listing elsewhere gets one sentence instead (2026-10-02, user: a Montréal listing
+// was showing Ontario rules). An empty province is treated as Ontario — the product is Ontario-only
+// and older rows were saved without one.
+const ON_RE = /^(on|ont|ontario|安省|安大略省?)$/i
+export function isOntarioListing(province: string | null | undefined): boolean {
+  const p = String(province ?? '').trim()
+  return !p || ON_RE.test(p)
+}
+
+const PROVINCE_NAMES: Record<string, { zh: string; en: string }> = {
+  QC: { zh: '魁北克省', en: 'Quebec' }, BC: { zh: '不列颠哥伦比亚省', en: 'British Columbia' }, AB: { zh: '阿尔伯塔省', en: 'Alberta' },
+  MB: { zh: '曼尼托巴省', en: 'Manitoba' }, SK: { zh: '萨斯喀彻温省', en: 'Saskatchewan' }, NS: { zh: '新斯科舍省', en: 'Nova Scotia' },
+  NB: { zh: '新不伦瑞克省', en: 'New Brunswick' }, NL: { zh: '纽芬兰与拉布拉多省', en: 'Newfoundland and Labrador' },
+  PE: { zh: '爱德华王子岛省', en: 'Prince Edward Island' }, YT: { zh: '育空地区', en: 'Yukon' }, NT: { zh: '西北地区', en: 'Northwest Territories' }, NU: { zh: '努纳武特地区', en: 'Nunavut' },
+}
+export function provinceName(province: string | null | undefined, zh: boolean): string {
+  const p = String(province ?? '').trim()
+  const hit = PROVINCE_NAMES[p.toUpperCase()]
+  return hit ? (zh ? hit.zh : hit.en) : p
+}
+
+/** The one sentence a listing outside Ontario shows where the Ontario notes would be. */
+export function ontarioRulesNotApplicable(province: string | null | undefined, zh: boolean): string {
+  const name = provinceName(province, zh)
+  return zh
+    ? `安省租房规则不适用于这套房源（${name}）。`
+    : `Ontario rental rules do not apply to this listing (${name}).`
+}
+
