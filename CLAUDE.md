@@ -3068,3 +3068,14 @@ H1 96px 衬线 / 400、小字 24px 65% 墨色、上下留白 256px。我们原�
 **相似房源**（`lib/listingSimilar.ts rankSimilar`）：严格按 地段 → 户型 → 租金。地段档：同楼 / ≤1 km 或同社区 / ≤2.5 km / ≤6 km；>6 km、卧室差 >2、租金不在 0.5–2 倍之间的不算相似，**不拿远处的凑数**——没有就写「附近 6 km 内暂无户型、租金相近的在租房源」+「查看全部房源 →」（Avondale、蒙特利尔现在是这样）。卡片显示距离（同楼 / 350 m / 1.2 km）、同社区、户型（同户型 · 2 卧 / 多 1 卧）与租金差（比这套低 $1,210）。候选按坐标 ±6 km 框取最多 500 条（只含排序列），排序后再取前 12 条的卡片字段。守卫 `tests/listingSimilar20261002`。
 
 **顺带**：数据修正——8 Colvestone Road 的社区原来是经纪公司名「Forest Hill」、坐标错 8 km，改为 St. Andrew-Windfields 并按地址重新取坐标；238 Simcoe 城市「Toronto, ON」→「Toronto」（页面曾显示 Toronto, ON, ON）；三条 Realtor 导入行的联系人「Agents.」「Website」清空。`parkingStat('待确认…')` 不再显示「有」。经纪选择器不再向非测试账号显示名字以「[TEST]」开头的经纪。
+
+## Realtor.ca 导入 30 套（2026-10-02 晚 · 用户「用房东的测试账号1，再从 realtor.ca 转取 30 个房源，区域分布要平均」）
+
+10 个区各 3 套（市中心已有 9 套，未再取）：北约克 Willowdale East、中城 Yonge-Eglinton、西区 Niagara / Trinity-Bellwoods、东区 South Riverdale、
+怡陶碧谷 Mimico、士嘉堡 Bendale、密西沙加、万锦、列治文山、旺市；同一区每栋楼最多 1 套，户型 1 卧 13 / 2 卧 12 / 3 卧+ 5，有公寓、联排、独立屋、地下室套间，
+租金 $1,895–$4,400。行为与以往 Realtor 导入一致：`source='realtor'`（页面标 Realtor.ca 来源、显示挂牌经纪公司、不能在 Stayloop 申请，引导找认证经纪），
+`landlord_id` = 房东测试号 landlord-test@stayloop.ai 的 landlords.id `80646b6a…`，title 存地址（不分语言）。做法：Jina 读各区
+`/apartments-for-rent`、`/rentals`、`/condos-for-rent` 列表页 → 逐套读详情页（照片取 highres、字段按「标签 / 值」解析）→ Nominatim 按地址取坐标（核对城市或邮编前三位）→
+service role 一次插入；之后本机慢速查 Overpass 补交通（生产上连续 30 次被 429/504，接口记为失败一小时后才重试），翻译走 enrich 的 translations 请求。脚本在会话 scratchpad
+`realtor30/`（import.mjs 有 `--only=区`、`--from-plan`、`--write`）。**注意：Realtor 导入没有自动下架机制**，这 30 套挂牌到期后要人工下架。
+顺带修了一个翻译缓存的问题：模型没交回可用译文时，原来会把空译文按最终哈希永久缓存；现在记为 `failed:` 15 分钟后重试，退避期内先显示已译部分（守卫 `tests/listingTranslations20261002.spec.ts`）。
