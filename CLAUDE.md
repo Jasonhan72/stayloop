@@ -3132,3 +3132,7 @@ Yorkdale-Glen Park、Etobicoke City Centre、Agincourt）+ 密西沙加 / 万锦
 - **交通站点漏查（全站的缺陷，已修）**：23 Oneida Cres 离 Langstaff GO 540 米、15 Water Walk 离 Unionville GO 1.2 公里，却显示「1.5 公里内没有车站」——这两个 GO 站在
   OpenStreetMap 里只画成站区（way），而 `/api/listings/enrich` 只查 node。现在共用 `lib/listingInsights.ts transitOverpassQuery`（`nwr` + `out center`）与 `overpassPoints`
   （way / relation 取中心点），Overpass 以 200 + 超时说明返回空结果时按失败处理、不缓存成「没有车站」。守卫 `tests/transitAreas20261003.spec.ts`。全部在线房源用新查询重跑了一遍交通（只写成功的结果）。
+- **翻译被误拒（已修）**：这批 50 套首轮中文翻译 15 套被标失败，模型调用全部成功（`ai_usage` 可查），是 `acceptTranslation` 拒收：可复现的一种是月份——「Available November 1st」
+  正确译成「11月1日起」，「不得出现原文没有的数字」检查把 11 当成新数字。`sourceNumbers` 现在把英文月份名（含缩写）算作对应数字；其余是模型偶发输出，站点 15 分钟后自动重试。
+  复现脚本 `.forensics-tmp/translate-repro.mts <slug> [model]`（用站点同一套提示词、模型与检查，打印哪条检查拒收）。
+

@@ -805,6 +805,12 @@ const EN_WORDS: Record<string, number> = {
   first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10,
   single: 1, double: 2, triple: 3, twice: 2, once: 1,
 }
+// A month name is a number once translated: "Available November 1st" → 「11月1日起」 (2026-10-03, a Streetsville
+// listing's Chinese translation was rejected for the "new" 11). "may" also matches the verb — it only allows a 5.
+const EN_MONTHS: Record<string, number> = {
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+}
 
 const canonNum = (s: string): string => {
   const n = Number(s)
@@ -825,7 +831,10 @@ export function sourceNumbers(s: string): Set<string> {
     const n = zhToInt(m[2])
     if (n != null) out.add(String(n))
   }
-  for (const m of t.toLowerCase().matchAll(/\b([a-z]+)\b/g)) if (m[1] in EN_WORDS) out.add(String(EN_WORDS[m[1]]))
+  for (const m of t.toLowerCase().matchAll(/\b([a-z]+)\b/g)) {
+    if (m[1] in EN_WORDS) out.add(String(EN_WORDS[m[1]]))
+    if (m[1] in EN_MONTHS) out.add(String(EN_MONTHS[m[1]]))
+  }
   return out
 }
 

@@ -37,3 +37,15 @@ describe('transit near stations mapped as areas', () => {
     expect(route).not.toContain('node(around:1500')
   })
 })
+
+// Same import: 15 of 50 Chinese translations were rejected. All model calls succeeded; one reproducible cause is
+// a month name — "Available November 1st" correctly becomes 「11月1日起」, and the "no new numbers" check saw 11.
+import { acceptTranslation, translationKeepsNumbers } from '@/lib/listingLang'
+describe('translations may turn month names into numbers', () => {
+  it('November → 11, Sept → 9; a number the source never states is still rejected', () => {
+    expect(translationKeepsNumbers('Available November 1st', '11月1日起可入住')).toBe(true)
+    expect(translationKeepsNumbers('Move in Sept 15', '9月15日入住')).toBe(true)
+    expect(translationKeepsNumbers('Available November 1st', '11月1日起可入住，月租 2500')).toBe(false)
+    expect(acceptTranslation('Beautiful bungalow. Available Immediately From November 1st.', '精美平房。11月1日起即可入住。', 'zh')).toBe(true)
+  })
+})
