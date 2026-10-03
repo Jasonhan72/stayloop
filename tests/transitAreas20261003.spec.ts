@@ -49,3 +49,15 @@ describe('translations may turn month names into numbers', () => {
     expect(acceptTranslation('Beautiful bungalow. Available Immediately From November 1st.', '精美平房。11月1日起即可入住。', 'zh')).toBe(true)
   })
 })
+
+// Same import: 6 translations kept failing and 8 neighbourhood profiles were cached empty. All model calls
+// "succeeded" — Gemini 3.7 Flash (a reasoning model) spent the small max_tokens thinking and the JSON came back cut off.
+describe('enrich model calls leave room for reasoning models', () => {
+  const route = readFileSync('app/api/listings/enrich/route.ts', 'utf8')
+  it('translation budget is chars × 2 + 2000 (max 8000); profile budget is 2500', () => {
+    expect(route).toContain('maxTokens: Math.min(8000, Math.ceil(chars * 2) + 2000),')
+    expect(route).toContain('maxTokens: 2500,')
+    expect(route).not.toContain('Math.ceil(chars * 1.6) + 400')
+    expect(route).not.toContain('maxTokens: 900,')
+  })
+})

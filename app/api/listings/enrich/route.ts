@@ -139,7 +139,9 @@ async function generateProfile(svc: SupabaseClient, city: string, province: stri
       model: def,
       system: PROFILE_PROMPT,
       messages: [{ role: 'user', content: `<place>${name}</place>, ${city}, ${province}, Canada\nFacts (for grounding only): ${JSON.stringify(facts).slice(0, 2000)}` }],
-      maxTokens: 900,
+      // Reasoning models (the admin's turn slot is Gemini 3.7 Flash) spend part of max_tokens thinking; at 900 the
+      // JSON was cut off and 8 of 35 new neighbourhoods were cached empty for a day (2026-10-03). Billing is per token used.
+      maxTokens: 2500,
       temperature: 0.3,
       jsonMode: def.provider === 'openai-compat',
       prefillJson: def.provider === 'anthropic',
@@ -212,7 +214,9 @@ async function runTranslation(sources: string[], lang: ListingLang, signal: Abor
     model: def,
     system: translatePrompt(lang),
     messages: [{ role: 'user', content: JSON.stringify(keyed) }],
-    maxTokens: Math.min(8000, Math.ceil(chars * 1.6) + 400),
+    // Headroom for reasoning models: chars × 1.6 + 400 left Gemini 3.7 Flash ~800 tokens for a 300-character
+    // description, its JSON came back truncated and 6 of 50 new listings never got a Chinese translation (2026-10-03).
+    maxTokens: Math.min(8000, Math.ceil(chars * 2) + 2000),
     // llmChat drops it on models that only accept their default.
     temperature: 0,
     jsonMode: def.provider === 'openai-compat',

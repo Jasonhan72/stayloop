@@ -3135,4 +3135,7 @@ Yorkdale-Glen Park、Etobicoke City Centre、Agincourt）+ 密西沙加 / 万锦
 - **翻译被误拒（已修）**：这批 50 套首轮中文翻译 15 套被标失败，模型调用全部成功（`ai_usage` 可查），是 `acceptTranslation` 拒收：可复现的一种是月份——「Available November 1st」
   正确译成「11月1日起」，「不得出现原文没有的数字」检查把 11 当成新数字。`sourceNumbers` 现在把英文月份名（含缩写）算作对应数字；其余是模型偶发输出，站点 15 分钟后自动重试。
   复现脚本 `.forensics-tmp/translate-repro.mts <slug> [model]`（用站点同一套提示词、模型与检查，打印哪条检查拒收）。
+- **翻译与社区简介的 token 预算太小（已修）**：重试三轮后仍有 6 套翻译失败、8 个新社区简介被缓存成空——模型调用都「成功」，但后台对话槽现在是 Gemini 3.7 Flash（思考型），
+  先把 max_tokens 花在推理上，JSON 被截断（有一条输出停在它自己的推理里）。翻译预算 `chars × 1.6 + 400` → `chars × 2 + 2000`（上限 8000），社区简介 900 → 2500；按实际用量计费，
+  不增加成本。**以后给结构化输出的模型调用设 max_tokens，要给思考型模型留余量。**
 
