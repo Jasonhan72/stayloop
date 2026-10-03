@@ -160,7 +160,8 @@ describe('/listings: no stored "match", one count with an explanation', () => {
   })
   it('the results bar says how the visible count relates to the total', () => {
     expect(page).toContain('data-testid="listing-count-note"')
-    expect(page).toContain('只计地图范围内')
+    expect(page).toContain("'地图范围内 '")
+    expect(page).toContain(' · 已筛选')
   })
 })
 

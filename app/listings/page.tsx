@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Header from '@/components/Header'
-import { SampleBanner } from '@/components/SampleNotice'
 import FavHeart from '@/components/FavHeart'
 import { VerificationBadge } from '@/components/ListingBadges'
 import ListingsMap from '@/components/ListingsMap'
@@ -56,7 +55,7 @@ interface DBListing {
   verification_status?: string | null
 }
 
-type SortKey = 'ai' | 'price_asc' | 'price_desc' | 'newest'
+type SortKey = 'price_asc' | 'price_desc' | 'newest'
 
 // Same identity inputs as the agent-chat listing cards (lib/agent/listingSearch
 // builds url=/listings/{slug} and source), so favorites match across surfaces.
@@ -98,7 +97,7 @@ export default function ListingsPage() {
   const [group, setGroup] = useState<string[] | null>(null)
   // Desktop: ids inside the map viewport — the list follows the map.
   const [viewportIds, setViewportIds] = useState<Set<string> | null>(null)
-  const onViewport = useCallback((ids: string[]) => setViewportIds(new Set(ids)), [])
+  const onViewport = useCallback((ids: string[] | null) => setViewportIds(ids ? new Set(ids) : null), [])
   useEffect(() => {
     if (!mapOpen) return
     const prev = document.body.style.overflow
@@ -119,13 +118,18 @@ export default function ListingsPage() {
   const [pets, setPets] = useState(false)
   const [minBaths, setMinBaths] = useState<number | null>(null)
   const [minSqft, setMinSqft] = useState<number | null>(null)
-  const [sort, setSort] = useState<SortKey>('ai')
+  const [sort, setSort] = useState<SortKey>('newest')
   const [openChip, setOpenChip] = useState<string | null>(null)
   // Filter chips live in a collapsible panel (2026-09-07) so they cost no
   // height until wanted; the toolbar shows how many are active.
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [aiFilterNote, setAiFilterNote] = useState<string | null>(null)
   const [favOnly, setFavOnly] = useState(false)
+  // Search filters as you type (debounced so the map does not refit on every keystroke); Enter applies at once.
+  useEffect(() => {
+    const t = setTimeout(() => setAppliedQuery(queryInput.trim()), 300)
+    return () => clearTimeout(t)
+  }, [queryInput])
   const { favs, isFav, toggle, count: favCount } = useFavorites()
 
   useEffect(() => {
@@ -264,71 +268,61 @@ export default function ListingsPage() {
     // Phones and tablets keep the normal page scroll.
     <div className="bg-white lg:flex lg:h-[100dvh] lg:flex-col lg:overflow-hidden" style={{ minHeight: '100vh' }}>
       <Header />
-      <div className="mx-auto w-full max-w-[1240px] px-5 pt-4 sm:px-8 lg:shrink-0 lg:pt-3">
-        <SampleBanner
-          zh={lang === 'zh'}
-          text={{
-            zh: '示范阶段：TRREB 房源数据库尚未接入，这里目前只有少量房源（平台核验的房东挂牌 + Realtor.ca 导入）。接入后会显示完整房源。',
-            en: 'Demo stage: the TRREB listings feed is not connected yet, so only a handful of listings show here (platform-verified landlord listings plus Realtor.ca imports). The full inventory appears once it is connected.',
-          }}
-        />
-      </div>
+      {/* The "demo stage · TRREB not connected" bar was removed 2026-10-03 (user: drop the sample-data bars
+          for space) — every listing shown here is real (verified landlord listings + Realtor.ca imports). */}
 
       {/* The page had no h1 element (site test 2026-10-02 · L7 D-08 / L6 D7). Visually
           hidden so the designed search-first layout does not change. */}
       <h1 className="sr-only" data-testid="listings-h1">{zh ? '出租房源' : 'Rental listings'}</h1>
 
-      {/* Search row */}
-      <section
-        className="bg-white px-5 sm:px-8 lg:shrink-0"
-        style={{ paddingTop: 14, paddingBottom: 8, borderBottom: '1px solid #F0EBE0' }}
-      >
-        <div className="mx-auto flex w-full max-w-[720px] items-center">
-          <input
-            value={queryInput}
-            onChange={(e) => setQueryInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') setAppliedQuery(queryInput) }}
-            placeholder={zh ? '搜索地址 / 社区，例如 King West, Liberty Village' : 'Search address / neighborhood, e.g. King West, Liberty Village'}
-            className="min-w-0 flex-1"
-            style={{
-              padding: '12px 16px',
-              border: '1.5px solid #171717',
-              borderRight: 0,
-              borderRadius: '10px 0 0 10px',
-              fontSize: 14,
-              outline: 'none',
-            }}
-          />
-          <button
-            onClick={() => setAppliedQuery(queryInput)}
-            style={{
-              padding: '12px 20px',
-              background: '#171717',
-              color: '#fff',
-              border: '1.5px solid #171717',
-              borderRadius: '0 10px 10px 0',
-              fontWeight: 700,
-              fontSize: 14,
-              cursor: 'pointer',
-            }}
-          >
-            {zh ? '搜索 →' : 'Search →'}
-          </button>
-        </div>
-      </section>
-
-      {/* Filters — a one-line toolbar; the chips unfold beneath it on demand */}
+      {/* Toolbar — one line (2026-10-03, user: "把这些内容压缩到一行的空间里，有些可以合并或者取消的").
+          Was four rows (demo bar · search · filter toolbar · results bar). Now: search (filters as you type, no
+          button) · Filters (panel unfolds beneath on demand, with the AI-preferences preset) · Saved · count ·
+          sort. Dropped: the "For rent" chip (rentals are all there is), the "AI picks" sort (no stored match —
+          it was "newest" under another name), the separate results bar. Below lg the count + sort wrap to a
+          second line. */}
       <section
         className="bg-white px-5 sm:px-8 lg:shrink-0"
         style={{ paddingTop: 10, paddingBottom: 10, borderBottom: '1px solid #E4EEF6' }}
+        data-testid="listings-toolbar"
       >
-        <div className="mx-auto flex w-full max-w-[1080px] items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex w-full flex-wrap items-center gap-2 lg:flex-nowrap">
+          <div className="relative flex min-w-0 flex-1 items-center lg:max-w-[360px]">
+            <svg aria-hidden width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E6E8A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 11, pointerEvents: 'none' }}><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input
+              type="text"
+              enterKeyHint="search"
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') setAppliedQuery(queryInput.trim())
+                if (e.key === 'Escape' && queryInput) { setQueryInput(''); setAppliedQuery('') }
+              }}
+              aria-label={zh ? '搜索地址或社区' : 'Search address or neighbourhood'}
+              title={zh ? '例如 King West、Liberty Village' : 'e.g. King West, Liberty Village'}
+              placeholder={zh ? '搜索地址 / 社区' : 'Search address / neighbourhood'}
+              className={`h-9 w-full min-w-0 rounded-lg border border-[#9FBBD0] bg-white pl-[34px] text-[13.5px] outline-none focus:border-[#1B1B3C] ${queryInput ? 'pr-8' : 'pr-3'}`}
+              data-testid="listings-search"
+            />
+            {queryInput && (
+              <button
+                type="button"
+                onClick={() => { setQueryInput(''); setAppliedQuery('') }}
+                aria-label={zh ? '清空搜索' : 'Clear search'}
+                className="absolute right-1.5 flex h-6 w-6 items-center justify-center rounded-full text-[15px] text-body-3 hover:bg-[#EEF5FA]"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={() => setFiltersOpen((v) => !v)}
             aria-expanded={filtersOpen}
+            className="h-9"
             style={{
-              padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              padding: '0 13px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
               display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', flexShrink: 0,
               border: '1px solid ' + (filtersOpen || activeChipCount ? '#171717' : '#9FBBD0'),
               background: filtersOpen ? '#171717' : '#fff',
@@ -343,18 +337,21 @@ export default function ListingsPage() {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: filtersOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}><path d="M6 9l6 6 6-6"/></svg>
           </button>
           {activeChipCount > 0 && !filtersOpen && (
-            <button type="button" onClick={clearChips} style={{ fontSize: 12.5, fontWeight: 600, color: '#6E6E8A', whiteSpace: 'nowrap', flexShrink: 0, background: 'none', border: 0, cursor: 'pointer', padding: '0 4px' }}>
+            <button type="button" onClick={clearChips} style={{ fontSize: 12.5, fontWeight: 600, color: '#6E6E8A', whiteSpace: 'nowrap', flexShrink: 0, background: 'none', border: 0, cursor: 'pointer', padding: '0 2px' }}>
               {zh ? '清除' : 'Clear'}
             </button>
           )}
-          <span style={{ flex: 1 }} />
+
           {/* My favorites — local-only filter */}
           <button
+            type="button"
             onClick={() => setFavOnly((v) => !v)}
             aria-pressed={favOnly}
+            title={zh ? '只看收藏的房源' : 'Show saved homes only'}
+            className="h-9"
             style={{
-              padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', flexShrink: 0,
+              padding: '0 12px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', flexShrink: 0,
               border: favOnly ? '1px solid #171717' : '1px solid #9FBBD0',
               background: favOnly ? '#171717' : '#fff',
               color: favOnly ? '#fff' : '#171717',
@@ -363,39 +360,54 @@ export default function ListingsPage() {
             <span aria-hidden style={{ color: favOnly ? '#FB7185' : '#A1A1AA', fontSize: 14, lineHeight: 1 }}>
               {favOnly ? '♥' : '♡'}
             </span>
-            {zh ? `我的收藏 ${favCount}` : `Saved ${favCount}`}
+            {/* phones: "♡ 3" — the word costs the search box its width */}
+            <span className="max-sm:sr-only">{zh ? '收藏' : 'Saved'}</span>
+            {favCount}
           </button>
 
-          {/* AI profile filter */}
-          <button
-            onClick={applyProfileFilters}
-            style={{
-              padding: '8px 14px',
-              background: 'linear-gradient(135deg,rgba(0,172,228,0.10),rgba(37,99,235,0.10))',
-              border: '1px solid rgba(0,172,228,0.40)',
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              color: '#5B21B6',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {zh ? `◐ ${aiName} 帮我筛 (匹配我的 Profile)` : `◐ Let ${aiName} filter (match my profile)`}
-          </button>
+          {/* Count + sort — the old results bar, now the right end of the same line */}
+          <div className="flex basis-full items-center justify-between gap-3 lg:ml-auto lg:basis-auto lg:justify-end">
+            <div className="whitespace-nowrap text-[14px]" style={{ color: '#3F3F46' }} aria-live="polite">
+              {viewportIds && shown.length !== items.length && !favOnly && (zh ? '地图范围内 ' : '')}
+              <b style={{ color: '#047857', fontSize: 15 }}>{count}</b>
+              {zh ? ' 套' : (viewportIds && shown.length !== items.length && !favOnly ? ' in map area' : ' listings')}
+              {count !== all.length && (
+                <span style={{ color: '#6E6E8A' }} data-testid="listing-count-note">
+                  {zh
+                    ? ` · 共 ${all.length}${items.length !== all.length ? ' · 已筛选' : ''}`
+                    : ` · ${all.length} total${items.length !== all.length ? ' · filtered' : ''}`}
+                </span>
+              )}
+            </div>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              aria-label={zh ? '排序' : 'Sort'}
+              className="h-9 cursor-pointer rounded-lg border border-[#9FBBD0] bg-white px-2 text-[13px] font-semibold text-[#171717]"
+              data-testid="listings-sort"
+            >
+              <option value="newest">{zh ? '最新发布' : 'Newest'}</option>
+              <option value="price_asc">{zh ? '价格从低到高' : 'Price · low to high'}</option>
+              <option value="price_desc">{zh ? '价格从高到低' : 'Price · high to low'}</option>
+            </select>
+          </div>
         </div>
 
         {filtersOpen && (
-        <div className="relative mx-auto mt-3 flex w-full max-w-[1080px] flex-wrap items-center justify-center gap-[10px]">
-          {/* Mode (only rentals live today) */}
-          <Chip label={zh ? '出租' : 'For rent'} on open={openChip === 'mode'} onToggle={() => setOpenChip(openChip === 'mode' ? null : 'mode')}>
-            <div style={{ fontSize: 13 }}>
-              <div style={{ fontWeight: 700 }}>{zh ? '出租 ✓' : 'For rent ✓'}</div>
-              <div style={{ color: '#A1A1AA', marginTop: 4 }}>{zh ? '出售 · 即将上线' : 'For sale · coming soon'}</div>
-            </div>
-          </Chip>
-
+        <div className="relative mt-2.5 flex w-full flex-wrap items-center gap-2" data-testid="listings-filter-panel">
+          {/* Preferences the AI Agent remembers (budget / beds / pets) → live filters. Was a long
+              long "AI filters by my profile" button on the toolbar; it is a filter preset, so it lives here. */}
+          <button
+            type="button"
+            onClick={applyProfileFilters}
+            title={zh ? `用 ${aiName} 记得的预算、户型和宠物偏好来筛选` : `Filter by the budget, bedrooms and pets ${aiName} remembers`}
+            style={{
+              padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+              background: 'rgba(0,172,228,0.08)', border: '1px solid rgba(0,172,228,0.40)', color: '#1B1B3C',
+            }}
+          >
+            {zh ? '◐ 套用我的偏好' : '◐ Use my preferences'}
+          </button>
           {/* Price */}
           <Chip label={priceLabel} on={priceMin != null || priceMax != null} open={openChip === 'price'} onToggle={() => setOpenChip(openChip === 'price' ? null : 'price')}>
             <div style={{ display: 'grid', gap: 8, minWidth: 220 }}>
@@ -506,51 +518,17 @@ export default function ListingsPage() {
 
 
           {anyFilter && (
-            <button onClick={clearAll} style={{ fontSize: 12.5, color: '#71717A', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+            <button type="button" onClick={clearAll} style={{ fontSize: 12.5, color: '#71717A', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
               {zh ? '清除全部' : 'Clear all'}
             </button>
           )}
         </div>
         )}
-        {aiFilterNote && (
-          <div className="mx-auto mt-2 max-w-[1080px] text-center" style={{ fontSize: 12.5, color: '#5B21B6' }}>
+        {filtersOpen && aiFilterNote && (
+          <div className="mt-2 text-[12.5px]" style={{ color: '#1B1B3C' }}>
             ◐ {aiFilterNote}
           </div>
         )}
-      </section>
-
-      {/* Results bar */}
-      <section
-        className="bg-white px-5 sm:px-8 lg:shrink-0"
-        style={{ paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid #F0EBE0' }}
-      >
-        <div className="mx-auto flex w-full items-baseline justify-between">
-          <div style={{ fontSize: 18, fontWeight: 700 }}>
-            <b style={{ color: '#047857' }}>{count}</b>
-            {zh ? ' 套房源' : ' listings'}
-            {count !== all.length && (
-              <span style={{ fontWeight: 500, color: '#3F3F46' }} data-testid="listing-count-note">
-                {zh
-                  ? ` · 共 ${all.length} 套${items.length !== all.length ? '，已按条件筛' : ''}${viewportIds && shown.length !== items.length ? '，只计地图范围内' : ''}`
-                  : ` · ${all.length} in total${items.length !== all.length ? ', filtered' : ''}${viewportIds && shown.length !== items.length ? ', map area only' : ''}`}
-              </span>
-            )}
-            {appliedQuery && <span style={{ fontWeight: 500, color: '#3F3F46' }}> · {appliedQuery}</span>}
-          </div>
-          <label style={{ fontSize: 13, color: '#3F3F46' }}>
-            {zh ? '排序：' : 'Sort: '}
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              style={{ fontWeight: 700, color: '#171717', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13 }}
-            >
-              <option value="ai">{zh ? `${aiName} 推荐` : `${aiName} picks`}</option>
-              <option value="price_asc">{zh ? '价格 从低到高' : 'Price · low to high'}</option>
-              <option value="price_desc">{zh ? '价格 从高到低' : 'Price · high to low'}</option>
-              <option value="newest">{zh ? '最新发布' : 'Newest'}</option>
-            </select>
-          </label>
-        </div>
       </section>
 
       {/* Body: split view — cards | map. On very wide viewports the card

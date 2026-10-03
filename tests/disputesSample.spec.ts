@@ -7,13 +7,18 @@ import { readFileSync } from 'node:fs'
 // 执照号:LSO 号是安省法律协会的真实监管标识,编造的号可能撞上真实执业者,
 // 而读者没有任何线索知道整页是虚构的。
 //
-// 这里守两条:① 页顶不可移除的示范横幅还在;② 页面里不出现真格式 LSO 号。
+// 这里守:① 每块虚构数据都有示范角标、Hero 写明虚构并给出真实求助去处(页顶横幅 2026-10-03
+// 按用户要求去掉);② 页面里不出现真格式 LSO 号。
 const SRC = readFileSync('app/disputes/page.tsx', 'utf8')
 
 describe('/disputes 示范标注', () => {
-  it('页顶示范横幅仍在渲染树里', () => {
-    expect(SRC).toContain('function SampleBanner')
-    expect(SRC).toMatch(/<SampleBanner\s+zh=\{zh\}\s*\/>/)
+  it('页顶横幅已去掉;Hero 写明虚构并链到 LTB 与 LSO 转介', () => {
+    expect(SRC).not.toMatch(/<SampleBanner\b/)
+    expect(SRC).toContain('data-testid="disputes-real-help"')
+    expect(SRC).toContain('本页内容为虚构示范')
+    expect(SRC).toContain('https://tribunalsontario.ca/ltb/')
+    expect(SRC).toContain('https://lso.ca/public-resources/finding-a-lawyer-or-paralegal')
+    expect(SRC).toMatch(/<SampleTag zh=\{zh\} tone="loud" \/>/)
   })
 
   it('每一块虚构数据都挂着示范角标', () => {

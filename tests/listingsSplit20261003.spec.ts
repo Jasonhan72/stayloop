@@ -10,9 +10,9 @@ const page = readFileSync('app/listings/page.tsx', 'utf8')
 const map = readFileSync('components/ListingsMap.tsx', 'utf8')
 
 describe('/listings desktop split view fits the viewport', () => {
-  it('the page is a viewport-high flex column on lg+ and the toolbar rows keep their height', () => {
+  it('the page is a viewport-high flex column on lg+ and the (single) toolbar keeps its height', () => {
     expect(page).toContain('className="bg-white lg:flex lg:h-[100dvh] lg:flex-col lg:overflow-hidden"')
-    expect((page.match(/className="bg-white px-5 sm:px-8 lg:shrink-0"/g) || []).length).toBe(3)
+    expect((page.match(/className="bg-white px-5 sm:px-8 lg:shrink-0"/g) || []).length).toBe(1)
   })
   it('the body fills the rest; the cards scroll in their own pane with content-sized rows', () => {
     expect(page).toMatch(/lg:min-h-0 lg:flex-1 lg:grid-cols-\[minmax\(540px,1fr\)_minmax\(420px,1fr\)\] lg:grid-rows-\[minmax\(0,1fr\)\]/)

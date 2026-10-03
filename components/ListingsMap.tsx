@@ -39,8 +39,9 @@ interface Props {
   children?: ReactNode
   /** Click on a cluster disc: the ids in that group (replaces the zoom-in). */
   onOpenGroup?: (ids: string[]) => void
-  /** Fires on every idle with the ids inside the current viewport. */
-  onViewport?: (ids: string[]) => void
+  /** Fires on every idle with the ids inside the current viewport; null = the map cannot show the
+   *  listings (Google rejected the key / the SDK failed), so the list must not be limited by it. */
+  onViewport?: (ids: string[] | null) => void
 }
 
 // RealMaster-style price tag: the number only, in thousands.
@@ -162,6 +163,9 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
   // cluster layout — so an idle that changes nothing touches nothing.
   const shownRef = useRef<Set<string>>(new Set())
   const clusterKeyRef = useRef('')
+  // Google Maps failed (auth / SDK load). Its frozen, empty "view" must never filter the card list —
+  // a failed map once read as "地图范围内 0 套" with an empty list beside it (2026-10-03).
+  const failedRef = useRef(false)
 
   // Clustering (RealMaster-style): tags whose screen positions fall within
   // CLUSTER_PX of each other collapse into one red disc with the count.
@@ -242,7 +246,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
     })
     if (ref.current) ref.current.dataset.clusters = String(clustersRef.current.length)
     const vb = map.getBounds()
-    if (vb && onViewportRef.current) {
+    if (vb && onViewportRef.current && !failedRef.current) {
       onViewportRef.current(pts.filter((p) => vb.contains({ lat: Number(p.l.lat), lng: Number(p.l.lng) })).map((p) => p.l.id))
     }
   }, [])
@@ -254,6 +258,16 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
       return
     }
     let cancelled = false
+    // Google calls window.gm_authFailure when it rejects the key (wrong referrer, billing, quota).
+    const w = window as any
+    const prevAuthFailure = w.gm_authFailure
+    const onAuthFailure = () => {
+      failedRef.current = true
+      if (!cancelled) setError('auth')
+      onViewportRef.current?.(null)
+      if (typeof prevAuthFailure === 'function') prevAuthFailure()
+    }
+    w.gm_authFailure = onAuthFailure
     loadGoogleMaps(apiKey)
       .then(() => {
         if (cancelled || !ref.current) return
@@ -270,10 +284,13 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
         setReady(true)
       })
       .catch((e) => {
+        failedRef.current = true
+        onViewportRef.current?.(null)
         if (!cancelled) setError(String(e.message || e))
       })
     return () => {
       cancelled = true
+      if (w.gm_authFailure === onAuthFailure) w.gm_authFailure = prevAuthFailure
     }
   }, [apiKey, renderClusters])
 
@@ -374,10 +391,12 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
       {children}
       {error && error !== 'missing-key' && (
         <div
-          className="absolute inset-0 flex items-center justify-center bg-surface text-[13px] text-body-2"
+          className="absolute inset-0 z-20 flex items-center justify-center bg-surface text-[13px] text-body-2"
           style={{ padding: 32, textAlign: 'center' }}
+          title={error}
+          data-testid="map-failed"
         >
-          {zh ? '地图加载失败 — ' : 'Map failed to load — '}{error}
+          {zh ? '地图暂时无法加载，房源列表不受影响。' : 'The map could not load right now — the listings are not affected.'}
         </div>
       )}
 

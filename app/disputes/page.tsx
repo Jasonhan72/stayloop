@@ -5,7 +5,8 @@
 //
 // ⚠️ 这是一个**纯示范页**——没有任何后端(全库无 dispute 表),页面上的案件、
 // 当事人、律师、LSO 执照号、评分/胜率与统计数字全部是虚构样例。因此每一块
-// 虚构数据旁边都必须有 <SampleTag/>,页顶必须有 <SampleBanner/>。
+// 虚构数据旁边都必须有 <SampleTag/>(Hero 里是醒目的那枚 + 一行真实求助去处:LTB / LSO)。
+// 页顶横幅 2026-10-03 按用户要求去掉(「把示范数据的警告条都去掉，多出空间」)。
 // LSO 号是安省法律协会的真实监管标识,示范用号一律写成 SAMPLE-NN 形态,
 // 绝不能再出现 #L88421 这种可能撞上真实执业者的真格式号。
 import Link from 'next/link'
@@ -145,42 +146,6 @@ const LAWYERS: { initials: string; name: string; match: number; lso: LS; rate: s
   },
 ]
 
-/**
- * 页顶示范横幅。这一页没有任何真实数据源,横幅必须在 Header 之下、Hero 之上,
- * 且不可被折叠/关闭——它是本页唯一说明「你看到的全是虚构样例」的地方。
- */
-function SampleBanner({ zh }: { zh: boolean }) {
-  return (
-    <div role="note" style={{ background: '#FEF3C7', borderBottom: '1px solid rgba(180,83,9,0.35)' }}>
-      <div className="mx-auto flex max-w-[1240px] flex-col gap-2.5 px-5 py-4 sm:flex-row sm:items-start sm:gap-3.5 sm:px-7 lg:px-12">
-        <span
-          className="w-fit flex-shrink-0 rounded-md px-2.5 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-white"
-          style={{ background: '#B45309' }}
-        >
-          {zh ? '产品示范' : 'Sample'}
-        </span>
-        <p className="text-[12.5px] font-semibold leading-relaxed" style={{ color: '#78350F' }}>
-          {zh
-            ? '本页展示的是产品示范。页面上的案件编号、当事人、律师姓名、LSO 执照号、评分、胜率与所有统计数字均为虚构样例,不对应任何真实案件或真实执业者。争议调解与律师目录尚未上线。'
-            : 'This page is a product demonstration. Every case number, party, lawyer name, LSO licence number, rating, win rate and statistic shown here is a fabricated sample — none of them correspond to a real case or a real licensee. Dispute mediation and the lawyer directory are not live yet.'}
-          <br />
-          {zh
-            ? '如果你正面临真实纠纷,请直接联系 '
-            : 'If you are facing an actual dispute, contact the '}
-          <a href="https://tribunalsontario.ca/ltb/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
-            {zh ? '安省房东与租客委员会 (LTB)' : 'Landlord and Tenant Board'}
-          </a>
-          {zh ? ' 或 ' : ' or the '}
-          <a href="https://lso.ca/public-resources/finding-a-lawyer-or-paralegal" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
-            {zh ? '安省法律协会 (LSO) 的转介服务' : 'Law Society of Ontario referral service'}
-          </a>
-          {zh ? '。' : ' directly.'}
-        </p>
-      </div>
-    </div>
-  )
-}
-
 /** 区块级示范角标 — 每一块虚构数据的标题行都要挂一个。 */
 function SampleTag({ zh, tone = 'quiet' }: { zh: boolean; tone?: 'quiet' | 'loud' }) {
   const loud = tone === 'loud'
@@ -204,7 +169,8 @@ export default function DisputesPage() {
   return (
     <div style={{ background: '#FFFFFF', color: '#171717' }}>
       <Header variant="transparent" />
-      <SampleBanner zh={zh} />
+      {/* 2026-10-03: the page-top banner was removed (user: drop the sample-data bars for space); every block
+          of fabricated content keeps its <SampleTag/>, the hero carries the loud one. */}
 
       <section style={{ background: 'linear-gradient(180deg,#F3F8FC 0%,rgba(139,92,246,0.06) 100%)' }}>
         <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-7 lg:px-12">
@@ -222,7 +188,19 @@ export default function DisputesPage() {
               ? 'Stayloop 内部 dispute resolution 是非约束性的 · 双方任何阶段均可终止并直接诉诸 LTB / 法院 · 仲裁员独立中立 · 每一步留痕可查。'
               : 'Stayloop’s in-house dispute resolution is non-binding · either party can stop at any stage and go straight to the LTB / courts · arbitrators are independent and neutral · every step is logged and traceable.'}
           </p>
-          {/* Quick stats — 虚构样例,见页顶横幅 */}
+          {/* The removed page-top bar (2026-10-03) was the only place with these two real referrals — kept as one line. */}
+          <p className="mt-3 max-w-[640px] text-[13px] leading-relaxed text-body-3" data-testid="disputes-real-help">
+            {zh ? '本页内容为虚构示范，调解与律师目录尚未上线。遇到真实纠纷，请直接联系 ' : 'Everything on this page is a fabricated sample; mediation and the lawyer directory are not live. For a real dispute, contact the '}
+            <a href="https://tribunalsontario.ca/ltb/" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap underline underline-offset-2">
+              {zh ? '房东与租客委员会 (LTB)' : 'Landlord and Tenant Board'}
+            </a>
+            {zh ? ' 或 ' : ' or the '}
+            <a href="https://lso.ca/public-resources/finding-a-lawyer-or-paralegal" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap underline underline-offset-2">
+              {zh ? '安省法律协会 (LSO) 转介服务' : 'Law Society of Ontario referral service'}
+            </a>
+            {zh ? '。' : '.'}
+          </p>
+          {/* Quick stats — 虚构样例,见 Hero 示范角标 */}
           <div className="mt-8 flex items-center gap-2.5">
             <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">
               {zh ? '示范指标' : 'Sample metrics'}
