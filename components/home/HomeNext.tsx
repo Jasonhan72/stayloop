@@ -384,14 +384,12 @@ export default function HomeNext() {
       <section data-testid="home-statement">
         <div className="mx-auto max-w-[1000px] px-5 py-16 text-center sm:px-7 sm:py-36 lg:py-44 sm:max-lg:py-24">
           <p className="sl-reveal sl-type-head mx-auto max-w-[920px] text-[26px] font-medium leading-[1.45] text-ink sm:text-[36px] lg:text-[44px] lg:leading-[1.4]">
-            {/* 2026-10-03 user: 「再改的通顺一点，要讲出平台的所有优点，把特定的安省去掉，因为可能马上会加上其他省份」.
-                Province-neutral (当地 / local), plain spoken Chinese; the hero above already says 找房到续约, so this covers
-                what it doesn't: one AI Agent per person whatever the role, you approve what touches others, local rules
-                checked first, one thread per matter without swapping contact details, messages that cannot be deleted.
-                {ZW} marks the only places a long unpunctuated run may break below md. */}
+            {/* 2026-10-03 user: 「把特定的安省去掉」, then 「话语太长了，要剪短一点，专业一点的术语」 — 95 → 54 characters,
+                professional terms (审批 / 按当地法规校验 / 平台中转 / 不可删改), still no 成语 or 文言, no province name.
+                {ZW} marks the only places a clause may break below md; from md up each clause is one line. */}
             {zh
-              ? <>不管你是租客、房东还是经纪，Stayloop&nbsp;都给你配一个 AI&nbsp;助理。会影响别人的事，它先拿给你看，<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>你点头才去办</em>。房源和租约{ZW}先按当地的{ZW}租房规定查一遍；相关的人{ZW}在一个对话里商量，不用互留联系方式，说过的话{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>一条也删不掉</em>。</>
-              : <>Tenant, landlord or agent, Stayloop gives you an AI Agent of your own. Anything that affects someone else, it shows you first and <em className="not-italic" style={{ color: '#00ACE4' }}>acts only once you say yes</em>. Listings and leases are checked against local rental rules first; everyone involved talks in one thread without swapping contact details, and <em className="not-italic" style={{ color: '#00ACE4' }}>nothing said can be deleted</em>.</>}
+              ? <>每位用户{ZW}配备专属&nbsp;AI&nbsp;助理。涉及他人的操作{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>须经你审批</em>；房源与租约{ZW}按当地法规校验；沟通经平台中转，<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>记录不可删改</em>。</>
+              : <>Every user gets a dedicated AI&nbsp;Agent. Actions that affect others <em className="not-italic" style={{ color: '#00ACE4' }}>require your approval</em>; listings and leases are checked against local tenancy rules; all communication is relayed through the platform, and <em className="not-italic" style={{ color: '#00ACE4' }}>records can’t be edited or deleted</em>.</>}
           </p>
         </div>
       </section>

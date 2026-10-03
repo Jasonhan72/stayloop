@@ -3103,15 +3103,15 @@ service role 一次插入；之后本机慢速查 Overpass 补交通（生产上
   6 次刷新 4 次复现；用户截图里也出现过 0 套）。现在 `ListingsMap` 挂 `window.gm_authFailure`、SDK 失败时同样处理：`onViewport(null)` 取消按地图筛、之后不再上报视野，
   地图位置显示「地图暂时无法加载，房源列表不受影响。」（原来直接印 SDK 的英文报错）。生产 6/6 次正常加载。
 
-## 首页第二屏陈述句重写（2026-10-03 · 用户「这段还是要再改的通顺一点，要讲出平台的所有优点，同时，把特定的安省去掉，因为可能马上会加上其他省份」）
+## 首页第二屏陈述句重写（2026-10-03 · 用户先「要讲出平台的所有优点…把特定的安省去掉，因为可能马上会加上其他省份」，再「话语太长了，要剪短一点，专业一点的术语」）
 
-四个写手按不同角度起草 12 版，三位评审按「口语通顺 / 与产品事实核对 / 版面与覆盖」打分后合成。现行（`components/home/HomeNext.tsx` STATEMENT，守卫 `tests/homeStatement20261003.spec.ts`）：
-「不管你是租客、房东还是经纪，Stayloop 都给你配一个 AI 助理。会影响别人的事，它先拿给你看，**你点头才去办**。房源和租约先按当地的租房规定查一遍；
-相关的人在一个对话里商量，不用互留联系方式，说过的话**一条也删不掉**。」英文："Tenant, landlord or agent, Stayloop gives you an AI Agent of your own. …
-[acts only once you say yes] … checked against local rental rules first; everyone involved talks in one thread without swapping contact details, and [nothing said can be deleted]."
-- **不写省份**：用「当地 / local」，不出现安省 / Ontario / RTA / LTB（守卫只扫渲染出来的文字）。首屏已经说了「找房到续约」，这里讲首屏没讲的：每人一个 AI 助理（不论身份）、
-  影响别人的事先批准、发出前按当地规定检查、同一件事在一个对话里沟通且不暴露私人联系方式、消息只追加删不掉。评审否掉的说法：「四方都在同一个对话里」（不属实，对话按事务分）、
-  「有争议也说得清」（争议处理 C 期未做）、「一个 AI 助理替租客房东都办」（读起来像同一个 AI 替交易双方办事）。
-- **断行**：`Stayloop&nbsp;都给你` 与 `AI&nbsp;助理` 不拆开；长句里的断点 `{ZW}` 是只在 md 以下显示的零宽空格（`<span className="md:hidden">`），md 起只在标点处断行
-  （「当地的租房规定」在电脑上不会被拆开）。1440 / 1024 / 768 / 390 / 320 中英文逐行核对过：无行首标点、无词中断开、无横向溢出。
+两轮都是「多个写手起草 → 评审按语气 / 事实 / 篇幅打分 → 合成」。第一版（95 字口语长句）上线后用户嫌长，现行版 54 字（`components/home/HomeNext.tsx` STATEMENT，
+守卫 `tests/homeStatement20261003.spec.ts`）：
+「每位用户配备专属 AI 助理。涉及他人的操作**须经你审批**；房源与租约按当地法规校验；沟通经平台中转，**记录不可删改**。」
+英文："Every user gets a dedicated AI Agent. Actions that affect others [require your approval]; listings and leases are checked against local tenancy rules;
+all communication is relayed through the platform, and [records can’t be edited or deleted]."
+- **用户对这段的口味**：要短、要专业术语（审批 / 按当地法规校验 / 平台中转 / 不可删改），但不要成语、文言（「凡…均…」也被评审判为太书面）、营销词；不写省份，用「当地 / local」。
+  评审否掉的词：「预审」（像是监管机构预先批准）、「存证」（暗示公证，我们没做）、「tamper-proof」（实际是只追加 + 哈希链，可发现篡改，不是防篡改）。
+- **断行**：`专属&nbsp;AI&nbsp;助理`、`AI&nbsp;Agent` 不拆开；`{ZW}` 是只在 md 以下显示的零宽空格（`<span className="md:hidden">`）。电脑 / 平板正好四行、一行一个分句；
+  390 五行、320 八行，都只在标点或标记处断开。
 - **仍写安省的地方（准确，未改）**：同页的规则面板「安省规则内置，每条有编号」（列的都是安省法条）、房东 / 租客卡片里的「安省标准租约」、三方动画里的安省标准租约。加入其他省份时一起改。
