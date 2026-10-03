@@ -259,7 +259,8 @@ async function listingTranslations(svc: SupabaseClient, l: Row, lang: ListingLan
   if (row?.src_hash === need.srcHash) return { lang, strings: cached }
   const age = row ? Date.now() - Date.parse(row.created_at) : Infinity
   if (row?.src_hash === `pending:${need.srcHash}` && age < PENDING_MS) return null
-  if (row?.src_hash === `failed:${need.srcHash}` && age < FAILED_MS) return null
+  // Recently failed: show what did translate (if anything) and retry the rest after FAILED_MS.
+  if (row?.src_hash === `failed:${need.srcHash}` && age < FAILED_MS) return Object.keys(cached).length ? { lang, strings: cached } : null
   const todo = budgetSources(need.strings.filter((src) => !(src in cached)))
   if (!todo.length) {
     await writeTranslations(svc, l.id, lang, need.srcHash, cached, row?.model ?? null)
@@ -274,7 +275,11 @@ async function listingTranslations(svc: SupabaseClient, l: Row, lang: ListingLan
   const attempt = () =>
     runTranslation(todo, lang, AbortSignal.timeout(TRANSLATE_MODEL_MS)).then(async (r) => {
       const merged = { ...cached, ...r.strings }
-      await writeTranslations(svc, l.id, lang, need.srcHash, merged, r.model)
+      // A string the model did not give back usably (unparseable JSON, wrong language, a new number) is
+      // not "translated": keep what passed and mark the set failed so it is retried after FAILED_MS —
+      // writing the final hash here cached six empty translations for good (2026-10-02 import).
+      const missing = todo.some((src) => !(src in r.strings))
+      await writeTranslations(svc, l.id, lang, missing ? `failed:${need.srcHash}` : need.srcHash, merged, r.model)
       return merged
     })
   const markFailed = async (e: unknown): Promise<null> => {

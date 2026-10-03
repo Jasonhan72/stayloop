@@ -218,13 +218,15 @@ describe('enrich route behaviour (Supabase and the model faked)', () => {
     expect(h.llm).toHaveBeenCalledTimes(1)
   })
 
-  it('number backstop: a translation stating a number the source does not is not kept (and not retried)', async () => {
+  it('number backstop: a translation stating a number the source does not is not kept (retried only after the back-off)', async () => {
     h.listing = listing({ description: 'Spacious 799 sqft 1-bedroom unit. Unfurnished.' })
     h.llm.mockResolvedValueOnce({ text: JSON.stringify({ s1: '宽敞的 74 平方米一卧单位，不带家具。' }) })
     const { json } = await call({ id: h.listing.id, lang: 'zh' })
     expect(json.translations).toEqual({ lang: 'zh', strings: {} })
+    // Stored as a failure (retried after FAILED_MS), not as a finished empty translation.
+    expect(String(h.upserts.at(-1)?.src_hash)).toMatch(/^failed:/)
     const second = await call({ id: h.listing.id, lang: 'zh' })
-    expect(second.json.translations).toEqual({ lang: 'zh', strings: {} })
+    expect(second.json.translations).toBeNull()
     expect(h.llm).toHaveBeenCalledTimes(1)
   })
 
@@ -335,5 +337,18 @@ describe('enrich route behaviour (Supabase and the model faked)', () => {
     const { status } = await call({ id: h.listing.id, lang: 'zh' })
     expect(status).toBe(404)
     expect(h.llm).not.toHaveBeenCalled()
+  })
+})
+
+// 2026-10-02 (30-listing import): six descriptions came back from the model unusable and the
+// route cached an empty translation under the final hash, so they were never retried.
+describe('a translation the model did not deliver is retried, not cached as done', () => {
+  const src = readFileSync('app/api/listings/enrich/route.ts', 'utf8')
+  it('marks the set failed when any requested string is missing', () => {
+    expect(src).toMatch(/const missing = todo\.some\(\(src\) => !\(src in r\.strings\)\)/)
+    expect(src).toMatch(/missing \? `failed:\$\{need\.srcHash\}` : need\.srcHash/)
+  })
+  it('a recent failure still returns the parts that did translate', () => {
+    expect(src).toMatch(/age < FAILED_MS\) return Object\.keys\(cached\)\.length \? \{ lang, strings: cached \} : null/)
   })
 })
