@@ -205,6 +205,11 @@ const FLOW: { h: Bi; p: Bi }[] = [
   { h: { zh: '执行并留痕', en: 'Done, and logged' }, p: { zh: '每一步写进审计记录；一件租赁事务的聊天记录可以导出，带内容指纹。', en: 'Every step goes to the audit log; a rental matter’s chat history can be exported, fingerprinted.' } },
 ]
 
+// A break point inside a long unpunctuated Chinese run, for narrow screens only (below md the statement's
+// clauses are wider than the column). From md up the paragraph breaks only at punctuation, so a phrase like
+// 当地的租房规定 is never split on a desktop.
+const ZW = <span className="md:hidden">{'\u200b'}</span>
+
 // ── Ontario rules shown on the page — ids resolved against the single source ─
 const RULE_IDS = [
   'RTA-106-deposit-cap', 'RTA-134-no-fees', 'RTA-120-guideline', 'RTA-116-n1-90-days', 'RTA-59-n4-7-days',
@@ -379,9 +384,14 @@ export default function HomeNext() {
       <section data-testid="home-statement">
         <div className="mx-auto max-w-[1000px] px-5 py-16 text-center sm:px-7 sm:py-36 lg:py-44 sm:max-lg:py-24">
           <p className="sl-reveal sl-type-head mx-auto max-w-[920px] text-[26px] font-medium leading-[1.45] text-ink sm:text-[36px] lg:text-[44px] lg:leading-[1.4]">
+            {/* 2026-10-03 user: 「再改的通顺一点，要讲出平台的所有优点，把特定的安省去掉，因为可能马上会加上其他省份」.
+                Province-neutral (当地 / local), plain spoken Chinese; the hero above already says 找房到续约, so this covers
+                what it doesn't: one AI Agent per person whatever the role, you approve what touches others, local rules
+                checked first, one thread per matter without swapping contact details, messages that cannot be deleted.
+                {ZW} marks the only places a long unpunctuated run may break below md. */}
             {zh
-              ? <>Stayloop 用 AI 把租房的<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>每一步办完</em>：找房、筛查、租约、维修、续约。会影响别人的事，<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>先等你点头</em>；规则来自安省法律，每一步都留痕。</>
-              : <>Stayloop uses AI to <em className="not-italic" style={{ color: '#00ACE4' }}>get every step of renting done</em>: search, screening, leases, repairs, renewals. Anything that affects someone else <em className="not-italic" style={{ color: '#00ACE4' }}>waits for your nod</em>; the rules come from Ontario law, and every step is logged.</>}
+              ? <>不管你是租客、房东还是经纪，Stayloop&nbsp;都给你配一个 AI&nbsp;助理。会影响别人的事，它先拿给你看，<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>你点头才去办</em>。房源和租约{ZW}先按当地的{ZW}租房规定查一遍；相关的人{ZW}在一个对话里商量，不用互留联系方式，说过的话{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>一条也删不掉</em>。</>
+              : <>Tenant, landlord or agent, Stayloop gives you an AI Agent of your own. Anything that affects someone else, it shows you first and <em className="not-italic" style={{ color: '#00ACE4' }}>acts only once you say yes</em>. Listings and leases are checked against local rental rules first; everyone involved talks in one thread without swapping contact details, and <em className="not-italic" style={{ color: '#00ACE4' }}>nothing said can be deleted</em>.</>}
           </p>
         </div>
       </section>

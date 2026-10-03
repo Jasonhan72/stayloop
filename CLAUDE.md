@@ -3102,3 +3102,16 @@ service role 一次插入；之后本机慢速查 Overpass 补交通（生产上
 - **顺带修的**：Google 地图加载失败时（key 被拒 / SDK 加载失败），地图冻结的空视野仍在筛列表，页面显示「地图范围内 0 套」、卡片列表全空（本地 localhost 不在 key 的允许来源里，
   6 次刷新 4 次复现；用户截图里也出现过 0 套）。现在 `ListingsMap` 挂 `window.gm_authFailure`、SDK 失败时同样处理：`onViewport(null)` 取消按地图筛、之后不再上报视野，
   地图位置显示「地图暂时无法加载，房源列表不受影响。」（原来直接印 SDK 的英文报错）。生产 6/6 次正常加载。
+
+## 首页第二屏陈述句重写（2026-10-03 · 用户「这段还是要再改的通顺一点，要讲出平台的所有优点，同时，把特定的安省去掉，因为可能马上会加上其他省份」）
+
+四个写手按不同角度起草 12 版，三位评审按「口语通顺 / 与产品事实核对 / 版面与覆盖」打分后合成。现行（`components/home/HomeNext.tsx` STATEMENT，守卫 `tests/homeStatement20261003.spec.ts`）：
+「不管你是租客、房东还是经纪，Stayloop 都给你配一个 AI 助理。会影响别人的事，它先拿给你看，**你点头才去办**。房源和租约先按当地的租房规定查一遍；
+相关的人在一个对话里商量，不用互留联系方式，说过的话**一条也删不掉**。」英文："Tenant, landlord or agent, Stayloop gives you an AI Agent of your own. …
+[acts only once you say yes] … checked against local rental rules first; everyone involved talks in one thread without swapping contact details, and [nothing said can be deleted]."
+- **不写省份**：用「当地 / local」，不出现安省 / Ontario / RTA / LTB（守卫只扫渲染出来的文字）。首屏已经说了「找房到续约」，这里讲首屏没讲的：每人一个 AI 助理（不论身份）、
+  影响别人的事先批准、发出前按当地规定检查、同一件事在一个对话里沟通且不暴露私人联系方式、消息只追加删不掉。评审否掉的说法：「四方都在同一个对话里」（不属实，对话按事务分）、
+  「有争议也说得清」（争议处理 C 期未做）、「一个 AI 助理替租客房东都办」（读起来像同一个 AI 替交易双方办事）。
+- **断行**：`Stayloop&nbsp;都给你` 与 `AI&nbsp;助理` 不拆开；长句里的断点 `{ZW}` 是只在 md 以下显示的零宽空格（`<span className="md:hidden">`），md 起只在标点处断行
+  （「当地的租房规定」在电脑上不会被拆开）。1440 / 1024 / 768 / 390 / 320 中英文逐行核对过：无行首标点、无词中断开、无横向溢出。
+- **仍写安省的地方（准确，未改）**：同页的规则面板「安省规则内置，每条有编号」（列的都是安省法条）、房东 / 租客卡片里的「安省标准租约」、三方动画里的安省标准租约。加入其他省份时一起改。
