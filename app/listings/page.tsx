@@ -258,9 +258,13 @@ export default function ListingsPage() {
   const clearChips = () => { setPriceMin(null); setPriceMax(null); setMinBeds(null); setMoveIn(''); setPets(false); setMinBaths(null); setMinSqft(null); setOpenChip(null) }
 
   return (
-    <div className="bg-white" style={{ minHeight: '100vh' }}>
+    // Desktop (lg+) is an app-style split view (2026-10-03, user: "现在看不到下面的了，地图里的小房源卡片需要滚动才能看到"):
+    // the page itself does not scroll — the toolbar rows keep their height, the cards | map body fills the rest of the
+    // viewport, the card list scrolls on its own and the map (with its peek card at the bottom) is always fully on screen.
+    // Phones and tablets keep the normal page scroll.
+    <div className="bg-white lg:flex lg:h-[100dvh] lg:flex-col lg:overflow-hidden" style={{ minHeight: '100vh' }}>
       <Header />
-      <div className="mx-auto max-w-[1240px] px-5 pt-4 sm:px-8">
+      <div className="mx-auto w-full max-w-[1240px] px-5 pt-4 sm:px-8 lg:shrink-0 lg:pt-3">
         <SampleBanner
           zh={lang === 'zh'}
           text={{
@@ -276,7 +280,7 @@ export default function ListingsPage() {
 
       {/* Search row */}
       <section
-        className="bg-white px-5 sm:px-8"
+        className="bg-white px-5 sm:px-8 lg:shrink-0"
         style={{ paddingTop: 14, paddingBottom: 8, borderBottom: '1px solid #F0EBE0' }}
       >
         <div className="mx-auto flex w-full max-w-[720px] items-center">
@@ -315,7 +319,7 @@ export default function ListingsPage() {
 
       {/* Filters — a one-line toolbar; the chips unfold beneath it on demand */}
       <section
-        className="bg-white px-5 sm:px-8"
+        className="bg-white px-5 sm:px-8 lg:shrink-0"
         style={{ paddingTop: 10, paddingBottom: 10, borderBottom: '1px solid #E4EEF6' }}
       >
         <div className="mx-auto flex w-full max-w-[1080px] items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
@@ -517,7 +521,7 @@ export default function ListingsPage() {
 
       {/* Results bar */}
       <section
-        className="bg-white px-5 sm:px-8"
+        className="bg-white px-5 sm:px-8 lg:shrink-0"
         style={{ paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid #F0EBE0' }}
       >
         <div className="mx-auto flex w-full items-baseline justify-between">
@@ -551,10 +555,11 @@ export default function ListingsPage() {
 
       {/* Body: split view — cards | map. On very wide viewports the card
           pane gets more share and flows to 3 columns (Airbnb-style density). */}
-      <section className="grid w-full grid-cols-1 lg:grid-cols-[minmax(540px,1fr)_minmax(420px,1fr)] 2xl:grid-cols-[minmax(760px,1.3fr)_minmax(420px,1fr)]">
-        {/* Card grid */}
+      <section className="grid w-full grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(540px,1fr)_minmax(420px,1fr)] lg:grid-rows-[minmax(0,1fr)] 2xl:grid-cols-[minmax(760px,1.3fr)_minmax(420px,1fr)]" data-testid="listings-split">
+        {/* Card grid — on lg+ it scrolls inside its own pane */}
         <div
-          className="grid grid-cols-1 px-5 py-[18px] sm:grid-cols-2 sm:px-6 2xl:grid-cols-3"
+          className="grid auto-rows-max grid-cols-1 px-5 py-[18px] sm:grid-cols-2 sm:px-6 lg:h-full lg:overflow-y-auto lg:overscroll-contain 2xl:grid-cols-3"
+          data-testid="listings-cards"
           style={{
             gap: 16,
             alignContent: 'start',
@@ -589,7 +594,7 @@ export default function ListingsPage() {
         </div>
 
         {/* Map (sticky, Google Maps) — hidden on mobile, shown in split view on lg+ */}
-        <div className="hidden lg:block">
+        <div className="hidden lg:block lg:h-full lg:min-h-0">
           <ListingsMap
             listings={mapListings}
             active={active}

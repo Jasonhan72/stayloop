@@ -25,8 +25,8 @@ interface Props {
   listings: MapListing[]
   active: string | null
   onPick: (id: string) => void
-  /** 'split' = the sticky desktop half (default); 'full' = fills its parent
-   *  (the phone map mode overlay). */
+  /** 'split' = the desktop half, filling its pane (default); 'full' = fills its parent
+   *  absolutely (the phone / fullscreen map overlay). */
   mode?: 'split' | 'full'
   /** Pixels reserved at the bottom (the phone peek card) when fitting bounds. */
   bottomInset?: number
@@ -351,7 +351,9 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
       className={mode === 'split' ? 'hidden lg:block' : 'block'}
       style={
         mode === 'split'
-          ? { position: 'sticky', top: 66, height: 'calc(100vh - 66px)', borderLeft: '1px solid #E4EEF6', overflow: 'hidden', background: '#E5E3DC' }
+          // Fills its pane: /listings sizes the split body to the viewport, so the whole map — and the peek
+          // card pinned to its bottom — is on screen without scrolling (2026-10-03).
+          ? { position: 'relative', height: '100%', borderLeft: '1px solid #E4EEF6', overflow: 'hidden', background: '#E5E3DC' }
           : { position: 'absolute', inset: 0, overflow: 'hidden', background: '#E5E3DC' }
       }
     >
