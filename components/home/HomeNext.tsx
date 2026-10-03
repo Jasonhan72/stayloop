@@ -384,12 +384,13 @@ export default function HomeNext() {
       <section data-testid="home-statement">
         <div className="mx-auto max-w-[1000px] px-5 py-16 text-center sm:px-7 sm:py-36 lg:py-44 sm:max-lg:py-24">
           <p className="sl-reveal sl-type-head mx-auto max-w-[920px] text-[26px] font-medium leading-[1.45] text-ink sm:text-[36px] lg:text-[44px] lg:leading-[1.4]">
-            {/* 2026-10-03 user: 「把特定的安省去掉」, then 「话语太长了，要剪短一点，专业一点的术语」 — 95 → 54 characters,
-                professional terms (审批 / 按当地法规校验 / 平台中转 / 不可删改), still no 成语 or 文言, no province name.
+            {/* 2026-10-03 user: 「把特定的安省去掉」 → 「话语太长了，要剪短一点，专业一点的术语」 → 「这个话要的，Stayloop 用 AI
+                把租房的每一步办完：找房、筛查、租约、维修、续约。」 — the original opening line stays, followed by the three
+                safeguards in professional terms (审批 / 按当地法规校验 / 平台中转 / 不可删改); no province name.
                 {ZW} marks the only places a clause may break below md; from md up each clause is one line. */}
             {zh
-              ? <>每位用户{ZW}配备专属&nbsp;AI&nbsp;助理。涉及他人的操作{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>须经你审批</em>；房源与租约{ZW}按当地法规校验；沟通经平台中转，<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>记录不可删改</em>。</>
-              : <>Every user gets a dedicated AI&nbsp;Agent. Actions that affect others <em className="not-italic" style={{ color: '#00ACE4' }}>require your approval</em>; listings and leases are checked against local tenancy rules; all communication is relayed through the platform, and <em className="not-italic" style={{ color: '#00ACE4' }}>records can’t be edited or deleted</em>.</>}
+              ? <>Stayloop 用 AI 把租房的{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>每一步办完</em>：找房、筛查、租约、维修、续约。涉及他人的操作{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>须经你审批</em>；房源与租约{ZW}按当地法规校验；沟通经平台中转，记录不可删改。</>
+              : <>Stayloop uses AI to <em className="not-italic" style={{ color: '#00ACE4' }}>get every step of renting done</em>: search, screening, leases, repairs, renewals. Actions that affect others <em className="not-italic" style={{ color: '#00ACE4' }}>require your approval</em>; listings and leases are checked against local tenancy rules; all communication is relayed through the platform, and records can’t be edited or deleted.</>}
           </p>
         </div>
       </section>

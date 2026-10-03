@@ -3103,15 +3103,15 @@ service role 一次插入；之后本机慢速查 Overpass 补交通（生产上
   6 次刷新 4 次复现；用户截图里也出现过 0 套）。现在 `ListingsMap` 挂 `window.gm_authFailure`、SDK 失败时同样处理：`onViewport(null)` 取消按地图筛、之后不再上报视野，
   地图位置显示「地图暂时无法加载，房源列表不受影响。」（原来直接印 SDK 的英文报错）。生产 6/6 次正常加载。
 
-## 首页第二屏陈述句重写（2026-10-03 · 用户先「要讲出平台的所有优点…把特定的安省去掉，因为可能马上会加上其他省份」，再「话语太长了，要剪短一点，专业一点的术语」）
+## 首页第二屏陈述句重写（2026-10-03 · 三轮：「要讲出平台的所有优点…把特定的安省去掉」→「话语太长了，要剪短一点，专业一点的术语」→「这个话要的，Stayloop 用 AI 把租房的每一步办完：找房、筛查、租约、维修、续约。」）
 
-两轮都是「多个写手起草 → 评审按语气 / 事实 / 篇幅打分 → 合成」。第一版（95 字口语长句）上线后用户嫌长，现行版 54 字（`components/home/HomeNext.tsx` STATEMENT，
-守卫 `tests/homeStatement20261003.spec.ts`）：
-「每位用户配备专属 AI 助理。涉及他人的操作**须经你审批**；房源与租约按当地法规校验；沟通经平台中转，**记录不可删改**。」
-英文："Every user gets a dedicated AI Agent. Actions that affect others [require your approval]; listings and leases are checked against local tenancy rules;
-all communication is relayed through the platform, and [records can’t be edited or deleted]."
-- **用户对这段的口味**：要短、要专业术语（审批 / 按当地法规校验 / 平台中转 / 不可删改），但不要成语、文言（「凡…均…」也被评审判为太书面）、营销词；不写省份，用「当地 / local」。
+现行（`components/home/HomeNext.tsx` STATEMENT，守卫 `tests/homeStatement20261003.spec.ts`）：
+「Stayloop 用 AI 把租房的**每一步办完**：找房、筛查、租约、维修、续约。涉及他人的操作**须经你审批**；房源与租约按当地法规校验；沟通经平台中转，记录不可删改。」
+英文："Stayloop uses AI to [get every step of renting done]: search, screening, leases, repairs, renewals. Actions that affect others [require your approval];
+listings and leases are checked against local tenancy rules; all communication is relayed through the platform, and records can’t be edited or deleted."
+- **第一句是用户点名要保留的原句，一字不动**；后面三个分句是第二轮定下的专业用语。电脑 / 平板正好五行：原句占两行（「…办完：」/「找房、…续约。」），三个分句各一行。
+- **用户对这段的口味**：短、专业术语（审批 / 按当地法规校验 / 平台中转 / 不可删改），不要成语、文言（「凡…均…」也太书面）、营销词；不写省份，用「当地 / local」。
   评审否掉的词：「预审」（像是监管机构预先批准）、「存证」（暗示公证，我们没做）、「tamper-proof」（实际是只追加 + 哈希链，可发现篡改，不是防篡改）。
-- **断行**：`专属&nbsp;AI&nbsp;助理`、`AI&nbsp;Agent` 不拆开；`{ZW}` 是只在 md 以下显示的零宽空格（`<span className="md:hidden">`）。电脑 / 平板正好四行、一行一个分句；
-  390 五行、320 八行，都只在标点或标记处断开。
+  中间那版 95 字的口语长句（「不管你是租客、房东还是经纪…说过的话一条也删不掉」）被嫌太长。
+- **断行**：`{ZW}` 是只在 md 以下显示的零宽空格（`<span className="md:hidden">`）；手机上只在标点或标记处断开（390 七行、320 九行），无横向溢出。
 - **仍写安省的地方（准确，未改）**：同页的规则面板「安省规则内置，每条有编号」（列的都是安省法条）、房东 / 租客卡片里的「安省标准租约」、三方动画里的安省标准租约。加入其他省份时一起改。
