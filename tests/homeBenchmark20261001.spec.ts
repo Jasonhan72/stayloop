@@ -52,8 +52,7 @@ describe('sections (plan A, 2026-10-01 — supersedes the 40px / 700 pass)', () 
     expect(home).toContain("'行政事务交给 AI，时间留给\\u200b专业工作。'") // the phone card column is narrower (2026-10-01)
     expect(home).toContain("'筛查报告会不会\\u200b一票否决申请人？'")
     // highlighted words never split across lines either
-    expect(home).toContain('whitespace-nowrap" style={{ color: \'#00ACE4\' }}>有法可依</em>')
-    expect(home).toContain('whitespace-nowrap" style={{ color: \'#00ACE4\' }}>有据可查</em>')
+    expect(home).toContain('whitespace-nowrap" style={{ color: \'#00ACE4\' }}>每一步办完</em>')
     // the break point is layout-only: the FAQ structured data carries the plain question
     expect(home).toContain("name: pick(f.q, lang).replace(/\\u200b/g, '')")
   })
