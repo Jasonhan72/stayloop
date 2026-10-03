@@ -158,6 +158,27 @@ export function haversineMeters(aLat: number, aLng: number, bLat: number, bLng: 
   return Math.round(2 * R * Math.asin(Math.sqrt(s)))
 }
 
+/** The Overpass query behind a listing's transit list (shared by /api/listings/enrich and the import scripts).
+ *  `nwr` + `out center`, not `node` (2026-10-03): many GO stations — Langstaff, Unionville — are mapped only as
+ *  station areas (ways), so a node-only query reported "no station within 1.5 km" next to them. */
+export function transitOverpassQuery(lat: number, lng: number, timeoutS = 15): string {
+  return `[out:json][timeout:${timeoutS}];(nwr(around:1500,${lat},${lng})["railway"="station"];nwr(around:1500,${lat},${lng})["public_transport"="station"]["subway"="yes"];node(around:600,${lat},${lng})["railway"="tram_stop"];);out center 80;`
+}
+
+type OverpassElement = { lat?: number; lon?: number; center?: { lat?: number; lon?: number }; tags?: Record<string, string | undefined> }
+
+/** Overpass elements → points: a node keeps its own position, a way / relation uses its centre; anything
+ *  without a position is dropped. */
+export function overpassPoints(elements: readonly OverpassElement[]): { lat: number; lon: number; tags?: Record<string, string | undefined> }[] {
+  const out: { lat: number; lon: number; tags?: Record<string, string | undefined> }[] = []
+  for (const e of elements) {
+    const lat = typeof e.lat === 'number' ? e.lat : e.center?.lat
+    const lon = typeof e.lon === 'number' ? e.lon : e.center?.lon
+    if (typeof lat === 'number' && typeof lon === 'number') out.push({ lat, lon, tags: e.tags })
+  }
+  return out
+}
+
 /** Rider-facing list from raw OSM nodes: one entry per station name (nearest
  *  node wins), subway / GO / rail first, at most one streetcar stop, six total. */
 export function pickTransit(nodes: { lat: number; lon: number; tags?: Record<string, string | undefined> }[], lat: number, lng: number): TransitStop[] {

@@ -3117,3 +3117,18 @@ the platform, and records can’t be edited or deleted."
 - **断行**：md 起每组 `<Seg>`（`md:whitespace-nowrap`）各占一行，电脑 / 平板固定六行：开头句 / 找房、筛查、签约 / 入住后的物业管理、维修、催租 / 到期续约，全程按当地法规把关 /
   涉及他人的操作须经你审批 / 沟通经平台中转，记录不可删改。md 以下正常在标点与 `{ZW}`（只在 md 以下显示的零宽空格）处断开，390 八行、320 十行，无横向溢出。
 - **仍写安省的地方（准确，未改）**：同页的规则面板「安省规则内置，每条有编号」（列的都是安省法条）、房东 / 租客卡片里的「安省标准租约」、三方动画里的安省标准租约。加入其他省份时一起改。
+
+## Realtor.ca 再导入 50 套 + 交通站点漏查修复（2026-10-03 · 用户「再从 realtor.ca 上面抓取 50 个不同地区的房源，多伦多，米西萨迦，markham，Richmond Hill 的都要有…用测试用的房东账号发布」）
+
+多伦多 20 套（10 个上次没用过的社区各 2 套：Church-Wellesley、Harbourfront/CityPlace、Yonge-St. Clair、High Park North、Junction、Leaside、Bayview Village、
+Yorkdale-Glen Park、Etobicoke City Centre、Agincourt）+ 密西沙加 / 万锦 / 列治文山各 10 套（每个社区 1 套，如 Port Credit、Cooksville、Unionville、Cornell、Oak Ridges、Langstaff…）。
+户型 1 卧 20 / 2 卧 20 / 3 卧+ 10；与库里已有房源不重楼不重 MLS。和上次一样 `source='realtor'`、挂在房东测试号 landlords.id `80646b6a…` 名下、不能在 Stayloop 申请。
+脚本在会话 scratchpad `realtor50/`（`import.mjs` 规划 → `add.mjs city:slug:n` 追加 → `apply_fixes.py` → `import.mjs --from-plan --write` → `transit_all.mts` → `enrich.mjs`）。
+- **写库前逐套核对**：5 个核对员把每套计划字段与保存下来的 Realtor.ca 原页（`details/<MLS>.md`）对照，49 套里 17 套要改、0 套拒收；另换掉 1 套（Streetsville 一栋的描述是卖房文案）。
+  **解析器的系统性问题**（这批已逐条改正，以后导入要注意）：① 房子的一部分（地下室套间、主层、coach house）被标成 `house`——地址里不一定写 BSMT，要看描述；② 这类单元带的是**整栋房子**
+  的面积区间（应为空）；③ 「Total 2 / Partial 1」是 1.5 卫；④ 出租公司整栋楼（Cromwell 等，免月租促销）被标成 condo，应为 apartment；⑤ Realtor 的 Parking Type 描述的是楼 / 房子，
+  不是租客拿到的：车位数 0 却写「Underground, Garage」会显示「有车位」，有 1 个车位却写「No Garage」会显示「不含」。规则：车位 0 →「No parking」；部分单元或以 No 开头且有车位 →「N parking space(s)」；
+  车位未知且写 No Garage → 空。**上一批 37 套旧导入同样按此改了 16 套**（171 Duplex Ave 是房子的主层单元 → apartment；33 Helendale 是 Whitehaus Condos → condo）。
+- **交通站点漏查（全站的缺陷，已修）**：23 Oneida Cres 离 Langstaff GO 540 米、15 Water Walk 离 Unionville GO 1.2 公里，却显示「1.5 公里内没有车站」——这两个 GO 站在
+  OpenStreetMap 里只画成站区（way），而 `/api/listings/enrich` 只查 node。现在共用 `lib/listingInsights.ts transitOverpassQuery`（`nwr` + `out center`）与 `overpassPoints`
+  （way / relation 取中心点），Overpass 以 200 + 超时说明返回空结果时按失败处理、不缓存成「没有车站」。守卫 `tests/transitAreas20261003.spec.ts`。全部在线房源用新查询重跑了一遍交通（只写成功的结果）。

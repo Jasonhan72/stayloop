@@ -32,7 +32,7 @@ import { getRequestContext } from '@cloudflare/next-on-pages'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
-import { median, pickTransit, type ListingTransit } from '@/lib/listingInsights'
+import { median, overpassPoints, pickTransit, transitOverpassQuery, type ListingTransit } from '@/lib/listingInsights'
 import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/modelConfig'
 import { llmChat } from '@/lib/llmChat'
 import { parseModelJson } from '@/lib/screening/jsonRepair'
@@ -165,7 +165,7 @@ function background(p: Promise<unknown>): void {
 }
 
 async function nearbyTransit(lat: number, lng: number): Promise<ListingTransit | null> {
-  const q = `[out:json][timeout:15];(node(around:1500,${lat},${lng})["railway"="station"];node(around:1500,${lat},${lng})["public_transport"="station"]["subway"="yes"];node(around:600,${lat},${lng})["railway"="tram_stop"];);out body 80;`
+  const q = transitOverpassQuery(lat, lng)
   try {
     const res = await fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
@@ -174,9 +174,11 @@ async function nearbyTransit(lat: number, lng: number): Promise<ListingTransit |
       signal: AbortSignal.timeout(20000),
     })
     if (!res.ok) return null
-    const json = (await res.json()) as { elements?: { lat: number; lon: number; tags?: Record<string, string> }[] }
+    const json = (await res.json()) as { elements?: Parameters<typeof overpassPoints>[0]; remark?: string }
     if (!Array.isArray(json.elements)) return null
-    return { stations: pickTransit(json.elements, lat, lng), fetched_at: new Date().toISOString() }
+    // Overpass answers a server-side timeout with HTTP 200, no elements and a remark — that is a failure, not "no stations".
+    if (!json.elements.length && /error|timed out|runtime/i.test(json.remark || '')) return null
+    return { stations: pickTransit(overpassPoints(json.elements), lat, lng), fetched_at: new Date().toISOString() }
   } catch { return null }
 }
 
