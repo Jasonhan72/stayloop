@@ -358,14 +358,17 @@ export default function HomeNext() {
           <div className="w-full min-w-0">
             <h1 className="sl-type-head mx-auto max-w-[1000px] text-[clamp(22px,8.2vw,34px)] leading-[1.1] sm:text-[48px] lg:text-[60px]">
               {zh
-                ? <span className="whitespace-nowrap">租房的事，交给<em className="not-italic" style={{ color: '#00ACE4' }}>AI助理</em></span>
-                : <>Leave renting to <em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>an AI Agent</em></>}
+                ? <span className="whitespace-nowrap">租房诸事，托付<em className="not-italic" style={{ color: '#00ACE4' }}>AI助理</em></span>
+                : <>Renting, <em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>handled</em>.</>}
             </h1>
-            {/* 2026-10-01 user: one line, simpler — like america.gov ("Whatever you need from government, start here."). */}
+            {/* 2026-10-01 user: one line, simpler — like america.gov ("Whatever you need from government, start here.").
+                2026-10-02 user: rewritten to say the strengths, elegantly (four writers, two judges): the AI Agent
+                does the running, the decisions stay with you — no 「批准」 wording, and true to the rule that
+                nothing affecting others goes out without the user. */}
             <p className="sl-type-text mx-auto mt-4 text-[clamp(15px,4.6vw,18px)] leading-snug text-body-3 sm:mt-5 sm:text-[22px] lg:text-[24px]">
               {zh
-                ? <span className="whitespace-nowrap">找房到续约，它去办，你来批准。</span>
-                : 'From search to renewal: it does the work, you approve.'}
+                ? <span className="whitespace-nowrap">奔走归它，定夺归你。</span>
+                : 'Your AI Agent does the legwork; the decisions stay yours.'}
             </p>
           </div>
           {/* 2026-10-01: America.gov's ask box over a photo card replaces the sign-in block — ask first,
@@ -375,13 +378,15 @@ export default function HomeNext() {
       </section>
 
       {/* ================= STATEMENT: what Stayloop is, in one sentence ================= */}
-      {/* america.gov's second screen: one sentence, big, nothing else (2026-10-01, plan A). */}
+      {/* america.gov's second screen: one sentence, big, nothing else (2026-10-01, plan A). 2026-10-02 rewrite:
+          scope (one thread through the whole rental) and trust (rules grounded in law — Ontario's, or the
+          listing's own province since that day — and an append-only record); approvals stay in the hero line. */}
       <section data-testid="home-statement">
         <div className="mx-auto max-w-[1000px] px-5 py-16 text-center sm:px-7 sm:py-36 lg:py-44 sm:max-lg:py-24">
           <p className="sl-reveal sl-type-head mx-auto max-w-[920px] text-[26px] font-medium leading-[1.45] text-ink sm:text-[36px] lg:text-[44px] lg:leading-[1.4]">
             {zh
-              ? <>Stayloop 用 AI 把租房的<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>每一步办完</em>：找房、筛查、租约、维修、续约。会影响别人的事，<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>先等你点头</em>；规则来自安省法律，每一步都留痕。</>
-              : <>Stayloop uses AI to <em className="not-italic" style={{ color: '#00ACE4' }}>get every step of renting done</em>: search, screening, leases, repairs, renewals. Anything that affects someone else <em className="not-italic" style={{ color: '#00ACE4' }}>waits for your nod</em>; the rules come from Ontario law, and every step is logged.</>}
+              ? <>Stayloop 把找房、筛查、签约、维修、续约串成一线。每条规则，<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>有法可依</em>；每次往来，<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>有据可查</em>。</>
+              : <>Stayloop strings search, screening, leases, repairs and renewals into a single thread. Every rule <em className="not-italic" style={{ color: '#00ACE4' }}>rests on the law</em>; every exchange <em className="not-italic" style={{ color: '#00ACE4' }}>stays on the record</em>.</>}
           </p>
         </div>
       </section>

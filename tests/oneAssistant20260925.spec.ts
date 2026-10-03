@@ -97,7 +97,7 @@ describe('one assistant per account', () => {
     }
     const home = read('components/home/HomeNext.tsx')
     expect(home).not.toMatch(PERSONA_NAMES)
-    expect(home).toContain('租房的事，交给') // 2026-10-01 user: one-line headline 「租房的事，交给AI助理」
+    expect(home).toContain('租房诸事，托付') // one-line headline (2026-10-01 「租房的事，交给AI助理」 → 2026-10-02 rewrite)
     expect(home).toContain('>AI助理</em>')
     expect(home).not.toContain('各提供一个')
     expect(home).not.toContain('useAIName') // signed-in users are redirected off the homepage; nothing here names their assistant (V0.7)

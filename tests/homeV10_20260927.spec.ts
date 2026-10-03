@@ -24,13 +24,13 @@ describe('the homepage hosts no conversation of its own (the ask box sends it to
     expect(home).toContain('<HeroComposer zh={zh} className="mt-10 w-full sm:mt-12" />')
     expect(home).toContain('href="#ask"') // the closing「先问一句试试 ↑」scrolls back up to the ask box
     expect(home).toContain('href="/register"')
-    // 2026-10-01 user: one line, 「租房的事，交给AI助理」
-    expect(home).toContain('<span className="whitespace-nowrap">租房的事，交给<em className="not-italic" style={{ color: \'#00ACE4\' }}>AI助理</em></span>')
+    // 2026-10-01 user: one line; 2026-10-02 user asked for a more elegant line → 「租房诸事，托付AI助理」
+    expect(home).toContain('<span className="whitespace-nowrap">租房诸事，托付<em className="not-italic" style={{ color: \'#00ACE4\' }}>AI助理</em></span>')
     expect(home).not.toContain('租房路上的每一步')
     // 2026-10-01 (muse.ai / america.gov benchmark): 60px desktop, 48px tablet, one line on phones down to 320px
     expect(home).toContain('sl-type-head mx-auto max-w-[1000px] text-[clamp(22px,8.2vw,34px)] leading-[1.1] sm:text-[48px] lg:text-[60px]') // 600 via .sl-type-head (plan A, 2026-10-01)
     // 2026-10-01 user: the line under the headline is one short sentence too (reference: america.gov)
-    expect(home).toContain('<span className="whitespace-nowrap">找房到续约，它去办，你来批准。</span>')
+    expect(home).toContain('<span className="whitespace-nowrap">奔走归它，定夺归你。</span>')
     expect(home).not.toContain('安省规则内置，全程留痕')
   })
   it('a signed-in visitor is redirected with the login page’s predicate; the first render never branches on auth', () => {
