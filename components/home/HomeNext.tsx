@@ -209,6 +209,12 @@ const FLOW: { h: Bi; p: Bi }[] = [
 // clauses are wider than the column). From md up the paragraph breaks only at punctuation, so a phrase like
 // 当地的租房规定 is never split on a desktop.
 const ZW = <span className="md:hidden">{'\u200b'}</span>
+// One statement group — from md up a group never wraps inside, so lines always fall between groups
+// (opening clause / before move-in / after move-in / end of term / the two safeguards). Below md it wraps
+// normally at punctuation and the {ZW} points.
+function Seg({ children }: { children: ReactNode }) {
+  return <span className="md:whitespace-nowrap">{children}</span>
+}
 
 // ── Ontario rules shown on the page — ids resolved against the single source ─
 const RULE_IDS = [
@@ -384,13 +390,14 @@ export default function HomeNext() {
       <section data-testid="home-statement">
         <div className="mx-auto max-w-[1000px] px-5 py-16 text-center sm:px-7 sm:py-36 lg:py-44 sm:max-lg:py-24">
           <p className="sl-reveal sl-type-head mx-auto max-w-[920px] text-[26px] font-medium leading-[1.45] text-ink sm:text-[36px] lg:text-[44px] lg:leading-[1.4]">
-            {/* 2026-10-03 user: 「把特定的安省去掉」 → 「话语太长了，要剪短一点，专业一点的术语」 → 「这个话要的，Stayloop 用 AI
-                把租房的每一步办完：找房、筛查、租约、维修、续约。」 — the original opening line stays, followed by the three
-                safeguards in professional terms (审批 / 按当地法规校验 / 平台中转 / 不可删改); no province name.
-                {ZW} marks the only places a clause may break below md; from md up each clause is one line. */}
+            {/* 2026-10-03, four rounds with the user: 「把特定的安省去掉」 → 「话语太长了…专业一点的术语」 → keep 「Stayloop 用 AI
+                把租房的每一步办完：…」 → 「还要加帮助管理物业，租金催收，法律协助，等等租房方方面面…重新整理一下」. The list now
+                runs by stage (before move-in → after move-in → end of term). Kept true: 催租 = rent reminders (no money is
+                collected), 按当地法规把关 = rules checked + explained (not a licensed legal service). No province name.
+                {ZW} marks the only places a clause may break below md; from md up each <Seg> group is one line. */}
             {zh
-              ? <>Stayloop 用 AI 把租房的{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>每一步办完</em>：找房、筛查、租约、维修、续约。涉及他人的操作{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>须经你审批</em>；房源与租约{ZW}按当地法规校验；沟通经平台中转，记录不可删改。</>
-              : <>Stayloop uses AI to <em className="not-italic" style={{ color: '#00ACE4' }}>get every step of renting done</em>: search, screening, leases, repairs, renewals. Actions that affect others <em className="not-italic" style={{ color: '#00ACE4' }}>require your approval</em>; listings and leases are checked against local tenancy rules; all communication is relayed through the platform, and records can’t be edited or deleted.</>}
+              ? <><Seg>Stayloop 用 AI 把租房的{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>每一步办完</em>：</Seg><Seg>找房、筛查、签约，</Seg><Seg>入住后的{ZW}物业管理、维修、催租，</Seg><Seg>到期续约，全程按当地法规把关。</Seg><Seg>涉及他人的操作{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>须经你审批</em>，</Seg><Seg>沟通经平台中转，记录不可删改。</Seg></>
+              : <>Stayloop uses AI to <em className="not-italic" style={{ color: '#00ACE4' }}>get every step of renting done</em>: search, screening and signing; property management, repairs and rent reminders once you’ve moved in; renewal at the end of the term, all checked against local tenancy rules. Actions that affect others <em className="not-italic" style={{ color: '#00ACE4' }}>require your approval</em>; communication is relayed through the platform, and records can’t be edited or deleted.</>}
           </p>
         </div>
       </section>
