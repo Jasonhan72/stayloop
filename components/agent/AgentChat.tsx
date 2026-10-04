@@ -19,6 +19,7 @@ import { ActivitySheet } from '@/components/mobile/ActivitySheet'
 import { WORKFLOW_STAGES, stageIndex } from '@/lib/agent/orchestrator'
 import { LISTINGS_PAGE, nextBatchPrompt, pageListings } from '@/lib/agent/listingPaging'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
+import { splitCardsByThread, scheduledInThread } from '@/lib/agent/threadCards'
 import { AssistantAvatar } from '@/lib/agent/avatars'
 import IntakeCard from './IntakeCard'
 import { intakeFor, type IntakeSpec } from '@/lib/agent/intake'
@@ -93,6 +94,8 @@ export default function AgentChat({
   avatarFallback = 'role',
   onAvatarChange,
   device = false,
+  threadScopedCards = false,
+  todoHref,
 }: {
   role: AgentRole
   agentName: string
@@ -115,7 +118,7 @@ export default function AgentChat({
   memoryCount?: number
   workflow?: WorkflowState | null
   /** Approved actions waiting out their undo window (lifecycle plan §2.5). */
-  scheduled?: Record<string, { title: string; executeAt: number }>
+  scheduled?: Record<string, { title: string; executeAt: number; threadId?: string | null }>
   onUndo?: (id: string) => void | Promise<void>
   /** Composer prefill from the page (workspace deep links). */
   draft?: ComposerDraft | null
@@ -135,6 +138,9 @@ export default function AgentChat({
   /** The open conversation + how to reopen another one — the phone activity sheet's rows are conversations (2026-09-25). */
   currentThreadId?: string | null
   onOpenThread?: (id: string) => void | Promise<void>
+  /** Signed-in workspace chat: show only this conversation's approval cards (lib/agent/threadCards.ts); the rest get a one-line pointer to `todoHref`. */
+  threadScopedCards?: boolean
+  todoHref?: string
   /** 'brand' = the signed-in user's one assistant (same face under every hat); 'role' = a demo persona's orb. */
   avatarFallback?: 'role' | 'brand'
   /** Phone: the activity sheet's pencil changes the avatar / name (2026-09-27); the workspace page owns the state. */
@@ -169,10 +175,13 @@ export default function AgentChat({
       return kind ? [...rest, { id, title, decision: kind }].slice(-5) : rest
     })
   }
-  const pending = (pendingActions ?? []).filter((a) => a.status === 'pending')
+  // Only this conversation's cards appear in it; a new conversation starts clean (2026-10-04).
+  const { here: cardsHere, elsewhere: cardsElsewhere } = splitCardsByThread(pendingActions ?? [], currentThreadId, threadScopedCards)
+  const pending = cardsHere.filter((a) => a.status === 'pending')
   // Approved but not run (tab closed during the undo window, or the run failed): 现在执行 / 放弃.
-  const stalled = (pendingActions ?? []).filter((a) => a.status === 'approved')
-  const scheduledIds = Object.keys(scheduled ?? {})
+  const stalled = cardsHere.filter((a) => a.status === 'approved')
+  const scheduledIds = Object.keys(scheduled ?? {}).filter((id) => scheduledInThread(scheduled![id], currentThreadId, threadScopedCards))
+  const elsewhereCount = cardsElsewhere.length
   // A decided line steps aside while the same card is counting down, waiting to be retried, or back to pending (undo).
   const liveIds = new Set([...pending.map((a) => a.id), ...stalled.map((a) => a.id), ...scheduledIds])
   const stageLabel = (() => {
@@ -181,7 +190,8 @@ export default function AgentChat({
     const st = WORKFLOW_STAGES[role][stageIndex(role, workflow.current_stage)]
     return st ? st.label[lang] : ''
   })()
-  const statusLine = assistantStatusLine({ status, pendingCount: pending.length, hasApprovals: !!pendingActions, stageLabel, memoryCount, zh })
+  const accountPending = pending.length + cardsElsewhere.filter((a) => a.status === 'pending').length
+  const statusLine = assistantStatusLine({ status, pendingCount: accountPending, hasApprovals: !!pendingActions, stageLabel, memoryCount, zh })
   const canOpenSheet = !!pendingActions
   // "↓" appears once the user has scrolled up more than ~160px from the newest
   // message (user 2026-09-25); tapping it returns to the bottom.
@@ -247,7 +257,7 @@ export default function AgentChat({
           {/* No hat label by the name (user 2026-09-25, final round: "把所有这里的角色标记都去掉") —
               hats switch in the Header's identity menu. The status line opens the activity log. */}
           <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`mt-1 flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
-              <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
+              <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: accountPending ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
             </button>
         </div>
       </div>
@@ -472,6 +482,11 @@ export default function AgentChat({
               />
             ))}
           </div>
+        )}
+        {onDecide && elsewhereCount > 0 && todoHref && !threadLoading && (
+          <a href={todoHref} data-testid="cards-elsewhere" className={`block rounded-xl border border-dashed border-line-strong px-3.5 py-2.5 text-[12.5px] text-body-2 transition hover:border-brand hover:text-brand ${hero ? '' : 'lg:hidden'}`}>
+            {zh ? `另有 ${elsewhereCount} 件待办来自其他对话，在待办页处理 →` : `${elsewhereCount} more to-do${elsewhereCount === 1 ? '' : 's'} from other conversations — open To-do →`}
+          </a>
         )}
         {threadLoading && (
           <div className="py-6 text-center font-mono text-[11px] text-body-3">{zh ? '读取对话…' : 'Loading the conversation…'}</div>

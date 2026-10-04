@@ -5,6 +5,7 @@
 // if the data fetch stalls / the migration isn't applied) falls back to a
 // local demo session so the page ALWAYS renders. Guaranteed to leave the
 // loading state within a few seconds — it can never hang on a skeleton.
+import { cardThreadId } from '@/lib/agent/threadCards'
 import { ANON_TURNS_PER_HOUR } from './anonLimits'
 import { notifyPendingChanged } from '@/lib/agent/pendingCount'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -114,7 +115,7 @@ export type UseAgentSession = {
   /** Resolves with what the decision became (an approval resolves once it ran, failed or was undone). */
   decide: (actionId: string, decision: 'approved' | 'rejected', option?: 'A' | 'B', note?: string) => Promise<DecideOutcome>
   /** Approved actions execute after a short delay; until then they can be undone (lifecycle plan §2.5). */
-  scheduled: Record<string, { title: string; executeAt: number }>
+  scheduled: Record<string, { title: string; executeAt: number; threadId?: string | null }>
   undo: (actionId: string) => Promise<void>
   /** Approved cards that have not run sit in data.pendingActions with status 'approved'
    *  (「已批准，尚未执行」); decide() on one means 现在执行 (approved) / 放弃 (rejected). */
@@ -189,7 +190,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
   const [status, setStatus] = useState<AgentStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [scheduled, setScheduled] = useState<Record<string, { title: string; executeAt: number }>>({})
+  const [scheduled, setScheduled] = useState<Record<string, { title: string; executeAt: number; threadId?: string | null }>>({})
   const [notice, setNotice] = useState<{ id: string; text: string } | null>(null)
   const undoCtrls = useRef<Map<string, AbortController>>(new Map())
   const scheduledCards = useRef<Map<string, { card: PendingAction; startedIn: string | null }>>(new Map())
@@ -668,7 +669,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
     undoCtrls.current.set(actionId, ctrl)
     // undo() needs the card (title, where to say it) if the take-back does not reach the database.
     scheduledCards.current.set(actionId, { card, startedIn })
-    setScheduled((prev) => ({ ...prev, [actionId]: { title: card.title ?? '', executeAt } }))
+    setScheduled((prev) => ({ ...prev, [actionId]: { title: card.title ?? '', executeAt, threadId: cardThreadId(card) } }))
     const cancelled = await new Promise<boolean>((resolve) => {
       const t = setTimeout(() => resolve(false), delayMs)
       ctrl.signal.addEventListener('abort', () => { clearTimeout(t); resolve(true) })

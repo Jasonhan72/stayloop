@@ -3160,3 +3160,11 @@ Yorkdale-Glen Park、Etobicoke City Centre、Agincourt）+ 密西沙加 / 万锦
 - **后台** `/admin/verify` 顶部 `components/admin/RealtorFreshnessCard.tsx`：在架 / 已确认仍挂牌 / 没检查过 / 需要留意（疑似下架待确认、连续 3 次读不出、没有原页链接——8 Colvestone Road 没有 source_url，只能人工）/
   已自动下架（列出最近 10 套），「现在检查一批」手动跑一次。
 - 首次实测：1802-210 Simcoe St（C13738828）的原页已显示不存在，会在头两轮内下架。
+
+## 「+ 新会话」开出的是干净的对话（2026-10-04 · 用户截图：点历史会话再点「+」，新对话里还挂着旧的待批卡）
+
+「+」本来就会开新对话（只剩问候语），但对话末尾会把**账号上所有**未处理的待批卡（含「已批准，尚未执行」）都贴上去——不管它们是在哪个对话里提出的，
+于是新对话看起来像接在旧对话后面。现在（`lib/agent/threadCards.ts splitCardsByThread / scheduledInThread`，守卫 `tests/threadCards20261004.spec.ts`）：
+登录后的助理页（`AgentChat threadScopedCards={live}`）只在对话里显示**本对话提出的**卡（`metadata.thread_id` = 当前对话，orchestrator 早已写入），
+60 秒倒计时行同样按卡片所属对话（`scheduled[id].threadId`）；其他对话的卡和不属于任何对话的卡（cron 续约卡、页面动作）留在待办页与面板「待办」标签，
+对话末尾只给一行「另有 N 件待办来自其他对话，在待办页处理 →」。头部状态行与圆点仍按全账号的待批数。匿名预览、演示与首页动画不受影响（不分对话）。

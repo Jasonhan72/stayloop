@@ -125,6 +125,8 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
               avatarFallback={live ? 'brand' : 'role'}
               onAvatarChange={setAvatar}
               threadLoading={threadLoading} currentThreadId={threadId} onOpenThread={openThread}
+              threadScopedCards={live}
+              todoHref={`/${role}/todo`}
               role={role}
               agentName={shownName}
               status={status}
