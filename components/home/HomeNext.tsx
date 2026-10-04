@@ -205,16 +205,16 @@ const FLOW: { h: Bi; p: Bi }[] = [
   { h: { zh: '执行并留痕', en: 'Done, and logged' }, p: { zh: '每一步写进审计记录；一件租赁事务的聊天记录可以导出，带内容指纹。', en: 'Every step goes to the audit log; a rental matter’s chat history can be exported, fingerprinted.' } },
 ]
 
-// A break point inside a long unpunctuated Chinese run, for narrow screens only (below md the statement's
-// clauses are wider than the column). From md up the paragraph breaks only at punctuation, so a phrase like
-// 当地的租房规定 is never split on a desktop.
-const ZW = <span className="md:hidden">{'\u200b'}</span>
-// One statement group — from md up a group never wraps inside, so lines always fall between groups
-// (opening clause / before move-in / after move-in / end of term / the two safeguards). Below md it wraps
-// normally at punctuation and the {ZW} points.
-function Seg({ children }: { children: ReactNode }) {
-  return <span className="md:whitespace-nowrap">{children}</span>
-}
+// A break opportunity for the statement: a plain zero-width space, after every Chinese punctuation mark and at
+// phrase boundaries. The headline style is word-break: keep-all; WebKit (every iPhone browser, desktop Safari) then
+// does not break after Chinese punctuation by itself, overflowed, and fell back to breaking anywhere — 「涉及他｜人」,
+// a line starting with 「，」 (2026-10-03). An explicit ZWSP is honoured by every engine. From md up the {BR}s
+// below fix the lines, and every line fits, so the extra opportunities change nothing there.
+const Z = '\u200b'
+// The statement's line breaks from md up: one stage per line. Explicit <br>s, not unbreakable groups — WebKit
+// (Safari) does not wrap between two adjacent white-space: nowrap spans, so the grouped version ran off the
+// right edge there while Chrome looked fine (2026-10-03). Below md the paragraph wraps naturally.
+const BR = <br className="hidden md:inline" />
 
 // ── Ontario rules shown on the page — ids resolved against the single source ─
 const RULE_IDS = [
@@ -394,9 +394,9 @@ export default function HomeNext() {
                 把租房的每一步办完：…」 → 「还要加帮助管理物业，租金催收，法律协助，等等租房方方面面…重新整理一下」. The list now
                 runs by stage (before move-in → after move-in → end of term). Kept true: 催租 = rent reminders (no money is
                 collected), 按当地法规把关 = rules checked + explained (not a licensed legal service). No province name.
-                {ZW} marks the only places a clause may break below md; from md up each <Seg> group is one line. */}
+                {Z} (zero-width space) marks every place a line may break; from md up {BR} puts one stage per line. */}
             {zh
-              ? <><Seg>Stayloop 用 AI 把租房的{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>每一步办完</em>：</Seg><Seg>找房、筛查、签约，</Seg><Seg>入住后的{ZW}物业管理、维修、催租，</Seg><Seg>到期续约，全程按当地法规把关。</Seg><Seg>涉及他人的操作{ZW}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>须经你审批</em>，</Seg><Seg>沟通经平台中转，记录不可删改。</Seg></>
+              ? <>Stayloop 用 AI 把租房的{Z}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>每一步办完</em>：{Z}{BR}找房、{Z}筛查、{Z}签约，{Z}{BR}入住后的{Z}物业管理、{Z}维修、{Z}催租，{Z}{BR}到期续约，{Z}全程按当地法规把关。{Z}{BR}涉及他人的操作{Z}<em className="not-italic whitespace-nowrap" style={{ color: '#00ACE4' }}>须经你审批</em>，{Z}{BR}沟通经平台中转，{Z}记录不可删改。</>
               : <>Stayloop uses AI to <em className="not-italic" style={{ color: '#00ACE4' }}>get every step of renting done</em>: search, screening and signing; property management, repairs and rent reminders once you’ve moved in; renewal at the end of the term, all checked against local tenancy rules. Actions that affect others <em className="not-italic" style={{ color: '#00ACE4' }}>require your approval</em>; communication is relayed through the platform, and records can’t be edited or deleted.</>}
           </p>
         </div>

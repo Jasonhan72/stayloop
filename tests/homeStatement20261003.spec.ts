@@ -9,10 +9,10 @@ import { describe, expect, it } from 'vitest'
 
 const home = readFileSync('components/home/HomeNext.tsx', 'utf8')
 // only the rendered copy (the code comment above it quotes the user's request, which names the province)
-const start = home.indexOf('? <><Seg>Stayloop 用 AI')
+const start = home.indexOf('? <>Stayloop 用 AI')
 const block = home.slice(start, home.indexOf('</p>', start))
 const zh = block.slice(0, block.indexOf('\n'))
-const visibleZh = zh.replace(/<\/?Seg>/g, '').replace(/\{ZW\}/g, '').replace(/&nbsp;/g, ' ').replace(/<[^>]+>/g, '').replace(/^\? <>/, '')
+const visibleZh = zh.replace(/\{BR\}/g, '').replace(/\{Z\}/g, '').replace(/&nbsp;/g, ' ').replace(/<[^>]+>/g, '').replace(/^\? <>/, '')
 
 describe('homepage statement', () => {
   it('opens with the clause the user kept, then the whole rental by stage', () => {
@@ -42,13 +42,17 @@ describe('homepage statement', () => {
     expect(block).not.toMatch(/诸事|托付|归它|定夺|有法可依|皆可为凭|一站式|全方位|赋能|智能化|凡|均需|tamper-proof/)
     expect(block).not.toMatch(/助手|管家|assistant/)
   })
-  it('clauses break only at the marked boundaries below md', () => {
-    expect(home).toContain(`const ZW = <span className="md:hidden">{'\\u200b'}</span>`)
-    expect(zh).toContain('把租房的{ZW}')
-    expect(zh).toContain('涉及他人的操作{ZW}')
-    expect(zh).toContain('入住后的{ZW}物业管理')
-    // from md up each group stays on one line, so the list never wraps mid-stage on a desktop
-    expect(home).toContain('<span className="md:whitespace-nowrap">{children}</span>')
-    expect(zh).toContain('<Seg>找房、筛查、签约，</Seg><Seg>入住后的{ZW}物业管理、维修、催租，</Seg><Seg>到期续约，全程按当地法规把关。</Seg>')
+  it('line breaks: explicit <br>s from md up, explicit zero-width spaces everywhere (WebKit, 2026-10-03)', () => {
+    // WebKit with keep-all neither wraps between nowrap spans nor after Chinese punctuation: the grouped version
+    // ran off the right edge on desktop Safari, and on iPhone it split 「涉及他｜人」 and started a line with 「，」.
+    expect(home).toContain('const BR = <br className="hidden md:inline" />')
+    expect(home).toContain("const Z = '\\u200b'")
+    expect(home).not.toMatch(/md:whitespace-nowrap">\{children\}/)
+    expect(home).not.toContain('const ZW =')
+    expect(zh).toContain('每一步办完</em>：{Z}{BR}找房、{Z}筛查、{Z}签约，{Z}{BR}入住后的{Z}物业管理、{Z}维修、{Z}催租，{Z}{BR}到期续约，{Z}全程按当地法规把关。{Z}{BR}涉及他人的操作{Z}')
+    expect(zh).toContain('须经你审批</em>，{Z}{BR}沟通经平台中转，{Z}记录不可删改。')
+    // every Chinese punctuation mark in the statement (except the closing 。) is followed by a break opportunity
+    const inner = zh.slice(0, zh.lastIndexOf('。</>'))
+    expect(inner.match(/[，。、：](?!\{Z\})/g)).toBeNull()
   })
 })
