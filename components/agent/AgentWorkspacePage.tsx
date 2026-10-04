@@ -16,6 +16,7 @@ import WorkspaceShell from '@/components/WorkspaceShell'
 import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
 import AssistantPanel from '@/components/agent/AssistantPanel'
+import ThreadList, { SidebarIcon } from '@/components/agent/ThreadList'
 import ContextStrip from '@/components/mobile/ContextStrip'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
@@ -57,12 +58,33 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
 
 function AgentWorkspaceInner({ role }: { role: AgentRole }) {
   const { lang } = useT()
-  const { loading, live, data, status, messages, decide, sendMessage, markListingsShown, scheduled, undo, threadId, threadLoading, openThread } = useAgentSession(role)
+  const { loading, live, data, status, messages, decide, sendMessage, markListingsShown, scheduled, undo, threadId, threadLoading, openThread, newThread } = useAgentSession(role)
   const [draft, setDraft] = useState<ComposerDraft | null>(null)
   const prefill = useCallback((t: string) => setDraft({ text: t, nonce: Date.now() }), [])
   usePromptDeepLink(loading, sendMessage, prefill)
   const { lifecycle } = useLifecycle(role)
   const [panelOpen, setPanelOpen] = useAssistantPanel()
+  // Conversation list (2026-10-04): an inline column from xl (remembered open /
+  // closed per browser), a drawer over the chat below that.
+  const [listPref, setListPrefState] = useState<'open' | 'closed'>('open')
+  useEffect(() => {
+    try { if (localStorage.getItem('sl-thread-list') === 'closed') setListPrefState('closed') } catch { /* private mode */ }
+  }, [])
+  const setListPref = useCallback((v: 'open' | 'closed') => {
+    setListPrefState(v)
+    try { localStorage.setItem('sl-thread-list', v) } catch { /* private mode */ }
+  }, [])
+  const [listDrawer, setListDrawer] = useState(false)
+  const openList = useCallback(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches) setListPref('open')
+    else setListDrawer(true)
+  }, [setListPref])
+  useEffect(() => {
+    if (!listDrawer) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setListDrawer(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [listDrawer])
   // The assistant's face: the chosen preset (agent_configs.avatar, mirrored in localStorage) or the role orb.
   const [avatar, setAvatar] = useState<string | null>(null)
   const dbAvatar = data?.agent.avatar ?? null
@@ -99,6 +121,11 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
   return (
     <WorkspaceShell role={role} hideAside phoneApp>
       <div className="sl-phone-col flex flex-col md:h-[calc(100vh-66px)] md:flex-row">
+        {live && listPref === 'open' && (
+          <aside className="hidden xl:flex xl:w-[260px] xl:flex-none xl:flex-col xl:border-r xl:border-line-divider" style={{ background: '#F3F8FC' }} aria-label={zh ? '对话列表' : 'Conversations'}>
+            <ThreadList role={role} live={live} currentThreadId={threadId} onOpenThread={openThread} onNewThread={newThread} onClose={() => setListPref('closed')} variant="column" />
+          </aside>
+        )}
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           {!live && (
             <div className="mx-5 mb-3 mt-4 flex-none rounded-xl border border-line-strong bg-surface-chip px-4 py-3 font-mono text-[11px] leading-relaxed text-body-3 md:mx-8 md:mb-2 md:mt-4">
@@ -115,7 +142,19 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
               {shownName}{pendingCount > 0 ? (zh ? ` · 等你点头 ${pendingCount} 件` : ` · ${pendingCount} waiting`) : ''}
             </button>
           )}
-          <div className="min-h-0 flex-1">
+          <div className="relative min-h-0 flex-1">
+            {live && (
+              <button
+                type="button"
+                onClick={openList}
+                aria-label={zh ? '查看全部对话' : 'All conversations'}
+                title={zh ? '全部对话' : 'All conversations'}
+                data-testid="thread-list-toggle"
+                className={`absolute left-3 top-3 z-10 flex h-9 items-center gap-1.5 rounded-full border border-line-divider bg-white px-2.5 text-[12.5px] font-semibold text-body-2 shadow-sm transition hover:border-line-strong hover:text-ink ${listPref === 'open' ? 'xl:hidden' : ''}`}
+              >
+                <SidebarIcon /> <span className="hidden sm:inline">{zh ? '对话' : 'Chats'}</span>
+              </button>
+            )}
             <AgentChat
               hero
               phoneFill
@@ -143,6 +182,14 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
             />
           </div>
         </div>
+        {live && listDrawer && (
+          <div className="fixed inset-0 z-[60] xl:hidden" role="dialog" aria-modal="true" aria-label={zh ? '对话列表' : 'Conversations'}>
+            <button type="button" aria-label={zh ? '关闭' : 'Close'} className="absolute inset-0 bg-black/30" onClick={() => setListDrawer(false)} />
+            <div className="absolute inset-y-0 left-0 flex w-[300px] max-w-[85vw] flex-col shadow-xl" style={{ background: '#F3F8FC' }}>
+              <ThreadList role={role} live={live} currentThreadId={threadId} onOpenThread={openThread} onNewThread={newThread} onClose={() => setListDrawer(false)} variant="drawer" />
+            </div>
+          </div>
+        )}
         {panelOpen && (
           <aside className="hidden lg:flex lg:w-[360px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider">
             <AssistantPanel role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onClose={() => setPanelOpen(false)} />

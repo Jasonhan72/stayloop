@@ -3168,3 +3168,14 @@ Yorkdale-Glen Park、Etobicoke City Centre、Agincourt）+ 密西沙加 / 万锦
 登录后的助理页（`AgentChat threadScopedCards={live}`）只在对话里显示**本对话提出的**卡（`metadata.thread_id` = 当前对话，orchestrator 早已写入），
 60 秒倒计时行同样按卡片所属对话（`scheduled[id].threadId`）；其他对话的卡和不属于任何对话的卡（cron 续约卡、页面动作）留在待办页与面板「待办」标签，
 对话末尾只给一行「另有 N 件待办来自其他对话，在待办页处理 →」。头部状态行与圆点仍按全账号的待批数。匿名预览、演示与首页动画不受影响（不分对话）。
+
+## 对话列表（2026-10-04 · 用户「新的 thread 需要有一个地方可以查看，也可以点击进去，可以参考你自己的界面设计」）
+
+照 claude.ai 的侧栏：`components/agent/ThreadList.tsx`（纯函数 `lib/agent/threadList.ts`：今天 / 昨天 / 过去 7 天 / 过去 30 天 / 更早分组、搜索标题与最后回复、无标题叫「新对话」；守卫 `tests/threadList20261004.spec.ts`）。
+- **位置**：登录后的助理页。xl（≥1280px）起是聊天左侧 260px 的一列（窄栏底色 #F3F8FC，可收起，开 / 关记在 `localStorage sl-thread-list`）；xl 以下和手机是从左滑出的抽屉（遮罩、Esc、选中后自动关）。
+  聊天区左上角一枚「对话」按钮打开它（xl 列已打开时隐藏）。
+- **内容**：顶部「+ 新对话」、搜索框；每行一个对话（单行标题，当前对话白底加粗），别的身份下的对话带「租客 / 房东 / 经纪」小标，点开跳到那顶帽子的助理页；
+  `⋯` 菜单「重命名 / 删除」。**重命名存在新列 `agent_threads.custom_title`**（迁移 `20261004_agent_threads_custom_title.sql`，已应用 prod；≤80 字）——`saveThread` 每次都按第一句话重写 `title`，
+  所以名字另放一列、`listThreads` 取 `custom_title || title`（活动面板也跟着显示新名字）；清空即回到自动标题。删除 = 删本人的 `agent_threads` 行（RLS 本人；这是你和 AI 助理的对话，
+  不是与他人的往来记录——那些在只追加的 `thread_messages` 里，不受影响），删的是当前对话就开一个新对话。
+- 右侧面板的「活动」标签保持原样（对话 + 对话外的动作混排）；对话列表只放对话。

@@ -103,13 +103,14 @@ export async function appendToThread(client: SupabaseClient, id: string, extra: 
 export async function listThreads(client: SupabaseClient, limit = 30): Promise<ThreadListRow[]> {
   const { data } = await client
     .from('agent_threads')
-    .select('id, role, title, summary, turn_count, message_count, created_at, updated_at, last_message_at')
+    .select('id, role, title, custom_title, summary, turn_count, message_count, created_at, updated_at, last_message_at')
     .order('updated_at', { ascending: false })
     .limit(limit)
   return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
     id: String(r.id),
     role: String(r.role),
-    title: (r.title as string | null) ?? null,
+    // A name the user gave the conversation wins over the auto title (2026-10-04).
+    title: ((r.custom_title as string | null) || (r.title as string | null)) ?? null,
     summary: (r.summary as string | null) ?? null,
     turn_count: Number(r.turn_count ?? 0),
     message_count: Number(r.message_count ?? 0),
@@ -126,4 +127,19 @@ export function readPointer(role: AgentRole, scope: string): string | null {
 }
 export function writePointer(role: AgentRole, scope: string, id: string | null): void {
   try { if (id) localStorage.setItem(pointerKey(role, scope), id); else localStorage.removeItem(pointerKey(role, scope)) } catch { /* private mode */ }
+}
+
+/** Rename a conversation (the list's ⋯ menu). Empty = back to the automatic title. */
+export async function renameThread(client: SupabaseClient, id: string, name: string): Promise<boolean> {
+  if (!UUID.test(id)) return false
+  const v = name.replace(/\s+/g, ' ').trim().slice(0, 80)
+  const { error } = await client.from('agent_threads').update({ custom_title: v || null }).eq('id', id)
+  return !error
+}
+
+/** Delete a conversation (the user's own chat with the AI Agent — not a record between parties). */
+export async function deleteThread(client: SupabaseClient, id: string): Promise<boolean> {
+  if (!UUID.test(id)) return false
+  const { error } = await client.from('agent_threads').delete().eq('id', id)
+  return !error
 }

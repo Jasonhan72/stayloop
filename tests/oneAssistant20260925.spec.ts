@@ -72,7 +72,7 @@ describe('one assistant per account', () => {
     expect(read('app/api/agent/reflect/route.ts')).toContain('reflectUser(sb, ud.user.id)')
   })
   it('the activity log lists every hat’s conversations, tagged, and reopens a conversation on its own hat’s page', () => {
-    expect(read('lib/agent/threads.ts')).toContain("select('id, role, title, summary, turn_count, message_count, created_at, updated_at, last_message_at')")
+    expect(read('lib/agent/threads.ts')).toContain("select('id, role, title, custom_title, summary, turn_count, message_count, created_at, updated_at, last_message_at')")
     expect(read('lib/agent/activityLog.ts')).toContain("kind: 'thread', id: `t:${t.id}`, threadId: t.id, role: t.role,")
     for (const f of ['components/agent/AssistantPanel.tsx', 'components/mobile/ActivitySheet.tsx']) {
       const s = read(f)
