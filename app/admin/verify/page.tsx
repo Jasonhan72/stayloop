@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { hasUsablePhotos } from '@/lib/listingVisibility'
+import RealtorFreshnessCard from '@/components/admin/RealtorFreshnessCard'
 
 type Row = {
   id: string
@@ -130,6 +131,8 @@ export default function AdminVerifyPage() {
             ? '房东发布的房源需人工验证后才公开展示并获得 VERIFIED 标;Realtor.ca 来源的房源无需验证即已上线(带来源标)。'
             : 'Landlord-published listings go public with a VERIFIED badge only after review; Realtor.ca-sourced listings are already live with a source badge.'}
         </p>
+
+        <RealtorFreshnessCard zh={zh} />
 
         <div className="mt-6 flex gap-2">
           {(['pending', 'all'] as const).map((k) => (

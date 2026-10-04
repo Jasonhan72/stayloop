@@ -71,6 +71,7 @@ await probe('contact empty → 400', `${BASE}/api/contact`, { method: 'POST', ..
 await probe('auth/email-status bad email → 400', `${BASE}/api/auth/email-status`, { method: 'POST', ...J, body: '{"email":"not-an-email"}' }, { status: 400 })
 await probe('auth/email-status GET → 405', `${BASE}/api/auth/email-status`, {}, { status: 405 })
 await probe('auth/email-status unknown address → three booleans', `${BASE}/api/auth/email-status`, { method: 'POST', ...J, body: '{"email":"route-audit-nobody@stayloop.ai"}' }, { status: [200, 429], json: j => (j.error === 'rate_limited') || (Object.keys(j).sort().join() === 'exists,google,password' && j.exists === false) || `got ${JSON.stringify(j)}` })
+await probe('cron/realtor-freshness without secret → 401', `${BASE}/api/cron/realtor-freshness`, { method: 'POST', ...J, body: '{}' }, { status: 401 })
 await probe('household/extract anon → 401', `${BASE}/api/household/extract`, { method: 'POST', ...J, body: '{}' }, { status: [401, 400] })
 await probe('household/invite anon → 401', `${BASE}/api/household/invite`, { method: 'POST', ...J, body: '{}' }, { status: [401, 400] })
 await probe('classify-files anon', `${BASE}/api/classify-files`, { method: 'POST', ...J, body: '{}' }, { status: [400, 401] })

@@ -3143,3 +3143,20 @@ Yorkdale-Glen Park、Etobicoke City Centre、Agincourt）+ 密西沙加 / 万锦
   先把 max_tokens 花在推理上，JSON 被截断（有一条输出停在它自己的推理里）。翻译预算 `chars × 1.6 + 400` → `chars × 2 + 2000`（上限 8000），社区简介 900 → 2500；按实际用量计费，
   不增加成本。**以后给结构化输出的模型调用设 max_tokens，要给思考型模型留余量。**
 
+
+## Realtor.ca 导入房源自动下架（2026-10-03 · V0.7 · 用户选定的下一步）
+
+此前 Realtor.ca 导入的房源（生产 87 套在架）挂牌到期或被撤下后没有任何机制让它下线。实测：撤下后的详情页写「The listing you are looking for no longer exists.」
+后接 Similar Listings（那里的 `$X/Monthly` 是别的房子），而 **cdn.realtor.ca 上的照片仍然返回 200**——只看照片判断不了（09-06 那两套是照片也撤了的特例），必须读原页。
+守卫 `tests/realtorFreshness20261003.spec.ts`；迁移 `20261003_realtor_freshness.sql`（已应用 prod）。
+- **判定** `lib/listings/realtorFreshness.ts`（纯函数）：`classifyRealtorDetail(text, mls)` → `gone`（「no longer exists」/ 法语同句）· `live`（页面有 `MLS® Number: <mls>` 或该 MLS 的照片文件名，
+  价格取 Similar Listings 之前的第一个 `$X/Monthly`）· `blocked`（反爬验证页，复用 `classifyRealtorPage`）· `unknown`（两者都不是，**永不当作下架**）· `error`（Jina 非 200）· `no_url`。
+  `applyReading`：**连续两次 gone 才下架**（中间被拦 / 出错不清零，读到 live 清零）；挂牌价变化在 0.5–2 倍内才同步 `monthly_rent`（价格记录触发器自动记「调价」）；结果写进新列
+  `listings.realtor_check`（checked_at / state / gone_streak / miss_streak / last_live_at / rent_seen / delisted_at / rent_changed_at）。
+- **执行** `POST /api/cron/realtor-freshness`（edge；`x-cron-secret` 或管理员 JWT）：pg_cron `realtor-freshness` 每小时 :35，每次 `pickBatch` 取 20 套——疑似下架的（且距上次 ≥1 小时）优先、
+  其次没检查过的、再按最久未查；Jina 读页并发 5，被拦时走代理重试一次；下架 = `is_active=false, status='archived'`（现有触发器会作废相关看房卡）；写入带 `realtor_check->>checked_at` 条件，
+  不覆盖并行写入；整批读失败（Jina 余额）报 Sentry。87 套约 4–5 小时轮一遍，下架最迟约一天内生效。
+- **列保护**：`guard_listing_realtor_check` 让直连客户端（导入行挂在房东测试号名下）写不了该列；`listings_touch_updated_at` 把它算作缓存列（不触发 AI 修改卡的 updated_at 冲突）。
+- **后台** `/admin/verify` 顶部 `components/admin/RealtorFreshnessCard.tsx`：在架 / 已确认仍挂牌 / 没检查过 / 需要留意（疑似下架待确认、连续 3 次读不出、没有原页链接——8 Colvestone Road 没有 source_url，只能人工）/
+  已自动下架（列出最近 10 套），「现在检查一批」手动跑一次。
+- 首次实测：1802-210 Simcoe St（C13738828）的原页已显示不存在，会在头两轮内下架。
