@@ -30,7 +30,7 @@ describe('the homepage is centered', () => {
   it('the hero is one centered column; the two-column layouts are gone', () => {
     const hero = home.slice(home.indexOf('HERO: message + ask box'), home.indexOf('{/* ================= HOW IT WORKS'))
     expect(hero).toContain('text-center')
-    expect(hero).toContain('<HeroComposer zh={zh} className="mt-10 w-full sm:mt-12" />')
+    expect(hero).toContain('<HeroComposer zh={zh} className="mt-10 w-full sm:mt-12"')
     for (const gone of ['lg:grid-cols-[1.15fr_0.85fr]', 'lg:grid-cols-[5fr_7fr]', 'lg:grid-cols-[4fr_7fr]', 'flex flex-wrap items-end justify-between gap-4']) expect(hero, gone).not.toContain(gone)
   })
   it('section headings are centered; the picture-and-words panels and the FAQ read left to right (2026-10-01, after muse.ai)', () => {

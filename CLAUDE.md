@@ -3207,3 +3207,10 @@ Yorkdale-Glen Park、Etobicoke City Centre、Agincourt）+ 密西沙加 / 万锦
   - 面板在看不见时（lg 以下那一列）不渲染标签内容、不发请求；弹层里头像选择格在可滚区域内；嵌套菜单或内联编辑框里按 Esc 只关它自己，不关整个弹层。
 - **删掉的**：`useActivityLog` 与活动日志的拼装函数（`buildActivity` / `activityGroups` / 图标与注释函数）、`ActivitySheet`、面板的列表 / 盾牌 / 指纹图标、`RAIL_BY_ROLE` 的 `home` 项；
   推送设置里「去活动日志看」改为「在 AI 助理的「待办 · 最近替你办完」和审计页看」。
+
+## Logo 一律回首页营销页（2026-10-04 · 用户「点击这个，跳到一样的页面，不管有没有登录，都是到首页营销页」）
+
+取代 V0.7 的两条：①「已登录点 logo → 当前身份的 AI 助理页」（`lib/homeHref.ts` 已删，`useHomeHref` 的 href 恒为 `/`，页头页脚两个 logo 共用）；
+②「已登录访客不看首页、自动跳助理页」——`/` 现在对所有人都是营销页，**唯一保留的跳转是新账号兜底**：没有房东 / 经纪 / 服务商帽子且从没给 AI 助理起名的账号仍去 `/onboarding/name`
+（`landingForAccount(...) === '/onboarding/name'`）。已登录时首页把登录 / 注册入口换成「回到我的 AI 助理 →」（`homeForHats`，对话框下一行与「从一句话开始」那一节），
+问一句的对话框默认按你当前的身份提问（本标签页里手动选过的仍优先）；数字带对所有人都取数。守卫 `tests/logoHome20260927.spec.ts`。

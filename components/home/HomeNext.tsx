@@ -32,7 +32,7 @@ import HeroComposer from '@/components/home/HeroComposer'
 import { useT, type Lang } from '@/lib/i18n'
 import { roleStorageKey, useAuth } from '@/lib/useAuth'
 import { useHats } from '@/lib/useHats'
-import { HOME, landingForAccount } from '@/lib/landlordHat'
+import { HOME, homeForHats, landingForAccount } from '@/lib/landlordHat'
 import { getStoredAIName, resolveAccountNameFor } from '@/lib/aiName'
 import { assistantPromptHref } from '@/lib/homeDeepLink'
 import { GUIDELINE_TEXT, ONTARIO_RULES, ruleById, type Rule } from '@/lib/ontario/rules'
@@ -301,12 +301,14 @@ export default function HomeNext() {
   const [stats, setStats] = useState<Stats | null>(null)
   const router = useRouter()
 
-  // Signed in → straight to the assistant of the hat you wear (providers to
-  // the work-order desk; a brand-new account to onboarding); this page is for
-  // visitors. Same predicate as /login (homeForHats: the remembered hat only
-  // counts when the account holds it), wrapped by landingForAccount.
-  // The first client render matches the server (auth still loading → the
-  // marketing page), so nothing here branches during hydration.
+  // Signed in or not, this is the marketing homepage (user 2026-10-04: the logo
+  // 「不管有没有登录，都是到首页营销页」). The only redirect left is the
+  // onboarding safety net: a brand-new account (no hat beyond tenant, never
+  // named its AI Agent) that reaches `/` without passing the auth callback goes
+  // to /onboarding/name. Signed-in visitors get 「回到我的 AI 助理」 instead of the
+  // sign-in links (homeForHats: the remembered hat only counts when held).
+  // The first client render matches the server (auth still loading → visitor
+  // copy), so nothing here branches during hydration.
   const auth = useAuth()
   const hats = useHats()
   const signedIn = !auth.loading && !!auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous
@@ -325,35 +327,25 @@ export default function HomeNext() {
     return () => { cancelled = true }
   }, [signedIn, auth.user])
   const ready = signedIn && !hats.loading && named !== null
-  const target = ready ? landingForAccount(remembered, hats, named) : HOME.tenant
+  const onboarding = ready && landingForAccount(remembered, hats, named) === '/onboarding/name'
+  // Where 「回到我的 AI 助理」 goes, once the hats are known.
+  const myHome = signedIn && !hats.loading ? homeForHats(remembered, hats) : null
+  const myHat = myHome ? (Object.entries(HOME).find(([, h]) => h === myHome)?.[0] ?? null) : null
+  const askAs = myHat === 'tenant' || myHat === 'landlord' || myHat === 'agent' ? myHat : null
   const redirected = useRef(false)
   useEffect(() => {
-    if (!ready || redirected.current) return
+    if (!onboarding || redirected.current) return
     redirected.current = true
-    router.replace(target)
-  }, [ready, target, router])
+    router.replace('/onboarding/name')
+  }, [onboarding, router])
 
   useEffect(() => {
-    if (signedIn) return
     let cancelled = false
     fetch('/api/public/stats').then((r) => r.json()).then((j) => { if (!cancelled && j?.ok) setStats(j) }).catch(() => {})
     return () => { cancelled = true }
-  }, [signedIn])
+  }, [])
 
   const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: FAQ.map((f) => ({ '@type': 'Question', name: pick(f.q, lang).replace(/\u200b/g, ''), acceptedAnswer: { '@type': 'Answer', text: pick(f.a, lang) } })) }
-
-  if (signedIn) {
-    return (
-      <div className="min-h-screen bg-white text-body">
-        <Header variant="transparent" />
-        <main className="mx-auto flex max-w-[1100px] flex-col items-center px-5 py-28 text-center" data-testid="home-redirect">
-          <span className="h-10 w-10 animate-pulse rounded-full" style={{ background: '#00ACE4' }} aria-hidden />
-          <p className="mt-5 text-[15px] text-body-2">{zh ? '正在打开你的 AI 助理…' : 'Opening your AI Agent…'}</p>
-          <Link href={target} className="mt-3 text-[13px] font-semibold text-brand hover:underline">{zh ? '没有自动跳转？点这里' : 'Not redirected? Tap here'}</Link>
-        </main>
-      </div>
-    )
-  }
 
   return (
     <div style={{ background: '#FFFFFF' }} className="text-body">
@@ -381,7 +373,7 @@ export default function HomeNext() {
           </div>
           {/* 2026-10-01: America.gov's ask box over a photo card replaces the sign-in block — ask first,
               no account; sign-in / sign-up are one line under it (and in the header menu). */}
-          <HeroComposer zh={zh} className="mt-10 w-full sm:mt-12" />
+          <HeroComposer zh={zh} className="mt-10 w-full sm:mt-12" homeHref={myHome} defaultRole={askAs} />
         </div>
       </section>
 
@@ -538,10 +530,19 @@ export default function HomeNext() {
       <section style={{ background: '#F3F8FC' }}>
         <div className="sl-reveal mx-auto max-w-[900px] px-5 py-16 text-center sm:px-7 sm:py-32 sm:max-lg:py-20">
           <h2 className="sl-type-head text-[32px] leading-[1.15] text-ink sm:text-[52px]">{zh ? '从一句话开始' : 'Start with one sentence'}</h2>
-          <p className={`mx-auto mt-5 max-w-[620px] ${LEAD}`}>{zh ? '不用登录就能问；登录后它会记住你、替你跟进。租客永远免费。' : 'Ask without an account; sign in and it remembers you and follows up. Free for tenants, always.'}</p>
+          <p className={`mx-auto mt-5 max-w-[620px] ${LEAD}`}>{myHome ? (zh ? '你已登录：它会记住你、替你跟进。租客永远免费。' : 'You are signed in: it remembers you and follows up. Free for tenants, always.') : (zh ? '不用登录就能问；登录后它会记住你、替你跟进。租客永远免费。' : 'Ask without an account; sign in and it remembers you and follows up. Free for tenants, always.')}</p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:mt-10">
-            <a href="#ask" className="sl-btn-primary !h-[52px] !px-7 !text-[16px]">{zh ? '先问一句试试 ↑' : 'Ask something first ↑'}</a>
-            <Link href="/register" className="sl-btn-secondary !h-[52px] !px-7 !text-[16px]">{zh ? '免费注册' : 'Create a free account'}</Link>
+            {myHome ? (
+              <>
+                <Link href={myHome} className="sl-btn-primary !h-[52px] !px-7 !text-[16px]" data-testid="home-back-to-agent">{zh ? '回到我的 AI 助理 →' : 'Back to my AI Agent →'}</Link>
+                <a href="#ask" className="sl-btn-secondary !h-[52px] !px-7 !text-[16px]">{zh ? '先问一句试试 ↑' : 'Ask something first ↑'}</a>
+              </>
+            ) : (
+              <>
+                <a href="#ask" className="sl-btn-primary !h-[52px] !px-7 !text-[16px]">{zh ? '先问一句试试 ↑' : 'Ask something first ↑'}</a>
+                <Link href="/register" className="sl-btn-secondary !h-[52px] !px-7 !text-[16px]">{zh ? '免费注册' : 'Create a free account'}</Link>
+              </>
+            )}
           </div>
           <ol className="mx-auto mt-8 grid max-w-[760px] gap-4 text-left sm:mt-12 sm:grid-cols-3" aria-label={zh ? '三步开始' : 'Three steps to start'}>
             {STEPS.map((x, i) => (

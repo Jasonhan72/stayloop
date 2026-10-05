@@ -1,23 +1,24 @@
-// Logo destination + the signed-in header menu (V0.7, 2026-09-27).
-// User: "登录以后点击 logo 应该跳到哪里？…客户如果想要去看房源呢？找不到 header 里的
-// 菜单也是不好的体验。" Decisions: visitors' logo → the marketing homepage;
-// signed-in → the acting hat's assistant (providers → the work-order desk), no
-// detour through `/`; the desktop header keeps 产品 · 房源 · 定价 · 租客筛查 after
-// sign-in, with the acting-identity chip standing where the「我是」dropdown was.
+// Logo destination + the signed-in header menu (V0.7, 2026-09-27; logo changed 2026-10-04).
+// 2026-10-04 user: the logo 「不管有没有登录，都是到首页营销页」 — it goes to `/` for everyone,
+// and `/` shows the marketing page to signed-in visitors too (only a brand-new account is sent
+// on to onboarding). The desktop header keeps 产品 · 房源 · 定价 · 租客筛查 after sign-in.
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { homeHrefFor } from '../lib/homeHref'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 
 describe('where the logo goes', () => {
-  it('pure rule: visitors and still-loading → /; signed in → the acting hat’s assistant; providers → their desk', () => {
-    expect(homeHrefFor({ signedIn: false, hatsLoading: false, onProvider: false, hat: 'tenant' })).toBe('/')
-    expect(homeHrefFor({ signedIn: true, hatsLoading: true, onProvider: false, hat: 'landlord' })).toBe('/')
-    expect(homeHrefFor({ signedIn: true, hatsLoading: false, onProvider: false, hat: 'tenant' })).toBe('/tenant/agent')
-    expect(homeHrefFor({ signedIn: true, hatsLoading: false, onProvider: false, hat: 'landlord' })).toBe('/landlord/agent')
-    expect(homeHrefFor({ signedIn: true, hatsLoading: false, onProvider: false, hat: 'agent' })).toBe('/agent/agent')
-    expect(homeHrefFor({ signedIn: true, hatsLoading: false, onProvider: true, hat: 'tenant' })).toBe('/provider/jobs')
+  it('always the marketing homepage, signed in or not (2026-10-04)', () => {
+    const hook = read('lib/useHomeHref.ts')
+    expect(hook).toContain("return { href: '/', onProvider, signedIn }")
+    expect(hook).not.toContain('homeHrefFor')
+    const home = read('components/home/HomeNext.tsx')
+    expect(home).not.toContain('data-testid="home-redirect"') // no 「正在打开你的 AI 助理…」 bounce for signed-in visitors
+    expect(home).toContain("const onboarding = ready && landingForAccount(remembered, hats, named) === '/onboarding/name'")
+    expect(home).toContain("router.replace('/onboarding/name')")
+    expect(home).toContain('homeHref={myHome} defaultRole={askAs}')
+    expect(home).toContain('data-testid="home-back-to-agent"')
+    expect(read('components/home/HeroComposer.tsx')).toContain('data-testid="home-ask-back"')
   })
   it('header and footer logos share one hook; the header no longer keeps its own provider reading', () => {
     const h = read('components/Header.tsx')
@@ -29,7 +30,6 @@ describe('where the logo goes', () => {
     }
     expect(h).not.toContain('rememberedProvider')
     expect(hook).toContain("const onProvider = pathname.startsWith('/provider/') || (rememberedProvider && !!hats.provider && !roleFromPath(pathname))")
-    expect(hook).toContain('hat: activeHat(hats, auth.role)') // the same held-hat predicate as the header chip
     expect(hook).toContain("!(auth.user as { is_anonymous?: boolean }).is_anonymous")
   })
   it('one menu everywhere (user 2026-09-27): the desktop nav is not gated on any prop; signed in, the「我是」dropdown lists the hats and its label names the acting hat', () => {

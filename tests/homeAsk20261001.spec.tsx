@@ -30,7 +30,7 @@ const byTestId = (r: TestRenderer.ReactTestRenderer, id: string) => r.root.find(
 
 describe('the homepage hero is an ask box', () => {
   it('replaces the sign-in block; sign-in / sign-up are one line under it', () => {
-    expect(home).toContain('<HeroComposer zh={zh} className="mt-10 w-full sm:mt-12" />')
+    expect(home).toContain('<HeroComposer zh={zh} className="mt-10 w-full sm:mt-12"')
     expect(home).not.toContain('LoginCard')
     expect(box).toContain('href="/login"')
     expect(box).toContain('href="/register"')

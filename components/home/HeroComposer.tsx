@@ -74,7 +74,14 @@ export function heroSubmit(text: string, role: AssistantRole, example: HeroExamp
   return typed ? assistantPromptHref(role, typed) : assistantPromptHref(example.role, zh ? example.ask.zh : example.ask.en)
 }
 
-export default function HeroComposer({ zh, className = '' }: { zh: boolean; className?: string }) {
+export default function HeroComposer({ zh, className = '', homeHref, defaultRole }: {
+  zh: boolean
+  className?: string
+  /** Signed in: where 「回到我的 AI 助理」 goes (the hat you wear); the sign-in links are replaced. */
+  homeHref?: string | null
+  /** Signed in: ask as the hat you wear unless you picked one in this tab. */
+  defaultRole?: AssistantRole | null
+}) {
   const router = useRouter()
   const [i, setI] = useState(0)
   const [playing, setPlaying] = useState(true)
@@ -104,8 +111,9 @@ export default function HeroComposer({ zh, className = '' }: { zh: boolean; clas
     return () => mq.removeEventListener?.('change', on)
   }, [])
   useEffect(() => {
-    try { const r = sessionStorage.getItem(ROLE_KEY); if (isAssistantRole(r)) setRole(r) } catch { /* private mode */ }
-  }, [])
+    // A pick made in this tab wins; otherwise a signed-in visitor asks as the hat they wear (it arrives once the hats load).
+    try { const r = sessionStorage.getItem(ROLE_KEY); if (isAssistantRole(r)) setRole(r); else if (defaultRole) setRole(defaultRole) } catch { if (defaultRole) setRole(defaultRole) }
+  }, [defaultRole])
 
   // Pause while the card is off screen or the tab is hidden.
   useEffect(() => {
@@ -279,6 +287,12 @@ export default function HeroComposer({ zh, className = '' }: { zh: boolean; clas
 
       {/* 2026-10-01 user: on English phones the line broke inside 「Sign in」 / 「Create a free account」 and pushed
           them to the edge. The two links are one unbreakable group, on its own line below 640px. */}
+      {homeHref ? (
+        <p className="mt-6 text-[14px] text-body-3" data-testid="home-ask-account">
+          {zh ? '你已登录 · ' : 'You are signed in · '}
+          <Link href={homeHref} className="whitespace-nowrap font-semibold text-brand hover:underline" data-testid="home-ask-back">{zh ? '回到我的 AI 助理 →' : 'Back to my AI Agent →'}</Link>
+        </p>
+      ) : (
       <p className="mt-6 text-[14px] text-body-3" data-testid="home-ask-account">
         {zh ? '不用登录就能问 · 已有账户？' : 'No account needed to ask · Have an account? '}
         <span className="whitespace-nowrap max-sm:mt-1 max-sm:block" data-testid="home-ask-account-links">
@@ -287,6 +301,7 @@ export default function HeroComposer({ zh, className = '' }: { zh: boolean; clas
           <Link href="/register" className="font-semibold text-brand hover:underline">{zh ? '免费注册' : 'Create a free account'}</Link>
         </span>
       </p>
+      )}
     </div>
   )
 }

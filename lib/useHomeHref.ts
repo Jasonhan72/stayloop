@@ -1,13 +1,12 @@
 'use client'
 
-// The logo's destination and the acting-provider flag, shared by the Header
-// and the Footer so both logos agree (V0.7, 2026-09-27). Pure rule in
-// lib/homeHref.ts; this hook only gathers the inputs.
+// The logo's destination and the acting-provider flag, shared by the Header and the Footer.
+// The logo always goes to the marketing homepage, signed in or not (user 2026-10-04: 「不管有没有
+// 登录，都是到首页营销页」; it used to go to the hat's AI Agent page — V0.7, 2026-09-27).
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { roleFromPath, roleStorageKey, useAuth } from '@/lib/useAuth'
-import { activeHat, useHats } from '@/lib/useHats'
-import { homeHrefFor } from '@/lib/homeHref'
+import { useHats } from '@/lib/useHats'
 
 export function useHomeHref(): { href: string; onProvider: boolean; signedIn: boolean } {
   const auth = useAuth()
@@ -22,5 +21,5 @@ export function useHomeHref(): { href: string; onProvider: boolean; signedIn: bo
   }, [auth.user, pathname])
   const signedIn = !auth.loading && !!auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous
   const onProvider = pathname.startsWith('/provider/') || (rememberedProvider && !!hats.provider && !roleFromPath(pathname))
-  return { href: homeHrefFor({ signedIn, hatsLoading: hats.loading, onProvider, hat: activeHat(hats, auth.role) }), onProvider, signedIn }
+  return { href: '/', onProvider, signedIn }
 }

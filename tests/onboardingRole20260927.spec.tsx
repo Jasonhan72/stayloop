@@ -98,12 +98,14 @@ describe('a signed-in visitor to / who is brand new goes to onboarding, not stra
     expect(landingForAccount(null, { provider: 'verified' }, false)).toBe('/provider/jobs')
     expect(isBrandNewAccount({ landlord: false, agent: 'pending', provider: null }, false)).toBe(false)
   })
-  it('HomeNext waits for hats AND the name before redirecting, through the shared predicate', () => {
+  it('HomeNext waits for hats AND the name before sending a brand-new account to onboarding, through the shared predicate', () => {
     const home = read('components/home/HomeNext.tsx')
     expect(home).toContain('landingForAccount(remembered, hats, named)')
     expect(home).toContain('resolveAccountNameFor(uid)')
     expect(home).toContain("const ready = signedIn && !hats.loading && named !== null")
-    expect(home).not.toMatch(/homeForHats\(/)
+    // 2026-10-04: no other redirect — signed-in visitors stay; homeForHats only names 「回到我的 AI 助理」's target
+    expect(home).toContain("landingForAccount(remembered, hats, named) === '/onboarding/name'")
+    expect((home.match(/router\.replace\(/g) || []).length).toBe(1)
     // the resolver discards an answer cached for another (or no) session
     expect(read('lib/aiName.ts')).toMatch(/export function resolveAccountNameFor\(uid: string\)[\s\S]*?if \(r\.uid === uid\) return r[\s\S]*?invalidateAiName\(\)/)
   })

@@ -21,7 +21,7 @@ describe('the homepage hosts no conversation of its own (the ask box sends it to
     expect(home).toContain("import HeroComposer from '@/components/home/HeroComposer'")
     expect(home).not.toContain('LoginCard')
     // 2026-09-29: one centered column, the sign-in block under the headline (Muse-style)
-    expect(home).toContain('<HeroComposer zh={zh} className="mt-10 w-full sm:mt-12" />')
+    expect(home).toContain('<HeroComposer zh={zh} className="mt-10 w-full sm:mt-12"')
     expect(home).toContain('href="#ask"') // the closing「先问一句试试 ↑」scrolls back up to the ask box
     expect(home).toContain('href="/register"')
     // 2026-10-01 user: one line, 「租房的事，交给AI助理」
@@ -33,12 +33,12 @@ describe('the homepage hosts no conversation of its own (the ask box sends it to
     expect(home).toContain('<span className="whitespace-nowrap">找房到续约，它去办，你来批准。</span>')
     expect(home).not.toContain('安省规则内置，全程留痕')
   })
-  it('a signed-in visitor is redirected with the login page’s predicate; the first render never branches on auth', () => {
+  it('a signed-in visitor stays on the marketing page (2026-10-04); only a brand-new account goes on to onboarding; the first render never branches on auth', () => {
     expect(home).toMatch(/const signedIn = !auth\.loading && !!auth\.user && !\(auth\.user as \{ is_anonymous\?: boolean \}\)\.is_anonymous/)
     expect(home).toContain('landingForAccount(remembered, hats, named)') // homeForHats wrapped: a brand-new account goes to onboarding first (2026-09-27)
-    expect(home).toContain('router.replace(target)')
-    expect(home).toContain('data-testid="home-redirect"')
-    expect(home).toContain('if (!ready || redirected.current) return') // ready = signed in + hats loaded + name resolved (2026-09-27)
+    expect(home).toContain("router.replace('/onboarding/name')")
+    expect(home).not.toContain('data-testid="home-redirect"')
+    expect(home).toContain('if (!onboarding || redirected.current) return') // onboarding needs signed in + hats loaded + name resolved (2026-09-27)
     // the marketing page renders while auth is still loading (matches the prerendered HTML); no useState reading window
     expect(home).not.toMatch(/useState\([^)]*window/)
   })
