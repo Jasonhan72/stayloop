@@ -441,7 +441,8 @@ function Rail({ role }: { role: WorkspaceRole }) {
   const [tip, setTip] = useState<{ label: string; desc?: string; x: number; y: number } | null>(null)
   const showTip = (el: HTMLElement, label: string, desc?: string) => {
     const r = el.getBoundingClientRect()
-    setTip({ label, desc, x: r.right + 8, y: r.top + r.height / 2 })
+    const railRight = el.closest('nav')?.getBoundingClientRect().right ?? r.right
+    setTip({ label, desc, x: railRight + 6, y: r.top + r.height / 2 })
   }
   useEffect(() => { setTip(null) }, [path])
   const tipHandlers = (label: string, desc?: string) => ({
