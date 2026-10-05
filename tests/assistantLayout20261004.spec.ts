@@ -157,7 +157,7 @@ describe('memory lives in one place (user 2026-10-05: 「进度页那份重复�
     expect((page.match(/initialTab=\{requestedTab \?\? undefined\} onTabRequestUsed=\{clearTabRequest\}/g) || []).length).toBe(2)
     const panel = read('components/agent/AssistantPanel.tsx')
     expect(panel).toContain('onTabRequestUsed?.()')
-    expect(panel).toContain("requestAnimationFrame(() => tabRefs.current[i]?.focus({ preventScroll: true }))") // focus lands on the tab the link named
+    expect(panel).toContain('    tabRefs.current[i]?.focus({ preventScroll: true })') // focus lands on the tab the link named, without waiting for a frame
     // the last-used restore runs on mount only, so handing the request back does not replay it over the requested tab
     expect(panel).toMatch(/if \(initialTab \|\| variant === 'sheet'\) return\n[^\n]*localStorage\.getItem\(TAB_KEY\)[^\n]*\n[^\n]*eslint-disable-next-line[^\n]*\n  \}, \[\]\)/)
   })

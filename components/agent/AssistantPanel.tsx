@@ -79,7 +79,9 @@ export default function AssistantPanel({
     if (!initialTab) return
     setTabState(initialTab)
     const i = TAB_ORDER.indexOf(initialTab)
-    requestAnimationFrame(() => tabRefs.current[i]?.focus({ preventScroll: true }))
+    // Directly, not in requestAnimationFrame: a tab opened in the background runs no frames, and in the sheet
+    // this lands before the dialog's own first-focus (which then leaves it alone).
+    tabRefs.current[i]?.focus({ preventScroll: true })
     onTabRequestUsed?.()
   }, [initialTab, onTabRequestUsed])
   const setTab = useCallback((t: PanelTab) => {
