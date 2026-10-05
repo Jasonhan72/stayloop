@@ -44,7 +44,7 @@ export function toMemoryItems(rows: unknown): MemoryItem[] {
   }))
 }
 
-/** The panel, settings and progress page write user_memories directly; this tells the open
+/** The AI Agent panel's 记忆 tab (PrivateMemorySnapshot, AssistantSettings) writes user_memories directly; this tells the open
  *  session to re-read them before its next turn (contract C3, sweep 2026-10-01). */
 export const MEMORIES_CHANGED_EVENT = 'sl-memories-changed'
 export function notifyMemoriesChanged(): void {

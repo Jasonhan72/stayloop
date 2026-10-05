@@ -22,6 +22,7 @@ export default function AssistantSheet(props: {
   onOpenThread: (id: string) => void | Promise<void>
   onScrollToCard?: (id: string) => void
   initialTab?: PanelTab
+  onTabRequestUsed?: () => void
   onClose: () => void
 }) {
   const { lang } = useT()

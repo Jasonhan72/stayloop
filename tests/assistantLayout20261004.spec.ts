@@ -131,3 +131,55 @@ describe('the page: hidden things never mount or fetch; sheets are accessible', 
     for (const gone of ['<TodayCard', '<LifecycleRail', 'StatusOverview']) expect(page.slice(0, chatAt)).not.toContain(gone)
   })
 })
+
+describe('memory lives in one place (user 2026-10-05: 「进度页那份重复的记忆也收掉吧」)', () => {
+  const pages = read('components/mobile/RolePages.tsx')
+  const page = read('components/agent/AgentWorkspacePage.tsx')
+  it('the progress page no longer renders the memory editor; one line points to the AI Agent panel', () => {
+    expect(pages).not.toContain('PrivateMemorySnapshot')
+    expect(pages).toContain('<Link id="memory" href={`/${role}/agent?panel=memory`} data-testid="progress-memory-link"')
+    expect(pages).not.toContain('它记住了什么')
+    // the editor has exactly one home: the panel's 记忆 tab (column and sheet are the same component)
+    const users = ['components/agent/AssistantPanel.tsx', 'components/mobile/RolePages.tsx', 'components/agent/AgentWorkspacePage.tsx', 'components/mobile/AssistantSheet.tsx']
+      .filter((f) => read(f).includes('<PrivateMemorySnapshot'))
+    expect(users).toEqual(['components/agent/AssistantPanel.tsx'])
+  })
+  it('?panel=todo|memory|settings opens the AI Agent on that tab — column from lg, sheet below — and drops the parameter', () => {
+    expect(page).toContain("const want = new URLSearchParams(window.location.search).get('panel')")
+    expect(page).toContain("if (want !== 'todo' && want !== 'memory' && want !== 'settings') return")
+    expect(page).toContain("stripUrlParams(['panel'])")
+    expect(page).toContain('if (wide) setPanelOpen(true)')
+    expect(page).toContain('else setSheetOpen(true)')
+    // read in an effect, never during render (first paint matches the server HTML)
+    expect(page).not.toMatch(/useState\([^)]*window\.location/)
+  })
+  it('the request is one-shot: one state for both surfaces, handed back once shown (close + reopen returns to the last tab used)', () => {
+    expect((page.match(/initialTab=\{requestedTab \?\? undefined\} onTabRequestUsed=\{clearTabRequest\}/g) || []).length).toBe(2)
+    const panel = read('components/agent/AssistantPanel.tsx')
+    expect(panel).toContain('onTabRequestUsed?.()')
+    expect(panel).toContain("requestAnimationFrame(() => tabRefs.current[i]?.focus({ preventScroll: true }))") // focus lands on the tab the link named
+    // the last-used restore runs on mount only, so handing the request back does not replay it over the requested tab
+    expect(panel).toMatch(/if \(initialTab \|\| variant === 'sheet'\) return\n[^\n]*localStorage\.getItem\(TAB_KEY\)[^\n]*\n[^\n]*eslint-disable-next-line[^\n]*\n  \}, \[\]\)/)
+  })
+  it('URL parameters are stripped one task later, through Next’s patched history (a mount-time replaceState broke Back)', async () => {
+    const src = read('lib/ui/stripUrlParams.ts')
+    expect(src).toContain('setTimeout(() => {')
+    expect(page).not.toContain('window.history.replaceState')
+    expect(read('app/verify/[token]/page.tsx')).toContain("stripUrlParams('all')")
+    // behaviour: only the named keys go; nothing happens synchronously
+    const calls: string[] = []
+    const g = globalThis as unknown as { window?: unknown }
+    const prev = g.window
+    g.window = { location: { search: '?panel=memory&thread=abc', pathname: '/tenant/agent', hash: '' }, history: { replaceState: (_s: unknown, _t: string, url: string) => { calls.push(url) } } }
+    try {
+      const { stripUrlParams } = await import('@/lib/ui/stripUrlParams')
+      stripUrlParams(['panel'])
+      expect(calls).toEqual([])
+      await new Promise((r) => setTimeout(r, 5))
+      expect(calls).toEqual(['/tenant/agent?thread=abc'])
+    } finally { g.window = prev }
+  })
+  it('preview says only what preview can do', () => {
+    expect(pages).toContain("'它记住的事，在 AI 助理的「记忆」里看（登录后可以修改）'")
+  })
+})

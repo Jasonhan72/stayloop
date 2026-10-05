@@ -17,11 +17,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
-import AssistantPanel from '@/components/agent/AssistantPanel'
+import AssistantPanel, { type PanelTab } from '@/components/agent/AssistantPanel'
 import ThreadList, { SidebarIcon } from '@/components/agent/ThreadList'
 import AssistantSheet from '@/components/mobile/AssistantSheet'
 import { useMinWidth } from '@/lib/ui/useMinWidth'
 import { useModalA11y } from '@/lib/ui/useModalA11y'
+import { stripUrlParams } from '@/lib/ui/stripUrlParams'
 import { waitingCards } from '@/lib/agent/threadCards'
 import ContextStrip from '@/components/mobile/ContextStrip'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
@@ -102,6 +103,25 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
   // Below lg the chat head opens the same AI Agent panel as a sheet.
   const [sheetOpen, setSheetOpen] = useState(false)
   useEffect(() => { if (lgUp) setSheetOpen(false) }, [lgUp])
+  // /x/agent?panel=todo|memory|settings (2026-10-05, the progress page's 「记忆」 line): open the AI Agent on
+  // that tab — the column from lg, the sheet below — and drop the parameter. Read after mount only. The request
+  // is one-shot: whichever surface shows it hands it back (clearTabRequest), so closing and reopening the panel
+  // returns to the tab the person last used.
+  const [requestedTab, setRequestedTab] = useState<PanelTab | null>(null)
+  const clearTabRequest = useCallback(() => setRequestedTab(null), [])
+  useEffect(() => {
+    try {
+      const want = new URLSearchParams(window.location.search).get('panel')
+      if (want !== 'todo' && want !== 'memory' && want !== 'settings') return
+      stripUrlParams(['panel'])
+      setRequestedTab(want)
+      const wide = typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1024px)').matches
+      if (wide) setPanelOpen(true)
+      else setSheetOpen(true)
+    } catch { /* no window.location (tests) */ }
+    // once, on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // The panel's 「在这段对话里 ↓」: scroll the chat's own thread (never the page) to the card and focus it.
   const scrollToCard = useCallback((id: string) => {
     const thread = document.querySelector<HTMLElement>('[data-chat-thread]')
@@ -221,11 +241,11 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
         )}
         {panelOpen && (
           <aside className="hidden lg:flex lg:w-[320px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider 2xl:w-[360px]">
-            <AssistantPanel role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} onClose={() => setPanelOpen(false)} visible={lgUp} />
+            <AssistantPanel role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} onClose={() => setPanelOpen(false)} visible={lgUp} initialTab={requestedTab ?? undefined} onTabRequestUsed={clearTabRequest} />
           </aside>
         )}
         {sheetOpen && !lgUp && (
-          <AssistantSheet role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} onClose={() => setSheetOpen(false)} />
+          <AssistantSheet role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} initialTab={requestedTab ?? undefined} onTabRequestUsed={clearTabRequest} onClose={() => setSheetOpen(false)} />
         )}
       </div>
     </WorkspaceShell>

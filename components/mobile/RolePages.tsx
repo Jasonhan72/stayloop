@@ -3,7 +3,8 @@
 // The three phone tabs next to the conversation (2026-09-22, Muse
 // benchmark items D/E): 待办 (what waits on you), 想法 (what the assistant
 // can do next, with a reason each), 进度 (what it is tracking + your
-// numbers + what it remembers). All three read the same session the chat
+// numbers; what it remembers lives in the AI Agent panel's 记忆 tab since
+// 2026-10-05 — one copy, not two). All three read the same session the chat
 // uses, so they work on desktop too — there they simply sit inside the
 // workspace shell.
 import Link from 'next/link'
@@ -19,7 +20,6 @@ import TodayCard from '@/components/lifecycle/TodayCard'
 import BulkApproveBar from '@/components/agent/BulkApproveBar'
 import ClientTasks from '@/components/agent/ClientTasks'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
-import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
 import PushSettingsCard from '@/components/mobile/PushSettingsCard'
 import MattersPanel from '@/components/matters/MattersPanel'
@@ -212,7 +212,7 @@ function ProgressInner({ role }: { role: AgentRole }) {
   const pending = data.pendingActions.filter((a) => a.status === 'pending').length
   return (
     <WorkspaceShell role={role} hideAside>
-      <PageHead eyebrow="PROGRESS" title={zh ? '正在跟的' : 'Tracking'} sub={zh ? '流程走到哪、你手上有什么、它记住了什么。' : 'Where the flow stands, what you have on hand, what it remembers.'} />
+      <PageHead eyebrow="PROGRESS" title={zh ? '正在跟的' : 'Tracking'} sub={zh ? '流程走到哪、你手上有什么。' : 'Where the flow stands and what you have on hand.'} />
       {!live && <PreviewNote zh={zh} what={zh ? '进度' : 'progress'} />}
       <div className="space-y-5">
         {live && lifecycle ? (
@@ -229,9 +229,14 @@ function ProgressInner({ role }: { role: AgentRole }) {
           <div className="mb-2 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '你的事' : 'YOUR NUMBERS'}</div>
           <StatusOverview role={role} live={live} pendingCount={pending} />
         </div>
-        <div id="memory" className="scroll-mt-20">
-          <PrivateMemorySnapshot agentName={displayAiName(data.agent.agent_name, lang)} memories={data.memories} role={role} editable={live} />
-        </div>
+        {/* The editable memory list used to sit here too — a second copy of the AI Agent panel's 记忆 tab
+            (user 2026-10-05: 「进度页那份重复的记忆也收掉吧」). One line points there; the id keeps old #memory links landing. */}
+        <Link id="memory" href={`/${role}/agent?panel=memory`} data-testid="progress-memory-link" className="flex scroll-mt-20 items-center justify-between gap-3 rounded-2xl border border-line-divider bg-white px-4 py-3.5 text-[13.5px] text-body-2 transition hover:border-line-strong">
+          <span className="min-w-0">{live
+            ? (zh ? '它记住的事和对你的画像，在 AI 助理的「记忆」里查看和修改' : 'What it remembers and its profile of you: view and edit under Memory in your AI Agent')
+            : (zh ? '它记住的事，在 AI 助理的「记忆」里看（登录后可以修改）' : 'See what it remembers under Memory in your AI Agent (sign in to edit)')}</span>
+          <span className="flex-none text-[16px] font-bold text-brand" aria-hidden>›</span>
+        </Link>
         <PushSettingsCard live={live} />
         <RelatedPagesCard role={role} />
       </div>

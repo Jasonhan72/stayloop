@@ -8,6 +8,7 @@ export const runtime = 'edge'
 // Connect, embedded), credit (own-authorised pull, provider pending).
 // Everything here talks to /api/verify/<token>/* — never to the table.
 
+import { stripUrlParams } from '@/lib/ui/stripUrlParams'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
@@ -62,7 +63,7 @@ export default function VerifyPage() {
     const qs = new URLSearchParams(window.location.search)
     if (qs.get('returned') !== '1') return
     const loginId = qs.get('loginId')
-    window.history.replaceState(null, '', window.location.pathname)
+    stripUrlParams('all') // deferred: a replaceState in a mount effect wipes Next's history state (Back stops working)
     if (loginId && /^[0-9a-f-]{20,64}$/i.test(loginId) && !bankHandled.current) {
       bankHandled.current = true
       setBusy('bank')

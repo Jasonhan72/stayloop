@@ -32,11 +32,12 @@ import AssistantSettings from './AssistantSettings'
 import { AvatarIcon, MemoryIcon, PencilIcon, SlidersIcon, TodoTabIcon } from './panelIcons'
 
 export type PanelTab = 'todo' | 'memory' | 'settings'
+const TAB_ORDER: PanelTab[] = ['todo', 'memory', 'settings']
 const TAB_KEY = 'sl-assistant-panel-tab'
 
 export default function AssistantPanel({
   role, agentName, pendingActions, memories, live, avatar, onAvatarChange, currentThreadId, onOpenThread, onScrollToCard, onClose,
-  variant = 'column', initialTab, visible = true,
+  variant = 'column', initialTab, onTabRequestUsed, visible = true,
 }: {
   role: AgentRole
   agentName: string
@@ -52,7 +53,9 @@ export default function AssistantPanel({
   onClose: () => void
   /** 'column' beside the chat (lg+); 'sheet' = the same panel in a bottom sheet (below lg). */
   variant?: 'column' | 'sheet'
+  /** A tab the page asks for (a ?panel= link). One-shot: once shown, onTabRequestUsed hands it back. */
   initialTab?: PanelTab
+  onTabRequestUsed?: () => void
   /** Mounted but off screen → fetch nothing. */
   visible?: boolean
 }) {
@@ -63,11 +66,22 @@ export default function AssistantPanel({
   // Which tab: the caller's, else (column) the last one used, else 待办; the sheet opens on 记忆
   // because the phone's bottom bar already has 待办.
   const [tab, setTabState] = useState<PanelTab>(initialTab ?? (variant === 'sheet' ? 'memory' : 'todo'))
+  // On mount only: the column reopens on the last tab used, unless the page asked for one.
   useEffect(() => {
     if (initialTab || variant === 'sheet') return
     try { const v = localStorage.getItem(TAB_KEY); if (v === 'todo' || v === 'memory' || v === 'settings') setTabState(v) } catch { /* private mode */ }
-  }, [initialTab, variant])
-  useEffect(() => { if (initialTab) setTabState(initialTab) }, [initialTab])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // The page asked for a tab: show it, move focus to it (a link said 「在记忆里」 — keyboard and screen-reader
+  // users should land there, review 2026-10-05), and hand the request back so it is not replayed.
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
+  useEffect(() => {
+    if (!initialTab) return
+    setTabState(initialTab)
+    const i = TAB_ORDER.indexOf(initialTab)
+    requestAnimationFrame(() => tabRefs.current[i]?.focus({ preventScroll: true }))
+    onTabRequestUsed?.()
+  }, [initialTab, onTabRequestUsed])
   const setTab = useCallback((t: PanelTab) => {
     setTabState(t)
     if (variant === 'column') { try { localStorage.setItem(TAB_KEY, t) } catch { /* private mode */ } }
@@ -114,7 +128,6 @@ export default function AssistantPanel({
     { key: 'memory', label: zh ? '记忆' : 'Memory', icon: <MemoryIcon />, badge: 0 },
     { key: 'settings', label: zh ? '设置' : 'Settings', icon: <SlidersIcon />, badge: 0 },
   ]
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
   function onTabKey(e: ReactKeyboardEvent<HTMLButtonElement>, i: number) {
     const last = TABS.length - 1
     const to = e.key === 'ArrowRight' ? (i === last ? 0 : i + 1) : e.key === 'ArrowLeft' ? (i === 0 ? last : i - 1) : e.key === 'Home' ? 0 : e.key === 'End' ? last : -1

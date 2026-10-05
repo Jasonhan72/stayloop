@@ -504,7 +504,7 @@ Muse = Meta 2026-09-08 发布的个人 AI 助手（muse.ai，iPhone / Mac / What
 - **审批进对话流**：`AgentChat` 新增 `pendingActions / onDecide / live / memoryCount / workflow` 五个可选 prop；<lg 时审批卡以 `compact` 形态排在线程**末尾**（自动滚动落点，蓝本写「置顶」但置顶会被滚出视野），决定后折叠成一行；三个 `/x/agent` 页右栏的 `PendingActionsPanel` 改为 `hidden lg:block`，整个右栏在手机隐藏（`hidden md:block`，md 仍堆叠）。首页 hero 不传这些 prop，表现不变。
 - **头像真实状态 + 活动日志**：状态行按 `status` / 阶段 / 待办数生成（「正在：…」「等你点头：N 件」「空闲 · 当前阶段 … · 记得 N 条」），点头像或状态行打开 `components/mobile/ActivitySheet.tsx`（读本人 `agent_audit_events` 最近 20 条，`auditActionLabel` 转人话；出口：完整审计、`/x/progress#memory`）。手机上对话通栏无框、高 `calc(100dvh-150px)`。
 - **想法页** = `lib/agent/ideas.ts buildIdeas`（纯函数、无模型调用）：待办 → 反思画像 `user_model` 的 current_focus / goals → 当前阶段的下一步（键必须是 `WORKFLOW_STAGES` 的真实 key）→ 预算 / 区域 / 搬家日期 / 房源记忆 → RecommendationDeck 链接；每条带「为什么」，≤8 条去重；点一条走 `?prompt=` 深链。
-- **进度页** = `WorkflowStatusPanel` + `StatusOverview` + 可编辑的 `PrivateMemorySnapshot`（`editable` 时每条「改 / 忘掉」，直接写本人 `user_memories`，写 `memory_edited / memory_forgotten` 审计事件）+ `RelatedPagesCard`。
+- **进度页**（⚠️ 记忆编辑块已于 2026-10-05 收掉，见文末「记忆只留一份」）= `WorkflowStatusPanel` + `StatusOverview` + 可编辑的 `PrivateMemorySnapshot`（`editable` 时每条「改 / 忘掉」，直接写本人 `user_memories`，写 `memory_edited / memory_forgotten` 审计事件）+ `RelatedPagesCard`。
 - **PWA**：`public/manifest.json`（standalone，`/icons/` 192 / 512 / maskable / apple-touch，图标 = **wordmark 本身**（用户 2026-09-22 要求主屏图标是 stayloop.AI 的 logo）：白底、**一行「Stayloop.AI」**（用户否决了两行版）：「Stay」墨蓝 + 「loop.AI」墨蓝→#00ACE4 渐变、Inter Tight 800、字距 −0.04em、左右留白 56/1024，与 `components/Logo.tsx` / `.sl-wordmark` 同一套；用 fontTools 把 `public/fonts/inter-tight-latin.woff2` 转 TTF 后由 Pillow 离线渲染（`magick` 读不了含 `<text>` 的 SVG）。文字宽 912/1024 超出 maskable 安全区（内 80%），Android 圆形裁切会切到首尾字母——如需可再出带留白的 maskable 版。favicon 同图（用户要求）：`public/favicon-16/32/48/64.png` + `public/icon.svg`（内嵌 256px PNG 的 SVG，避免各浏览器字体回退），`app/layout.tsx` metadata.icons 列出 png + svg + apple；紫色「S」已退役、`app/layout.tsx` 的 manifest / apple meta、`public/sw.js`（**没有 fetch handler、不缓存**——部署必须次日可见，只为可安装与将来推送保留 push / notificationclick）、`PhoneTabs` 里注册 SW 并在手机浏览器标签页显示一次「添加到主屏」提示（`localStorage sl-install-hint`）。**Web Push 已做（用户同日拍板「vapid 你自己搞定」）**：`lib/push/webpush.ts` 在边缘运行时**无库**实现 VAPID（RFC 8292，ES256 JWT，
 WebCrypto ECDSA 原始 r‖s 即 JWS 形式）与 aes128gcm 载荷加密（RFC 8188/8291：ECDH P-256 + HKDF-SHA256 + AES-128-GCM 单记录），
 `tests/webPush.spec.ts` 用参考实现 `http_ece`（devDependency，随 `web-push` 装入）**解密我们的密文**作为合规证明，并验 JWT 签名。
@@ -3214,3 +3214,14 @@ Yorkdale-Glen Park、Etobicoke City Centre、Agincourt）+ 密西沙加 / 万锦
 ②「已登录访客不看首页、自动跳助理页」——`/` 现在对所有人都是营销页，**唯一保留的跳转是新账号兜底**：没有房东 / 经纪 / 服务商帽子且从没给 AI 助理起名的账号仍去 `/onboarding/name`
 （`landingForAccount(...) === '/onboarding/name'`）。已登录时首页把登录 / 注册入口换成「回到我的 AI 助理 →」（`homeForHats`，对话框下一行与「从一句话开始」那一节），
 问一句的对话框默认按你当前的身份提问（本标签页里手动选过的仍优先）；数字带对所有人都取数。守卫 `tests/logoHome20260927.spec.ts`。
+
+
+## 记忆只留一份（2026-10-05 · 用户「进度页那份重复的记忆也收掉吧」）
+
+`/x/progress` 不再渲染记忆编辑器（`PrivateMemorySnapshot` 现在只在 AI 助理面板的「记忆」标签里，全站一处），原位置换成一行链接（`id="memory"`，旧的 `#memory` 仍能落到这行）→
+`/<身份>/agent?panel=memory`。预览（未登录）下这行写「…里看（登录后可以修改）」。进度页的推送卡与「相关页面」卡**有意保留**（用户只说了记忆）。守卫在 `tests/assistantLayout20261004.spec.ts` 末段。
+- **`?panel=todo|memory|settings` 深链**（`AgentWorkspacePage`）：挂载后读一次，≥1024px 打开右侧面板、以下打开底部弹层，都落在指定标签，并把焦点移到该标签；参数随即从地址栏去掉。
+  请求是一次性的：页面只有一个 `requestedTab`，面板显示后经 `onTabRequestUsed` 交还——收起再打开回到上次用的标签；面板「上次标签」只在挂载时恢复一次。
+- **去掉 URL 参数一律走 `lib/ui/stripUrlParams.ts`（延后一个任务再 `replaceState`）**：Next 的路由器在自己的 effect 里才接管 `history.replaceState`，而整页加载时页面的挂载 effect 先于它执行——
+  那一刻直接 `replaceState(null, …)` 会把 Next 存在历史记录上的状态抹掉，之后按「后退」回到这一条时地址变了、页面不变（审查在本地与生产 `/verify/<token>?returned=1` 上都复现了）。
+  `/verify/[token]` 同一写法一并改掉。`app/agent/earnings`（冻结的 Stripe Connect 回跳）与 `app/screening/app`（不动）里的同类写法未改。**以后在挂载 effect 里清参数不要直接调 `history.replaceState`。**
