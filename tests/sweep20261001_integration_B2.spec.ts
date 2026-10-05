@@ -18,7 +18,7 @@ import ApprovalActionCard, { StalledActionRow } from '../components/agent/Approv
 import { showingErrorText, showingUndeliveredText } from '../components/ShowingRequestModal'
 import { cardSitePath, executionReasonText } from '../lib/agent/chatCopy'
 import { auditActionLabel } from '../lib/agent/ideas'
-import { activityIcon, buildActivity } from '../lib/agent/activityLog'
+import { isOutcomeAction } from '../lib/agent/activityLog'
 import { noticeReasonText } from '../app/landlord/applicants/noticeState'
 import type { PendingAction } from '../lib/agent/types'
 
@@ -202,18 +202,9 @@ describe('4 · new audit events have labels', () => {
     expect(auditActionLabel('approval_abandoned', 'zh')).toContain('什么也没有发出')
   })
   it('a "nothing happened" event is not drawn or counted as done', () => {
-    expect(activityIcon('work_order_dispatch_no_candidate')).toBe('⚠')
-    expect(activityIcon('approval_abandoned')).toBe('↩')
-    const items = buildActivity(
-      [{ id: 't1', role: 'landlord', title: 'x', summary: null, turn_count: 1, last_message_at: '2026-10-01T10:00:00Z', updated_at: '2026-10-01T10:00:00Z' } as never],
-      [
-        { id: 'e1', action: 'work_order_dispatch_no_candidate', actor_type: 'system', created_at: '2026-10-01T10:01:00Z', metadata: { thread_id: 't1' } },
-        { id: 'e2', action: 'approval_abandoned', actor_type: 'user', created_at: '2026-10-01T10:02:00Z', metadata: { thread_id: 't1' } },
-      ],
-    )
-    const t = items.find((i) => i.kind === 'thread') as { executed: number; undone: number }
-    expect(t.executed).toBe(0)
-    expect(t.undone).toBe(1)
+    // 2026-10-04: the panel's 「最近替你办完」 lists outcomes only — a non-event or an abandoned approval never reads as done
+    expect(isOutcomeAction('work_order_dispatch_no_candidate')).toBe(false)
+    expect(isOutcomeAction('approval_abandoned')).toBe(false)
   })
 })
 

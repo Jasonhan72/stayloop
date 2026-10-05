@@ -7,7 +7,8 @@
 // bar and the workbench bar side by side were "容易分不清"). Desktop rail and
 // the shell itself stay in components/WorkspaceShell.tsx.
 import { useUnreadMessages } from '@/lib/messages/unread'
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
+import { useModalA11y } from '@/lib/ui/useModalA11y'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
@@ -22,44 +23,61 @@ export interface RailItem {
   href: string
   icon: ReactNode
   label: { zh: string; en: string }
+  /** What the page is for — the second line of the rail's hover / focus tooltip. */
   desc: { zh: string; en: string }
+  /** Where it sits (2026-10-04 regroup): 消息 · the hat's pages · records at the bottom. */
+  group?: 'inbox' | 'pages' | 'records'
 }
 
+/** The AI Agent's own four pages — one definition for the desktop rail, the
+ *  phone tab bar and the shell's page titles (they used to be three copies). */
+export function assistantItems(role: WorkspaceRole): RailItem[] {
+  return [
+    { key: 'assistant', href: `/${role}/agent`, icon: <ChatIcon />, label: { zh: 'AI 助理', en: 'AI Agent' }, desc: { zh: '和 AI 助理对话', en: 'Talk to your AI Agent' } },
+    { key: 'todo', href: `/${role}/todo`, icon: <TodoIcon />, label: { zh: '待办', en: 'To-do' }, desc: { zh: '等你点头的事', en: 'Waiting on you' } },
+    { key: 'ideas', href: `/${role}/ideas`, icon: <BulbIcon />, label: { zh: '想法', en: 'Ideas' }, desc: { zh: '它可以替你做的事', en: 'What it can do for you' } },
+    { key: 'progress', href: `/${role}/progress`, icon: <ProgressIcon />, label: { zh: '进度', en: 'Progress' }, desc: { zh: '租前 · 租中 · 租后，每件事走到哪', en: 'Leasing · living · renewal — where each matter stands' } },
+  ]
+}
+
+
+// One entry per page, grouped (2026-10-04): 消息 (talking to people) · the hat's
+// pages · records. The rail stays icon-only with the name on hover (user
+// 2026-10-04: 「保持只有图标」); no icon repeats within one hat's rail.
 export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   tenant: [
-    { key: 'home',      href: '/tenant/agent',     icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 AI 助理对话——找房、办事的入口', en: 'Chat with your AI Agent — search and get things done' } },
-    { key: 'msgs',      href: '/messages',  icon: <MailIcon />,    label: { zh: '消息', en: 'Messages' } , desc: { zh: '所有对话：租约、申请、维修、房源咨询、联系 Stayloop', en: 'Every conversation: tenancy, applications, repairs, listing questions, Stayloop' } },
-    { key: 'apps',      href: '/tenant/applications', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } , desc: { zh: '我的申请进度', en: 'Track your applications' } },
-    { key: 'passport',  href: '/tenant/passport',  icon: <PassIcon />,    label: { zh: 'Passport', en: 'Passport' } , desc: { zh: '租客护照与四枚章', en: 'Your Passport and four stamps' } },
-    { key: 'lease',     href: '/tenant/lease',     icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '查看与签署租约', en: 'View and sign leases' } },
-    { key: 'maint',     href: '/tenant/maintenance', icon: <ToolIcon />,  label: { zh: '维修', en: 'Maint.' } , desc: { zh: '报修与进度跟踪', en: 'Report and track repairs' } },
-    { key: 'pay',       href: '/tenant/payments',  icon: <CashIcon />,    label: { zh: '付款', en: 'Pay' } , desc: { zh: '房租账单与支付', en: 'Rent bills and payments' } },
-    { key: 'audit',     href: '/tenant/audit',     icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '操作审计记录', en: 'Your audit trail' } },
+    { key: 'msgs',      href: '/messages',  icon: <MailIcon />,    label: { zh: '消息', en: 'Messages' } , desc: { zh: '和房东、服务商、Stayloop 的对话', en: 'Conversations with landlords, providers and Stayloop' }, group: 'inbox' },
+    { key: 'passport',  href: '/tenant/passport',  icon: <PassIcon />,    label: { zh: '护照', en: 'Passport' } , desc: { zh: '材料包与只读分享链接', en: 'Your documents and a read-only share link' }, group: 'pages' },
+    { key: 'apps',      href: '/tenant/applications', icon: <FileIcon />, label: { zh: '申请', en: 'Applications' } , desc: { zh: '我的申请进度', en: 'Track your applications' }, group: 'pages' },
+    { key: 'lease',     href: '/tenant/lease',     icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '查看与签署租约', en: 'View and sign leases' }, group: 'pages' },
+    { key: 'maint',     href: '/tenant/maintenance', icon: <ToolIcon />,  label: { zh: '维修', en: 'Repairs' } , desc: { zh: '报修与进度', en: 'Report and track repairs' }, group: 'pages' },
+    { key: 'pay',       href: '/tenant/payments',  icon: <CashIcon />,    label: { zh: '租金', en: 'Rent' } , desc: { zh: '租金记录 · 线下支付', en: 'Rent records · paid offline' }, group: 'pages' },
+    { key: 'audit',     href: '/tenant/audit',     icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '你的操作和它替你做的事，逐条留痕', en: 'Everything you and your AI Agent did, line by line' }, group: 'records' },
   ],
   landlord: [
-    { key: 'home',      href: '/landlord/agent',   icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 AI 助理对话——管房的入口', en: 'Chat with your AI Agent — manage your rentals' } },
-    { key: 'msgs',      href: '/messages', icon: <MailIcon />,   label: { zh: '消息', en: 'Messages' } , desc: { zh: '所有对话：租约、申请、维修、房源咨询、联系 Stayloop', en: 'Every conversation: tenancy, applications, repairs, listing questions, Stayloop' } },
-    { key: 'apps',      href: '/landlord/applicants', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } , desc: { zh: '申请人审查与评分', en: 'Review and score applicants' } },
-    { key: 'screen',    href: '/screening/app',    icon: <ScreenIcon />,  label: { zh: '筛查', en: 'Screen' } , desc: { zh: '租客筛查报告', en: 'Tenant screening reports' } },
-    { key: 'lease',     href: '/landlord/leases',  icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '租约管理与续约', en: 'Leases and renewals' } },
-    { key: 'maint',     href: '/landlord/maintenance', icon: <ToolIcon />,label: { zh: '维修', en: 'Maint.' } , desc: { zh: '维修工单处理', en: 'Handle maintenance tickets' } },
-    { key: 'providers', href: '/landlord/providers', icon: <UsersIcon />, label: { zh: '服务商', en: 'Providers' } , desc: { zh: '维修服务商目录与派单策略', en: 'Repair providers and your dispatch policy' } },
-    { key: 'fin',       href: '/landlord/finance', icon: <CashIcon />,    label: { zh: '财务', en: 'Finance' } , desc: { zh: '收租与财务面板', en: 'Rent collection and finances' } },
-    { key: 'audit',     href: '/landlord/audit',   icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '操作审计记录', en: 'Your audit trail' } },
+    { key: 'msgs',      href: '/messages', icon: <MailIcon />,   label: { zh: '消息', en: 'Messages' } , desc: { zh: '和租客、申请人、服务商、Stayloop 的对话', en: 'Conversations with tenants, applicants, providers and Stayloop' }, group: 'inbox' },
+    { key: 'listings',  href: '/dashboard',        icon: <HomeIcon />,    label: { zh: '房源', en: 'Listings' } , desc: { zh: '你发布的房源与草稿', en: 'Your listings and drafts' }, group: 'pages' },
+    { key: 'apps',      href: '/landlord/applicants', icon: <FileIcon />, label: { zh: '申请', en: 'Applicants' } , desc: { zh: '收到的申请与一键筛查', en: 'Applications received and one-tap screening' }, group: 'pages' },
+    { key: 'screen',    href: '/screening/app',    icon: <ScreenIcon />,  label: { zh: '筛查', en: 'Screening' } , desc: { zh: '租客筛查报告', en: 'Tenant screening reports' }, group: 'pages' },
+    { key: 'lease',     href: '/landlord/leases',  icon: <LeaseIcon />,   label: { zh: '租约', en: 'Leases' } , desc: { zh: '租约、电子签与续约', en: 'Leases, e-signing and renewals' }, group: 'pages' },
+    { key: 'maint',     href: '/landlord/maintenance', icon: <ToolIcon />,label: { zh: '维修', en: 'Repairs' } , desc: { zh: '报修工单与派单', en: 'Repair tickets and dispatch' }, group: 'pages' },
+    { key: 'providers', href: '/landlord/providers', icon: <UsersIcon />, label: { zh: '服务商', en: 'Providers' } , desc: { zh: '维修服务商目录与派单策略', en: 'Repair providers and your dispatch policy' }, group: 'pages' },
+    { key: 'fin',       href: '/landlord/finance', icon: <CashIcon />,    label: { zh: '财务', en: 'Finance' } , desc: { zh: '收支面板（示范，尚未上线）', en: 'Finance panel (sample, not live yet)' }, group: 'pages' },
+    { key: 'audit',     href: '/landlord/audit',   icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '你的操作和它替你做的事，逐条留痕', en: 'Everything you and your AI Agent did, line by line' }, group: 'records' },
   ],
   agent: [
-    { key: 'home',      href: '/agent/agent',      icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 AI 助理对话——业务的入口', en: 'Chat with your AI Agent — run your business' } },
-    { key: 'msgs',      href: '/messages',         icon: <MailIcon />,    label: { zh: '消息', en: 'Messages' } , desc: { zh: '和客户、各方的所有对话', en: 'Every conversation with clients and parties' } },
-    { key: 'tasks',     href: '/agent/tasks',      icon: <FileIcon />,    label: { zh: '任务', en: 'Tasks' } , desc: { zh: '今日任务与带看', en: "Today's tasks and showings" } },
-    { key: 'clients',   href: '/agent/clients',    icon: <ListIcon />,    label: { zh: '客户', en: 'Clients' } , desc: { zh: '客户管理', en: 'Manage clients' } },
-    { key: 'cal',       href: '/agent/calendar',   icon: <ToolIcon />,    label: { zh: '日历', en: 'Calendar' } , desc: { zh: '日程安排', en: 'Your calendar' } },
-    { key: 'earn',      href: '/agent/earnings',   icon: <CashIcon />,    label: { zh: '佣金', en: 'Earnings' } , desc: { zh: '佣金与结算', en: 'Commissions and payouts' } },
+    { key: 'msgs',      href: '/messages',         icon: <MailIcon />,    label: { zh: '消息', en: 'Messages' } , desc: { zh: '和客户、各方的对话', en: 'Conversations with clients and other parties' }, group: 'inbox' },
+    { key: 'clients',   href: '/agent/clients',    icon: <UsersIcon />,   label: { zh: '客户', en: 'Clients' } , desc: { zh: '客户表、委托与代客筛查', en: 'Clients, delegations and screening for clients' }, group: 'pages' },
+    { key: 'tasks',     href: '/agent/tasks',      icon: <TaskIcon />,    label: { zh: '任务', en: 'Tasks' } , desc: { zh: '客户表生成的待跟进事项', en: 'Follow-ups generated from your client book' }, group: 'pages' },
+    { key: 'cal',       href: '/agent/calendar',   icon: <CalendarIcon />, label: { zh: '日历', en: 'Calendar' } , desc: { zh: '日程（示范）', en: 'Calendar (sample)' }, group: 'pages' },
+    { key: 'earn',      href: '/agent/earnings',   icon: <CashIcon />,    label: { zh: '佣金', en: 'Earnings' } , desc: { zh: '佣金记录（示范，尚未上线）', en: 'Earnings (sample, not live yet)' }, group: 'pages' },
+    { key: 'audit',     href: '/agent/audit',      icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '你的操作和它替你做的事，逐条留痕', en: 'Everything you and your AI Agent did, line by line' }, group: 'records' },
   ],
 }
 
 /* ============= PHONE TABS (md and below) =============
-   AI 助理 · 待办 (badge = pending approvals) · 想法 · 进度 · 更多 (sheet with the
-   rest of the role's pages, settings, notifications). */
+   AI 助理 · 待办 (badge = cards waiting on you) · 想法 · 进度 · 更多 (a sheet with
+   the rest, in the rail's groups: 消息 · 页面 · 记录与账号). */
 export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailItem[] }) {
   const path = usePathname() || ''
   const { lang } = useI18n()
@@ -77,6 +95,8 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
     return () => { cancelled = true; window.removeEventListener(PENDING_CHANGED_EVENT, load) }
   }, [auth.loading, auth.user, role, path])
   useEffect(() => { setMore(false) }, [path])
+  const sheetRef = useRef<HTMLDivElement>(null)
+  useModalA11y(more, () => setMore(false), sheetRef)
   // Install hint + service-worker registration live here because every
   // signed-in phone visit passes through the shell (PWA, benchmark item F).
   useEffect(() => {
@@ -84,12 +104,9 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
       navigator.serviceWorker.register('/sw.js').catch(() => {})
     }
   }, [])
-  const tabs: { key: string; href: string; label: string; icon: ReactNode; badge?: number }[] = [
-    { key: 'agent', href: `/${role}/agent`, label: zh ? 'AI 助理' : 'AI Agent', icon: <ChatIcon /> },
-    { key: 'todo', href: `/${role}/todo`, label: zh ? '待办' : 'To-do', icon: <TodoIcon />, badge: pendingCount },
-    { key: 'ideas', href: `/${role}/ideas`, label: zh ? '想法' : 'Ideas', icon: <BulbIcon /> },
-    { key: 'progress', href: `/${role}/progress`, label: zh ? '进度' : 'Progress', icon: <ProgressIcon /> },
-  ]
+  const tabs: { key: string; href: string; label: string; icon: ReactNode; badge?: number }[] = assistantItems(role).map((it) => ({
+    key: it.key === 'assistant' ? 'agent' : it.key, href: it.href, label: zh ? it.label.zh : it.label.en, icon: it.icon, badge: it.key === 'todo' ? pendingCount : undefined,
+  }))
   // Messages live under 更多 on phones: its tab and the 消息 tile carry the unread count (找得到人 2026-09-30).
   const unreadMessages = useUnreadMessages(!auth.loading && !!auth.user)
   const cell = 'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg text-[16px] transition'
@@ -123,26 +140,47 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
       </nav>
       {more && (
         <div className="fixed inset-0 z-[45] bg-black/35 md:hidden" onClick={() => setMore(false)}>
-          <div className="absolute inset-x-0 rounded-t-2xl bg-white px-4 pb-4 pt-3" style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={zh ? '更多页面' : 'More pages'}>
+          <div ref={sheetRef} className="absolute inset-x-0 overflow-y-auto overscroll-contain rounded-t-2xl bg-white px-4 pb-4 pt-3" style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))', maxHeight: 'calc(100dvh - 4rem - env(safe-area-inset-bottom) - 12px)' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={zh ? '更多页面' : 'More pages'}>
             <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line-strong" />
-            <div className="grid grid-cols-4 gap-2">
-              {items.filter((it) => it.key !== 'home').map((it) => {
+            {(() => {
+              // Same groups and order as the desktop rail (2026-10-04): 消息 · the hat's pages · records & account.
+              const tile = 'relative flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-xl px-1.5 py-2.5 text-[11.5px] font-medium'
+              const tileCls = (on: boolean) => tile + ' ' + (on ? 'bg-brand/10 text-brand' : 'bg-surface text-body-2')
+              const grid = 'grid grid-cols-3 gap-2 min-[360px]:grid-cols-4'
+              const cap = 'mb-1.5 mt-3 px-0.5 text-[11px] font-medium text-body-3 first:mt-0'
+              const itemTile = (it: RailItem) => {
                 const on = path === it.href || path.startsWith(it.href + '/')
                 return (
-                  <Link key={it.key} href={it.href} className={'relative flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-[11.5px] font-medium ' + (on ? 'bg-brand/10 text-brand' : 'bg-surface text-body-2')}>
+                  <Link key={it.key} href={it.href} className={tileCls(on)}>
                     {it.icon}
                     {it.key === 'msgs' && unreadMessages > 0 && <span className="absolute right-2 top-1.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-bold leading-4 text-white">{unreadMessages > 9 ? '9+' : unreadMessages}</span>}
                     <span className="max-w-full truncate">{zh ? it.label.zh : it.label.en}</span>
                   </Link>
                 )
-              })}
-              <Link href="/listings" className={'flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-[11.5px] font-medium ' + (path.startsWith('/listings') ? 'bg-brand/10 text-brand' : 'bg-surface text-body-2')}><HomeIcon /><span>{zh ? '房源' : 'Listings'}</span></Link>
-              {/* Fifth hat: a provider account reaches its jobs from every role's drawer (entry proposal 2026-09-26). */}
-              {hats.provider && (
-                <Link href="/provider/jobs" data-testid="drawer-provider-jobs" className={'flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-[11.5px] font-medium ' + (path.startsWith('/provider') ? 'bg-brand/10 text-brand' : 'bg-surface text-body-2')}><BriefcaseIcon /><span>{zh ? '工单' : 'Jobs'}</span></Link>
-              )}
-              <Link href="/settings" className="flex flex-col items-center gap-1.5 rounded-xl bg-surface px-2 py-3 text-[11.5px] font-medium text-body-2"><GearIcon /><span>{zh ? '设置' : 'Settings'}</span></Link>
-            </div>
+              }
+              const pages = items.filter((it) => it.group === 'pages')
+              const hasListings = pages.some((it) => it.key === 'listings')
+              return (
+                <>
+                  <div className={cap}>{zh ? '消息' : 'Messages'}</div>
+                  <div className={grid}>{items.filter((it) => it.group === 'inbox').map(itemTile)}</div>
+                  <div className={cap}>{zh ? '页面' : 'Pages'}</div>
+                  <div className={grid}>
+                    {pages.map(itemTile)}
+                    <Link href="/listings" className={tileCls(path.startsWith('/listings'))}>{hasListings ? <SearchIcon /> : <HomeIcon />}<span className="max-w-full truncate">{hasListings ? (zh ? '浏览房源' : 'Browse') : (zh ? '房源' : 'Listings')}</span></Link>
+                    {/* Fifth hat: a provider account reaches its jobs from every role's drawer (entry proposal 2026-09-26). */}
+                    {hats.provider && (
+                      <Link href="/provider/jobs" data-testid="drawer-provider-jobs" className={tileCls(path.startsWith('/provider'))}><BriefcaseIcon /><span>{zh ? '工单' : 'Jobs'}</span></Link>
+                    )}
+                  </div>
+                  <div className={cap}>{zh ? '记录与账号' : 'Records & account'}</div>
+                  <div className={grid}>
+                    {items.filter((it) => it.group === 'records').map(itemTile)}
+                    <Link href="/settings" className={tileCls(path === '/settings')}><GearIcon /><span className="max-w-full truncate">{zh ? '账号设置' : 'Account'}</span></Link>
+                  </div>
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
@@ -207,7 +245,10 @@ export function PassIcon()  { return I('M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h1
 export function LeaseIcon() { return I('M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6l2 2h6a2 2 0 0 1 2 2v3|M14 14l3 3 6-6') }
 export function ToolIcon()  { return I('M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z') }
 export function CashIcon()  { return I('M12 1v22|M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6') }
-export function ScreenIcon() { return I('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z|M14 2v6h6|M9 15l2 2 4-4') }
+export function ScreenIcon() { return I('M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z|M21 21l-5.6-5.6|M7.8 10.6l1.8 1.8 3.4-3.6') }
+export function SearchIcon() { return I('M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z|M21 21l-5.6-5.6') }
+export function TaskIcon() { return I('M9 6h11|M9 12h11|M9 18h11|M4 6l1 1 2-2|M4 12l1 1 2-2|M4 18l1 1 2-2') }
+export function CalendarIcon() { return I('M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z|M16 2v4|M8 2v4|M3 10h18') }
 export function AuditIcon() { return I('M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z|M9 12l2 2 4-4') }
 export function UsersIcon() { return I('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2|M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8|M23 21v-2a4 4 0 0 0-3-3.87|M16 3.13a4 4 0 0 1 0 7.75') }
 export function BriefcaseIcon() { return I('M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z|M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16') }

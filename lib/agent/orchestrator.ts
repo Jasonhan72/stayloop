@@ -168,7 +168,7 @@ export async function runAgentTurn(args: {
   anonymous?: boolean
   // UI language for the few client-authored strings in the turn result.
   lang?: 'zh' | 'en'
-  /** The conversation this turn belongs to (agent_threads.id) — lets the activity log reopen it. */
+  /** The conversation this turn belongs to (agent_threads.id) — approval cards show only in it, and outcomes reopen it. */
   threadId?: string | null
 }): Promise<AgentTurn> {
   const { client, userId, role, agentName, message, memories, workflow, stageLabel, attachments, exclude, history, live } = args
@@ -280,7 +280,7 @@ export async function runAgentTurn(args: {
       expires_at: null,
       // thread_id: the conversation this card was proposed in — the approval
       // audit event (decide_pending_action) and the execution audit copy it, so
-      // the activity log folds decisions into their conversation's row.
+      // the card shows only in that conversation, and its outcome can reopen it.
       metadata: { origin: 'agent_turn', ...(pa.metadata ?? {}), thread_id: args.threadId ?? null },
     }
     let id = (globalThis.crypto?.randomUUID?.() as string) || `act-${Date.now()}`

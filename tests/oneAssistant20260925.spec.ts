@@ -71,14 +71,11 @@ describe('one assistant per account', () => {
     expect(turn).toContain('reflectUser(sbAuth, turnUserId)')
     expect(read('app/api/agent/reflect/route.ts')).toContain('reflectUser(sb, ud.user.id)')
   })
-  it('the activity log lists every hat’s conversations, tagged, and reopens a conversation on its own hat’s page', () => {
+  it('the AI chats list holds every hat’s conversations — other hats folded, untagged — and reopens one on its own hat’s page', () => {
     expect(read('lib/agent/threads.ts')).toContain("select('id, role, title, custom_title, summary, turn_count, message_count, created_at, updated_at, last_message_at')")
-    expect(read('lib/agent/activityLog.ts')).toContain("kind: 'thread', id: `t:${t.id}`, threadId: t.id, role: t.role,")
-    for (const f of ['components/agent/AssistantPanel.tsx', 'components/mobile/ActivitySheet.tsx']) {
-      const s = read(f)
-      expect(s, f).toContain("if (it.kind === 'thread' && it.role && it.role !== role) { router.push(`/${it.role}/agent?thread=${it.threadId}`); return }")
-      expect(s, f).toContain("it.kind === 'thread' && it.role !== role && HAT[it.role]")
-    }
+    const list = read('components/agent/ThreadList.tsx')
+    expect(list).toContain("if (t.role && t.role !== role && HATS.has(t.role)) { router.push(`/${t.role}/agent?thread=${t.id}`); return }")
+    expect(list).toContain('const { mine, others } = partitionByHat(shown, role)')
     // ideas stay per hat; the memory snapshot edits the row's own hat
     expect(read('components/mobile/RolePages.tsx')).toContain("memories: data.memories.filter((m) => !m.role || m.role === role || m.role === 'self')")
     expect(read('components/agent/PrivateMemorySnapshot.tsx')).toContain(".eq('role', m.role ?? role)")

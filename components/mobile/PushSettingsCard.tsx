@@ -63,7 +63,7 @@ export default function PushSettingsCard({ live, frameless = false }: { live: bo
         {state?.subscribed && <span className="rounded-full px-2 py-[2px] font-mono text-[10px] font-bold" style={{ background: 'rgba(106,179,68,.12)', color: '#3F7D20' }}>{zh ? '已开' : 'ON'}</span>}
       </div>
       <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
-        {zh ? '只推需要你决定的事和真正新的事；做完的事不推，去活动日志看。' : 'Only things that need your decision and things that are genuinely new. Nothing "done" is pushed — that is what the activity log is for.'}
+        {zh ? '只推需要你决定的事和真正新的事；做完的事不推，在 AI 助理的「待办 · 最近替你办完」和审计页看。' : 'Only things that need your decision and things that are genuinely new. Nothing "done" is pushed — see Recently done for you under To-do, or the audit page.'}
       </p>
       <div className="mt-3 flex gap-1 rounded-full border border-line-divider bg-surface p-1">
         {seg('off', zh ? '关' : 'Off')}

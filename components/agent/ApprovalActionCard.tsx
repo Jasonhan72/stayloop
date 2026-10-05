@@ -141,7 +141,7 @@ export default function ApprovalActionCard({
   }
 
   return (
-    <div data-approval-card className={`rounded-2xl border border-brand bg-white shadow-[0_0_0_1px_rgba(4,120,87,0.22),0_6px_18px_rgba(4,120,87,0.06)] ${compact ? 'p-4' : 'p-6'}`}>
+    <div data-approval-card data-card-id={action.id} tabIndex={-1} className={`rounded-2xl border border-brand bg-white outline-none focus-visible:ring-2 focus-visible:ring-brand shadow-[0_0_0_1px_rgba(4,120,87,0.22),0_6px_18px_rgba(4,120,87,0.06)] ${compact ? 'p-4' : 'p-6'}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-brand">
           {zh ? 'PENDING APPROVAL · 等你确认' : 'PENDING APPROVAL · AWAITING YOU'}
@@ -371,7 +371,7 @@ export function StalledActionRow({
   }
   const btn = 'rounded-lg px-3.5 py-[8px] text-[13px] font-semibold disabled:opacity-60'
   return (
-    <div data-stalled-card className={`rounded-2xl border border-warning/50 bg-warning/5 ${compact ? 'p-3.5' : 'p-5'}`}>
+    <div data-stalled-card data-card-id={action.id} tabIndex={-1} className={`rounded-2xl border border-warning/50 bg-warning/5 outline-none focus-visible:ring-2 focus-visible:ring-brand ${compact ? 'p-3.5' : 'p-5'}`}>
       <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-warning">
         {zh ? '已批准，尚未执行' : 'APPROVED · NOT RUN YET'}
       </div>

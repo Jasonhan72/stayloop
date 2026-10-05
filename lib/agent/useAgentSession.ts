@@ -1154,7 +1154,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       try {
         await sb.from('agent_audit_events').insert({ actor_id: user?.id ?? null, actor_type: 'user', action: 'approval_undone', target_type: 'agent_pending_action', target_id: actionId, metadata: { thread_id: (restored.metadata?.thread_id as string | undefined) ?? null } })
       } catch { /* the reversal itself landed; the audit row is best-effort here */ }
-      // After the audit row exists, so the badges and the activity log re-read the final state.
+      // After the audit row exists, so the badges and the panel re-read the final state.
       notifyPendingChanged()
       return
     }

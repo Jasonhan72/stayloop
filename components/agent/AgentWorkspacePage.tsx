@@ -5,18 +5,24 @@
 // 2026-09-25: "把三个助手页抽成共享组件"; until then the three files were 95%
 // identical and a guard test compared them byte for byte).
 //
-// The assistant IS the screen (user 2026-09-24/25, phone and web): phone —
-// [context strip] + [chat] between the 56px header and the 64px tab bar; lg+ —
-// the Muse web layout: the conversation is the page and the assistant's own
-// panel (avatar · name · status · 活动/待办/记忆) sits beside it, closable. 今日
-// lives on /x/todo, the 租前·租中·租后 rail on /x/progress, recommendations on
-// /x/ideas — nothing sits above the conversation.
-import { useCallback, useEffect, useState } from 'react'
+// The assistant IS the screen (user 2026-09-24/25, phone and web). Regrouped
+// 2026-10-04 (「重新布置…更系统化、更友好」): left = where to go and what you
+// talked about (the icon rail with ＋ 新对话, then the AI chats list — a column
+// from xl, a drawer below), middle = this conversation, right = the AI Agent
+// itself (待办 · 记忆 · 设置; a sheet below lg, opened from the chat head).
+// Each thing appears once. Phone: [context strip] + [chat] between the 56px
+// header and the 64px tab bar. 今日 lives on /x/todo, the 租前·租中·租后 rail on
+// /x/progress — nothing sits above the conversation.
+import { useCallback, useEffect, useRef, useState } from 'react'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
 import AssistantPanel from '@/components/agent/AssistantPanel'
 import ThreadList, { SidebarIcon } from '@/components/agent/ThreadList'
+import AssistantSheet from '@/components/mobile/AssistantSheet'
+import { useMinWidth } from '@/lib/ui/useMinWidth'
+import { useModalA11y } from '@/lib/ui/useModalA11y'
+import { waitingCards } from '@/lib/agent/threadCards'
 import ContextStrip from '@/components/mobile/ContextStrip'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
@@ -75,16 +81,36 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
     try { localStorage.setItem('sl-thread-list', v) } catch { /* private mode */ }
   }, [])
   const [listDrawer, setListDrawer] = useState(false)
+  // Hidden surfaces never mount or fetch (2026-10-04): the list column only from xl, the panel column only from lg.
+  const xlUp = useMinWidth(1280)
+  const lgUp = useMinWidth(1024)
+  // Keyboard focus follows the column (review 2026-10-04): into its search box when it opens, back to
+  // the 「AI 对话」 pill when it closes — it used to drop to <body>.
+  const pillRef = useRef<HTMLButtonElement>(null)
+  const [focusColumn, setFocusColumn] = useState(false)
   const openList = useCallback(() => {
-    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches) setListPref('open')
+    if (xlUp) { setListPref('open'); setFocusColumn(true) }
     else setListDrawer(true)
+  }, [setListPref, xlUp])
+  const closeColumn = useCallback(() => {
+    setListPref('closed')
+    requestAnimationFrame(() => pillRef.current?.focus())
   }, [setListPref])
-  useEffect(() => {
-    if (!listDrawer) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setListDrawer(false) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [listDrawer])
+  const drawerRef = useRef<HTMLDivElement>(null)
+  const closeDrawer = useCallback(() => setListDrawer(false), [])
+  useModalA11y(listDrawer, closeDrawer, drawerRef)
+  // Below lg the chat head opens the same AI Agent panel as a sheet.
+  const [sheetOpen, setSheetOpen] = useState(false)
+  useEffect(() => { if (lgUp) setSheetOpen(false) }, [lgUp])
+  // The panel's 「在这段对话里 ↓」: scroll the chat's own thread (never the page) to the card and focus it.
+  const scrollToCard = useCallback((id: string) => {
+    const thread = document.querySelector<HTMLElement>('[data-chat-thread]')
+    const card = thread?.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(id)}"]`)
+    if (!thread || !card) return
+    const top = card.getBoundingClientRect().top - thread.getBoundingClientRect().top + thread.scrollTop - 16
+    thread.scrollTo({ top, behavior: 'smooth' })
+    card.focus({ preventScroll: true })
+  }, [])
   // The assistant's face: the chosen preset (agent_configs.avatar, mirrored in localStorage) or the role orb.
   const [avatar, setAvatar] = useState<string | null>(null)
   const dbAvatar = data?.agent.avatar ?? null
@@ -114,16 +140,16 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
   // sample card about Sarah Wang's Unit 1207 under it would read as the AI's answer (2026-10-01). The
   // chat, the panel's to-do tab and the reopen pill all read the same list.
   const chatCards = live || !messages.some((m) => m.role === 'user') ? pendingActions : []
-  const pending = chatCards.filter((a) => a.status === 'pending' || a.status === 'approved')
+  const pending = waitingCards(chatCards)
   const pendingCount = pending.length
   const reads = PREVIEW_READS[role]
 
   return (
     <WorkspaceShell role={role} hideAside phoneApp>
       <div className="sl-phone-col flex flex-col md:h-[calc(100vh-66px)] md:flex-row">
-        {live && listPref === 'open' && (
-          <aside className="hidden xl:flex xl:w-[260px] xl:flex-none xl:flex-col xl:border-r xl:border-line-divider" style={{ background: '#F3F8FC' }} aria-label={zh ? '对话列表' : 'Conversations'}>
-            <ThreadList role={role} live={live} currentThreadId={threadId} onOpenThread={openThread} onNewThread={newThread} onClose={() => setListPref('closed')} variant="column" />
+        {live && xlUp && listPref === 'open' && (
+          <aside className="flex w-[248px] flex-none flex-col border-r border-line-divider 2xl:w-[260px]" style={{ background: '#F3F8FC' }} aria-label={zh ? 'AI 对话' : 'AI chats'}>
+            <ThreadList role={role} live={live} currentThreadId={threadId} onOpenThread={openThread} onNewThread={newThread} onClose={closeColumn} variant="column" focusSearch={focusColumn} onFocused={() => setFocusColumn(false)} />
           </aside>
         )}
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -145,14 +171,16 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
           <div className="relative min-h-0 flex-1">
             {live && (
               <button
+                ref={pillRef}
                 type="button"
                 onClick={openList}
-                aria-label={zh ? '查看全部对话' : 'All conversations'}
-                title={zh ? '全部对话' : 'All conversations'}
+                aria-label={zh ? '查看全部 AI 对话' : 'All AI chats'}
+                title={zh ? '全部 AI 对话' : 'All AI chats'}
+                aria-expanded={listDrawer}
                 data-testid="thread-list-toggle"
-                className={`absolute left-3 top-3 z-10 flex h-9 items-center gap-1.5 rounded-full border border-line-divider bg-white px-2.5 text-[12.5px] font-semibold text-body-2 shadow-sm transition hover:border-line-strong hover:text-ink ${listPref === 'open' ? 'xl:hidden' : ''}`}
+                className={`absolute left-3 top-3 z-10 flex h-11 items-center md:h-9 gap-1.5 rounded-full border border-line-divider bg-white px-2.5 text-[12.5px] font-semibold text-body-2 shadow-sm transition hover:border-line-strong hover:text-ink ${listPref === 'open' ? 'xl:hidden' : ''}`}
               >
-                <SidebarIcon /> <span className="hidden sm:inline">{zh ? '对话' : 'Chats'}</span>
+                <SidebarIcon /> <span>{zh ? 'AI 对话' : 'AI chats'}</span>
               </button>
             )}
             <AgentChat
@@ -166,6 +194,7 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
               threadLoading={threadLoading} currentThreadId={threadId} onOpenThread={openThread}
               threadScopedCards={live}
               todoHref={`/${role}/todo`}
+              onOpenAssistant={() => setSheetOpen(true)}
               role={role}
               agentName={shownName}
               status={status}
@@ -183,17 +212,20 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
           </div>
         </div>
         {live && listDrawer && (
-          <div className="fixed inset-0 z-[60] xl:hidden" role="dialog" aria-modal="true" aria-label={zh ? '对话列表' : 'Conversations'}>
-            <button type="button" aria-label={zh ? '关闭' : 'Close'} className="absolute inset-0 bg-black/30" onClick={() => setListDrawer(false)} />
-            <div className="absolute inset-y-0 left-0 flex w-[300px] max-w-[85vw] flex-col shadow-xl" style={{ background: '#F3F8FC' }}>
-              <ThreadList role={role} live={live} currentThreadId={threadId} onOpenThread={openThread} onNewThread={newThread} onClose={() => setListDrawer(false)} variant="drawer" />
+          <div className="fixed inset-0 z-[60] xl:hidden">
+            <button type="button" aria-label={zh ? '关闭' : 'Close'} tabIndex={-1} className="absolute inset-0 bg-black/30" onClick={closeDrawer} />
+            <div ref={drawerRef} role="dialog" aria-modal="true" aria-label={zh ? 'AI 对话' : 'AI chats'} className="absolute inset-y-0 left-0 flex w-[300px] max-w-[85vw] flex-col shadow-xl" style={{ background: '#F3F8FC' }}>
+              <ThreadList role={role} live={live} currentThreadId={threadId} onOpenThread={openThread} onNewThread={newThread} onClose={closeDrawer} variant="drawer" />
             </div>
           </div>
         )}
         {panelOpen && (
-          <aside className="hidden lg:flex lg:w-[360px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider">
-            <AssistantPanel role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onClose={() => setPanelOpen(false)} />
+          <aside className="hidden lg:flex lg:w-[320px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider 2xl:w-[360px]">
+            <AssistantPanel role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} onClose={() => setPanelOpen(false)} visible={lgUp} />
           </aside>
+        )}
+        {sheetOpen && !lgUp && (
+          <AssistantSheet role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} onClose={() => setSheetOpen(false)} />
         )}
       </div>
     </WorkspaceShell>

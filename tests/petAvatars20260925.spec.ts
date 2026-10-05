@@ -75,6 +75,6 @@ describe('pet avatars', () => {
     const chat = read('components/agent/AgentChat.tsx')
     expect(chat).toContain("max-w-full truncate text-[17px] font-medium leading-tight tracking-tight text-ink ${device ? '' : 'md:text-[19px]'}")
     expect(chat).not.toContain('rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold')
-    expect(read('components/agent/AssistantSettings.tsx')).toContain('text-[19px] font-medium tracking-tight text-ink')
+    expect(panel).toContain('truncate text-[17px] font-medium tracking-tight text-ink') // the sheet's compact head (2026-10-04)
   })
 })

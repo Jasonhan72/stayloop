@@ -243,7 +243,7 @@ async function finalizeExecution(
     matter_id: ref.matterId,
     rental_matter_id: rentalMatterId,
     // thread_id = the conversation the card was proposed in (null for cron /
-    // to-do-page cards) — the activity log folds the execution into that row.
+    // to-do-page cards) — the panel's 「最近替你办完」 reopens that conversation.
     metadata: { ...auditMetadata, thread_id: (action.metadata as Record<string, unknown> | null)?.thread_id ?? null },
   })
   if (auditErr) console.error('[agent/execute] audit insert failed:', auditErr.message)

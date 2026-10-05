@@ -26,16 +26,19 @@ describe('conversation list (2026-10-04)', () => {
     expect(filterThreads(rows, '6 套').map((r) => r.id)).toEqual(['a'])
     expect(filterThreads(rows, '  ').length).toBe(2)
   })
-  it('an untitled conversation still has a name', () => {
-    expect(threadLabel({ title: null }, 'zh')).toBe('新对话')
-    expect(threadLabel({ title: '  ' }, 'en')).toBe('New conversation')
+  it('an untitled conversation is named by what it said or when — never 「新对话」 next to the 新对话 button', () => {
+    expect(threadLabel({ title: null, summary: '明白。请直接告诉我需求——是找房还是报修？' }, 'zh')).toBe('明白。请直接告诉我需求——是找房还是报修？')
+    expect(threadLabel({ title: '  ', last_message_at: new Date(2026, 9, 3, 12).toISOString() }, 'zh')).toBe('10月3日的对话')
+    expect(threadLabel({ title: null, last_message_at: new Date(2026, 9, 3, 12).toISOString() }, 'en')).toBe('Chat · Oct 3')
+    expect(threadLabel({ title: null }, 'zh')).not.toBe('新对话')
+    expect(threadLabel({ title: '我要报修：【哪里】', custom_title: '【厨房】水槽漏水' }, 'zh')).toBe('【厨房】水槽漏水') // a typed name is kept as typed
   })
   it('a rename survives saves: it lives in custom_title, which saves never touch', () => {
     const t = fs.readFileSync('lib/agent/threads.ts', 'utf8')
     expect(t).toMatch(/custom_title: v \|\| null/)
     const save = t.slice(t.indexOf('export async function saveThread'), t.indexOf('export async function appendToThread'))
     expect(save).not.toMatch(/custom_title/)
-    expect(t).toMatch(/\(r\.custom_title as string \| null\) \|\| \(r\.title as string \| null\)/)
+    expect(t).toContain('custom_title: (r.custom_title as string | null) ?? null,')
     expect(fs.readFileSync('supabase/migrations/20261004_agent_threads_custom_title.sql', 'utf8')).toMatch(/add column if not exists custom_title/)
   })
   it('the assistant page shows the list: a column from xl, a drawer elsewhere, a toggle in the chat', () => {

@@ -379,7 +379,8 @@ describe('7 · client plumbing', () => {
   })
   it('the badge counts approved-but-not-run cards too', () => {
     expect(read('lib/agent/pendingCount.ts')).toContain(".or('status.eq.pending,and(status.eq.approved,executed_at.is.null)')")
-    expect(read('components/agent/AgentWorkspacePage.tsx')).toContain("a.status === 'pending' || a.status === 'approved'")
+    expect(read('lib/agent/threadCards.ts')).toContain("a.status === 'pending' || a.status === 'approved'")
+    expect(read('components/agent/AgentWorkspacePage.tsx')).toContain('waitingCards(chatCards)')
   })
   it('a viewing never rewrites a question card in place', () => {
     const src = read('app/api/showing-intent/route.ts')

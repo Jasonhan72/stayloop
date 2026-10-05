@@ -1,7 +1,10 @@
 'use client'
 
-// The assistant's own settings — Muse's fourth (fingerprint) tab. Everything
-// here DEFINES the person's one assistant and is its long-term record (user
+// The AI Agent's long-term setup, in two views (2026-10-04 panel regroup):
+// view='settings' is the panel's 设置 tab (persona · style · model · push);
+// view='profile' is the 画像 block at the top of its 记忆 tab. Name and face are
+// changed from the pencil beside the avatar. Everything here DEFINES the
+// person's one AI Agent and is its long-term record (user
 // 2026-09-25: "这里的内容都是定义这个 Agent 的，需要专门和长期的保存，每一项也是需要
 // 可以修改的"): name · avatar · speaking style live on assistant_profiles (one
 // row per account), the answering model on user_model_preferences, push on
@@ -63,14 +66,12 @@ function fmtDate(iso: string | null | undefined, zh: boolean): string {
   return d.toLocaleDateString(zh ? 'zh-CN' : 'en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
-export default function AssistantSettings({ role, name, live, memoryCount, onRename, onOpenMemory }: {
+export default function AssistantSettings({ role, live, view = 'settings' }: {
   role: AgentRole
-  name: string
   live: boolean
-  memoryCount: number
-  /** The name is edited from the pencil beside the avatar; the card's name line opens the same editor. */
-  onRename: () => void
-  onOpenMemory: () => void
+  /** 2026-10-04 panel regroup: 'settings' = the 设置 tab (人设 · 风格 · 模型 · 推送);
+   *  'profile' = the 画像 block at the top of the 记忆 tab (what it has learned about you). */
+  view?: 'settings' | 'profile'
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -90,11 +91,11 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
   const [vibeErr, setVibeErr] = useState<string | null>(null)
   const [personaErr, setPersonaErr] = useState<string | null>(null)
   useEffect(() => {
-    if (!uid) { setVibe(null); setPersona(null); setVibeReady(true); return }
+    if (!uid || view !== 'settings') { setVibe(null); setPersona(null); setVibeReady(true); return }
     let cancelled = false
     readAssistantProfile(supabase).then((p) => { if (!cancelled) { setVibe(p?.vibe ?? null); setPersona(p?.persona ?? null); setVibeReady(true) } })
     return () => { cancelled = true }
-  }, [uid])
+  }, [uid, view])
   // Text the injection filter rejects is never written (it used to be saved as NULL over the
   // stored style / persona while the editor closed as if saved — sweep 2026-10-01): the editor
   // stays open with the reason. Only an explicitly empty draft clears the field.
@@ -123,11 +124,11 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
   const [models, setModels] = useState<TurnModelState | null>(null)
   const [modelSaved, setModelSaved] = useState(false)
   useEffect(() => {
-    if (!uid) { setModels(null); return }
+    if (!uid || view !== 'settings') { setModels(null); return }
     let cancelled = false
     loadTurnModels(uid).then((m) => { if (!cancelled) setModels(m) })
     return () => { cancelled = true }
-  }, [uid])
+  }, [uid, view])
   async function chooseModel(id: string) {
     if (!uid || !models) return
     setModels({ ...models, selected: id })
@@ -138,7 +139,6 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
   // 画像 — the reflection profile (user_memories · role self · key user_model), editable field by field.
   const [profile, setProfile] = useState<{ value: Profile; updated_at: string | null } | null>(null)
   const [profileReady, setProfileReady] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
   const [fieldEditing, setFieldEditing] = useState<Field | null>(null)
   const [fieldDraft, setFieldDraft] = useState('')
   const [fieldBusy, setFieldBusy] = useState(false)
@@ -146,7 +146,7 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
   // Loaded on open and re-read whenever it may have moved underneath the tab: the window
   // regains focus, a turn finished (reflection runs right after one), or another surface wrote memories.
   const loadProfile = useCallback(async (cancelled?: () => boolean) => {
-    if (!uid) { setProfile(null); setProfileReady(true); return }
+    if (!uid || view !== 'profile') { setProfile(null); setProfileReady(true); return }
     const { data } = await supabase
       .from('user_memories')
       .select('value, updated_at')
@@ -159,7 +159,7 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
     const row = data as { value?: unknown; updated_at?: string | null } | null
     setProfile(row ? { value: (row.value && typeof row.value === 'object' ? (row.value as Profile) : {}), updated_at: row.updated_at ?? null } : null)
     setProfileReady(true)
-  }, [uid])
+  }, [uid, view])
   useEffect(() => {
     let cancelled = false
     void loadProfile(() => cancelled)
@@ -249,26 +249,98 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
   const action = 'flex-none rounded-full border border-line-divider bg-white px-2.5 py-1 text-[12px] font-bold text-body-2 transition hover:border-line-strong disabled:opacity-40'
   const eyebrow = 'font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3'
 
+  if (view === 'profile') {
+    return (
+        <section className="rounded-2xl border border-line-divider bg-white p-4" data-testid="assistant-profile">
+          <div className="mb-1.5 text-[13.5px] font-semibold text-ink">{zh ? '画像 · 它对你的理解' : 'Profile · what it understands about you'}</div>
+          {!live ? (
+            <p className="text-[13px] leading-relaxed text-body-3">{zh ? '预览模式没有画像。' : 'Preview mode has no profile.'}</p>
+          ) : !profileReady ? (
+            <p className="text-[13px] text-body-3">{zh ? '读取中…' : 'Loading…'}</p>
+          ) : (
+            <>
+              <p className="text-[12px] leading-relaxed text-body-3">
+                {profile
+                  ? (zh ? '它从对话里自动学到的；你改过的项以你写的为准，之后的自动学习不会覆盖。' : 'Learned from your conversations; anything you edit is kept as written and never overwritten by later learning.')
+                  : (zh ? '还没有自动生成的画像（和它多聊几次就会有）。你也可以现在直接写。' : 'No learned profile yet (a few conversations and it appears). You can also write it yourself now.')}
+              </p>
+              <div className="mt-3 space-y-3">
+                {FIELD_ORDER.map((f) => {
+                  const v = p?.[f]
+                  const list = isList(f)
+                  const items = list ? ((v as string[] | undefined) ?? []) : []
+                  const text = list ? '' : ((v as string | undefined) ?? '')
+                  const owned = !!p?.user_overrides && f in p.user_overrides
+                  const empty = list ? items.length === 0 : !text
+                  return (
+                    <div key={f} data-field={f}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={eyebrow}>{zh ? FIELD_LABEL[f].zh : FIELD_LABEL[f].en}{owned && <span className="ml-1.5 normal-case tracking-normal text-brand-strong">{zh ? '· 你写的' : '· yours'}</span>}</span>
+                        {fieldEditing !== f && (
+                          <span className="flex gap-1">
+                            {owned && <button type="button" disabled={fieldBusy} onClick={() => void releaseField(f)} className="rounded px-1.5 py-[2px] text-[11px] text-body-3 hover:bg-surface-chip hover:text-body">{zh ? '交回自动' : 'Let it learn'}</button>}
+                            <button type="button" disabled={fieldBusy} onClick={() => startField(f)} className="rounded px-1.5 py-[2px] text-[11px] text-body-3 hover:bg-surface-chip hover:text-body">{zh ? '改' : 'Edit'}</button>
+                          </span>
+                        )}
+                      </div>
+                      {fieldEditing === f ? (
+                        <form onSubmit={(e) => { e.preventDefault(); void saveField(f) }} className="mt-1">
+                          <textarea
+                            autoFocus
+                            value={fieldDraft}
+                            rows={list ? 3 : 2}
+                            maxLength={list ? 700 : 160}
+                            onChange={(e) => setFieldDraft(e.target.value)}
+                            placeholder={zh ? FIELD_LABEL[f].hint.zh : FIELD_LABEL[f].hint.en}
+                            aria-label={zh ? FIELD_LABEL[f].zh : FIELD_LABEL[f].en}
+                            className="w-full resize-none rounded-lg border border-line-strong bg-white px-2.5 py-1.5 text-[13px] leading-snug outline-none focus:border-brand"
+                          />
+                          <div className="mt-1 flex gap-1.5">
+                            <button type="submit" disabled={fieldBusy} className="rounded-full px-3 py-1 text-[12px] font-bold text-white disabled:opacity-50" style={{ background: '#1B1B3C' }}>{fieldBusy ? '…' : zh ? '保存' : 'Save'}</button>
+                            <button type="button" onClick={() => { setFieldEditing(null); setFieldErr(null) }} className="rounded-full px-2.5 py-1 text-[12px] font-bold text-body-3">{zh ? '取消' : 'Cancel'}</button>
+                          </div>
+                          {fieldErr && <p role="alert" className="mt-1 text-[12px] text-danger">{fieldErr}</p>}
+                        </form>
+                      ) : empty ? (
+                        <div className="mt-0.5 text-[12.5px] text-body-3">{zh ? '（空）' : '(empty)'}</div>
+                      ) : list ? (
+                        <ul className="mt-0.5 space-y-0.5 text-[13px] leading-snug text-body">{items.map((s, i) => <li key={i}>· {s}</li>)}</ul>
+                      ) : (
+                        <div className="mt-0.5 text-[13px] leading-snug text-body">{text}</div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-3 flex items-center justify-between border-t border-line-soft pt-2">
+                <span className="font-mono text-[10.5px] text-body-3">
+                  {profile
+                    ? (zh ? `更新于 ${fmtDate(latestDate(profile.updated_at, p?.updated_at), zh)}` : `Updated ${fmtDate(latestDate(profile.updated_at, p?.updated_at), zh)}`)
+                    : (zh ? '尚未生成' : 'Not yet')}
+                </span>
+                {profile && <button type="button" onClick={() => void forgetProfile()} className="text-[12px] font-bold text-danger">{zh ? '忘掉画像' : 'Forget'}</button>}
+              </div>
+              {fieldErr && !fieldEditing && <p role="alert" className="mt-1 text-[12px] text-danger">{fieldErr}</p>}
+              <p className="mt-2 text-[11px] text-body-3">{zh ? `画像跨三种身份合成，只在你（${role === 'landlord' ? '房东' : role === 'agent' ? '经纪' : '租客'}或其他身份）与它对话时使用。` : 'One profile across your hats, used only when you talk with it.'}</p>
+            </>
+          )}
+        </section>
+    )
+  }
+
   return (
     <div className="space-y-3" data-testid="assistant-settings">
       {!live ? (
         <div className="rounded-xl bg-surface-chip px-3 py-2 text-[12px] leading-relaxed text-body-3">
-          {zh ? '预览模式 · 登录后这里是你的 AI 助理的长期档案：名字、头像、风格、模型、推送提醒、画像，每一项都能改。' : 'Preview mode · sign in and this is your AI Agent’s long-term record: name, face, style, model, push alerts, profile — every item editable.'}
+          {zh ? '预览模式 · 登录后这里是你的 AI 助理的长期设定：人设、风格、对话模型、推送提醒，每一项都能改。' : 'Preview mode · sign in and this is your AI Agent’s long-term setup: persona, style, model, push alerts — every item editable.'}
         </div>
       ) : (
         <div className="px-1 font-mono text-[10.5px] leading-relaxed text-body-3">{zh ? '长期档案 · 存在你的账号里，跨设备同步 · 这里的每一项都会进入它的每一次思考，每一项都可以改' : 'Long-term record · stored on your account, synced across devices · every item shapes every reply, every item editable'}</div>
       )}
 
       <section className="rounded-2xl bg-surface-chip p-4">
-        {/* Name: the pencil beside the avatar edits it; the name line here opens the same editor. */}
-        <button type="button" onClick={onRename} disabled={!live} title={zh ? '改名' : 'Edit name'} className="group flex items-center gap-1.5 text-left text-[19px] font-medium tracking-tight text-ink disabled:cursor-default">
-          {name}
-          {live && <span className="text-body-3 opacity-0 transition group-hover:opacity-100"><PencilIcon /></span>}
-        </button>
-        <div className="mt-0.5 text-[12.5px] text-body-3">{vibe || (zh ? '还没有设定风格' : 'No style set yet')}</div>
-
         {/* Persona: who it is and how it works — read before every turn, inside the rules. */}
-        <div className={`mt-3.5 ${eyebrow}`}>{zh ? '人设' : 'Persona'}</div>
+        <div className={eyebrow}>{zh ? '人设' : 'Persona'}</div>
         {personaEditing ? (
           <form onSubmit={(e) => { e.preventDefault(); void savePersona() }} className="mt-1.5">
             <textarea
@@ -367,105 +439,10 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
         <PushSettingsCard live={live} frameless />
       </section>
 
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => setProfileOpen((v) => !v)}
-          aria-expanded={profileOpen}
-          className="rounded-2xl p-4 text-left text-white transition hover:brightness-105"
-          style={{ background: 'linear-gradient(135deg,#B84A44 0%,#8E3A36 100%)' }}
-        >
-          <div className="text-[17px] font-extrabold tracking-tight">{zh ? '画像' : 'Profile'}</div>
-          <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-white/75">{zh ? '只有你能看到' : 'Only you can see this'}</div>
-          <div className="mt-6 text-[12px] text-white/90">{zh ? '它对你的理解 · 可改' : 'What it has learned about you · editable'}</div>
-          <div className="mt-0.5 font-mono text-[11px] text-white/75">{!profileReady ? '…' : profile ? fmtDate(latestDate(profile.updated_at, profile.value.updated_at), zh) || (zh ? '已生成' : 'ready') : (zh ? '尚未生成 · 可自己写' : 'not yet · write your own')}</div>
-        </button>
-        <button
-          type="button"
-          onClick={onOpenMemory}
-          className="rounded-2xl p-4 text-left text-white transition hover:brightness-105"
-          style={{ background: 'linear-gradient(135deg,#4F5BD5 0%,#3B45A8 100%)' }}
-        >
-          <div className="text-[17px] font-extrabold tracking-tight">{zh ? '记忆' : 'Memory'}</div>
-          <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-white/75">{zh ? '只有你能看到' : 'Only you can see this'}</div>
-          <div className="mt-6 text-[12px] text-white/90">{zh ? '它记住的事 · 可改可加' : 'What it remembers · edit or add'}</div>
-          <div className="mt-0.5 font-mono text-[11px] text-white/75">{zh ? `${memoryCount} 条 · 查看 →` : `${memoryCount} items · view →`}</div>
-        </button>
-      </div>
-
-      {profileOpen && (
-        <section className="rounded-2xl border border-line-divider bg-white p-4" data-testid="assistant-profile">
-          {!live ? (
-            <p className="text-[13px] leading-relaxed text-body-3">{zh ? '预览模式没有画像。' : 'Preview mode has no profile.'}</p>
-          ) : (
-            <>
-              <p className="text-[12px] leading-relaxed text-body-3">
-                {profile
-                  ? (zh ? '它从对话里自动学到的；你改过的项以你写的为准，之后的自动学习不会覆盖。' : 'Learned from your conversations; anything you edit is kept as written and never overwritten by later learning.')
-                  : (zh ? '还没有自动生成的画像（和它多聊几次就会有）。你也可以现在直接写。' : 'No learned profile yet (a few conversations and it appears). You can also write it yourself now.')}
-              </p>
-              <div className="mt-3 space-y-3">
-                {FIELD_ORDER.map((f) => {
-                  const v = p?.[f]
-                  const list = isList(f)
-                  const items = list ? ((v as string[] | undefined) ?? []) : []
-                  const text = list ? '' : ((v as string | undefined) ?? '')
-                  const owned = !!p?.user_overrides && f in p.user_overrides
-                  const empty = list ? items.length === 0 : !text
-                  return (
-                    <div key={f} data-field={f}>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={eyebrow}>{zh ? FIELD_LABEL[f].zh : FIELD_LABEL[f].en}{owned && <span className="ml-1.5 normal-case tracking-normal text-brand-strong">{zh ? '· 你写的' : '· yours'}</span>}</span>
-                        {fieldEditing !== f && (
-                          <span className="flex gap-1">
-                            {owned && <button type="button" disabled={fieldBusy} onClick={() => void releaseField(f)} className="rounded px-1.5 py-[2px] text-[11px] text-body-3 hover:bg-surface-chip hover:text-body">{zh ? '交回自动' : 'Let it learn'}</button>}
-                            <button type="button" disabled={fieldBusy} onClick={() => startField(f)} className="rounded px-1.5 py-[2px] text-[11px] text-body-3 hover:bg-surface-chip hover:text-body">{zh ? '改' : 'Edit'}</button>
-                          </span>
-                        )}
-                      </div>
-                      {fieldEditing === f ? (
-                        <form onSubmit={(e) => { e.preventDefault(); void saveField(f) }} className="mt-1">
-                          <textarea
-                            autoFocus
-                            value={fieldDraft}
-                            rows={list ? 3 : 2}
-                            maxLength={list ? 700 : 160}
-                            onChange={(e) => setFieldDraft(e.target.value)}
-                            placeholder={zh ? FIELD_LABEL[f].hint.zh : FIELD_LABEL[f].hint.en}
-                            aria-label={zh ? FIELD_LABEL[f].zh : FIELD_LABEL[f].en}
-                            className="w-full resize-none rounded-lg border border-line-strong bg-white px-2.5 py-1.5 text-[13px] leading-snug outline-none focus:border-brand"
-                          />
-                          <div className="mt-1 flex gap-1.5">
-                            <button type="submit" disabled={fieldBusy} className="rounded-full px-3 py-1 text-[12px] font-bold text-white disabled:opacity-50" style={{ background: '#1B1B3C' }}>{fieldBusy ? '…' : zh ? '保存' : 'Save'}</button>
-                            <button type="button" onClick={() => { setFieldEditing(null); setFieldErr(null) }} className="rounded-full px-2.5 py-1 text-[12px] font-bold text-body-3">{zh ? '取消' : 'Cancel'}</button>
-                          </div>
-                          {fieldErr && <p role="alert" className="mt-1 text-[12px] text-danger">{fieldErr}</p>}
-                        </form>
-                      ) : empty ? (
-                        <div className="mt-0.5 text-[12.5px] text-body-3">{zh ? '（空）' : '(empty)'}</div>
-                      ) : list ? (
-                        <ul className="mt-0.5 space-y-0.5 text-[13px] leading-snug text-body">{items.map((s, i) => <li key={i}>· {s}</li>)}</ul>
-                      ) : (
-                        <div className="mt-0.5 text-[13px] leading-snug text-body">{text}</div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="mt-3 flex items-center justify-between border-t border-line-soft pt-2">
-                <span className="font-mono text-[10.5px] text-body-3">
-                  {profile
-                    ? (zh ? `更新于 ${fmtDate(latestDate(profile.updated_at, p?.updated_at), zh)}` : `Updated ${fmtDate(latestDate(profile.updated_at, p?.updated_at), zh)}`)
-                    : (zh ? '尚未生成' : 'Not yet')}
-                </span>
-                {profile && <button type="button" onClick={() => void forgetProfile()} className="text-[12px] font-bold text-danger">{zh ? '忘掉画像' : 'Forget'}</button>}
-              </div>
-              {fieldErr && !fieldEditing && <p role="alert" className="mt-1 text-[12px] text-danger">{fieldErr}</p>}
-              <p className="mt-2 text-[11px] text-body-3">{zh ? `画像跨三种身份合成，只在你（${role === 'landlord' ? '房东' : role === 'agent' ? '经纪' : '租客'}或其他身份）与它对话时使用。` : 'One profile across your hats, used only when you talk with it.'}</p>
-            </>
-          )}
-        </section>
-      )}
+      <p className="px-1 text-[11.5px] leading-relaxed text-body-3">
+        {zh ? '名字和头像：点头像旁的铅笔。' : 'Name and face: the pencil beside the avatar.'}{' '}
+        <a href="/settings" className="font-semibold text-brand-strong">{zh ? '账号与登录方式 → 账号设置' : 'Account and sign-in → Account settings'}</a>
+      </p>
     </div>
   )
 }

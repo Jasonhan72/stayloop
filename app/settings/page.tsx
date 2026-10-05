@@ -309,7 +309,7 @@ function AssistantNameEditor({ zh, user, color, current, onSaved }: { zh: boolea
 }
 
 // The assistant's face (assistant_profiles.avatar). The web panel's pencil does
-// this from lg up; phones reach it here and in the activity sheet (2026-09-27).
+// this from lg up; phones reach it here and in the AI Agent sheet (2026-09-27; sheet since 2026-10-04).
 function AssistantAvatarEditor({ role, zh, user }: { role: WorkspaceRole; zh: boolean; user: any }) {
   const [avatar, setAvatar] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)

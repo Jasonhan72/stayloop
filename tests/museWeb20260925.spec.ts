@@ -6,8 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
-import { actionTypeLabel, activityGroups, activityIcon, buildActivity, fmtRowTime, itemIcon, shortNote, type ThreadItem } from '@/lib/agent/activityLog'
-import type { ThreadListRow } from '@/lib/agent/threads'
+import { fmtRowTime, isOutcomeAction, outcomeHat } from '@/lib/agent/activityLog'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 // Since 2026-09-25 the three routes are thin wrappers around one shared component.
@@ -18,20 +17,24 @@ const routes = ['app/tenant/agent/page.tsx', 'app/landlord/agent/page.tsx', 'app
 describe('icon rail (WorkspaceShell, md+)', () => {
   const shell = read('components/WorkspaceShell.tsx')
   it('is a 64px icon column with hover labels; the labelled 220px sidebar is gone', () => {
-    expect(shell).toContain('hidden md:flex md:w-16 md:flex-none md:flex-col md:items-center')
+    // 2026-10-04: sticky under the header and scrollable on short screens; the hover name is drawn position:fixed so it is not clipped
+    expect(shell).toContain('hidden md:sticky md:top-[66px] md:flex md:h-[calc(100vh-66px)] md:w-16 md:flex-none md:flex-col md:items-center')
     expect(shell).not.toContain('md:w-[220px]')
-    expect(shell).toContain('group-hover:block')
+    expect(shell).toContain('role="tooltip" className="pointer-events-none fixed')
     // Light, like the rest of the screen (user 2026-09-25): surface rail with a hairline, white pill for the active page, navy only on "+"
-    expect(shell).toContain("md:border-r md:border-line-divider md:px-2 md:py-3\"\n      style={{ background: '#F3F8FC' }}")
+    expect(shell).toContain("md:border-r md:border-line-divider md:px-2 md:py-3\"\n      style={{ background: '#F3F8FC', scrollbarWidth: 'none' }}")
     expect(shell).toContain("style={on ? { background: '#FFFFFF', color: '#1B1B3C', boxShadow: '0 1px 2px rgba(27,27,60,0.10)' } : { color: '#6E6E8A' }}")
     const rail = read('components/workspace/rail.tsx')
     expect(rail).toContain("border-t border-line-divider md:hidden\" style={{ background: '#FFFFFF', paddingBottom: 'env(safe-area-inset-bottom)' }}")
     expect(shell + rail).not.toContain("'#c7d2e3'")
   })
   it('carries the four assistant pages (the phone tabs) plus the role pages and settings', () => {
-    for (const k of ['`/${role}/agent`', '`/${role}/todo`', '`/${role}/ideas`', '`/${role}/progress`']) expect(shell).toContain(k)
+    // One definition since 2026-10-04 (assistantItems in rail.tsx), shared by the rail, the phone bar and page titles.
+    const rail = read('components/workspace/rail.tsx')
+    for (const k of ['`/${role}/agent`', '`/${role}/todo`', '`/${role}/ideas`', '`/${role}/progress`']) expect(rail).toContain(k)
+    expect(shell).toContain('const assistant = assistantItems(role)')
     expect(shell).toMatch(/it\.key === 'todo' \? pendingCount : 0/)
-    expect(shell).toContain("const pages = items.filter((it) => it.key !== 'home')")
+    expect(shell).toContain("const pages = items.filter((it) => it.group === 'pages')")
   })
   it('assistant pages get no content padding on md+ (the chat is the page)', () => {
     expect(shell).toContain("phoneApp ? 'sl-phone-pb min-w-0 flex-1 p-0 md:p-0'")
@@ -58,12 +61,13 @@ describe('the conversation is the page', () => {
 
 describe('assistant panel', () => {
   const panel = read('components/agent/AssistantPanel.tsx')
-  it('avatar · name · status, then 活动 / 待办 / 记忆; closable; rename writes the account’s assistant profile (one assistant, 2026-09-25)', () => {
-    // Icon tabs since the Muse round (2026-09-25): the label lives in aria-label / title / hover tooltip
-    expect(panel).toContain("{ key: 'activity', label: zh ? '活动' : 'Activity', icon: <ListIcon />, badge: 0 }")
-    expect(panel).toContain("{ key: 'todo', label: zh ? '待办' : 'To-do', icon: <ShieldIcon />, badge: pending.length }")
+  it('avatar · name, then 待办 / 记忆 / 设置; closable; rename writes the account’s assistant profile (one assistant, 2026-09-25)', () => {
+    // 2026-10-04: three tabs with their names written out; the 活动 tab is gone (conversations live in the AI chats list)
+    expect(panel).toContain("{ key: 'todo', label: zh ? '待办' : 'To-do', icon: <TodoTabIcon />, badge: waiting.length }")
     expect(panel).toContain("{ key: 'memory', label: zh ? '记忆' : 'Memory', icon: <MemoryIcon />, badge: 0 }")
-    expect(panel).toContain('useActivityLog(live, 30, visible)')
+    expect(panel).toContain("{ key: 'settings', label: zh ? '设置' : 'Settings', icon: <SlidersIcon />, badge: 0 }")
+    expect(panel).not.toContain("key: 'activity'")
+    expect(panel).toContain('useRecentOutcomes(live, role, visible)')
     expect(panel).toContain('await saveAssistantName(supabase, auth.user.id, next)')
     expect(panel).not.toContain("from('agent_configs')")
     expect(panel).toContain('onClick={onClose}')
@@ -75,16 +79,19 @@ describe('assistant panel', () => {
     expect(hook).toContain("localStorage.getItem(KEY) === 'closed'")
     expect(hook).toContain("const KEY = 'sl-assistant-panel'")
   })
-  it('the log skips session bookkeeping, labels every production action, and /agent/audit exists for the link', async () => {
-    expect(read('lib/agent/useActivityLog.ts')).toContain(".not('action', 'ilike', '%session%')")
+  it('「最近替你办完」 lists only outcomes, labels every production action, and /agent/audit exists for the link', async () => {
+    const log = read('lib/agent/useActivityLog.ts')
+    expect(log).toContain('if (!isOutcomeAction(r.action)) return false')
+    expect(log).toContain('.or(`action.like.executed_%,action.in.(${OUTCOME_EVENTS.join(\',\')})`)') // in SQL, before the limit
     const { auditActionLabel } = await import('@/lib/agent/ideas')
     for (const a of ['tenant_agent_turn', 'pending_action_approved', 'work_order_auto_dispatched', 'application_file_viewed', 'lease_signed_tenant', 'executed_send_decision']) expect(auditActionLabel(a, 'zh'), a).toMatch(/[一-龥]/)
     expect(read('app/agent/audit/page.tsx')).toContain('<AuditLog role="agent" />')
   })
-  it('the phone sheet and the web panel read the same log', () => {
-    const sheet = read('components/mobile/ActivitySheet.tsx')
-    expect(sheet).toContain('useActivityLog(live, 20)')
-    expect(sheet).not.toContain("from('agent_audit_events')")
+  it('the phone sheet IS the web panel (2026-10-04): the old activity sheet is gone', () => {
+    expect(existsSync('components/mobile/ActivitySheet.tsx')).toBe(false)
+    const sheet = read('components/mobile/AssistantSheet.tsx')
+    expect(sheet).toContain('<AssistantPanel {...props} variant="sheet" visible />')
+    expect(sheet).toContain('useModalA11y(true, props.onClose, box)')
   })
 })
 
@@ -94,7 +101,7 @@ describe('three role pages, one layout', () => {
       const s = read(p)
       expect(s, p).toMatch(/<AgentChat\s+hero\s+phoneFill/)
       expect(s, p).toContain('<AssistantPanel role=')
-      expect(s, p).toContain('hidden lg:flex lg:w-[360px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider')
+      expect(s, p).toContain('hidden lg:flex lg:w-[320px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider 2xl:w-[360px]')
       expect(s, p).toContain('useAssistantPanel()')
       for (const gone of ['<TodayCard', '<LifecycleRail', 'StatusOverview', 'RecommendationDeck', 'RelatedPagesCard', 'PendingActionsPanel', 'WorkflowStatusPanel']) expect(s, `${p} still has ${gone}`).not.toContain(gone)
     }
@@ -126,42 +133,18 @@ describe('pure helpers', () => {
     expect(assistantStatusLine({ status: 'result', pendingCount: 0, hasApprovals: true, stageLabel: '租前', memoryCount: 60, zh: true })).toBe('空闲 · 当前阶段 租前 · 记得 60 条')
     expect(assistantStatusLine({ status: 'result', pendingCount: 0, hasApprovals: false, stageLabel: '', memoryCount: 0, zh: false })).toBe('ONLINE · READING YOUR MEMORY')
   })
-  it('activity log: one row per conversation, decisions folded into it, other actions on their own; grouped today / yesterday / earlier', () => {
+  it('row helpers: row time; outcomes only, each under its own hat (2026-10-04, the mixed activity log retired)', () => {
     const now = new Date('2026-09-25T15:00:00-04:00')
-    const thread = (id: string, at: string): ThreadListRow => ({ id, role: 'tenant', title: `t-${id}`, summary: null, turn_count: 2, message_count: 5, created_at: at, updated_at: at, last_message_at: at })
-    const ev = (id: string, iso: string, action: string, thread_id: string | null = null) => ({ id, action, actor_type: 'user', created_at: iso, metadata: thread_id ? { thread_id } : {} })
-    const items = buildActivity(
-      [thread('A', '2026-09-25T14:02:00-04:00'), thread('B', '2026-09-24T22:20:00-04:00'), thread('C', '2026-09-20T09:00:00-04:00')],
-      [
-        ev('e1', '2026-09-25T14:30:00-04:00', 'tenant_agent_turn', 'A'), // a turn is never a row — the conversation is
-        ev('e2', '2026-09-25T14:10:00-04:00', 'pending_action_approved', 'A'), // folded into A
-        ev('e3', '2026-09-25T14:11:00-04:00', 'executed_send_message', 'A'), // folded into A and bumps its time
-        ev('e4', '2026-09-25T09:00:00-04:00', 'pending_action_approved'), // outside any conversation → its own row
-        ev('e5', '2026-09-25T08:00:00-04:00', 'pending_action_rejected', 'ZZZ'), // unknown conversation → its own row
-      ],
-    )
-    expect(items.map((i) => i.id)).toEqual(['t:A', 'a:e4', 'a:e5', 't:B', 't:C'])
-    const a = items[0] as ThreadItem
-    expect([a.approved, a.executed, a.at]).toEqual([1, 1, '2026-09-25T14:11:00-04:00'])
-    expect(itemIcon(a)).toBe('✓')
-    expect(itemIcon(items[3])).toBe('💬')
-    const g = activityGroups(items, 'zh', now)
-    expect(g.map((x) => [x.label, x.rows.map((r) => r.id)])).toEqual([['今天', ['t:A', 'a:e4', 'a:e5']], ['昨天', ['t:B']], ['更早', ['t:C']]])
-    // the note line: first sentence (two when the first is a stub), ≤ 64 chars; time is HH:MM inside today / yesterday
-    expect(shortNote('⚠️ 批准已记录，但我不知道该发给哪位房东：你的账号上还没有已确认的在管租约。先在「租约」里接受邀请。')).toBe('⚠️ 批准已记录，但我不知道该发给哪位房东：你的账号上还没有已确认的在管租约。')
-    expect(shortNote('好的。我先查一下多大附近的两居室，稍等。')).toBe('好的。我先查一下多大附近的两居室，稍等。')
-    expect(shortNote('x'.repeat(100))).toHaveLength(64)
-    expect(shortNote('   ')).toBeNull()
+    expect(isOutcomeAction('executed_send_message')).toBe(true)
+    expect(isOutcomeAction('tenant_agent_turn')).toBe(false)
+    expect(isOutcomeAction('delegation_confirmed')).toBe(false) // the person's own action, not something done for them
+    expect(outcomeHat('executed_send_decision', null)).toBe('landlord')
+    expect(outcomeHat('executed_maintenance_request', null)).toBe('tenant')
+    expect(outcomeHat('executed_send_message', null)).toBeNull()
+    expect(outcomeHat('executed_send_message', 'agent')).toBe('agent')
     expect(fmtRowTime('2026-09-25T14:02:00-04:00', 'zh', now)).toBe('14:02')
     expect(fmtRowTime('2026-09-24T22:20:00-04:00', 'zh', now)).toBe('22:20')
     expect(fmtRowTime('2026-09-20T09:05:00-04:00', 'zh', now)).toMatch(/9月20日 09:05/)
-    expect(actionTypeLabel('send_renewal_letter', 'zh')).toBe('续约函')
-    expect(actionTypeLabel('something_new', 'en')).toBe('something new')
-    expect(activityIcon('executed_send_message')).toBe('✓')
-    expect(activityIcon('memory_forgotten')).toBe('🧠')
-    expect(activityIcon('approval_undone')).toBe('↩')
-    expect(activityIcon('turn')).toBe('💬')
-    expect(activityIcon('tenant_agent_turn')).toBe('💬')
   })
 })
 
@@ -175,10 +158,10 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
   })
   it('no role marker anywhere around the assistant — rail, panel head, chat header, reopen pill, homepage card (user 2026-09-25, final round); hats switch in the Header menu only', () => {
     const shell = read('components/WorkspaceShell.tsx')
-    const rail = shell.slice(shell.indexOf('aria-label={en ? \'New conversation\' : \'新会话\'}'), shell.indexOf('{assistant.map((it) => link(it'))
+    const rail = shell.slice(shell.indexOf('aria-label={en ? \'New chat\' : \'新对话\'}'), shell.indexOf('{assistant.map((it) => link(it'))
     expect(rail).not.toContain('ROLE_LABEL[role]')
     expect(shell).not.toContain('RoleBadge')
-    expect(shell).toContain('<div className="mt-auto" />\n      {link(settingsItem)}')
+    expect(shell).toContain('<div className="mt-auto" />\n      {records.map((it) => link(it))}\n      {link(settingsItem)}')
     expect(existsSync('components/agent/HatChip.tsx')).toBe(false)
     for (const f of ['components/agent/AssistantPanel.tsx', 'components/agent/AgentChat.tsx', 'components/agent/AgentWorkspacePage.tsx', 'components/home/HomeNext.tsx']) {
       expect(read(f), f).not.toMatch(/HatChip|hatChip|HAT_LABEL|onHatSwitch/)
@@ -217,24 +200,12 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     expect(hook).toContain('threadId: tid,')
     expect(hook).toContain('const created = await createThread(client, uid, role, legacy)') // one-time migration of the localStorage history
     expect(hook).toMatch(/return \{ [^}]*threadId, threadLoading, newThread, openThread \}/)
-    const panel = read('components/agent/AssistantPanel.tsx')
-    expect(panel).toContain('await onOpenThread(it.threadId)')
-    expect(panel).toContain('onClick={() => void openItem(it)}')
-    // Rows read like Muse's (user, third round: "要有时间，要有标题和简短的注释"): title · one short note · time
-    for (const f of ['components/agent/AssistantPanel.tsx', 'components/mobile/ActivitySheet.tsx']) {
-      const c = read(f)
-      // title in a heavier weight, like Muse's activity rows (user 2026-09-27); the note stays light
-      expect(c, f).toContain('<span className="min-w-0 flex-1 truncate text-[14px] font-semibold leading-snug text-ink">{label}</span>')
-      expect(c, f).toContain('{note && <span className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-body-3">{note}</span>}')
-      expect(c, f).toContain('{fmtRowTime(it.at, lang)}')
-      expect(c, f).not.toContain('line-clamp-2 block') // display:block cancels the clamp — that was the wall of text the user saw
-    }
-    // Later the same day (user: "不是记录每一条消息，是记录每一个对话"): the log
-    // reads conversations, not turn events, and every decision carries the
-    // conversation it was taken in so the log can fold it into that row.
-    const log = read('lib/agent/useActivityLog.ts')
-    expect(log).toContain('listThreads(supabase, limit)') // every hat's conversations in one log (2026-09-25)
-    expect(log).toContain(".not('action', 'ilike', '%turn')")
+    // Since 2026-10-04 the AI chats list (ThreadList) is the one place conversations are listed:
+    // title · time · one short note, a row reopens the conversation.
+    const list = read('components/agent/ThreadList.tsx')
+    expect(list).toContain('onClick={() => open(t)}')
+    expect(list).toContain('{fmtRowTime(threadAt(t), lang)}')
+    expect(list).toContain('{note && <span className="mt-0.5 block truncate text-[12px] leading-snug text-body-3">{note}</span>}')
     const threads = read('lib/agent/threads.ts')
     expect(threads).toContain('summary: threadSummary(messages), turn_count: userTurns(messages)')
     expect(threads).not.toContain('export async function threadAt')

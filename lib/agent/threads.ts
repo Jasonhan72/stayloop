@@ -10,8 +10,8 @@ export const MAX_STORED_MESSAGES = 300
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export type ThreadRow = { id: string; title: string | null; messages: ChatMessage[]; created_at: string; updated_at: string }
-/** A conversation as the activity log lists it — no messages, just what it amounted to. */
-export type ThreadListRow = { id: string; role: string; title: string | null; summary: string | null; turn_count: number; message_count: number; created_at: string; updated_at: string; last_message_at: string | null }
+/** A conversation as the AI chats list shows it — no messages, just what it amounted to. */
+export type ThreadListRow = { id: string; role: string; title: string | null; /** The name the user gave it (the list's ⋯ → 重命名); shown as typed. */ custom_title?: string | null; summary: string | null; turn_count: number; message_count: number; created_at: string; updated_at: string; last_message_at: string | null }
 
 export function stripForStorage(messages: ChatMessage[]): ChatMessage[] {
   return messages.slice(-MAX_STORED_MESSAGES).map((m) => ({
@@ -27,7 +27,7 @@ export function threadTitle(messages: ChatMessage[]): string | null {
 }
 
 /** What the conversation amounted to: the assistant's last reply, flattened
- *  to one line (≤ 240 chars). The activity log shows it under the title, the
+ *  to one line (≤ 240 chars). The AI chats list shows it under the title, the
  *  way Muse lists each chat with its outcome (user 2026-09-25: the log is
  *  one row per conversation, not per message). */
 export function threadSummary(messages: ChatMessage[]): string | null {
@@ -97,20 +97,22 @@ export async function appendToThread(client: SupabaseClient, id: string, extra: 
   await saveThread(client, id, [...t.messages, ...extra])
 }
 
-/** The user's conversations under every hat, newest first — the activity log's
+/** The user's conversations under every hat, newest first — the AI chats list's
  *  rows (one assistant per account, 2026-09-25; `role` says which hat a
  *  conversation ran under, so the log can reopen it on that hat's page). */
 export async function listThreads(client: SupabaseClient, limit = 30): Promise<ThreadListRow[]> {
   const { data } = await client
     .from('agent_threads')
     .select('id, role, title, custom_title, summary, turn_count, message_count, created_at, updated_at, last_message_at')
+    // Same order the list shows (last message first), so the cut at `limit` drops the oldest.
+    .order('last_message_at', { ascending: false, nullsFirst: false })
     .order('updated_at', { ascending: false })
     .limit(limit)
   return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
     id: String(r.id),
     role: String(r.role),
-    // A name the user gave the conversation wins over the auto title (2026-10-04).
-    title: ((r.custom_title as string | null) || (r.title as string | null)) ?? null,
+    title: (r.title as string | null) ?? null,
+    custom_title: (r.custom_title as string | null) ?? null,
     summary: (r.summary as string | null) ?? null,
     turn_count: Number(r.turn_count ?? 0),
     message_count: Number(r.message_count ?? 0),

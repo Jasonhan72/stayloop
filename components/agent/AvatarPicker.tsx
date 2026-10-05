@@ -1,7 +1,7 @@
 'use client'
 
 // The assistant's face picker (2026-09-27): one grid for the web panel's pencil,
-// the phone activity sheet and /settings — twenty plush pets + twenty young
+// the phone AI Agent sheet and /settings — twenty plush pets + twenty young
 // people (2026-09-25), five to a row, the two groups labelled, the grid
 // scrolling inside its box. The caller persists the choice
 // (assistant_profiles.avatar + localStorage); this only shows and picks.

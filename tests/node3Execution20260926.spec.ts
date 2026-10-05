@@ -186,7 +186,6 @@ describe('the provider workbench and history', () => {
     expect(read('components/marketplace/DispatchPolicyCard.tsx')).toContain('data-testid="quote-hours"')
   })
   it('the new codes have human labels everywhere they can appear', () => {
-    expect(read('lib/agent/activityLog.ts')).toContain('work_order_overdue:')
     const ideas = read('lib/agent/ideas.ts')
     for (const k of ['work_order_quote_overdue', 'executed_work_order_overdue', 'credential_expiry_reminder']) expect(ideas).toContain(`${k}:`)
     expect(read('components/marketplace/WorkOrderCard.tsx')).toContain('quote_overdue:')

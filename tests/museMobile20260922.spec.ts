@@ -55,9 +55,11 @@ describe('phone workspace wiring', () => {
   const chat = readFileSync('components/agent/AgentChat.tsx', 'utf8')
   it('five phone tabs (助手 · 待办 · 想法 · 进度 · 更多) with a pending badge; desktop rail unchanged', () => {
     expect(rail).toMatch(/export function PhoneTabs/)
-    for (const k of ["key: 'agent'", "key: 'todo'", "key: 'ideas'", "key: 'progress'"]) expect(rail).toContain(k)
-    expect(rail).toMatch(/badge: pendingCount/)
-    expect(shell).toMatch(/hidden md:flex md:w-16/)
+    // One definition of the four pages (assistantItems, 2026-10-04); the phone bar maps it.
+    for (const k of ["key: 'assistant'", "key: 'todo'", "key: 'ideas'", "key: 'progress'"]) expect(rail).toContain(k)
+    expect(rail).toContain("key: it.key === 'assistant' ? 'agent' : it.key")
+    expect(rail).toMatch(/badge: it\.key === 'todo' \? pendingCount : undefined/)
+    expect(shell).toMatch(/hidden md:sticky md:top-\[66px\] md:flex [^"]*md:w-16/)
   })
   it('one bottom bar per phone: signed in, the public pages mount the same workbench bar (with 房源 in its 更多 sheet); visitors keep 助手 · 房源 · 筛查 · 登录 (user 2026-09-25)', () => {
     const pub = readFileSync('components/MobileBottomNav.tsx', 'utf8')
@@ -69,7 +71,7 @@ describe('phone workspace wiring', () => {
   })
   it('agent tabs stay open before RECO verification', () => {
     // agent tabs stay open before RECO verification
-    expect(shell).toMatch(/\(agent\|verify\|todo\|ideas\|progress\)/)
+    expect(shell).toMatch(/\(agent\|verify\|todo\|ideas\|progress\|audit\)/)
   })
   it('routes exist for all three roles', () => {
     for (const r of ['tenant', 'landlord', 'agent']) for (const p of ['todo', 'ideas', 'progress']) expect(existsSync(`app/${r}/${p}/page.tsx`), `${r}/${p}`).toBe(true)
@@ -77,7 +79,7 @@ describe('phone workspace wiring', () => {
   it('approvals render inside the thread below lg and the status line is real', () => {
     expect(chat).toMatch(/pendingActions\?: PendingAction\[\]/)
     expect(chat).toContain("space-y-3 ${hero ? '' : 'lg:hidden'}")
-    expect(chat).toMatch(/ActivitySheet/)
+    expect(chat).toMatch(/onOpenAssistant\?: \(\) => void/) // the chat head opens the AI Agent sheet (2026-10-04)
     expect(readFileSync('lib/agent/statusLine.ts', 'utf8')).toMatch(/Waiting on you/) // status line shared with the web panel (2026-09-25)
     // legacy decorative line only when the chat is used without a session (homepage)
     expect(readFileSync('lib/agent/statusLine.ts', 'utf8')).toMatch(/if \(!hasApprovals\) return zh \? '在线 · 读取你的记忆'/) // status line shared with the web panel (2026-09-25)
@@ -86,7 +88,8 @@ describe('phone workspace wiring', () => {
     // one shared component behind the three routes (user 2026-09-25)
     const s = readFileSync('components/agent/AgentWorkspacePage.tsx', 'utf8')
     expect(s).not.toMatch(/PendingActionsPanel/)
-    expect(s).toMatch(/hidden lg:flex lg:w-\[360px\]/)
+    expect(s).toMatch(/hidden lg:flex lg:w-\[320px\]/)
+    expect(s).toContain('<AssistantSheet ')
     expect(s).toMatch(/pendingActions=\{chatCards\}/) // preview hides demo cards once the visitor asks (2026-10-01)
   })
   it('memories are editable only for live sessions and leave audit events', () => {

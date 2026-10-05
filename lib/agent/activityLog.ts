@@ -1,104 +1,33 @@
-// Pure helpers for the assistant's activity log. The log lists conversations
-// — one row per agent_threads row (user 2026-09-25: "不是记录每一条消息，是
-// 记录每一个对话", after the Muse web panel where every row is a chat with its
-// outcome) — with the decisions taken inside a conversation folded into its
-// row, plus the actions that happened outside any conversation (a card
-// approved on the to-do page, a work order). No Supabase import here so tests
-// and server code can use them; the browser hook lives in ./useActivityLog.ts.
+// Pure helpers for the AI Agent panel's 「最近替你办完」 and the AI chats list
+// rows (2026-10-04: the mixed activity log — conversations plus audit rows —
+// was retired; conversations are listed by ThreadList, outcomes by the panel's
+// 待办 tab, everything else on the audit page). No Supabase import here so
+// tests and server code can use them; the browser hook lives in ./useActivityLog.ts.
 import type { Lang } from '@/lib/i18n'
-import type { ThreadListRow } from './threads'
-
-export type ActivityRow = { id: string; action: string; actor_type: string; created_at: string; metadata: Record<string, unknown> | null }
-
-export type ThreadItem = {
-  kind: 'thread'
-  id: string
-  threadId: string
-  /** The hat the conversation ran under — it reopens on that hat's page. */
-  role: string
-  title: string | null
-  summary: string | null
-  turns: number
-  at: string
-  approved: number
-  rejected: number
-  executed: number
-  undone: number
-}
-export type ActionItem = { kind: 'action'; id: string; threadId: string | null; action: string; actor_type: string; at: string; metadata: Record<string, unknown> | null }
-export type ActivityItem = ThreadItem | ActionItem
-
-/** A turn is a message inside a conversation — the conversation row stands for it. */
-export const isTurnAction = (action: string): boolean => /(^|_)turn$/.test(action)
-
-const threadIdOf = (r: ActivityRow): string | null => (typeof r.metadata?.thread_id === 'string' ? (r.metadata.thread_id as string) : null)
-const ts = (iso: string): number => Date.parse(iso) || 0
-
-/** Conversations first-class; decisions with a thread_id fold into their
- *  conversation (counts + the row's time); everything else stays its own row.
- *  Newest first. */
-export function buildActivity(threads: ThreadListRow[], events: ActivityRow[]): ActivityItem[] {
-  const byThread = new Map<string, ThreadItem>()
-  for (const t of threads) {
-    byThread.set(t.id, {
-      kind: 'thread', id: `t:${t.id}`, threadId: t.id, role: t.role, title: t.title, summary: t.summary, turns: t.turn_count,
-      at: t.last_message_at ?? t.updated_at, approved: 0, rejected: 0, executed: 0, undone: 0,
-    })
-  }
-  const items: ActivityItem[] = [...byThread.values()]
-  for (const e of events) {
-    if (isTurnAction(e.action)) continue
-    const tid = threadIdOf(e)
-    const t = tid ? byThread.get(tid) : undefined
-    if (t) {
-      if (isNotDoneAction(e.action)) { /* nothing ran — not an execution */ }
-      else if (/^executed_|^work_order_/.test(e.action)) t.executed++
-      else if (e.action === 'approval_undone' || e.action === 'approval_abandoned') t.undone++
-      else if (/_rejected$/.test(e.action)) t.rejected++
-      else if (/_approved$/.test(e.action)) t.approved++
-      if (ts(e.created_at) > ts(t.at)) t.at = e.created_at
-      continue
-    }
-    items.push({ kind: 'action', id: `a:${e.id}`, threadId: tid, action: e.action, actor_type: e.actor_type, at: e.created_at, metadata: e.metadata })
-  }
-  return items.sort((a, b) => ts(b.at) - ts(a.at))
-}
-
-/** Today / Yesterday / Earlier, in that order, empty groups dropped (Muse web reference). */
-export function activityGroups<T extends { at: string }>(items: T[], lang: Lang, now = new Date()): { key: 'today' | 'yesterday' | 'earlier'; label: string; rows: T[] }[] {
-  const today = now.toDateString()
-  const yesterday = new Date(now.getTime() - 86_400_000).toDateString()
-  const g: Record<'today' | 'yesterday' | 'earlier', T[]> = { today: [], yesterday: [], earlier: [] }
-  for (const r of items) {
-    const d = new Date(r.at).toDateString()
-    g[d === today ? 'today' : d === yesterday ? 'yesterday' : 'earlier'].push(r)
-  }
-  const label = { today: lang === 'zh' ? '今天' : 'Today', yesterday: lang === 'zh' ? '昨天' : 'Yesterday', earlier: lang === 'zh' ? '更早' : 'Earlier' }
-  return (['today', 'yesterday', 'earlier'] as const).filter((k) => g[k].length).map((k) => ({ key: k, label: label[k], rows: g[k] }))
-}
 
 /** Events that say something did NOT happen (sweep 2026-10-01): never drawn or counted as done. */
 const NOT_DONE = new Set(['work_order_dispatch_no_candidate'])
 export const isNotDoneAction = (action: string): boolean => NOT_DONE.has(action)
 
-/** A glyph per action family — the log should scan by shape, not by reading every line. */
-export function activityIcon(action: string): string {
-  if (isNotDoneAction(action)) return '⚠'
-  if (/^executed_|^work_order_/.test(action)) return '✓'
-  if (/^approval_undone|^approval_abandoned|_rejected$|^rejected/.test(action)) return '↩'
-  if (/^approval|_approved$/.test(action)) return '✓'
-  if (/memory/.test(action)) return '🧠'
-  if (/listing|search/.test(action)) return '🔎'
-  if (/message|notified|sent|email/.test(action)) return '✉'
-  if (/file|document|screen/.test(action)) return '📄'
-  if (/(^|_)turn$/.test(action)) return '💬'
-  return '·'
+/** Executions that are only an acknowledgement or a bookkeeping flag — not something it did for you. */
+export const NOT_AN_OUTCOME = ['executed_claim_in_reply', 'executed_renewal_checkpoint', 'executed_relist_prompt'] as const
+/** System events that finished something for the person (their own actions, e.g. confirming a delegation, are not listed). */
+export const OUTCOME_EVENTS = ['work_order_auto_dispatched', 'work_order_quote_auto_approved', 'household_created_from_esign'] as const
+/** Things it actually finished for you — the panel's 「最近替你办完」 (2026-10-04). Bookkeeping (a new avatar,
+ *  file views, exports, memory edits), acknowledgements and non-events stay on the audit page. */
+export function isOutcomeAction(action: string): boolean {
+  if (isNotDoneAction(action) || (NOT_AN_OUTCOME as readonly string[]).includes(action)) return false
+  return /^executed_/.test(action) || (OUTCOME_EVENTS as readonly string[]).includes(action)
 }
 
-/** A conversation row is a speech bubble until something was carried out in it. */
-export function itemIcon(item: ActivityItem): string {
-  if (item.kind === 'action') return activityIcon(item.action)
-  return item.executed > 0 || item.approved > 0 ? '✓' : '💬'
+// Older audit rows carry no acting_role; the action says whose hat it was done under.
+const LANDLORD_OUTCOMES = /^(executed_(send_decision|send_lease|send_renewal_letter|rent_reminder|showing_request|listing_inquiry|dispatch_work_order|approve_quote|accept_completion|work_order_overdue)|work_order_auto_dispatched|work_order_quote_auto_approved|household_created_from_esign)$/
+/** The hat an outcome belongs to: its acting_role, else what the action implies, else null (shown under every hat). */
+export function outcomeHat(action: string, actingRole: string | null | undefined): string | null {
+  if (actingRole) return actingRole
+  if (LANDLORD_OUTCOMES.test(action)) return 'landlord'
+  if (action === 'executed_maintenance_request') return 'tenant'
+  return null
 }
 
 /** HH:MM inside today / yesterday (the group header already says which day);
@@ -109,53 +38,4 @@ export function fmtRowTime(iso: string, lang: Lang, now = new Date()): string {
   const day = d.toDateString()
   if (day === now.toDateString() || day === new Date(now.getTime() - 86_400_000).toDateString()) return hm
   return `${d.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-CA', { month: 'short', day: 'numeric' })} ${hm}`
-}
-
-/** The short note under a conversation's title (Muse: "Generated 10-page PDF
- *  and saved session notes"): the first sentence of what it amounted to — two
- *  when the first is just "好的。" — capped at `max` chars. */
-export function shortNote(summary: string | null | undefined, max = 64): string | null {
-  const s = (summary ?? '').replace(/\s+/g, ' ').trim()
-  if (!s) return null
-  const END = /[。！？!?]|\.\s/g
-  let cut = -1
-  let m: RegExpExecArray | null
-  while ((m = END.exec(s))) {
-    const end = m.index + m[0].length
-    if (end >= 8) { cut = end; break }
-  }
-  const out = (cut > 0 ? s.slice(0, cut) : s).trim()
-  return out.length > max ? `${out.slice(0, max - 1)}…` : out
-}
-
-const ACTION_TYPE: Record<string, { zh: string; en: string }> = {
-  send_message: { zh: '发一条消息', en: 'Send a message' },
-  send_renewal_letter: { zh: '续约函', en: 'Renewal letter' },
-  rent_reminder: { zh: '租金提醒', en: 'Rent reminder' },
-  renewal_checkpoint: { zh: '续约提醒', en: 'Renewal checkpoint' },
-  relist_prompt: { zh: '重新挂牌提醒', en: 'Relist prompt' },
-  showing_request: { zh: '看房请求', en: 'Showing request' },
-  listing_inquiry: { zh: '房源提问', en: 'Listing inquiry' },
-  send_decision: { zh: '申请决定通知', en: 'Decision notice' },
-  send_lease: { zh: '发送租约', en: 'Send the lease' },
-  maintenance_request: { zh: '报修工单', en: 'Maintenance request' },
-  dispatch_work_order: { zh: '派单', en: 'Dispatch a work order' },
-  approve_quote: { zh: '批准报价', en: 'Approve a quote' },
-  accept_completion: { zh: '验收完工', en: 'Accept completion' },
-  work_order_overdue: { zh: '服务商逾期未报价 · 改派', en: 'Contractor overdue · reassign' },
-  payment_authorization: { zh: '付款授权', en: 'Payment authorization' },
-  publish_listing: { zh: '发布房源', en: 'Publish a listing' },
-}
-/** What kind of card an approval / execution row was about. */
-export function actionTypeLabel(type: string | null | undefined, lang: Lang): string | null {
-  if (!type) return null
-  const hit = ACTION_TYPE[type]
-  return hit ? (lang === 'zh' ? hit.zh : hit.en) : type.replace(/_/g, ' ')
-}
-
-/** The note line: a conversation's outcome, or the card an action was about. */
-export function itemNote(item: ActivityItem, lang: Lang): string | null {
-  if (item.kind === 'thread') return shortNote(item.summary)
-  const t = typeof item.metadata?.action_type === 'string' ? (item.metadata.action_type as string) : null
-  return actionTypeLabel(t, lang)
 }

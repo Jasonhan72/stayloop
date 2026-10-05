@@ -191,7 +191,7 @@ export function buildIdeas(args: {
   return out.slice(0, 8)
 }
 
-/** Human labels for agent_audit_events.action codes shown in the activity sheet. */
+/** Human labels for agent_audit_events.action codes (the audit page and the panel's 「最近替你办完」). */
 export function auditActionLabel(action: string, lang: Lang, metadata?: Record<string, unknown>): string {
   const m = metadata || {}
   const to = typeof m.sent_to === 'string' ? m.sent_to : ''

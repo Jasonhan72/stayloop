@@ -111,8 +111,8 @@ describe('arriving from the ask box', () => {
   it('the preview stops showing demo approval cards once the visitor has asked their own question', () => {
     const page = read('components/agent/AgentWorkspacePage.tsx')
     expect(page).toContain("const chatCards = live || !messages.some((m) => m.role === 'user') ? pendingActions : []")
-    expect(page).toContain("const pending = chatCards.filter(")
-    expect((page.match(/pendingActions=\{chatCards\}/g) ?? []).length).toBe(2) // chat + panel
+    expect(page).toContain("const pending = waitingCards(chatCards)")
+    expect((page.match(/pendingActions=\{chatCards\}/g) ?? []).length).toBe(3) // chat + panel column + phone sheet
   })
 })
 

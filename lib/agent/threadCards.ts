@@ -35,3 +35,9 @@ export function scheduledInThread(entry: { threadId?: string | null }, threadId:
   if (!scoped) return true
   return !!threadId && entry.threadId === threadId
 }
+
+/** Cards waiting on the person: proposed (pending) or approved but not run yet. One count for
+ *  the panel's 待办 tab, the reopen pill and the chat's status line (2026-10-04). */
+export function waitingCards<T extends { status: string }>(cards: readonly T[]): T[] {
+  return cards.filter((a) => a.status === 'pending' || a.status === 'approved')
+}

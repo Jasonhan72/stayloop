@@ -49,6 +49,9 @@ vi.mock('@/lib/useHats', async () => {
   return { ...actual, useHats: () => ({ ...st.hats, refresh: async () => {} }) }
 })
 vi.mock('@/lib/agent/pendingCount', () => ({ fetchPendingCount: async () => 0, PENDING_CHANGED_EVENT: 'x' }))
+vi.mock('@/lib/messages/unread', () => ({ useUnreadMessages: () => 0 }))
+vi.mock('@/components/mobile/AssistantSheet', () => ({ default: () => null }))
+vi.mock('@/components/agent/ThreadList', () => ({ default: () => null, SidebarIcon: () => null }))
 vi.mock('@/components/Header', () => ({ default: () => null }))
 vi.mock('@/components/delegations/RepresentingStrip', () => ({ default: () => null }))
 vi.mock('../components/workspace/rail', async () => {

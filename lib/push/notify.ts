@@ -6,7 +6,7 @@
 //   kind 'event'    — something genuinely new happened that needs no
 //                     decision yet (a new application arrived). Sent at
 //                     'default' only; 'quiet' devices skip it.
-// Nothing "completed" is ever pushed — the activity log is for that.
+// Nothing "completed" is ever pushed — the panel's 「最近替你办完」 and the audit page are for that.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendWebPush, type PushKeys } from './webpush'
 

@@ -2,7 +2,7 @@
 
 import { isRegistrationLive } from '@/lib/agentProfile'
 import RepresentingStrip from '@/components/delegations/RepresentingStrip'
-import { ReactNode, useEffect, useRef, useState } from 'react'
+import React, { ReactNode, useEffect, useRef, useState } from 'react'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -13,7 +13,8 @@ import { LiveRowsProvider, useLiveRowsTotal } from '@/lib/liveRows'
 import { SampleBanner } from './SampleNotice'
 import { supabase } from '@/lib/supabase'
 import { roleStorageKey, useAuth } from '@/lib/useAuth'
-import { BulbIcon, ChatIcon, GearIcon, PhoneTabs, PlusIcon, ProgressIcon, RAIL_BY_ROLE, TodoIcon, type RailItem, type WorkspaceRole } from './workspace/rail'
+import { assistantItems, GearIcon, PhoneTabs, PlusIcon, RAIL_BY_ROLE, type RailItem, type WorkspaceRole } from './workspace/rail'
+import { useUnreadMessages } from '@/lib/messages/unread'
 
 export type { WorkspaceRole } from './workspace/rail'
 
@@ -249,7 +250,7 @@ function isAgentOnlyRoute(path: string): boolean {
   if (!path.startsWith('/agent/')) return false
   // The assistant home, verification, and the phone tabs around the
   // assistant (todo / ideas / progress) stay open before RECO verification.
-  return !/^\/agent\/(agent|verify|todo|ideas|progress)(\/|$)/.test(path)
+  return !/^\/agent\/(agent|verify|todo|ideas|progress|audit)(\/|$)/.test(path)
 }
 function usePathnameSafe(): string { return usePathname() || '' }
 function AgentLockedState({ status, zh }: { status: string; zh: boolean }) {
@@ -329,11 +330,8 @@ const TITLE_EN: Record<string, string> = { maint: 'Maintenance', apps: 'Applicat
 const ROLE_TITLE: Record<WorkspaceRole, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'Tenant' }, landlord: { zh: '房东', en: 'Landlord' }, agent: { zh: '经纪', en: 'Agent' } }
 export function shellPageTitle(role: WorkspaceRole, path: string, zh: boolean): string {
   const items: { key: string; href: string; label: { zh: string; en: string } }[] = [
-    { key: 'assistant', href: `/${role}/agent`, label: { zh: 'AI 助理', en: 'AI Agent' } },
-    { key: 'todo', href: `/${role}/todo`, label: { zh: '待办', en: 'To-do' } },
-    { key: 'ideas', href: `/${role}/ideas`, label: { zh: '想法', en: 'Ideas' } },
-    { key: 'progress', href: `/${role}/progress`, label: { zh: '进度', en: 'Progress' } },
-    ...RAIL_BY_ROLE[role].filter((it) => it.key !== 'home'),
+    ...assistantItems(role),
+    ...RAIL_BY_ROLE[role],
     { key: 'settings', href: '/settings', label: { zh: '设置', en: 'Settings' } },
   ]
   let best: (typeof items)[number] | null = null
@@ -425,37 +423,53 @@ function Rail({ role }: { role: WorkspaceRole }) {
     window.addEventListener(PENDING_CHANGED_EVENT, load)
     return () => { cancelled = true; window.removeEventListener(PENDING_CHANGED_EVENT, load) }
   }, [auth.loading, auth.user, role, path])
-  // md+ (Muse web reference, design/muse-web-blueprint-2026-09.html, user
-  // 2026-09-25 "按蓝本改"): a 64px icon column — light, like the rest of the
-  // screen (user 2026-09-25 "把这个条的颜色改为浅色") — no text labels, the name
-  // appears on hover; the assistant's four pages first (the same four as the
-  // phone tabs, which had no desktop entry before), then the role's pages,
-  // the current hat and settings at the bottom. The labelled 220px sidebar
-  // (09-05) is retired.
-  const assistant: RailItem[] = [
-    { key: 'assistant', href: `/${role}/agent`, icon: <ChatIcon />, label: { zh: 'AI 助理', en: 'AI Agent' }, desc: { zh: '和 AI 助理对话', en: 'Talk to your AI Agent' } },
-    { key: 'todo', href: `/${role}/todo`, icon: <TodoIcon />, label: { zh: '待办', en: 'To-do' }, desc: { zh: '等你点头的', en: 'Waiting on you' } },
-    { key: 'ideas', href: `/${role}/ideas`, icon: <BulbIcon />, label: { zh: '想法', en: 'Ideas' }, desc: { zh: '它可以替你做', en: 'What it can do for you' } },
-    { key: 'progress', href: `/${role}/progress`, icon: <ProgressIcon />, label: { zh: '进度', en: 'Progress' }, desc: { zh: '租前 · 租中 · 租后', en: 'Leasing · Living · Renewal' } },
-  ]
-  const pages = items.filter((it) => it.key !== 'home')
-  const settingsItem: RailItem = { key: 'settings', href: '/settings', icon: <GearIcon />, label: { zh: '设置', en: 'Settings' }, desc: { zh: '账号与设置', en: 'Account and settings' } }
+  // 消息 carries the unread count on the desktop rail too (it only showed on the phone's 更多).
+  const unreadMessages = useUnreadMessages(!auth.loading && !!auth.user)
+  // md+ (Muse web reference, user 2026-09-25): a 64px icon column, light, no
+  // text labels — the name appears on hover / focus (kept on 2026-10-04: 「保持
+  // 只有图标」). Grouped (2026-10-04): ＋ 新对话 · the AI Agent's four pages ·
+  // 消息 · the hat's pages · at the bottom 审计 and 账号设置. One definition of
+  // the four pages (assistantItems) for the rail, the phone bar and page titles.
+  const assistant = assistantItems(role)
+  const inbox = items.filter((it) => it.group === 'inbox')
+  const pages = items.filter((it) => it.group === 'pages')
+  const records = items.filter((it) => it.group === 'records')
+  const settingsItem: RailItem = { key: 'settings', href: '/settings', icon: <GearIcon />, label: { zh: '账号设置', en: 'Account settings' }, desc: { zh: '账号、登录方式、语言、推送', en: 'Account, sign-in, language, notifications' } }
+  // The name (and what the page is for) appears beside the icon on hover / focus. It is drawn
+  // position:fixed so the rail itself can scroll on short screens without clipping it (review
+  // 2026-10-04: the landlord rail is ~700px tall and used to push the whole page into a scroll).
+  const [tip, setTip] = useState<{ label: string; desc?: string; x: number; y: number } | null>(null)
+  const showTip = (el: HTMLElement, label: string, desc?: string) => {
+    const r = el.getBoundingClientRect()
+    setTip({ label, desc, x: r.right + 8, y: r.top + r.height / 2 })
+  }
+  useEffect(() => { setTip(null) }, [path])
+  const tipHandlers = (label: string, desc?: string) => ({
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => showTip(e.currentTarget, label, desc),
+    onMouseLeave: () => setTip(null),
+    onFocus: (e: React.FocusEvent<HTMLElement>) => showTip(e.currentTarget, label, desc),
+    onBlur: () => setTip(null),
+  })
   const link = (it: RailItem, badge = 0) => {
     const on = path === it.href || path.startsWith(it.href + '/')
+    const label = en ? it.label.en : it.label.zh
+    const desc = en ? it.desc.en : it.desc.zh
+    // The badge is part of the name for screen readers (the red dot is drawn aria-hidden).
+    const named = badge > 0 ? (en ? `${label}, ${badge} new` : `${label}，${badge} 条新的`) : label
     return (
       <Link
         key={it.key}
         href={it.href}
-        aria-label={en ? it.label.en : it.label.zh}
+        aria-label={named}
         aria-current={on ? 'page' : undefined}
-        className="group relative flex h-11 w-11 flex-none items-center justify-center rounded-[10px] transition hover:bg-white"
+        {...tipHandlers(label, desc)}
+        className="relative flex h-11 w-11 flex-none items-center justify-center rounded-[10px] transition hover:bg-white"
         style={on ? { background: '#FFFFFF', color: '#1B1B3C', boxShadow: '0 1px 2px rgba(27,27,60,0.10)' } : { color: '#6E6E8A' }}
       >
         {it.icon}
         {badge > 0 && (
-          <span className="absolute right-1 top-1 min-w-[16px] rounded-full px-1 text-center text-[10px] font-extrabold leading-4 text-white" style={{ background: '#EF4444' }}>{badge > 99 ? '99+' : badge}</span>
+          <span aria-hidden className="absolute right-1 top-1 min-w-[16px] rounded-full px-1 text-center text-[10px] font-extrabold leading-4 text-white" style={{ background: '#EF4444' }}>{badge > 99 ? '99+' : badge}</span>
         )}
-        <span className="pointer-events-none absolute left-[52px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-[7px] px-2.5 py-1.5 text-[12px] font-semibold text-white shadow-lg group-hover:block group-focus-visible:block" style={{ background: '#1B1B3C' }}>{en ? it.label.en : it.label.zh}</span>
       </Link>
     )
   }
@@ -463,33 +477,40 @@ function Rail({ role }: { role: WorkspaceRole }) {
     <>
     <PhoneTabs role={role} items={items} />
     <nav
-      className="hidden md:flex md:w-16 md:flex-none md:flex-col md:items-center md:gap-1 md:border-r md:border-line-divider md:px-2 md:py-3"
-      style={{ background: '#F3F8FC' }}
+      className="hidden md:sticky md:top-[66px] md:flex md:h-[calc(100vh-66px)] md:w-16 md:flex-none md:flex-col md:items-center md:gap-0.5 md:self-start md:overflow-y-auto md:border-r md:border-line-divider md:px-2 md:py-3"
+      style={{ background: '#F3F8FC', scrollbarWidth: 'none' }}
       aria-label={en ? 'Workspace' : '工作台'}
     >
-      {/* "+" = new conversation (user 2026-09-25, as on claude.ai): on the
-          assistant page it starts one in place; elsewhere it opens the page
-          with ?new=1. The role avatar that used to sit here is gone, and so
-          is the text label under it — hats switch in the Header's identity
-          menu only (user 2026-09-25, final round: no role marker anywhere
-          around the assistant). */}
+      {/* ＋ 新对话 (user 2026-09-25, as on claude.ai): on the assistant page it starts
+          one in place; elsewhere it opens the page with ?new=1. The only new-chat
+          control beside the AI chats column (2026-10-04). No role marker here —
+          hats switch in the Header's identity menu only (user 2026-09-25). */}
       <Link
         href={`/${role}/agent?new=1`}
         onClick={(e) => { if (path === `/${role}/agent`) { e.preventDefault(); window.dispatchEvent(new Event('sl-new-thread')) } }}
-        aria-label={en ? 'New conversation' : '新会话'}
-        className="group relative flex h-10 w-10 flex-none items-center justify-center rounded-xl text-white transition hover:opacity-90"
+        aria-label={en ? 'New chat' : '新对话'}
+        {...tipHandlers(en ? 'New chat' : '新对话')}
+        className="relative flex h-11 w-11 flex-none items-center justify-center rounded-xl text-white transition hover:opacity-90"
         style={{ background: '#1B1B3C' }}
       >
         <PlusIcon />
-        <span className="pointer-events-none absolute left-[52px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-[7px] px-2.5 py-1.5 text-[12px] font-semibold text-white shadow-lg group-hover:block" style={{ background: '#1B1B3C' }}>{en ? 'New conversation' : '新会话'}</span>
       </Link>
-      <div className="h-2 flex-none" />
+      <div className="h-1.5 flex-none" />
       {assistant.map((it) => link(it, it.key === 'todo' ? pendingCount : 0))}
+      <div className="my-1.5 h-px w-7 flex-none" style={{ background: '#D3E3EF' }} />
+      {inbox.map((it) => link(it, it.key === 'msgs' ? unreadMessages : 0))}
       <div className="my-1.5 h-px w-7 flex-none" style={{ background: '#D3E3EF' }} />
       {pages.map((it) => link(it))}
       <div className="mt-auto" />
+      {records.map((it) => link(it))}
       {link(settingsItem)}
     </nav>
+    {tip && (
+      <span role="tooltip" className="pointer-events-none fixed z-[70] hidden max-w-[260px] -translate-y-1/2 rounded-[8px] px-2.5 py-1.5 text-white shadow-lg md:block" style={{ left: tip.x, top: tip.y, background: '#1B1B3C' }}>
+        <span className="block whitespace-nowrap text-[12px] font-semibold">{tip.label}</span>
+        {tip.desc && <span className="mt-0.5 block text-[11px] leading-snug text-white/75">{tip.desc}</span>}
+      </span>
+    )}
     </>
   )
 }

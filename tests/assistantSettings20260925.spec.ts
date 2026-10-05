@@ -13,16 +13,17 @@ const read = (p: string) => readFileSync(p, 'utf8')
 const wf = { workflow_type: 'tenant_search', workflow_id: null, current_stage: 'intake', completed_steps: [], status: 'active' as const }
 
 describe('assistant panel, Muse round', () => {
-  it('four icon-only tabs, each with aria-label + title + a hover tooltip; dividers between inactive tabs', () => {
+  it('three tabs with their names written out — 待办 · 记忆 · 设置 — a real tablist (2026-10-04, replacing four icon-only tabs)', () => {
     const panel = read('components/agent/AssistantPanel.tsx')
-    expect(panel).toContain("{ key: 'settings', label: zh ? 'AI 助理设置' : 'AI Agent settings', icon: <FingerprintIcon />, badge: 0 }")
-    expect(panel).toContain('aria-label={t.label}')
-    expect(panel).toContain('title={t.label}')
-    expect(panel).toContain('group-hover:block group-focus-visible:block" style={{ background: \'#1B1B3C\' }}>{t.label}</span>')
-    expect(panel).toContain("{i > 0 && seg !== t.key && seg !== TABS[i - 1].key && <span aria-hidden")
-    // the tab button renders the icon, never the label as text
-    expect(panel).not.toMatch(/\{t\.icon\}\s*\{t\.label\}/)
-    for (const icon of ['ListIcon', 'ShieldIcon', 'MemoryIcon', 'FingerprintIcon', 'AvatarIcon', 'PencilIcon']) {
+    expect(panel).toContain("{ key: 'settings', label: zh ? '设置' : 'Settings', icon: <SlidersIcon />, badge: 0 }")
+    expect(panel).toContain('role="tablist" aria-label={zh ? \'AI 助理\' : \'AI Agent\'}')
+    expect(panel).toContain('role="tab"')
+    expect(panel).toContain('aria-selected={tab === t.key}')
+    expect(panel).toContain('tabIndex={tab === t.key ? 0 : -1}')
+    expect(panel).toContain('role="tabpanel"')
+    expect(panel).toMatch(/\{t\.icon\}\s*<span>\{t\.label\}<\/span>/) // the name is visible text, not a tooltip
+    expect(panel).toContain("e.key === 'ArrowRight'")
+    for (const icon of ['MemoryIcon', 'TodoTabIcon', 'SlidersIcon', 'AvatarIcon', 'PencilIcon']) {
       expect(read('components/agent/panelIcons.tsx')).toContain(`export function ${icon}()`)
     }
   })
@@ -31,17 +32,17 @@ describe('assistant panel, Muse round', () => {
     expect(panel).toContain('aria-haspopup="menu"')
     expect(panel).toContain("onClick={() => { setMenu(false); setPicking(true) }} className=\"flex w-full items-center gap-2.5 px-3 py-2 text-[13.5px] font-semibold text-ink transition hover:bg-surface\"><AvatarIcon /> {zh ? '换头像' : 'Change avatar'}")
     expect(panel).toContain("onClick={() => { setMenu(false); setRenaming(true) }} className=\"flex w-full items-center gap-2.5 px-3 py-2 text-[13.5px] font-semibold text-ink transition hover:bg-surface\"><PencilIcon /> {zh ? '改名' : 'Edit name'}")
-    expect(panel).toContain("if (e.key === 'Escape') setMenu(false)")
-    expect(panel).toContain("<AssistantSettings role={role} name={name} live={live} memoryCount={memories.length} onRename={() => setRenaming(true)} onOpenMemory={() => setSeg('memory')} />")
+    expect(panel).toContain("if (e.key === 'Escape') { e.preventDefault(); setMenu(false) }")
+    expect(panel).toContain('<AssistantSettings role={role} live={live} view="settings" />')
+    expect(panel).toContain('<AssistantSettings role={role} live={live} view="profile" />') // 画像 sits at the top of 记忆
   })
-  it('the settings tab: vibe editor (assistant_profiles.vibe), model / notifications edited in place — no avatar row (the pencil does that; the name line opens the same rename) — 画像 and 记忆 cards', () => {
+  it('the settings tab: persona / vibe / model / notifications edited in place — name and face only on the pencil; 画像 is its own view (the 记忆 tab)', () => {
     const s = read('components/agent/AssistantSettings.tsx')
     expect(s).toContain('const ok = await saveAssistantVibe(supabase, uid, next)')
-    expect(s).not.toMatch(/onChangeAvatar|'换头像'/)
-    expect(s).toContain('<button type="button" onClick={onRename} disabled={!live}')
+    expect(s).not.toMatch(/onChangeAvatar|'换头像'|onRename|onOpenMemory/)
     expect(s).toContain('maxLength={VIBE_MAX}')
-    expect(s).toContain("{zh ? '画像' : 'Profile'}")
-    expect(s).toContain("{zh ? '记忆' : 'Memory'}")
+    expect(s).toContain("view?: 'settings' | 'profile'")
+    expect(s).toContain("{zh ? '画像 · 它对你的理解' : 'Profile · what it understands about you'}")
     // the profile card reads the reflection row (role self, key user_model) and forgetting it is audited
     expect(s).toContain("const USER_MODEL_KEY = 'user_model'")
     expect(USER_MODEL_KEY).toBe('user_model')

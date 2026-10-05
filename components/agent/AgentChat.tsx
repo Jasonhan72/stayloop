@@ -15,7 +15,6 @@ import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage, PendingAction
 import ApprovalActionCard, { StalledActionRow } from './ApprovalActionCard'
 import { decidedRowFor, type DecidedRowKind } from '@/lib/agent/chatCopy'
 import type { DecideOutcome } from '@/lib/agent/approval-engine'
-import { ActivitySheet } from '@/components/mobile/ActivitySheet'
 import { WORKFLOW_STAGES, stageIndex } from '@/lib/agent/orchestrator'
 import { LISTINGS_PAGE, nextBatchPrompt, pageListings } from '@/lib/agent/listingPaging'
 import { assistantStatusLine } from '@/lib/agent/statusLine'
@@ -96,6 +95,7 @@ export default function AgentChat({
   device = false,
   threadScopedCards = false,
   todoHref,
+  onOpenAssistant,
 }: {
   role: AgentRole
   agentName: string
@@ -109,7 +109,7 @@ export default function AgentChat({
   fill?: boolean
   // Muse benchmark 2026-09-22 (items B/C). Below lg the approval cards live
   // at the top of the thread; the avatar line shows what the assistant is
-  // doing and opens the activity sheet. Omit all four and the chat renders
+  // doing and opens the AI Agent sheet. Omit all four and the chat renders
   // exactly as before (homepage hero).
   pendingActions?: PendingAction[]
   /** May resolve with what the decision became (useAgentSession.decide); the collapsed line follows it. */
@@ -135,15 +135,17 @@ export default function AgentChat({
   avatar?: string | null
   /** A live thread is being fetched — hold the quick starts until it lands. */
   threadLoading?: boolean
-  /** The open conversation + how to reopen another one — the phone activity sheet's rows are conversations (2026-09-25). */
+  /** The open conversation (approval cards are scoped to it) and how to reopen another one. */
   currentThreadId?: string | null
   onOpenThread?: (id: string) => void | Promise<void>
   /** Signed-in workspace chat: show only this conversation's approval cards (lib/agent/threadCards.ts); the rest get a one-line pointer to `todoHref`. */
   threadScopedCards?: boolean
   todoHref?: string
+  /** The chat head (avatar / status line) opens the AI Agent panel as a sheet below lg (2026-10-04); the page owns it. */
+  onOpenAssistant?: () => void
   /** 'brand' = the signed-in user's one assistant (same face under every hat); 'role' = a demo persona's orb. */
   avatarFallback?: 'role' | 'brand'
-  /** Phone: the activity sheet's pencil changes the avatar / name (2026-09-27); the workspace page owns the state. */
+  /** The workspace page owns the avatar state (the sheet's pencil changes it, 2026-09-27). */
   onAvatarChange?: (key: string | null) => void
   /** With `hero`: the phone layout at EVERY width — the chat sits in a phone-sized
    *  frame on a wide page (the homepage film, 2026-09-28: three people's phones
@@ -163,7 +165,6 @@ export default function AgentChat({
   // still sends the example sentence.
   const [intake, setIntake] = useState<{ spec: IntakeSpec; icon: string } | null>(null)
   const guided = live || hero
-  const [sheet, setSheet] = useState(false)
   // Cards the user decided in this session collapse to one line instead of
   // vanishing (the session hook drops them from pendingActions).
   const [decided, setDecided] = useState<{ id: string; title: string; decision: Decision }[]>([])
@@ -190,9 +191,13 @@ export default function AgentChat({
     const st = WORKFLOW_STAGES[role][stageIndex(role, workflow.current_stage)]
     return st ? st.label[lang] : ''
   })()
-  const accountPending = pending.length + cardsElsewhere.filter((a) => a.status === 'pending').length
+  // Waiting = proposed or approved-not-run, here and in other chats — the same number as the panel's 待办 badge.
+  const accountPending = cardsHere.length + cardsElsewhere.length
   const statusLine = assistantStatusLine({ status, pendingCount: accountPending, hasApprovals: !!pendingActions, stageLabel, memoryCount, zh })
-  const canOpenSheet = !!pendingActions
+  // A session chat (it has approvals) keeps the shadowed avatar and the normal-case status line, as before;
+  // only a page that owns the AI Agent sheet makes the head a button (the homepage film's heads stay still).
+  const sessionChat = !!pendingActions
+  const canOpenSheet = !!onOpenAssistant
   // "↓" appears once the user has scrolled up more than ~160px from the newest
   // message (user 2026-09-25); tapping it returns to the bottom.
   const threadRef = useRef<HTMLDivElement>(null)
@@ -233,18 +238,18 @@ export default function AgentChat({
   }, [messages.length, thinking])
 
   return (
-    <div className={`flex flex-col overflow-hidden bg-white ${hero ? 'h-full' : fill ? 'h-full rounded-2xl border border-line-divider shadow-sm' : phoneFill ? 'h-full md:h-[70vh] md:rounded-2xl md:border md:border-line-divider md:shadow-sm lg:h-full' : canOpenSheet ? 'h-[calc(100dvh-150px)] sm:h-[70vh] sm:rounded-2xl sm:border sm:border-line-divider sm:shadow-sm lg:h-full' : 'h-[70vh] rounded-2xl border border-line-divider shadow-sm lg:h-full'}`}>
+    <div className={`flex flex-col overflow-hidden bg-white ${hero ? 'h-full' : fill ? 'h-full rounded-2xl border border-line-divider shadow-sm' : phoneFill ? 'h-full md:h-[70vh] md:rounded-2xl md:border md:border-line-divider md:shadow-sm lg:h-full' : pendingActions ? 'h-[calc(100dvh-150px)] sm:h-[70vh] sm:rounded-2xl sm:border sm:border-line-divider sm:shadow-sm lg:h-full' : 'h-[70vh] rounded-2xl border border-line-divider shadow-sm lg:h-full'}`}>
       {/* header — centred avatar, name below it, then the status line, on every
           breakpoint (user 2026-09-24: "avatar 放中间，下面放名字", phone and web
           alike). Compact (~80px on phones, ~110px on desktop). Avatar / status
-          open the activity log. */}
+          open the AI Agent sheet (2026-10-04). */}
       <div className={`flex flex-none flex-col items-center px-4 pb-2 pt-3 ${device ? '' : 'md:border-b md:border-line-divider md:px-5 md:pb-3 md:pt-5'} ${hero && !device ? 'lg:hidden' : ''}`}>
         <button
           type="button"
-          onClick={() => canOpenSheet && setSheet(true)}
+          onClick={() => onOpenAssistant?.()}
           disabled={!canOpenSheet}
-          aria-label={canOpenSheet ? (zh ? `${agentName} 的活动日志` : `${agentName}'s activity log`) : undefined}
-          className={`flex-none rounded-full h-11 w-11 ${device ? '' : 'md:h-14 md:w-14'} ${canOpenSheet ? 'shadow-[0_4px_14px_rgba(27,27,60,.16)]' : 'cursor-default'}`}
+          aria-label={canOpenSheet ? (zh ? `打开 AI 助理 ${agentName}` : `Open your AI Agent ${agentName}`) : undefined}
+          className={`flex-none rounded-full h-11 w-11 ${device ? '' : 'md:h-14 md:w-14'} ${sessionChat ? 'shadow-[0_4px_14px_rgba(27,27,60,.16)]' : ''} ${canOpenSheet ? '' : 'cursor-default'}`}
         >
           <AssistantAvatar avatar={avatar} role={role} className="h-full w-full" fallback={avatarFallback} />
         </button>
@@ -255,13 +260,12 @@ export default function AgentChat({
           {/* Plain, medium-weight name like Muse's — no pill (user 2026-09-25). */}
           <div className={`max-w-full truncate text-[17px] font-medium leading-tight tracking-tight text-ink ${device ? '' : 'md:text-[19px]'} mt-2`}>{agentName}</div>
           {/* No hat label by the name (user 2026-09-25, final round: "把所有这里的角色标记都去掉") —
-              hats switch in the Header's identity menu. The status line opens the activity log. */}
-          <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`mt-1 flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
+              hats switch in the Header's identity menu. The status line opens the AI Agent sheet. */}
+          <button type="button" onClick={() => onOpenAssistant?.()} disabled={!canOpenSheet} className={`mt-1 flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${sessionChat ? 'normal-case' : 'uppercase'} ${canOpenSheet ? '' : 'cursor-default'}`}>
               <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: accountPending ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
             </button>
         </div>
       </div>
-      {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} currentThreadId={currentThreadId} onOpenThread={onOpenThread} avatar={avatar} avatarFallback={avatarFallback} onAvatarChange={onAvatarChange} onClose={() => setSheet(false)} />}
 
       {/* thread */}
       <div className="relative flex min-h-0 flex-1 flex-col">
