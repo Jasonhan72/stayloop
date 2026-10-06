@@ -1,6 +1,8 @@
 // Move-in checklist items (proposal 2026-09-23 §3.3, P2). The list is fixed
 // in code; the ticks live in move_in_checklist (one row per household ×
 // item). Items that carry an Ontario fact say so in `note`.
+import { rulesFor } from '@/lib/provinces/rules'
+
 export type Bi = { zh: string; en: string }
 export type MoveInItem = { key: string; group: 'photos' | 'handover' | 'paperwork'; label: Bi; note?: Bi; needsNote?: Bi }
 
@@ -20,9 +22,31 @@ export const MOVE_IN_ITEMS: MoveInItem[] = [
   { key: 'insurance', group: 'paperwork', label: { zh: '租客保险', en: 'Tenant insurance' }, needsNote: { zh: '保险公司 · 到期日', en: 'insurer · expiry' }, note: { zh: '安省法律不强制；若租约要求，请记录保险公司与到期日。这里是自述，房东可见。', en: 'Not required by Ontario law; if the lease requires it, record the insurer and expiry. Self-reported, visible to the landlord.' } },
 ]
 
-export function moveInProgress(rows: { item_key: string; done: boolean }[]): { done: number; total: number } {
+/**
+ * The checklist for a tenancy in `province` (2026-10-06). Ontario = MOVE_IN_ITEMS
+ * unchanged. Elsewhere the three paperwork notes come from that province's
+ * verified facts (lib/provinces/rules): the lease-copy deadline from its lease
+ * form rule (no note when the facts record none), the deposit receipt only where
+ * a deposit may be taken (Quebec allows none — the item is dropped), and the
+ * insurance note without the Ontario sentence.
+ */
+export function moveInItemsFor(province: string | null | undefined): MoveInItem[] {
+  const r = rulesFor(province)
+  if (!r) return MOVE_IN_ITEMS
+  const copy = r.leaseForm.copyDays
+  return MOVE_IN_ITEMS.flatMap((i) => {
+    if (i.key === 'lease_copy') {
+      return [{ ...i, note: copy == null ? undefined : { zh: `须在签约后 ${copy} 天内收到租约副本（${r.leaseForm.cite}）。`, en: `A copy of the lease is due within ${copy} days of signing (${r.leaseForm.cite}).` } }]
+    }
+    if (i.key === 'deposit_receipt') return r.deposit.allowed ? [{ ...i, note: { zh: r.deposit.zh, en: r.deposit.en } }] : []
+    if (i.key === 'insurance') return [{ ...i, note: { zh: '若租约要求，请记录保险公司与到期日。这里是自述，房东可见。', en: 'If the lease requires it, record the insurer and expiry. Self-reported, visible to the landlord.' } }]
+    return [i]
+  })
+}
+
+export function moveInProgress(rows: { item_key: string; done: boolean }[], items: MoveInItem[] = MOVE_IN_ITEMS): { done: number; total: number } {
   const set = new Set(rows.filter((r) => r.done).map((r) => r.item_key))
-  return { done: MOVE_IN_ITEMS.filter((i) => set.has(i.key)).length, total: MOVE_IN_ITEMS.length }
+  return { done: items.filter((i) => set.has(i.key)).length, total: items.length }
 }
 
 /** The checklist is "open" from 30 days before the start date until every item is done. */

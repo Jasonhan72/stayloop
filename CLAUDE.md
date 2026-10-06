@@ -3225,3 +3225,23 @@ Yorkdale-Glen Park、Etobicoke City Centre、Agincourt）+ 密西沙加 / 万锦
 - **去掉 URL 参数一律走 `lib/ui/stripUrlParams.ts`（延后一个任务再 `replaceState`）**：Next 的路由器在自己的 effect 里才接管 `history.replaceState`，而整页加载时页面的挂载 effect 先于它执行——
   那一刻直接 `replaceState(null, …)` 会把 Next 存在历史记录上的状态抹掉，之后按「后退」回到这一条时地址变了、页面不变（审查在本地与生产 `/verify/<token>?returned=1` 上都复现了）。
   `/verify/[token]` 同一写法一并改掉。`app/agent/earnings`（冻结的 Stripe Connect 回跳）与 `app/screening/app`（不动）里的同类写法未改。**以后在挂载 effect 里清参数不要直接调 `history.replaceState`。**
+
+## 外省租约的续约触点与在管租约中心 + 委托到期日扫（2026-10-06 · V0.7）
+
+取代 10-02「外省房源用外省法规」一节里「没做」的第一条（在管租约中心与续约 90/60/30 对外省租约仍是安省逻辑）。守卫 `tests/provinceRenewal20261006.spec.ts`（24 条）、
+`tests/delegationExpiry20261006.spec.ts`；迁移 `20261006_facts_lease_place.sql`、`20261006_delegation_expiry_sweep.sql`（已应用 prod，回滚事务实测）。
+- **租约的省份只有一条链 `lib/provinces/lease.ts leaseProvince`**：关联房源（listings 的 province / address / city / postal_code）> 在管租约地址 > 租约自己的 §2 块
+  （`terms.unit` 的 street / city / postal，PostgREST 选 `unit_place:terms->unit`）> unit_label > 安省。租约详情页、主动扫描（cron 与用户两条路）、续约函执行器、
+  生命周期 rail（两份事实 RPC 每条租约多了 `listing_place` / `unit_place`，仍 SECURITY INVOKER——租客读不到已下架房源时回落到地址）、`/h/[id]` 都用它。
+- **外省续约时机 `lib/provinces/renewal.ts`**：每省一条 `renewalTiming`（房东书面步骤的名称、最晚提前几个月、最早几个月），**数字全部从 `lib/provinces/rules.ts`
+  已核实的事实原文里读出**（守卫逐省正则比对「N 个月」；魁北克 3–6、BC 3 个整月、MB 3、SK 两个月、NS 4、NB 6、PE 3、NL 6、YT/NT/NU 3、阿尔伯塔没有房东步骤）；
+  截止日 = 到期次日往前推整月（`lib/dates.ts utcDateClamped`，与租金账期同一套月末钳制）。卡片 / 邮件 / rail 里说的话只有：步骤一句 + 该省 `rentIncrease` 与 `leaseEnd`
+  事实原文 + 「Stayloop 不代发该省法定通知」。**外省永远不出 `send_renewal_letter`、不出 60 天 N1 卡**：规划器按省走 `notice`（在该省窗口内，魁北克 186 天、NB/NL 216 天，
+  其余 120 天；扫描视野 `SCAN_WINDOW_DAYS` = 216）→ `30d`（有租客邮箱且无意向 = 意向询问邮件，法规句换成该省 `leaseEnd`；否则知悉卡）；最后一个月才进入扫描的租约直接出
+  30 天询问。执行器对外省租约上的安省续约函一律作废（`province_unsupported`，客户端有解释文案）；重新挂牌卡的「租客继续住」一句也按省。
+- **rail**：续约窗口按省宽度；外省时「续约函 A/B」步骤变「续约触点（按该省规则）」，headline 写该省步骤与截止日；租客侧 N9 步骤换成「退租通知（按该省规则）」链到该省审裁机构。
+- **`/h/[id]`**：省份在页面渲染前就定好（租约行与房源一起读）；外省不显示 s.38 月租说法、N9、s.58 持续迟付块、还款计划草稿（它们是安省工具），意向面板的说明换成该省
+  `leaseEnd` 原文；入住清单 `moveInItemsFor(code)`：租约副本期限取该省租约格式规则（无则不写）、不允许押金的省（魁北克）去掉押金收据项、保险项不再写「安省法律不强制」。
+- **委托到期**：`delegation_expiry_sweep()`（SECURITY DEFINER，只 service_role；pg_cron `delegation-expiry-sweep` 每天 13:15 UTC）把 `expires_at` 已过的 active / pending
+  委托置 `expired`，给双方各写一条 `agent_audit_events`（actor_type system、action `delegation_expired`、带 previous_status）。此前只靠查询里的 `expires_at > now()` 判定。
+- **仍未做**：筛查报告对外省申请人仍查安省法院与 LTB（筛查模块不碰）；`/api/v1/listings/compliance` 仍只做安省；页脚「PIPEDA · OHRC · RTA」公司级文案未改。

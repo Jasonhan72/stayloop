@@ -11,6 +11,8 @@
 import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
 import { isLeaseInForce } from '@/lib/matters/states'
 import { n1DeadlineFor } from '@/lib/ontario/rules'
+import { leaseProvince } from '@/lib/provinces/lease'
+import { provinceTouchpoint, provinceWindowDays } from '@/lib/provinces/renewal'
 import { RELIST_LOOKBACK_DAYS, relistHref } from '@/lib/agent/proactiveExtras'
 import { renewalLetterSent, successorLease } from '@/lib/agent/renewalStages'
 import type { AgentRole } from '@/lib/agent/types'
@@ -38,8 +40,14 @@ export type Lifecycle = { role: AgentRole; current: PhaseKey; phases: Phase[]; e
 // ---------------------------------------------------------------------------
 // Facts (all optional so partial loads still render something honest)
 // ---------------------------------------------------------------------------
-export type LeaseFact = { id: string; status: string | null; start_date: string | null; end_date: string | null; unit_label: string | null; tenant_name?: string | null; tenant_email?: string | null; monthly_rent?: number | null; listing_id?: string | null }
-export type HouseholdFact = { id: string; current_lease_id: string | null; verified: boolean | null; status: string | null; end_date: string | null; address?: string | null; unit?: string | null; monthly_rent?: number | null }
+export type LeaseFact = {
+  id: string; status: string | null; start_date: string | null; end_date: string | null; unit_label: string | null
+  tenant_name?: string | null; tenant_email?: string | null; monthly_rent?: number | null; listing_id?: string | null
+  /** Where the lease is (facts RPC 2026-10-06) — lib/provinces/lease turns these plus the household into a province. */
+  listing_place?: { province?: string | null; address?: string | null; city?: string | null; postal_code?: string | null } | null
+  unit_place?: { street?: string | null; city?: string | null; postal?: string | null } | null
+}
+export type HouseholdFact = { id: string; current_lease_id: string | null; verified: boolean | null; status: string | null; end_date: string | null; address?: string | null; unit?: string | null; city?: string | null; monthly_rent?: number | null }
 export type RentFact = { lease_id: string | null; due_date: string; status: string | null; amount?: number | null }
 export type TicketFact = { household_id: string | null; status: string | null }
 export type RenewalCardFact = { lease_id?: string; stage?: string; status: string; action_type: string; executed_at?: string | null; execution_result?: { ok?: unknown } | null }
@@ -74,7 +82,6 @@ export type TenantFacts = {
 }
 export type AgentFacts = { profileStatus: string | null; profileExpiresAt?: string | null; pendingCards: number; clients?: { stage: string; representation_agreement_at: string | null; info_guide_given_at: string | null }[] }
 
-const RENEWAL_WINDOW_DAYS = 120
 // `imported` = a signed lease keyed in from paper (lib/matters/states LEASE_SIGNED_STATUSES).
 const SIGNED = new Set(['signed_both', 'active', 'imported'])
 
@@ -139,13 +146,17 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
   // started yet is 已签待起租 (lib/matters/states, 节点 1 2026-09-26), whatever its end date.
   // A lease already followed by a signed one on the same unit was renewed or re-let —
   // no renewal window for it (same rule as the proactive planner, sweep 2026-10-01).
-  const inWindow = signedLeases.filter((l) => isLeaseInForce(l, today) && l.end_date && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) <= RENEWAL_WINDOW_DAYS && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) >= 0 && !successorLease(l, f.leases))
+  // The window is the lease's province's (lib/provinces/renewal): Ontario 120 days,
+  // Quebec six months, NB / NL seven — the same clock the proactive planner uses, so
+  // the rail and the to-do card agree on when a lease is "in the window".
+  const hhByLeaseId = new Map(f.households.filter((h) => h.current_lease_id).map((h) => [h.current_lease_id as string, h]))
+  const provinceOf = (l: LeaseFact) => leaseProvince({ listing: l.listing_place ?? null, household: hhByLeaseId.get(l.id) ?? null, unit: l.unit_place ?? null, unit_label: l.unit_label })
+  const inWindow = signedLeases.filter((l) => isLeaseInForce(l, today) && l.end_date && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) <= provinceWindowDays(provinceOf(l)) && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) >= 0 && !successorLease(l, f.leases))
   // "退租 → 重新挂牌" only for a term that ended within the lookback window,
   // with no newer signed lease on the same unit and no verified household
   // still attached (a continued tenancy is month-to-month under RTA s.38, not a
   // move-out). Review 2026-09-23: the rail used to stay in 租后 forever.
   const unitKey = (l: LeaseFact) => (l.unit_label || '').trim().toLowerCase()
-  const hhByLeaseId = new Map(f.households.filter((h) => h.current_lease_id).map((h) => [h.current_lease_id as string, h]))
   const ended = f.leases.filter((l) => {
     const end = parseDateOnly(l.end_date)
     if (!end || !SIGNED.has(l.status ?? '') && l.status !== 'ended') return false
@@ -187,9 +198,17 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
     const it = intentFor(l)
     if (it === 'renew' || it === 'leave' || it === 'negotiate') { intentCounts[it] += 1; intentCounts.total += 1 }
   }
+  // Leases outside Ontario (2026-10-06) get no guideline letter and no N1: the
+  // planner proposes that province's own notice card (renewal_checkpoint, stage
+  // `notice`). They stay in the window but out of the letter arithmetic.
+  const inWindowOn = inWindow.filter((l) => provinceOf(l) === 'ON')
+  const inWindowProv = inWindow.filter((l) => provinceOf(l) !== 'ON')
+  const noticeCard = (l: LeaseFact, status?: string) => f.renewalCards.some((c) => c.action_type === 'renewal_checkpoint' && c.stage === 'notice' && c.lease_id === l.id && (status ? c.status === status : c.status !== 'expired'))
+  const provNeedCard = inWindowProv.filter((l) => intentFor(l) !== 'leave')
+  const provPending = provNeedCard.some((l) => noticeCard(l, 'pending'))
   // A tenant who said they are leaving gets no renewal letter (the planner
   // proposes none) — those leases stay in the window, not in the letter step.
-  const needLetter = inWindow.filter((l) => intentFor(l) !== 'leave')
+  const needLetter = inWindowOn.filter((l) => intentFor(l) !== 'leave')
   const letterDetail: Bi | undefined = needLetter.some((l) => renewalPending.has(l.id))
     ? { zh: '有续约函等你批准', en: 'A letter is waiting for your approval' }
     : needLetter.some((l) => renewalRunnable.has(l.id) && !renewalSent.has(l.id))
@@ -242,14 +261,24 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
 
   // ── 租后
   post.steps = [
-    { key: 'window', label: { zh: '续约窗口', en: 'Renewal window' }, state: inWindow.length ? 'current' : signedLeases.length ? 'todo' : 'todo', detail: inWindow.length ? { zh: `${inWindow.length} 份 120 天内到期`, en: `${inWindow.length} ending within 120 days` } : undefined, href: '/landlord/leases' },
-    { key: 'letter', label: { zh: '续约函 A/B', en: 'Renewal letter A/B' }, state: !inWindow.length ? 'todo' : needLetter.every((l) => renewalSent.has(l.id)) ? 'done' : 'current', detail: letterDetail, href: '/landlord/todo' },
+    { key: 'window', label: { zh: '续约窗口', en: 'Renewal window' }, state: inWindow.length ? 'current' : signedLeases.length ? 'todo' : 'todo', detail: !inWindow.length ? undefined : inWindowProv.length ? { zh: `${inWindow.length} 份进入续约窗口`, en: `${inWindow.length} in the renewal window` } : { zh: `${inWindow.length} 份 120 天内到期`, en: `${inWindow.length} ending within 120 days` }, href: '/landlord/leases' },
+    inWindow.length && !inWindowOn.length
+      ? { key: 'letter', label: { zh: '续约触点（按该省规则）', en: 'Renewal touchpoint (provincial rule)' }, state: provNeedCard.every((l) => noticeCard(l)) ? 'done' : 'current', detail: provPending ? { zh: '有提醒卡等你知悉', en: 'A reminder card awaits your acknowledgement' } : !provNeedCard.length ? { zh: '租客已表示搬离', en: 'The tenant said they are leaving' } : undefined, href: '/landlord/todo' }
+      : { key: 'letter', label: { zh: '续约函 A/B', en: 'Renewal letter A/B' }, state: !inWindow.length ? 'todo' : needLetter.every((l) => renewalSent.has(l.id)) ? 'done' : 'current', detail: letterDetail, href: '/landlord/todo' },
     { key: 'intent', label: { zh: '租客意向', en: 'Tenant intent' }, state: intentCounts.total ? 'done' : inWindow.length ? 'current' : 'todo', detail: intentCounts.total ? { zh: `续 ${intentCounts.renew} · 走 ${intentCounts.leave} · 谈 ${intentCounts.negotiate}`, en: `renew ${intentCounts.renew} · leave ${intentCounts.leave} · negotiate ${intentCounts.negotiate}` } : { zh: '租客在 30 天触点邮件里一键回复', en: 'The tenant answers from the 30-day email' }, href: '/landlord/leases' },
     { key: 'turnover', label: { zh: '退租 → 重新挂牌', en: 'Move-out → re-list' }, state: ended.length ? 'current' : 'todo', detail: ended.length ? { zh: `${ended.length} 份已到期`, en: `${ended.length} ended` } : undefined, href: relistTo },
   ]
   post.state = inWindow.length || ended.length ? 'active' : signedLeases.length ? 'idle' : 'idle'
-  const soonest = inWindow.map((l) => l.end_date!).sort()[0]
-  if (soonest) {
+  const soonestLease = [...inWindow].sort((a, b) => a.end_date!.localeCompare(b.end_date!))[0]
+  const soonest = soonestLease?.end_date
+  const soonestProv = soonestLease ? provinceOf(soonestLease) : 'ON'
+  if (soonest && soonestProv !== 'ON') {
+    post.clock = clockFor(soonest, today, { zh: '最近到期', en: 'Next lease end' }, 60)
+    // The soonest lease is outside Ontario: that province's step and deadline, never the N1.
+    const zhT = provinceTouchpoint(soonestProv, soonest, 'zh')!
+    const enT = provinceTouchpoint(soonestProv, soonest, 'en')!
+    post.headline = { zh: `${inWindow.length} 份进入续约窗口 · ${zhT.provinceName} · ${zhT.stepLine}`, en: `${inWindow.length} in the renewal window · ${enT.provinceName} · ${enT.stepLine}` }
+  } else if (soonest) {
     post.clock = clockFor(soonest, today, { zh: '最近到期', en: 'Next lease end' }, 60)
     // The increase takes effect the day after the term ends — the N1 clock and
     // the guideline year key on that date, not on the end date.
@@ -264,7 +293,8 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
   // "Approve" only when there is a card to approve; an approved letter that
   // never ran can still be sent from the to-do list (「现在执行」); anything
   // else (not proposed yet, rejected, expired) sends the landlord to the leases.
-  post.next = needLetter.some((l) => renewalPending.has(l.id) && !renewalSent.has(l.id)) ? { label: { zh: '批准续约函', en: 'Approve the renewal letter' }, href: '/landlord/todo' }
+  post.next = provPending ? { label: { zh: '查看续约触点', en: 'See the renewal touchpoint' }, href: '/landlord/todo' }
+    : needLetter.some((l) => renewalPending.has(l.id) && !renewalSent.has(l.id)) ? { label: { zh: '批准续约函', en: 'Approve the renewal letter' }, href: '/landlord/todo' }
     : needLetter.some((l) => renewalRunnable.has(l.id) && !renewalSent.has(l.id)) ? { label: { zh: '发出已批准的续约函', en: 'Send the approved renewal letter' }, href: '/landlord/todo' }
     : needLetter.some((l) => !renewalSent.has(l.id)) ? { label: { zh: '查看续约窗口', en: 'Review the renewal window' }, href: '/landlord/leases' }
     : ended.length ? { label: ended.some((l) => l.listing_id) ? { zh: '重新上架原房源', en: 'Re-list the original listing' } : { zh: '重新挂牌', en: 'Re-list the unit' }, href: relistTo }
@@ -300,7 +330,11 @@ export function tenantLifecycle(f: TenantFacts, today = new Date()): Lifecycle {
   const openTickets = f.tickets.filter((t) => t.status && !['done', 'cancelled'].includes(t.status))
   const endIso = hh?.end_date || lease?.end_date || null
   const daysToEnd = endIso ? daysBetween(todayUtc(today), parseDateOnly(endIso) ?? today) : null
-  const inWindow = daysToEnd != null && daysToEnd >= 0 && daysToEnd <= RENEWAL_WINDOW_DAYS && (!lease || isLeaseInForce(lease, today))
+  // Outside Ontario the window and the move-out step are that province's own rule, not 120 days / the N9 (2026-10-06).
+  const tenantProvince = lease ? leaseProvince({ listing: lease.listing_place ?? null, household: hh ?? null, unit: lease.unit_place ?? null, unit_label: lease.unit_label }) : hh ? leaseProvince({ household: hh }) : 'ON'
+  const inWindow = daysToEnd != null && daysToEnd >= 0 && daysToEnd <= provinceWindowDays(tenantProvince) && (!lease || isLeaseInForce(lease, today))
+  const tZh = tenantProvince !== 'ON' && endIso ? provinceTouchpoint(tenantProvince, endIso, 'zh') : null
+  const tEn = tenantProvince !== 'ON' && endIso ? provinceTouchpoint(tenantProvince, endIso, 'en') : null
 
   pre.steps = [
     { key: 'search', label: { zh: '对话找房', en: 'Search by chat' }, state: apps.length || showings.length ? 'done' : 'current', href: '/tenant/agent', prompt: { zh: '帮我找【区域】、预算【$金额】以内的【户型】。', en: 'Find me a 【unit type】 in 【area】 under 【$budget】.' } },
@@ -339,11 +373,16 @@ export function tenantLifecycle(f: TenantFacts, today = new Date()): Lifecycle {
   post.steps = [
     { key: 'window', label: { zh: '续约窗口', en: 'Renewal window' }, state: inWindow ? 'current' : 'todo', detail: inWindow ? { zh: `${daysToEnd} 天后到期`, en: `ends in ${daysToEnd} days` } : undefined },
     { key: 'intent', label: { zh: '续 / 不续 / 谈', en: 'Renew / leave / negotiate' }, state: f.renewalIntent ? 'done' : inWindow ? 'current' : 'todo', detail: f.renewalIntent ? { zh: `已回复：${INTENT_ZH[f.renewalIntent.intent] ?? f.renewalIntent.intent}（${f.renewalIntent.created_at.slice(0, 10)}）`, en: `Answered: ${f.renewalIntent.intent} (${f.renewalIntent.created_at.slice(0, 10)})` } : undefined, href: hh ? `/h/${hh.id}` : '/tenant/agent', prompt: { zh: '我的租约快到期了，帮我看看房东的续约方案是否合规，我该怎么谈。', en: 'My lease is ending — check whether the renewal offer is lawful and how I should negotiate.' } },
-    { key: 'n9', label: { zh: '退租 N9（60 天）', en: 'Move-out N9 (60 days)' }, state: 'todo', href: '/rules' },
+    tZh && tEn
+      ? { key: 'notice', label: { zh: '退租通知（按该省规则）', en: "Move-out notice (that province's rule)" }, state: 'todo', detail: { zh: `${tZh.provinceName} · ${tZh.tribunal.name}`, en: `${tEn.provinceName} · ${tEn.tribunal.name}` }, href: tZh.tribunal.url }
+      : { key: 'n9', label: { zh: '退租 N9（60 天）', en: 'Move-out N9 (60 days)' }, state: 'todo', href: '/rules' },
     { key: 'passport', label: { zh: '租史进护照', en: 'Tenancy into passport' }, state: f.passportShares ? 'done' : joined ? 'current' : 'todo', href: '/tenant/passport' },
   ]
   post.state = inWindow ? 'active' : 'idle'
-  if (inWindow && endIso) {
+  if (inWindow && endIso && tZh && tEn) {
+    post.clock = clockFor(endIso, today, { zh: '租约到期', en: 'Lease ends' }, 60)
+    post.headline = { zh: `租约 ${endIso} 到期 · 续约与退租按${tZh.provinceName}规则`, en: `Lease ends ${endIso} · renewal and move-out follow ${tEn.provinceName} rules` }
+  } else if (inWindow && endIso) {
     post.clock = clockFor(endIso, today, { zh: '租约到期', en: 'Lease ends' }, 60)
     const n9 = new Date((parseDateOnly(endIso) ?? today).getTime() - 60 * 86_400_000)
     post.headline = { zh: `租约 ${endIso} 到期 · 若搬离，N9 最晚 ${isoDate(n9)} 送达`, en: `Lease ends ${endIso} · to move out, serve the N9 by ${isoDate(n9)}` }

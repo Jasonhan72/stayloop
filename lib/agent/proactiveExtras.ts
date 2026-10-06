@@ -9,6 +9,8 @@
 //     per lease, ever. It carries the original listing_id and points at that
 //     listing's edit page (re-activate), not at the new-listing wizard.
 import { daysBetween, parseDateOnly, todayUtc } from '@/lib/dates'
+import { leaseEndFact } from '@/lib/provinces/renewal'
+import type { ProvinceCode } from '@/lib/provinces/detect'
 
 export const INVITE_REMINDER_AFTER_DAYS = 3
 export const RELIST_LOOKBACK_DAYS = 30
@@ -36,6 +38,8 @@ export type EndedLeaseRow = {
   unit_label: string | null
   end_date: string | null
   status: string | null
+  /** The province whose rules the lease follows (lib/provinces/lease); undefined / 'ON' = Ontario. */
+  province?: ProvinceCode | null
 }
 
 export type ExtraProposal = {
@@ -126,7 +130,10 @@ export function buildRelistProposal(userId: string, l: EndedLeaseRow, today: Dat
     summary:
       `${tenant} 在 ${unit} 的租约 ${l.end_date} 到期（已过 ${since} 天），没有新的租约。` +
       how +
-      `如果租客继续住，按 RTA s.38 已自动转为月租，不需要做任何事。` +
+      // What a continued tenancy means is Ontario's s.38 — or that province's own sentence (2026-10-06).
+      (!l.province || l.province === 'ON'
+        ? `如果租客继续住，按 RTA s.38 已自动转为月租，不需要做任何事。`
+        : `如果租客继续住：${leaseEndFact(l.province, 'zh') ?? ''}`) +
       `点「批准」表示你已知悉；这张卡不会发出任何邮件。`,
     recipient_label: null,
     data_scope: ['租约到期日'],

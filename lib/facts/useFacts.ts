@@ -18,6 +18,9 @@ export type LeaseRow = {
   tenant_name?: string | null; tenant_email?: string | null; monthly_rent?: number | null
   application_id?: string | null; sent_at?: string | null; signed_at?: string | null; created_at?: string | null
   listing_id?: string | null
+  /** Where the lease is (RPC 2026-10-06): the linked listing's place and the lease's own §2 block — lib/provinces/lease decides the province. */
+  listing_place?: { province?: string | null; address?: string | null; city?: string | null; postal_code?: string | null } | null
+  unit_place?: { street?: string | null; city?: string | null; postal?: string | null } | null
 }
 export type HouseholdRow = {
   id: string; current_lease_id: string | null; verified: boolean | null; status: string | null; end_date: string | null

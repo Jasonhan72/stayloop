@@ -235,7 +235,9 @@ describe('Review 2026-10-01 · the ledger is the current lease term (renewals)',
   })
   it('the hub reads the current lease start; the server checks before_lease against the same term', () => {
     const src = read('app/h/[id]/page.tsx')
-    expect(src).toContain("supabase.from('lease_documents').select('start_date').eq('id', leaseId).maybeSingle()")
+    // Since 2026-10-06 the same read also carries where the lease is (listing_id, terms.unit) for the province.
+    expect(src).toContain("supabase.from('lease_documents').select('start_date, listing_id, unit_place:terms->unit').eq('id', leaseId).maybeSingle()")
+    expect(src).toContain('setLeaseStart(leaseRow?.start_date ?? null)')
     expect(src).toContain('rentSchedule(termStart, household.rent_due_day)')
     expect(src).not.toContain('rentSchedule(household.start_date, household.rent_due_day)')
     const sql = read('supabase/migrations/20261001_A6_tenancy_ui_rent_ledger.sql')

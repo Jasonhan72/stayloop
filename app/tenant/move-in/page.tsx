@@ -10,13 +10,14 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import MoveInChecklist from '@/components/household/MoveInChecklist'
+import { leaseProvince } from '@/lib/provinces/lease'
 import { useReportLiveRows } from '@/lib/liveRows'
 
 // The tenant's own tenancies (household membership) → the shared checklist
 // (P2 2026-09-23). Rendered above the demo page through liveSlot.
 function LiveMoveIn({ zh }: { zh: boolean }) {
   const auth = useAuth()
-  const [hh, setHh] = useState<{ id: string; address: string; unit: string | null; start_date: string | null }[] | null>(null)
+  const [hh, setHh] = useState<{ id: string; address: string; unit: string | null; city?: string | null; start_date: string | null }[] | null>(null)
   useReportLiveRows('households', hh ? hh.length : null)
   useEffect(() => {
     if (auth.loading || !auth.user) { setHh([]); return }
@@ -24,7 +25,7 @@ function LiveMoveIn({ zh }: { zh: boolean }) {
     ;(async () => {
       const { data: mem } = await supabase.from('household_members').select('household_id').eq('user_id', auth.user!.id).eq('role', 'tenant').eq('status', 'active').limit(10)
       const ids = ((mem ?? []) as { household_id: string }[]).map((m) => m.household_id)
-      const { data } = ids.length ? await supabase.from('households').select('id, address, unit, start_date').in('id', ids).order('start_date', { ascending: false }).limit(3) : { data: [] }
+      const { data } = ids.length ? await supabase.from('households').select('id, address, unit, city, start_date').in('id', ids).order('start_date', { ascending: false }).limit(3) : { data: [] }
       if (!cancelled) setHh((data ?? []) as typeof hh)
     })()
     return () => { cancelled = true }
@@ -35,7 +36,7 @@ function LiveMoveIn({ zh }: { zh: boolean }) {
       {hh.map((h) => (
         <div key={h.id}>
           <div className="mb-2 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '我的在管租约 · 真实记录' : 'MY TENANCY · LIVE'} · {h.address}{h.unit ? ` #${h.unit}` : ''}{h.start_date ? ` · ${h.start_date}` : ''}</div>
-          <MoveInChecklist householdId={h.id} zh={zh} />
+          <MoveInChecklist householdId={h.id} zh={zh} province={leaseProvince({ household: h })} />
         </div>
       ))}
     </div>

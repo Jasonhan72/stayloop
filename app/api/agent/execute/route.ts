@@ -35,6 +35,7 @@ import { sendLeaseInvitation, leaseSendPreflight, buildLeaseInvite, type LeaseFo
 import { decisionNoticeFooter, guidelineFor, n1DeadlineFor } from '@/lib/ontario/rules'
 import { decisionNoticeFooterFor } from '@/lib/provinces/rules'
 import { listingProvince } from '@/lib/listingDisplay'
+import { leaseProvince, unitTermsOf } from '@/lib/provinces/lease'
 import { rentAmount } from '@/lib/agent/chatCopy'
 import { notifyUser } from '@/lib/push/notify'
 import { actOnWorkOrder, createWorkOrder, suggestDispatch } from '@/lib/marketplace/server'
@@ -291,6 +292,8 @@ type OwnedLease = {
   id: string; tenant_email: string | null; tenant_name: string | null; unit_label: string | null
   monthly_rent: number | null; start_date: string | null; end_date: string | null; status: string | null
   listing_id: string | null; created_at: string | null; landlord_id: string | null; landlord_ids: string[]
+  /** terms.unit (street / city / postal) — one input of the lease's province (lib/provinces/lease). */
+  unit_place?: unknown
 }
 // No status filter: an imported (paper) lease is a lease the landlord runs like any other.
 async function loadOwnedLease(admin: Admin, userId: string, leaseId: unknown): Promise<OwnedLease | null> {
@@ -300,11 +303,25 @@ async function loadOwnedLease(admin: Admin, userId: string, leaseId: unknown): P
   if (!landlordIds.length) return null
   const { data: lease } = await admin
     .from('lease_documents')
-    .select('id, tenant_email, tenant_name, unit_label, monthly_rent, start_date, end_date, status, listing_id, created_at, landlord_id')
+    .select('id, tenant_email, tenant_name, unit_label, monthly_rent, start_date, end_date, status, listing_id, created_at, landlord_id, unit_place:terms->unit')
     .eq('id', leaseId)
     .in('landlord_id', landlordIds)
     .maybeSingle()
   return lease ? { ...(lease as Omit<OwnedLease, 'landlord_ids'>), landlord_ids: landlordIds } : null
+}
+
+/** The province whose rules the lease follows (lib/provinces/lease): linked listing > tenancy address > the lease's own §2 block. */
+async function ownedLeaseProvince(admin: Admin, lease: OwnedLease): Promise<string> {
+  const [{ data: lst }, { data: hh }] = await Promise.all([
+    lease.listing_id ? admin.from('listings').select('province, address, city, postal_code').eq('id', lease.listing_id).maybeSingle() : Promise.resolve({ data: null }),
+    admin.from('households').select('address, city').eq('current_lease_id', lease.id).limit(1).maybeSingle(),
+  ])
+  return leaseProvince({
+    listing: (lst as { province?: string | null; address?: string | null; city?: string | null; postal_code?: string | null } | null) ?? null,
+    household: (hh as { address?: string | null; city?: string | null } | null) ?? null,
+    unit: unitTermsOf({ unit: lease.unit_place }),
+    unit_label: lease.unit_label,
+  })
 }
 
 /**
@@ -409,6 +426,11 @@ async function executeSendRenewalLetter(
   if (!lease.end_date) {
     return NextResponse.json({ executed: false, reason: 'lease has no end date' }, { status: 422 })
   }
+  // This letter is Ontario's (guideline A/B, N1, month-to-month under s.38).
+  // The planner never proposes it for a lease elsewhere; a card that reaches
+  // here anyway (older rows, a hand-written one) is retired, not sent (2026-10-06).
+  const province = await ownedLeaseProvince(admin, lease)
+  if (province !== 'ON') return expireCard(admin, action.id, { reason: 'province_unsupported', province, lease_id: lease.id })
   // A letter about a lease that ended, was renewed another way, or whose
   // tenant said they are leaving would contradict the record (sweep 2026-10-01).
   const today = torontoToday()

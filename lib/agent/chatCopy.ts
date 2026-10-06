@@ -167,6 +167,7 @@ const REASON_TEXT: Record<string, Bi> = {
   no_household_on_file: NEED_TENANCY,
   lease_ended: { zh: '这份租约已经结束', en: 'this lease has ended' },
   lease_superseded: { zh: '这份租约已被新的租约取代', en: 'a newer lease replaced this one' },
+  province_unsupported: { zh: '这封续约函按安省规则写成，而这份租约不在安省；该省的续约触点会另出卡片', en: "this renewal letter is written to Ontario's rules and the lease is in another province; that province's renewal touchpoint comes as its own card" },
   tenant_leaving: { zh: '租客已经表示要搬走', en: 'the tenant has said they are leaving' },
   tenant_answered: { zh: '租客已经在共享中心回复了续约意向，这封询问没有再发', en: 'the tenant already answered about renewal on the shared hub, so this question was not sent' },
   past_n1_deadline: { zh: '已经过了 N1 涨租通知的送达截止日（涨租须提前 90 天书面通知）', en: 'the N1 deadline has passed (a rent increase needs 90 days of written notice)' },

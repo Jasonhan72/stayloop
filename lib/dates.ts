@@ -32,6 +32,17 @@ export function monthsBetween(from: Date, to: Date): number {
   )
 }
 
+/**
+ * The UTC date for (year, month index, day) with the day clamped to the month's
+ * last day: (2027, 1, 31) → 2027-02-28. One rule for rent due dates
+ * (lib/household/schedule) and renewal-notice deadlines (lib/provinces/renewal),
+ * so a 31st never overflows into the next month in either.
+ */
+export function utcDateClamped(year: number, monthIndex: number, day: number): Date {
+  const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(year, monthIndex, Math.min(day, lastDay)))
+}
+
 /** `YYYY-MM-DD` in UTC. */
 export function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10)

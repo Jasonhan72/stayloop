@@ -16,7 +16,8 @@ import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 import { leaseActionErrorText, leaseErrorNeedsReload, leaseHasTerms, leaseIsEditableDraft, leaseIsRecordOnly, leaseIsSendable, leaseIsSignable, leaseIsWithdrawable, leaseTermsRenderable } from '@/lib/lease/leaseState'
-import { listingProvince, provinceName } from '@/lib/listingDisplay'
+import { provinceName } from '@/lib/listingDisplay'
+import { leaseProvince, unitTermsOf } from '@/lib/provinces/lease'
 import type { ProvinceCode, ProvinceRow } from '@/lib/provinces/detect'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -72,10 +73,8 @@ function RealLeaseDetail({ id }: { id: string }) {
       data.listing_id ? supabase.from('listings').select('address, city, postal_code, province').eq('id', data.listing_id).maybeSingle() : Promise.resolve({ data: null }),
     ])
     const home = ((hh ?? []) as { id: string; address: string | null; city: string | null }[])[0] ?? null
-    const unit = ((data.terms ?? {}) as { unit?: { street?: string; city?: string; postal?: string } }).unit
-    setProvince(lst
-      ? listingProvince(lst as ProvinceRow)
-      : listingProvince({ address: home?.address ?? unit?.street ?? data.unit_label, city: home?.city ?? unit?.city ?? null, postal_code: unit?.postal ?? null }))
+    // One definition of a lease's province (lib/provinces/lease): the planner, the executor and the rail use the same chain.
+    setProvince(leaseProvince({ listing: (lst as ProvinceRow | null) ?? null, household: home, unit: unitTermsOf(data.terms), unit_label: data.unit_label }))
     setHouseholdId(home?.id ?? null)
     setLease(data)
   }, [id])

@@ -18,6 +18,8 @@ import { useT } from '@/lib/i18n'
 import { rentSchedule } from '@/lib/household/schedule'
 import { checkPaidOn, earliestPaidOn, latenessRows, ledgerStart, missedArrears, rentDueDay, rentLedger, torontoDate } from '@/lib/household/ledger'
 import { persistentLatePayment } from '@/lib/ontario/rules'
+import { leaseProvince, unitTermsOf, type LeasePlace } from '@/lib/provinces/lease'
+import { leaseEndFact } from '@/lib/provinces/renewal'
 import { tenancyClock } from '@/lib/household/clock'
 import { leaseDisplayState, leaseStateDetail } from '@/lib/matters/states'
 import MoveInChecklist from '@/components/household/MoveInChecklist'
@@ -68,6 +70,7 @@ export default function HouseholdHub() {
 
   const [tab, setTab] = useState<Tab>('overview')
   const [household, setHousehold] = useState<Household | null>(null)
+  const [leasePlace, setLeasePlace] = useState<Pick<LeasePlace, 'listing' | 'unit'>>({ listing: null, unit: null })
   const [members, setMembers] = useState<Member[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
   // Who is in this tenancy, by name (people_for · 找得到人 2026-09-30) — one call per page, never an address.
@@ -92,26 +95,28 @@ export default function HouseholdHub() {
   const load = useCallback(async () => {
     const { data: h } = await supabase.from('households').select('*').eq('id', id).maybeSingle()
     if (!h) { setNotFound(true); return }
-    setHousehold(h as Household)
-    const [{ data: m }, { data: inv }, { data: ri }, { data: ppl, error: pplErr }] = await Promise.all([
+    const leaseId = (h as Household).current_lease_id
+    const [{ data: m }, { data: inv }, { data: ri }, { data: ppl, error: pplErr }, { data: ld }] = await Promise.all([
       supabase.from('household_members').select('*').eq('household_id', id).eq('status', 'active'),
       supabase.from('household_invites').select('id, household_id, invited_role, invited_by, expires_at, accepted_by, accepted_at, declined_at, revoked_at, created_at').eq('household_id', id).order('created_at', { ascending: false }),
       supabase.from('renewal_intents').select('id, intent, note, tenant_user_id, created_at, lease_id').eq('household_id', id).order('created_at', { ascending: false }).limit(10),
       supabase.rpc('people_for', { p_kind: 'tenancy', p_ref: id, p_listing: null, p_subject: null }),
+      // The lease's term start and where it is (listing + §2 block): the province is settled
+      // before the page renders, so a Quebec tenancy never shows Ontario wording first.
+      leaseId ? supabase.from('lease_documents').select('start_date, listing_id, unit_place:terms->unit').eq('id', leaseId).maybeSingle() : Promise.resolve({ data: null }),
     ])
+    const leaseRow = ld as { start_date: string | null; listing_id: string | null; unit_place?: unknown } | null
+    const { data: lst } = leaseRow?.listing_id ? await supabase.from('listings').select('province, address, city, postal_code').eq('id', leaseRow.listing_id).maybeSingle() : { data: null }
+    setLeasePlace({ listing: (lst as LeasePlace['listing']) ?? null, unit: unitTermsOf({ unit: leaseRow?.unit_place }) })
+    setHousehold(h as Household)
     setMembers((m as Member[]) ?? [])
     setInvites((inv as Invite[]) ?? [])
     setPeople(pplErr ? null : ((ppl as Person[] | null) ?? []))
     setIntents((ri as Intent[]) ?? [])
-    const leaseId = (h as Household).current_lease_id
     if (leaseId) {
-      // Payments and the lease term together, so the schedule never renders from the household start alone.
-      const [{ data: p }, { data: ld }] = await Promise.all([
-        supabase.from('rent_payments').select('*').eq('lease_id', leaseId).order('due_date', { ascending: false }),
-        supabase.from('lease_documents').select('start_date').eq('id', leaseId).maybeSingle(),
-      ])
+      const { data: p } = await supabase.from('rent_payments').select('*').eq('lease_id', leaseId).order('due_date', { ascending: false })
       setPayments((p as Payment[]) ?? [])
-      setLeaseStart(((ld as { start_date: string | null } | null)?.start_date) ?? null)
+      setLeaseStart(leaseRow?.start_date ?? null)
     }
     const prevId = (h as Household).previous_lease_id
     if (prevId) {
@@ -221,7 +226,15 @@ export default function HouseholdHub() {
   // RTA s.58(1.1) (in force 2026-09-21): rent *received* >7 days late, 3 times in 6 months —
   // counted over recorded rows only, by the calendar day paid; an unrecorded 'due'
   // placeholder is arrears, not lateness.
-  const lateness = persistentLatePayment(latenessRows(ledger.recordedRows))
+  // The tenancy's province (lib/provinces/lease, 2026-10-06) — the same chain as the
+  // planner, the executor and the rail: the lease's listing, then the household's
+  // address, then the lease's own §2 block. s.38 / N9 / s.58 / the repayment-plan
+  // draft are Ontario's — elsewhere the hub says that province's own end-of-term
+  // sentence and nothing about the Ontario-only tools.
+  const province = leaseProvince({ listing: leasePlace.listing ?? null, household: { address: household.address, city: household.city }, unit: leasePlace.unit ?? null })
+  const ontario = province === 'ON'
+  // RTA s.58(1.1) is Ontario's; elsewhere nothing is computed, so nothing can leak into the page.
+  const lateness = ontario ? persistentLatePayment(latenessRows(ledger.recordedRows)) : null
   const clock = tenancyClock(household.start_date, household.end_date)
   // A tenancy whose start date is still ahead has not begun. Only that case leaves "in tenancy":
   // past the end date it carries on month-to-month (RTA s.38), which the end-date chip says.
@@ -289,7 +302,11 @@ export default function HouseholdHub() {
         )}
         {clock.daysToEnd != null && (
           <span className={'rounded-full px-2.5 py-[3px] font-mono text-[11px] font-bold ' + (clock.daysToEnd < 0 ? 'bg-surface-chip text-body-2' : clock.daysToEnd <= 120 ? 'bg-amber-50 text-amber-800' : 'bg-surface-chip text-body-2')}>
-            {clock.daysToEnd < 0 ? (zh ? `已到期 ${-clock.daysToEnd} 天 · 已转月租（RTA s.38）` : `Ended ${-clock.daysToEnd} days ago · month-to-month (RTA s.38)`) : zh ? `到期 ${clock.daysToEnd} 天（${household.end_date}）` : `${clock.daysToEnd} days to ${household.end_date}`}
+            {clock.daysToEnd < 0
+              ? (ontario
+                ? (zh ? `已到期 ${-clock.daysToEnd} 天 · 已转月租（RTA s.38）` : `Ended ${-clock.daysToEnd} days ago · month-to-month (RTA s.38)`)
+                : (zh ? `已到期 ${-clock.daysToEnd} 天` : `Ended ${-clock.daysToEnd} days ago`))
+              : zh ? `到期 ${clock.daysToEnd} 天（${household.end_date}）` : `${clock.daysToEnd} days to ${household.end_date}`}
           </span>
         )}
         {dueSoFar > 0 && (
@@ -335,7 +352,9 @@ export default function HouseholdHub() {
           {(myRole === 'tenant' || intents.length > 0 || intentPick) && (
             <section className="rounded-xl border border-line-divider bg-white p-5" data-testid="renewal-intent">
               <h2 className="text-[14px] font-extrabold">{zh ? '续约意向' : 'Renewal intent'}</h2>
-              <p className="mt-1 text-[12px] text-body-3">{zh ? '只是意向，不是通知：搬离仍需按 RTA 提前 60 天送达 N9；不续签会自动转为月租（s.38），你的权利不变。' : 'An intention, not a notice: moving out still needs a Form N9 served 60 days ahead; an unrenewed lease continues month-to-month (s.38) with your rights unchanged.'}</p>
+              <p className="mt-1 text-[12px] text-body-3">{ontario
+                ? (zh ? '只是意向，不是通知：搬离仍需按 RTA 提前 60 天送达 N9；不续签会自动转为月租（s.38），你的权利不变。' : 'An intention, not a notice: moving out still needs a Form N9 served 60 days ahead; an unrenewed lease continues month-to-month (s.38) with your rights unchanged.')
+                : (zh ? `只是意向，不是通知。${leaseEndFact(province, 'zh') ?? ''}` : `An intention, not a notice. ${leaseEndFact(province, 'en') ?? ''}`)}</p>
               {currentIntents.length > 0 && (
                 <div className="mt-3 space-y-1 text-[13px]">
                   {currentIntents.slice(0, 3).map((i) => (
@@ -381,7 +400,7 @@ export default function HouseholdHub() {
               )}
             </section>
           )}
-          <MoveInChecklist householdId={id} zh={zh} compact />
+          <MoveInChecklist householdId={id} zh={zh} compact province={province} />
           <section className="rounded-xl border border-line-divider bg-white p-5">
             <h2 className="text-[14px] font-extrabold">{zh ? '租约文件' : 'Lease document'}</h2>
             <button onClick={() => void openLeaseFile()} className="mt-3 rounded-lg border border-line-divider px-4 py-2 text-[13px] font-semibold hover:border-[#00ACE4]">
@@ -453,7 +472,7 @@ export default function HouseholdHub() {
           <p className="mt-1 text-[11.5px] text-body-3">
             {zh ? '只做记录与提醒,不经手资金。标记后各方可见。' : 'Records and reminders only — no money moves through Stayloop.'}
           </p>
-          {lateness.late.length > 0 && (
+          {lateness && lateness.late.length > 0 && (
             <div className={'mt-3 rounded-lg px-3 py-2 text-[12px] ' + (lateness.persistent ? 'bg-danger/10 text-danger' : 'bg-amber-50 text-amber-800')}>
               {lateness.persistent
                 ? (zh
@@ -464,7 +483,7 @@ export default function HouseholdHub() {
                   : `${lateness.late.length} payment(s) more than 7 days late: ${lateness.late.join(', ')}. Three within 6 months meets the RTA s.58 definition of persistent late payment.`)}
             </div>
           )}
-          {myRole === 'landlord' && missedDue.length > 0 && (
+          {ontario && myRole === 'landlord' && missedDue.length > 0 && (
             <PaymentPlanDraft householdId={id} leaseId={household.current_lease_id} unit={address} monthlyRent={Number(household.monthly_rent) || 0} missed={missedDue} arrears={missedArrears(ledger, Number(household.monthly_rent) || 0)} recorded={ledger.recordedRows.length} zh={zh} />
           )}
           {prevLease && prevOpen.length > 0 && (
@@ -498,7 +517,7 @@ export default function HouseholdHub() {
                   )
                 })}
               </div>
-              {myRole === 'landlord' && prevLedger.missed.length > 0 && (
+              {ontario && myRole === 'landlord' && prevLedger.missed.length > 0 && (
                 <PaymentPlanDraft householdId={id} leaseId={prevLease.id} unit={address} monthlyRent={prevRent} missed={prevLedger.missed} arrears={missedArrears(prevLedger, prevRent)} recorded={prevLedger.recordedRows.length} zh={zh} />
               )}
             </div>

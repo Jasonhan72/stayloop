@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
-import { MOVE_IN_ITEMS, checklistWrite, moveInProgress, normalizeChecklistNote, type ChecklistAction } from '@/lib/household/moveIn'
+import { checklistWrite, moveInItemsFor, moveInProgress, normalizeChecklistNote, type ChecklistAction } from '@/lib/household/moveIn'
 
 type Row = { item_key: string; done: boolean; done_by: string | null; done_at: string | null; note: string | null }
 
@@ -16,7 +16,9 @@ const GROUP_LABEL = {
   paperwork: { zh: '文件与保险', en: 'Paperwork & insurance' },
 }
 
-export default function MoveInChecklist({ householdId, zh, compact = false }: { householdId: string; zh: boolean; compact?: boolean }) {
+export default function MoveInChecklist({ householdId, zh, compact = false, province = 'ON' }: { householdId: string; zh: boolean; compact?: boolean; province?: string | null }) {
+  // The paperwork notes are the tenancy's province's (lib/household/moveIn, 2026-10-06).
+  const items = moveInItemsFor(province)
   const { user } = useAuth()
   const [rows, setRows] = useState<Row[] | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -36,7 +38,7 @@ export default function MoveInChecklist({ householdId, zh, compact = false }: { 
   }, [load])
   if (!rows) return null
   const byKey = new Map(rows.map((r) => [r.item_key, r]))
-  const progress = moveInProgress(rows)
+  const progress = moveInProgress(rows, items)
 
   // Writes only the changed columns (checklistWrite): a tick never carries a note, a note
   // never carries who ticked — the other party's tick or note survives a stale page.
@@ -51,7 +53,7 @@ export default function MoveInChecklist({ householdId, zh, compact = false }: { 
     setBusy(null)
   }
 
-  const groups = (['photos', 'handover', 'paperwork'] as const).map((g) => ({ g, items: MOVE_IN_ITEMS.filter((i) => i.group === g) }))
+  const groups = (['photos', 'handover', 'paperwork'] as const).map((g) => ({ g, items: items.filter((i) => i.group === g) }))
   return (
     <section className="rounded-xl border border-line-divider bg-white p-5" data-testid="move-in-checklist">
       <div className="flex flex-wrap items-baseline justify-between gap-2">

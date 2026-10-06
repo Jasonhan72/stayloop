@@ -157,7 +157,8 @@ describe('#11 — re-list goes to the original listing, no "one-click" claim', (
 
   it('the cron sweep loads listing_id, skips a listing that is already live again, and the RPC exposes lease listing_id', () => {
     const src = read('app/api/agent/proactive/route.ts')
-    expect(src).toContain(".select('id, landlord_id, listing_id, tenant_name, unit_label, end_date, status')")
+    // + unit_place (terms.unit) since 2026-10-06: the re-list card's "if the tenant stays" sentence is the lease's province's.
+    expect(src).toContain(".select('id, landlord_id, listing_id, tenant_name, unit_label, end_date, status, unit_place:terms->unit')")
     expect(src).toContain("from('listings').select('id, is_active').in('id', relistListingIds)")
     expect(read('supabase/migrations/20261001_A5_renewal_lifecycle.sql')).toMatch(/application_id, listing_id, sent_at/)
   })

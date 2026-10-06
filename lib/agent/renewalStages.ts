@@ -25,15 +25,24 @@
 import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
 import { rentAmount } from './chatCopy'
 import { N1_NOTICE_DAYS, guidelineFor, n1DeadlineFor } from '@/lib/ontario/rules'
+import { MAX_RENEWAL_WINDOW_DAYS, leaseEndFact, provinceTouchpoint, provinceWindowDays } from '@/lib/provinces/renewal'
+import type { ProvinceCode } from '@/lib/provinces/detect'
 
 // The guideline is per calendar year of the increase's effective date (RTA
 // s.120; 2026 = 2.1%, 2027 = 1.9%) — see lib/ontario/rules.ts RENT_GUIDELINE.
 // A renewal increase takes effect when the current term ends.
 export const WINDOW_DAYS = 120
+// Leases outside Ontario (2026-10-06): one touchpoint per province's own
+// timing (lib/provinces/renewal) — a `notice` card when the landlord's written
+// step comes due, then the 30-day intent ask. No guideline A/B, no N1, no
+// month-to-month wording. The scan horizon must reach the widest window.
+export const SCAN_WINDOW_DAYS = MAX_RENEWAL_WINDOW_DAYS
+/** Ontario, or a row that predates the province field. */
+export const isOntarioLease = (l: { province?: ProvinceCode | null }): boolean => !l.province || l.province === 'ON'
 // One source for the N1 lead time (lib/ontario/rules) — the deadline dates already come from n1DeadlineFor.
 export const NOTICE_DAYS = N1_NOTICE_DAYS
 
-export type RenewalStage = '90d' | '60d' | '30d'
+export type RenewalStage = '90d' | '60d' | '30d' | 'notice'
 
 export type RenewalLease = {
   id: string
@@ -47,6 +56,8 @@ export type RenewalLease = {
   monthly_rent: number | string | null
   start_date?: string | null
   end_date: string
+  /** The province whose rules the lease follows (lib/provinces/lease); undefined / 'ON' = Ontario. */
+  province?: ProvinceCode | null
 }
 
 export type ExistingRenewalAction = {
@@ -164,6 +175,14 @@ export type RenewalProposal = {
   metadata: Record<string, unknown>
 }
 
+/** Stage for a lease outside Ontario: `notice` inside the province's window, `30d` in the last month. */
+export function provinceStageForDays(province: ProvinceCode | null | undefined, daysToEnd: number): RenewalStage | null {
+  if (daysToEnd < 0) return null
+  if (daysToEnd <= 30) return '30d'
+  if (daysToEnd <= provinceWindowDays(province)) return 'notice'
+  return null
+}
+
 export function stageForDays(daysToEnd: number): RenewalStage | null {
   if (daysToEnd < 0) return null
   if (daysToEnd <= 30) return '30d'
@@ -266,7 +285,19 @@ export function buildCheckpointProposal(userId: string, l: RenewalLease, today: 
       : '90 天那张续约函没有发出（已拒绝、已过期或发送未完成）。'
   let summary: string
   let title: string
-  if (stage === '60d') {
+  const pt = !isOntarioLease(l) ? provinceTouchpoint(l.province, l.end_date, 'zh') : null
+  if (pt) {
+    // Outside Ontario the only checkpoint is the 30-day one; what the end of the
+    // term means is the province's own sentence (never s.38 / N9).
+    title = intent?.intent === 'negotiate'
+      ? `续约窗口 · 30 天触点：${tenant} · 想谈谈续约条件`
+      : intent?.intent === 'renew'
+        ? `续约窗口 · 30 天触点：${tenant} · 已表示续约`
+        : `续约窗口 · 30 天触点：${tenant} · 请直接联系确认去留`
+    summary = `${unit} 的租约 ${l.end_date} 到期（还有 ${daysToEnd} 天）。${said}` +
+      (intent ? '' : `还没有收到 ${tenant} 的意向${l.tenant_email ? '' : '；租约上没有租客邮箱，无法发邮件询问'}。`) +
+      `${pt.leaseEnd}建议直接联系 TA 确认去留，好安排接下来的事。点「批准」表示你已知悉。`
+  } else if (stage === '60d') {
     title = `续约窗口 · 60 天触点：${tenant} · N1 截止 ${isoDate(noticeDeadline)}`
     summary = `${unit} 的租约 ${l.end_date} 到期，续约函还没有发出。` + said +
       (daysToNotice >= 0
@@ -308,8 +339,56 @@ export function buildCheckpointProposal(userId: string, l: RenewalLease, today: 
       tenant_email: l.tenant_email,
       unit_label: l.unit_label,
       end_date: l.end_date,
-      notice_deadline: isoDate(noticeDeadline),
+      ...(pt ? { province: pt.code, notice_deadline: pt.noticeDeadline } : { notice_deadline: isoDate(noticeDeadline) }),
       ...(intent ? { tenant_intent: intent.intent, tenant_intent_at: intent.created_at } : {}),
+      source: 'proactive_sweep',
+    },
+  }
+}
+
+/**
+ * The first touchpoint for a lease outside Ontario: an acknowledgement card
+ * (renewal_checkpoint, stage `notice`) that names the landlord's written step
+ * and its latest service date in that province, and quotes the province's
+ * rent-increase and end-of-term facts. Stayloop sends no provincial notice —
+ * the card says so; approving it only stamps it.
+ */
+export function buildProvinceNoticeProposal(userId: string, l: RenewalLease, today: Date): RenewalProposal {
+  const pt = provinceTouchpoint(l.province, l.end_date, 'zh')
+  if (!pt) throw new Error('buildProvinceNoticeProposal: Ontario lease')
+  const end = parseDateOnly(l.end_date) ?? todayUtc(today)
+  const daysToEnd = daysBetween(todayUtc(today), end)
+  const rent = Number(l.monthly_rent) || 0
+  const tenant = l.tenant_name || '租客'
+  const unit = l.unit_label || '你的单元'
+  const daysToDeadline = pt.noticeDeadline ? daysBetween(todayUtc(today), parseDateOnly(pt.noticeDeadline) ?? end) : null
+  return {
+    user_id: userId,
+    role: 'landlord',
+    action_type: 'renewal_checkpoint',
+    title: `续约窗口 · ${pt.provinceName}：${tenant} · ${l.end_date} 到期（还有 ${daysToEnd} 天）`,
+    summary:
+      `${unit} 月租 $${fmt(rent)}。${pt.stepLine}` +
+      (daysToDeadline != null ? (daysToDeadline >= 0 ? `距最晚送达日还有 ${daysToDeadline} 天。` : `最晚送达日已过 ${-daysToDeadline} 天。`) : '') +
+      `${pt.rentIncrease}${pt.leaseEnd}` +
+      `Stayloop 不代发${pt.provinceName}的法定通知：要涨租或改条款，请按上述规则自己书面送达；有疑问向${pt.tribunal.name}核实。点「批准」表示你已知悉。`,
+    recipient_label: null,
+    data_scope: ['租约到期日', '月租'],
+    excluded_data: ['筛查报告', '收入证明原件'],
+    risk_level: 'low',
+    status: 'pending',
+    requires_approval: true,
+    metadata: {
+      lease_id: l.id,
+      stage: 'notice',
+      province: pt.code,
+      tenant_name: l.tenant_name,
+      tenant_email: l.tenant_email,
+      unit_label: l.unit_label,
+      current_rent: rent,
+      end_date: l.end_date,
+      notice_deadline: pt.noticeDeadline,
+      notice_earliest: pt.earliest,
       source: 'proactive_sweep',
     },
   }
@@ -329,15 +408,24 @@ export function buildIntentAskProposal(userId: string, l: RenewalLease, today: D
   const daysToEnd = daysBetween(todayUtc(today), end)
   const tenant = l.tenant_name || '租客'
   const unit = l.unit_label || '你的单元'
+  // Outside Ontario no renewal letter went before this ask, and what the end of
+  // the term means is that province's own sentence (lib/provinces/rules leaseEnd).
+  const ontario = isOntarioLease(l)
+  const lawZh = ontario
+    ? '按安省《住宅租赁法》，租约到期不续签会自动转为月租，您的权利不受影响；搬离需提前 60 天以 N9 表格书面通知。'
+    : leaseEndFact(l.province, 'zh') ?? ''
+  const lawEn = ontario
+    ? "Under Ontario's RTA a lease that is not renewed continues month-to-month with your rights unchanged; moving out needs 60 days' written notice (Form N9)."
+    : leaseEndFact(l.province, 'en') ?? ''
   const body =
-    `${tenant} 您好，\n\n${unit} 的租约将于 ${l.end_date} 到期（还有 ${daysToEnd} 天）。此前已把续约方案发给您，` +
+    `${tenant} 您好，\n\n${unit} 的租约将于 ${l.end_date} 到期（还有 ${daysToEnd} 天）。${ontario ? '此前已把续约方案发给您，' : ''}` +
     `为了安排接下来的事项，想请您在方便时回复一下：是否续约、或计划搬离的日期。\n\n` +
-    `按安省《住宅租赁法》，租约到期不续签会自动转为月租，您的权利不受影响；搬离需提前 60 天以 N9 表格书面通知。\n\n` +
+    `${lawZh}\n\n` +
     intentLinks(l.household_id, 'zh') +
     `谢谢！\n\n` +
-    `Hi ${tenant},\n\nThe lease for ${unit} ends on ${l.end_date} (${daysToEnd} days from now). We sent the renewal options earlier — ` +
+    `Hi ${tenant},\n\nThe lease for ${unit} ends on ${l.end_date} (${daysToEnd} days from now). ${ontario ? 'We sent the renewal options earlier — ' : ''}` +
     `when convenient, could you let us know whether you plan to renew or your intended move-out date?\n\n` +
-    `Under Ontario's RTA a lease that is not renewed continues month-to-month with your rights unchanged; moving out needs 60 days' written notice (Form N9).\n\n` +
+    `${lawEn}\n\n` +
     intentLinks(l.household_id, 'en') +
     `Thank you!`
   return {
@@ -346,7 +434,7 @@ export function buildIntentAskProposal(userId: string, l: RenewalLease, today: D
     action_type: 'send_message',
     title: `续约窗口 · 30 天触点：向 ${tenant} 确认续约意向`,
     summary:
-      `续约函已发出、还没有回音。批准后我会给 ${l.tenant_email} 发一封双语邮件，请 ${tenant} 回复是否续约或搬离日期。`,
+      `${ontario ? '续约函已发出、还没有回音。' : '还没有收到租客的意向。'}批准后我会给 ${l.tenant_email} 发一封双语邮件，请 ${tenant} 回复是否续约或搬离日期。`,
     recipient_label: l.tenant_email,
     data_scope: ['租约到期日', '续约意向询问'],
     excluded_data: ['筛查报告', '续约方案金额'],
@@ -363,6 +451,7 @@ export function buildIntentAskProposal(userId: string, l: RenewalLease, today: D
       tenant_email: l.tenant_email,
       unit_label: l.unit_label,
       end_date: l.end_date,
+      ...(ontario ? {} : { province: l.province }),
       source: 'proactive_sweep',
     },
   }
@@ -475,7 +564,7 @@ export function planRenewalActions(
     const end = parseDateOnly(l.end_date)
     if (!end) continue
     const days = daysBetween(todayUtc(today), end)
-    const stage = stageForDays(days)
+    const stage = isOntarioLease(l) ? stageForDays(days) : provinceStageForDays(l.province, days)
     if (!stage) continue
     // Renewed or re-let already (a signed lease on the same unit starts
     // later), or the tenant said they are leaving — no renewal offer, no N1
@@ -483,6 +572,24 @@ export function planRenewalActions(
     // end date. Cards already proposed are expired by staleRenewalCards.
     if (renewalSkipReason(l, { laterLeases: later, intents })) continue
     const intent = latestIntentFor(l, intents)
+    if (!isOntarioLease(l)) {
+      // Outside Ontario: the province's notice card inside its window, then the
+      // 30-day ask. A lease that enters in its last month skips straight to the
+      // ask — a notice card whose deadline passed weeks ago helps nobody.
+      if (stage === 'notice' && !seen.has(`${l.id}:notice`)) {
+        out.push(buildProvinceNoticeProposal(userId, l, today))
+        seen.add(`${l.id}:notice`)
+        continue
+      }
+      if (stage === '30d' && !seen.has(`${l.id}:30d`)) {
+        if (intent?.intent === 'renew') continue
+        out.push(l.tenant_email && !intent
+          ? buildIntentAskProposal(userId, l, today)
+          : buildCheckpointProposal(userId, l, today, '30d', { intent }))
+        seen.add(`${l.id}:30d`)
+      }
+      continue
+    }
     // 90d — always the first touchpoint, even when the lease enters the
     // window late (e.g. imported at 50 days): the letter is the action that
     // matters, the checkpoints only make sense on top of it.

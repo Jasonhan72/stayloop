@@ -30,10 +30,12 @@ import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isoDate, todayUtc } from '@/lib/dates'
 import { isLeaseInForce } from '@/lib/matters/states'
-import { IN_FORCE_STATUSES, STALE_EXPIRED_BY, SUCCESSOR_STATUSES, WINDOW_DAYS, marketFromRows, planRenewalActions, replacedInForceBy, staleRenewalCards, type ExistingRenewalAction, type LeaseSlot, type MarketLine, type RenewalIntent, type StaleRenewalReason } from '@/lib/agent/renewalStages'
+import { IN_FORCE_STATUSES, SCAN_WINDOW_DAYS, STALE_EXPIRED_BY, SUCCESSOR_STATUSES, marketFromRows, planRenewalActions, replacedInForceBy, staleRenewalCards, type ExistingRenewalAction, type LeaseSlot, type MarketLine, type RenewalIntent, type StaleRenewalReason } from '@/lib/agent/renewalStages'
 import { buildInviteReminderProposal, buildRelistProposal, inviteNeedsReminder, leaseNeedsRelist, RELIST_LOOKBACK_DAYS, type EndedLeaseRow, type InviteRow } from '@/lib/agent/proactiveExtras'
 import { notifyUser } from '@/lib/push/notify'
 import { runMarketplaceSweep } from '@/lib/marketplace/sweep'
+import { leaseProvince, unitTermsOf } from '@/lib/provinces/lease'
+import type { ProvinceCode, ProvinceRow } from '@/lib/provinces/detect'
 
 export const runtime = 'edge'
 
@@ -63,9 +65,36 @@ type LeaseRow = {
   start_date?: string | null
   end_date: string
   status: string | null
+  unit_place?: unknown
+  province?: ProvinceCode
 }
 
-const LEASE_COLS = 'id, landlord_id, listing_id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status'
+/**
+ * Stamp each lease with the province whose rules it follows: the linked
+ * listing when readable, else the managed tenancy's address, else the lease's
+ * own §2 block (lib/provinces/lease). Also attaches household_id (the 30-day
+ * e-mail links the tenant to /h/<household>?intent=…).
+ */
+async function attachPlaces(client: SupabaseClient, leases: LeaseRow[]): Promise<void> {
+  if (!leases.length) return
+  const listingIds = Array.from(new Set(leases.map((l) => l.listing_id).filter(Boolean))) as string[]
+  const [{ data: lst }, { data: hhs }] = await Promise.all([
+    listingIds.length ? client.from('listings').select('id, province, address, city, postal_code').in('id', listingIds) : Promise.resolve({ data: [] as unknown[] }),
+    client.from('households').select('id, current_lease_id, address, city').in('current_lease_id', leases.map((l) => l.id)),
+  ])
+  const listingById = new Map(((lst ?? []) as (ProvinceRow & { id: string })[]).map((r) => [r.id, r]))
+  const hhByLease = new Map(((hhs ?? []) as { id: string; current_lease_id: string | null; address: string | null; city: string | null }[]).map((h) => [h.current_lease_id as string, h]))
+  for (const l of leases) {
+    const hh = hhByLease.get(l.id) ?? null
+    l.household_id = hh?.id ?? null
+    l.province = leaseProvince({ listing: l.listing_id ? listingById.get(l.listing_id) ?? null : null, household: hh, unit: unitTermsOf({ unit: l.unit_place }), unit_label: l.unit_label })
+  }
+}
+
+// unit_place = terms.unit (street / city / postal of the standard lease) — with
+// the linked listing and the managed tenancy it decides the lease's province
+// (lib/provinces/lease), which picks the Ontario or the provincial planner.
+const LEASE_COLS = 'id, landlord_id, listing_id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status, unit_place:terms->unit'
 // Existing renewal cards carry their execution stamp: a letter counts as sent
 // only when executed_at is set and execution_result.ok is true (contract C8).
 const EXISTING_COLS = 'id, action_type, status, metadata, executed_at, execution_result'
@@ -199,9 +228,10 @@ async function runRenewalSweep(): Promise<NextResponse> {
     { auth: { persistSession: false, autoRefreshToken: false } },
   )
   const today = new Date()
-  const horizon = new Date(today.getTime() + WINDOW_DAYS * 86_400_000)
+  const horizon = new Date(today.getTime() + SCAN_WINDOW_DAYS * 86_400_000)
 
-  // 1) Renewal windows across ALL landlords.
+  // 1) Renewal windows across ALL landlords (the horizon is the widest
+  //    provincial window; each lease's own planner decides when a card is due).
   const { data: renewalRows, error: leaseErr } = await admin
     .from('lease_documents')
     .select(LEASE_COLS)
@@ -246,11 +276,7 @@ async function runRenewalSweep(): Promise<NextResponse> {
   // The 30-day email links the tenant to /h/<household>?intent=… — attach the
   // managed tenancy created from each lease (P1 2026-09-23).
   const renewalIds = renewalLeases.map((l) => l.id)
-  if (renewalIds.length) {
-    const { data: hhs } = await admin.from('households').select('id, current_lease_id').in('current_lease_id', renewalIds)
-    const byLease = new Map(((hhs ?? []) as { id: string; current_lease_id: string | null }[]).map((h) => [h.current_lease_id as string, h.id]))
-    for (const l of renewalLeases) l.household_id = byLease.get(l.id) ?? null
-  }
+  await attachPlaces(admin, renewalLeases)
   // Renewed / re-let units and recorded intents, for both the renewal planner
   // and the rent reminders (a lease replaced by the due date is not billed).
   const renewalCtx = await loadRenewalContext(admin, [...renewalLeases, ...reminderLeases], renewalIds, today)
@@ -275,7 +301,7 @@ async function runRenewalSweep(): Promise<NextResponse> {
   const lookback = new Date(today.getTime() - RELIST_LOOKBACK_DAYS * 86_400_000)
   const { data: endedRows } = await admin
     .from('lease_documents')
-    .select('id, landlord_id, listing_id, tenant_name, unit_label, end_date, status')
+    .select('id, landlord_id, listing_id, tenant_name, unit_label, end_date, status, unit_place:terms->unit')
     .in('status', ['active', 'signed_both', 'ended', 'imported'])
     .gte('end_date', iso(todayUtc(lookback)))
     .lt('end_date', iso(todayUtc(today)))
@@ -296,6 +322,8 @@ async function runRenewalSweep(): Promise<NextResponse> {
     const live = new Set(((lst ?? []) as { id: string; is_active: boolean | null }[]).filter((x) => x.is_active).map((x) => x.id))
     relistLeases = relistLeases.filter((l) => !l.listing_id || !live.has(l.listing_id))
   }
+  // The re-list card's "if the tenant stays" sentence is the lease's province's.
+  await attachPlaces(admin, relistLeases as unknown as LeaseRow[])
 
   const allLeases = [...renewalLeases, ...reminderLeases, ...relistLeases.map((l) => ({ ...l, tenant_email: null, monthly_rent: null, end_date: l.end_date || '' }) as LeaseRow)]
   if (allLeases.length === 0 && invites.length === 0) {
@@ -482,7 +510,7 @@ export async function POST(req: Request) {
   const landlordIds = (llRows ?? []).map((r: { id: string }) => r.id)
   if (!landlordIds.length) return NextResponse.json({ created: 0, skipped: 'not_a_landlord' })
   const today = new Date()
-  const horizon = new Date(today.getTime() + WINDOW_DAYS * 86_400_000)
+  const horizon = new Date(today.getTime() + SCAN_WINDOW_DAYS * 86_400_000)
   const { data: leaseRows, error: leaseErr } = await sb
     .from('lease_documents')
     .select(LEASE_COLS)
@@ -502,11 +530,7 @@ export async function POST(req: Request) {
   if (leases.length === 0) {
     return NextResponse.json({ created: 0, actions: [] })
   }
-  {
-    const { data: hhs } = await sb.from('households').select('id, current_lease_id').in('current_lease_id', leases.map((l) => l.id))
-    const byLease = new Map(((hhs ?? []) as { id: string; current_lease_id: string | null }[]).map((h) => [h.current_lease_id as string, h.id]))
-    for (const l of leases) l.household_id = byLease.get(l.id) ?? null
-  }
+  await attachPlaces(sb, leases)
 
   // Idempotency: one proposal per lease per stage, ever (approved, rejected
   // or still pending — never re-nag a decided touchpoint).

@@ -9,7 +9,7 @@
 // All date math uses the UTC getters via lib/dates — the local-getter bug
 // class ("June 1st due date reads as May") is documented in that file.
 
-import { isoDate, parseDateOnly, todayUtc } from '../dates'
+import { isoDate, parseDateOnly, todayUtc, utcDateClamped } from '../dates'
 
 export interface RentPeriod {
   /** ISO yyyy-mm-dd of the due date. */
@@ -24,8 +24,7 @@ export interface RentPeriod {
  * administered — "rent due on the 31st" never skips February.
  */
 function dueDateInMonth(yearUtc: number, monthUtc: number, dueDay: number): Date {
-  const lastDay = new Date(Date.UTC(yearUtc, monthUtc + 1, 0)).getUTCDate()
-  return new Date(Date.UTC(yearUtc, monthUtc, Math.min(dueDay, lastDay)))
+  return utcDateClamped(yearUtc, monthUtc, dueDay)
 }
 
 /**
