@@ -3245,3 +3245,4 @@ Yorkdale-Glen Park、Etobicoke City Centre、Agincourt）+ 密西沙加 / 万锦
 - **委托到期**：`delegation_expiry_sweep()`（SECURITY DEFINER，只 service_role；pg_cron `delegation-expiry-sweep` 每天 13:15 UTC）把 `expires_at` 已过的 active / pending
   委托置 `expired`，给双方各写一条 `agent_audit_events`（actor_type system、action `delegation_expired`、带 previous_status）。此前只靠查询里的 `expires_at > now()` 判定。
 - **仍未做**：筛查报告对外省申请人仍查安省法院与 LTB（筛查模块不碰）；`/api/v1/listings/compliance` 仍只做安省；页脚「PIPEDA · OHRC · RTA」公司级文案未改。
+- **顺带：8 Colvestone Road（MLS C12977266，没有 Realtor.ca 原页链接）已人工下架**（`is_active=false, status='archived'`，`realtor_check.state='gone'` 带 note）：MLS 镜像站报「removed or expired」、经纪公司页 404、挂牌已 5 个月。生产上不再有 `realtor_check.state='no_url'` 的在架 Realtor 房源。
