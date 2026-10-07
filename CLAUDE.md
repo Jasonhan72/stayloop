@@ -3246,3 +3246,18 @@ Yorkdale-Glen Park、Etobicoke City Centre、Agincourt）+ 密西沙加 / 万锦
   委托置 `expired`，给双方各写一条 `agent_audit_events`（actor_type system、action `delegation_expired`、带 previous_status）。此前只靠查询里的 `expires_at > now()` 判定。
 - **仍未做**：筛查报告对外省申请人仍查安省法院与 LTB（筛查模块不碰）；`/api/v1/listings/compliance` 仍只做安省；页脚「PIPEDA · OHRC · RTA」公司级文案未改。
 - **顺带：8 Colvestone Road（MLS C12977266，没有 Realtor.ca 原页链接）已人工下架**（`is_active=false, status='archived'`，`realtor_check.state='gone'` 带 note）：MLS 镜像站报「removed or expired」、经纪公司页 404、挂牌已 5 个月。生产上不再有 `realtor_check.state='no_url'` 的在架 Realtor 房源。
+
+## Realtor.ca 第三批 50 套（2026-10-06 · 用户「再倒入50个房源」）
+
+上两轮的脚本都随会话 scratchpad 消失了，这次重建并**收进仓库 `scripts/realtor-import/`**（README 写了用法与解析规则），以后再导入直接用。
+分布（都是以前没覆盖的区域）：多伦多 20（The Annex、Roncesvalles、Playter Estates-Danforth / Broadview North、Banbury-Don Mills、Birchcliffe-Cliffside、
+Willowdale West、Stonegate-Queensway、Palmerston-Little Italy、Cabbagetown-South St. James Town、Henry Farm 各 2）、旺市 6（Maple ×2、Concord ×2、
+East Woodbridge、Kleinburg）、奥克维尔 5、伯灵顿 4、宾顿 5、皮克灵 2、Ajax 2、Whitby 1、Oshawa 1、纽马克特 2、奥罗拉 2；户型 1 房 18 / 2 房 18 / 3 房+ 14；
+`source='realtor'`、挂在房东测试号 `80646b6a…` 名下、`verified`。生产在架 Realtor 房源 76 → 126。全部 50 套有坐标（页内 Directions 链接或 Nominatim）、
+中文译文已生成（`listing_translations` 50 行，Gemini 3.7 Flash），交通站点由本机脚本慢速写回。
+- **这轮发现的解析问题**（已进脚本）：Realtor 详情页有两种渲染（A/B，见 README），第一版解析器对 B 版整页读空；MAIN / UPPER 单元不是 basement；
+  「Residential Commercial Mix」（店铺楼上）→ apartment；部分单元的车位数是整栋的（UPPER - 5154 New St 写 5 个车位）→ >2 不采信；
+  一套「MAIN - 7930 Kipling Ave · 6+1 房 $3,500」其实是**商业出租**（描述写 retail / office），已剔除；「12 Trellanock Rd · 1 房 $1,650」列为 House
+  但描述是「Legal Apartment」，按 apartment 写入；Nominatim 对新小区地址常查不到，`X0X 0X0` 邮编兜底会落到安省中心（London）——必须核对 FSA，
+  查不到就换一套（18 Elderslie Cres 换成 134 Beaconsfield Dr）。
+- 翻译在生产调用时 Jina / Overpass 都没碰（translations-only 请求）；社区简介的事实调用在交通写回后再跑，免得边缘路由撞 Overpass 429。
