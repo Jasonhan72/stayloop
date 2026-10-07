@@ -53,7 +53,7 @@ export default function StayloopApiPage() {
       <section style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7 lg:py-18">
           <div className="font-mono text-[13px] font-semibold uppercase tracking-[.12em] text-brand">{zh ? 'STAYLOOP API · 安省租房核验 API' : 'STAYLOOP API · Ontario rental verification'}</div>
-          <h1 className="mt-4 max-w-[760px] text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">
+          <h1 className="font-serif mt-4 max-w-[760px] text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">
             {zh ? '全流程里的事实与规则，变成你的系统能调用的三个端点。' : 'The facts and rules of the whole lifecycle, as three endpoints your system can call.'}
           </h1>
           <p className="mt-4 max-w-[680px] text-[16px] leading-[1.6] text-body-2">
@@ -74,7 +74,7 @@ export default function StayloopApiPage() {
       </section>
 
       <section className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7">
-        <h2 className="text-[24px] font-extrabold tracking-tight sm:text-[30px]">{zh ? '三个端点，每个都有真实后端' : 'Three endpoints, each with a real backend'}</h2>
+        <h2 className="font-serif text-[24px] font-extrabold tracking-tight sm:text-[30px]">{zh ? '三个端点，每个都有真实后端' : 'Three endpoints, each with a real backend'}</h2>
         <div className="mt-6 grid gap-5 md:grid-cols-3">
           {ENDPOINTS.map((e) => (
             <div key={e.code} className="flex flex-col rounded-2xl border border-line-divider bg-white p-5">
@@ -92,7 +92,7 @@ export default function StayloopApiPage() {
 
       <section className="border-y border-line-divider" style={{ background: '#F3F8FC' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-12 sm:px-7">
-          <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '它从哪里来' : 'Where it comes from' }</h2>
+          <h2 className="font-serif text-[22px] font-extrabold tracking-tight">{zh ? '它从哪里来' : 'Where it comes from' }</h2>
           <p className="mt-2 max-w-[760px] text-[14.5px] leading-relaxed text-body-2">
             {zh
               ? 'API 不是另一套系统。房源合规检查用的是发布向导与租约草稿同一份规则；核验结论来自申请人本人授权的核验与双方确认的在管租约；筛查就是房东在工作台点的那一次筛查。'
@@ -103,7 +103,7 @@ export default function StayloopApiPage() {
       </section>
 
       <section className="mx-auto max-w-[1100px] px-5 py-12 sm:px-7">
-        <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '边界（先读这段）' : 'Boundary (read this first)'}</h2>
+        <h2 className="font-serif text-[22px] font-extrabold tracking-tight">{zh ? '边界（先读这段）' : 'Boundary (read this first)'}</h2>
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[14.5px] leading-relaxed text-body-2">
           {BOUNDARY.map((b) => <li key={b.en}>{pick(b, lang)}</li>)}
         </ul>

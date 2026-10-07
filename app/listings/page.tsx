@@ -273,7 +273,7 @@ export default function ListingsPage() {
 
       {/* The page had no h1 element (site test 2026-10-02 · L7 D-08 / L6 D7). Visually
           hidden so the designed search-first layout does not change. */}
-      <h1 className="sr-only" data-testid="listings-h1">{zh ? '出租房源' : 'Rental listings'}</h1>
+      <h1 className="font-serif sr-only" data-testid="listings-h1">{zh ? '出租房源' : 'Rental listings'}</h1>
 
       {/* Toolbar — one line (2026-10-03, user: "把这些内容压缩到一行的空间里，有些可以合并或者取消的").
           Was four rows (demo bar · search · filter toolbar · results bar). Now: search (filters as you type, no

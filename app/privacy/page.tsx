@@ -14,7 +14,7 @@ export default function PrivacyPage() {
       <main className="bg-surface">
         <article className="mx-auto max-w-[720px] px-5 py-16 sm:px-7">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">PRIVACY POLICY</div>
-          <h1 className="mt-3 text-[36px] font-extrabold leading-tight tracking-tight sm:text-[44px]">
+          <h1 className="font-serif mt-3 text-[36px] font-extrabold leading-tight tracking-tight sm:text-[44px]">
             {zh ? '我们怎么处理你的数据' : 'How we handle your data'}
           </h1>
           <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? '最后更新 · 2026-09-29' : 'Last updated · 2026-09-29'}</p>
@@ -63,7 +63,7 @@ export default function PrivacyPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-10">
-      <h2 className="text-[18px] font-bold tracking-tight">{title}</h2>
+      <h2 className="font-serif text-[18px] font-bold tracking-tight">{title}</h2>
       <div className="mt-3 text-[14.5px] leading-relaxed text-body-2">{children}</div>
     </section>
   )

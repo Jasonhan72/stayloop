@@ -27,7 +27,7 @@ export default function LandingBody() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: '#00ACE4' }}>
             STAYLOOP · TENANT SCREENING
           </div>
-          <h1 className="mx-auto mt-4 max-w-[720px] text-[30px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[40px]">
+          <h1 className="font-serif mx-auto mt-4 max-w-[720px] text-[30px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[40px]">
             {zh ? (
               <>租客筛查,几分钟出一份<br />经得起追问的报告</>
             ) : (
@@ -53,7 +53,7 @@ export default function LandingBody() {
         {/* Sources */}
         <section className="border-y border-line-divider bg-white">
           <div className="mx-auto max-w-[880px] px-5 py-14">
-            <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '实际检索的数据源' : 'What actually gets searched'}</h2>
+            <h2 className="font-serif text-[22px] font-extrabold tracking-tight">{zh ? '实际检索的数据源' : 'What actually gets searched'}</h2>
             <p className="mt-1 text-[13px] text-body-3">
               {zh ? 'What actually gets searched — 每个数据源在报告里带着自己的检索状态。' : 'Every source carries its own search status in the report.'}
             </p>
@@ -71,7 +71,7 @@ export default function LandingBody() {
 
         {/* Comparison — what the report does that a per-report product does not */}
         <section className="mx-auto max-w-[880px] px-5 py-14">
-          <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '和按份出售的筛查报告有什么不同' : 'How this differs from a per-report screening product'}</h2>
+          <h2 className="font-serif text-[22px] font-extrabold tracking-tight">{zh ? '和按份出售的筛查报告有什么不同' : 'How this differs from a per-report screening product'}</h2>
           <p className="mt-1 text-[13px] text-body-3">
             {zh ? '右列描述的是加拿大与美国常见按份报告产品的一般做法,不针对任何一家。' : 'The right-hand column describes what typical per-report products in Canada and the US advertise, not any one vendor.'}
           </p>
@@ -102,7 +102,7 @@ export default function LandingBody() {
 
         {/* Principles */}
         <section className="mx-auto max-w-[880px] px-5 py-14">
-          <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '这份报告的四条纪律' : "The report's four disciplines"}</h2>
+          <h2 className="font-serif text-[22px] font-extrabold tracking-tight">{zh ? '这份报告的四条纪律' : "The report's four disciplines"}</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {PRINCIPLES.map((p, i) => (
               <div key={p.zh} className="rounded-xl border border-line-divider bg-white p-5">
@@ -116,7 +116,7 @@ export default function LandingBody() {
 
         {/* How it works */}
         <section className="mx-auto max-w-[880px] px-5 pb-14">
-          <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '怎么进行一次租客筛查' : 'How a screening works'}</h2>
+          <h2 className="font-serif text-[22px] font-extrabold tracking-tight">{zh ? '怎么进行一次租客筛查' : 'How a screening works'}</h2>
           <p className="mt-1 text-[13px] text-body-3">
             {zh ? 'How tenant screening works on Stayloop — 三步,全程可见。' : 'Three steps, every one visible as it runs.'}
           </p>
@@ -134,7 +134,7 @@ export default function LandingBody() {
         {/* Compliance strip */}
         <section className="border-y border-line-divider bg-white">
           <div className="mx-auto max-w-[880px] px-5 py-10">
-            <h2 className="text-[15px] font-extrabold">{zh ? '合规姿态' : 'Compliance posture'}</h2>
+            <h2 className="font-serif text-[15px] font-extrabold">{zh ? '合规姿态' : 'Compliance posture'}</h2>
             <p className="mt-2 max-w-[720px] text-[12.5px] leading-relaxed text-body-2">
               {zh
                 ? '筛查工具的使用遵循安省《人权法典》下 O. Reg. 290/98 允许的选择方式(信用参考、租史、信用检查、收入信息,须整体考量)。受保护特征不进入评分,合规审计随每份报告输出。报告基于申请人自愿提交的文件与公开记录生成;Stayloop 不是《消费者报告法》(安省)意义上的消费者报告机构,本报告亦非该法意义上的消费者报告。个人信息按 PIPEDA 要求加密存储,申请人有权查阅并要求更正。'
@@ -145,7 +145,7 @@ export default function LandingBody() {
 
         {/* FAQ — same arrays feed the FAQPage JSON-LD in the server page */}
         <section className="mx-auto max-w-[880px] px-5 py-14">
-          <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '常见问题' : 'Frequently asked questions'}</h2>
+          <h2 className="font-serif text-[22px] font-extrabold tracking-tight">{zh ? '常见问题' : 'Frequently asked questions'}</h2>
           <p className="mt-1 text-[13px] text-body-3">{zh ? 'Tenant screening in Ontario — FAQ' : '安省租客筛查 · FAQ'}</p>
           <div className="mt-6 space-y-3">
             {FAQS.map((f) => {
@@ -165,7 +165,7 @@ export default function LandingBody() {
 
         {/* Final CTA */}
         <section className="mx-auto max-w-[880px] px-5 py-16 text-center">
-          <h2 className="text-[24px] font-extrabold tracking-tight">
+          <h2 className="font-serif text-[24px] font-extrabold tracking-tight">
             {zh ? '下一位申请人,用报告说话' : 'Let the report speak for your next applicant'}
           </h2>
           <p className="mx-auto mt-2 max-w-[460px] text-[13.5px] text-body-2">

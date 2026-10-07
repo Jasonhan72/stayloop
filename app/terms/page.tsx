@@ -13,7 +13,7 @@ export default function TermsPage() {
       <main className="bg-surface">
         <article className="mx-auto max-w-[720px] px-5 py-16 sm:px-7">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">TERMS OF SERVICE</div>
-          <h1 className="mt-3 text-[36px] font-extrabold leading-tight tracking-tight sm:text-[44px]">
+          <h1 className="font-serif mt-3 text-[36px] font-extrabold leading-tight tracking-tight sm:text-[44px]">
             {zh ? '服务条款' : 'Terms of Service'}
           </h1>
           <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? '2026-05-09 版' : 'Version 2026-05-09'}</p>
@@ -53,7 +53,7 @@ export default function TermsPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-10">
-      <h2 className="text-[18px] font-bold tracking-tight">{title}</h2>
+      <h2 className="font-serif text-[18px] font-bold tracking-tight">{title}</h2>
       <div className="mt-3 text-[14.5px] leading-relaxed text-body-2">{children}</div>
     </section>
   )

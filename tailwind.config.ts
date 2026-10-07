@@ -72,8 +72,11 @@ const config: Config = {
         trust: '#7C3AED',
       },
       fontFamily: {
-        // Latin = Inter Tight; Chinese = 宋体 (user 2026-10-07): self-hosted Noto Serif SC, then the system Song faces.
-        sans: ['"Inter Tight"', '"Noto Serif SC"', '"Songti SC"', 'STSong', 'SimSun', '"Noto Serif CJK SC"', 'serif'],
+        // Body and the workspace stay sans (Latin = Inter Tight, Chinese = PingFang / YaHei).
+        sans: ['"Inter Tight"', '"PingFang SC"', '"Microsoft YaHei"', 'system-ui', '-apple-system', 'sans-serif'],
+        // Marketing-page headings: 宋体 for Chinese (user 2026-10-07 「标题用宋体，正文和工作台改回黑体」) —
+        // self-hosted Noto Serif SC, then the system Song faces; Latin still Inter Tight.
+        serif: ['"Inter Tight"', '"Noto Serif SC"', '"Songti SC"', 'STSong', 'SimSun', '"Noto Serif CJK SC"', 'serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       borderRadius: {
