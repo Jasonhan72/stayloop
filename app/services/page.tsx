@@ -81,7 +81,7 @@ export default function ServicesPage() {
       <section style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7 lg:py-18">
           <div className="font-mono text-[13px] font-semibold uppercase tracking-[.12em] text-brand">{zh ? 'STAYLOOP SERVICES · 维修与服务网络' : 'STAYLOOP SERVICES · Repairs & services network'}</div>
-          <h1 className="font-serif mt-4 max-w-[760px] text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">
+          <h1 className="mt-4 max-w-[760px] text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">
             {zh ? '报修到验收，一条留痕的工单；服务商凭资质入驻，付款你们直接结算。' : 'From ticket to acceptance, one traceable work order; providers join on credentials, and you settle payment directly.'}
           </h1>
           <p className="mt-4 max-w-[720px] text-[16px] leading-[1.6] text-body-2">
@@ -102,7 +102,7 @@ export default function ServicesPage() {
       </section>
 
       <section className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7" id="flow">
-        <h2 className="font-serif text-[24px] font-extrabold tracking-tight sm:text-[30px]">{zh ? '一张工单的六步' : 'Six steps of one work order'}</h2>
+        <h2 className="text-[24px] font-extrabold tracking-tight sm:text-[30px]">{zh ? '一张工单的六步' : 'Six steps of one work order'}</h2>
         <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {FLOW.map((f, i) => (
             <li key={f.en} className="flex gap-3 rounded-2xl border border-line-divider bg-white p-4">
@@ -115,7 +115,7 @@ export default function ServicesPage() {
 
       <section className="border-y border-line-divider" style={{ background: '#F3F8FC' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7">
-          <h2 className="font-serif text-[24px] font-extrabold tracking-tight sm:text-[30px]">{zh ? '三方各看到什么' : 'What each side sees'}</h2>
+          <h2 className="text-[24px] font-extrabold tracking-tight sm:text-[30px]">{zh ? '三方各看到什么' : 'What each side sees'}</h2>
           <div className="mt-6 grid gap-5 md:grid-cols-3">
             {AUDIENCES.map((a) => (
               <div key={a.href} className="flex flex-col rounded-2xl border border-line-divider bg-white p-5">
@@ -132,7 +132,7 @@ export default function ServicesPage() {
       </section>
 
       <section className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7" id="trades">
-        <h2 className="font-serif text-[24px] font-extrabold tracking-tight sm:text-[30px]">{zh ? '工种与必需资质' : 'Trades and required credentials'}</h2>
+        <h2 className="text-[24px] font-extrabold tracking-tight sm:text-[30px]">{zh ? '工种与必需资质' : 'Trades and required credentials'}</h2>
         <p className="mt-2 max-w-[760px] text-[14.5px] leading-relaxed text-body-2">
           {zh
             ? '要求的是安省法律，不是 Stayloop 的规定：强制行业要 Skilled Trades Ontario 资格证，电气承包要 ESA 牌照，燃气设备要 TSSA 技师证，除虫要环境部许可；出租物业上的施工类工作要 WSIB 清关。每项须存在 · 已核 · 未过期，工种才算覆盖。'
@@ -159,7 +159,7 @@ export default function ServicesPage() {
 
       <section className="border-t border-line-divider" style={{ background: '#F3F8FC' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-12 sm:px-7">
-          <h2 className="font-serif text-[22px] font-extrabold tracking-tight">{zh ? '现状与边界（先读这段）' : 'Status and boundary (read this first)'}</h2>
+          <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '现状与边界（先读这段）' : 'Status and boundary (read this first)'}</h2>
           <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[14.5px] leading-relaxed text-body-2">
             {HONEST.map((b) => <li key={b.en}>{pick(b, lang)}</li>)}
           </ul>

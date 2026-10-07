@@ -273,7 +273,7 @@ export default function PricingPage() {
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
               {zh ? 'PRICING · 透明 · 无隐藏' : 'PRICING · Transparent · No hidden fees'}
             </div>
-            <h1 className="font-serif mx-auto mt-3 max-w-[820px] text-[30px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[38px] lg:text-[42px]">
+            <h1 className="mx-auto mt-3 max-w-[820px] text-[30px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[38px] lg:text-[42px]">
               {zh ? <>简单透明的订阅定价</> : <>Simple, transparent subscription pricing</>}
             </h1>
             <p className="mx-auto mt-4 max-w-[680px] text-[15.5px] leading-relaxed text-body-2">
@@ -291,7 +291,7 @@ export default function PricingPage() {
             <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#93C5FD' }}>
               {zh ? 'STAYLOOP API · 给合作方的接口' : 'STAYLOOP API · For partners'}
             </div>
-            <h2 className="font-serif mt-2 text-[26px] font-bold tracking-tight text-white">
+            <h2 className="mt-2 text-[26px] font-bold tracking-tight text-white">
               {zh ? '把房源合规检查、申请人出示的核验结论和筛查接进你的系统' : 'Listing compliance checks, applicant-presented verification and screening, inside your own system'}
             </h2>
             <p className="mt-3 max-w-[760px] text-[14px] leading-relaxed" style={{ color: '#D3E3EF' }}>
@@ -314,7 +314,7 @@ export default function PricingPage() {
             <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
               {zh ? '一条底线' : 'One rule'}
             </div>
-            <h2 className="font-serif mt-2 text-[22px] font-bold tracking-tight">{zh ? '付费不改变任何评分或排名。' : 'Paying never changes a score or a ranking.'}</h2>
+            <h2 className="mt-2 text-[22px] font-bold tracking-tight">{zh ? '付费不改变任何评分或排名。' : 'Paying never changes a score or a ranking.'}</h2>
             <p className="mt-3 max-w-[820px] text-[14px] leading-relaxed text-body-2">
               {zh ? (
                 <>验证、筛查、租约起草都含在订阅里。带看由<b>持牌经纪</b>完成。我们不抽佣金，也不经手租金（在线收租尚未上线）——付费只解锁你自己的工具，不影响任何人的资格。</>
@@ -327,7 +327,7 @@ export default function PricingPage() {
 
         {/* FAQ */}
         <section className="mx-auto max-w-[1100px] px-5 pb-16 sm:px-7 lg:px-12">
-          <h2 className="font-serif text-[24px] font-bold tracking-tight sm:text-[30px]">{zh ? '常见问题' : 'Frequently asked questions'}</h2>
+          <h2 className="text-[24px] font-bold tracking-tight sm:text-[30px]">{zh ? '常见问题' : 'Frequently asked questions'}</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {[
               { q: { zh: '租客真的永远免费吗?', en: 'Are tenants really free forever?' }, a: { zh: '是。找房、申请、签约、报修和护照分享链接都免费；房东的筛查与核验费用也不能转给你（安省 RTA s.134）。', en: 'Yes. Searching, applying, signing, repairs and your Passport share link are all free, and a landlord cannot pass screening or verification costs on to you (Ontario RTA s.134).' } },

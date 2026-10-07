@@ -95,7 +95,7 @@ export default function PlatformPage() {
       <section style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7 lg:py-18">
           <div className="font-mono text-[13px] font-semibold uppercase tracking-[.12em] text-brand">{zh ? 'PRODUCTS · 产品结构' : 'PRODUCTS'}</div>
-          <h1 className="font-serif mt-4 max-w-[760px] text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">
+          <h1 className="mt-4 max-w-[760px] text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">
             {zh ? <>两个产品，一条流程：<br />租前 · 租中 · 租后，加一个可调用的 API。</> : <>Two products, one flow:<br />before, during and after the lease — plus an API you can call.</>}
           </h1>
           <p className="mt-4 max-w-[680px] text-[16px] leading-[1.6] text-body-2">
@@ -113,7 +113,7 @@ export default function PlatformPage() {
       {/* ================= PRODUCT 1: LIFECYCLE ================= */}
       <section id="lifecycle" className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7">
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '产品一' : 'Product 1'}</div>
-        <h2 className="font-serif mt-2 text-[26px] font-extrabold leading-tight tracking-tight sm:text-[34px]">{zh ? 'Stayloop 全流程' : 'Stayloop Lifecycle'}</h2>
+        <h2 className="mt-2 text-[26px] font-extrabold leading-tight tracking-tight sm:text-[34px]">{zh ? 'Stayloop 全流程' : 'Stayloop Lifecycle'}</h2>
         <p className="mt-2 max-w-[720px] text-[15.5px] text-body-2">
           {zh
             ? '三个阶段不是三个产品：同一个房源、同一位申请人、同一份租约在每个阶段接力，你的 AI 助理在每个节点先动，会对外产生影响的事一律先变成等你批准的卡片。'
@@ -173,7 +173,7 @@ export default function PlatformPage() {
       <section id="api" className="border-t border-line-divider" style={{ background: '#F3F8FC' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '产品二' : 'Product 2'}</div>
-          <h2 className="font-serif mt-2 text-[26px] font-extrabold leading-tight tracking-tight sm:text-[34px]">Stayloop API</h2>
+          <h2 className="mt-2 text-[26px] font-extrabold leading-tight tracking-tight sm:text-[34px]">Stayloop API</h2>
           <p className="mt-2 max-w-[720px] text-[15.5px] text-body-2">
             {zh
               ? '全流程里产生的事实与规则，以三个端点开放给物业系统、租赁平台和合作方。申请人主动出示，合作方只拿到结论；每次调用留痕并通知申请人。'
@@ -196,7 +196,7 @@ export default function PlatformPage() {
 
       {/* ================= FINAL ================= */}
       <section className="mx-auto max-w-[1100px] px-5 py-16 text-center sm:px-7">
-        <h2 className="font-serif text-[26px] font-extrabold leading-tight tracking-tight sm:text-[34px]">{zh ? '从任何一个阶段进来，都在同一条流程里。' : 'Enter at any stage — it is the same flow.'}</h2>
+        <h2 className="text-[26px] font-extrabold leading-tight tracking-tight sm:text-[34px]">{zh ? '从任何一个阶段进来，都在同一条流程里。' : 'Enter at any stage — it is the same flow.'}</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Link href="/tenant" className="sl-btn-secondary">{zh ? '我是租客' : 'I’m a tenant'}</Link>
           <Link href="/landlord" className="sl-btn-secondary">{zh ? '我是房东' : 'I’m a landlord'}</Link>

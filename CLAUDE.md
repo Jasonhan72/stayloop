@@ -3262,14 +3262,8 @@ East Woodbridge、Kleinburg）、奥克维尔 5、伯灵顿 4、宾顿 5、皮�
   查不到就换一套（18 Elderslie Cres 换成 134 Beaconsfield Dr）。
 - 翻译在生产调用时 Jina / Overpass 都没碰（translations-only 请求）；社区简介的事实调用在交通写回后再跑，免得边缘路由撞 Overpass 429。
 
-## 标题宋体、正文黑体（2026-10-07 · 用户「中文字体改成宋体」→ 看过全站宋体后听了我的建议 →「标题用宋体，正文和工作台改回黑体」）
+## 字体：试过宋体，最终全站保持黑体（2026-10-07）
 
-**营销页的 h1 / h2（含首页 `.sl-type-head`）中文用宋体；正文、工作台、邮件、筛查报告一律仍是黑体**（PingFang / 雅黑回落）；拉丁字处处是 Inter Tight。
-守卫 `tests/songFont20261007.spec.ts`（逐个营销页检查每个 `<h1>` `<h2>` 带 `font-serif` 或 `sl-type-head`，工作台组件不得出现）。理由：产品视觉对齐 Flinks 式无衬线 SaaS，
-工作台 12–13px 的卡片 / 表格用宋体灰度不均、Windows 加载分片前还会闪 SimSun；营销页大标题用宋体则有书卷气、和「法条编号」的调性搭。
-- Tailwind 新增 `serif` 族（`'Inter Tight', 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', 'Noto Serif CJK SC', serif`），营销页 h1 / h2 加 `font-serif`（16 个文件 52 处），
-  `.sl-type-head` 在 CSS 里直接写同一栈；`sans` 与 body 保持原黑体栈。**以后新写营销页标题记得加 `font-serif`**（守卫会拦）；工作台标题不加。
-- **自托管 Noto Serif SC**（SIL OFL，可变字重 200–900）：`public/fonts/noto-serif-sc.css` + `public/fonts/noto-serif-sc/` 共 101 个 unicode-range 分片（5.9 MB，
-  页面只下载用到的分片），从 Google Fonts 的分片 CSS 改写而来，**运行时不向 Google 发任何请求**（与 Inter Tight 同一原则）。`app/layout.tsx` 用 `<link rel="stylesheet">` 挂上。
-- Inter Tight 的 `unicode-range` 只覆盖拉丁，标题里的中文落到 Noto Serif SC，分片没加载完时先用系统宋体。中间有过一版全站宋体（含邮件模板），已按用户决定收回。
-- 10-01「方案 A 保留无衬线」只对正文仍成立。本地无头 Chrome（`--accept-lang=zh-CN` 才能让站点切中文）实测：首页 / 规则页 h1、h2 宋体，导语、正文、卡片标题黑体。
+用户先要「中文字体改成宋体」（全站上线过一版：自托管 Noto Serif SC 101 个分片 + 系统宋体回落），再改成「标题宋体、正文黑体」，看过效果后拍板
+**「还是全部改回原来的黑体」**——两次提交（`ec1bf9c`、`bd4e775`）已整体 revert，字体文件、`font-serif` 类、守卫测试都不存在了。现行仍是 10-01 方案 A：
+`'Inter Tight', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif`，运行时不请求 Google Fonts。**以后不要再主动提议衬线中文字体。**

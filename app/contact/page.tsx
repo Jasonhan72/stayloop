@@ -75,7 +75,7 @@ export default function ContactPage() {
       <section style={{ background: '#F3F8FC', borderBottom: '1px solid #E4EEF6' }}>
         <div className="mx-auto max-w-[820px] px-5 pb-10 pt-20 sm:px-7 lg:px-12">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">{zh ? 'CONTACT · 合作 / 投资 / 媒体' : 'CONTACT · Partnerships / Investors / Press'}</div>
-          <h1 className="font-serif mt-4 text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[46px]">
+          <h1 className="mt-4 text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[46px]">
             {zh ? '聊聊合作。' : 'Let’s talk.'}
           </h1>
           <p className="mt-4 max-w-[600px] text-[15.5px] leading-relaxed text-body-2">
@@ -140,7 +140,7 @@ export default function ContactPage() {
           ) : (
             <div className="sl-card p-10 text-center">
               <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand/15 text-[20px] text-brand">✓</span>
-              <h2 className="font-serif mt-4 text-[20px] font-bold">{zh ? '谢谢,我们已收到' : 'Thanks — we’ve got it'}</h2>
+              <h2 className="mt-4 text-[20px] font-bold">{zh ? '谢谢,我们已收到' : 'Thanks — we’ve got it'}</h2>
               <p className="mt-2 text-[13.5px] text-body-2">{zh ? '我们会尽量在 24 小时内通过邮件回复你。' : 'We aim to reply by email within 24 hours.'}</p>
             </div>
           )}

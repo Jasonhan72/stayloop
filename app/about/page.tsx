@@ -21,7 +21,7 @@ export default function AboutPage() {
       <section style={{ background: '#F3F8FC', borderBottom: '1px solid #E4EEF6' }}>
         <div className="mx-auto max-w-[900px] px-5 py-24 sm:px-7 lg:px-12">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">ABOUT · STAYLOOP</div>
-          <h1 className="font-serif mt-4 text-[30px] font-extrabold leading-[1.08] tracking-tight sm:text-[44px] lg:text-[54px]">
+          <h1 className="mt-4 text-[30px] font-extrabold leading-[1.08] tracking-tight sm:text-[44px] lg:text-[54px]">
             {zh ? <>为 AI 时代,<br />重新设计租住的方式。</> : <>Renting,<br />redesigned for the AI era.</>}
           </h1>
           <p className="mt-6 max-w-[680px] text-[17px] leading-relaxed text-body-2">
@@ -34,7 +34,7 @@ export default function AboutPage() {
 
       <section>
         <div className="mx-auto max-w-[1100px] px-5 py-20 sm:px-7 lg:px-12">
-          <h2 className="font-serif text-[26px] font-extrabold tracking-tight sm:text-[32px]">{zh ? '我们的原则' : 'Our principles'}</h2>
+          <h2 className="text-[26px] font-extrabold tracking-tight sm:text-[32px]">{zh ? '我们的原则' : 'Our principles'}</h2>
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             {PRINCIPLES.map((p) => (
               <div key={p.h.zh} className="sl-card p-6">

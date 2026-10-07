@@ -28,7 +28,7 @@ export default function RulesPage() {
       <section style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-16 sm:px-7 lg:py-20">
           <div className="font-mono text-[13px] font-semibold uppercase tracking-[.12em] text-brand">{zh ? 'RULES · 我们执行的安省规则' : 'RULES · The Ontario rules we enforce'}</div>
-          <h1 className="font-serif mt-4 max-w-[820px] text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">
+          <h1 className="mt-4 max-w-[820px] text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">
             {zh ? '每一条规则都有编号、法条和落点。' : 'Every rule has a number, a statute and a place where it bites.'}
           </h1>
           <p className="mt-5 max-w-[680px] text-[17px] leading-[1.6] text-body-2">
@@ -45,7 +45,7 @@ export default function RulesPage() {
             if (!rules.length) return null
             return (
               <div key={a.key} className="mb-12">
-                <h2 className="font-serif text-[22px] font-semibold tracking-tight">{zh ? a.zh : a.en}</h2>
+                <h2 className="text-[22px] font-semibold tracking-tight">{zh ? a.zh : a.en}</h2>
                 <div className="mt-4 divide-y divide-line-divider rounded-2xl border border-line-divider bg-white">
                   {rules.map((r) => (
                     <div key={r.id} id={r.id} className="scroll-mt-24 px-5 py-4">

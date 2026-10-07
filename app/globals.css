@@ -8,11 +8,7 @@
 
 /* Self-hosted fonts (no Google Fonts request at runtime).
    Variable woff2, latin subset — CJK falls through to the system stack
-   (PingFang SC / Microsoft YaHei) via unicode-range. Marketing-page headings
-   (.sl-type-head / .font-serif) use 宋体 instead: the self-hosted Noto Serif SC
-   (public/fonts/noto-serif-sc.css, linked from app/layout.tsx, 101 unicode-range
-   chunks so a page downloads only what it uses), then the system Song faces.
-   User 2026-10-07:「标题用宋体，正文和工作台改回黑体」. */
+   (PingFang SC / Microsoft YaHei) via unicode-range. */
 @font-face {
   font-family: 'Inter Tight';
   font-style: normal;
@@ -296,12 +292,11 @@ html, body {
 }
 
 /* Homepage typography, plan A (2026-10-01 · after muse.ai / america.gov): the same sans faces
-   (Inter Tight + PingFang / YaHei; headings in 宋体 since 2026-10-07), two weights only (600 headings, 400 text), balanced heading
+   (Inter Tight + PingFang / YaHei), two weights only (600 headings, 400 text), balanced heading
    lines, proportional CJK punctuation so 「，」 does not leave a gap, and no negative tracking on
    Chinese (it crowds the characters) — English headings keep −0.02em. */
 .sl-type-head {
   font-weight: 600;
-  font-family: 'Inter Tight', 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', 'Noto Serif CJK SC', serif;
   letter-spacing: -0.02em;
   text-wrap: balance;
   font-feature-settings: 'palt';

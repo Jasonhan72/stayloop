@@ -386,7 +386,7 @@ ${i.link}
 ${privacy.zh}
 ${privacy.en}`
   const html = `<!DOCTYPE html>
-<html><body style="margin:0;padding:0;background:#f3f8fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1b1b3c;">
+<html><body style="margin:0;padding:0;background:#f3f8fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;color:#1b1b3c;">
 <div style="color:#94a3b8;font-size:11px;padding:10px 16px 0 16px;">${escapeHtml(i.marker)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:16px;"><tr><td align="center">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;border:1px solid #d3e3ef;">

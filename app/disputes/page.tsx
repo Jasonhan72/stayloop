@@ -180,7 +180,7 @@ export default function DisputesPage() {
             </span>
             <SampleTag zh={zh} tone="loud" />
           </div>
-          <h1 className="font-serif mt-4 max-w-[820px] text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[44px] lg:text-[48px]">
+          <h1 className="mt-4 max-w-[820px] text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[44px] lg:text-[48px]">
             {zh ? <>出了纠纷,<br />也有 AI 陪你走完流程。</> : <>When a dispute arises,<br />AI walks you through it too.</>}
           </h1>
           <p className="mt-5 max-w-[640px] text-[16px] leading-relaxed text-body-2">
@@ -410,7 +410,7 @@ export default function DisputesPage() {
             </span>
             <SampleTag zh={zh} tone="loud" />
           </div>
-          <h2 className="font-serif mt-3 text-[28px] font-extrabold tracking-tight sm:text-[34px]">{zh ? '需要真人时,对接持牌律师。' : 'When you need a human, connect with a licensed lawyer.'}</h2>
+          <h2 className="mt-3 text-[28px] font-extrabold tracking-tight sm:text-[34px]">{zh ? '需要真人时,对接持牌律师。' : 'When you need a human, connect with a licensed lawyer.'}</h2>
           <p className="mt-2 font-mono text-[11px] uppercase tracking-eyebrow text-body-3">
             RANKED BY CASE FIT · LSO LICENSED · NO COMMISSION · YOU PAY THEM DIRECTLY
           </p>

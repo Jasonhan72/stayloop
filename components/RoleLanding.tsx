@@ -173,7 +173,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
             <div className="v8-tag" style={{ color: c }}>
               {cfg.eyebrow}
             </div>
-            <h1 className="font-serif mt-[18px] text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">{cfg.h1[lang]}</h1>
+            <h1 className="mt-[18px] text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">{cfg.h1[lang]}</h1>
             <p className="mt-[20px] max-w-[560px] text-[19px] leading-[1.6] text-body-2">{cfg.sub[lang]}</p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
@@ -290,7 +290,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
           <div className="v8-eyebrow" style={{ color: c }}>
             {zh ? `${agentName}做什么` : `What ${agentName} does`}
           </div>
-          <h2 className="font-serif mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
+          <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
             {zh ? '三件事，每件都能先在对话里试。' : 'Three things — each one you can try in the conversation first.'}
           </h2>
           <p className="mt-3 max-w-[640px] text-[17px] leading-[1.6] text-body-2">
@@ -324,7 +324,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
           <div className="v8-eyebrow" style={{ color: c }}>
             {lang === 'zh' ? '怎么用 · 从头到尾' : 'HOW IT WORKS · END TO END'}
           </div>
-          <h2 className="font-serif mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
+          <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
             {lang === 'zh'
               ? <>{agentName}陪你走完每一步。</>
               : <>{agentName} walks you through every step.</>}
@@ -356,7 +356,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
             <div className="v8-eyebrow" style={{ color: c }}>
               {cfg.valueBand.eyebrow[lang]}
             </div>
-            <h2 className="font-serif mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
+            <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
               {cfg.valueBand.h2[lang]}
             </h2>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -389,7 +389,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
           <div className="v8-eyebrow" style={{ color: c }}>
             {lang === 'zh' ? '场景示例' : 'EXAMPLE SCENARIO'}
           </div>
-          <h2 className="font-serif mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
+          <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
             {lang === 'zh' ? '一段被 AI 改写的租住。' : 'A tenancy rewritten by AI.'}
           </h2>
           {/* Storyboard strip — three beats straight from the shot scripts */}
@@ -489,7 +489,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
       <section style={{ background: '#F3F8FC', borderTop: '1px solid #E4EEF6', borderBottom: '1px solid #E4EEF6' }}>
         <div className="mx-auto max-w-[1180px] px-5 py-20 sm:px-8 lg:py-24">
           <div className="v8-eyebrow" style={{ color: c }}>FAQ</div>
-          <h2 className="font-serif mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
+          <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
             {zh ? (cfg.role === 'tenant' ? '租客最常问的' : cfg.role === 'landlord' ? '房东最常问的' : '经纪最常问的') : 'Frequently asked'}
           </h2>
           <div className="mt-8 max-w-[800px]">
@@ -511,7 +511,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
       {/* CTA — v8 dark band with brand glow */}
       <section className="v8-dark">
         <div className="relative mx-auto max-w-[1180px] px-5 py-24 text-center sm:px-8 lg:py-28">
-          <h2 className="font-serif rv mx-auto max-w-[640px] text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em] text-white">
+          <h2 className="rv mx-auto max-w-[640px] text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em] text-white">
             {lang === 'zh'
               ? <>现在就让 {agentName}替你开始。</>
               : <>Let {agentName} start for you now.</>}
