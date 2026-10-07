@@ -72,7 +72,8 @@ const config: Config = {
         trust: '#7C3AED',
       },
       fontFamily: {
-        sans: ['"Inter Tight"', '"PingFang SC"', '"Microsoft YaHei"', 'system-ui', '-apple-system', 'sans-serif'],
+        // Latin = Inter Tight; Chinese = 宋体 (user 2026-10-07): self-hosted Noto Serif SC, then the system Song faces.
+        sans: ['"Inter Tight"', '"Noto Serif SC"', '"Songti SC"', 'STSong', 'SimSun', '"Noto Serif CJK SC"', 'serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       borderRadius: {

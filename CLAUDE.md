@@ -3261,3 +3261,13 @@ East Woodbridge、Kleinburg）、奥克维尔 5、伯灵顿 4、宾顿 5、皮�
   但描述是「Legal Apartment」，按 apartment 写入；Nominatim 对新小区地址常查不到，`X0X 0X0` 邮编兜底会落到安省中心（London）——必须核对 FSA，
   查不到就换一套（18 Elderslie Cres 换成 134 Beaconsfield Dr）。
 - 翻译在生产调用时 Jina / Overpass 都没碰（translations-only 请求）；社区简介的事实调用在交通写回后再跑，免得边缘路由撞 Overpass 429。
+
+## 中文改用宋体（2026-10-07 · 用户「中文字体改成宋体」）
+
+全站中文由黑体（PingFang / 雅黑回落）改为**宋体**，拉丁字仍是 Inter Tight。守卫 `tests/songFont20261007.spec.ts`。
+- **自托管 Noto Serif SC**（SIL OFL，可变字重 200–900）：`public/fonts/noto-serif-sc.css` + `public/fonts/noto-serif-sc/` 共 101 个 unicode-range 分片（5.9 MB，
+  页面只下载用到的分片），从 Google Fonts 的分片 CSS 改写而来，**运行时不向 Google 发任何请求**（与 Inter Tight 同一原则）。`app/layout.tsx` 用 `<link rel="stylesheet">` 挂上。
+- **字体栈**（`tailwind.config.ts` `sans` 与 `app/globals.css` 的 body）：`'Inter Tight', 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', 'Noto Serif CJK SC', serif`——
+  Inter Tight 的 `unicode-range` 只覆盖拉丁，中文落到 Noto Serif SC，没加载完时先用系统宋体。邮件模板（`lib/email.ts`、`lib/contact.ts`）改为系统宋体名
+  （邮件客户端不加载网页字体）。`lib/generateReport.ts`（筛查模块，不碰）仍是黑体。
+- 10-01「方案 A 保留无衬线」就此作废。本地与生产实测：h1 与正文中文都以 Noto Serif SC 渲染（`document.fonts` 加载 15 个分片）。

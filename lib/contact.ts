@@ -79,7 +79,7 @@ export function renderContactEmail(i: ContactInput): { subject: string; html: st
     ['Email', i.email],
     ['Topic', i.topic || '—'],
   ]
-  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;color:#0f172a;">
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,'Songti SC','STSong','SimSun',serif;font-size:14px;color:#0f172a;">
   <h2 style="margin:0 0 12px 0;font-size:16px;">stayloop.ai contact form</h2>
   <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px;">
     ${rows

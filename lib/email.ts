@@ -104,7 +104,7 @@ ${i.dashboardUrl}
 
   const html = `<!DOCTYPE html>
 <html>
-  <body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+  <body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Songti SC','STSong','SimSun',serif;color:#0f172a;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;padding:32px 16px;">
       <tr>
         <td align="center">
@@ -179,7 +179,7 @@ ${disclosureZh}`
 
   const html = `<!DOCTYPE html>
 <html>
-  <body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+  <body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Songti SC','STSong','SimSun',serif;color:#0f172a;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;padding:32px 16px;">
       <tr>
         <td align="center">
@@ -246,7 +246,7 @@ If you've already arranged payment, please ignore this note. Questions? Just rep
 
   const html = `<!DOCTYPE html>
 <html>
-  <body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+  <body style="margin:0;padding:0;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Songti SC','STSong','SimSun',serif;color:#0f172a;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;padding:32px 16px;">
       <tr>
         <td align="center">
@@ -342,7 +342,7 @@ ${i.joinUrl}
 ${i.inviterName} invited you to join the managed tenancy at ${i.address} as ${i.roleEn}. Accept or decline at the link above. If you don't recognize this, you can safely ignore this email or decline at the link.
 
 — Stayloop · www.stayloop.ai`
-  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1a1a">
+  const html = `<div style="font-family:-apple-system,Segoe UI,'Songti SC','STSong','SimSun',serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1a1a">
   <div style="font-size:18px;font-weight:800;margin-bottom:4px">stay<span style="color:#00ACE4">loop.AI</span></div>
   <p style="font-size:15px;line-height:1.7"><strong>${esc(i.inviterName)}</strong> 邀请你以「<strong>${esc(i.roleZh)}</strong>」身份加入 <strong>${esc(i.address)}</strong> 的在管租约。</p>
   <p style="font-size:13px;color:#555;line-height:1.7">在 Stayloop 上,租约各方可以在一个地方对话、报修、收租金提醒。点击下方按钮查看详情后再决定接受或拒绝。</p>
@@ -386,7 +386,7 @@ ${i.link}
 ${privacy.zh}
 ${privacy.en}`
   const html = `<!DOCTYPE html>
-<html><body style="margin:0;padding:0;background:#f3f8fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;color:#1b1b3c;">
+<html><body style="margin:0;padding:0;background:#f3f8fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Songti SC','STSong','SimSun',serif;color:#1b1b3c;">
 <div style="color:#94a3b8;font-size:11px;padding:10px 16px 0 16px;">${escapeHtml(i.marker)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:16px;"><tr><td align="center">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;border:1px solid #d3e3ef;">

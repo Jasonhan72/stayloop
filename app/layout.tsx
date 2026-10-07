@@ -51,6 +51,8 @@ export default function RootLayout({
               "(function(){try{var l=localStorage.getItem('stayloop_lang');if(l!=='en'&&l!=='zh'){l=((navigator.language||'').toLowerCase().indexOf('zh')===0)?'zh':'en'}var d=document.documentElement;d.lang=l==='zh'?'zh-CN':'en';d.dataset.lang=l}catch(e){}})()",
           }}
         />
+        {/* 宋体 for Chinese (2026-10-07): self-hosted Noto Serif SC, unicode-range chunks. */}
+        <link rel="stylesheet" href="/fonts/noto-serif-sc.css" />
         <meta name="theme-color" content="#F3F8FC" />
         {/* PWA (2026-09-22, Muse benchmark item F): installable, standalone on phones. */}
         <link rel="manifest" href="/manifest.json" />

@@ -7,8 +7,10 @@
    =========================================================== */
 
 /* Self-hosted fonts (no Google Fonts request at runtime).
-   Variable woff2, latin subset — CJK falls through to the system stack
-   (PingFang SC / Microsoft YaHei) via unicode-range. */
+   Variable woff2, latin subset — CJK falls through to 宋体: the self-hosted
+   Noto Serif SC (public/fonts/noto-serif-sc.css, linked from app/layout.tsx,
+   101 unicode-range chunks so a page downloads only what it uses), then the
+   system Song faces (Songti SC / STSong / SimSun). User 2026-10-07:「中文字体改成宋体」. */
 @font-face {
   font-family: 'Inter Tight';
   font-style: normal;
@@ -75,7 +77,7 @@
 html, body {
   background: var(--sl-surface);
   color: var(--sl-text);
-  font-family: 'Inter Tight', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter Tight', 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', 'Noto Serif CJK SC', serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -292,7 +294,7 @@ html, body {
 }
 
 /* Homepage typography, plan A (2026-10-01 · after muse.ai / america.gov): the same sans faces
-   (Inter Tight + PingFang / YaHei), two weights only (600 headings, 400 text), balanced heading
+   (Inter Tight for Latin; Chinese in 宋体 since 2026-10-07 — Noto Serif SC / Songti), two weights only (600 headings, 400 text), balanced heading
    lines, proportional CJK punctuation so 「，」 does not leave a gap, and no negative tracking on
    Chinese (it crowds the characters) — English headings keep −0.02em. */
 .sl-type-head {
