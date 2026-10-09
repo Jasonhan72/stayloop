@@ -3276,3 +3276,14 @@ Realtime 上限 1 万并发（Pro 内含 500）；静态页走 CDN 无上限。�
 用户经 Management API 改为 **100**，改前后 243 个键逐键比对只有这一项变化。仍未核实：Cloudflare 是否 Workers 付费版（令牌无账单权限，代码按付费版假设）、Resend 套餐额度。
 管理 PAT 现在是新版 scoped 令牌（`sbp_fc` 开头）：生成时权限若留在默认「No access」，管理 API 一律 401「JWT could not be decoded」；用 `read -s` 粘贴时按过方向键会混入
 转义序列，写入后要校验长度为 44。自动模式分类器不让 Claude 直接 PATCH 生产 Auth 配置，由用户在终端跑。
+
+## 首页数字带接口改估算 + 边缘缓存（2026-10-09 · 用户「把首页数字带那个接口的精确计数改成估算值」）
+
+`/api/public/stats` 原来每次未命中都发 4 个 PostgREST 请求（其中 `ltb_orders` 精确 `count(*)` 17.6 万行、`trreb_rent_stats` 的 `select period`
+被 `max_rows=1000` 截断——6,405 行里只取前 1,000 行，30 个季度全在里面纯属插入顺序的运气）。核对时发现更大的问题：**Cloudflare 对 Pages Function
+返回的 JSON 不按 `s-maxage` 缓存（线上 `cf-cache-status: DYNAMIC`）**，所以首页每次访问都打到数据库。现在：
+- RPC `public_stats()`（迁移 `20261009_public_stats_rpc.sql`，已应用 prod；SECURITY INVOKER，只 service_role 可执行，anon / authenticated 已验证拒绝）一趟返回四个数：
+  `ltb_orders` 取 `pg_class.reltuples`（规划器估计；该表只在每月 ingest 时整表改写、随即 autoanalyze，估计值 = 精确值 176,146）、筛查数与在线房源数精确（小表）、
+  季度数 `count(distinct period)` 不再被截断；响应多一个 `ltbOrdersEstimated: true`，原四个字段名不变（首页与角色页不用改）。
+- 路由把响应放进 **Workers Cache API**（`caches.default`，固定键、1 小时；`x-stats-cache: hit|miss` 头），`cache.put` 经 `waitUntil`。守卫 `tests/publicStats20261009.spec.ts`。
+- 顺带：工作区里 4 个宠物头像文件（lion / monkey / mouse / seal）不知何时被删，`petAvatars` 守卫会拦部署；已从 git 恢复。
