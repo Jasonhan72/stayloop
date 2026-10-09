@@ -3267,3 +3267,12 @@ East Woodbridge、Kleinburg）、奥克维尔 5、伯灵顿 4、宾顿 5、皮�
 用户先要「中文字体改成宋体」（全站上线过一版：自托管 Noto Serif SC 101 个分片 + 系统宋体回落），再改成「标题宋体、正文黑体」，看过效果后拍板
 **「还是全部改回原来的黑体」**——两次提交（`ec1bf9c`、`bd4e775`）已整体 revert，字体文件、`font-serif` 类、守卫测试都不存在了。现行仍是 10-01 方案 A：
 `'Inter Tight', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif`，运行时不请求 Google Fonts。**以后不要再主动提议衬线中文字体。**
+
+## 并发容量核查 + Auth 邮件限流 30 → 100（2026-10-09 · 用户「现在的配置可以支持多少用户并发访问？」）
+
+实测（生产只读压测）与实读配置：Supabase Pro + **Micro**（2 核共享 / 1 GB / 直连 60 / 连接池 200 / 磁盘 16 GB），简单 REST 查询 300 并发仍全部成功但延迟翻倍到 1.2 s（约 200 请求/秒）；
+Realtime 上限 1 万并发（Pro 内含 500）；静态页走 CDN 无上限。结论：几百个同时在线的登录用户没问题，先碰到上限的依次是 **模型厂商速率配额 → Micro CPU → 首页数字带接口对
+`ltb_orders` 的精确计数（2 s，靠 CDN 缓存 1 小时挡着）**。**第一个真瓶颈是 Auth 的「每小时发信数」**：原值 30（= 一小时最多 30 个新账号完成验证，忘记密码也占额度），
+用户经 Management API 改为 **100**，改前后 243 个键逐键比对只有这一项变化。仍未核实：Cloudflare 是否 Workers 付费版（令牌无账单权限，代码按付费版假设）、Resend 套餐额度。
+管理 PAT 现在是新版 scoped 令牌（`sbp_fc` 开头）：生成时权限若留在默认「No access」，管理 API 一律 401「JWT could not be decoded」；用 `read -s` 粘贴时按过方向键会混入
+转义序列，写入后要校验长度为 44。自动模式分类器不让 Claude 直接 PATCH 生产 Auth 配置，由用户在终端跑。
