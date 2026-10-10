@@ -211,7 +211,22 @@ export default function LoginCard({ className = '', next, intent = 'signin' }: {
             className={input}
           />
           {errBox}
-          <button type="submit" disabled={f.loading || !f.password || !f.password2} className={primary}>
+          <label className="flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-relaxed text-body-2" data-testid="signup-terms">
+            <input
+              type="checkbox"
+              checked={f.agreeTerms}
+              onChange={(e) => f.setAgreeTerms(e.target.checked)}
+              className="mt-[3px] h-4 w-4 shrink-0 accent-[#00ACE4]"
+              aria-label={zh ? '同意服务条款与隐私政策' : 'Accept the Terms and Privacy Policy'}
+            />
+            <span>
+              {zh ? '我已阅读并同意 ' : 'I have read and agree to the '}
+              <Link href="/terms" target="_blank" className="underline">{zh ? '服务条款' : 'Terms'}</Link>
+              {zh ? '（含房源信息使用规则）和 ' : ' (including the listing-data rules) and the '}
+              <Link href="/privacy" target="_blank" className="underline">{zh ? '隐私政策' : 'Privacy Policy'}</Link>
+            </span>
+          </label>
+          <button type="submit" disabled={f.loading || !f.password || !f.password2 || !f.agreeTerms} className={primary}>
             {f.loading ? (zh ? '创建中…' : 'Creating…') : (zh ? '创建账户' : 'Create account')}
           </button>
           <p className="text-[12px] leading-relaxed text-body-3">
@@ -219,12 +234,6 @@ export default function LoginCard({ className = '', next, intent = 'signin' }: {
               ? (zh ? '我们会发一封验证邮件，点开它完成注册。' : 'We email you a verification link to finish.')
               : (zh ? '我们会发一封验证邮件 · ' : 'We email you a verification link · ')}
             {!known && <button type="button" onClick={toPassword} className={link}>{zh ? '已有账户？输入密码登录' : 'Have an account? Sign in'}</button>}
-          </p>
-          <p className="text-[11.5px] leading-relaxed text-body-3">
-            {zh ? '创建即表示你同意 ' : 'By creating an account you agree to our '}
-            <Link href="/terms" className="underline">{zh ? '服务条款' : 'Terms'}</Link>
-            {zh ? ' 和 ' : ' and '}
-            <Link href="/privacy" className="underline">{zh ? '隐私政策' : 'Privacy Policy'}</Link>
           </p>
         </form>
       )}

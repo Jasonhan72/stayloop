@@ -58,7 +58,7 @@ describe('the sign-in block is Muse-simple', () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
     let r!: TestRenderer.ReactTestRenderer
     act(() => { r = TestRenderer.create(<LoginCard />) })
-    const inputs = () => r.root.findAll((n) => n.type === 'input')
+    const inputs = () => r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')
     // step 1: one field and 继续, Google below
     expect(inputs()).toHaveLength(1)
     expect(inputs()[0].props.type).toBe('email')
@@ -123,7 +123,7 @@ describe('继续 looks the email up and routes (2026-09-29「当然要加上这�
   it('an account with a password → the password step, without「第一次来？创建账户」', async () => {
     answer({ exists: true, password: true, google: false })
     const r = await continueWith('mia@example.com')
-    const inputs = r.root.findAll((n) => n.type === 'input')
+    const inputs = r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')
     expect(inputs).toHaveLength(1)
     expect(inputs[0].props.autoComplete).toBe('current-password')
     expect(buttons(r)).toContain('忘记密码？')
@@ -134,14 +134,14 @@ describe('继续 looks the email up and routes (2026-09-29「当然要加上这�
   it('an account with a password and Google → the password step also offers Google', async () => {
     answer({ exists: true, password: true, google: true })
     const r = await continueWith('mia@example.com')
-    expect(r.root.findAll((n) => n.type === 'input')[0].props.autoComplete).toBe('current-password')
+    expect(r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')[0].props.autoComplete).toBe('current-password')
     expect(buttons(r)).toContain('改用 Google 登录')
   })
 
   it('a new email → create-account straight away, without「已有账户？」', async () => {
     answer({ exists: false, password: false, google: false })
     const r = await continueWith('new@example.com')
-    const inputs = r.root.findAll((n) => n.type === 'input')
+    const inputs = r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')
     expect(inputs).toHaveLength(2)
     expect(inputs.every((i) => i.props.autoComplete === 'new-password')).toBe(true)
     expect(textOf(r.root)).toContain('这个邮箱还没有注册 · 免费创建账户')
@@ -151,7 +151,7 @@ describe('继续 looks the email up and routes (2026-09-29「当然要加上这�
   it('a Google-only account → Google, with a way to set a password; no password field', async () => {
     answer({ exists: true, password: false, google: true })
     const r = await continueWith('g@example.com')
-    expect(r.root.findAll((n) => n.type === 'input')).toHaveLength(0)
+    expect(r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')).toHaveLength(0)
     expect(textOf(r.root)).toContain('这个邮箱是用 Google 注册的')
     expect(buttons(r)).toContain('使用 Google 继续')
     expect(buttons(r)).toContain('想用密码登录？发一封设置密码的邮件')
@@ -160,7 +160,7 @@ describe('继续 looks the email up and routes (2026-09-29「当然要加上这�
   it('an account with neither → an email to set a password', async () => {
     answer({ exists: true, password: false, google: false })
     const r = await continueWith('old@example.com')
-    expect(r.root.findAll((n) => n.type === 'input')).toHaveLength(0)
+    expect(r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')).toHaveLength(0)
     expect(textOf(r.root)).toContain('这个账户还没有设置密码')
     expect(buttons(r)).toContain('发送设置密码的邮件')
     expect(buttons(r)).not.toContain('使用 Google 继续')
@@ -169,7 +169,7 @@ describe('继续 looks the email up and routes (2026-09-29「当然要加上这�
   it('a rate-limited or failed lookup falls back to the manual path', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'rate_limited' }), { status: 429 })))
     const r = await continueWith('mia@example.com')
-    expect(r.root.findAll((n) => n.type === 'input')[0].props.autoComplete).toBe('current-password')
+    expect(r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')[0].props.autoComplete).toBe('current-password')
     expect(buttons(r)).toContain('第一次来？创建账户')
   })
 
@@ -177,7 +177,7 @@ describe('继续 looks the email up and routes (2026-09-29「当然要加上这�
     answer({ exists: true, password: true, google: false })
     const r = await continueWith('mia@example.com')
     act(() => { r.root.findAll((n) => n.type === 'button' && textOf(n) === '更改')[0].props.onClick() })
-    const inputs = r.root.findAll((n) => n.type === 'input')
+    const inputs = r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')
     expect(inputs).toHaveLength(1)
     expect(inputs[0].props.type).toBe('email')
   })

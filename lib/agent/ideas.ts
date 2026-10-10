@@ -212,6 +212,8 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     executed_showing_request: { zh: `看房请求已确认${to ? ` · ${to}` : ''}`, en: `Showing request accepted${to ? ` · ${to}` : ''}` },
     executed_listing_inquiry: { zh: `回复了房源提问${to ? ` · ${to}` : ''}`, en: `Listing question answered${to ? ` · ${to}` : ''}` },
     memory_forgotten: { zh: '按你的要求忘掉了一条记忆', en: 'Forgot a memory at your request' },
+    terms_accepted: { zh: '你同意了服务条款（含房源信息使用规则）', en: 'You accepted the Terms (including the listing-data rules)' },
+    listing_viewed: { zh: '你查看了一套房源', en: 'You viewed a listing' },
     memory_edited: { zh: '按你的要求改了一条记忆', en: 'Edited a memory at your request' },
     reflection: { zh: '更新了对你的了解', en: 'Updated what it knows about you' },
     // Actions seen in production on 2026-09-25 that used to fall through as

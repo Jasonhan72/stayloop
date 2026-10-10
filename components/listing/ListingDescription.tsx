@@ -38,8 +38,9 @@ export function ListingDescription({ raw, lang, resolved, fallback }: { raw: str
       <>
         <p className="whitespace-pre-line text-[14.5px] leading-relaxed text-body-2">{resolved.text}</p>
         {resolved.translated && toggle && (
-          <div className="mt-2 text-[11.5px] text-body-3">
-            {zh ? '这段介绍由 AI 根据英文原文翻译，以原文为准。' : 'Machine-translated from the Chinese original; the original prevails.'}{' '}
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-body-3" data-testid="description-translation-note">
+            <span className="rounded-[4px] border border-line px-1.5 py-[1px] font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-2">{zh ? 'AI 翻译' : 'AI translation'}</span>
+            <span>{zh ? '由 Stayloop 根据英文原文翻译，仅供参考，以挂牌原文为准。' : 'Translated by Stayloop from the Chinese original for convenience; the listing’s original text prevails.'}</span>
             {toggle}
           </div>
         )}

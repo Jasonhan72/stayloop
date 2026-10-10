@@ -3287,3 +3287,27 @@ Realtime 上限 1 万并发（Pro 内含 500）；静态页走 CDN 无上限。�
   季度数 `count(distinct period)` 不再被截断；响应多一个 `ltbOrdersEstimated: true`，原四个字段名不变（首页与角色页不用改）。
 - 路由把响应放进 **Workers Cache API**（`caches.default`，固定键、1 小时；`x-stats-cache: hit|miss` 头），`cache.put` 经 `waitUntil`。守卫 `tests/publicStats20261009.spec.ts`。
 - 顺带：工作区里 4 个宠物头像文件（lion / monkey / mouse / seal）不知何时被删，`petAvatars` 守卫会拦部署；已从 git 恢复。
+
+## TRREB / PropTx 接入前的十项整改（2026-10-10 · V0.7 · 用户「先把这十项可以全部做了…一直到符合 trreb 的标准，同时也兼顾网站设计的美观」）
+
+Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式接入 PropTx 数据（Stayloop Inc 作技术供应商）。对照 PropTx MLS Rules（2024-12-02 版）Article 8 的展示要求，
+先把能自查自改的做掉再发邮件。守卫 `tests/trrebReady20261010.spec.tsx`（13 条，含同意弹层的真实渲染）；迁移 `20261010_listings_anon_readonly.sql`（已应用 prod）。
+1. **8.26 挂牌经纪公司醒目**：浏览页每张卡「挂牌 · <经纪公司>」（13px，与房源事实同级）；详情页标题块里紧跟地址一行「挂牌 · <经纪公司> · 来源 Realtor.ca」（15px，
+   手机上分享 / 收藏换到它下一行）；联系人卡的经纪公司行从 10.5px 等宽改为 13px。库里两套缺经纪公司的 Realtor 行已补（Re/Max Experts、Citibloc Realty——后者 Realtor 页的
+   B 版渲染不带经纪块，按 condos.ca + Zillow 两处一致的 MLS 记录补）；**以后导入必须有 brokerage，没有就不入库**。
+2. **8.25 / 8.07 声明与版权**：`components/listings/ListingDataNotice.tsx`（文案在 `lib/listings/dataNotice.ts`）在浏览页卡片网格末尾与详情页底部：「被认为可靠，但不保证准确」+
+   来源 + 版权 / 商标句 + 链到条款；`NEXT_PUBLIC_MLS_ATTRIBUTION` 可在接入后替换署名句。手机上留出 64px 不被浮动「地图」按钮盖住。
+3. **8.24 内容不改动、添加要标注**：AI 翻译的描述带可见「AI 翻译」小标 +「由 Stayloop 根据英文原文翻译…以挂牌原文为准」+「显示原文」。
+4. **8.28 / 8.29 来源分开**：浏览页筛选面板第一项「全部来源 / 房东直租 · Stayloop / Realtor.ca」；全部来源时按来源分组并带组标题（「只看这一来源 →」）；计数行标明来源。
+5. **8.27 每次查询 ≤100**：`PAGE_SIZE = 100` 分页（上一页 / 下一页 · 第 N / M 页），筛选条件变化回到第 1 页；地图标记仍取全部结果（分页只管卡片）。
+6. **8.13 防抓取**：`listings` 对 anon 只剩 SELECT（原默认权限给了 INSERT/UPDATE/DELETE，RLS 挡着但权限本身不该有）。
+7. **8.09–8.11 使用条款**：`lib/legal/terms.ts` 的 8 条房源信息使用规则（个人非商业 / 真实意向 / 不复制转发 / 不接 AI 与自动化——Stayloop 自己的 AI 助理除外 / 禁抓取 /
+   所有权与版权归来源 / 授权 Stayloop 与协会核查 / 不产生费用、不构成代理）进 `/terms` 第 5 节；`TERMS_VERSION = '2026-10-10'`。**注册必须勾选**（`LoginCard` 创建账户步，
+   `user_metadata.terms_version / terms_accepted_at` 随 signUp 写入）；**已有账号登录后弹一次 `TermsConsentGate`**（挂在 `app/layout.tsx`，`/terms` `/privacy` `/login` `/register`
+   `/auth/*` 不弹；同意 = `auth.updateUser` 写元数据 + 审计 `terms_accepted`；不同意 = 退出）。以后改条款只需改版本号，所有账号会再确认一次。
+8. **8.19 隐私政策**：第 3b 节写明同意记录与房源页活动可能提供给协会 / MLS 系统作审计或法律用途。
+9. **8.12 会员联系方式**：详情页 `listing-sponsor-member` 卡由 `NEXT_PUBLIC_MLS_SPONSOR_NAME / BROKERAGE / EMAIL / PHONE` 驱动，未设置不渲染——接入后填发起会员的信息即可。
+10. **8.13 审计轨迹**：登录用户打开详情页写一条 `listing_viewed` 审计事件（slug / source / brokerage）。
+**仍要在给 PropTx 的邮件里问清的**：① AI 助理用 MLS 数据回答用户（8.01 / 8.18 只允许用于运营 VOW）；② 翻译算不算 8.24 的「改动」；③ 混合来源同页展示的具体要求；
+④ `/terms` 仍写「Stayloop Technologies Inc. (Ontario corp)」，是否改成新注册的 Stayloop Inc. 由用户定。**截图核对办法**：内置浏览器面板隐藏时截不了图，用会话 scratchpad
+`shots/cdp.mjs`（无头 Chrome + CDP，可设语言、等待、滚到选择器）；`--virtual-time-budget` 那种一次性截图在这个站上会在数据到达前就拍。

@@ -158,7 +158,10 @@ describe('(3) stored text goes through lib/listingLang.ts', () => {
     expect(descr).toContain("'This description is currently available in Chinese only.'")
     expect(descr).toContain("(zh ? '显示原文' : 'Show original')")
     expect(descr).toContain('const originalBlock = open && original ? (')
-    expect(descr).toContain("'这段介绍由 AI 根据英文原文翻译，以原文为准。'")
+    // 2026-10-10 TRREB readiness (PropTx 8.24): the translation is labelled as an addition, visibly
+    expect(descr).toContain("zh ? 'AI 翻译' : 'AI translation'")
+    expect(descr).toContain("'由 Stayloop 根据英文原文翻译，仅供参考，以挂牌原文为准。'")
+    expect(descr).toContain('data-testid="description-translation-note"')
   })
   it('amenity labels: unresolved values are left out; 室内 "indoor" is not "in the unit"', () => {
     const lab = (raw: string, f: 'amenities' | 'building_features' | 'appliances', l: 'zh' | 'en') => resolveValue(f, raw, l)

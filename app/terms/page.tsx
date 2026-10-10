@@ -3,6 +3,7 @@
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useT } from '@/lib/i18n'
+import { LISTING_DATA_CLAUSES, TERMS_VERSION } from '@/lib/legal/terms'
 
 export default function TermsPage() {
   const { lang } = useT()
@@ -16,7 +17,7 @@ export default function TermsPage() {
           <h1 className="mt-3 text-[36px] font-extrabold leading-tight tracking-tight sm:text-[44px]">
             {zh ? '服务条款' : 'Terms of Service'}
           </h1>
-          <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? '2026-05-09 版' : 'Version 2026-05-09'}</p>
+          <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? `${TERMS_VERSION} 版` : `Version ${TERMS_VERSION}`}</p>
 
           <Section title={zh ? '1 · 接受条款' : '1 · Acceptance of terms'}>
             <p>{zh
@@ -38,7 +39,18 @@ export default function TermsPage() {
               ? 'Stayloop 不承担因使用本平台造成的间接 / 偶发性 / 惩罚性损害。我们的最高赔偿限于过去 12 个月你向我们支付的费用。'
               : 'Stayloop is not liable for any indirect, incidental, or punitive damages arising from use of the platform. Our maximum liability is limited to the fees you paid us in the preceding 12 months.'}</p>
           </Section>
-          <Section title={zh ? '5 · 适用法律' : '5 · Governing law'}>
+          <Section title={zh ? '5 · 房源信息的使用' : '5 · Use of listing information'}>
+            <p>{zh
+              ? '平台上的房源信息来自房东直接发布、Realtor.ca，以及向 Stayloop 授权的房地产协会与 MLS® 系统。使用这些信息即表示你同意以下规则：'
+              : 'Listing information on the platform comes from landlords who publish directly, from Realtor.ca, and from real estate associations and MLS® systems that license data to Stayloop. By using it you agree to the following:'}</p>
+            <ol className="mt-3 list-decimal space-y-2 pl-5" data-testid="terms-listing-data">
+              {LISTING_DATA_CLAUSES.map((c, i) => <li key={i}>{zh ? c.zh : c.en}</li>)}
+            </ol>
+            <p className="mt-3">{zh
+              ? '房源信息被认为可靠，但不保证准确；请在决定前向挂牌经纪公司或房东核实。Stayloop 与提供数据的协会不对你依赖房源信息或平台上他人发布的评论而造成的损失承担责任，也不为这些评论背书。'
+              : 'Listing information is deemed reliable but is not guaranteed accurate; verify with the listing brokerage or landlord before you decide. Neither Stayloop nor the associations that supply data are responsible for loss arising from reliance on listing information or on comments posted by others, and they do not endorse such comments.'}</p>
+          </Section>
+          <Section title={zh ? '6 · 适用法律' : '6 · Governing law'}>
             <p>{zh
               ? '本条款受 Ontario 省法律管辖。任何争议先经 Stayloop 内部 mediator 调解,再提交 Ontario Superior Court 处理。'
               : 'These terms are governed by the laws of the Province of Ontario. Any dispute first goes to mediation by an internal Stayloop mediator, then to the Ontario Superior Court.'}</p>

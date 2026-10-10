@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { I18nProvider } from '@/lib/i18n'
+import TermsConsentGate from '@/components/legal/TermsConsentGate'
 
 export const metadata: Metadata = {
   title: 'Stayloop — 租房的 AI 操作系统 · The AI-native rental OS for Toronto',
@@ -64,7 +65,10 @@ export default function RootLayout({
         </noscript>
       </head>
       <body>
-        <I18nProvider>{children}</I18nProvider>
+        <I18nProvider>
+          {children}
+          <TermsConsentGate />
+        </I18nProvider>
       </body>
     </html>
   )

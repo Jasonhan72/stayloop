@@ -11,6 +11,7 @@ import { useState, type FormEvent } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { passwordErrorMessage } from '@/lib/auth/passwordError'
+import { termsAcceptanceMetadata } from '@/lib/legal/terms'
 
 export type LoginTab = 'signin' | 'register'
 /** What the「查收你的邮箱」state is waiting for. */
@@ -47,6 +48,9 @@ export function useLoginForm(initialTab: LoginTab = 'signin', opts: { next?: str
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [needsConfirm, setNeedsConfirm] = useState(false)
+  // Sign-up checkbox (2026-10-10): the Terms (listing-data rules) and Privacy Policy must be
+  // affirmatively accepted; the version + time go into user_metadata with the account.
+  const [agreeTerms, setAgreeTerms] = useState(false)
 
   const setTab = (t: LoginTab) => { setTabState(t); setErr(null); setNeedsConfirm(false) }
   const message = (e: unknown, fallback: string) => (e as { message?: string })?.message || fallback
@@ -93,10 +97,14 @@ export function useLoginForm(initialTab: LoginTab = 'signin', opts: { next?: str
       setErr(zh ? '两次密码不一致' : 'Passwords do not match')
       return
     }
+    if (!agreeTerms) {
+      setErr(zh ? '请先勾选同意服务条款与隐私政策' : 'Please tick the box to accept the Terms and Privacy Policy')
+      return
+    }
     setLoading(true)
     try {
       const supabase = getSupabaseBrowser()
-      const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: returnUrl() } })
+      const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: returnUrl(), data: termsAcceptanceMetadata() } })
       if (error) {
         if (error.message?.includes('already registered')) throw alreadyRegistered()
         throw error
@@ -177,5 +185,5 @@ export function useLoginForm(initialTab: LoginTab = 'signin', opts: { next?: str
 
   const back = () => setSent(null)
 
-  return { zh, tab, setTab, email, setEmail, password, setPassword, password2, setPassword2, sent, back, loading, err, needsConfirm, signInWithPassword, signUpWithPassword, signInWithGoogle, resendConfirm, forgotPassword }
+  return { zh, tab, setTab, email, setEmail, password, setPassword, password2, setPassword2, sent, back, loading, err, needsConfirm, agreeTerms, setAgreeTerms, signInWithPassword, signUpWithPassword, signInWithGoogle, resendConfirm, forgotPassword }
 }

@@ -18,6 +18,9 @@ import { addressWithUnit, bedsText, cityOnly, cleanBrokerName, similarDistanceTe
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/lib/useAuth'
+import { writeAuditEvent } from '@/lib/agent/audit'
+import ListingDataNotice from '@/components/listings/ListingDataNotice'
+import { SPONSOR_MEMBER } from '@/lib/listings/dataNotice'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { VerificationBadge } from '@/components/ListingBadges'
@@ -291,6 +294,20 @@ export default function ListingDetailPage() {
     supabase.from('landlords').select('id').or(`id.eq.${uid},auth_id.eq.${uid}`)
       .then(({ data }) => setOwnIds([uid, ...((data || []) as { id: string }[]).map(r => r.id)]))
   }, [auth.loading, auth.user])
+  // Audit trail of listing views for signed-in accounts (MLS rules want consumer activity on
+  // listing pages auditable, PropTx 8.13); one row per listing per page load, never for anonymous visitors.
+  const viewedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (auth.loading || !auth.user || !listing?.id || viewedRef.current === listing.id) return
+    viewedRef.current = listing.id
+    void writeAuditEvent(supabase, {
+      actorId: auth.user.id,
+      action: 'listing_viewed',
+      targetType: 'listing',
+      targetId: listing.id,
+      metadata: { slug: listing.slug, source: listing.source ?? 'stayloop', brokerage: listing.brokerage ?? null },
+    }).catch(() => {})
+  }, [auth.loading, auth.user, listing?.id, listing?.slug, listing?.source, listing?.brokerage])
   useEffect(() => {
     if (!listing?.landlord_id) { setLandlordIsRegistrant(false); setLandlordAuthId(null); return }
     // listings.landlord_id is landlords.id for every row published through
@@ -481,7 +498,18 @@ export default function ListingDetailPage() {
           <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
             {/* Airbnb title row (user 2026-09-25): the address is the H1, Share / Save sit on the same
                 line, and the photos follow immediately — no crumb, no subtitle in between. */}
-            <h1 className="min-w-0 text-[26px] font-bold tracking-tight sm:text-[30px]">{listingTitle(listing.address, listing.unit)}</h1>
+            <div className="min-w-0">
+              <h1 className="min-w-0 text-[26px] font-bold tracking-tight sm:text-[30px]">{listingTitle(listing.address, listing.unit)}</h1>
+              {/* Listing brokerage, right under the address and no smaller than the facts below (PropTx Rule 8.26).
+                  Inside the title block so that on phones it stays with the address and Share / Save wrap below it. */}
+              {listing.brokerage && (
+                <div className="mt-1 text-[15px] text-body-2" data-testid="listing-brokerage-line">
+                  {zh ? '挂牌 · ' : 'Listed by '}
+                  <span className="font-semibold text-ink">{listing.brokerage}</span>
+                  {listing.source === 'realtor' && <span className="text-body-3">{zh ? ' · 来源 Realtor.ca' : ' · via Realtor.ca'}</span>}
+                </div>
+              )}
+            </div>
           {/* Share + Save — Airbnb-style light actions, top-right of the title row */}
           <div className="relative flex shrink-0 items-center gap-1">
             <button
@@ -1118,9 +1146,9 @@ export default function ListingDetailPage() {
                   <div className="text-[14px] font-bold">
                     {brokerName || (listing.brokerage ? (zh ? '挂牌经纪' : 'Listing agent') : (zh ? '房东' : 'Landlord'))}
                   </div>
-                  <div className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
+                  <div className={listing.brokerage ? 'text-[13px] text-body-2' : 'font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3'}>
                     {listing.brokerage
-                      ? (zh ? `${listing.brokerage} · 经纪` : `${listing.brokerage} · Agent`)
+                      ? (zh ? `${listing.brokerage} · 挂牌经纪公司` : `${listing.brokerage} · listing brokerage`)
                       // A RECO registration speaks to Ontario only: outside Ontario the card stays neutral (2026-10-02).
                       : landlordIsRegistrant && province === 'ON'
                         ? (zh ? '房东直租 · 房东为持牌经纪' : 'Direct from landlord · landlord is a registered agent')
@@ -1170,6 +1198,23 @@ export default function ListingDetailPage() {
                 </button>
               )}
             </div>
+
+            {/* MLS sponsoring member (PropTx Rule 8.12): the member under whose data agreement the
+                site runs, with a way to reach them. Rendered only once NEXT_PUBLIC_MLS_SPONSOR_* is set. */}
+            {SPONSOR_MEMBER && (
+              <div className="sl-card p-5" data-testid="listing-sponsor-member">
+                <span className="sl-eyebrow">{zh ? 'MLS® 数据与咨询' : 'MLS® data & enquiries'}</span>
+                <div className="mt-2 text-[14px] font-bold text-ink">{SPONSOR_MEMBER.name}</div>
+                {SPONSOR_MEMBER.brokerage && <div className="text-[13px] text-body-2">{SPONSOR_MEMBER.brokerage}</div>}
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+                  {SPONSOR_MEMBER.email && <a href={`mailto:${SPONSOR_MEMBER.email}`} className="font-semibold text-brand hover:underline">{SPONSOR_MEMBER.email}</a>}
+                  {SPONSOR_MEMBER.phone && <a href={`tel:${SPONSOR_MEMBER.phone.replace(/[^+\d]/g, '')}`} className="font-semibold text-brand hover:underline">{SPONSOR_MEMBER.phone}</a>}
+                </div>
+                <p className="mt-2 text-[11.5px] leading-relaxed text-body-3">
+                  {zh ? '对任何 MLS® 房源有疑问，可直接联系这位经纪；Stayloop 不参与交易。' : 'Questions about any MLS® listing can go to this member directly; Stayloop takes no part in the trade.'}
+                </p>
+              </div>
+            )}
 
           </aside>
         </section>
@@ -1265,6 +1310,9 @@ export default function ListingDetailPage() {
         {fieldAgentOpen && (
           <AgentPicker zh={zh} listingAddress={listingTitle(listing.address, listing.unit)} onClose={() => setFieldAgentOpen(false)} excludeAuthIds={[auth.user?.id, listing.landlord_id, landlordAuthId]} />
         )}
+        <div className="mx-auto max-w-[1320px] px-6 pb-10 sm:px-8 lg:px-12">
+          <ListingDataNotice zh={zh} />
+        </div>
       </main>
       <Footer />
       {galleryOpen && listing?.images && listing.images.length > 0 && (

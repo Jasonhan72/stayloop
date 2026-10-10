@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react'
 import Header from '@/components/Header'
 import FavHeart from '@/components/FavHeart'
 import { VerificationBadge } from '@/components/ListingBadges'
@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useAIName } from '@/lib/aiName'
 import { stampForTier } from '@/lib/passportStamps'
 import { hasUsablePhotos, LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
+import ListingDataNotice from '@/components/listings/ListingDataNotice'
 
 /**
  * V5 ART · Listings Browse (StreetEasy/Airbnb-inspired split view)
@@ -23,6 +24,12 @@ import { hasUsablePhotos, LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
  * memories (budget / beds / pets) as filters. The assistant name follows
  * the user's own chosen AI name; anonymous visitors see the generic "AI".
  */
+
+type SourceKey = 'all' | 'stayloop' | 'realtor'
+const PAGE_SIZE = 100
+const sourceOf = (l: { source?: string | null }): 'stayloop' | 'realtor' => (l.source === 'realtor' ? 'realtor' : 'stayloop')
+const sourceLabel = (k: SourceKey, zh: boolean) =>
+  k === 'realtor' ? 'Realtor.ca' : k === 'stayloop' ? (zh ? '房东直租 · Stayloop' : 'Direct from landlords · Stayloop') : (zh ? '全部来源' : 'All sources')
 
 interface DBListing {
   id: string
@@ -37,6 +44,7 @@ interface DBListing {
   sqft: number | null
   neighborhood: string | null
   trust_tier: number | null
+  brokerage?: string | null
   pet_policy: string | null
   amenities: string[] | null
   pin_x: number | null
@@ -123,6 +131,11 @@ export default function ListingsPage() {
   // Filter chips live in a collapsible panel (2026-09-07) so they cost no
   // height until wanted; the toolbar shows how many are active.
   const [filtersOpen, setFiltersOpen] = useState(false)
+  // Source (2026-10-10, MLS-readiness): listings from different sources are searched separately
+  // (PropTx Rule 8.29) — 'all' shows them in labelled groups, or pick one source.
+  const [sourceFilter, setSourceFilter] = useState<SourceKey>('all')
+  // A consumer sees at most 100 listings per inquiry (Rule 8.27): paginate the result set.
+  const [page, setPage] = useState(0)
   const [aiFilterNote, setAiFilterNote] = useState<string | null>(null)
   const [favOnly, setFavOnly] = useState(false)
   // Search filters as you type (debounced so the map does not refit on every keystroke); Enter applies at once.
@@ -138,7 +151,7 @@ export default function ListingsPage() {
       // Only the columns the browse cards + map + client filters read — not
       // select('*') (which shipped every image URL, description, price_history
       // and broker fields on the highest-traffic public page).
-      .select('id,slug,address,unit,city,province,monthly_rent,bedrooms,bathrooms,sqft,neighborhood,trust_tier,pet_policy,amenities,pin_x,pin_y,lat,lng,thumb_a,thumb_b,photo_count,is_active,created_at,images,available_date,has_den,source,verification_status')
+      .select('id,slug,address,unit,city,province,monthly_rent,bedrooms,bathrooms,sqft,neighborhood,trust_tier,pet_policy,amenities,pin_x,pin_y,lat,lng,thumb_a,thumb_b,photo_count,is_active,created_at,images,available_date,has_den,source,verification_status,brokerage')
       .eq('is_active', true)
       // Public list shows verified listings; Realtor.ca-sourced ones show
       // without verification (they carry a source badge instead).
@@ -160,6 +173,7 @@ export default function ListingsPage() {
       const keys = new Set(favs.map((f) => f.key))
       out = out.filter((l) => keys.has(dbFavKey(l)))
     }
+    if (sourceFilter !== 'all') out = out.filter((l) => sourceOf(l) === sourceFilter)
     // Query: a listing passes when ANY meaningful token hits any field —
     // multi-neighborhood queries ("King West, Liberty Village") are OR.
     const tokens = appliedQuery
@@ -187,7 +201,7 @@ export default function ListingsPage() {
       default: out.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
     }
     return out
-  }, [all, appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, favs])
+  }, [all, appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, favs, sourceFilter])
 
   // Favorited listings that aren't in the current dataset at all (e.g. external
   // Realtor.ca cards saved from the agent chat) — rendered from their stored
@@ -207,6 +221,21 @@ export default function ListingsPage() {
     [items, viewportIds],
   )
   const count = shown.length + extraFavs.length
+  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount - 1)
+  const pageItems = useMemo(() => shown.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE), [shown, safePage])
+  // Any change to what is shown restarts at the first page.
+  useEffect(() => { setPage(0) }, [appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, sourceFilter, viewportIds])
+  // Grouped by source when every source is shown; a single source needs no header.
+  const groups = useMemo<{ key: SourceKey; items: DBListing[] }[]>(() => {
+    if (sourceFilter !== 'all') return [{ key: sourceFilter, items: pageItems }]
+    const own = pageItems.filter((l) => sourceOf(l) === 'stayloop')
+    const realtor = pageItems.filter((l) => sourceOf(l) === 'realtor')
+    const out: { key: SourceKey; items: DBListing[] }[] = []
+    if (own.length) out.push({ key: 'stayloop', items: own })
+    if (realtor.length) out.push({ key: 'realtor', items: realtor })
+    return out
+  }, [pageItems, sourceFilter])
 
   // "◐ {AI} 帮我筛" — pull the signed-in tenant's saved memories and turn the
   // parseable ones (budget / beds / pets) into live filters.
@@ -371,6 +400,9 @@ export default function ListingsPage() {
               {viewportIds && shown.length !== items.length && !favOnly && (zh ? '地图范围内 ' : '')}
               <b style={{ color: '#047857', fontSize: 15 }}>{count}</b>
               {zh ? ' 套' : (viewportIds && shown.length !== items.length && !favOnly ? ' in map area' : ' listings')}
+              {sourceFilter !== 'all' && (
+                <span style={{ color: '#6E6E8A' }} data-testid="listing-source-note">{` · ${sourceLabel(sourceFilter, zh)}`}</span>
+              )}
               {count !== all.length && (
                 <span style={{ color: '#6E6E8A' }} data-testid="listing-count-note">
                   {zh
@@ -395,6 +427,19 @@ export default function ListingsPage() {
 
         {filtersOpen && (
         <div className="relative mt-2.5 flex w-full flex-wrap items-center gap-2" data-testid="listings-filter-panel">
+          {/* Source — searched separately per the MLS rules; 'all' keeps the groups labelled below. */}
+          <div role="group" aria-label={zh ? '来源' : 'Source'} data-testid="listings-source-filter"
+            style={{ display: 'inline-flex', border: '1px solid #9FBBD0', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
+            {(['all', 'stayloop', 'realtor'] as SourceKey[]).map((k) => (
+              <button key={k} type="button" onClick={() => setSourceFilter(k)} aria-pressed={sourceFilter === k}
+                style={{
+                  padding: '8px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 0, whiteSpace: 'nowrap',
+                  background: sourceFilter === k ? '#171717' : 'transparent', color: sourceFilter === k ? '#fff' : '#171717',
+                }}>
+                {k === 'all' ? (zh ? '全部来源' : 'All sources') : sourceLabel(k, zh)}
+              </button>
+            ))}
+          </div>
           {/* Preferences the AI Agent remembers (budget / beds / pets) → live filters. Was a long
               long "AI filters by my profile" button on the toolbar; it is a filter preset, so it lives here. */}
           <button
@@ -555,20 +600,51 @@ export default function ListingsPage() {
                 : (zh ? '没有匹配的房源 · 调整筛选条件试试' : 'No matching listings · try adjusting your filters')}
             </div>
           )}
-          {shown.map((l) => (
-            <ListingCard
-              key={l.id}
-              l={l}
-              zh={zh}
-              isActive={active === l.id}
-              onHover={() => setActive(l.id)}
-              fav={isFav(dbFavKey(l))}
-              onToggleFav={() => toggle(dbFavSnapshot(l))}
-            />
+          {groups.map((g) => (
+            <Fragment key={g.key}>
+              {sourceFilter === 'all' && (
+                <div className="col-span-full flex items-center gap-3 pt-1" data-testid={`listings-group-${g.key}`}>
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-ink">{sourceLabel(g.key, zh)}</span>
+                  <span className="font-mono text-[11px] text-body-3">{zh ? `${shown.filter((l) => sourceOf(l) === g.key).length} 套` : `${shown.filter((l) => sourceOf(l) === g.key).length}`}</span>
+                  <span aria-hidden className="h-px flex-1 bg-line" />
+                  <button type="button" onClick={() => setSourceFilter(g.key)} className="font-mono text-[11px] font-semibold text-brand hover:underline">
+                    {zh ? '只看这一来源 →' : 'Only this source →'}
+                  </button>
+                </div>
+              )}
+              {g.items.map((l) => (
+                <ListingCard
+                  key={l.id}
+                  l={l}
+                  zh={zh}
+                  isActive={active === l.id}
+                  onHover={() => setActive(l.id)}
+                  fav={isFav(dbFavKey(l))}
+                  onToggleFav={() => toggle(dbFavSnapshot(l))}
+                />
+              ))}
+            </Fragment>
           ))}
           {extraFavs.map((f) => (
             <FavSnapshotCard key={f.key} f={f} zh={zh} onToggleFav={() => toggle(f)} />
           ))}
+          {pageCount > 1 && (
+            <nav className="col-span-full flex items-center justify-center gap-3 pt-2 text-[13px]" aria-label={zh ? '分页' : 'Pagination'} data-testid="listings-pager">
+              <button type="button" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}
+                className="rounded-[8px] border border-line-strong bg-white px-3 py-1.5 font-semibold text-body disabled:opacity-40">
+                {zh ? '上一页' : 'Previous'}
+              </button>
+              <span className="text-body-3">
+                {zh ? `第 ${safePage + 1} / ${pageCount} 页 · 每页最多 ${PAGE_SIZE} 套` : `Page ${safePage + 1} of ${pageCount} · up to ${PAGE_SIZE} per page`}
+              </span>
+              <button type="button" disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)}
+                className="rounded-[8px] border border-line-strong bg-white px-3 py-1.5 font-semibold text-body disabled:opacity-40">
+                {zh ? '下一页' : 'Next'}
+              </button>
+            </nav>
+          )}
+          {/* mb-16 below lg: the floating 地图 button must not cover the last line */}
+          {!loading && <ListingDataNotice zh={zh} className="col-span-full mt-2 mb-16 lg:mb-0" />}
         </div>
 
         {/* Map (sticky, Google Maps) — hidden on mobile, shown in split view on lg+ */}
@@ -908,6 +984,12 @@ function ListingCard({
         </div>
         <div style={{ fontSize: 12, color: '#71717A', marginTop: 1 }}>
           {l.neighborhood} · {l.city}
+        </div>
+        {/* Listing brokerage / source, no smaller than the listing facts above (PropTx Rule 8.26). */}
+        <div style={{ fontSize: 13, color: '#3F3F46', marginTop: 4 }} data-testid="card-brokerage">
+          {sourceOf(l) === 'realtor'
+            ? <>{zh ? '挂牌 · ' : 'Listed by '}<b style={{ fontWeight: 600, color: '#171717' }}>{l.brokerage || 'Realtor.ca'}</b></>
+            : <>{zh ? '房东直租 · ' : 'Direct from landlord · '}<b style={{ fontWeight: 600, color: '#171717' }}>Stayloop</b></>}
         </div>
         {l.amenities && l.amenities.length > 0 && (
           <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap' }}>
