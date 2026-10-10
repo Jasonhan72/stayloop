@@ -3314,3 +3314,7 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 - **同日跟进**：`/terms` 运营主体改为「Stayloop Inc.」（用户拍板）；详情页联系人卡对经纪公司房源改为 **经纪公司名作标题 + 「挂牌经纪公司 · 来源 Realtor.ca」**
   （有经纪姓名才显示，否则不再出现「挂牌经纪」占位与空头像——8.23 不得暗示不存在的人）；房东直租卡不变。给 PropTx 的邮件草稿在 `design/proptx-inquiry-email-2026-10.md`
   （四个问题：AI 助理用途 / 翻译是否算改动 / 混合来源 / 8.12 发起会员之外能否再给「找认证经纪」入口——**接入后 MLS 房源页的联系路径以 PropTx 答复为准**）。
+- **经纪姓名（同日，用户「把挂牌经纪人的姓名也加上去」）**：`listings.broker_name` 从 Realtor 详情页的经纪块回填（「Richard Chao (Broker)」，最多两位），在架 116 套填了 **49 套**；
+  其余 67 套 Realtor 一律给精简渲染（标题「Check out this listing」，无经纪块），代理池 + 等待选择器重试也拿不到，Zolo 等镜像站按 IDX 规则只给经纪公司，
+  Realtor 的内部 API 被 Cloudflare 挡。**不再折腾**：8.26 是「经纪公司或经纪人」二选一，经纪公司已满足；接入 PropTx 后 ListAgentFullName 随数据来、全部自动补上。
+  导入脚本 `scripts/realtor-import/details.mjs` 现在抓 `broker_name`，`insert.mjs` 对 `brokerage` 为空的行拒绝写入。回填脚本在会话 scratchpad `agents/`。

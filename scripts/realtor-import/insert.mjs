@@ -26,13 +26,14 @@ function row(p) {
     amenities: p.amenities, appliances: p.appliances, building_features: null, utilities_included: [],
     heating_type: p.heating_type, cooling: p.cooling, exterior_finish: p.exterior_finish, basement_type: p.basement_type, year_built: p.year_built,
     parking: p.parking, parking_spaces: p.parking_spaces, furnished: p.furnished, pets_allowed: p.pets_allowed,
-    brokerage: cap(p.brokerage), mls_number: p.mls, source_url: p.url, lat: p.lat, lng: p.lng,
+    brokerage: cap(p.brokerage), broker_name: p.broker_name || null, mls_number: p.mls, source_url: p.url, lat: p.lat, lng: p.lng,
     slug: `${slugify(`${p.address} ${p.city}`)}-${crypto.randomBytes(3).toString('hex').slice(0, 5)}`,
   }
   return { ...base, ...o }
 }
 const rows = parsed.map(row)
-const bad = rows.filter((r) => !r.lat || !r.postal_code || !r.description || r.photo_count < 3 || !r.monthly_rent)
+// brokerage is mandatory (PropTx 8.26 attribution) — a row without one never goes in (2026-10-10).
+const bad = rows.filter((r) => !r.lat || !r.postal_code || !r.description || r.photo_count < 3 || !r.monthly_rent || !r.brokerage)
 if (bad.length) { console.error('refusing — incomplete rows:', bad.map((r) => r.mls_number)); process.exit(1) }
 console.log(`${rows.length} rows ready`)
 if (!write) { console.log(JSON.stringify(rows.slice(0, 2), null, 1).slice(0, 3000)); process.exit(0) }

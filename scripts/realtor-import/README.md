@@ -20,3 +20,5 @@
 6. `translate.mjs`：对每套调生产 `/api/listings/enrich {id, lang:'zh', only:'translations'}`（每 IP 每小时 90 次）；社区简介由事实调用 `{id}` 在后台生成。
 
 写库前的核对清单见 CLAUDE.md「Realtor.ca 再导入 50 套」两节（解析器的系统性问题）。
+
+- **经纪姓名（2026-10-10）**：`details.mjs` 从详情页的经纪块取 `broker_name`（最多两位，「Richard Chao (Broker)」格式，TRESA 要求姓名 + 允许的头衔）；精简渲染（标题「Check out this listing」）没有经纪块，`broker_name` 为空也允许入库，详情页只显示经纪公司——但 **`brokerage` 为空的一律不入库**（PropTx 8.26）。

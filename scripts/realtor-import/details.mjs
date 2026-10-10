@@ -96,6 +96,15 @@ function parse(md, item) {
   }
   out.kv = kv
   out.photos = Array.from(new Set((md.match(/https:\/\/cdn\.realtor\.ca\/listings\/[^)\s"]+\/highres\/[^)\s"]+\.jpg/g) || [])))
+  // Listing salesperson(s) from the agent block — "[RICHARD CHAO Broker](https://www.realtor.ca/agent/…)". Title-cased, with the
+  // permitted title in brackets (TRESA: name + title). Realtor's light "Check out this listing" render has no agent block → null;
+  // the card then shows the brokerage only (PropTx 8.26 needs brokerage OR salesperson). Shown as「经纪 X」on the listing page.
+  const agents = []
+  for (const m of md.matchAll(/\[([^\]\n]{3,80}?)\s+(Broker of Record|Broker|Salesperson|Sales Representative|Associate Broker)\]\(https:\/\/www\.realtor\.ca\/agent\//g)) {
+    const name = m[1].trim().split(/\s+/).map((w) => (w.length > 1 && /^[A-Z'`.]+$/.test(w) ? w.charAt(0) + w.slice(1).toLowerCase() : w)).join(' ')
+    if (!agents.some((a) => a.startsWith(name))) agents.push(`${name} (${m[2]})`)
+  }
+  out.broker_name = agents.slice(0, 2).join(' · ') || null
   out.brokerage = md.match(/\[([^\]]+?)\s+Brokerage\s+[^\]]*\]\(https:\/\/www\.realtor\.ca\/office\//)?.[1]?.trim() || item.brokerage || null
   const dm = md.match(/destination=(-?\d+\.\d+)%2c(-?\d+\.\d+)/i)
   out.lat = dm ? parseFloat(dm[1]) : null; out.lng = dm ? parseFloat(dm[2]) : null
