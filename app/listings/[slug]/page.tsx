@@ -1130,33 +1130,41 @@ export default function ListingDetailPage() {
             {/* Landlord / agent card */}
             <div className="sl-card p-5">
               <span className="sl-eyebrow">{zh ? '联系人' : 'Contact'}</span>
-              <div className="mt-3 flex items-center gap-3">
-                <span
-                  className="orb"
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: '50%',
-                    background:
-                      'linear-gradient(135deg,rgba(0,172,228,0.20),rgba(37,99,235,0.25))',
-                    border: '1px solid rgba(0,172,228,0.30)',
-                  }}
-                />
-                <div>
-                  <div className="text-[14px] font-bold">
-                    {brokerName || (listing.brokerage ? (zh ? '挂牌经纪' : 'Listing agent') : (zh ? '房东' : 'Landlord'))}
+              {listing.brokerage ? (
+                // Brokerage listing (PropTx 8.26 / 8.23): the brokerage name is the heading, as it appears in the
+                // feed; the agent name only when we actually have it; no placeholder avatar and no made-up person.
+                <div className="mt-3" data-testid="listing-contact-brokerage">
+                  <div className="text-[15px] font-bold text-ink">{listing.brokerage}</div>
+                  <div className="text-[13px] text-body-2">
+                    {zh ? '挂牌经纪公司' : 'Listing brokerage'}
+                    {brokerName && <span>{zh ? ` · 经纪 ${brokerName}` : ` · ${brokerName}`}</span>}
+                    {listing.source === 'realtor' && <span className="text-body-3">{zh ? ' · 来源 Realtor.ca' : ' · via Realtor.ca'}</span>}
                   </div>
-                  <div className={listing.brokerage ? 'text-[13px] text-body-2' : 'font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3'}>
-                    {listing.brokerage
-                      ? (zh ? `${listing.brokerage} · 挂牌经纪公司` : `${listing.brokerage} · listing brokerage`)
-                      // A RECO registration speaks to Ontario only: outside Ontario the card stays neutral (2026-10-02).
-                      : landlordIsRegistrant && province === 'ON'
+                </div>
+              ) : (
+                <div className="mt-3 flex items-center gap-3">
+                  <span
+                    className="orb"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: '50%',
+                      background:
+                        'linear-gradient(135deg,rgba(0,172,228,0.20),rgba(37,99,235,0.25))',
+                      border: '1px solid rgba(0,172,228,0.30)',
+                    }}
+                  />
+                  <div>
+                    <div className="text-[14px] font-bold">{zh ? '房东' : 'Landlord'}</div>
+                    <div className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
+                      {/* A RECO registration speaks to Ontario only: outside Ontario the card stays neutral (2026-10-02). */}
+                      {landlordIsRegistrant && province === 'ON'
                         ? (zh ? '房东直租 · 房东为持牌经纪' : 'Direct from landlord · landlord is a registered agent')
                         : (zh ? '房东直租' : 'Direct from landlord')}
+                    </div>
                   </div>
-
                 </div>
-              </div>
+              )}
               {/* 找得到人 2026-09-30: the old「让我的 AI 助理替我联系」sent a prompt
                   whose send_message resolved to the tenant's CURRENT landlord —
                   the wrong person. A Stayloop landlord listing now opens the

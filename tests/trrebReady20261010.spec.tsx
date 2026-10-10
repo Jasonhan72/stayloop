@@ -21,8 +21,9 @@ describe('8.26 listing brokerage shown prominently', () => {
     expect(listPage).toMatch(/fontSize: 13, color: '#3F3F46', marginTop: 4 \}\} data-testid="card-brokerage"/)
     expect(detailPage).toMatch(/data-testid="listing-brokerage-line"/)
     expect(detailPage).toMatch(/text-\[15px\] text-body-2" data-testid="listing-brokerage-line"/)
-    // contact card: no longer a 10.5px mono line when a brokerage is named
-    expect(detailPage).toContain("listing.brokerage ? 'text-[13px] text-body-2' : 'font-mono text-[10.5px]")
+    // contact card (8.26 / 8.23): the brokerage is the heading; no「挂牌经纪」placeholder person, no blank avatar
+    expect(detailPage).toContain('data-testid="listing-contact-brokerage"')
+    expect(detailPage).not.toContain("zh ? '挂牌经纪' : 'Listing agent'")
   })
 })
 
