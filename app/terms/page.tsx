@@ -21,8 +21,8 @@ export default function TermsPage() {
 
           <Section title={zh ? '1 · 接受条款' : '1 · Acceptance of terms'}>
             <p>{zh
-              ? '使用 Stayloop 即表示同意本条款 + 隐私政策。Stayloop 由 Stayloop Technologies Inc. (Ontario corp) 运营。'
-              : 'By using Stayloop you agree to these terms and our Privacy Policy. Stayloop is operated by Stayloop Technologies Inc. (an Ontario corporation).'}</p>
+              ? '使用 Stayloop 即表示同意本条款 + 隐私政策。Stayloop 由 Stayloop Inc. 运营。'
+              : 'By using Stayloop you agree to these terms and our Privacy Policy. Stayloop is operated by Stayloop Inc.'}</p>
           </Section>
           <Section title={zh ? '2 · 你的承诺' : '2 · Your commitments'}>
             <p>{zh

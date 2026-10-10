@@ -82,6 +82,9 @@ describe('8.09–8.11 terms of use', () => {
     expect(termsPage).toContain('LISTING_DATA_CLAUSES.map')
     expect(termsPage).toContain('TERMS_VERSION')
     expect(termsPage).not.toContain('2026-05-09')
+    // 2026-10-10 user: the operator is the newly registered Stayloop Inc.
+    expect(termsPage).toContain('Stayloop 由 Stayloop Inc. 运营')
+    expect(termsPage).not.toContain('Stayloop Technologies')
   })
   it('sign-up requires the checkbox and stores the accepted version with the account', () => {
     const card = read('components/home/LoginCard.tsx')
