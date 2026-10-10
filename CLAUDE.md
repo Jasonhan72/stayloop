@@ -3311,3 +3311,6 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 **仍要在给 PropTx 的邮件里问清的**：① AI 助理用 MLS 数据回答用户（8.01 / 8.18 只允许用于运营 VOW）；② 翻译算不算 8.24 的「改动」；③ 混合来源同页展示的具体要求；
 ④ `/terms` 仍写「Stayloop Technologies Inc. (Ontario corp)」，是否改成新注册的 Stayloop Inc. 由用户定。**截图核对办法**：内置浏览器面板隐藏时截不了图，用会话 scratchpad
 `shots/cdp.mjs`（无头 Chrome + CDP，可设语言、等待、滚到选择器）；`--virtual-time-budget` 那种一次性截图在这个站上会在数据到达前就拍。
+- **同日跟进**：`/terms` 运营主体改为「Stayloop Inc.」（用户拍板）；详情页联系人卡对经纪公司房源改为 **经纪公司名作标题 + 「挂牌经纪公司 · 来源 Realtor.ca」**
+  （有经纪姓名才显示，否则不再出现「挂牌经纪」占位与空头像——8.23 不得暗示不存在的人）；房东直租卡不变。给 PropTx 的邮件草稿在 `design/proptx-inquiry-email-2026-10.md`
+  （四个问题：AI 助理用途 / 翻译是否算改动 / 混合来源 / 8.12 发起会员之外能否再给「找认证经纪」入口——**接入后 MLS 房源页的联系路径以 PropTx 答复为准**）。
