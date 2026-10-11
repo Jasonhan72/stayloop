@@ -3318,3 +3318,9 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
   其余 67 套 Realtor 一律给精简渲染（标题「Check out this listing」，无经纪块），代理池 + 等待选择器重试也拿不到，Zolo 等镜像站按 IDX 规则只给经纪公司，
   Realtor 的内部 API 被 Cloudflare 挡。**不再折腾**：8.26 是「经纪公司或经纪人」二选一，经纪公司已满足；接入 PropTx 后 ListAgentFullName 随数据来、全部自动补上。
   导入脚本 `scripts/realtor-import/details.mjs` 现在抓 `broker_name`，`insert.mjs` 对 `brokerage` 为空的行拒绝写入。回填脚本在会话 scratchpad `agents/`。
+- **租金记录 + 租客保险（同日，用户看了 Zolo 的 Sold History 与 Home Insurance 后「是不是也可以加这些」）**：`components/listing/RentHistory.tsx` 取代原「价格记录」节——
+  数据仍是触发器维护的 `price_history`；**匿名只看最新一行，更早的行模糊（真实行，`blur` + 「🔒 登录后查看完整记录 · 还有 N 条」链到 `/login?redirect=`）**，登录后全部可见，
+  只有一行时不模糊；照 VOW 的「历史只给注册用户」惯例先把闸门做好，接入 TRREB 后同一单元的历史挂牌 / 成交接进同一节。`components/listing/TenantInsuranceCard.tsx` 在
+  「入住前费用一览」之后：只写事实（覆盖个人财物与第三方责任、房东楼宇险不保租客财物；安省标准租约**第 11 条**由房东勾选是否要求，要求时按索要出示凭证；外省不提安省），
+  **不写价格**；合作方按钮只在 `app_config.tenant_insurance_referral` 启用时出现（与入住页同一 `/api/config/tenant-insurance`，生产目前没有这行），并写明不承保、不理赔、不收佣金。
+  守卫 `tests/listingExtras20261010.spec.tsx`（真实渲染：匿名 / 登录 / 单行 / 无行；保险卡无价格、省份文案、合作方开关）。

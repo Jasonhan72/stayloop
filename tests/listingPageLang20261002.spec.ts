@@ -39,10 +39,13 @@ describe('(1) section eyebrows are English-UI only', () => {
   it('every Section on the page and in the move-in card is told the language', () => {
     const all = page.match(/<Section\b/g) || []
     const told = page.match(/<Section zh=\{zh\}/g) || []
-    expect(all.length).toBeGreaterThanOrEqual(8)
+    // 2026-10-10: 价格记录 moved into components/listing/RentHistory.tsx (gated), 租客保险 added — both ListingSections told the language too
+    expect(all.length).toBeGreaterThanOrEqual(7)
     expect(told.length).toBe(all.length)
-    for (const e of ['ABOUT', 'POLICIES', 'AMENITIES', 'BUILDING', 'PRICE HISTORY', 'LOCATION', 'NEIGHBOURHOOD', 'LANDLORD CRITERIA']) expect(page).toContain(`eyebrow="${e}"`)
+    for (const e of ['ABOUT', 'POLICIES', 'AMENITIES', 'BUILDING', 'LOCATION', 'NEIGHBOURHOOD', 'LANDLORD CRITERIA']) expect(page).toContain(`eyebrow="${e}"`)
     expect(costs).toContain('<ListingSection zh={zh} title={zh ? \'入住前费用一览\' : \'Move-in costs\'} eyebrow="MOVE-IN COSTS">')
+    expect(read('components/listing/RentHistory.tsx')).toContain('<ListingSection zh={zh} title={zh ? \'租金记录\' : \'Rent history\'} eyebrow="RENT HISTORY">')
+    expect(read('components/listing/TenantInsuranceCard.tsx')).toContain('<ListingSection zh={zh} title={zh ? \'租客保险\' : \'Tenant insurance\'} eyebrow="TENANT INSURANCE">')
   })
   it('the aside and the dialogs: SUBMIT INTENT, SHOWING REQUEST, ASK THE LANDLORD only in English', () => {
     expect(page).toContain('{!zh && <span className="sl-eyebrow">SUBMIT INTENT</span>}')

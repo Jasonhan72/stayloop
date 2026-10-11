@@ -14,6 +14,8 @@ import { ListingSection as Section } from '@/components/listing/ListingSection'
 import { ListingRulesNote } from '@/components/listing/ListingRulesNote'
 import { ListingDescription } from '@/components/listing/ListingDescription'
 import { MoveInCosts, depositNote } from '@/components/listing/MoveInCosts'
+import { RentHistory } from '@/components/listing/RentHistory'
+import { TenantInsuranceCard } from '@/components/listing/TenantInsuranceCard'
 import { addressWithUnit, bedsText, cityOnly, cleanBrokerName, similarDistanceText, similarLayoutText, similarRentText } from '@/components/listing/labels'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -778,6 +780,7 @@ export default function ListingDetailPage() {
 
             {/* 入住前费用一览 — Ontario's card, or the listing province's own facts; both live in components/listing/MoveInCosts.tsx. */}
             <MoveInCosts zh={zh} province={province} rent={listing.monthly_rent} deposit={listing.deposit} />
+            <TenantInsuranceCard zh={zh} province={province} />
 
             {/* Section 3 — 建筑信息 */}
             <Section zh={zh} title={zh ? '建筑信息' : 'Building'} eyebrow="BUILDING">
@@ -846,20 +849,8 @@ export default function ListingDetailPage() {
               )}
             </Section>
 
-            {/* Section 4 — 价格记录 (trigger-maintained price_history) */}
-            {Array.isArray(listing.price_history) && listing.price_history.length > 0 && (
-              <Section zh={zh} title={zh ? '价格记录' : 'Price history'} eyebrow="PRICE HISTORY">
-                <div className="divide-y divide-line-divider rounded-[12px] border border-line-divider bg-white">
-                  {[...listing.price_history].reverse().map((h, i) => (
-                    <div key={`${h.date}-${i}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13.5px]">
-                      <span className="font-mono text-[12px] text-body-3">{String(h.date).slice(0, 10)}</span>
-                      <span className="flex-1 text-body-2">{h.event === 'imported' ? (zh ? '导入 Stayloop（Realtor.ca 挂牌）' : 'Imported (Realtor.ca listing)') : h.event === 'listed' ? (zh ? '上架' : 'Listed') : h.prev != null ? (h.price > h.prev ? (zh ? `涨价（原 $${Number(h.prev).toLocaleString()}）` : `Increased (was $${Number(h.prev).toLocaleString()})`) : (zh ? `降价（原 $${Number(h.prev).toLocaleString()}）` : `Reduced (was $${Number(h.prev).toLocaleString()})`)) : (zh ? '调价' : 'Changed')}</span>
-                      <span className="font-semibold">${Number(h.price).toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-            )}
+            {/* Section 4 — 租金记录: the trigger-maintained price_history; earlier rows are for signed-in users (components/listing/RentHistory.tsx) */}
+            <RentHistory zh={zh} history={listing.price_history} signedIn={!!auth.user} loginHref={`/login?redirect=/listings/${encodeURIComponent(slug)}`} />
 
             {/* Section 5 — 位置与交通: the transit list beside the listing's own map (user 2026-09-25: "交通这边要带地图，和房源位置在一起") */}
             {insight !== null && (
