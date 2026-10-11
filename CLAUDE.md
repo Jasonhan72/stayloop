@@ -3322,5 +3322,9 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
   数据仍是触发器维护的 `price_history`；**匿名只看最新一行，更早的行模糊（真实行，`blur` + 「🔒 登录后查看完整记录 · 还有 N 条」链到 `/login?redirect=`）**，登录后全部可见，
   只有一行时不模糊；照 VOW 的「历史只给注册用户」惯例先把闸门做好，接入 TRREB 后同一单元的历史挂牌 / 成交接进同一节。`components/listing/TenantInsuranceCard.tsx` 在
   「入住前费用一览」之后：只写事实（覆盖个人财物与第三方责任、房东楼宇险不保租客财物；安省标准租约**第 11 条**由房东勾选是否要求，要求时按索要出示凭证；外省不提安省），
-  **不写价格**；合作方按钮只在 `app_config.tenant_insurance_referral` 启用时出现（与入住页同一 `/api/config/tenant-insurance`，生产目前没有这行），并写明不承保、不理赔、不收佣金。
-  守卫 `tests/listingExtras20261010.spec.tsx`（真实渲染：匿名 / 登录 / 单行 / 无行；保险卡无价格、省份文案、合作方开关）。
+  **不写价格**。**2026-10-11 用户「租客保险是要能提供报价的功能，要和（Zolo 的 Home Insurance）截图类似」→ 改为报价入口卡**：图标 + 「这套房源的租客保险要多少钱？」+
+  「几分钟得到报价，在 Rates.ca 比较多家保险公司」+ 「获取报价 ↗」（新标签打开）+ 小字「报价由 Rates.ca 提供 · 第三方网站 · Stayloop 不承保、不参与理赔」。
+  **Stayloop 不是持牌保险经纪，永远不自己报价**；默认目标 `https://rates.ca/insurance-quotes/tenant`（页内有 Get Quotes，不需要任何协议、不计酬；它们的报价子站
+  `compare.rates.ca/en/property/start?dwelling_type=tenant` 当晚 522，所以不用它），`app_config.tenant_insurance_referral`（partner_name + url，同一 `/api/config/tenant-insurance`）
+  可覆盖成 affiliate / 合作方链接。**Rates.ca 有 affiliate 计划**（ca1.rates.ca/affiliates，affiliatesmanager@rates.ca，Home 类每条有效 lead $1.00–1.50）——是否参加由用户定
+  （09-27 决定保险转介不计酬）；真正嵌入页内的报价要 APOLLO Insurance 那类 API 合作（Yardi / Payquad 的做法），需签约。守卫 `tests/listingExtras20261010.spec.tsx`。

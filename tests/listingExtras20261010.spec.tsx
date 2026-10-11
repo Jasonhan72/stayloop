@@ -44,22 +44,26 @@ describe('RentHistory', () => {
 })
 
 describe('TenantInsuranceCard', () => {
-  it('states facts only (no price), names Ontario standard lease s.11 for ON, and shows no partner button without the config', async () => {
+  it('is a quote entry: a Get-quotes button to the comparison site by default, overridable by the admin config; facts only, no price', async () => {
     const g = globalThis as { fetch?: unknown }
     g.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ enabled: false }) }))
     let r!: TestRenderer.ReactTestRenderer
     await act(async () => { r = TestRenderer.create(<TenantInsuranceCard zh province="ON" />) })
     const t = text(r)
+    expect(t).toContain('这套房源的租客保险要多少钱？')
     expect(t).toContain('安省标准租约第 11 条')
     expect(t).not.toMatch(/\$\s?\d/)
-    expect(r.root.findAllByProps({ 'data-testid': 'tenant-insurance-partner' })).toHaveLength(0)
+    const a = r.root.findByProps({ 'data-testid': 'tenant-insurance-partner' })
+    expect(a.props.href).toBe('https://rates.ca/insurance-quotes/tenant')
+    expect(a.props.target).toBe('_blank')
+    expect(t).toContain('报价由 Rates.ca 提供')
+    expect(t).toContain('不承保')
     await act(async () => { r = TestRenderer.create(<TenantInsuranceCard zh province="QC" />) })
     expect(text(r)).not.toContain('安省')
     g.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ enabled: true, partner_name: 'X', url: 'https://x.example/' }) }))
     await act(async () => { r = TestRenderer.create(<TenantInsuranceCard zh province="ON" />) })
-    const a = r.root.findByProps({ 'data-testid': 'tenant-insurance-partner' })
-    expect(a.props.href).toBe('https://x.example/')
-    expect(text(r)).toContain('不收取佣金')
+    expect(r.root.findByProps({ 'data-testid': 'tenant-insurance-partner' }).props.href).toBe('https://x.example/')
+    expect(text(r)).toContain('报价由 X 提供')
   })
 })
 
