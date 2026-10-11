@@ -65,7 +65,8 @@ export default function TermsConsentGate() {
       const { error } = await supabase.auth.updateUser({ data: meta })
       if (error) throw error
       if (auth.user) {
-        void writeAuditEvent(supabase, { actorId: auth.user.id, action: 'terms_accepted', targetType: 'terms', targetId: TERMS_VERSION, metadata: meta }).catch(() => {})
+        // target_id is a uuid column: the account is the target, the version travels in metadata
+        void writeAuditEvent(supabase, { actorId: auth.user.id, action: 'terms_accepted', targetType: 'account', targetId: auth.user.id, metadata: meta }).catch(() => {})
       }
       setDone(true)
     } catch (e) {

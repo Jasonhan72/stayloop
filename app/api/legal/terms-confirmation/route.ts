@@ -43,6 +43,7 @@ export async function POST(req: Request) {
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
   await admin.auth.admin.updateUserById(user.id, { user_metadata: { ...meta, terms_confirm_sent_version: TERMS_VERSION, terms_confirm_sent_at: new Date().toISOString() } })
-  await admin.from('agent_audit_events').insert({ actor_id: user.id, actor_type: 'system', action: 'terms_confirmation_emailed', target_type: 'terms', target_id: TERMS_VERSION, metadata: { email_id: sent.id ?? null } })
+  const { error: auditErr } = await admin.from('agent_audit_events').insert({ actor_id: user.id, actor_type: 'system', action: 'terms_confirmation_emailed', target_type: 'account', target_id: user.id, metadata: { terms_version: TERMS_VERSION, email_id: sent.id ?? null } })
+  if (auditErr) console.error('terms-confirmation audit failed', auditErr.message)
   return NextResponse.json({ ok: true })
 }
