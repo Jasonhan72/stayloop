@@ -173,7 +173,7 @@ export default function DisputesPage() {
           of fabricated content keeps its <SampleTag/>, the hero carries the loud one. */}
 
       <section style={{ background: 'linear-gradient(180deg,#F3F8FC 0%,rgba(139,92,246,0.06) 100%)' }}>
-        <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-7 lg:px-12">
+        <div className="mx-auto max-w-[1320px] px-6 py-20 sm:px-8 lg:px-12">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#00ACE4' }}>
               {zh ? 'DISPUTE CENTER · 仲裁案件中心' : 'DISPUTE CENTER'}
@@ -225,7 +225,7 @@ export default function DisputesPage() {
 
       {/* Case list */}
       <section>
-        <div className="mx-auto max-w-[1240px] px-5 py-12 sm:px-7 lg:px-12">
+        <div className="mx-auto max-w-[1320px] px-6 py-12 sm:px-8 lg:px-12">
           <div className="sl-card overflow-hidden">
             <div className="flex items-center justify-between gap-3 border-b border-line-divider px-5 py-4 sm:px-6">
               <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
@@ -268,7 +268,7 @@ export default function DisputesPage() {
       </section>
 
       <section>
-        <div className="mx-auto grid max-w-[1240px] gap-6 px-5 py-8 sm:px-7 lg:grid-cols-[1.3fr_0.7fr] lg:px-12">
+        <div className="mx-auto grid max-w-[1320px] gap-6 px-6 py-8 sm:px-8 lg:grid-cols-[1.3fr_0.7fr] lg:px-12">
           {/* case detail + stages */}
           <div className="space-y-6">
             <div id="case-detail" className="sl-card scroll-mt-24 p-6">
@@ -377,7 +377,7 @@ export default function DisputesPage() {
 
       {/* Closed cases */}
       <section>
-        <div className="mx-auto max-w-[1240px] px-5 pb-4 sm:px-7 lg:px-12">
+        <div className="mx-auto max-w-[1320px] px-6 pb-4 sm:px-8 lg:px-12">
           <div className="sl-card overflow-hidden">
             <div className="flex items-center justify-between gap-3 border-b border-line-divider px-6 py-4">
               <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
@@ -403,7 +403,7 @@ export default function DisputesPage() {
 
       {/* lawyer directory */}
       <section style={{ background: '#F3F8FC' }}>
-        <div className="mx-auto max-w-[1240px] px-5 py-16 sm:px-7 lg:px-12">
+        <div className="mx-auto max-w-[1320px] px-6 py-16 sm:px-8 lg:px-12">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#00ACE4' }}>
               {zh ? 'Lawyer Directory · 律师目录' : 'Lawyer Directory'}

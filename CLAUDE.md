@@ -3330,4 +3330,4 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
   （09-27 决定保险转介不计酬）；真正嵌入页内的报价要 APOLLO Insurance 那类 API 合作（Yardi / Payquad 的做法），需签约。守卫 `tests/listingExtras20261010.spec.tsx`。
 - **页头容器与页面内容对齐（2026-10-11，用户「把 header 上的 stayloop.ai 和汉堡菜单 / avatar 的位置和图片的框对齐」）**：`components/Header.tsx` 的容器由
   `max-w-[1240px] px-5` 改为与房源页完全相同的 `max-w-[1320px] px-6 sm:px-8 lg:px-12`——logo 左缘 = H1 左缘，汉堡右缘 = 照片拼图右缘（1440 / 1280 / 1024 / 375 实测一致）。
-  **以后新页面的主容器一律用这一组值**，页头才会对齐；`/disputes`、`/screening/[id]/ltb` 等仍是 1240 的旧页没有改。守卫 `tests/phoneChat20260924.spec.ts`。
+  **以后新页面的主容器一律用这一组值**，页头才会对齐；同日用户追加「把 /disputes 那些旧页面的容器也改成一样的」：`/disputes`、`/screening/[id]/{ltb,done,graph}` 的 11 处 `max-w-[1240px] px-5 sm:px-7` 全部改成同一组值（筛查子页只动了容器类名）。全站已无 1240 容器。守卫 `tests/phoneChat20260924.spec.ts`。

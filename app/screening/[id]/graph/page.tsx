@@ -268,7 +268,7 @@ export default function GraphPage() {
 
       {/* Hero */}
       <section style={{ background: 'linear-gradient(180deg,#F3F8FC 0%,#E4E8EE 100%)' }}>
-        <div className="mx-auto max-w-[1240px] px-5 py-16 sm:px-7 lg:px-12">
+        <div className="mx-auto max-w-[1320px] px-6 py-16 sm:px-8 lg:px-12">
           <Link
             href={`/screening/${id}/report`}
             className="font-mono text-[12px] text-body-3 hover:text-body"
@@ -296,7 +296,7 @@ export default function GraphPage() {
       </section>
 
       <section>
-        <div className="mx-auto max-w-[1240px] px-5 py-10 sm:px-7 lg:px-12 space-y-8">
+        <div className="mx-auto max-w-[1320px] px-6 py-10 sm:px-8 lg:px-12 space-y-8">
 
           {/* Radar Chart */}
           {hasDims && (

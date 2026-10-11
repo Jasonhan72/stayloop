@@ -183,7 +183,7 @@ export default function ScanDonePage() {
 
       {/* Step bar */}
       <div className="border-b border-line-divider" style={{ background: '#F3F8FC' }}>
-        <div className="mx-auto flex max-w-[1240px] items-center gap-3 px-5 py-3 sm:px-7 lg:px-12">
+        <div className="mx-auto flex max-w-[1320px] items-center gap-3 px-6 py-3 sm:px-8 lg:px-12">
           <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#047857' }}>
             {zh ? '筛查' : 'SCREENING'}
           </span>
@@ -204,7 +204,7 @@ export default function ScanDonePage() {
       </div>
 
       <main>
-        <div className="mx-auto max-w-[1240px] px-5 py-10 sm:px-7 lg:px-12">
+        <div className="mx-auto max-w-[1320px] px-6 py-10 sm:px-8 lg:px-12">
 
           {/* Title row */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

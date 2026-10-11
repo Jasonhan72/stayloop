@@ -213,7 +213,7 @@ export default function LTBPage() {
       <Header variant="transparent" />
 
       <section style={{ background: 'linear-gradient(180deg,#F3F8FC 0%,#E8E4DC 100%)' }}>
-        <div className="mx-auto max-w-[1240px] px-5 py-16 sm:px-7 lg:px-12">
+        <div className="mx-auto max-w-[1320px] px-6 py-16 sm:px-8 lg:px-12">
           <Link href={`/screening/${id}/report`} className="font-mono text-[12px] text-body-3 hover:text-body">
             &larr; {zh ? '返回报告' : 'Back to report'}
           </Link>
@@ -243,7 +243,7 @@ export default function LTBPage() {
       </section>
 
       <section>
-        <div className="mx-auto max-w-[1240px] space-y-8 px-5 py-10 sm:px-7 lg:px-12">
+        <div className="mx-auto max-w-[1320px] space-y-8 px-6 py-10 sm:px-8 lg:px-12">
 
           {courtSummary && (
             <div className="rounded-2xl border border-line-divider bg-white p-6 sm:p-8">
