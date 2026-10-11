@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { writeAuditEvent } from '@/lib/agent/audit'
-import { LISTING_DATA_CLAUSES, TERMS_VERSION, hasAcceptedCurrentTerms, termsAcceptanceMetadata } from '@/lib/legal/terms'
+import { LISTING_DATA_CLAUSES, TERMS_VERSION, accountName, hasAcceptedCurrentTerms, passwordAgeDays, passwordStampMetadata, termsAcceptanceMetadata, usesPassword } from '@/lib/legal/terms'
 
 const EXEMPT = ['/terms', '/privacy', '/login', '/register', '/auth/']
 
@@ -26,9 +26,22 @@ export default function TermsConsentGate() {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const [name, setName] = useState('')
 
   const exempt = EXEMPT.some((p) => pathname === p || pathname.startsWith(p))
-  const show = !auth.loading && !!auth.user && !hasAcceptedCurrentTerms(auth.user) && !exempt && !done
+  const accepted = !!auth.user && hasAcceptedCurrentTerms(auth.user)
+  const show = !auth.loading && !!auth.user && !accepted && !exempt && !done
+  const needsName = !!auth.user && !accountName(auth.user)
+
+  // 8.05(b): once the account has accepted the current version, send ONE confirmation email for
+  // that version (the server marks user_metadata.terms_confirm_sent_version so it never repeats).
+  useEffect(() => {
+    if (auth.loading || !auth.user || !accepted) return
+    if (auth.user.user_metadata?.terms_confirm_sent_version === TERMS_VERSION) return
+    const token = auth.session?.access_token
+    if (!token) return
+    void fetch('/api/legal/terms-confirmation', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
+  }, [auth.loading, auth.user, auth.session?.access_token, accepted])
 
   useEffect(() => {
     if (!show || typeof document === 'undefined') return
@@ -41,11 +54,14 @@ export default function TermsConsentGate() {
 
   const accept = async () => {
     if (!agree || saving) return
+    if (needsName && name.trim().length < 2) { setErr(zh ? '请填写你的姓名' : 'Please enter your name'); return }
     setSaving(true)
     setErr(null)
     try {
       const supabase = getSupabaseBrowser()
-      const meta = termsAcceptanceMetadata()
+      // The password-age clock (8.06) starts here for accounts that predate it; a stamp already on record is kept.
+      const stamp = usesPassword(auth.user) && passwordAgeDays(auth.user) == null ? passwordStampMetadata() : {}
+      const meta = { ...termsAcceptanceMetadata(), ...stamp, ...(needsName ? { full_name: name.trim().slice(0, 80) } : {}) }
       const { error } = await supabase.auth.updateUser({ data: meta })
       if (error) throw error
       if (auth.user) {
@@ -74,6 +90,12 @@ export default function TermsConsentGate() {
         <ol className="mt-4 max-h-[36dvh] list-decimal space-y-2 overflow-y-auto rounded-[12px] bg-surface px-4 py-3 pl-8 text-[13px] leading-relaxed text-body-2 sm:max-h-[260px]">
           {LISTING_DATA_CLAUSES.map((c, i) => <li key={i}>{zh ? c.zh : c.en}</li>)}
         </ol>
+        {needsName && (
+          <label className="mt-4 block text-[13px] text-body-2">
+            {zh ? '你的姓名（数据规则要求我们记录每位用户的姓名）' : 'Your name (the data rules require us to hold each user’s name)'}
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className="sl-input mt-1 w-full" placeholder={zh ? '姓名' : 'Name'} data-testid="terms-gate-name" />
+          </label>
+        )}
         <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-[13.5px] leading-relaxed text-ink">
           <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-[3px] h-4 w-4 shrink-0 accent-[#00ACE4]" data-testid="terms-gate-checkbox" />
           <span>

@@ -190,6 +190,17 @@ export default function LoginCard({ className = '', next, intent = 'signin' }: {
               : (zh ? '创建账户 · 免费' : 'Create your account · free')}
           </div>
           <input
+            type="text"
+            required
+            value={f.fullName}
+            onChange={(e) => f.setFullName(e.target.value)}
+            placeholder={zh ? '你的姓名' : 'Your name'}
+            aria-label={zh ? '姓名' : 'Name'}
+            autoComplete="name"
+            className={input}
+            data-testid="signup-name"
+          />
+          <input
             ref={pwRef}
             type="password"
             required
@@ -226,7 +237,7 @@ export default function LoginCard({ className = '', next, intent = 'signin' }: {
               <Link href="/privacy" target="_blank" className="underline">{zh ? '隐私政策' : 'Privacy Policy'}</Link>
             </span>
           </label>
-          <button type="submit" disabled={f.loading || !f.password || !f.password2 || !f.agreeTerms} className={primary}>
+          <button type="submit" disabled={f.loading || !f.fullName.trim() || !f.password || !f.password2 || !f.agreeTerms} className={primary}>
             {f.loading ? (zh ? '创建中…' : 'Creating…') : (zh ? '创建账户' : 'Create account')}
           </button>
           <p className="text-[12px] leading-relaxed text-body-3">

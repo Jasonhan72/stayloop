@@ -1,5 +1,7 @@
 'use client'
 
+import { passwordStampMetadata } from '@/lib/legal/terms'
+
 // One gate over the whole back office: any admin account carrying
 // must_change_password in its user_metadata is held on a password-change
 // screen before it can see ANY /admin surface. This exists for the bootstrap
@@ -46,7 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     try {
       const { error } = await supabase.auth.updateUser({
         password: pw,
-        data: { must_change_password: false },
+        data: { must_change_password: false, ...passwordStampMetadata() },
       })
       if (error) throw error
       // Clear the SERVER-held rotation flag too — is_stayloop_admin()

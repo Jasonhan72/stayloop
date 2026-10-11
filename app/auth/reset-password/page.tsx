@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { passwordErrorMessage } from '@/lib/auth/passwordError'
+import { passwordStampMetadata } from '@/lib/legal/terms'
 
 /**
  * Password recovery landing — target of resetPasswordForEmail's redirect.
@@ -62,7 +63,7 @@ export default function ResetPasswordPage() {
     setSaving(true)
     try {
       const supabase = getSupabaseBrowser()
-      const { error } = await supabase.auth.updateUser({ password: pw })
+      const { error } = await supabase.auth.updateUser({ password: pw, data: passwordStampMetadata() })
       if (error) throw error
       setPhase('done')
       // /auth/callback resolves the user's actual role (localStorage ->

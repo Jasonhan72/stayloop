@@ -18,7 +18,9 @@ export const SPONSOR_MEMBER = (() => {
   }
 })()
 
-export function dataNoticeText(zh: boolean): { reliability: string; sources: string; copyright: string } {
+export const CORRECTIONS_EMAIL = 'hello@stayloop.ai'
+
+export function dataNoticeText(zh: boolean): { reliability: string; sources: string; copyright: string; corrections: string } {
   const year = new Date().getFullYear()
   return {
     reliability: zh
@@ -30,5 +32,9 @@ export function dataNoticeText(zh: boolean): { reliability: string; sources: str
     copyright: zh
       ? `© ${year} 各挂牌经纪公司与提供数据的房地产协会 / MLS® 系统保留房源信息的版权；Stayloop 自有内容 © ${year} Stayloop。MLS®、REALTOR® 是加拿大房地产协会（CREA）的商标。`
       : `© ${year} Listing information is copyright of the listing brokerages and the real estate associations / MLS® systems that supply it; Stayloop’s own content © ${year} Stayloop. MLS® and REALTOR® are trademarks of The Canadian Real Estate Association (CREA).`,
+    // PropTx 8.16: a channel for the listing brokerage to flag anything Stayloop ADDS beyond the feed, fixed within 48 h.
+    corrections: zh
+      ? `挂牌经纪公司或协会若认为本页由 Stayloop 附加的信息（翻译、交通站点、社区简介、租金记录）不准确，请发邮件至 ${CORRECTIONS_EMAIL}，我们会在 48 小时内更正或移除。`
+      : `Listing brokerages and associations: if anything Stayloop adds on this page beyond the listing data (translation, transit, neighbourhood note, rent history) is inaccurate, email ${CORRECTIONS_EMAIL} and we will correct or remove it within 48 hours.`,
   }
 }

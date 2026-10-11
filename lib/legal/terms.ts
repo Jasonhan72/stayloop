@@ -13,6 +13,12 @@ export type ListingDataClause = { zh: string; en: string }
 
 export const LISTING_DATA_CLAUSES: ListingDataClause[] = [
   {
+    // PropTx 8.09(a): acknowledging a lawful broker-consumer (customer) relationship with the member whose
+    // feed the site runs under. It is a customer relationship, not representation — see the last clause.
+    zh: '对于来自 MLS® 系统的房源，你确认与运营该数据接入的 TRREB 会员经纪（在房源页面上标明）建立合法的经纪-消费者（客户）关系，以便向你展示房源并回答你的询问。这不是代表协议。',
+    en: 'For listings that come from an MLS® system, you acknowledge a lawful broker-consumer (customer) relationship with the TRREB member (named on the listing pages) under whose data feed they are shown, so that listings can be displayed to you and your questions answered. This is not a representation agreement.',
+  },
+  {
     zh: '房源信息仅供你本人、非商业用途使用，用于考虑是否租赁、购买或出售某一处房产。',
     en: 'Listing information is for your personal, non-commercial use only, in connection with considering the rental, purchase or sale of an individual property.',
   },
@@ -41,8 +47,8 @@ export const LISTING_DATA_CLAUSES: ListingDataClause[] = [
     en: 'You authorize Stayloop, and the real estate associations, MLS® systems and their members that supply listing data to us, to access the platform to verify compliance with these terms and their data rules.',
   },
   {
-    zh: '同意本条款不产生任何费用，也不在你与 Stayloop 或任何经纪公司之间建立代理或代表关系。任何代理关系须另行以书面协议建立，不能仅凭点击同意成立。',
-    en: 'Accepting these terms creates no fee and no agency or representation relationship between you and Stayloop or any brokerage. Any representation agreement must be made separately in writing and cannot be formed by a click alone.',
+    zh: '同意本条款不产生任何费用，也不构成你与 Stayloop 或任何经纪公司之间的代表协议。任何代表协议或收费安排须另行以书面方式单独建立并明确标注，不能仅凭点击同意成立。',
+    en: 'Accepting these terms creates no fee and no representation agreement between you and Stayloop or any brokerage. Any representation agreement or financial obligation must be established separately, in writing, clearly labelled as such, and cannot be formed by a click alone.',
   },
 ]
 
@@ -59,4 +65,45 @@ export function hasAcceptedCurrentTerms(user: { user_metadata?: Record<string, u
 /** The metadata written when someone accepts (sign-up form or the consent gate). */
 export function termsAcceptanceMetadata(now = new Date()): { terms_version: string; terms_accepted_at: string } {
   return { terms_version: TERMS_VERSION, terms_accepted_at: now.toISOString() }
+}
+
+// ── PropTx 8.05 / 8.06 account rules ────────────────────────────────────────────
+// 8.05(b): the member must hold each consumer's NAME and a valid email; 8.06: a password is valid
+// for at most 90 days (renewable). Name lives in user_metadata.full_name; the password's age in
+// user_metadata.password_changed_at (set at sign-up, reset and every change).
+export const PASSWORD_MAX_AGE_DAYS = 90
+
+type MetaUser = { user_metadata?: Record<string, unknown> | null; identities?: { provider?: string }[] | null } | null | undefined
+
+export function accountName(user: MetaUser): string | null {
+  const m = user?.user_metadata || {}
+  for (const k of ['full_name', 'name', 'display_name']) {
+    const v = m[k]
+    if (typeof v === 'string' && v.trim().length >= 2) return v.trim()
+  }
+  return null
+}
+
+export function passwordStampMetadata(now = new Date()): { password_changed_at: string } {
+  return { password_changed_at: now.toISOString() }
+}
+
+/** Only accounts that actually sign in with a password are subject to the 90-day rule. */
+export function usesPassword(user: MetaUser): boolean {
+  return !!user?.identities?.some((i) => i.provider === 'email')
+}
+
+/** null = no stamp on record (set one, don't prompt); number = days since the last change. */
+export function passwordAgeDays(user: MetaUser, now = new Date()): number | null {
+  const v = user?.user_metadata?.password_changed_at
+  if (typeof v !== 'string') return null
+  const t = Date.parse(v)
+  if (!Number.isFinite(t)) return null
+  return Math.floor((now.getTime() - t) / 86_400_000)
+}
+
+export function passwordExpired(user: MetaUser, now = new Date()): boolean {
+  if (!usesPassword(user)) return false
+  const age = passwordAgeDays(user, now)
+  return age != null && age >= PASSWORD_MAX_AGE_DAYS
 }

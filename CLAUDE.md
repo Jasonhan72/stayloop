@@ -3331,3 +3331,27 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 - **页头容器与页面内容对齐（2026-10-11，用户「把 header 上的 stayloop.ai 和汉堡菜单 / avatar 的位置和图片的框对齐」）**：`components/Header.tsx` 的容器由
   `max-w-[1240px] px-5` 改为与房源页完全相同的 `max-w-[1320px] px-6 sm:px-8 lg:px-12`——logo 左缘 = H1 左缘，汉堡右缘 = 照片拼图右缘（1440 / 1280 / 1024 / 375 实测一致）。
   **以后新页面的主容器一律用这一组值**，页头才会对齐；同日用户追加「把 /disputes 那些旧页面的容器也改成一样的」：`/disputes`、`/screening/[id]/{ltb,done,graph}` 的 11 处 `max-w-[1240px] px-5 sm:px-7` 全部改成同一组值（筛查子页只动了容器类名）。全站已无 1240 容器。守卫 `tests/phoneChat20260924.spec.ts`。
+
+## PropTx Article 8 逐条复核 · 第二轮（2026-10-11 · 用户「按照 PropTx 的标准再检查一下网站」）
+
+把 PropTx MLS Rules（2024-12-02）Article 8 的 8.01–8.32 逐条对照站点（规则原文在会话 scratchpad `proptx/rules.txt`）。守卫 `tests/trrebReady20261010.spec.tsx` 末段。本轮补上的：
+- **8.09(a) 漏了**：条款第 1 条现在是「对来自 MLS® 系统的房源，你确认与运营该数据接入的 TRREB 会员经纪建立合法的经纪-消费者（客户）关系——这不是代表协议」；末条改为「不构成代表协议 / 收费安排须另行书面单独建立并标注」（8.10 的原话是 representation agreement，不是笼统的「代理关系」）。现在共 9 条。
+- **8.05(b) 姓名 + 确认邮件**：注册表单多一个必填「姓名」（`user_metadata.full_name`）；没有姓名的老账号在同意弹层里补填。同意后由 `POST /api/legal/terms-confirmation`
+  （JWT；每版本只发一次，service role 写 `terms_confirm_sent_version`；每用户每小时 3 次）发「你已同意 Stayloop 服务条款（版本 X）」邮件（列出九条规则），审计 `terms_confirmation_emailed`；
+  `TermsConsentGate` 在账号已接受当前版本且未发过时触发。**Supabase 的「Confirm signup」邮件模板仍是默认英文两行、不提条款**——改模板要 PATCH Auth 配置（分类器不让我动，用户在终端跑），
+  我们自己的确认邮件已经独立满足这一条。`password_min_length` 在 Auth 配置里是 6，表单要求 8，建议用户把配置也改成 8。
+- **8.06 密码 90 天**：`lib/legal/terms.ts PASSWORD_MAX_AGE_DAYS = 90`、`password_changed_at`（注册 / 重置密码 / 后台改密 / 到期更新 都盖戳）；`components/legal/PasswordAgeGate.tsx`
+  （挂在 `app/layout.tsx`，在条款弹层之后）对**用密码登录的账号**（identities 含 email）且戳龄 ≥90 天弹「请设置一个新密码」；没有戳的老账号在同意条款时起算（不弹）；Google 账号不适用。
+  审计 `password_renewed`。「保存 180 天」的记录由 Supabase Auth 用户表天然满足（我们不删用户）。
+- **8.13 / 8.08 审计轨迹**：登录用户的搜索也记（`listings_searched`：关键词 / 价格 / 卧室 / 宠物 / 来源 / 排序 / 页码 / 结果数，筛选稳定 1.5 秒后一行）；详情页浏览 `listing_viewed` 已有。
+- **8.16 附加信息的更正通道**：页脚声明多一行「挂牌经纪公司或协会若认为本页由 Stayloop 附加的信息（翻译、交通、社区简介、租金记录）不准确，请发 hello@stayloop.ai，48 小时内更正或移除」。
+- **8.19**：隐私 3b 补「保存姓名 / 邮箱 / 登录记录，密码失效后至少 180 天；密码账号每 90 天更新」。
+**逐条结论（已满足）**：8.07 版权句、8.09(b–g)、8.10、8.11、8.12（卡位，接入时填）、8.20、8.23、8.24（翻译 / 交通 / 社区简介 / 租金记录都标了来源）、8.25、8.26、8.28、8.29、8.15（无评论功能）。
+**接入前必须做、这轮没做（结构性，等 feed 定了再动）**：
+1. **8.05 / 8.18 的根本要求：VOW 房源只能给已注册登录的用户看。** 现在的 `/listings` 是公开的——这是 IDX 的做法。方案：公开页只放 IDX 许可的字段与数量，登录后（VOW）才有完整检索、
+   历史、成交；两种许可一起申请。
+2. **8.13 匿名批量读取**：浏览页与详情页用 anon key 直读 `listings` 表，PostgREST 一次最多 1000 行、翻页不限——MLS 数据进表后等于开放整库抓取。要么 MLS 行只对 authenticated 可读
+   （VOW），要么公开读走带 IP 限流的边缘路由并只返回 IDX 字段。
+3. **8.27 在服务端执行**：浏览页仍是把全部在线房源取到浏览器再分页（122 套 > 100），地图标记也不分页。要改成服务端筛选 + `range(0,99)`，地图同批。
+4. **8.14 / 8.15.02 卖方选择**：feed 的 InternetDisplay / AddressDisplay / AVM & 评论禁止字段要接进可见性与「相对均价」瓦片的开关；**8.17 24 小时刷新**由 feed 任务保证（现在 Realtor 导入是每小时抽查 20 套）。
+5. **8.21 / 8.30**：会员向 PropTx 报备 VOW 网址（Member VOW Website Information Form）、会员与 Stayloop Inc.（AVP）各签许可协议——都在邮件流程里。

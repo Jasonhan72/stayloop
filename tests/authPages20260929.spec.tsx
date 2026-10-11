@@ -102,8 +102,8 @@ describe('the register fallback', () => {
     act(() => { r.root.findByType('input').props.onChange({ target: { value: 'new@example.com' } }) })
     await act(async () => { r.root.findByType('form').props.onSubmit({ preventDefault() {} }) })
     const inputs = r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')
-    expect(inputs).toHaveLength(2)
-    expect(inputs.every((i) => i.props.autoComplete === 'new-password')).toBe(true)
+    expect(inputs).toHaveLength(3) // name + password + confirm
+    expect(inputs.map((i) => i.props.autoComplete)).toEqual(['name', 'new-password', 'new-password'])
     expect(textOf(r.root)).toContain('已有账户？输入密码登录')
   })
 })

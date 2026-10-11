@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { renderNote } from '@/lib/safeNote'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
+import { writeAuditEvent } from '@/lib/agent/audit'
 import { useAIName } from '@/lib/aiName'
 import { stampForTier } from '@/lib/passportStamps'
 import { hasUsablePhotos, LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
@@ -226,6 +227,21 @@ export default function ListingsPage() {
   const pageItems = useMemo(() => shown.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE), [shown, safePage])
   // Any change to what is shown restarts at the first page.
   useEffect(() => { setPage(0) }, [appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, sourceFilter, viewportIds])
+  // Audit trail of a signed-in user's searches (PropTx 8.13 / 8.08): one row per settled set of
+  // filters (1.5 s after the last change), never for anonymous visitors, never the listings themselves.
+  useEffect(() => {
+    if (!user || loading) return
+    const t = setTimeout(() => {
+      void writeAuditEvent(supabase, {
+        actorId: user.id,
+        action: 'listings_searched',
+        targetType: 'listings',
+        metadata: { q: appliedQuery || null, price_min: priceMin || null, price_max: priceMax || null, min_beds: minBeds || null, pets: pets || null, source: sourceFilter, sort, page: safePage + 1, results: shown.length },
+      }).catch(() => {})
+    }, 1500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, loading, appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, sourceFilter, safePage])
   // Grouped by source when every source is shown; a single source needs no header.
   const groups = useMemo<{ key: SourceKey; items: DBListing[] }[]>(() => {
     if (sourceFilter !== 'all') return [{ key: sourceFilter, items: pageItems }]

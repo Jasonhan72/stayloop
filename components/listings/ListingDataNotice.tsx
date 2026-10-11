@@ -17,6 +17,7 @@ export default function ListingDataNotice({ zh, className = '' }: { zh: boolean;
         {t.copyright}{' '}
         <Link href="/terms" className="underline hover:text-ink">{zh ? '房源信息使用规则 →' : 'Listing-data rules →'}</Link>
       </p>
+      <p className="mt-1" data-testid="listing-data-corrections">{t.corrections}</p>
     </aside>
   )
 }

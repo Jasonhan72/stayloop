@@ -80,8 +80,8 @@ describe('the sign-in block is Muse-simple', () => {
     // first time here → the same step asks for a new password twice
     const create = r.root.findAll((n) => n.type === 'button' && textOf(n) === '第一次来？创建账户')[0]
     act(() => { create.props.onClick() })
-    expect(inputs()).toHaveLength(2)
-    expect(inputs().every((i) => i.props.autoComplete === 'new-password')).toBe(true)
+    expect(inputs()).toHaveLength(3) // name + password + confirm (2026-10-11: PropTx 8.05(b) needs the name)
+    expect(inputs().map((i) => i.props.autoComplete)).toEqual(['name', 'new-password', 'new-password'])
     expect(textOf(r.root)).toContain('创建账户 · 免费')
     // and back to change the email
     const change = r.root.findAll((n) => n.type === 'button' && textOf(n) === '更改')[0]
@@ -142,8 +142,8 @@ describe('继续 looks the email up and routes (2026-09-29「当然要加上这�
     answer({ exists: false, password: false, google: false })
     const r = await continueWith('new@example.com')
     const inputs = r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')
-    expect(inputs).toHaveLength(2)
-    expect(inputs.every((i) => i.props.autoComplete === 'new-password')).toBe(true)
+    expect(inputs).toHaveLength(3)
+    expect(inputs.map((i) => i.props.autoComplete)).toEqual(['name', 'new-password', 'new-password'])
     expect(textOf(r.root)).toContain('这个邮箱还没有注册 · 免费创建账户')
     expect(buttons(r)).not.toContain('已有账户？输入密码登录')
   })
