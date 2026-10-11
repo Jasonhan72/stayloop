@@ -196,7 +196,8 @@ describe('listing detail: failures are not facts, client writes cannot forge his
   it('the page: TRREB only for apartment / townhouse with a bedroom count, no days-on-market for imports, similar homes from the same city with usable photos, no dead ScoreCard', () => {
     expect(page).toContain("const trrebType = listing.property_type === 'townhouse' ? 'townhouse' : ['apartment', 'condo'].includes(listing.property_type || '') ? 'apartment' : null")
     expect(page).toContain("const dom = listing.source === 'realtor' ? null : daysOnMarket(listing.published_at || listing.created_at)")
-    expect(page).toContain("h.event === 'imported' ? (zh ? '导入 Stayloop（Realtor.ca 挂牌）' : 'Imported (Realtor.ca listing)')")
+    // 2026-10-10: the row text moved into components/listing/RentHistory.tsx with the gated history
+    expect(readFileSync('components/listing/RentHistory.tsx', 'utf8')).toContain("if (h.event === 'imported') return zh ? '导入 Stayloop（Realtor.ca 挂牌）' : 'Imported (Realtor.ca listing)'")
     expect(page).toContain('xl:grid-cols-[1.15fr_1fr]')
     // 2026-10-02: photos are checked on the ranked shortlist (card columns are fetched for the best few only)
     expect(page).toContain('.filter((m) => m.listing && hasUsablePhotos(m.listing.images) && m.listing.status !== \'archived\')')

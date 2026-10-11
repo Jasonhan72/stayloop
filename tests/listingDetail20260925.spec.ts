@@ -53,7 +53,10 @@ describe('listing insight helpers', () => {
 describe('page, route and migration', () => {
   it('the page shows the new sections and asks the enrich route once per listing', () => {
     const page = read('app/listings/[slug]/page.tsx')
-    for (const eyebrow of ['eyebrow="POLICIES"', 'eyebrow="PRICE HISTORY"', 'eyebrow="LOCATION"', 'eyebrow="NEIGHBOURHOOD"']) expect(page).toContain(eyebrow)
+    for (const eyebrow of ['eyebrow="POLICIES"', 'eyebrow="LOCATION"', 'eyebrow="NEIGHBOURHOOD"']) expect(page).toContain(eyebrow)
+    // 2026-10-10: price history lives in components/listing/RentHistory.tsx (gated for anonymous visitors)
+    expect(page).toContain('<RentHistory zh={zh} history={listing.price_history}')
+    expect(readFileSync('components/listing/RentHistory.tsx', 'utf8')).toContain('eyebrow="RENT HISTORY"')
     expect(page).toContain("fetch('/api/listings/enrich', { method: 'POST'")
     expect(page).toContain("readTrrebBenchmark(listing.bedrooms, [listing.neighborhood, listing.city], trrebType)") // review 2026-09-25: apartment / townhouse with a bedroom count only
     // 2026-10-02: labels through lib/listingLang.ts (one language per page)
