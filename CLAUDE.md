@@ -3328,3 +3328,6 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
   `compare.rates.ca/en/property/start?dwelling_type=tenant` 当晚 522，所以不用它），`app_config.tenant_insurance_referral`（partner_name + url，同一 `/api/config/tenant-insurance`）
   可覆盖成 affiliate / 合作方链接。**Rates.ca 有 affiliate 计划**（ca1.rates.ca/affiliates，affiliatesmanager@rates.ca，Home 类每条有效 lead $1.00–1.50）——是否参加由用户定
   （09-27 决定保险转介不计酬）；真正嵌入页内的报价要 APOLLO Insurance 那类 API 合作（Yardi / Payquad 的做法），需签约。守卫 `tests/listingExtras20261010.spec.tsx`。
+- **页头容器与页面内容对齐（2026-10-11，用户「把 header 上的 stayloop.ai 和汉堡菜单 / avatar 的位置和图片的框对齐」）**：`components/Header.tsx` 的容器由
+  `max-w-[1240px] px-5` 改为与房源页完全相同的 `max-w-[1320px] px-6 sm:px-8 lg:px-12`——logo 左缘 = H1 左缘，汉堡右缘 = 照片拼图右缘（1440 / 1280 / 1024 / 375 实测一致）。
+  **以后新页面的主容器一律用这一组值**，页头才会对齐；`/disputes`、`/screening/[id]/ltb` 等仍是 1240 的旧页没有改。守卫 `tests/phoneChat20260924.spec.ts`。

@@ -35,7 +35,7 @@ describe('phone assistant screen', () => {
   it('shell drops the content padding for phoneApp pages and the header is 56px on phones', () => {
     const shell = read('components/WorkspaceShell.tsx')
     expect(shell).toContain("phoneApp ? 'sl-phone-pb min-w-0 flex-1 p-0 md:p-0'")
-    expect(read('components/Header.tsx')).toContain('flex h-14 max-w-[1240px] items-center justify-between px-5 sm:px-8 md:h-[66px]')
+    expect(read('components/Header.tsx')).toContain('flex h-14 max-w-[1320px] items-center justify-between px-6 sm:px-8 md:h-[66px]')
   })
   it('chat header: centred avatar with the name below on every breakpoint (user 2026-09-24, phone and web); phoneFill fills the parent', () => {
     const s = read('components/agent/AgentChat.tsx')
