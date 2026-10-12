@@ -3339,7 +3339,7 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 - **8.05(b) 姓名 + 确认邮件**：注册表单多一个必填「姓名」（`user_metadata.full_name`）；没有姓名的老账号在同意弹层里补填。同意后由 `POST /api/legal/terms-confirmation`
   （JWT；每版本只发一次，service role 写 `terms_confirm_sent_version`；每用户每小时 3 次）发「你已同意 Stayloop 服务条款（版本 X）」邮件（列出九条规则），审计 `terms_confirmation_emailed`；
   `TermsConsentGate` 在账号已接受当前版本且未发过时触发。**Supabase 的「Confirm signup」邮件模板仍是默认英文两行、不提条款**——改模板要 PATCH Auth 配置（分类器不让我动，用户在终端跑），
-  我们自己的确认邮件已经独立满足这一条。`password_min_length` 在 Auth 配置里是 6，表单要求 8，建议用户把配置也改成 8。
+  我们自己的确认邮件已经独立满足这一条。**2026-10-11 晚两项已由 Claude 经 Management API PATCH 完成**（用户「我记得给你这个权限了」；243 键 diff 只有三项变化）：「Confirm signup」模板改为双语并写明「完成注册即表示已同意服务条款（含房源信息使用规则）与隐私政策」（保留 `{{ .ConfirmationURL }}`），`password_min_length` 6 → 8。
 - **8.06 密码 90 天**：`lib/legal/terms.ts PASSWORD_MAX_AGE_DAYS = 90`、`password_changed_at`（注册 / 重置密码 / 后台改密 / 到期更新 都盖戳）；`components/legal/PasswordAgeGate.tsx`
   （挂在 `app/layout.tsx`，在条款弹层之后）对**用密码登录的账号**（identities 含 email）且戳龄 ≥90 天弹「请设置一个新密码」；没有戳的老账号在同意条款时起算（不弹）；Google 账号不适用。
   审计 `password_renewed`。「保存 180 天」的记录由 Supabase Auth 用户表天然满足（我们不删用户）。
