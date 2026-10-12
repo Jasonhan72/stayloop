@@ -118,7 +118,7 @@ export const FAQS = [
   },
   {
     zh: { q: '怎么收费?', a: '注册免费账号即可使用,免费档每月可筛查 5 单,历史记录云端保留。深度核验(雇主注册库联查等)属于 Pro 功能,定价见定价页。' },
-    en: { q: 'What does it cost?', a: 'Create a free account to get started — the free tier includes 5 screenings per month, with your history saved. Deep verification (employer registry cross-checks and more) is a Pro feature — see the pricing page.' },
+    en: { q: 'What does it cost?', a: 'Create a free account to get started — the free tier includes 3 screenings per month (plus one deep check), with your history saved; a new landlord account runs as Pro for its first 30 days. Deep verification (employer registry cross-checks and more) is a Pro feature — see the pricing page.' },
   },
   {
     zh: { q: 'LTB(房东与租客委员会)记录是怎么查的?', a: '使用安省 2026 年发布的 LTB 判令目录开放数据,按姓名建库检索。姓名命中必须经申请人自报地址佐证才影响评分——同名不等于同一个人;目录不含判决结果,报告只说明「已出判令」并附判令原件链接。' },
@@ -141,5 +141,5 @@ export const COMPARISON = [
   { zh: '申请人本人授权的身份与银行直连', en: 'Applicant-authorised identity and bank connection', us: true, typical: true, typicalNoteZh: '', typicalNoteEn: '' },
   { zh: '征信局直连', en: 'Direct bureau pull', us: false, typical: true, typicalNoteZh: '我们转录申请人自行上传的报告;本人授权直拉筹备中', typicalNoteEn: 'we transcribe the applicant’s own report; own-authorised pull in preparation' },
   { zh: '中英双语报告与界面', en: 'Bilingual (zh/en) report and interface', us: true, typical: false, typicalNoteZh: '', typicalNoteEn: '' },
-  { zh: '基础筛查免费(每月 5 次);深度核查按申请人 $14.99 或 Pro $19/月', en: 'Basic screening free (5/month); deep checks $14.99 per applicant or Pro $19/mo', us: true, typical: false, typicalNoteZh: '按份 $17–$45', typicalNoteEn: '$17–$45 per report' },
+  { zh: '基础筛查免费(每月 3 次,新账号前 30 天不限次);深度核查按申请人 $14.99 或 Pro $19/月', en: 'Basic screening free (3/month; unlimited for a new account’s first 30 days); deep checks $14.99 per applicant or Pro $19/mo', us: true, typical: false, typicalNoteZh: '按份 $17–$45', typicalNoteEn: '$17–$45 per report' },
 ]
