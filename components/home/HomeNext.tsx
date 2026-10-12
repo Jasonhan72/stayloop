@@ -93,7 +93,7 @@ const ROLES: {
     },
     benefits: [
       { b: { zh: '每份申请先查真伪与记录', en: 'Every application is checked first' }, s: { zh: '材料取证、收入佐证、LTB 判令与法院记录都查过；发现伪造迹象会标出并写明依据。', en: 'Document forensics, income corroboration, LTB orders and court records; signs of forgery are flagged with the evidence.' } },
-      { b: { zh: '租约与续约由系统跟进', en: 'Leases and renewals are followed up' }, s: { zh: '安省标准租约起草与电子签；到期前 90 / 60 / 30 天提醒续约，方案按指导比例备好，你批准才发。', en: 'Ontario standard lease drafting and e-signing; renewal reminders at 90 / 60 / 30 days with options within the guideline, sent only when you approve.' } },
+      { b: { zh: '租约与续约由系统跟进', en: 'Leases and renewals are followed up' }, s: { zh: '标准租约起草与电子签；到期前 90 / 60 / 30 天提醒续约，方案按指导比例备好，你批准才发。', en: 'Standard lease drafting and e-signing; renewal reminders at 90 / 60 / 30 days with options within the guideline, sent only when you approve.' } },
       { b: { zh: 'AI 后台全天候在线', en: 'An AI back office, on around the clock' }, s: { zh: '合规检查、审计留痕、报修接待与派单，你只需要确认。', en: 'Compliance checks, an audit trail, repair intake and dispatch; you only confirm.' } },
     ],
     chips: [
@@ -106,7 +106,7 @@ const ROLES: {
     modules: [
       { h: { zh: '租客筛查', en: 'Tenant screening' }, s: { zh: '材料取证 · 收入佐证 · LTB 判令与法院记录', en: 'Document forensics · income corroboration · LTB orders and court records' }, href: '/screening' },
       { h: { zh: '发布房源与申请队列', en: 'Listing and applications' }, s: { zh: '五步向导 · 一键导入 Realtor.ca 链接 · 核验后上线 · 申请一键筛查', en: 'Five-step wizard · import from a Realtor.ca link · live after verification · one-tap screening from an application' }, href: '/dashboard/listings/new' },
-      { h: { zh: '租约、续约与维修', en: 'Leases, renewals and repairs' }, s: { zh: '安省标准租约电子签 · 续约 90 / 60 / 30 天 · 报修派给已核验服务商', en: 'Ontario standard lease e-sign · renewal at 90 / 60 / 30 days · repairs dispatched to verified providers' }, href: '/landlord/leases' },
+      { h: { zh: '租约、续约与维修', en: 'Leases, renewals and repairs' }, s: { zh: '标准租约电子签 · 续约 90 / 60 / 30 天 · 报修派给已核验服务商', en: 'Standard lease e-sign · renewal at 90 / 60 / 30 days · repairs dispatched to verified providers' }, href: '/landlord/leases' },
     ],
     cta: { zh: '让 {ai} 协助管理房源 →', en: 'Let {ai} help manage your rentals →' },
     href: '/landlord',
@@ -133,7 +133,7 @@ const ROLES: {
     modules: [
       { h: { zh: '找房', en: 'Find a home' }, s: { zh: '真实挂牌 · 地图 · 交通与行情 · 看房与提问', en: 'Real listings · map · transit and market · showings and questions' }, href: '/listings' },
       { h: { zh: '申请与追踪', en: 'Apply and track' }, s: { zh: '已提交 → 房东已查看 → 筛查 → 决定 → 租约 → 在管租约', en: 'Submitted → viewed → screened → decision → lease → tenancy' }, href: '/tenant/applications' },
-      { h: { zh: '签约与报修', en: 'Signing and repairs' }, s: { zh: '安省标准租约电子签 · 在管租约 · 报修可附照片', en: 'Ontario standard lease e-sign · managed tenancy · repairs with photos' }, href: '/tenant/maintenance' },
+      { h: { zh: '签约与报修', en: 'Signing and repairs' }, s: { zh: '标准租约电子签 · 在管租约 · 报修可附照片', en: 'Standard lease e-sign · managed tenancy · repairs with photos' }, href: '/tenant/maintenance' },
     ],
     cta: { zh: '让 {ai} 开始找 →', en: 'Let {ai} start searching →' },
     href: '/tenant',
@@ -478,7 +478,7 @@ export default function HomeNext() {
           </div>
         }
         eyebrow={zh ? '规则' : 'Rules'}
-        title={zh ? '安省规则内置，每条有编号。' : 'Ontario rules built in, each with an id.'}
+        title={zh ? '租房规则内置，每条有编号。' : 'Tenancy rules built in, each with an id.'}
         lead={zh ? '发布房源、保存租约、发出通知之前自动检查；对话里的建议也受同一套规则约束。规则、法条与生效日期公开可查。' : 'Checked before a listing is published, a lease is saved or a notice goes out; the AI Agent’s advice is bound by the same set. Rules, statutes and effective dates are public.'}
       >
         <Link href="/rules" className={`mt-7 inline-block ${TEXT_LINK}`}>{zh ? `全部 ${ONTARIO_RULES.length} 条规则 →` : `All ${ONTARIO_RULES.length} rules →`}</Link>

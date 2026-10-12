@@ -102,7 +102,7 @@ describe('phones (2026-10-01 「手机端的首页确实有点长」)', () => {
     const ids = [...hidden.matchAll(/'([^']+)'/g)].map((m) => m[1])
     expect(ids).toHaveLength(4)
     // each hidden rule is said again on the page (outside the rules list itself)
-    const said: Record<string, string> = { 'RTA-27-entry-notice': 'RTA s.27', 'OHRC-no-income-cutoff': 'OHRC 租房政策', 'OREG9-18-standard-lease': '安省标准租约起草与电子签', 'CRA-10-7-notice': '《消费者报告法》s.10(7)' }
+    const said: Record<string, string> = { 'RTA-27-entry-notice': 'RTA s.27', 'OHRC-no-income-cutoff': 'OHRC 租房政策', 'OREG9-18-standard-lease': '标准租约起草与电子签', 'CRA-10-7-notice': '《消费者报告法》s.10(7)' }
     for (const id of ids) expect(home, id).toContain(said[id])
     // TRESA s.32 is said nowhere else, so it stays visible on phones
     expect(ids).not.toContain('TRESA-32-registrant-disclosure')
