@@ -1,7 +1,7 @@
 # 给 PropTx 的邮件（2026-10-11 可直接复制版）
 
 收件人 dataagreements@proptx.ca · 抄送 chu-sheng@hotmail.com（Sheng Chu；JDL Realty 的 Broker of Record 若有邮箱也抄送） · 附件：`design/proptx-screenshots-2026-10/` 的 8 张 PNG
-会员：Sheng Chu（个人公司 Sheng Chu Realty Inc.，挂靠经纪公司 JDL Realty Inc.）。**只剩 RECO 注册号一处方括号要填。** 审核账号的密码不写在邮件里，对方回复后单独发。
+会员：Sheng Chu（个人公司 Sheng Chu Realty Inc.，挂靠经纪公司 JDL Realty Inc.）。**没有需要再填的占位符，可直接发送。** 审核账号的密码不写在邮件里，对方回复后单独发。
 顺序：邮件先发，不等回复，请 Sheng Chu 一周内在门户发起 IDX + VOW 两份协议并把 Stayloop Inc. 加为新供应商。
 
 ---
@@ -10,7 +10,7 @@ Subject: IDX + VOW data feed inquiry — Stayloop Inc. (technology vendor) with 
 
 Dear PropTx Data Administrator,
 
-My name is Jason Han, founder of Stayloop Inc., a Toronto-based residential rental platform (www.stayloop.ai). I am writing together with Sheng Chu (RECO #[RECO number], Sheng Chu Realty Inc., registered with JDL Realty Inc.; 416-786-2018, chu-sheng@hotmail.com), a TRREB member who intends to start IDX and VOW Datafeed Agreements in the Data Syndication and Agreement System, with Stayloop Inc. designated as the technology vendor / Affiliated VOW Partner. Before the member submits the agreements, we would like to confirm our reading of the display rules and ask four questions.
+My name is Jason Han, founder of Stayloop Inc., a Toronto-based residential rental platform (www.stayloop.ai). I am writing together with Sheng Chu (RECO #9565987, Sheng Chu Realty Inc., registered with JDL Realty Inc.; 416-786-2018, chu-sheng@hotmail.com), a TRREB member who intends to start IDX and VOW Datafeed Agreements in the Data Syndication and Agreement System, with Stayloop Inc. designated as the technology vendor / Affiliated VOW Partner. Before the member submits the agreements, we would like to confirm our reading of the display rules and ask four questions.
 
 What Stayloop is
 
@@ -55,7 +55,7 @@ cc: Sheng Chu <chu-sheng@hotmail.com>, Sheng Chu Realty Inc. / JDL Realty Inc. (
 
 PropTx 数据管理员，您好：
 
-我是 Jason Han，Stayloop Inc. 的创始人，Stayloop 是一个总部在多伦多的住宅租赁平台（www.stayloop.ai）。我与 TRREB 会员 Sheng Chu（RECO 注册号 [号码]，Sheng Chu Realty Inc.，挂靠 JDL Realty Inc.；416-786-2018，chu-sheng@hotmail.com）一同致信：这位会员准备在 Data Syndication and Agreement System 里发起 IDX 与 VOW 两份数据协议，并把 Stayloop Inc. 指定为技术供应商 / Affiliated VOW Partner。在会员提交协议之前，我们想确认我们对展示规则的理解，并请教四个问题。
+我是 Jason Han，Stayloop Inc. 的创始人，Stayloop 是一个总部在多伦多的住宅租赁平台（www.stayloop.ai）。我与 TRREB 会员 Sheng Chu（RECO 注册号 9565987，Sheng Chu Realty Inc.，挂靠 JDL Realty Inc.；416-786-2018，chu-sheng@hotmail.com）一同致信：这位会员准备在 Data Syndication and Agreement System 里发起 IDX 与 VOW 两份数据协议，并把 Stayloop Inc. 指定为技术供应商 / Affiliated VOW Partner。在会员提交协议之前，我们想确认我们对展示规则的理解，并请教四个问题。
 
 Stayloop 是什么
 
