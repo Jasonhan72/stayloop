@@ -141,3 +141,14 @@ describe('wiring', () => {
     expect(fs.readFileSync('app/admin/verify/page.tsx', 'utf8')).toMatch(/<RealtorFreshnessCard/)
   })
 })
+
+describe('borrowed cdn.realtor.ca photos on Stayloop-published rows (2026-10-11)', () => {
+  it('the hourly job HEAD-checks the first photo and archives after two consecutive 404s', () => {
+    const route = fs.readFileSync('app/api/cron/realtor-freshness/route.ts', 'utf8')
+    expect(route).toContain(".eq('source', 'stayloop')")
+    expect(route).toContain("/^https:\\/\\/cdn\\.realtor\\.ca\\//.test(r.images[0] as string)")
+    expect(route).toContain("const gone = status === 404 || status === 410")
+    expect(route).toContain('const delist = streak >= 2')
+    expect(route).toContain('borrowed_photos:')
+  })
+})

@@ -113,6 +113,31 @@ export async function POST(req: Request) {
     return { id: row.id, slug: row.slug, state: reading.kind, delisted: delist, rent: newRent, written: !ue }
   })
 
+  // Stayloop-published rows whose photos were borrowed from cdn.realtor.ca (2026-06 / 2026-09 samples): when
+  // Realtor withdraws the listing the CDN starts answering 404 and the page shows blank tiles (user saw
+  // 155 Merchants' Wharf on 2026-10-11). Two consecutive misses on the first photo archive the row; the
+  // owner re-uploads photos in the editor to relist. Streak kept in realtor_check.photo_miss_streak.
+  const { data: borrowed } = await admin
+    .from('listings')
+    .select('id,slug,images,realtor_check')
+    .eq('source', 'stayloop')
+    .eq('is_active', true)
+    .limit(500)
+  const photoRows = ((borrowed || []) as { id: string; slug: string | null; images: unknown; realtor_check: (RealtorCheck & { photo_miss_streak?: number }) | null }[])
+    .filter((r) => Array.isArray(r.images) && typeof r.images[0] === 'string' && /^https:\/\/cdn\.realtor\.ca\//.test(r.images[0] as string))
+  const photoResults = await mapLimit(photoRows, 5, async (row) => {
+    let status = 0
+    const first = (row.images as string[])[0]
+    try { status = (await fetch(first, { method: 'HEAD', signal: AbortSignal.timeout(10_000) })).status } catch { status = 0 }
+    const gone = status === 404 || status === 410
+    const streak = gone ? ((row.realtor_check?.photo_miss_streak ?? 0) + 1) : 0
+    const delist = streak >= 2
+    const patch: Record<string, unknown> = { realtor_check: { ...(row.realtor_check || {}), photo_miss_streak: streak, photo_checked_at: new Date().toISOString() } }
+    if (delist) { patch.is_active = false; patch.status = 'archived' }
+    const { error: ue } = await admin.from('listings').update(patch).eq('id', row.id).eq('is_active', true)
+    return { slug: row.slug, status, streak, delisted: delist, written: !ue }
+  })
+
   const jinaDown = results.filter((r) => r.state === 'error').length
   if (batch.length && jinaDown === batch.length) {
     captureException(new Error('realtor-freshness: every read failed (Jina balance / outage?)'), { route: 'realtor-freshness', level: 'warning' })
@@ -122,5 +147,6 @@ export async function POST(req: Request) {
     delisted: results.filter((r) => r.delisted).map((r) => r.slug),
     repriced: results.filter((r) => r.rent != null).map((r) => ({ slug: r.slug, rent: r.rent })),
     states: results.reduce<Record<string, number>>((m, r) => ((m[r.state] = (m[r.state] || 0) + 1), m), {}),
+    borrowed_photos: { checked: photoResults.length, missing: photoResults.filter((r) => r.streak > 0).map((r) => ({ slug: r.slug, streak: r.streak })), delisted: photoResults.filter((r) => r.delisted).map((r) => r.slug) },
   })
 }
