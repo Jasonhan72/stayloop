@@ -41,8 +41,10 @@ export async function generateMetadata(
     title: '房源 · Stayloop',
     description: '浏览多伦多真实认证房源，AI 助理帮你问询、看房、递交申请。',
   }
+  // Server-side only (generateMetadata never ships to the browser): the service role reads the row because the
+  // anon role has no SELECT on listings any more (2026-10-11); the public-visibility predicate is applied here.
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key || !slug) return fallback
 
   try {
@@ -52,6 +54,7 @@ export async function generateMetadata(
       .select('address, unit, city, neighborhood, monthly_rent, bedrooms, bathrooms, sqft, description, title, images')
       .eq('slug', slug)
       .eq('is_active', true)
+      .eq('display_internet', true)
       .or(LISTING_VISIBILITY_OR)
       .maybeSingle()
     const l = data as ListingMeta | null

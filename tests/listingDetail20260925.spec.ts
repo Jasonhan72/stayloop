@@ -116,6 +116,7 @@ describe('second round (user 2026-09-25: Airbnb header, neighbourhood block, map
     expect(page).toContain("{zh ? '附近的相似房源' : 'Similar homes nearby'}")
     expect(page).toContain('onClick={() => toggle(snapS)}')
     expect(page).not.toContain("sl-eyebrow\">{zh ? '类似房源'")
-    expect(page).toContain('const shortlist = rankSimilar(listing, pool, { origin, limit: SIMILAR_SHORTLIST })')
+    // 2026-10-11: similar homes are ranked in app/api/listings/[slug]/route.ts (the browser no longer reads the listings table)
+    expect(readFileSync('app/api/listings/[slug]/route.ts', 'utf8')).toContain('const shortlist = rankSimilar(l as never, pool as never[], { origin, limit: SIMILAR_SHORTLIST })')
   })
 })

@@ -239,7 +239,8 @@ describe('the listing detail page', () => {
 
 describe('the application form', () => {
   it('reads the province with the listing and words the consent for it', () => {
-    expect(apply).toContain(".select('id, landlord_id, source, address, unit, city, monthly_rent, bedrooms, bathrooms, images, title, province, postal_code')")
+    // 2026-10-11: the apply page reads the listing through /api/listings/[slug] (province comes with the row)
+    expect(apply).toContain('const { data: listing, error: qErr } = await fetchPublicListing(params.slug)')
     expect(apply).toContain("const province: ProvinceCode = summary ? listingProvince(summary) : 'ON'")
     expect(apply).toContain("applyConsentText(province, zh ? 'zh' : 'en', { credit: 'if_checked', retentionDays: 90 })")
     // Ontario keeps its wording

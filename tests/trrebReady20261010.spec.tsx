@@ -7,6 +7,7 @@ import TestRenderer, { act } from 'react-test-renderer'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 const listPage = read('app/listings/page.tsx')
+const search = read('app/api/listings/search/route.ts')
 const detailPage = read('app/listings/[slug]/page.tsx')
 const terms = read('lib/legal/terms.ts')
 const termsPage = read('app/terms/page.tsx')
@@ -15,7 +16,8 @@ const migration = read('supabase/migrations/20261010_listings_anon_readonly.sql'
 
 describe('8.26 listing brokerage shown prominently', () => {
   it('browse cards and the detail title carry the listing brokerage at listing-fact size', () => {
-    expect(listPage).toContain("has_den,source,verification_status,brokerage')")
+    // the browse page reads through /api/listings/search; the brokerage is among the card columns there
+    expect(search).toContain('brokerage,display_address,display_avm')
     expect(listPage).toMatch(/data-testid="card-brokerage"[\s\S]{0,400}l\.brokerage \|\| 'Realtor\.ca'/)
     expect(listPage).toMatch(/data-testid="card-brokerage"/)
     expect(listPage).toMatch(/fontSize: 13, color: '#3F3F46', marginTop: 4 \}\} data-testid="card-brokerage"/)
@@ -53,15 +55,21 @@ describe('8.28 / 8.29 sources labelled and searched separately', () => {
     expect(listPage).toContain("type SourceKey = 'all' | 'stayloop' | 'realtor'")
     expect(listPage).toContain('data-testid="listings-source-filter"')
     expect(listPage).toMatch(/data-testid=\{`listings-group-\$\{g\.key\}`\}/)
-    expect(listPage).toContain("if (sourceFilter !== 'all') out = out.filter((l) => sourceOf(l) === sourceFilter)")
+    expect(search).toContain("if (source !== 'all') q = source === 'realtor' ? q.eq('source', 'realtor') : q.neq('source', 'realtor')")
+    expect(listPage).toContain("if (sourceFilter !== 'all') qs.set('source', sourceFilter)")
   })
 })
 
 describe('8.27 at most 100 listings per inquiry', () => {
   it('the browse page paginates at 100 and shows a pager', () => {
     expect(listPage).toContain('const PAGE_SIZE = 100')
-    expect(listPage).toMatch(/shown\.slice\(safePage \* PAGE_SIZE, safePage \* PAGE_SIZE \+ PAGE_SIZE\)/)
     expect(listPage).toContain('data-testid="listings-pager"')
+    // 2026-10-11: enforced on the server — ≤100 rows per response, pages via `page`, never the whole table
+    expect(search).toContain('export const PAGE_SIZE = 100')
+    expect(search).toContain('.range(from, from + PAGE_SIZE + 9)')
+    expect(search).toContain('rows.slice(0, PAGE_SIZE)')
+    expect(listPage).not.toContain(".from('listings')")
+    expect(listPage).toContain("fetch(`/api/listings/search?${qs.toString()}`")
   })
 })
 
@@ -229,5 +237,41 @@ describe('password-age helpers', () => {
     expect(passwordExpired({ identities: [{ provider: 'google' }], user_metadata: { password_changed_at: '2020-01-01T00:00:00Z' } })).toBe(false)
     expect(accountName({ user_metadata: { full_name: ' Mia Chen ' } })).toBe('Mia Chen')
     expect(accountName({ user_metadata: { full_name: 'M' } })).toBeNull()
+  })
+})
+
+// ── 2026-10-11 structural items (8.05 / 8.13 / 8.14 / 8.15.02 / 8.17 / 8.27) ─────
+describe('public listing reads go through rate-limited server routes', () => {
+  const detailRoute = readFileSync('app/api/listings/[slug]/route.ts', 'utf8')
+  const applyPage = readFileSync('app/apply/[slug]/page.tsx', 'utf8')
+  const layout = readFileSync('app/listings/[slug]/layout.tsx', 'utf8')
+  it('no anonymous-facing page queries the listings table from the browser; anon SELECT is revoked', () => {
+    for (const src of [listPage, detailPage, applyPage]) expect(src).not.toContain(".from('listings')")
+    expect(readFileSync('supabase/migrations/20261011_listings_anon_no_select.sql', 'utf8')).toContain('revoke select on public.listings from anon;')
+    expect(layout).toContain('const key = process.env.SUPABASE_SERVICE_ROLE_KEY')
+    expect(layout).toContain(".eq('display_internet', true)")
+  })
+  it('the search route budgets by IP / account, caps at 100, applies the seller directives and feed staleness', () => {
+    expect(search).toContain('export const ANON_SEARCHES_PER_HOUR = 240')
+    expect(search).toContain("underHourlyLimit(`lsearch:ip:${ip}`, ANON_SEARCHES_PER_HOUR, true)")
+    expect(search).toContain(".eq('display_internet', true)")
+    expect(search).toContain("'feed_updated_at.is.null,feed_updated_at.gt.'")
+    expect(search).toContain("l.display_address ? l : { ...l, address: '', unit: null, lat: null, lng: null }")
+    for (const heavy of ['description', 'price_history', 'broker_phone', 'transit']) expect(search.match(/CARD_COLUMNS = '([^']+)'/)![1]).not.toContain(heavy)
+  })
+  it('the detail route hides private columns, withholds the address, honours the owner preview and feed staleness', () => {
+    expect(detailRoute).toContain("const PRIVATE_COLUMNS = ['broker_phone', 'realtor_check', 'management_company'] as const")
+    expect(detailRoute).toContain("!owner && out.display_address === false ? withheld(out) : out")
+    expect(detailRoute).toContain("const publiclyVisible = (l.verification_status === 'verified' || l.source === 'realtor') && l.display_internet !== false && !stale")
+    expect(detailRoute).toContain('if (!publiclyVisible && !owner) return NextResponse.json')
+    expect(detailRoute).toContain("underHourlyLimit(`ldetail:ip:${ip}`, ANON_DETAILS_PER_HOUR, true)")
+  })
+  it('the pages render the directives: withheld address text, no comparison tile when the seller opts out of AVM', () => {
+    expect(listPage).toContain("? (zh ? '地址按卖方要求不公开' : 'Address withheld by the seller')")
+    expect(detailPage).toContain('data-testid="listing-address-withheld"')
+    expect(detailPage).toContain('{listing.display_avm !== false && (')
+    const mig = readFileSync('supabase/migrations/20261011_listings_feed_display.sql', 'utf8')
+    for (const col of ['display_internet', 'display_address', 'display_avm', 'feed_source', 'feed_updated_at']) expect(mig).toContain(col)
+    expect(mig).toContain('create trigger listings_guard_feed_fields before insert or update on public.listings')
   })
 })

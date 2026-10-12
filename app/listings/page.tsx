@@ -15,7 +15,6 @@ import { useAuth } from '@/lib/useAuth'
 import { writeAuditEvent } from '@/lib/agent/audit'
 import { useAIName } from '@/lib/aiName'
 import { stampForTier } from '@/lib/passportStamps'
-import { hasUsablePhotos, LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 import ListingDataNotice from '@/components/listings/ListingDataNotice'
 
 /**
@@ -60,6 +59,8 @@ interface DBListing {
   images: string[] | null
   available_date?: string | null
   has_den?: boolean | null
+  display_address?: boolean | null
+  display_avm?: boolean | null
   source?: string | null
   verification_status?: string | null
 }
@@ -91,11 +92,15 @@ export default function ListingsPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, session } = useAuth()
   const storedAiName = useAIName()
   const aiName = user ? storedAiName : 'AI'
 
-  const [all, setAll] = useState<DBListing[]>([])
+  // Rows come from /api/listings/search (server-side filters, ≤100 per page — PropTx 8.27 / 8.13); the
+  // browser never queries the table (2026-10-11). `total` / `pages` are the server's counts.
+  const [rows, setRows] = useState<DBListing[]>([])
+  const [total, setTotal] = useState(0)
+  const [pages, setPages] = useState(1)
   const [active, setActive] = useState<string | null>(null)
   // Phone map mode (RealMaster-style): full-screen map with red price tags;
   // tapping a tag shows that listing's card at the bottom.
@@ -104,9 +109,17 @@ export default function ListingsPage() {
   const [peek, setPeek] = useState<string | null>(null)
   // Cluster disc tapped: the group's ids, shown as a horizontal strip.
   const [group, setGroup] = useState<string[] | null>(null)
-  // Desktop: ids inside the map viewport — the list follows the map.
-  const [viewportIds, setViewportIds] = useState<Set<string> | null>(null)
-  const onViewport = useCallback((ids: string[] | null) => setViewportIds(ids ? new Set(ids) : null), [])
+  // Desktop: once the user pans / zooms, the list is re-queried by the map's box (server-side bbox).
+  // A bounds event that arrives right after new data is the map's own fit, not the user — ignored.
+  const [bbox, setBbox] = useState<{ s: number; w: number; n: number; e: number } | null>(null)
+  const [mapMoved, setMapMoved] = useState(false)
+  const lastDataAt = useRef(0)
+  const onBounds = useCallback((box: { s: number; w: number; n: number; e: number } | null) => {
+    if (!box) { setBbox(null); setMapMoved(false); return }
+    if (Date.now() - lastDataAt.current < 1500) return
+    setBbox(box); setMapMoved(true)
+  }, [])
+  const resetMapArea = () => { setBbox(null); setMapMoved(false) }
   useEffect(() => {
     if (!mapOpen) return
     const prev = document.body.style.overflow
@@ -146,87 +159,65 @@ export default function ListingsPage() {
   }, [queryInput])
   const { favs, isFav, toggle, count: favCount } = useFavorites()
 
+  // The search itself. Every filter is sent to the server; the map's box only once the user moved it.
   useEffect(() => {
-    supabase
-      .from('listings')
-      // Only the columns the browse cards + map + client filters read — not
-      // select('*') (which shipped every image URL, description, price_history
-      // and broker fields on the highest-traffic public page).
-      .select('id,slug,address,unit,city,province,monthly_rent,bedrooms,bathrooms,sqft,neighborhood,trust_tier,pet_policy,amenities,pin_x,pin_y,lat,lng,thumb_a,thumb_b,photo_count,is_active,created_at,images,available_date,has_den,source,verification_status,brokerage')
-      .eq('is_active', true)
-      // Public list shows verified listings; Realtor.ca-sourced ones show
-      // without verification (they carry a source badge instead).
-      .or(LISTING_VISIBILITY_OR)
-      .order('created_at', { ascending: false })
-      .limit(300)
-      .then(({ data: raw }) => {
-        // No photo, no card (lib/listingVisibility hasUsablePhotos).
-        const data = ((raw || []) as DBListing[]).filter((l) => hasUsablePhotos(l.images))
-        setAll(data)
-        if (data.length > 0) setActive((data[1] || data[0]).id)
-        setLoading(false)
-      })
-  }, [])
+    const ctrl = new AbortController()
+    const favIds = favOnly ? favs.map((f) => f.key).filter((k) => k.startsWith('sl:')).map((k) => k.slice(3)).slice(0, PAGE_SIZE) : []
+    if (favOnly && favIds.length === 0) { setRows([]); setTotal(0); setPages(1); setLoading(false); return }
+    const qs = new URLSearchParams()
+    if (appliedQuery) qs.set('q', appliedQuery)
+    if (priceMin != null) qs.set('min', String(priceMin))
+    if (priceMax != null) qs.set('max', String(priceMax))
+    if (minBeds != null) qs.set('beds', String(minBeds))
+    if (minBaths != null) qs.set('baths', String(minBaths))
+    if (minSqft != null) qs.set('sqft', String(minSqft))
+    if (moveIn) qs.set('move_in', moveIn)
+    if (pets) qs.set('pets', '1')
+    if (sourceFilter !== 'all') qs.set('source', sourceFilter)
+    qs.set('sort', sort)
+    qs.set('page', String(page))
+    if (favIds.length) qs.set('ids', favIds.join(','))
+    if (mapMoved && bbox) qs.set('bbox', [bbox.s, bbox.w, bbox.n, bbox.e].map((n) => n.toFixed(5)).join(','))
+    const t = setTimeout(() => {
+      setLoading(true)
+      fetch(`/api/listings/search?${qs.toString()}`, { signal: ctrl.signal, headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {} })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((j: { items: DBListing[]; total: number; pages: number }) => {
+          lastDataAt.current = Date.now()
+          setRows(j.items || []); setTotal(j.total || 0); setPages(j.pages || 1)
+          if (!mapMoved && (j.items || []).length > 0) setActive(((j.items[1] || j.items[0]) as DBListing).id)
+          setLoading(false)
+        })
+        .catch((e) => { if ((e as { name?: string })?.name !== 'AbortError') { setRows([]); setTotal(0); setPages(1); setLoading(false) } })
+    }, 200)
+    return () => { clearTimeout(t); ctrl.abort() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, favs, sourceFilter, page, mapMoved, bbox, session?.access_token])
 
-  const items = useMemo(() => {
-    let out = all.slice()
-    if (favOnly) {
-      const keys = new Set(favs.map((f) => f.key))
-      out = out.filter((l) => keys.has(dbFavKey(l)))
-    }
-    if (sourceFilter !== 'all') out = out.filter((l) => sourceOf(l) === sourceFilter)
-    // Query: a listing passes when ANY meaningful token hits any field —
-    // multi-neighborhood queries ("King West, Liberty Village") are OR.
-    const tokens = appliedQuery
-      .split(/[\s,，·]+/)
-      .map((t) => t.trim().toLowerCase())
-      .filter((t) => t.length >= 2 && !['多伦多', 'toronto'].includes(t))
-    if (tokens.length) {
-      out = out.filter((l) => {
-        const hay = `${l.address} ${l.unit || ''} ${l.city} ${l.neighborhood || ''}`.toLowerCase()
-        return tokens.some((t) => hay.includes(t))
-      })
-    }
-    if (priceMin != null) out = out.filter((l) => l.monthly_rent >= priceMin)
-    if (priceMax != null) out = out.filter((l) => l.monthly_rent <= priceMax)
-    if (minBeds != null) out = out.filter((l) => (l.bedrooms ?? 0) >= minBeds)
-    if (moveIn) out = out.filter((l) => !l.available_date || l.available_date <= moveIn)
-    if (pets) out = out.filter((l) => !!l.pet_policy && !NEGATIVE_PETS.test(l.pet_policy))
-    if (minBaths != null) out = out.filter((l) => (l.bathrooms ?? 0) >= minBaths)
-    if (minSqft != null) out = out.filter((l) => (l.sqft ?? 0) >= minSqft)
-    switch (sort) {
-      case 'price_asc': out.sort((a, b) => a.monthly_rent - b.monthly_rent); break
-      case 'price_desc': out.sort((a, b) => b.monthly_rent - a.monthly_rent); break
-      case 'newest': out.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')); break
-      // No stored "match" exists (the column was a design-sample leftover, cleared 2026-09-26): default = newest.
-      default: out.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
-    }
-    return out
-  }, [all, appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, favs, sourceFilter])
+  // Already filtered, sorted and paged by the server.
+  const items = rows
 
   // Favorited listings that aren't in the current dataset at all (e.g. external
   // Realtor.ca cards saved from the agent chat) — rendered from their stored
   // snapshot so the favorites view can always show them.
   const extraFavs = useMemo(() => {
     if (!favOnly) return [] as FavListing[]
-    const known = new Set(all.map(dbFavKey))
+    const known = new Set(rows.map(dbFavKey))
     return favs.filter((f) => !known.has(f.key))
-  }, [favOnly, favs, all])
+  }, [favOnly, favs, rows])
 
   const mapListings = useMemo(
     () => items.map((l) => ({ id: l.id, slug: l.slug, lat: l.lat, lng: l.lng, monthly_rent: l.monthly_rent, match_score: null })),
     [items],
   )
-  const shown = useMemo(
-    () => (viewportIds ? items.filter((l) => l.lat == null || l.lng == null || viewportIds.has(l.id)) : items),
-    [items, viewportIds],
-  )
-  const count = shown.length + extraFavs.length
-  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE))
+  const shown = items
+  const count = total + extraFavs.length
+  const pageCount = Math.max(1, pages)
   const safePage = Math.min(page, pageCount - 1)
-  const pageItems = useMemo(() => shown.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE), [shown, safePage])
+  const pageItems = items
+  const filtersActive = !!appliedQuery || priceMin != null || priceMax != null || minBeds != null || !!moveIn || pets || minBaths != null || minSqft != null
   // Any change to what is shown restarts at the first page.
-  useEffect(() => { setPage(0) }, [appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, sourceFilter, viewportIds])
+  useEffect(() => { setPage(0) }, [appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, sourceFilter, bbox])
   // Audit trail of a signed-in user's searches (PropTx 8.13 / 8.08): one row per settled set of
   // filters (1.5 s after the last change), never for anonymous visitors, never the listings themselves.
   useEffect(() => {
@@ -413,18 +404,17 @@ export default function ListingsPage() {
           {/* Count + sort — the old results bar, now the right end of the same line */}
           <div className="flex basis-full items-center justify-between gap-3 lg:ml-auto lg:basis-auto lg:justify-end">
             <div className="whitespace-nowrap text-[14px]" style={{ color: '#3F3F46' }} aria-live="polite">
-              {viewportIds && shown.length !== items.length && !favOnly && (zh ? '地图范围内 ' : '')}
+              {mapMoved && !favOnly && (zh ? '地图范围内 ' : '')}
               <b style={{ color: '#047857', fontSize: 15 }}>{count}</b>
-              {zh ? ' 套' : (viewportIds && shown.length !== items.length && !favOnly ? ' in map area' : ' listings')}
+              {zh ? ' 套' : (mapMoved && !favOnly ? ' in map area' : ' listings')}
               {sourceFilter !== 'all' && (
                 <span style={{ color: '#6E6E8A' }} data-testid="listing-source-note">{` · ${sourceLabel(sourceFilter, zh)}`}</span>
               )}
-              {count !== all.length && (
-                <span style={{ color: '#6E6E8A' }} data-testid="listing-count-note">
-                  {zh
-                    ? ` · 共 ${all.length}${items.length !== all.length ? ' · 已筛选' : ''}`
-                    : ` · ${all.length} total${items.length !== all.length ? ' · filtered' : ''}`}
-                </span>
+              {filtersActive && !favOnly && (
+                <span style={{ color: '#6E6E8A' }} data-testid="listing-count-note">{zh ? ' · 已筛选' : ' · filtered'}</span>
+              )}
+              {mapMoved && !favOnly && (
+                <button type="button" onClick={resetMapArea} className="ml-2 text-[12px] font-semibold text-brand hover:underline" data-testid="listing-map-reset">{zh ? '显示全部区域' : 'Show all areas'}</button>
               )}
             </div>
             <select
@@ -671,7 +661,8 @@ export default function ListingsPage() {
             onPick={setActive}
             onOpen={(id) => { setGroup(null); setPeek(id) }}
             onOpenGroup={(ids) => { setPeek(null); setGroup(ids) }}
-            onViewport={onViewport}
+            onBounds={onBounds}
+            autoFit={!mapMoved}
             onToggleFull={() => { setPeek(null); setGroup(null); setMapOpen(true) }}
             fullLabel={zh ? '全屏' : 'Fullscreen'}
           >
@@ -799,7 +790,11 @@ function PeekBody({ l, zh }: { l: DBListing; zh: boolean }) {
             <div className="mt-1.5 text-[12.5px] font-semibold text-body-2">
               {l.bedrooms}B{l.has_den ? '+1' : ''} · {l.bathrooms ?? '–'} {zh ? '浴' : 'ba'}{l.sqft ? ` · ${l.sqft} sqft` : ''}
             </div>
-            <div className="mt-1.5 truncate text-[13.5px] font-bold" style={{ color: '#1B1B3C' }}>{l.address}{l.unit && !l.address.includes(l.unit) ? ` · ${l.unit}` : ''}</div>
+            <div className="mt-1.5 truncate text-[13.5px] font-bold" style={{ color: '#1B1B3C' }}>
+              {l.display_address === false || !l.address
+                ? (zh ? '地址按卖方要求不公开' : 'Address withheld by the seller')
+                : <>{l.address}{l.unit && !l.address.includes(l.unit) ? ` · ${l.unit}` : ''}</>}
+            </div>
             <div className="truncate text-[12px] text-body-3">{[l.neighborhood, l.city].filter(Boolean).join(' · ')}</div>
             <div className="mt-1.5 text-[12px] font-bold" style={{ color: '#00ACE4' }}>{zh ? '查看详情 →' : 'View details →'}</div>
           </div>

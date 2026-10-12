@@ -200,9 +200,10 @@ describe('listing detail: failures are not facts, client writes cannot forge his
     expect(readFileSync('components/listing/RentHistory.tsx', 'utf8')).toContain("if (h.event === 'imported') return zh ? '导入 Stayloop（Realtor.ca 挂牌）' : 'Imported (Realtor.ca listing)'")
     expect(page).toContain('xl:grid-cols-[1.15fr_1fr]')
     // 2026-10-02: photos are checked on the ranked shortlist (card columns are fetched for the best few only)
-    expect(page).toContain('.filter((m) => m.listing && hasUsablePhotos(m.listing.images) && m.listing.status !== \'archived\')')
+    // 2026-10-11: similar homes are ranked in app/api/listings/[slug]/route.ts (the browser no longer reads the listings table)
+    expect(readFileSync('app/api/listings/[slug]/route.ts', 'utf8')).toContain(".filter((m) => m.listing && hasUsablePhotos((m.listing as Row).images) && (m.listing as Row).status !== 'archived')")
     // 2026-10-02: no city filter any more — a ±6 km box on lat / lng, ranked by lib/listingSimilar.ts
-    expect(page).toContain("q = q.gte('lat', box.minLat).lte('lat', box.maxLat).gte('lng', box.minLng).lte('lng', box.maxLng)")
+    expect(readFileSync('app/api/listings/[slug]/route.ts', 'utf8')).toContain("q = q.gte('lat', box.minLat).lte('lat', box.maxLat).gte('lng', box.minLng).lte('lng', box.maxLng)")
     expect(page).not.toContain('function ScoreCard(')
     expect(page).not.toContain('useMemo')
     expect(page).toContain("n === 1 ? (zh ? '仅 1 套在租（非中位）'")

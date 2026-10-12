@@ -9,7 +9,7 @@ import ListingLocationMap from '@/components/ListingLocationMap'
 import { readTrrebBenchmark, type TrrebBenchmark } from '@/lib/agent/trrebRent'
 import { daysOnMarket, fmtDistance, groupFeatures, lastPriceChange, pricePerSqft, walkMinutes, type ListingTransit, type PriceEvent } from '@/lib/listingInsights'
 import { localizeValue, resolveDescription, resolveList, resolveValue } from '@/lib/listingLang'
-import { SIMILAR_LIMIT, rankSimilar, similarSearchBox, type SimilarMatch } from '@/lib/listingSimilar'
+import { type SimilarMatch } from '@/lib/listingSimilar'
 import { ListingSection as Section } from '@/components/listing/ListingSection'
 import { ListingRulesNote } from '@/components/listing/ListingRulesNote'
 import { ListingDescription } from '@/components/listing/ListingDescription'
@@ -30,7 +30,6 @@ import { AgentPicker } from '@/components/AgentPicker'
 import { ShowingRequestModal, type ShowingKind } from '@/components/ShowingRequestModal'
 import { supabase } from '@/lib/supabase'
 import { useT, type Lang } from '@/lib/i18n'
-import { LISTING_VISIBILITY_OR, hasUsablePhotos } from '@/lib/listingVisibility'
 import { stampForTier } from '@/lib/passportStamps'
 import { favKey, useFavorites, type FavListing } from '@/lib/favorites'
 
@@ -57,6 +56,10 @@ interface DBListing {
   id: string
   /** landlords.id or (all current rows) the landlord's auth id — see lib/listingPublish.ts */
   landlord_id: string | null
+  /** Seller display directives from a licensed feed (PropTx 8.14 / 8.15.02); defaults true. The route
+   *  already blanks address / unit / coordinates when display_address is false. */
+  display_address?: boolean | null
+  display_avm?: boolean | null
   slug: string
   address: string
   unit: string | null
@@ -146,11 +149,7 @@ type Insight = {
 // the 6 km box (small rows, so the pool can be wide — downtown, a newest-first cut
 // would drop the unit next door once inventory grows), then the card columns of
 // the best few only.
-const SIMILAR_RANK_COLUMNS = 'id, slug, address, city, neighborhood, lat, lng, bedrooms, has_den, property_type, monthly_rent, created_at, status'
-const SIMILAR_CARD_COLUMNS = `${SIMILAR_RANK_COLUMNS}, unit, bathrooms, sqft, images, thumb_a, thumb_b, source, brokerage`
-const SIMILAR_POOL = 500
 /** Ranked candidates whose photos are checked; the first three with usable photos are shown. */
-const SIMILAR_SHORTLIST = 12
 
 const tierLabel: Record<number,{ name: { zh: string; en: string }; reqs: { zh: string; en: string }[] }> = {
   1: {
@@ -361,77 +360,30 @@ export default function ListingDetailPage() {
     }
   }, [listing, zh])
 
+  // The detail read + similar homes come from /api/listings/[slug] (2026-10-11, PropTx readiness: the
+  // browser never queries the listings table; the route applies visibility, the owner's own-listing
+  // preview, seller display directives and a per-IP budget, and ranks similar homes server-side).
   useEffect(() => {
-    if (!slug) return
+    if (!slug || auth.loading) return
     let cancelled = false
     ;(async () => {
-      const { data } = await supabase
-        // No app-layer visibility filter here: RLS already returns this row
-        // only to the public when verified/realtor, and to the owning landlord
-        // for their own (possibly pending) listing preview. Filtering here would
-        // break the owner's own-listing preview.
-        .from('listings')
-        .select('*')
-        .eq('slug', slug)
-        .eq('is_active', true)
-        .maybeSingle()
-      if (cancelled) return
-      setListing((data || null) as DBListing | null)
-      setLoading(false)
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [slug])
-
-  // Similar homes: candidates within 6 km (one bounding-box query on lat / lng,
-  // no city filter — the city strings are unreliable), ranked by
-  // lib/listingSimilar.ts: location tier, then layout, then rent; up to three,
-  // never padded with far listings. Coordinates come from the row, or from the
-  // enrich route's geocode for a listing published before it was geocoded; with
-  // neither, the same neighbourhood is the only location fact left.
-  const rowOrigin = listing && listing.lat != null && listing.lng != null && Number.isFinite(Number(listing.lat)) && Number.isFinite(Number(listing.lng))
-    ? { lat: Number(listing.lat), lng: Number(listing.lng) }
-    : null
-  const similarOrigin = rowOrigin ?? (insight && insight.lat != null && insight.lng != null ? { lat: insight.lat, lng: insight.lng } : null)
-  // Keyed on the location, so a late geocode (or a re-render) does not run the query again.
-  const similarKey = !listing ? null : similarOrigin ? `${similarOrigin.lat},${similarOrigin.lng}` : insight === undefined ? null : 'hood'
-  useEffect(() => {
-    if (!listing || !similarKey) return
-    const origin = similarOrigin
-    const hood = (listing.neighborhood || '').trim()
-    if (!origin && !hood) { setSimilar(null); return }
-    let cancelled = false
-    ;(async () => {
-      let q = supabase.from('listings').select(SIMILAR_RANK_COLUMNS).eq('is_active', true).or(LISTING_VISIBILITY_OR).neq('id', listing.id)
-      if (origin) {
-        const box = similarSearchBox(origin.lat, origin.lng)
-        q = q.gte('lat', box.minLat).lte('lat', box.maxLat).gte('lng', box.minLng).lte('lng', box.maxLng)
-      } else {
-        // Exact (case-insensitive) neighbourhood: escape the LIKE wildcards.
-        q = q.ilike('neighborhood', hood.replace(/[\\%_]/g, (c) => `\\${c}`))
+      try {
+        const token = auth.session?.access_token
+        const r = await fetch(`/api/listings/${encodeURIComponent(slug)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+        if (cancelled) return
+        if (!r.ok) { setListing(null); setSimilar(null); setLoading(false); return }
+        const j = (await r.json()) as { listing: DBListing; similar: SimilarMatch<DBListing>[] | null }
+        if (cancelled) return
+        setListing(j.listing || null)
+        setSimilar(j.similar ?? null)
+      } catch {
+        if (!cancelled) { setListing(null); setSimilar(null) }
       }
-      const { data: rest, error } = await q.order('created_at', { ascending: false }).limit(SIMILAR_POOL)
-      if (cancelled) return
-      if (error) { setSimilar(null); return }
-      // Archiving sets is_active=false and status='archived'; status is nullable, so it is checked here, not with .neq (which drops NULLs).
-      const pool = ((rest || []) as unknown as DBListing[]).filter((x) => x.status !== 'archived')
-      const shortlist = rankSimilar(listing, pool, { origin, limit: SIMILAR_SHORTLIST })
-      if (!shortlist.length) { setSimilar([]); return }
-      const { data: cards, error: cardsError } = await supabase.from('listings').select(SIMILAR_CARD_COLUMNS).in('id', shortlist.map((m) => m.listing.id))
-      if (cancelled) return
-      if (cardsError) { setSimilar(null); return }
-      const byId = new Map(((cards || []) as unknown as DBListing[]).map((c) => [c.id, c]))
-      // Same order as the ranking; a card without a usable photo is skipped, never replaced by a worse match out of order.
-      setSimilar(
-        shortlist
-          .map((m) => ({ ...m, listing: byId.get(m.listing.id) as DBListing }))
-          .filter((m) => m.listing && hasUsablePhotos(m.listing.images) && m.listing.status !== 'archived')
-          .slice(0, SIMILAR_LIMIT),
-      )
+      if (!cancelled) setLoading(false)
     })()
     return () => { cancelled = true }
-  }, [listing?.id, similarKey]) // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, auth.loading, auth.session?.access_token])
 
   if (loading) {
     return (
@@ -501,7 +453,14 @@ export default function ListingDetailPage() {
             {/* Airbnb title row (user 2026-09-25): the address is the H1, Share / Save sit on the same
                 line, and the photos follow immediately — no crumb, no subtitle in between. */}
             <div className="min-w-0">
-              <h1 className="min-w-0 text-[26px] font-bold tracking-tight sm:text-[30px]">{listingTitle(listing.address, listing.unit)}</h1>
+              <h1 className="min-w-0 text-[26px] font-bold tracking-tight sm:text-[30px]" data-testid="listing-h1">
+                {listing.display_address === false || !listing.address
+                  ? [listing.neighborhood, listing.city].filter(Boolean).join(' · ') || (zh ? '房源' : 'Listing')
+                  : listingTitle(listing.address, listing.unit)}
+              </h1>
+              {(listing.display_address === false || !listing.address) && (
+                <div className="mt-1 text-[13px] text-body-3" data-testid="listing-address-withheld">{zh ? '地址按卖方要求不公开 · 约看房时由经纪告知' : 'Address withheld at the seller’s request · shared by the agent when you book a showing'}</div>
+              )}
               {/* Listing brokerage, right under the address and no smaller than the facts below (PropTx Rule 8.26).
                   Inside the title block so that on phones it stays with the address and Share / Save wrap below it. */}
               {listing.brokerage && (
@@ -940,7 +899,9 @@ export default function ListingDetailPage() {
                         <div className="text-[11.5px] text-body-3">{benchmark.leased?.toLocaleString() ?? '—'} {zh ? '宗成交' : 'leased'}{yoy != null ? <span className={`ml-1.5 ${yoy >= 0 ? 'text-red-600' : 'text-emerald-700'}`}>{zh ? '同比 ' : 'YoY '}{yoy >= 0 ? '+' : ''}{yoy}%</span> : null}</div>
                       </div>
                     )}
-                    <div className="rounded-[12px] border border-line-divider bg-white p-4">
+                    {/* 8.15.02: the seller may opt out of any automated value / comparison beside the listing */}
+                    {listing.display_avm !== false && (
+                    <div className="rounded-[12px] border border-line-divider bg-white p-4" data-testid="listing-avm-tile">
                       <div className="text-[13px] font-bold">{zh ? '这套房源' : 'This listing'}</div>
                       <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{insight?.neighborhood?.scope === 'city' ? (zh ? '相对全市' : 'vs the city') : (zh ? '相对同区' : 'vs the area')}</div>
                       <div className="mt-2 text-[22px] font-extrabold leading-tight">${listing.monthly_rent.toLocaleString()}</div>
@@ -950,6 +911,7 @@ export default function ListingDetailPage() {
                         {!(same && same.median != null) && !benchmark && <li>{zh ? '暂无同区对比数据' : 'No area comparison yet'}</li>}
                       </ul>
                     </div>
+                    )}
                   </div>
                   <div className="mt-2 text-[11.5px] text-body-3">{zh ? `挂牌价来自 Stayloop 与 Realtor.ca 在租房源${benchmark ? '；成交均价来自 TRREB 季度租赁市场报告（成交，非挂牌）' : ''}。` : `Asking rents from Stayloop and Realtor.ca listings${benchmark ? '; leased averages from the TRREB quarterly rental report (leased, not asking)' : ''}.`}</div>
                 </Section>

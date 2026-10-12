@@ -3355,3 +3355,21 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 3. **8.27 在服务端执行**：浏览页仍是把全部在线房源取到浏览器再分页（122 套 > 100），地图标记也不分页。要改成服务端筛选 + `range(0,99)`，地图同批。
 4. **8.14 / 8.15.02 卖方选择**：feed 的 InternetDisplay / AddressDisplay / AVM & 评论禁止字段要接进可见性与「相对均价」瓦片的开关；**8.17 24 小时刷新**由 feed 任务保证（现在 Realtor 导入是每小时抽查 20 套）。
 5. **8.21 / 8.30**：会员向 PropTx 报备 VOW 网址（Member VOW Website Information Form）、会员与 Stayloop Inc.（AVP）各签许可协议——都在邮件流程里。
+
+## PropTx 接入前的结构性改造（2026-10-11 · 用户「那就先把接入前那几项结构性的也做了」）
+
+上一节「接入前必须做」的 1–4 项落地；5（报备与协议）在邮件流程里。守卫 `tests/trrebReady20261010.spec.tsx` 末段；迁移 `20261011_listings_feed_display.sql`（已应用 prod）与
+`20261011_listings_anon_no_select.sql`（**部署后再应用**——旧代码的公开页用 anon key 直读表，先撤权会把线上打坏）。
+- **公开页不再直读 `listings` 表（8.13 / 8.05）**：浏览页 → `GET /api/listings/search`（服务端筛选 / 排序 / 分页，**每次 ≤100 行**（8.27），地图范围作为 `bbox` 参数而不是前端过滤，
+  收藏按 `ids`；匿名每 IP 240 次/小时、登录每账号 1200 次/小时，fail-open；只返回卡片字段，没有描述 / 价格记录 / 经纪电话）；详情页与申请页 → `GET /api/listings/[slug]`
+  （可见性 + 房东本人预览 pending 自家房源（JWT 对 landlords 行）+ 相似房源在服务端用同一 `rankSimilar` 算好 + 私有列剥掉；匿名 300 / 登录 1500 次/小时）；
+  `generateMetadata` 改 service role。**anon 对 `listings` 的 SELECT 已撤销**（回滚探针：anon `select` → 42501），已登录用户仍按 RLS 读（他们是 8.05 意义上的注册用户，
+  行为有审计）。匿名申请 / 看房请求不受影响：`guard_not_own_listing` / `guard_listing_accepts_requests` 是 SECURITY DEFINER。
+- **地图**：`ListingsMap` 新 prop `onBounds`（idle 时回传经纬度框）与 `autoFit`（false = 数据变化不再 fitBounds）；浏览页在用户拖动 / 缩放后按框重查（数据到达 1.5 秒内的 bounds
+  事件视为地图自己的 fit、忽略），计数行显示「地图范围内 N 套 · 显示全部区域」。
+- **卖方展示指令与 feed 时效（8.14 / 8.15.02 / 8.17）**：`listings.display_internet / display_address / display_avm / feed_source / feed_updated_at`，触发器 `guard_listing_feed_fields`
+  让直连客户端写不了这些列（回滚探针：房东本人把全部改假 → 原样）。搜索与详情路由：`display_internet=false` 不出现；`feed_updated_at` 超过 24 小时的 feed 行不出现（feed 任务挂了
+  就自动下线，不会展示过期数据）；`display_address=false` 的行地址 / 单元 / 坐标 / 邮编在服务端清空（房东本人除外），卡片与标题显示「地址按卖方要求不公开」，不参与相似房源；
+  `display_avm=false` 不渲染「这套房源 · 相对同区 / TRREB」对比瓦片。接 feed 时把 InternetEntireListingDisplayYN / InternetAddressDisplayYN / 对应 AVM 字段映射进这三列、每次刷新盖 `feed_updated_at`。
+- **浏览页行为变化**：筛选 / 排序全部在服务端（关键词仍是「任一词命中地址 / 单元 / 城市 / 社区」），`pets=1` 的总数按 `pet_policy` 非空计、再在页内剔除否定措辞，所以计数可能略多；
+  `extraFavs`（库外的收藏快照）逻辑不变。

@@ -42,6 +42,12 @@ interface Props {
   /** Fires on every idle with the ids inside the current viewport; null = the map cannot show the
    *  listings (Google rejected the key / the SDK failed), so the list must not be limited by it. */
   onViewport?: (ids: string[] | null) => void
+  /** Fires on every idle with the viewport as a lat/lng box (south, west, north, east); null when the
+   *  map cannot show listings. Lets the page query the server by area instead of filtering client-side. */
+  onBounds?: (box: { s: number; w: number; n: number; e: number } | null) => void
+  /** false = place markers but do not refit the view when `listings` change (after the first fit) —
+   *  needed when the listings themselves come from the current viewport, or every pan would snap back. */
+  autoFit?: boolean
 }
 
 // RealMaster-style price tag: the number only, in thousands.
@@ -142,7 +148,7 @@ declare global {
   }
 }
 
-export default function ListingsMap({ listings, active, onPick, mode = 'split', bottomInset = 0, onOpen, onToggleFull, fullLabel, children, onOpenGroup, onViewport }: Props) {
+export default function ListingsMap({ listings, active, onPick, mode = 'split', bottomInset = 0, onOpen, onToggleFull, fullLabel, children, onOpenGroup, onViewport, onBounds, autoFit = true }: Props) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''
@@ -155,6 +161,9 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
   const listingsRef = useRef(listings); listingsRef.current = listings
   const onOpenGroupRef = useRef(onOpenGroup); onOpenGroupRef.current = onOpenGroup
   const onViewportRef = useRef(onViewport); onViewportRef.current = onViewport
+  const onBoundsRef = useRef(onBounds); onBoundsRef.current = onBounds
+  const autoFitRef = useRef(autoFit); autoFitRef.current = autoFit
+  const fittedOnceRef = useRef(false)
   const onPickRef = useRef(onPick); onPickRef.current = onPick
   const onOpenRef = useRef(onOpen); onOpenRef.current = onOpen
   const bottomInsetRef = useRef(bottomInset); bottomInsetRef.current = bottomInset
@@ -249,6 +258,10 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
     if (vb && onViewportRef.current && !failedRef.current) {
       onViewportRef.current(pts.filter((p) => vb.contains({ lat: Number(p.l.lat), lng: Number(p.l.lng) })).map((p) => p.l.id))
     }
+    if (vb && onBoundsRef.current && !failedRef.current) {
+      const ne = vb.getNorthEast(); const sw = vb.getSouthWest()
+      onBoundsRef.current({ s: sw.lat(), w: sw.lng(), n: ne.lat(), e: ne.lng() })
+    }
   }, [])
 
   // Initial mount: load script + create map
@@ -265,6 +278,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
       failedRef.current = true
       if (!cancelled) setError('auth')
       onViewportRef.current?.(null)
+      onBoundsRef.current?.(null)
       if (typeof prevAuthFailure === 'function') prevAuthFailure()
     }
     w.gm_authFailure = onAuthFailure
@@ -286,6 +300,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
       .catch((e) => {
         failedRef.current = true
         onViewportRef.current?.(null)
+      onBoundsRef.current?.(null)
         if (!cancelled) setError(String(e.message || e))
       })
     return () => {
@@ -337,7 +352,8 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
 
     const frame = framed > 0 ? bounds : allBounds
     const n = framed > 0 ? framed : placed
-    if (n > 0) {
+    if (n > 0 && (autoFitRef.current || !fittedOnceRef.current)) {
+      fittedOnceRef.current = true
       if (n === 1) {
         mapRef.current.setCenter(frame.getCenter())
         mapRef.current.setZoom(14)

@@ -178,24 +178,22 @@ describe('(3) stored text goes through lib/listingLang.ts', () => {
 })
 
 describe('(4) similar homes: location, then layout, then rent', () => {
-  it('the page queries a ±6 km box and ranks with rankSimilar; no city filter, no ad-hoc score', () => {
-    expect(page).toContain("import { SIMILAR_LIMIT, rankSimilar, similarSearchBox, type SimilarMatch } from '@/lib/listingSimilar'")
-    expect(page).toContain('const box = similarSearchBox(origin.lat, origin.lng)')
-    expect(page).toContain(".or(LISTING_VISIBILITY_OR)")
-    expect(page).toContain("q = q.ilike('neighborhood',") // no coordinates anywhere: the same neighbourhood
+  it('the detail route queries a ±6 km box and ranks with rankSimilar; no city filter, no ad-hoc score (moved server-side 2026-10-11)', () => {
+    const route = read('app/api/listings/[slug]/route.ts')
+    expect(route).toContain("import { SIMILAR_LIMIT, rankSimilar, similarSearchBox } from '@/lib/listingSimilar'")
+    expect(route).toContain('const box = similarSearchBox(origin.lat, origin.lng)')
+    expect(route).toContain('.or(LISTING_VISIBILITY_OR)')
+    expect(route).toContain("q = q.ilike('neighborhood',") // no coordinates anywhere: the same neighbourhood
     // Two steps: ranking columns for the whole box (a wide pool), card columns for the ranked shortlist only.
-    expect(page).toContain("supabase.from('listings').select(SIMILAR_RANK_COLUMNS)")
-    expect(page).toContain('.limit(SIMILAR_POOL)')
-    expect(page).toContain("const pool = ((rest || []) as unknown as DBListing[]).filter((x) => x.status !== 'archived')")
-    expect(page).toContain('const shortlist = rankSimilar(listing, pool, { origin, limit: SIMILAR_SHORTLIST })')
-    expect(page).toContain(".select(SIMILAR_CARD_COLUMNS).in('id', shortlist.map((m) => m.listing.id))")
-    expect(page).toContain(".filter((m) => m.listing && hasUsablePhotos(m.listing.images) && m.listing.status !== 'archived')")
-    expect(page).toContain('.slice(0, SIMILAR_LIMIT)')
-    // the rank query carries no description / images / price history
-    const rankCols = page.match(/const SIMILAR_RANK_COLUMNS = '([^']+)'/)![1]
+    expect(route).toContain("svc.from('listings').select(SIMILAR_RANK_COLUMNS)")
+    expect(route).toContain('.limit(SIMILAR_POOL)')
+    expect(route).toContain("const shortlist = rankSimilar(l as never, pool as never[], { origin, limit: SIMILAR_SHORTLIST })")
+    expect(route).toContain('.slice(0, SIMILAR_LIMIT)')
+    const rankCols = route.match(/const SIMILAR_RANK_COLUMNS = '([^']+)'/)![1]
     for (const heavy of ['description', 'images', 'price_history', 'transit', '*']) expect(rankCols).not.toContain(heavy)
-    expect(page).not.toContain(".ilike('city'")
-    expect(page).not.toContain('score(a) - score(b)')
+    expect(route).not.toContain(".ilike('city'")
+    expect(page).not.toContain("supabase.from('listings')")
+    expect(page).toContain("fetch(`/api/listings/${encodeURIComponent(slug)}`")
   })
   it('heading, subline and the honest empty state', () => {
     expect(page).toContain("{zh ? '附近的相似房源' : 'Similar homes nearby'}")

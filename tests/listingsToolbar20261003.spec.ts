@@ -57,7 +57,9 @@ describe('a failed map never empties the list', () => {
     expect(map).toContain('w.gm_authFailure = onAuthFailure')
     expect((map.match(/onViewportRef\.current\?\.\(null\)/g) || []).length).toBe(2)
     expect(map).toContain('if (vb && onViewportRef.current && !failedRef.current)')
-    expect(page).toContain('setViewportIds(ids ? new Set(ids) : null)')
+    // 2026-10-11: the list is re-queried by the map's box (server-side); a failed map clears the box
+    expect((map.match(/onBoundsRef\.current\?\.\(null\)/g) || []).length).toBe(2)
+    expect(page).toContain('if (!box) { setBbox(null); setMapMoved(false); return }')
   })
   it('says so in plain words instead of the raw SDK error', () => {
     expect(map).toContain('地图暂时无法加载，房源列表不受影响。')

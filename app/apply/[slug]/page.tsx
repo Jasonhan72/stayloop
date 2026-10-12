@@ -9,7 +9,6 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { supabase } from '@/lib/supabase'
-import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { RegistrantDisclosureModal, useRegistrantProfile } from '@/components/RegistrantDisclosure'
@@ -48,6 +47,21 @@ const MAX_FILES = 20
 // and a blank one failed every submission with a generic error).
 function phoneLooksValid(v: string): boolean {
   return (v.match(/\d/g) ?? []).length >= 7
+}
+
+
+/** The public listing row from /api/listings/[slug]; shaped like a supabase maybeSingle() result. */
+type PublicListingRow = { id: string; source: string | null; landlord_id: string | null } & Record<string, unknown>
+async function fetchPublicListing(slug: string): Promise<{ data: PublicListingRow | null; error: { message: string } | null }> {
+  try {
+    const r = await fetch(`/api/listings/${encodeURIComponent(slug)}`)
+    if (r.status === 404) return { data: null, error: null }
+    if (!r.ok) return { data: null, error: { message: `listing read failed (${r.status})` } }
+    const j = (await r.json()) as { listing: PublicListingRow }
+    return { data: j.listing || null, error: null }
+  } catch (e) {
+    return { data: null, error: { message: (e as Error).message } }
+  }
 }
 
 export default function ApplyPage() {
@@ -130,13 +144,8 @@ export default function ApplyPage() {
     if (!params?.slug) return
     let cancelled = false
     ;(async () => {
-      const { data: listing, error: qErr } = await supabase
-        .from('listings')
-        .select('id, landlord_id, source, address, unit, city, monthly_rent, bedrooms, bathrooms, images, title, province, postal_code')
-        .eq('slug', params.slug)
-        .eq('is_active', true)
-        .or(LISTING_VISIBILITY_OR)
-        .maybeSingle()
+      // Through /api/listings/[slug] (2026-10-11): the browser no longer reads the listings table.
+      const { data: listing, error: qErr } = await fetchPublicListing(params.slug)
       if (!cancelled && listing) setSummary(listing as never)
       if (!cancelled && listing && (listing as { source?: string | null }).source === 'realtor') {
         setListingCheck('realtor')
@@ -242,13 +251,7 @@ export default function ApplyPage() {
     }
     setLoading(true)
 
-    const { data: listing } = await supabase
-      .from('listings')
-      .select('id, source')
-      .eq('slug', params.slug)
-      .eq('is_active', true)
-      .or(LISTING_VISIBILITY_OR)
-      .maybeSingle()
+    const { data: listing } = await fetchPublicListing(params.slug)
 
     if (!listing) {
       setError(zh ? '找不到对应房源。' : 'Listing not found.')

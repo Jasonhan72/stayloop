@@ -39,8 +39,8 @@ describe('D-01 · Realtor.ca imports cannot be applied to on Stayloop', () => {
     expect(before).toMatch(/listing\.source !== 'realtor' && \(\s*<Link\s*$/)
   })
   it('/apply/<slug> reads the source on load and at submit, and refuses realtor listings', () => {
-    expect(apply).toMatch(/\.select\('id, landlord_id, source,/)
-    expect(apply).toMatch(/\.select\('id, source'\)/)
+    expect(apply).toContain('const { data: listing, error: qErr } = await fetchPublicListing(params.slug)') // via /api/listings/[slug] since 2026-10-11
+    expect((apply.match(/await fetchPublicListing\(params\.slug\)/g) || []).length).toBe(2) // load + submit
     expect((apply.match(/source === 'realtor'/g) || []).length).toBeGreaterThanOrEqual(2)
     expect(apply).toContain("listingCheck === 'realtor'")
     expect(apply).toContain('data-testid="apply-realtor-refused"')
