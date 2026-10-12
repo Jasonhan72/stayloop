@@ -3455,3 +3455,10 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 - **minor**：`auditActionLabel` 补 12 个缺失动作（`terms_confirmation_emailed`、`hat_activated`、`provider_*`…）；输入框 `aria-label` 按语言；「房东直租」徽章截断与「入住前费用一览无金额」代码里都正常渲染，部署后实测复现。
 - **P2-3 租客租约列表**：部署后用 muse-tenant 会话实测，`/tenant/lease` 列表显示该在管租约（已确认）——审计是在接受邀请前看的。「房东直租」徽章在 375px 完整显示，「入住前费用一览」金额齐全，两条 minor 未复现；顺手修掉卡片社区为空时的孤立「· Toronto」。
 - 回复审计方口径：试用到 11-14 是 10-12 的正式决定（永久免费档 + Pro 试用），「内部测试期 10-14」已退役。
+- **晚间复验（审计方 10-12 晚第二版报告）**：P0 / P1-2 / P1-3（服务商 E2E ①–⑦ 全过）/ P1-5 / P2-2 / P2-3 / P2-4 / 文案全部通过；P1-1 报告可看、P1-4 解释文案已验。新发现两条，当晚修：
+  **NEW-1「撤回」按钮让页面无响应**——根因是 `window.confirm`（自动化浏览器卡在原生对话框上，接口本身正常），改为页内两步确认（「撤回」→「确认撤回 / 取消」，
+  `delegation-withdraw-confirm`）；**A⑦ 互评没有入口**——`provider_reviews` 表、RLS（验收后 14 天内房东 / 租客各一条）与服务商历史页的「收到的评价」早就有，缺的是写评价的地方：
+  新 `components/marketplace/ReviewForm.tsx`（总体必填 + 准时 / 沟通 / 质量 + 一句话，RLS 直插；23505 = 已评过、42501 = 窗口已过或非当事人；外部联系人没有服务商行不显示）
+  挂在 `WorkOrderCard` 对房东 / 租客、accepted / paid / closed 的工单下；纯规则 `lib/marketplace/reviews.ts`。守卫 `tests/fourRoleAudit20261012_f.spec.ts`。
+  审计方要的第二套房源已建：`[TEST] 200 Test QA Lane`（`test-200-test-qa-lane-qa2`，muse-landlord 名下、已核验、$2,300）用来验「无材料申请 → 一键筛查」的提示。
+  报告方法论页的「5 维加权评分」在筛查模块内，未改。

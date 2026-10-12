@@ -11,6 +11,7 @@ import { canAct, invoiceWithinEstimate, quoteExpired, torontoToday, WO_STATUS_LA
 import { TRADES } from '@/lib/marketplace/trades'
 import { DECLINE_CODES, DECLINE_LABEL, declineText, slaLabel, slaState, type DeclineCode } from '@/lib/marketplace/sla'
 import { openHtmlFromPost } from '@/lib/export/openHtml'
+import ReviewForm from '@/components/marketplace/ReviewForm'
 
 export type WorkOrderLite = {
   id: string; status: WorkOrderStatus; trade: string | null; scope: string | null; emergency: boolean; entry_permission: string | null
@@ -175,6 +176,10 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
         )}
         <button className="ml-auto min-h-[36px] px-2 text-[11.5px] text-body-3 underline underline-offset-2" onClick={() => setShowEvents((v) => !v)}>{showEvents ? (zh ? '收起记录' : 'Hide log') : (zh ? '时间线' : 'Timeline')}</button>
       </div>
+      {/* Audit 2026-10-12 A⑦: the review the two parties may leave after acceptance (provider_reviews). */}
+      {['accepted', 'paid', 'closed'].includes(wo.status) && (viewer === 'landlord' || viewer === 'tenant') && (
+        <ReviewForm workOrderId={wo.id} providerId={wo.provider_id} acceptedAt={wo.accepted_at} viewer={viewer} zh={zh} providerName={providerName} />
+      )}
 
       {open === 'quote' && (
         <div className="mt-3 grid gap-2 rounded-lg bg-surface-chip p-3 sm:grid-cols-2">

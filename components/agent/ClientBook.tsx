@@ -156,8 +156,12 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
     if (!Object.keys(patch).length) { setEditingId(null); return }
     if (await update(c.id, patch)) setEditingId(null)
   }
+  // The delegation whose「撤回」is waiting for its second click (inline confirm, see delegationAction).
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null)
   async function delegationAction(d: DelegationRow, action: 'resend' | 'revoke') {
-    if (action === 'revoke' && !window.confirm(zh ? '撤回这份待确认的委托？客户收到的链接会失效。' : 'Withdraw this pending delegation? The link the client has stops working.')) return
+    // No native confirm() here: it blocks the renderer (audit 2026-10-12 NEW-1: an automated browser
+    // reported the page unresponsive) — the confirmation is an inline second click instead.
+    setConfirmRevoke(null)
     setBusy(true); setErr(null); setNotice(null)
     try {
       const { data } = await supabase.auth.getSession()
@@ -328,7 +332,15 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
                                   return (<>
                                     {label && <span data-testid="delegation-link-status" className={'rounded-[8px] border px-2.5 py-[5px] text-[11.5px] ' + (li?.emailed === false || moved ? 'border-danger/40 text-danger' : 'border-line-divider text-body-3')} title={li?.emailed === false && undeliverable ? (zh ? UNDELIVERABLE_MSG.zh : UNDELIVERABLE_MSG.en) : zh ? `确认链接发往 ${d.principal_email}；客户用该邮箱登录后确认` : `The confirmation link goes to ${d.principal_email}; they confirm while signed in with it`}>{label}</span>}
                                     {!moved && <button type="button" disabled={busy} onClick={() => void delegationAction(d, 'resend')} data-testid="delegation-resend" className="rounded-[8px] border border-line-strong bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-body hover:border-brand hover:text-brand disabled:opacity-50">{zh ? '重发链接' : 'Resend link'}</button>}
-                                    <button type="button" disabled={busy} onClick={() => void delegationAction(d, 'revoke')} data-testid="delegation-withdraw" className="rounded-[8px] border border-danger/40 bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-danger disabled:opacity-50">{zh ? '撤回' : 'Withdraw'}</button>
+                                    {confirmRevoke === d.id ? (
+                                      <span className="inline-flex items-center gap-1.5" data-testid="delegation-withdraw-confirm">
+                                        <span className="text-[11.5px] text-body-2">{zh ? '撤回后客户收到的链接会失效。' : 'The link the client has will stop working.'}</span>
+                                        <button type="button" disabled={busy} onClick={() => void delegationAction(d, 'revoke')} className="rounded-[8px] bg-danger px-2.5 py-[5px] text-[11.5px] font-semibold text-white disabled:opacity-50">{zh ? '确认撤回' : 'Confirm withdraw'}</button>
+                                        <button type="button" disabled={busy} onClick={() => setConfirmRevoke(null)} className="rounded-[8px] border border-line-divider bg-white px-2.5 py-[5px] text-[11.5px] text-body-3">{zh ? '取消' : 'Cancel'}</button>
+                                      </span>
+                                    ) : (
+                                      <button type="button" disabled={busy} onClick={() => setConfirmRevoke(d.id)} data-testid="delegation-withdraw" className="rounded-[8px] border border-danger/40 bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-danger disabled:opacity-50">{zh ? '撤回' : 'Withdraw'}</button>
+                                    )}
                                   </>)
                                 })()
                               : paper && c.email && isUndeliverableEmailDomain(c.email)
