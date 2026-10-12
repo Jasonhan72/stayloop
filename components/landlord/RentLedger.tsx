@@ -20,6 +20,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { SectionCard, StatusPill, Table, Td, Tr, type PillTone } from '@/components/workspace'
 import { isoDate, todayUtc } from '@/lib/dates'
+import { ledgerStart } from '@/lib/household/ledger'
+import { rentSchedule } from '@/lib/household/schedule'
 import { useFacts, type LeaseRow } from '@/lib/facts/useFacts'
 import { useT } from '@/lib/i18n'
 import { useReportLiveRows } from '@/lib/liveRows'
@@ -45,6 +47,10 @@ export type LedgerHousehold = {
   current_lease_id: string | null
   previous_lease_id: string | null
   next_lease_id?: string | null
+  /** For scheduled (not yet recorded) periods — the hub's own schedule inputs. */
+  start_date?: string | null
+  rent_due_day?: number | null
+  monthly_rent?: number | string | null
 }
 /** What a period IS today: a `due` row past its date is unpaid and overdue; `late` means received late. */
 export type LedgerPeriodState = 'paid' | 'paid_late' | 'overdue' | 'due' | 'failed'
@@ -88,6 +94,35 @@ export function buildLedgerLines(rents: LedgerRent[], households: LedgerHousehol
     lines.push({ ...r, household_id: h.id, address: h.address ?? '', unit: h.unit ?? null, state: ledgerState(r, today) })
   }
   return lines.sort((a, b) => (a.due_date < b.due_date ? 1 : a.due_date > b.due_date ? -1 : a.address.localeCompare(b.address)))
+}
+
+/**
+ * Periods the hub (/h/[id] rent tab) would list but nobody has recorded yet — an imported
+ * tenancy has no rent_payments rows until someone marks a period paid, and the e-sign flow
+ * only writes the first month. The ledger must show the same periods as the hub: the current
+ * lease's term from `ledgerStart`, one month ahead, minus dates that already have a row and
+ * dates belonging to a signed renewal (next lease) — audit 2026-10-12 P1-2 follow-up.
+ */
+export function scheduledPlaceholders(
+  households: LedgerHousehold[],
+  leases: Pick<LeaseRow, 'id' | 'start_date'>[],
+  rents: LedgerRent[],
+  now: Date,
+): LedgerRent[] {
+  const leaseStart = new Map(leases.map((l) => [l.id, l.start_date ?? null]))
+  const have = new Set(rents.map((r) => `${r.lease_id}:${r.due_date}`))
+  const out: LedgerRent[] = []
+  for (const h of households) {
+    if (!h.current_lease_id) continue
+    const termStart = ledgerStart(h.start_date, leaseStart.get(h.current_lease_id) ?? null)
+    const nextFrom = h.next_lease_id ? leaseStart.get(h.next_lease_id) ?? null : null
+    for (const p of rentSchedule(termStart, h.rent_due_day, now, 1)) {
+      if (nextFrom && p.due >= nextFrom) continue
+      if (have.has(`${h.current_lease_id}:${p.due}`)) continue
+      out.push({ id: `sched:${h.current_lease_id}:${p.due}`, lease_id: h.current_lease_id, due_date: p.due, status: 'due', amount: h.monthly_rent ?? null, paid_at: null, method: null })
+    }
+  }
+  return out
 }
 
 export type LedgerSummary = { month: { received: number; due: number; overdue: number }; year: { received: number } }
@@ -146,7 +181,7 @@ export default function RentLedger() {
       if (ids.length === 0) { if (!cancelled) setLoaded({ households: [], rents: [] }); return }
       const { data: hh } = await supabase
         .from('households')
-        .select('id, address, unit, city, current_lease_id, previous_lease_id, next_lease_id')
+        .select('id, address, unit, city, current_lease_id, previous_lease_id, next_lease_id, start_date, rent_due_day, monthly_rent')
         .in('id', ids)
       const households = ((hh as LedgerHousehold[] | null) ?? [])
       const leaseIds = Array.from(new Set(households.flatMap((h) => [h.current_lease_id, h.previous_lease_id, h.next_lease_id]).filter((x): x is string => !!x)))
@@ -165,7 +200,7 @@ export default function RentLedger() {
 
   const today = todayUtc()
   const todayIso = isoDate(today)
-  const lines = loaded ? buildLedgerLines(loaded.rents, loaded.households, todayIso) : null
+  const lines = loaded && facts ? buildLedgerLines([...loaded.rents, ...scheduledPlaceholders(loaded.households, facts.leases, loaded.rents, today)], loaded.households, todayIso) : null
   const orphans = facts && loaded ? leasesWithoutHousehold(facts.leases, loaded.households, today) : null
   const count = lines && orphans ? lines.length + orphans.length : null
   useReportLiveRows('rent-ledger', count)

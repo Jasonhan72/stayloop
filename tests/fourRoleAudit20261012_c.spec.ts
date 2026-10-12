@@ -104,7 +104,7 @@ describe('rent ledger · wiring', () => {
   it('reads tenancies and leases from the one facts source, rent rows through the caller RLS client, and never writes', () => {
     expect(ledger).toContain("useFacts('landlord')")
     expect(ledger).toContain("from('households')")
-    expect(ledger).toContain("select('id, address, unit, city, current_lease_id, previous_lease_id, next_lease_id')")
+    expect(ledger).toContain("select('id, address, unit, city, current_lease_id, previous_lease_id, next_lease_id, start_date, rent_due_day, monthly_rent')")
     expect(ledger).toContain("from('rent_payments')")
     expect(ledger).toContain("select('id, lease_id, due_date, status, amount, paid_at, method')")
     expect(ledger).not.toMatch(/\.(insert|update|upsert|delete|rpc)\(/)
@@ -138,5 +138,28 @@ describe('rent ledger · wiring', () => {
     // CTA unchanged: importing a signed lease is still the way to create the tenancy.
     const entry = shell.slice(shell.indexOf("'/landlord/finance': {"), shell.indexOf("'/landlord/maintenance': {"))
     expect(entry).toContain("href: '/leases/import'")
+  })
+})
+
+describe('scheduled periods nobody has recorded yet (audit 2026-10-12 P1-2 follow-up)', async () => {
+  const { scheduledPlaceholders } = await import('@/components/landlord/RentLedger')
+  const now = new Date(Date.UTC(2026, 10, 15))
+  const hh = [{ id: 'h1', address: 'A', unit: null, current_lease_id: 'L1', previous_lease_id: null, next_lease_id: null, start_date: '2026-11-01', rent_due_day: 1, monthly_rent: 2500 }]
+  it('an imported tenancy with no rent_payments rows still lists its periods (one month ahead), as the hub does', () => {
+    const rows = scheduledPlaceholders(hh, [{ id: 'L1', start_date: '2026-11-01' }], [], now)
+    expect(rows.map((r) => r.due_date).sort()).toEqual(['2026-11-01', '2026-12-01'])
+    const nov = rows.find((r) => r.due_date === '2026-11-01')!
+    expect(nov).toMatchObject({ lease_id: 'L1', status: 'due', amount: 2500, paid_at: null })
+    expect(nov.id).toBe('sched:L1:2026-11-01')
+  })
+  it('dates that already have a row, and dates owned by a signed renewal, are not duplicated', () => {
+    const paid = [{ id: 'r1', lease_id: 'L1', due_date: '2026-11-01', status: 'paid', amount: 2500, paid_at: '2026-11-01T15:00:00Z' }]
+    expect(scheduledPlaceholders(hh, [{ id: 'L1', start_date: '2026-11-01' }], paid, now).map((r) => r.due_date)).toEqual(['2026-12-01'])
+    const renewed = [{ ...hh[0], next_lease_id: 'L2' }]
+    expect(scheduledPlaceholders(renewed, [{ id: 'L1', start_date: '2026-11-01' }, { id: 'L2', start_date: '2026-12-01' }], [], now).map((r) => r.due_date)).toEqual(['2026-11-01'])
+  })
+  it('a household without a current lease or a due day produces nothing', () => {
+    expect(scheduledPlaceholders([{ ...hh[0], current_lease_id: null }], [], [], now)).toEqual([])
+    expect(scheduledPlaceholders([{ ...hh[0], rent_due_day: null }], [{ id: 'L1', start_date: '2026-11-01' }], [], now)).toEqual([])
   })
 })

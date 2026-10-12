@@ -3442,6 +3442,8 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 - **P1-2 财务**：`/landlord/finance` 此前是纯样例。新 liveSlot `components/landlord/RentLedger.tsx`：房东 household 的 current / previous / next 三个租约指针 → `rent_payments`（RLS 只读），
   四格（本月到账 / 待付 / 逾期 · 今年到账）+ 表（房源 → `/h/<id>?tab=rent` · 账期 · 应付 · 状态 · 付款日）；生效中但没有任何 household 的租约（如快速录入的 L-DF4C）单列「没有在管租约 · 没有台账」。
   空态文案改为事实（台账来自在管租约，租客接受邀请后每期自动出现）。
+  **生产核对后补的**：导入的在管租约在有人「标记已付」之前没有任何 `rent_payments` 行（电子签只写首月），台账原来对它一片空白——现在 `scheduledPlaceholders` 用在管租约中心同一套
+  `rentSchedule` / `ledgerStart`（当前租约的租期、提前一个月、避开已有行与续约租约的日期）合成「待付」账期，与 `/h/[id]` 租金页列出的期完全一致。
 - **P1-5 / P2-4 身份**：静态页等 `my_hats` 期间 `activeHat` 回退租客。现在 `Header` 在 `signedIn && hats.loading` 显示灰色「我是…」、身份菜单与「当前」芯片用骨架；`/settings` `/leases/import` 在 hats 加载完前只渲染空白；
   `lib/displayIdentity.ts` 新增 `isProviderOnly(hats)`：只有服务商帽子的账号在中性页也显示「我是服务商」；`AuthPage` 改用 `landingAfterSignIn`（记住的租客不盖过纯服务商）。
 - **P1-4 委托邮件**：不是生产 bug——Resend 对 example.com 这类保留域名 422。新纯模块 `lib/emailDeliverability.ts`（`isUndeliverableEmailDomain` / `classifyEmailFailure`）；
@@ -3451,5 +3453,5 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 - **P2-2 引导卡**：正常路径不跳步；复现出一个真缺陷——点单选 chip 后 140ms 内点「上一步」，陈旧定时器把人甩到第 4 步。`IntakeCard` 自动前进改为可取消的定时器（`autoRef` + `idxRef`，只在仍停在排定时那一步才前进）。
   14 张卡的「N 步」改由 `withStepCount(spec)` 从 `steps.length` 生成。
 - **minor**：`auditActionLabel` 补 12 个缺失动作（`terms_confirmation_emailed`、`hat_activated`、`provider_*`…）；输入框 `aria-label` 按语言；「房东直租」徽章截断与「入住前费用一览无金额」代码里都正常渲染，部署后实测复现。
-- **P2-3 租客租约列表**：以 muse-tenant 身份查 households 能读到，列表无过滤，审计多半在接受邀请前看的；部署后复核。
+- **P2-3 租客租约列表**：部署后用 muse-tenant 会话实测，`/tenant/lease` 列表显示该在管租约（已确认）——审计是在接受邀请前看的。「房东直租」徽章在 375px 完整显示，「入住前费用一览」金额齐全，两条 minor 未复现；顺手修掉卡片社区为空时的孤立「· Toronto」。
 - 回复审计方口径：试用到 11-14 是 10-12 的正式决定（永久免费档 + Pro 试用），「内部测试期 10-14」已退役。

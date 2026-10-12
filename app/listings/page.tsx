@@ -996,7 +996,7 @@ function ListingCard({
           {l.unit && ` · Unit ${l.unit}`}
         </div>
         <div style={{ fontSize: 12, color: '#71717A', marginTop: 1 }}>
-          {l.neighborhood} · {l.city}
+          {[l.neighborhood, l.city].filter(Boolean).join(' · ')}
         </div>
         {/* Listing brokerage / source, no smaller than the listing facts above (PropTx Rule 8.26). */}
         <div style={{ fontSize: 13, color: '#3F3F46', marginTop: 4 }} data-testid="card-brokerage">
