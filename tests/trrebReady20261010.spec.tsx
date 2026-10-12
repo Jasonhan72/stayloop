@@ -275,3 +275,12 @@ describe('public listing reads go through rate-limited server routes', () => {
     expect(mig).toContain('create trigger listings_guard_feed_fields before insert or update on public.listings')
   })
 })
+
+describe('map area filter only after a user gesture (prod 2026-10-11)', () => {
+  it('the map flags gestures and the page ignores its own fit', () => {
+    const map = readFileSync('components/ListingsMap.tsx', 'utf8')
+    expect(map).toContain("for (const ev of ['mousedown', 'wheel', 'touchstart', 'keydown']) el.addEventListener(ev, mark, { passive: true })")
+    expect(map).toContain('user: userGestureRef.current')
+    expect(listPage).toContain('if (!box.user) return')
+  })
+})

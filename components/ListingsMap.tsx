@@ -44,7 +44,7 @@ interface Props {
   onViewport?: (ids: string[] | null) => void
   /** Fires on every idle with the viewport as a lat/lng box (south, west, north, east); null when the
    *  map cannot show listings. Lets the page query the server by area instead of filtering client-side. */
-  onBounds?: (box: { s: number; w: number; n: number; e: number } | null) => void
+  onBounds?: (box: { s: number; w: number; n: number; e: number; user: boolean } | null) => void
   /** false = place markers but do not refit the view when `listings` change (after the first fit) —
    *  needed when the listings themselves come from the current viewport, or every pan would snap back. */
   autoFit?: boolean
@@ -164,6 +164,16 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
   const onBoundsRef = useRef(onBounds); onBoundsRef.current = onBounds
   const autoFitRef = useRef(autoFit); autoFitRef.current = autoFit
   const fittedOnceRef = useRef(false)
+  // Set by a pointer / wheel / key gesture inside the map; the map's own fitBounds never sets it, so the
+  // page can tell a user pan from the initial fit (prod 2026-10-11: the fit alone made the list say "in map area").
+  const userGestureRef = useRef(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const mark = () => { userGestureRef.current = true }
+    for (const ev of ['mousedown', 'wheel', 'touchstart', 'keydown']) el.addEventListener(ev, mark, { passive: true })
+    return () => { for (const ev of ['mousedown', 'wheel', 'touchstart', 'keydown']) el.removeEventListener(ev, mark) }
+  }, [])
   const onPickRef = useRef(onPick); onPickRef.current = onPick
   const onOpenRef = useRef(onOpen); onOpenRef.current = onOpen
   const bottomInsetRef = useRef(bottomInset); bottomInsetRef.current = bottomInset
@@ -260,7 +270,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
     }
     if (vb && onBoundsRef.current && !failedRef.current) {
       const ne = vb.getNorthEast(); const sw = vb.getSouthWest()
-      onBoundsRef.current({ s: sw.lat(), w: sw.lng(), n: ne.lat(), e: ne.lng() })
+      onBoundsRef.current({ s: sw.lat(), w: sw.lng(), n: ne.lat(), e: ne.lng(), user: userGestureRef.current })
     }
   }, [])
 

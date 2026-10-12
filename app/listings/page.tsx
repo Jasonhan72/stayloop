@@ -110,14 +110,16 @@ export default function ListingsPage() {
   // Cluster disc tapped: the group's ids, shown as a horizontal strip.
   const [group, setGroup] = useState<string[] | null>(null)
   // Desktop: once the user pans / zooms, the list is re-queried by the map's box (server-side bbox).
-  // A bounds event that arrives right after new data is the map's own fit, not the user — ignored.
+  // The map reports whether a gesture preceded the idle; its own fitBounds (initial load, new data) never
+  // counts as a move — otherwise the list said "in map area" before anyone touched the map (prod 2026-10-11).
   const [bbox, setBbox] = useState<{ s: number; w: number; n: number; e: number } | null>(null)
   const [mapMoved, setMapMoved] = useState(false)
   const lastDataAt = useRef(0)
-  const onBounds = useCallback((box: { s: number; w: number; n: number; e: number } | null) => {
+  const onBounds = useCallback((box: { s: number; w: number; n: number; e: number; user: boolean } | null) => {
     if (!box) { setBbox(null); setMapMoved(false); return }
-    if (Date.now() - lastDataAt.current < 1500) return
-    setBbox(box); setMapMoved(true)
+    if (!box.user) return
+    if (Date.now() - lastDataAt.current < 800) return
+    setBbox({ s: box.s, w: box.w, n: box.n, e: box.e }); setMapMoved(true)
   }, [])
   const resetMapArea = () => { setBbox(null); setMapMoved(false) }
   useEffect(() => {
