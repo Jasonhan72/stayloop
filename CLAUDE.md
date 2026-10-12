@@ -3373,3 +3373,4 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
   `display_avm=false` 不渲染「这套房源 · 相对同区 / TRREB」对比瓦片。接 feed 时把 InternetEntireListingDisplayYN / InternetAddressDisplayYN / 对应 AVM 字段映射进这三列、每次刷新盖 `feed_updated_at`。
 - **浏览页行为变化**：筛选 / 排序全部在服务端（关键词仍是「任一词命中地址 / 单元 / 城市 / 社区」），`pets=1` 的总数按 `pet_policy` 非空计、再在页内剔除否定措辞，所以计数可能略多；
   `extraFavs`（库外的收藏快照）逻辑不变。
+- **PropTx 审核账号（2026-10-11）**：`proptx-review@stayloop.ai`（auth 用户，`user_metadata.reviewer_account=true`，租客身份、已设姓名、未预先接受条款——让审核方亲历同意弹层）。密码只在本机 `.forensics-tmp/proptx-reviewer-account.txt`。审核结束后删除该用户。

@@ -17,7 +17,7 @@
 - 公司法定名 Stayloop Inc.、注册号（联邦 / 安省）、注册地址、网站 www.stayloop.ai、联系人与邮箱。
 - 用途说明（一段话）：安省住宅租赁平台；公开页按 IDX 展示在租挂牌（卡片字段）；登录用户按 VOW 规则浏览完整信息与历史；只用于运营会员的 VOW / IDX，不训练模型、不转售。
 - VOW 网址：https://www.stayloop.ai（会员另需在系统里报备 VOW 网址，Member VOW Website Information Form）。
-- 可选：一个审核用账号（我可以建一个只读测试号）与几张截图（房源列表、详情页、条款第 5 节、隐私 3b）。
+- 审核用账号已建：`proptx-review@stayloop.ai`（租客身份，消费者视角；首次登录会看到条款同意弹层）。密码在本机 `.forensics-tmp/proptx-reviewer-account.txt`（不进 git）；需要时连同几张截图（房源列表、详情页、条款第 5 节、隐私 3b）一起提供给 PropTx。
 
 ## 4. 发送前的核对（都已在线上）
 - /terms 第 5 节九条规则、注册勾选、登录后一次确认、确认邮件、90 天密码。
