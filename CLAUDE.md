@@ -3415,3 +3415,13 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 - **站内接受在管租约邀请（2026-10-12，Muse 测试「接受只能点邮件里的链接」）**：`my_pending_invites()` 增加 `token` 列（只返回给 JWT 邮箱 = 被邀请邮箱的本人；
   迁移 `20261012_pending_invites_token.sql` 已应用 prod），`lifecycle_facts_tenant` 的 `invites` 随之带 token；租客 rail 的 `join` 步在有待接受邀请时标题改「接受邀请」、
   直链 `/join/<token>`。守卫 `tests/node1Facts20260926.spec.ts` 末段。
+
+## 模型目录：每周自动发现 + 表格适配（2026-10-12 · 用户「页面有问题」「自动每星期检查一次新模型，有新的就加进可选列表」）
+
+守卫 `tests/modelAutoDiscover20261012.spec.ts`；pg_cron `model-discover-weekly`（周一 13:40 UTC，迁移 `20261012_model_discover_weekly.sql` 已应用）。
+- **页面问题**：目录表 `min-w-[860px]` 在 1000px 宽的窗口里比容器宽，最右两列（用户可选 / 启用 / 操作）被挤出视口，而 macOS 的滚动条滚动前不显示，看起来像被裁掉。
+  现在 `table-fixed` + `<colgroup>` 固定列宽、`min-w-[760px]`，id / 说明可折行，1000px 窗口内整张表放得下；更窄才横滚（`scrollbar-width: thin`）。
+- **自动发现** `lib/models/autoDiscover.ts runAutoDiscovery`（服务端版「发现新模型 → + 加入」）：每个配了 key 的厂商列模型 → 新 id 按 `pickFreshToAdd`（厂商给创建日期的只取 60 天内，
+  否则取列表前几个；每厂商最多 6 个）→ `inferDefaults` 写入 `model_catalog` → 经真实 `llmChat` 探测（slot `test`、source `cron/model-discover`）→ **通过 = enabled + user_selectable**
+  （单价留空，用量看板会标未定价），失败 = 保留但停用、原因写进 note；厂商已不再列出的目录模型也探测一次，失败即停用。有变化或有厂商列表失败时给全部 `admin_users` 发一封汇总邮件。
+  路由 `POST /api/cron/model-discover`（`x-cron-secret` 或管理员 JWT）；`lib/cron/secret.ts secretMatches` 抽成共用（realtor-freshness 同用）。管理页「发现新模型」按钮旁写明每周自动。

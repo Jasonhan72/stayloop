@@ -394,6 +394,7 @@ export default function AdminModelsPage() {
           </div>
           <div className="flex gap-2">
             <button className="sl-btn-secondary" disabled={discovering} onClick={discover}>{discovering ? (zh ? '正在询问各厂商…' : 'Asking providers…') : (zh ? '⟳ 发现新模型' : '⟳ Discover new models')}</button>
+            <span className="self-center text-[11.5px] text-body-3" data-testid="auto-discover-note">{zh ? '每周一自动检查一次：新模型连通测试通过即加入并对用户开放（单价留空待填），厂商下架且测试失败的自动停用，结果发邮件给管理员。' : 'Checked automatically every Monday: new models that pass the probe are added and made user-selectable (price left blank), delisted ones that fail are disabled; admins get an email.'}</span>
             <button className="sl-btn-primary" onClick={() => { setForm({ ...EMPTY_FORM }); setFormBuiltin(false); setCatMsg(null) }}>{zh ? '＋ 添加模型' : '+ Add model'}</button>
           </div>
         </div>
@@ -567,8 +568,11 @@ export default function AdminModelsPage() {
           </div>
         )}
 
-        <div className="mt-4 overflow-x-auto rounded-xl border border-line-divider bg-white">
-          <table className="w-full min-w-[860px] text-[12.5px]">
+        {/* Fits the 1040px page without sideways scrolling (2026-10-12: the last two columns were off-screen on a
+            1000px window and macOS hides the scrollbar until you scroll); narrower than 760px it scrolls. */}
+        <div className="mt-4 overflow-x-auto rounded-xl border border-line-divider bg-white [scrollbar-width:thin]">
+          <table className="w-full min-w-[760px] table-fixed text-[12.5px]">
+            <colgroup><col style={{ width: '30%' }} /><col style={{ width: '19%' }} /><col style={{ width: '15%' }} /><col style={{ width: '9%' }} /><col style={{ width: '8%' }} /><col style={{ width: '7%' }} /><col style={{ width: '12%' }} /></colgroup>
             <thead>
               <tr className="border-b border-line-divider text-left font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
                 <th className="px-4 py-2.5">{zh ? '模型' : 'Model'}</th>
@@ -587,14 +591,14 @@ export default function AdminModelsPage() {
                   <tr key={m.id} className={'border-b border-line-divider last:border-0 ' + (m.enabled ? '' : 'opacity-55')}>
                     <td className="px-4 py-2.5">
                       <div className="font-semibold">{m.label}{m.builtin && <span className="ml-1.5 rounded px-1 py-px font-mono text-[9px] text-body-3" style={{ background: 'rgba(0,0,0,0.05)' }}>builtin</span>}</div>
-                      <div className="font-mono text-[11px] text-body-3">{m.id}</div>
-                      {m.note && <div className="mt-0.5 max-w-[320px] text-[11px] text-body-3">{m.note}</div>}
+                      <div className="break-all font-mono text-[11px] text-body-3">{m.id}</div>
+                      {m.note && <div className="mt-0.5 break-words text-[11px] text-body-3">{m.note}</div>}
                       {t && !t.busy && <div className="mt-1 text-[11px] font-semibold" style={{ color: t.ok ? '#047857' : '#DC2626' }}>{t.ok ? '✓ ' : '✕ '}{t.text}</div>}
                     </td>
                     <td className="px-3 py-2.5">
                       <div>{PROVIDER_KEYS[m.apiKeyEnv]?.label || m.provider}</div>
                       <div className="font-mono text-[10.5px]" style={{ color: keyOk(m.apiKeyEnv) ? '#047857' : '#B45309' }}>{keyOk(m.apiKeyEnv) ? '● ' : '○ '}{m.apiKeyEnv}</div>
-                      {m.baseUrl && <div className="max-w-[220px] truncate font-mono text-[10px] text-body-3" title={m.baseUrl}>{m.baseUrl.replace(/^https:\/\//, '')}</div>}
+                      {m.baseUrl && <div className="truncate font-mono text-[10px] text-body-3" title={m.baseUrl}>{m.baseUrl.replace(/^https:\/\//, '')}</div>}
                     </td>
                     <td className="px-3 py-2.5">{m.allowedSlots.map((s) => (zh ? SLOT_SHORT[s].zh : SLOT_SHORT[s].en)).join(' · ')}{m.vision && <span className="ml-1 text-[10px] text-body-3" title={zh ? '支持图片' : 'vision'}>👁</span>}{m.provider !== 'anthropic' && m.vision && <div className="font-mono text-[10px] text-body-3">PDF: {m.pdfInput === 'file' ? (zh ? '原生' : 'native') : m.pdfInput === 'image_url' ? (zh ? '原生(image_url)' : 'native (image_url)') : (zh ? '文本+OCR' : 'text+OCR')}</div>}</td>
                     <td className="px-3 py-2.5">{zh ? COST_LABEL[m.costTier].zh : COST_LABEL[m.costTier].en}{m.pricing ? <div className="font-mono text-[10px] text-body-3">${m.pricing.input}/${m.pricing.output}</div> : <div className="text-[10px]" style={{ color: '#B45309' }}>{zh ? '未定价' : 'unpriced'}</div>}</td>

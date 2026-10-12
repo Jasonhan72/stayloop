@@ -15,21 +15,10 @@ import {
   type RealtorCheck,
   type RealtorReading,
 } from '@/lib/listings/realtorFreshness'
+import { secretMatches } from '@/lib/cron/secret'
 
 export const runtime = 'edge'
 
-async function secretMatches(given: string, secret: string): Promise<boolean> {
-  const enc = new TextEncoder()
-  const [a, b] = await Promise.all([
-    crypto.subtle.digest('SHA-256', enc.encode(given)),
-    crypto.subtle.digest('SHA-256', enc.encode(secret)),
-  ])
-  const va = new Uint8Array(a)
-  const vb = new Uint8Array(b)
-  let diff = 0
-  for (let i = 0; i < va.length; i++) diff |= va[i] ^ vb[i]
-  return diff === 0
-}
 
 async function authorized(req: Request): Promise<boolean> {
   const secret = process.env.CRON_SECRET
