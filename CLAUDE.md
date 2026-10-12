@@ -3374,3 +3374,6 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 - **浏览页行为变化**：筛选 / 排序全部在服务端（关键词仍是「任一词命中地址 / 单元 / 城市 / 社区」），`pets=1` 的总数按 `pet_policy` 非空计、再在页内剔除否定措辞，所以计数可能略多；
   `extraFavs`（库外的收藏快照）逻辑不变。
 - **PropTx 审核账号（2026-10-11）**：`proptx-review@stayloop.ai`（auth 用户，`user_metadata.reviewer_account=true`，租客身份、已设姓名、未预先接受条款——让审核方亲历同意弹层）。密码只在本机 `.forensics-tmp/proptx-reviewer-account.txt`。审核结束后删除该用户。
+- **邮件已于 2026-10-11 发给 dataagreements@proptx.ca**（抄送 Sheng Chu）。下一步：Sheng Chu（RECO 9565987，Sheng Chu Realty Inc. / JDL Realty Inc.）在 syndication.ampre.ca 发起 IDX + VOW
+  两份协议并把 Stayloop Inc. 加为新供应商 → PropTx 向 Stayloop 发供应商验证邮件（说明用途、签协议）→ JDL 的 Broker of Record 签字 → 拿 RESO Web API 凭证后做字段映射 / 24h 刷新 /
+  经纪姓名回填；届时再把 `NEXT_PUBLIC_MLS_SPONSOR_*` 填进 CF Pages。审核账号 proptx-review@stayloop.ai 留着，审核结束删。
