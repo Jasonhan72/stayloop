@@ -2719,7 +2719,7 @@ export default function ScreenPage() {
           <div style={{ marginTop: 8, fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>
             {lang === 'zh'
               ? '注册后即可开始筛查，免费档每月 5 单；历史记录云端保留。'
-              : 'Register to start screening — the free tier includes 5 screenings per month, with your history saved to your account.'}
+              : 'Register to start screening — the free tier includes 3 screenings per month, with your history saved to your account.'}
           </div>
           <div style={{ marginTop: 14, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/register?redirect=%2Fscreening%2Fapp" style={{ padding: '9px 18px', borderRadius: 10, background: '#00ACE4', color: '#fff', fontSize: 13, fontWeight: 700 }}>

@@ -606,7 +606,7 @@ export const DICT = {
   'acct.langplan.title': { en: 'Languages & plan', zh: '语言与计划' },
   'acct.langplan.language': { en: 'Language', zh: '界面语言' },
   'acct.langplan.plan': { en: 'Current plan', zh: '当前方案' },
-  'acct.langplan.planFreeDesc': { en: '5 screenings per month. Upgrade for unlimited.', zh: '每月 5 次租客筛查。升级解锁无限次使用。' },
+  'acct.langplan.planFreeDesc': { en: '3 screenings a month plus one deep check; new accounts get Pro free for 30 days. Upgrade for unlimited.', zh: '每月 3 次租客筛查。升级解锁无限次使用。' },
   'acct.langplan.manage': { en: 'Manage billing', zh: '管理订阅' },
   'acct.langplan.upgrade': { en: 'Upgrade to Pro', zh: '升级到 Pro' },
 
