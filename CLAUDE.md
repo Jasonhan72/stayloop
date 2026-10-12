@@ -3429,3 +3429,5 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
   模型需在百炼开通产品）。DeepSeek 当时余额不足（402）把 `deepseek-v4-flash` 判为失败停用，用户充值后直接探测 `deepseek-v4-flash` / `deepseek-flash` 都通过，已手动重新启用并开放；
   厂商现列 `deepseek-flash` / `deepseek-v4-pro`，旧 id 仍可用。**每轮每厂商最多加 6 个**，60 天内的新模型会在接下来几周里逐批加完；`-latest` 别名与 `customtools` 变体没有特别过滤，
   管理员看邮件决定停用。
+- **单价待办（用户 2026-10-12：「价格先不管，以后你研究一下定一个价格吧」）**：新加入模型的单价暂留空，`/admin/usage` 对这些模型按未定价显示。下次做的时候由 Claude 按各厂商
+  官网列价（输入 / 输出 / 缓存，USD 每百万 token）逐个核对后填进 `model_catalog` 四个单价列或 `BUILTIN_PRICING`，不要凭记忆填。
