@@ -3394,3 +3394,8 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 - **P1-5 Realtor 房源不能申请 / P1-6 申请模块是样例 / P1-8 经纪 $39 未开售——按设计**（分别：Realtor 导入没有 Stayloop 房东；该账号没有真实申请时显示诚实空态 + 演示；
   经纪付费档明标即将推出）。**P1-7「正在为您生成最新数据…」——代码里没有这句，无法复现**。
 - **P2-9「Sarah 请 Davi」截断——不是可见缺陷**：这句只在三方动画的 `sr-only` 读屏摘要里，审计工具自己截断了文本。**P2-10 手机端**——同日已全站扫描（17 页 × 375 / 320，零溢出）。
+- **Muse 测试账号（2026-10-12，用户「给 muse 生成一个专用账号…四个角色」）**：`muse-tenant@` / `muse-landlord@`（已 claim 房东）/ `muse-agent@`（agent_profiles verified，
+  RECO 9990002 为测试号）/ `muse-provider@stayloop.ai`（`[TEST] Muse Home Services Inc.`，五项资质已核），同一密码，只在本机 `.forensics-tmp/muse-test-accounts.txt`；
+  `user_metadata.muse_account=true`，未预先接受条款。**建账号时发现并修了一个真 bug**：`audit_hat_activation()` 引用 `new.id`，而 `agent_profiles` 的主键是 `auth_id`、没有 `id` 列——
+  2026-09-26 加触发器之后任何人注册经纪身份（`/agent/verify` 的 INSERT）都报 42703 失败。迁移 `20261012_audit_hat_activation_no_id.sql`（已应用 prod）改为从记录 JSON 取 id、
+  没有则用 auth_id；已用 muse-agent 的 JWT 走真实注册路径验证（201 pending → 管理员改 verified → `my_hats.agent='verified'`，审计行 `hat_activated` 正常）。
