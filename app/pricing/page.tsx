@@ -9,7 +9,7 @@
 // The privacy of a tenant is never a product — paid value never changes an
 // applicant's eligibility or ranking. Trust API is the 4th business line.
 import Link from 'next/link'
-import { INTERNAL_TEST_FREE_UNTIL_LABEL, inInternalTestWindow } from '@/lib/billing/freeWindow'
+import { TRIAL_DAYS } from '@/lib/billing/entitlement'
 import { LANDLORD_GO, LANDLORD_PRO, LANDLORD_PRO_PRICE } from '@/lib/billing/landlordPlans'
 import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
@@ -27,9 +27,6 @@ type Tier = {
   tagline: LS
   cta: LS
   href: string
-  /** Shown instead of cta / href while the internal test window is open. */
-  ctaInWindow?: LS
-  hrefInWindow?: string
   includesLabel: LS
   features: Feature[]
   highlight?: boolean
@@ -91,8 +88,6 @@ const PLANS: RolePlan[] = [
         tagline: LANDLORD_PRO.tagline,
         cta: { zh: '升级到专业版', en: 'Upgrade to Pro' },
         href: '/dashboard?upgrade=1',
-        ctaInWindow: { zh: '测试期免费使用', en: 'Free during the test period' },
-        hrefInWindow: '/dashboard',
         includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Go, plus:' },
         features: LANDLORD_PRO.features,
         highlight: true,
@@ -169,7 +164,7 @@ const PLANS: RolePlan[] = [
   },
 ]
 
-function RolePlansSection({ lang, zh, inWindow }: { lang: Lang; zh: boolean; inWindow: boolean }) {
+function RolePlansSection({ lang, zh }: { lang: Lang; zh: boolean }) {
   const [active, setActive] = useState(1) // landlord opens by default (paying role)
   const plan = PLANS[active]
   return (
@@ -221,14 +216,14 @@ function RolePlansSection({ lang, zh, inWindow }: { lang: Lang; zh: boolean; inW
             </div>
             <p className="mt-3 min-h-[40px] text-[13.5px] leading-relaxed text-body-2">{t.tagline[lang]}</p>
             <Link
-              href={inWindow && t.hrefInWindow ? t.hrefInWindow : t.href}
+              href={t.href}
               className={
                 'mt-4 inline-flex w-full items-center justify-center rounded-[10px] px-4 py-[12px] text-[14px] font-semibold transition active:translate-y-px ' +
                 (t.highlight ? 'text-white' : 'border border-line-strong bg-white text-body hover:border-brand hover:text-brand')
               }
               style={t.highlight ? { background: plan.accent, boxShadow: `0 6px 18px -8px ${plan.accent}88` } : undefined}
             >
-              {(inWindow && t.ctaInWindow ? t.ctaInWindow : t.cta)[lang]}
+              {t.cta[lang]}
             </Link>
             <div className="mt-6 border-t border-line-divider pt-5">
               <div className="text-[12.5px] font-bold text-body">{t.includesLabel[lang]}</div>
@@ -254,17 +249,13 @@ export default function PricingPage() {
   // This page is prerendered: evaluating the window during render would bake
   // the build-time answer into the HTML and mismatch the client after the end
   // date (React #418). Render closed first, then open it on the client.
-  const [inWindow, setInWindow] = useState(false)
-  useEffect(() => setInWindow(inInternalTestWindow()), [])
   return (
     <>
       <Header variant="transparent" />
       <main>
-        {inWindow && (
-          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-[13px] font-semibold text-amber-900">
-            {lang === 'zh' ? `限时免费：到 ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh} 为止，下面已上线的功能对所有账号免费，无需订阅或解锁。标「即将推出」的模块尚未上线，不在免费范围内，也不会另收费。` : `Free for a limited time: until ${INTERNAL_TEST_FREE_UNTIL_LABEL.en} every feature below that is live is free for every account — no subscription or unlock needed. Modules marked "coming soon" are not live yet; they are neither included nor charged for.`}
-          </div>
-        )}
+        <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-[13px] font-semibold text-emerald-900" data-testid="pricing-trial-banner">
+          {lang === 'zh' ? `租客永久免费 · 房东免费档永久免费 · 新注册的房东账号 Pro 功能免费试用 ${TRIAL_DAYS} 天，不要信用卡，到期自动降回免费档` : `Tenants: free forever · Landlord Go: free forever · New landlord accounts get every Pro feature free for ${TRIAL_DAYS} days, no card, then drop to Go automatically`}
+        </div>
         <section
           className="relative overflow-hidden"
           style={{ background: '#F3F8FC', borderBottom: '1px solid #E4EEF6', marginTop: -72, paddingTop: 72 }}
@@ -283,7 +274,7 @@ export default function PricingPage() {
         </section>
 
         {/* Role switcher + named tiers per role */}
-        <RolePlansSection lang={lang} zh={zh} inWindow={inWindow} />
+        <RolePlansSection lang={lang} zh={zh} />
 
         {/* Stayloop API — 4th business line */}
         <section className="mx-auto max-w-[1100px] px-5 pb-12 sm:px-7 lg:px-12">

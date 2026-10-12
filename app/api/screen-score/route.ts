@@ -21,7 +21,7 @@ import { countMaterialBlanks } from '@/lib/screening/rubric'
 import { scanBureauDelinquencies } from '@/lib/screening/bureauTextScan'
 import { checkResidenceTimeline, footprintFromFacts } from '@/lib/screening/residenceTimeline'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
-import { INTERNAL_TEST_FREE_UNTIL, inInternalTestWindow } from '@/lib/billing/freeWindow'
+import { FREE_SCREENINGS_PER_MONTH, isProEntitled } from '@/lib/billing/entitlement'
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { analyzeStatementLiquidity, findRecurringMonthlyPayment } from '@/lib/forensics/payroll-deposits'
 import { monthsSince, parsePeriodMonths, parseDateLoose, datesAgree } from '@/lib/screening/periods'
@@ -858,15 +858,17 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     // All UUIDs this landlord's screenings may be keyed under: legacy rows
     // store landlords.id (profileId), newer rows store auth.users.id (authId).
     let landlordIds: string[] = screening.landlord_id ? [screening.landlord_id] : []
+    let landlordRow: { plan?: string | null; pro_trial_until?: string | null } | null = null
     if (screening.landlord_id) {
       // Review 2026-09-14: .maybeSingle() returned null (and the free plan)
       // for the documented legacy+current double row; use the same picker
       // as billing and deep-check.
       const { data: llRows } = await supabase
         .from('landlords')
-        .select('id, auth_id, plan')
+        .select('id, auth_id, plan, pro_trial_until')
         .or(`id.eq.${screening.landlord_id},auth_id.eq.${screening.landlord_id}`)
-      const ll = pickLandlordRow((llRows ?? []) as { id: string; auth_id: string | null; plan?: string | null }[], screening.landlord_id)
+      const ll = pickLandlordRow((llRows ?? []) as { id: string; auth_id: string | null; plan?: string | null; pro_trial_until?: string | null }[], screening.landlord_id)
+      landlordRow = ll
       if (ll?.plan) plan = ll.plan
       if (ll) {
         landlordIds = Array.from(new Set(
@@ -879,17 +881,13 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     // Pro-level treatment — it neither counts against the free monthly
     // allowance nor stays on the free court tier.
     if (plan === 'free' && screening.unlocked_at) plan = 'pro'
-    // Internal test month: no quota, Pro court tier for everyone.
-    if (inInternalTestWindow()) plan = 'pro'
+    // A running Pro trial (new accounts 30 days; test-month accounts to 2026-11-14): no quota, Pro court tier.
+    if (isProEntitled(landlordRow)) plan = 'pro'
 
     // ---- Quota enforcement for free plan ----
     if (plan === 'free') {
       const now = new Date()
-      // Screenings run for free during the internal test window do not count
-      // against the first paid-month quota (review 2026-09-19: heavy testers
-      // would have hit 5/5 on 2026-10-15).
-      const monthStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-      const monthStart = new Date(Math.max(monthStartMs, Date.parse(INTERNAL_TEST_FREE_UNTIL))).toISOString()
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
       const { count } = await supabase
         .from('screenings')
         .select('id', { count: 'exact', head: true })
@@ -898,9 +896,9 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
         // Only runs that produced (or are producing) a report count; a row
         // stranded at uploading/error never did (review 2026-09-13).
         .in('status', ['scored', 'scoring'])
-      if (count !== null && count >= 5) {
+      if (count !== null && count >= FREE_SCREENINGS_PER_MONTH) {
         return NextResponse.json(
-          { error: 'Monthly screening limit reached (5/5). Upgrade to Pro for unlimited screenings.' },
+          { error: `Monthly screening limit reached (${FREE_SCREENINGS_PER_MONTH}/${FREE_SCREENINGS_PER_MONTH}). Upgrade to Pro for unlimited screenings.` },
           { status: 429 }
         )
       }

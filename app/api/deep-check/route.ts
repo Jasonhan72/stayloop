@@ -46,7 +46,7 @@ import type { BNLookupResult } from '@/lib/forensics/bn-check'
 import { captureException } from '@/lib/observability/sentry'
 import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
-import { inInternalTestWindow } from '@/lib/billing/freeWindow'
+import { isProEntitled } from '@/lib/billing/entitlement'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { callerHats, mayScreen, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
 
@@ -475,8 +475,7 @@ async function enforceProGate(req: Request, screeningId: string | null): Promise
     if (!mayScreen(hats, delegated)) return bad(SCREENING_ROLE_MESSAGE.en, SCREENING_ROLE_MESSAGE.zh, 403)
   }
 
-  // Internal test month: the plan gate is open for every signed-in user.
-  if (inInternalTestWindow()) return null
+  // (The internal test month switch was retired 2026-10-12; a running Pro trial is checked on the row below.)
 
   // Look up the landlord record. We filter explicitly by auth_id rather
   // than relying on RLS alone — the landlords table has a "Public can
@@ -488,7 +487,7 @@ async function enforceProGate(req: Request, screeningId: string | null): Promise
   // of which policies are in effect.
   const { data: landlordRows, error: landlordErr } = await rlsClient
     .from('landlords')
-    .select('id, auth_id, plan')
+    .select('id, auth_id, plan, pro_trial_until')
     // Dual-ID invariant (CLAUDE.md): legacy landlord rows are keyed by
     // profileId with no auth_id backfill — match either column, and when
     // both rows exist prefer the auth_id one (the webhook writes it), same
@@ -503,6 +502,7 @@ async function enforceProGate(req: Request, screeningId: string | null): Promise
 
   const landlord = pickLandlordRow(landlordRows, userData.user.id)
   const plan = (landlord?.plan as string | undefined) || 'free'
+  if (isProEntitled(landlord)) return null
   if (plan === 'pro' || plan === 'team') return null  // authorized by subscription
 
   // Per-applicant unlock (2026-09-04): a free landlord may have paid a

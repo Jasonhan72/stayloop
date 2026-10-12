@@ -3399,3 +3399,16 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
   `user_metadata.muse_account=true`，未预先接受条款。**建账号时发现并修了一个真 bug**：`audit_hat_activation()` 引用 `new.id`，而 `agent_profiles` 的主键是 `auth_id`、没有 `id` 列——
   2026-09-26 加触发器之后任何人注册经纪身份（`/agent/verify` 的 INSERT）都报 42703 失败。迁移 `20261012_audit_hat_activation_no_id.sql`（已应用 prod）改为从记录 JSON 取 id、
   没有则用 auth_id；已用 muse-agent 的 JWT 走真实注册路径验证（201 pending → 管理员改 verified → `my_hats.agent='verified'`，审计行 `hat_activated` 正常）。
+
+## 免费模型：测试期全免费 → 永久免费档 + Pro 试用（2026-10-12 · 用户「按你的建议实施，老账号顺延到 11 月 14 日」）
+
+守卫 `tests/freeWindow.spec.ts`（已改写为 Pro entitlement 守卫）；迁移 `20261012_pro_trial.sql`（已应用 prod，回滚探针验证）。
+- **唯一判定** `lib/billing/entitlement.ts isProEntitled(row)` = plan pro/team **或** `landlords.pro_trial_until` 在未来。`lib/billing/freeWindow.ts` 退役（`inInternalTestWindow` 恒为 false，
+  app/ lib/ 不再引用，守卫禁止回来）。读它的门：`hasProAccess`（核验链接）、deep-check `enforceProGate`、screen-score（试用 = Pro 档位、无配额）、`networkDispatchAllowed`、
+  筛查页 `plan` 渲染、工作台芯片、设置卡（新状态 `trial`：pill「Pro 试用中」+ 到期日 + 「现在订阅 Pro →」）。Checkout / unlock 路由不再有 `free_window` 400——试用中也能提前订阅。
+- **数据**：`pro_trial_until` 由触发器 `trg_zz_landlord_trial_defaults`（BEFORE INSERT，排在账单守卫之后）给每个新 landlords 行 30 天 + `unlock_credits=1`（送 1 次深度核查），
+  不管谁建的行；直连客户端改不了这两列（守卫扩了 `pro_trial_until`）。10-15 前注册的 9 行 → `2026-11-14 23:59:59-04:00`，免费行补 1 个额度。
+- **免费档每月筛查 5 → 3**（`FREE_SCREENINGS_PER_MONTH`，screen-score 配额与定价文案同源）；月初起算，不再有测试期的起算钳制。
+- **文案**：定价页横幅「租客永久免费 · 房东免费档永久免费 · 新注册房东 Pro 免费 30 天」，Pro 卡 CTA 恒为「升级到专业版」→ `/dashboard?upgrade=1`；房东页事实 chip 与 FAQ、经纪页 FAQ、
+  `LANDLORD_GO.features` 同步；所有「测试期 / 10 月 14 日」字样只剩退役文件里的常量。
+- **通知邮件草稿** `design/free-model-notice-email-2026-10.md`（10-14 前发给 10-15 前注册的房东，测试号除外），**未发送**，由用户决定发送方式。

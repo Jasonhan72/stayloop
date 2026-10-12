@@ -10,7 +10,7 @@
 // drafting and renewals are not plan-gated anywhere in the code.
 //
 // What Pro actually unlocks (the only plan checks in the code): screening past
-// the free 5 a month (app/api/screen-score), deep checks
+// the free 3 a month (app/api/screen-score, FREE_SCREENINGS_PER_MONTH), deep checks
 // (app/api/deep-check enforceProGate), applicant verification links
 // (lib/billing/access hasProAccess), and dispatch to the verified provider
 // network (lib/marketplace networkDispatchAllowed). Keep this list to those.
@@ -24,7 +24,7 @@ export const LANDLORD_GO: { name: PlanFeature; tagline: PlanFeature; features: P
   features: [
     { zh: '房源发布，不限套数', en: 'Publish listings, no cap' },
     { zh: '接收在线申请', en: 'Receive online applications' },
-    { zh: '每月 5 次租客筛查（含取证与信用分析）', en: '5 tenant screenings a month (forensics + credit analysis included)' },
+    { zh: '每月 3 次租客筛查（含取证与信用分析）· 首次深度核查免费 1 次', en: '3 tenant screenings a month (forensics + credit analysis included) · first deep check free' },
     { zh: '深度核查按次解锁 $14.99', en: 'Deep checks unlock per applicant at $14.99' },
     { zh: 'AI 助理、安省标准租约与电子签、续约提醒', en: 'AI Agent, Ontario standard lease with e-signing, renewal reminders' },
     { zh: '维修工单 + 派给你自己的联系人', en: 'Repair tickets + dispatch to your own contacts', href: '/services' },

@@ -24,7 +24,7 @@ vi.mock('@/lib/threads/server', () => ({
   replyTokenFor: vi.fn(async () => 'tok'),
 }))
 vi.mock('@/lib/matters/server', () => ({ ensureMatter: vi.fn(async () => null) }))
-vi.mock('@/lib/billing/freeWindow', () => ({ inInternalTestWindow: () => true }))
+vi.mock('@/lib/billing/entitlement', () => ({ isProEntitled: () => true, proTrialActive: () => true, isPaidPlan: () => false, TRIAL_DAYS: 30, FREE_SCREENINGS_PER_MONTH: 3, LEGACY_TRIAL_UNTIL: '2026-11-14T23:59:59-04:00', trialUntilLabel: () => null }))
 
 import { entryCancelText, entryNoticeText, mergeCompletion, mergeQuote, quoteExpired, quoteStillAsSeen, resolveEntryPermission, torontoToday, validateQuote } from '@/lib/marketplace/workOrders'
 import { deadProviderIds } from '@/lib/marketplace/dispatchPolicy'

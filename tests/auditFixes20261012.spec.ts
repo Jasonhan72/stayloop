@@ -3,20 +3,21 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-describe('settings subscription card during the free window', () => {
+describe('settings subscription card', () => {
   const card = readFileSync('components/settings/SubscriptionCard.tsx', 'utf8')
-  it('shows the free-window chip instead of a checkout button that can only fail with「free_window」', () => {
-    expect(card).toContain("{state === 'free' && inInternalTestWindow() && (")
-    expect(card).toContain('data-testid="subscription-free-window"')
-    expect(card).toContain("{state === 'free' && !inInternalTestWindow() && (")
-    expect(card).toContain("m === 'free_window' ? (zh ? '测试期内所有功能免费，暂时不需要订阅。'")
+  it('never shows a checkout button that can only fail: free and trial both get a working Checkout; the trial says until when (test-month switch retired 2026-10-12)', () => {
+    expect(card).toContain("{(state === 'free' || state === 'trial') && (")
+    expect(card).toContain('data-testid="subscription-upgrade"')
+    expect(card).toContain("case 'trial': return { text: zh ? 'Pro 试用中' : 'Pro trial'")
+    expect(card).not.toContain('inInternalTestWindow')
+    expect(readFileSync('app/api/stripe/checkout/route.ts', 'utf8')).not.toContain('free_window')
   })
 })
 
 describe('dashboard billing button', () => {
   const dash = readFileSync('app/dashboard/page.tsx', 'utf8')
   it('opens the Stripe portal only when a Stripe customer exists; a comped Pro gets a label, not an error alert', () => {
-    expect(dash).toContain("select('plan, stripe_customer_id')")
+    expect(dash).toContain("select('plan, stripe_customer_id, pro_trial_until')")
     expect(dash).toContain("{(plan === 'pro' || plan === 'team') && hasStripeCustomer && (")
     expect(dash).toContain('data-testid="plan-comped"')
   })

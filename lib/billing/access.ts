@@ -4,21 +4,21 @@
 // credit the consume_unlock_credit RPC spends atomically.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { pickLandlordRow } from './subscriptionState'
-import { inInternalTestWindow } from './freeWindow'
+import { isProEntitled } from './entitlement'
 
 export async function hasProAccess(
   rls: SupabaseClient,
   userId: string,
   screeningId: string | null,
-): Promise<{ ok: boolean; via: 'plan' | 'unlocked' | 'credit' | 'test_window' | null }> {
-  if (inInternalTestWindow()) return { ok: true, via: 'test_window' }
+): Promise<{ ok: boolean; via: 'plan' | 'trial' | 'unlocked' | 'credit' | null }> {
   const { data: rows } = await rls
     .from('landlords')
-    .select('id, auth_id, plan')
+    .select('id, auth_id, plan, pro_trial_until')
     .or(`id.eq.${userId},auth_id.eq.${userId}`)
   const landlord = pickLandlordRow(rows, userId)
   const plan = (landlord?.plan as string | undefined) || 'free'
   if (plan === 'pro' || plan === 'team') return { ok: true, via: 'plan' }
+  if (isProEntitled(landlord)) return { ok: true, via: 'trial' }
   if (!screeningId) return { ok: false, via: null }
   const { data: s } = await rls.from('screenings').select('unlocked_at').eq('id', screeningId).maybeSingle()
   if (s?.unlocked_at) return { ok: true, via: 'unlocked' }

@@ -2,7 +2,7 @@
 
 import { LANDLORD_GO, LANDLORD_PRO, LANDLORD_PRO_PRICE } from '@/lib/billing/landlordPlans'
 import { useEffect, useRef, useState } from 'react'
-import { INTERNAL_TEST_FREE_UNTIL_LABEL, inInternalTestWindow } from '@/lib/billing/freeWindow'
+import { proTrialActive, trialUntilLabel } from '@/lib/billing/entitlement'
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import { VerificationBadge } from '@/components/ListingBadges'
@@ -21,6 +21,7 @@ export default function Dashboard() {
   // A Pro granted directly (no Stripe customer) has nothing to manage in the billing portal — the button used to
   // open it anyway and alert「Billing portal error」(external audit 2026-10-12 on the comped founder account).
   const [hasStripeCustomer, setHasStripeCustomer] = useState(false)
+  const [trialUntil, setTrialUntil] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
   const [deletingListing, setDeletingListing] = useState<Listing | null>(null)
@@ -50,7 +51,7 @@ export default function Dashboard() {
     if (typeof window !== 'undefined') {
       setOrigin(window.location.origin)
       const qp = new URL(window.location.href).searchParams
-      if (qp.get('upgrade') === '1' && !inInternalTestWindow()) setShowUpgrade(true)
+      if (qp.get('upgrade') === '1') setShowUpgrade(true)
       const checkout = qp.get('checkout')
       if (checkout === 'success') setCheckoutBanner('pending')
       if (checkout === 'cancel') setCheckoutBanner('cancel')
@@ -147,7 +148,7 @@ export default function Dashboard() {
     const [appsRes, listingsRes, planRes, archivedRes] = await Promise.all([
       supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
       supabase.from('listings').select('*').eq('landlord_id', landlord!.landlordId).neq('status', 'archived').order('created_at', { ascending: false }),
-      supabase.from('landlords').select('plan, stripe_customer_id').or(`id.eq.${landlord!.landlordId},auth_id.eq.${landlord!.landlordId}`).maybeSingle(),
+      supabase.from('landlords').select('plan, stripe_customer_id, pro_trial_until').or(`id.eq.${landlord!.landlordId},auth_id.eq.${landlord!.landlordId}`).maybeSingle(),
       supabase.from('listings').select('id, slug, address, unit, city, monthly_rent, status, is_active').eq('landlord_id', landlord!.landlordId).eq('status', 'archived').order('created_at', { ascending: false }).limit(50),
     ])
     if (appsRes.data) setApplications(appsRes.data as Application[])
@@ -155,6 +156,7 @@ export default function Dashboard() {
     if (archivedRes.data) setArchivedListings(archivedRes.data as unknown as Listing[])
     if (planRes.data?.plan) setPlan(planRes.data.plan as Plan)
     setHasStripeCustomer(!!(planRes.data as { stripe_customer_id?: string | null } | null)?.stripe_customer_id)
+    setTrialUntil((planRes.data as { pro_trial_until?: string | null } | null)?.pro_trial_until ?? null)
     setLoading(false)
   }
 
@@ -259,10 +261,10 @@ export default function Dashboard() {
               >
                 {plan}
               </span>
-              {plan === 'free' && inInternalTestWindow() && (
-                <span className="rounded-full bg-amber-50 px-3 py-[6px] text-[12px] font-semibold text-amber-800">{lang === 'zh' ? `测试期免费 · 至 ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh}` : `Free test period · until ${INTERNAL_TEST_FREE_UNTIL_LABEL.en}`}</span>
+              {plan === 'free' && proTrialActive({ pro_trial_until: trialUntil }) && (
+                <span className="rounded-full bg-emerald-50 px-3 py-[6px] text-[12px] font-semibold text-emerald-800" data-testid="plan-trial">{lang === 'zh' ? `Pro 试用中 · 至 ${trialUntilLabel({ pro_trial_until: trialUntil }, true)}` : `Pro trial · until ${trialUntilLabel({ pro_trial_until: trialUntil }, false)}`}</span>
               )}
-              {plan === 'free' && !inInternalTestWindow() && (
+              {plan === 'free' && (
                 <button onClick={() => setShowUpgrade(true)} className="sl-btn-primary !py-[10px] !px-4 !text-[13.5px]">
                   {lang === 'zh' ? '升级到 Pro' : 'Upgrade to Pro'}
                 </button>

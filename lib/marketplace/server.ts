@@ -12,7 +12,7 @@ import { ensureThread, noteOnWorkOrder, postSystemMessage, replyTokenFor } from 
 import { replyAddress } from '@/lib/threads/emailReply'
 import { workOrderSystemLine } from '@/lib/threads/shared'
 import { ensureMatter } from '@/lib/matters/server'
-import { inInternalTestWindow } from '@/lib/billing/freeWindow'
+import { isProEntitled } from '@/lib/billing/entitlement'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 import { deadProviderIds, normalizePolicy, rankCandidates, rankReason, shouldAutoApprove, shouldAutoDispatch, type Candidate, type DispatchPolicy } from './dispatchPolicy'
 import { isEmergencyMaintenance } from '@/lib/agent/maintenanceTriage'
@@ -106,12 +106,10 @@ export type CreateInput = {
   actor?: ActorKind
 }
 
-/** Curated-network dispatch (and therefore auto-dispatch) needs Pro / Team, or the internal test window. */
+/** Curated-network dispatch (and therefore auto-dispatch) needs Pro / Team or a running Pro trial. */
 export async function networkDispatchAllowed(admin: Admin, landlordAuthId: string): Promise<boolean> {
-  if (inInternalTestWindow()) return true
-  const { data: rows } = await admin.from('landlords').select('id, auth_id, plan').or(`id.eq.${landlordAuthId},auth_id.eq.${landlordAuthId}`)
-  const plan = (pickLandlordRow(rows, landlordAuthId)?.plan as string | undefined) || 'free'
-  return plan === 'pro' || plan === 'team'
+  const { data: rows } = await admin.from('landlords').select('id, auth_id, plan, pro_trial_until').or(`id.eq.${landlordAuthId},auth_id.eq.${landlordAuthId}`)
+  return isProEntitled(pickLandlordRow(rows, landlordAuthId))
 }
 
 /** Step ③: create the offer and invite the contractor (email + push for providers with an account). */

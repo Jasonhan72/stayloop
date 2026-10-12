@@ -75,9 +75,9 @@ describe('server wiring', () => {
 
 describe('Pro gate on the curated network', () => {
   const server = readFileSync('lib/marketplace/server.ts', 'utf8')
-  it('network dispatch needs Pro/Team or the test window; own contacts stay free', () => {
+  it('network dispatch needs Pro/Team or a running Pro trial; own contacts stay free', () => {
     expect(server).toMatch(/if \(i\.providerId && !\(await networkDispatchAllowed\(admin, i\.landlordAuthId\)\)\) return \{ ok: false, error: 'pro_required', status: 402 \}/)
-    expect(server).toMatch(/inInternalTestWindow\(\)\) return true/)
+    expect(server).toContain('return isProEntitled(pickLandlordRow(rows, landlordAuthId))')
     expect(server).toMatch(/if \(network\) for \(const p of/)
   })
   it('pricing page says so, and that Stayloop takes no commission', () => {

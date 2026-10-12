@@ -73,7 +73,7 @@ const CFG: RoleLandingConfig = {
     { label: { zh: '不收 SIN', en: 'No SIN collected' }, href: '/privacy' },
     { label: { zh: 'OHRC 租房政策口径', en: 'OHRC housing-policy scoring' }, href: '/screening' },
     { label: { zh: '不是消费者报告机构', en: 'Not a consumer reporting agency' }, href: '/screening' },
-    { label: { zh: '测试期免费至 2026-10-14', en: 'Free until 2026-10-14' }, href: '/pricing' },
+    { label: { zh: '免费档永久免费 · 新账号 Pro 免费 30 天', en: 'Go is free forever · new accounts get Pro free for 30 days' }, href: '/pricing' },
   ],
   benefits: [
     {
@@ -98,7 +98,7 @@ const CFG: RoleLandingConfig = {
     note: { zh: '这是数据库里能直接数出来的数字。我们不展示百分比收益、客户数或评分——那些我们没有可审计的对照组。', en: 'A number counted straight from the database. We show no percentage gains, customer counts or ratings — we have no auditable control group for those.' },
   },
   faq: [
-    { q: { zh: '免费能筛几次？', en: 'How many screenings are free?' }, a: { zh: '测试期（至 2026-10-14）不限次。之后免费档每月 5 次，含取证与信用分析；Pro $19/月不限次并开放深度核查。', en: 'Unlimited during the test period (until 2026-10-14). After that the free tier includes 5 a month with forensics and credit analysis; Pro at $19/month is unlimited and unlocks deep checks.' } },
+    { q: { zh: '免费能筛几次？', en: 'How many screenings are free?' }, a: { zh: '免费档每月 3 次，含取证与信用分析，另送 1 次深度核查；新注册的房东账号前 30 天按 Pro 计，不限次。Pro $19/月不限次并包含深度核查与本人核验链接；也可按次解锁一份深度核查（$14.99）。', en: 'The free tier includes 3 a month with forensics and credit analysis, plus one deep check; a new landlord account runs as Pro for its first 30 days, unlimited. Pro at $19/month is unlimited and includes deep checks and verification links; a single deep check can also be unlocked for $14.99.' } },
     { q: { zh: '筛查看什么、不看什么？', en: 'What is checked — and what is not?' }, a: { zh: '看：收入文件算术与互证、征信转录与分析、证件有效性、LTB 判令目录、安省法院门户、雇主注册状态。不看、也不让模型推断 OHRC 受保护特征（国籍、家庭状况、收入来源类型等）。收入租金比只作信息，不设截止线。', en: 'Checked: income-document arithmetic and cross-checks, bureau transcription and analysis, ID validity, the LTB order catalogue, the Ontario courts portal, employer registry status. Never checked or inferred: OHRC protected grounds (nationality, family status, source of income and the rest). Income-to-rent is information only, with no cut-off.' } },
     { q: { zh: '申请人怎么授权？', en: 'How does the applicant authorise checks?' }, a: { zh: '你在筛查记录上生成一条链接，申请人本人签版本化同意后逐步授权身份（Veriff）、银行（Flinks）、征信（Equifax）。我们不收 SIN。', en: 'You generate a link on the screening record; the applicant signs a versioned consent and then authorises identity (Veriff), bank (Flinks) and credit (Equifax) step by step. We never collect a SIN.' } },
     { q: { zh: '我能让申请人付筛查费吗？', en: 'Can I charge the applicant for screening?' }, a: { zh: '不能。RTA s.134 禁止向租客收取申请或筛查费用。定价页与解锁流程都没有「让申请人付」的选项。', en: 'No. RTA s.134 prohibits charging tenants application or screening fees. Neither pricing nor the unlock flow has an "applicant pays" option.' } },

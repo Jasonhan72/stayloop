@@ -29,11 +29,11 @@ describe('1 · deep-check requires a session even inside the free window', () =>
     }))
     expect(res.status).toBe(401)
   }, 120_000) // the route import is heavy; on a swapping 8 GB machine it took 33 s (2026-09-24)
-  it('the gate authenticates before it consults the free window, and caps per user', () => {
+  it('the gate authenticates before it consults the Pro trial / plan, and caps per user', () => {
     const s = src('app/api/deep-check/route.ts')
     const gate = s.slice(s.indexOf('async function enforceProGate'))
     const iUser = gate.indexOf('auth.getUser()')
-    const iWindow = gate.indexOf('inInternalTestWindow()')
+    const iWindow = gate.indexOf('isProEntitled(landlord)')
     const iLimit = gate.indexOf('underHourlyLimit(`deep-check:${userData.user.id}`, 20, true)')
     expect(iUser).toBeGreaterThan(0)
     expect(iLimit).toBeGreaterThan(iUser)

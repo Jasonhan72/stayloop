@@ -23,13 +23,15 @@ export type LandlordBillingRow = {
   stripe_subscription_id?: string | null
   plan_card_brand?: string | null
   plan_card_last4?: string | null
+  /** Pro without a subscription until this instant (new accounts 30 days; test-month accounts 2026-11-14). */
+  pro_trial_until?: string | null
 }
 
 export const BILLING_SELECT =
   'id, auth_id, plan, plan_status, plan_current_period_end, plan_cancel_at_period_end, ' +
-  'stripe_customer_id, stripe_subscription_id, plan_card_brand, plan_card_last4'
+  'stripe_customer_id, stripe_subscription_id, plan_card_brand, plan_card_last4, pro_trial_until'
 
-export type SubscriptionState = 'free' | 'active' | 'canceling' | 'past_due' | 'comped'
+export type SubscriptionState = 'free' | 'trial' | 'active' | 'canceling' | 'past_due' | 'comped'
 
 // Dual-ID invariant (CLAUDE.md): a user can match a legacy row by id and a
 // current row by auth_id. `.or().limit(1)` picks whichever Postgres returns
@@ -48,7 +50,8 @@ export function resolveSubscriptionState(row: LandlordBillingRow | null | undefi
   const status = row.plan_status
   if (hasCustomer && (status === 'past_due' || status === 'unpaid')) return 'past_due'
   const paid = row.plan === 'pro' || row.plan === 'team'
-  if (!paid) return 'free'
+  // A running Pro trial (lib/billing/entitlement): Pro features, nothing in Stripe yet, Checkout still offered.
+  if (!paid) return row.pro_trial_until && Date.parse(row.pro_trial_until) > Date.now() ? 'trial' : 'free'
   // Paid with nothing to manage in Stripe = granted directly by Stayloop.
   if (!row.stripe_subscription_id) return 'comped'
   if (row.plan_cancel_at_period_end) return 'canceling'

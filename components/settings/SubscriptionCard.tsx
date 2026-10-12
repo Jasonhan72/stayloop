@@ -16,7 +16,7 @@
 // lib/billing/subscriptionState.ts (tested) — never re-derive it here.
 import { LANDLORD_PRO } from '@/lib/billing/landlordPlans'
 import { useCallback, useEffect, useState } from 'react'
-import { INTERNAL_TEST_FREE_UNTIL_LABEL, inInternalTestWindow } from '@/lib/billing/freeWindow'
+import { trialUntilLabel } from '@/lib/billing/entitlement'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import {
   BILLING_SELECT,
@@ -92,7 +92,7 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
       window.location.href = url
     } catch (e: any) {
       const m = String(e?.message || 'unknown')
-      setErr(m === 'free_window' ? (zh ? '测试期内所有功能免费，暂时不需要订阅。' : 'Everything is free during the test period — no subscription needed yet.') : m)
+      setErr(m)
       setBusy(null)
     }
   }
@@ -103,7 +103,7 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
 
   const state = resolveSubscriptionState(row)
   const plan = row?.plan ?? 'free'
-  const planName = plan === 'team' ? 'Team' : plan === 'pro' || state === 'past_due' ? 'Pro' : 'Free'
+  const planName = plan === 'team' ? 'Team' : plan === 'pro' || state === 'past_due' || state === 'trial' ? 'Pro' : 'Free'
   const periodEnd = row?.plan_current_period_end
     ? new Date(row.plan_current_period_end).toLocaleDateString(zh ? 'zh-CN' : 'en-CA', { year: 'numeric', month: 'long', day: 'numeric' })
     : null
@@ -113,6 +113,7 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
   const pill = (() => {
     switch (state) {
       case 'free': return { text: zh ? '当前计划' : 'Current plan', bg: '#F3F8FC', fg: '#71717A', dot: null, border: true }
+      case 'trial': return { text: zh ? 'Pro 试用中' : 'Pro trial', bg: '#E4EEE3', fg: GREEN_DEEP, dot: GREEN, border: false }
       case 'active': return { text: trialing ? (zh ? '试用中' : 'Trial') : (zh ? '生效中' : 'Active'), bg: '#E4EEE3', fg: GREEN_DEEP, dot: GREEN, border: false }
       case 'comped': return { text: zh ? '生效中' : 'Active', bg: '#E4EEE3', fg: GREEN_DEEP, dot: GREEN, border: false }
       case 'canceling': return { text: zh ? '将于期末取消' : 'Cancels at period end', bg: '#FEF3E2', fg: '#B45309', dot: '#D97706', border: false }
@@ -126,6 +127,10 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
         return zh
           ? <>升级到 <b className="font-semibold text-body-2">Pro · $19/月（CAD）</b>，随时可取消</>
           : <>Upgrade to <b className="font-semibold text-body-2">Pro · $19/mo (CAD)</b>, cancel any time</>
+      case 'trial':
+        return zh
+          ? <>Pro 全部功能免费试用至 <b className="font-semibold text-body-2">{trialUntilLabel(row, true)}</b>，到期自动降为 Free，不扣款、不要信用卡</>
+          : <>Every Pro feature free until <b className="font-semibold text-body-2">{trialUntilLabel(row, false)}</b>; it then drops to Free — no charge, no card needed</>
       case 'active':
         return zh
           ? <>{periodEnd ? <>下次续费：<b className="font-semibold text-body-2">{periodEnd}</b></> : '按月自动续费'}{card ? <> · {card}</> : null}</>
@@ -150,16 +155,11 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
 
   return (
     <div className="overflow-hidden rounded-2xl border border-line-divider bg-white shadow-card">
-      {inInternalTestWindow() && (
-        <div className="border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-[12.5px] text-amber-900">
-          {zh ? `限时免费：到 ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh} 为止，所有功能对所有账号免费，无需订阅。` : `Free for a limited time: every feature is free for every account until ${INTERNAL_TEST_FREE_UNTIL_LABEL.en} — no subscription needed.`}
-        </div>
-      )}
       <div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-4 pt-5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-2.5">
             <span className="text-[24px] font-extrabold tracking-tight">{planName}</span>
-            {state !== 'free' && (
+            {state !== 'free' && state !== 'trial' && (
               <span className="text-[14px] font-semibold text-body-3">{plan === 'team' ? '' : '$19/mo'}</span>
             )}
             <span
@@ -173,16 +173,10 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
           <div className="mt-1.5 text-[12.5px] text-body-3">{meta}</div>
         </div>
 
-        {/* During the free window the checkout route refuses (400 free_window) — so no button that can only fail
-            (external audit 2026-10-12 saw「⚠ free_window」); the chip says when subscriptions open. */}
-        {state === 'free' && inInternalTestWindow() && (
-          <span className="rounded-full bg-amber-50 px-3 py-[7px] text-[12.5px] font-semibold text-amber-800" data-testid="subscription-free-window">
-            {zh ? `测试期免费 · ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh}后可订阅 Pro` : `Free during the test period · Pro opens after ${INTERNAL_TEST_FREE_UNTIL_LABEL.en}`}
-          </span>
-        )}
-        {state === 'free' && !inInternalTestWindow() && (
-          <button onClick={() => go('checkout')} disabled={busy !== null} className="sl-btn-primary !px-5 !py-[11px] !text-[13.5px]">
-            {busyLabel('checkout', zh ? '升级到 Pro →' : 'Upgrade to Pro →')}
+        {/* Free and trial both offer Checkout (a trial user may subscribe early); the trial pill + meta say how long Pro is free. */}
+        {(state === 'free' || state === 'trial') && (
+          <button onClick={() => go('checkout')} disabled={busy !== null} className="sl-btn-primary !px-5 !py-[11px] !text-[13.5px]" data-testid="subscription-upgrade">
+            {busyLabel('checkout', state === 'trial' ? (zh ? '现在订阅 Pro →' : 'Subscribe to Pro →') : (zh ? '升级到 Pro →' : 'Upgrade to Pro →'))}
           </button>
         )}
         {state === 'canceling' && (

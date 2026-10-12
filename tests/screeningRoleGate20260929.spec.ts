@@ -61,11 +61,11 @@ describe('the routes check before they do anything', () => {
     expect(check).toBeLessThan(r.indexOf("update({ status: 'error', error: 'no_documents' })"))
     expect(check).toBeLessThan(r.indexOf('loadedScreeningId = screening.id'))
   })
-  it('/api/deep-check: in the gate, before the free-month bypass; a delegated screening passes', () => {
+  it('/api/deep-check: in the gate, before the Pro-trial bypass; a delegated screening passes', () => {
     const r = read('app/api/deep-check/route.ts')
     const check = r.indexOf('if (!mayScreen(hats, delegated)) return bad(SCREENING_ROLE_MESSAGE.en, SCREENING_ROLE_MESSAGE.zh, 403)')
     expect(check).toBeGreaterThan(0)
-    expect(check).toBeLessThan(r.indexOf('if (inInternalTestWindow()) return null'))
+    expect(check).toBeLessThan(r.indexOf('if (isProEntitled(landlord)) return null'))
     expect(r).toContain(".from('screenings').select('delegation_id').eq('id', screeningId).maybeSingle()")
   })
   it('/api/verify/create: before the plan check and any link is made', () => {

@@ -5,7 +5,7 @@ import { courtNoteZh, courtSourceZh } from '@/lib/screening/localize'
 import { summaryFor } from '@/lib/screening/summaryText'
 import { useState, useEffect, useRef, useCallback, type ReactNode, type CSSProperties } from 'react'
 import { dissolutionReason } from '@/lib/forensics/employer-checks'
-import { inInternalTestWindow } from '@/lib/billing/freeWindow'
+import { proTrialActive } from '@/lib/billing/entitlement'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { prepareUploads } from '@/lib/screening/prepareUpload'
@@ -1729,11 +1729,12 @@ export default function ScreenPage() {
     ].filter(Boolean).join(',')
     const { data } = await supabase
       .from('landlords')
-      .select('plan, unlock_credits')
+      .select('plan, unlock_credits, pro_trial_until')
       .or(conditions)
       .limit(1)
     if (data?.[0]?.plan) {
-      setPlan(inInternalTestWindow() ? 'pro' : (data[0].plan as 'free' | 'pro' | 'team'))
+      // A running Pro trial renders as Pro (lib/billing/entitlement) — same rule as the server gates.
+      setPlan(proTrialActive(data[0] as { pro_trial_until?: string | null }) ? 'pro' : (data[0].plan as 'free' | 'pro' | 'team'))
     }
     if (typeof data?.[0]?.unlock_credits === 'number') {
       setUnlockCredits(data[0].unlock_credits as number)
@@ -1769,7 +1770,7 @@ export default function ScreenPage() {
   async function runDeepCheck(manualEmployer?: string) {
     // Gate: Pro plan, an unlocked screening, or a prepaid credit (which the
     // server spends atomically). Otherwise offer the one-time unlock.
-    const proNow = inInternalTestWindow() || plan === 'pro' || plan === 'team' || unlocked
+    const proNow = plan === 'pro' || plan === 'team' || unlocked
     if (!proNow && unlockCredits <= 0) {
       setUnlockOpen(true)
       return

@@ -112,9 +112,10 @@ describe('review 2026-09-17', () => {
     const lib = src('lib/lease/sendLease.ts')
     expect(lib).toMatch(/\.from\('lease_documents'\)\s*\.update\(\{ sign_token: token/)
   })
-  it('per-applicant unlock is refused inside the internal free window; the modal never opens then', () => {
-    expect(src('app/api/stripe/unlock/route.ts')).toMatch(/inInternalTestWindow\(\)/)
-    expect(src('app/screening/app/page.tsx')).toMatch(/const proNow = inInternalTestWindow\(\) \|\|/)
+  it('per-applicant unlock: Pro / unlocked / credit gate the modal; a running trial renders as Pro (test-month switch retired 2026-10-12)', () => {
+    expect(src('app/api/stripe/unlock/route.ts')).not.toMatch(/inInternalTestWindow\(\)/)
+    expect(src('app/screening/app/page.tsx')).toMatch(/const proNow = plan === 'pro' \|\| plan === 'team' \|\| unlocked/)
+    expect(src('app/screening/app/page.tsx')).toContain("setPlan(proTrialActive(data[0] as { pro_trial_until?: string | null }) ? 'pro'")
   })
   it('stripe unlock fulfilment requires a paid session and also handles async_payment_succeeded', () => {
     const s = src('app/api/stripe/webhook/route.ts')
