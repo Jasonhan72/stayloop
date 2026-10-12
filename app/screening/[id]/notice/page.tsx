@@ -5,8 +5,8 @@ export const runtime = 'edge'
 // /screening/[id]/notice — a printable notice the landlord can hand to an
 // applicant who was not selected (competitor review P1-2). Ontario's
 // Consumer Reporting Act s.10 requires telling an applicant when a consumer
-// report contributed to a refusal and naming the agency; Stayloop is not a
-// consumer reporting agency, so this letter states the actual basis: the
+// report contributed to a refusal and naming the agency; this letter states
+// the actual basis so the applicant can exercise that right: the
 // documents the applicant supplied plus public records, names the sources,
 // and gives the applicant a way to see, correct or dispute what was relied
 // on. The landlord edits the letter in place; nothing here is saved.
@@ -108,8 +108,8 @@ export default function NoticePage() {
           <div className="mt-4 text-[13px] font-bold">{zh ? '我们参考了什么' : 'What was considered'}</div>
           <p className="mt-1 text-[13.5px] leading-relaxed">
             {zh
-              ? `本决定基于你自愿提交的申请文件与公开记录，由 Stayloop 平台协助整理。Stayloop 不是安省《消费者报告法》意义上的消费者报告机构${sources.bureauPull ? '；经你本人在核验页授权，我们向征信机构获取了你的信用报告摘要' : '，本次没有向消费者报告机构购买关于你的报告'}`
-              : `The decision was based on the documents you voluntarily submitted and on public records, organised with the help of the Stayloop platform. Stayloop is not a consumer reporting agency under the Consumer Reporting Act (Ontario)${sources.bureauPull ? '; with the authorisation you gave on the verification page, a summary of your credit report was obtained from the bureau' : ', and no report about you was purchased from a consumer reporting agency'}`}
+              ? `本决定基于你自愿提交的申请文件与公开记录，由 Stayloop 平台协助整理${sources.bureauPull ? '；经你本人在核验页授权，我们向征信机构获取了你的信用报告摘要' : '；本次没有向 Equifax 或 TransUnion 购买关于你的信用报告'}`
+              : `The decision was based on the documents you voluntarily submitted and on public records, organised with the help of the Stayloop platform${sources.bureauPull ? '; with the authorisation you gave on the verification page, a summary of your credit report was obtained from the bureau' : '; no credit report about you was purchased from Equifax or TransUnion'}`}
             {sources.credit ? (zh ? '；我们阅读的是你本人提供的信用报告' : '; the credit report read was the one you supplied yourself') : ''}
             {sources.verified ? (zh ? '；经你本人授权的身份 / 银行核验结果也在考虑之列' : '; the identity / bank verification you authorised yourself was also considered') : ''}
             {sources.court ? (zh ? '。公开记录来源：安省开放数据 LTB 判令目录、安省法院公开门户。' : '. Public-record sources: the Ontario Open Data LTB Order Catalogue and the Ontario Courts public portal.') : (zh ? '。公开记录来源：安省开放数据 LTB 判令目录（安省法院门户本次未能检索）。' : '. Public-record source: the Ontario Open Data LTB Order Catalogue (the Ontario Courts portal could not be searched this time).')}

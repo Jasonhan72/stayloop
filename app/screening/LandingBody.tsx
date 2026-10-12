@@ -137,8 +137,8 @@ export default function LandingBody() {
             <h2 className="text-[15px] font-extrabold">{zh ? '合规姿态' : 'Compliance posture'}</h2>
             <p className="mt-2 max-w-[720px] text-[12.5px] leading-relaxed text-body-2">
               {zh
-                ? '筛查工具的使用遵循安省《人权法典》下 O. Reg. 290/98 允许的选择方式(信用参考、租史、信用检查、收入信息,须整体考量)。受保护特征不进入评分,合规审计随每份报告输出。报告基于申请人自愿提交的文件与公开记录生成;Stayloop 不是《消费者报告法》(安省)意义上的消费者报告机构,本报告亦非该法意义上的消费者报告。个人信息按 PIPEDA 要求加密存储,申请人有权查阅并要求更正。'
-                : "Screening follows the selection practices O. Reg. 290/98 under Ontario's Human Rights Code permits (credit references, rental history, credit checks, income information — considered together). Protected grounds never enter the score, and a compliance audit ships with every report. Reports are generated from documents the applicant voluntarily submits plus public records; Stayloop is not a consumer reporting agency within the meaning of the Consumer Reporting Act (Ontario), nor is the report a consumer report under that Act. Personal information is stored encrypted per PIPEDA, and applicants may access and correct it."}
+                ? '筛查工具的使用遵循安省《人权法典》下 O. Reg. 290/98 允许的选择方式(信用参考、租史、信用检查、收入信息,须整体考量)。受保护特征不进入评分,合规审计随每份报告输出。报告基于申请人自愿提交的文件与公开记录生成;报告按安省《消费者报告法》对消费者报告的标准处理:只用于签订或续签租约的目的,不利信息未经佐证即注明。个人信息按 PIPEDA 要求加密存储,申请人有权查阅并要求更正。'
+                : "Screening follows the selection practices O. Reg. 290/98 under Ontario's Human Rights Code permits (credit references, rental history, credit checks, income information — considered together). Protected grounds never enter the score, and a compliance audit ships with every report. Reports are generated from documents the applicant voluntarily submits plus public records; Reports are handled to the standard the Consumer Reporting Act (Ontario) sets for consumer reports: used only for entering into or renewing a tenancy, with adverse items flagged when uncorroborated. Personal information is stored encrypted per PIPEDA, and applicants may access and correct it."}
             </p>
           </div>
         </section>

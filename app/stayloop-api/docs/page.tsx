@@ -51,7 +51,7 @@ export default function TrustApiDocsPage() {
       <section className="mx-auto max-w-[960px] px-5 py-10 sm:px-7">
         <h2 className="text-[20px] font-semibold">{zh ? '边界（先读这段）' : 'Boundary (read this first)'}</h2>
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[14.5px] leading-relaxed text-body-2">
-          <li>{zh ? 'Stayloop 不是《消费者报告法》意义上的报告机构。核验结论只在申请人签发的 token 有效期内、按申请人勾选的范围返回。' : 'Stayloop is not a consumer reporting agency under the Consumer Reporting Act. Conclusions are returned only within an applicant-issued token’s validity and only for the scopes the applicant ticked.'}</li>
+          <li>{zh ? '核验结论只在申请人签发的 token 有效期内、按申请人勾选的范围返回——这是消费者本人书面指示下的披露（《消费者报告法》s.8(1)(b)）。' : 'Conclusions are returned only within an applicant-issued token’s validity and only for the scopes the applicant ticked — a disclosure on the consumer’s own written instructions (Consumer Reporting Act s.8(1)(b)).'}</li>
           <li>{zh ? '筛查分数与档位是房东自行决定的参考信息，不是拒绝依据（OHRC 租房政策）；不得设收入比截止线。' : 'Screening score and tier are information for the landlord’s own decision, never grounds to decline (OHRC housing policy); no income-ratio cut-offs.'}</li>
           <li>{zh ? '面向金融机构的用途尚未开放，待法律意见。' : 'Use by financial institutions is not yet open, pending legal advice.'}</li>
           <li>{zh ? <>密钥由 Stayloop 发放（联系 <ContactEmail />），限流：verify 120/分钟，screen 20/分钟，compliance 每 IP 120/小时。</> : <>Keys are issued by Stayloop (<ContactEmail />). Limits: verify 120/min, screen 20/min, compliance 120/h per IP.</>}</li>
@@ -111,7 +111,7 @@ export default function TrustApiDocsPage() {
 // webhook (X-Stayloop-Event: screening.completed)
 { "screening_id": "…", "external_ref": "APP-1042", "status": "scored", "overall": 74, "tier": "review",
   "hard_gates": [], "report_url": "…/report", "notice_letter_url": "…/notice",
-  "boundary": "Score and tier are information for the landlord's own decision — never grounds to decline (OHRC). Not a consumer report." }`}</Code>
+  "boundary": "Score and tier are information for the landlord's own decision — never grounds to decline (OHRC)." }`}</Code>
       </section>
 
       <section className="mx-auto max-w-[960px] px-5 py-10 sm:px-7">

@@ -1298,8 +1298,8 @@ export async function generateScreeningReport(
       ? '本报告仅可在申请人知情同意下,为订立或续订租赁协议之目的查看与使用,不得向无正当目的的第三方分发。依据《安大略省人权法典》,受保护特征(种族、国籍、宗教、性别、年龄、家庭状况、残障等)未被用于评分;详见合规审计一节。'
       : 'This report may only be viewed and used, with the applicant\'s knowledge and consent, in connection with entering into or renewing a tenancy agreement, and may not be distributed to third parties without a valid purpose. Per the Ontario Human Rights Code, protected grounds (race, nationality, religion, sex, age, family status, disability, etc.) were excluded from scoring — see the Compliance Audit section.'}</p>
     <p style="margin-bottom:5px">${zh
-      ? 'Stayloop 不是《消费者报告法》(Consumer Reporting Act) 意义上的信用报告机构,本报告亦非该法意义上的"消费者报告"。个人信息按 PIPEDA 要求加密存储,保留 7 年,申请人有权查阅其被收集的信息并要求更正。'
-      : 'Stayloop is not a consumer reporting agency within the meaning of the Consumer Reporting Act (Ontario), and this report is not a "consumer report" under that Act. Personal information is stored encrypted and retained for 7 years per PIPEDA; the applicant has the right to access and correct the information collected about them.'}</p>
+      ? '本报告按安省《消费者报告法》(Consumer Reporting Act) 对消费者报告的标准处理:只用于订立或续订租赁协议的目的,不利信息未经佐证即注明。个人信息按 PIPEDA 要求加密存储,保留 7 年,申请人有权查阅其被收集的信息、要求更正或提出争议。'
+      : 'This report is handled to the standard the Consumer Reporting Act (Ontario) sets for consumer reports: used only for entering into or renewing a tenancy agreement, with adverse items flagged when uncorroborated. Personal information is stored encrypted and retained for 7 years per PIPEDA; the applicant has the right to access, correct or dispute the information collected about them.'}</p>
     <p>${zh
       ? '评分为 AI 辅助评估,仅供参考,不构成法律、金融或租赁决策意见。最终决策责任由房东承担,建议结合面谈、推荐人核实与查档原件后综合判断。'
       : 'Scores are AI-assisted assessments for reference only and do not constitute legal, financial, or tenancy-decision advice. The final decision rests with the landlord; we recommend combining this report with interviews, reference checks, and original-document review.'}</p>

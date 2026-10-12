@@ -101,7 +101,7 @@ export async function POST(req: Request) {
     } catch (e) { result = { error: (e as Error).message } }
     if (webhook) {
       const payload = status === 'scored'
-        ? { screening_id: row.id, external_ref: body.external_ref ?? null, status, overall: result.overall, tier: result.tier ?? null, hard_gates: result.hard_gates ?? [], report_url: `${origin}/screening/${row.id}/report`, notice_letter_url: `${origin}/screening/${row.id}/notice`, boundary: 'Score and tier are information for the landlord\'s own decision — never grounds to decline (OHRC). Not a consumer report.' }
+        ? { screening_id: row.id, external_ref: body.external_ref ?? null, status, overall: result.overall, tier: result.tier ?? null, hard_gates: result.hard_gates ?? [], report_url: `${origin}/screening/${row.id}/report`, notice_letter_url: `${origin}/screening/${row.id}/notice`, boundary: 'Score and tier are information for the landlord\'s own decision — never grounds to decline (OHRC).' }
         : { screening_id: row.id, external_ref: body.external_ref ?? null, status, error: result.error ?? 'scoring failed' }
       try { await fetch(webhook, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Stayloop-Event': 'screening.completed' }, body: JSON.stringify(payload) }) } catch { /* partner endpoint down */ }
     }

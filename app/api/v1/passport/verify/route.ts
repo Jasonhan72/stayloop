@@ -24,8 +24,8 @@ async function sha256Hex(input: string): Promise<string> {
 }
 
 const BOUNDARY = {
-  zh: 'Stayloop 不是《消费者报告法》意义上的报告机构。本响应只包含申请人本人授权分享的核验结论，不含文件；申请人可随时撤销 token。依据 s.10(7)，申请人有权在 60 天内索取不利决定所依据信息的性质与来源。',
-  en: 'Stayloop is not a consumer reporting agency under the Consumer Reporting Act. This response contains only conclusions the applicant chose to share — no documents — and the applicant can revoke the token at any time. Under s.10(7) the applicant may, within 60 days, ask for the nature and source of information behind an adverse decision.',
+  zh: '本响应只包含申请人本人授权分享的核验结论（消费者本人书面指示下的披露，《消费者报告法》s.8(1)(b)），不含文件；申请人可随时撤销 token。依据 s.10(7)，申请人有权在 60 天内索取不利决定所依据信息的性质与来源。',
+  en: 'This response contains only conclusions the applicant chose to share (a disclosure on the consumer’s own written instructions, Consumer Reporting Act s.8(1)(b)) — no documents — and the applicant can revoke the token at any time. Under s.10(7) the applicant may, within 60 days, ask for the nature and source of information behind an adverse decision.',
 }
 
 export async function POST(req: Request) {

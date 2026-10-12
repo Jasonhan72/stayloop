@@ -105,8 +105,8 @@ export const FAQS = [
     en: { q: 'Is this legal in Ontario?', a: 'Yes. O. Reg. 290/98 under the Human Rights Code expressly permits landlords to use credit references, rental history, credit checks and income information when selecting tenants, considered together and never in a discriminatory way. Stayloop excludes OHRC protected grounds (race, religion, disability, family status and more) from both search and scoring, and a compliance audit ships with every report.' },
   },
   {
-    zh: { q: '会查刑事记录吗?', a: '不会。筛查只使用申请人自愿提交的文件与公开的民事记录(LTB 判令、法院门户)。Stayloop 不进行警方记录核查,也不是《消费者报告法》(安省)意义上的消费者报告机构。' },
-    en: { q: 'Does it check criminal records?', a: 'No. Screening uses only documents the applicant voluntarily submits and public civil records (LTB orders, court portal). Stayloop performs no police record checks and is not a consumer reporting agency within the meaning of the Consumer Reporting Act (Ontario).' },
+    zh: { q: '会查刑事记录吗?', a: '不会。筛查只使用申请人自愿提交的文件与公开的民事记录(LTB 判令、法院门户)。Stayloop 不进行警方记录核查；报告按安省《消费者报告法》对报告机构的标准处理,只用于签订或续签租约的目的。' },
+    en: { q: 'Does it check criminal records?', a: 'No. Screening uses only documents the applicant voluntarily submits and public civil records (LTB orders, court portal). Stayloop performs no police record checks; reports are handled to the standard the Consumer Reporting Act (Ontario) sets for reporting agencies and used only for entering into or renewing a tenancy.' },
   },
   {
     zh: { q: '租客需要做什么?', a: '提交申请材料即可——通常是申请表、收入证明和自行从 Equifax/TransUnion 下载的信用报告。Stayloop 不直连征信局,信用信息只来自租客自己提供的报告。' },

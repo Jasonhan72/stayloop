@@ -61,7 +61,7 @@ const SOURCES: { name: string; cat: Cat; status: Status; use: Record<Lang, strin
     note: { zh: '沙箱结果标 sandbox，不进评分。', en: 'Sandbox results are labelled and never scored.' } },
   { name: 'Equifax Canada', cat: 'verification', status: 'preparing', href: 'https://www.consumer.equifax.ca',
     use: { zh: '申请人本人授权的征信直拉（姓名 / 出生日期 / 现住址，不收 SIN），结果与上传报告同一形状。', en: 'Applicant-authorised bureau pull (name / date of birth / current address, no SIN) in the same shape as an uploaded report.' },
-    note: { zh: '等待加拿大商业协议与 API 参考；Stayloop 不是消费者报告机构。', en: 'Awaiting the Canadian commercial agreement and API reference; Stayloop is not a consumer reporting agency.' } },
+    note: { zh: '等待加拿大商业协议与 API 参考；直拉须在完成《消费者报告法》注册后上线。', en: 'Awaiting the Canadian commercial agreement and API reference; the pull goes live only after Consumer Reporting Act registration.' } },
   { name: 'Anthropic · OpenAI · Google (default models)', cat: 'ai', status: 'live',
     use: { zh: 'AI 助理对话、文件读取与一致性审查；模型槽位由管理员配置、登录用户可自选。服务器位于美国。', en: 'AI Agent turns, document reading and coherence review; model slots are set by administrators and users may choose their own. Servers in the United States.' } },
   { name: 'Alibaba DashScope (Qwen OCR fallback)', cat: 'ai', status: 'live',

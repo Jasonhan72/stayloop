@@ -72,7 +72,7 @@ const CFG: RoleLandingConfig = {
     { label: { zh: '数据库驻加拿大', en: 'Database in Canada' }, href: '/privacy' },
     { label: { zh: '不收 SIN', en: 'No SIN collected' }, href: '/privacy' },
     { label: { zh: 'OHRC 租房政策口径', en: 'OHRC housing-policy scoring' }, href: '/screening' },
-    { label: { zh: '不是消费者报告机构', en: 'Not a consumer reporting agency' }, href: '/screening' },
+    { label: { zh: '按《消费者报告法》标准处理', en: 'Handled to Consumer Reporting Act standards' }, href: '/screening' },
     { label: { zh: '免费档永久免费 · 新账号 Pro 免费 30 天', en: 'Go is free forever · new accounts get Pro free for 30 days' }, href: '/pricing' },
   ],
   benefits: [
@@ -104,7 +104,7 @@ const CFG: RoleLandingConfig = {
     { q: { zh: '我能让申请人付筛查费吗？', en: 'Can I charge the applicant for screening?' }, a: { zh: '不能。RTA s.134 禁止向租客收取申请或筛查费用。定价页与解锁流程都没有「让申请人付」的选项。', en: 'No. RTA s.134 prohibits charging tenants application or screening fees. Neither pricing nor the unlock flow has an "applicant pays" option.' } },
     { q: { zh: '报告能给申请人看吗？', en: 'Can the applicant see the report?' }, a: { zh: '可以，也应该。报告页有可打印的申请人通知信，说明参考了哪些材料、如何索取与更正（《消费者报告法》s.10(7)）。', en: 'Yes, and they should. The report page has a printable applicant notice explaining what was considered and how to request and correct it (Consumer Reporting Act s.10(7)).' } },
     { q: { zh: '数据存在哪？谁能看？', en: 'Where is the data stored and who can see it?' }, a: { zh: '数据库在 AWS 蒙特利尔（ca-central-1）。文件只有你本人与你授权的申请人链接可读；AI 服务商所在地在隐私页第 2 节如实列出。', en: 'The database is in AWS Montréal (ca-central-1). Files are readable only by you and the applicant link you authorise; AI providers and their locations are listed in section 2 of the privacy page.' } },
-    { q: { zh: 'Stayloop 是消费者报告机构吗？', en: 'Is Stayloop a consumer reporting agency?' }, a: { zh: '不是。我们整理你收到的材料与公开记录，不向第三方出售报告。是否注册为报告机构正在研究，进展会写在隐私页。', en: 'No. We organise the material you received plus public records and sell no reports to third parties. Whether to register as an agency is under review; progress is posted on the privacy page.' } },
+    { q: { zh: 'Stayloop 是消费者报告机构吗？', en: 'Is Stayloop a consumer reporting agency?' }, a: { zh: '我们按《消费者报告法》对报告机构的标准处理筛查报告：只用于签订或续签租约的目的，不向第三方出售，不利信息未经佐证即注明，申请人可以索取档案、要求更正或提出争议。', en: 'We handle screening reports to the standard the Consumer Reporting Act sets for reporting agencies: used only for entering into or renewing a tenancy, never sold to third parties, adverse items flagged when uncorroborated, and the applicant may request their file, a correction or a dispute.' } },
   ],
 }
 
