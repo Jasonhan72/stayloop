@@ -254,7 +254,7 @@ export default function PricingPage() {
       <Header variant="transparent" />
       <main>
         <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-[13px] font-semibold text-emerald-900" data-testid="pricing-trial-banner">
-          {lang === 'zh' ? `租客永久免费 · 房东免费档永久免费 · 新注册的房东账号 Pro 功能免费试用 ${TRIAL_DAYS} 天，不要信用卡，到期自动降回免费档` : `Tenants: free forever · Landlord Go: free forever · New landlord accounts get every Pro feature free for ${TRIAL_DAYS} days, no card, then drop to Go automatically`}
+          {lang === 'zh' ? `租客永久免费 · 房东免费档永久免费 · 新注册的房东账号 Pro 功能免费试用 ${TRIAL_DAYS} 天，不要信用卡，到期自动降回免费档。标「即将推出」的模块尚未上线，不在免费范围内，也不会另收费。` : `Tenants: free forever · Landlord Go: free forever · New landlord accounts get every Pro feature free for ${TRIAL_DAYS} days, no card, then drop to Go automatically. Modules marked "coming soon" are not live yet; they are neither included nor charged for.`}
         </div>
         <section
           className="relative overflow-hidden"
