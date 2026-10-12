@@ -91,7 +91,8 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
       if (!url) throw new Error('portal failed')
       window.location.href = url
     } catch (e: any) {
-      setErr(String(e?.message || 'unknown'))
+      const m = String(e?.message || 'unknown')
+      setErr(m === 'free_window' ? (zh ? '测试期内所有功能免费，暂时不需要订阅。' : 'Everything is free during the test period — no subscription needed yet.') : m)
       setBusy(null)
     }
   }
@@ -139,8 +140,8 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
           : 'Stripe will retry a few times; the subscription is cancelled if charges keep failing'
       case 'comped':
         return zh
-          ? '由 Stayloop 直接开通，没有需要管理的 Stripe 订阅'
-          : 'Granted directly by Stayloop — there is no Stripe subscription to manage'
+          ? 'Pro 由 Stayloop 直接开通，免费使用中；没有 Stripe 订阅，所以这里没有付款方式或发票可管理'
+          : 'Pro was granted directly by Stayloop at no charge; there is no Stripe subscription, so nothing to manage here'
     }
   })()
 
@@ -172,7 +173,14 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
           <div className="mt-1.5 text-[12.5px] text-body-3">{meta}</div>
         </div>
 
-        {state === 'free' && (
+        {/* During the free window the checkout route refuses (400 free_window) — so no button that can only fail
+            (external audit 2026-10-12 saw「⚠ free_window」); the chip says when subscriptions open. */}
+        {state === 'free' && inInternalTestWindow() && (
+          <span className="rounded-full bg-amber-50 px-3 py-[7px] text-[12.5px] font-semibold text-amber-800" data-testid="subscription-free-window">
+            {zh ? `测试期免费 · ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh}后可订阅 Pro` : `Free during the test period · Pro opens after ${INTERNAL_TEST_FREE_UNTIL_LABEL.en}`}
+          </span>
+        )}
+        {state === 'free' && !inInternalTestWindow() && (
           <button onClick={() => go('checkout')} disabled={busy !== null} className="sl-btn-primary !px-5 !py-[11px] !text-[13.5px]">
             {busyLabel('checkout', zh ? '升级到 Pro →' : 'Upgrade to Pro →')}
           </button>

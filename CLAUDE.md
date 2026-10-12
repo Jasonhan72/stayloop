@@ -3377,3 +3377,20 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 - **邮件已于 2026-10-11 发给 dataagreements@proptx.ca**（抄送 Sheng Chu）。下一步：Sheng Chu（RECO 9565987，Sheng Chu Realty Inc. / JDL Realty Inc.）在 syndication.ampre.ca 发起 IDX + VOW
   两份协议并把 Stayloop Inc. 加为新供应商 → PropTx 向 Stayloop 发供应商验证邮件（说明用途、签协议）→ JDL 的 Broker of Record 签字 → 拿 RESO Web API 凭证后做字段映射 / 24h 刷新 /
   经纪姓名回填；届时再把 `NEXT_PUBLIC_MLS_SPONSOR_*` 填进 CF Pages。审核账号 proptx-review@stayloop.ai 留着，审核结束删。
+
+## 外部变现审计（2026-10-12 · 用户贴来一份「按阻断赚钱排序」的审计，先复现再改）
+
+逐条复现结果（守卫 `tests/auditFixes20261012.spec.ts`）：
+- **P0-1「管理订阅点两次崩两次 / 设置页写 Pro 由 Stayloop 直接开通」——审核用的是 jasonhan72@gmail.com（plan=pro、无 Stripe customer 的直接开通账号）**，生产只有这一个
+  这样的行；普通免费账号（房东测试号）工作台根本没有「管理订阅」按钮。「崩」= 门户路由对无 customer 的账号返回错误、页面 `alert`。已改：工作台只在有 Stripe customer 时
+  显示「管理订阅」，直接开通的显示「由 Stayloop 开通 · 免费使用中」标签；设置页的 comped 文案改为说明「免费使用中、没有 Stripe 订阅所以无付款方式 / 发票可管理」。
+- **P0-1「/pricing 房东按钮错链到 /services」——不属实**：Pro 卡 CTA 测试期内 → `/dashboard`、期后 → `/dashboard?upgrade=1`；`/services` 是功能行里「了解 →」小链接（维修派单）。
+- **真问题（审计没点到，复现时发现）：/settings 的「升级到 Pro →」在测试期内点击显示「⚠ free_window」**（checkout 路由测试期内 400）。已改：测试期内换成琥珀色
+  「测试期免费 · 10 月 14 日后可订阅 Pro」芯片，不再出按钮；`free_window` 错误映射成人话。
+- **P0-2「10-14 后零收入」——不属实**：所有门禁读 `lib/billing/freeWindow.ts`，到期自动关闭，Stripe live checkout / webhook / portal 2026-08-26 真卡验证过；FAQ 里
+  「尚未开售」只指经纪档和团队档。**P0-3「$14.99 可能是空的」——不属实**：`/api/stripe/unlock` 09-04 已验证，测试期内按设计不弹付费。
+- **P1-4「发布向导离开后白填」——属实，已改**：表单与步骤自动存 localStorage（7 天），回来时恢复并提示「已恢复你上次没发完的草稿（照片需要重新选择）」+「清空重来」；
+  照片（data URL）不存；发布成功即清。「照片必填」是既定规则（没有照片的房源不上线）。
+- **P1-5 Realtor 房源不能申请 / P1-6 申请模块是样例 / P1-8 经纪 $39 未开售——按设计**（分别：Realtor 导入没有 Stayloop 房东；该账号没有真实申请时显示诚实空态 + 演示；
+  经纪付费档明标即将推出）。**P1-7「正在为您生成最新数据…」——代码里没有这句，无法复现**。
+- **P2-9「Sarah 请 Davi」截断——不是可见缺陷**：这句只在三方动画的 `sr-only` 读屏摘要里，审计工具自己截断了文本。**P2-10 手机端**——同日已全站扫描（17 页 × 375 / 320，零溢出）。

@@ -18,6 +18,9 @@ export default function Dashboard() {
   const [applications, setApplications] = useState<Application[]>([])
   const [listings, setListings] = useState<Listing[]>([])
   const [plan, setPlan] = useState<Plan>('free')
+  // A Pro granted directly (no Stripe customer) has nothing to manage in the billing portal — the button used to
+  // open it anyway and alert「Billing portal error」(external audit 2026-10-12 on the comped founder account).
+  const [hasStripeCustomer, setHasStripeCustomer] = useState(false)
   const [loading, setLoading] = useState(true)
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
   const [deletingListing, setDeletingListing] = useState<Listing | null>(null)
@@ -144,13 +147,14 @@ export default function Dashboard() {
     const [appsRes, listingsRes, planRes, archivedRes] = await Promise.all([
       supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
       supabase.from('listings').select('*').eq('landlord_id', landlord!.landlordId).neq('status', 'archived').order('created_at', { ascending: false }),
-      supabase.from('landlords').select('plan').or(`id.eq.${landlord!.landlordId},auth_id.eq.${landlord!.landlordId}`).maybeSingle(),
+      supabase.from('landlords').select('plan, stripe_customer_id').or(`id.eq.${landlord!.landlordId},auth_id.eq.${landlord!.landlordId}`).maybeSingle(),
       supabase.from('listings').select('id, slug, address, unit, city, monthly_rent, status, is_active').eq('landlord_id', landlord!.landlordId).eq('status', 'archived').order('created_at', { ascending: false }).limit(50),
     ])
     if (appsRes.data) setApplications(appsRes.data as Application[])
     if (listingsRes.data) setListings(listingsRes.data as Listing[])
     if (archivedRes.data) setArchivedListings(archivedRes.data as unknown as Listing[])
     if (planRes.data?.plan) setPlan(planRes.data.plan as Plan)
+    setHasStripeCustomer(!!(planRes.data as { stripe_customer_id?: string | null } | null)?.stripe_customer_id)
     setLoading(false)
   }
 
@@ -263,7 +267,7 @@ export default function Dashboard() {
                   {lang === 'zh' ? '升级到 Pro' : 'Upgrade to Pro'}
                 </button>
               )}
-              {(plan === 'pro' || plan === 'team') && (
+              {(plan === 'pro' || plan === 'team') && hasStripeCustomer && (
                 <button
                   onClick={openBillingPortal}
                   disabled={portalLoading}
@@ -271,6 +275,11 @@ export default function Dashboard() {
                 >
                   {portalLoading ? (lang === 'zh' ? '打开中…' : 'Opening…') : (lang === 'zh' ? '管理订阅' : 'Manage subscription')}
                 </button>
+              )}
+              {(plan === 'pro' || plan === 'team') && !hasStripeCustomer && (
+                <span className="rounded-full bg-emerald-50 px-3 py-[6px] text-[12px] font-semibold text-emerald-800" data-testid="plan-comped">
+                  {lang === 'zh' ? '由 Stayloop 开通 · 免费使用中' : 'Granted by Stayloop · no charge'}
+                </span>
               )}
               <Link href="/dashboard/listings/new" className="sl-btn-primary !py-[10px] !px-4 !text-[13.5px]">
                 {lang === 'zh' ? '+ 新建房源' : '+ New listing'}

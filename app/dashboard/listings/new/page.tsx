@@ -1,7 +1,7 @@
 'use client'
 
 import { draftListingCopy } from '@/lib/listingCopy'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
@@ -43,6 +43,7 @@ const UTILITY_OPTIONS: { id: string; zh: string; en: string }[] = [
   { id: 'hydro', zh: '电', en: 'Hydro' }, { id: 'water', zh: '水', en: 'Water' }, { id: 'heat', zh: '暖气', en: 'Heat' },
   { id: 'gas', zh: '燃气', en: 'Gas' }, { id: 'internet', zh: '网络', en: 'Internet' }, { id: 'cable', zh: '有线电视', en: 'Cable' },
 ]
+const WIZARD_DRAFT_KEY = 'sl-listing-wizard-draft' // page files must not export extra symbols
 const MAX_PHOTOS = 12
 const NOT_PROVIDED = { zh: '未提供', en: 'not provided' }
 
@@ -92,6 +93,35 @@ export default function NewListingPage() {
     description: '',
   })
   const [photos, setPhotos] = useState<string[]>([])
+  // Draft autosave (external audit 2026-10-12: leaving the wizard lost everything typed). The form and the
+  // step are kept in localStorage for 7 days and restored on return; photos are not (data URLs are too big
+  // and the file picker must be used again). Cleared when the listing is published.
+  const [draftRestored, setDraftRestored] = useState<string | null>(null)
+  const draftReady = useRef(false)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(WIZARD_DRAFT_KEY)
+      if (raw) {
+        const d = JSON.parse(raw) as { form?: Partial<typeof form>; step?: number; savedAt?: string }
+        const fresh = d.savedAt && Date.now() - Date.parse(d.savedAt) < 7 * 86_400_000
+        const hasContent = d.form && Object.values(d.form).some((v) => (Array.isArray(v) ? v.length > 0 : typeof v === 'string' && v && !['Toronto', 'ON', '1', 'condo'].includes(v)))
+        if (fresh && hasContent) {
+          setForm((f) => ({ ...f, ...d.form }))
+          if (d.step && d.step >= 1 && d.step <= 5) setStep(Math.min(d.step, 2))
+          setDraftRestored(d.savedAt || '')
+        } else localStorage.removeItem(WIZARD_DRAFT_KEY)
+      }
+    } catch { /* storage unavailable */ }
+    draftReady.current = true
+  }, [])
+  useEffect(() => {
+    if (!draftReady.current) return
+    const t = setTimeout(() => {
+      try { localStorage.setItem(WIZARD_DRAFT_KEY, JSON.stringify({ form, step, savedAt: new Date().toISOString() })) } catch { /* ignore */ }
+    }, 400)
+    return () => clearTimeout(t)
+  }, [form, step])
+  const clearDraft = () => { try { localStorage.removeItem(WIZARD_DRAFT_KEY) } catch { /* ignore */ } setDraftRestored(null) }
   const photoRef = useRef<HTMLInputElement>(null)
   const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -250,6 +280,7 @@ export default function NewListingPage() {
       return
     }
     invalidateHats()
+    try { localStorage.removeItem(WIZARD_DRAFT_KEY) } catch { /* ignore */ }
     router.replace('/dashboard?new=' + newSlug)
   }
 
@@ -268,6 +299,12 @@ export default function NewListingPage() {
 
   return (
     <WorkspaceShell role="landlord" hideAside>
+      {draftRestored && (
+        <div className="mx-auto mb-3 flex max-w-[1320px] flex-wrap items-center justify-between gap-2 rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-2.5 text-[12.5px] text-amber-900" data-testid="wizard-draft-restored">
+          <span>{lang === 'zh' ? '已恢复你上次没发完的草稿（照片需要重新选择）。' : 'Your unfinished draft was restored (photos must be chosen again).'}</span>
+          <button type="button" onClick={() => { clearDraft(); window.location.reload() }} className="font-semibold underline">{lang === 'zh' ? '清空重来' : 'Start over'}</button>
+        </div>
+      )}
       {disclosureOpen && registrant.profile && (
         <RegistrantDisclosureModal
           profile={registrant.profile}
