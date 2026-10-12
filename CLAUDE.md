@@ -3412,3 +3412,6 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 - **文案**：定价页横幅「租客永久免费 · 房东免费档永久免费 · 新注册房东 Pro 免费 30 天」，Pro 卡 CTA 恒为「升级到专业版」→ `/dashboard?upgrade=1`；房东页事实 chip 与 FAQ、经纪页 FAQ、
   `LANDLORD_GO.features` 同步；所有「测试期 / 10 月 14 日」字样只剩退役文件里的常量。
 - **通知邮件草稿** `design/free-model-notice-email-2026-10.md`（10-14 前发给 10-15 前注册的房东，测试号除外），**未发送**，由用户决定发送方式。
+- **站内接受在管租约邀请（2026-10-12，Muse 测试「接受只能点邮件里的链接」）**：`my_pending_invites()` 增加 `token` 列（只返回给 JWT 邮箱 = 被邀请邮箱的本人；
+  迁移 `20261012_pending_invites_token.sql` 已应用 prod），`lifecycle_facts_tenant` 的 `invites` 随之带 token；租客 rail 的 `join` 步在有待接受邀请时标题改「接受邀请」、
+  直链 `/join/<token>`。守卫 `tests/node1Facts20260926.spec.ts` 末段。
