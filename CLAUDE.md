@@ -3359,7 +3359,7 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
 ## PropTx 接入前的结构性改造（2026-10-11 · 用户「那就先把接入前那几项结构性的也做了」）
 
 上一节「接入前必须做」的 1–4 项落地；5（报备与协议）在邮件流程里。守卫 `tests/trrebReady20261010.spec.tsx` 末段；迁移 `20261011_listings_feed_display.sql`（已应用 prod）与
-`20261011_listings_anon_no_select.sql`（**部署后再应用**——旧代码的公开页用 anon key 直读表，先撤权会把线上打坏）。
+`20261011_listings_anon_no_select.sql`（**部署后再应用**——旧代码的公开页用 anon key 直读表，先撤权会把线上打坏；2026-10-11 20:46 部署、随后已应用，生产核对：anon REST 读 `listings` → 42501，匿名浏览 / 详情 / 申请页与房东工作台正常）。
 - **公开页不再直读 `listings` 表（8.13 / 8.05）**：浏览页 → `GET /api/listings/search`（服务端筛选 / 排序 / 分页，**每次 ≤100 行**（8.27），地图范围作为 `bbox` 参数而不是前端过滤，
   收藏按 `ids`；匿名每 IP 240 次/小时、登录每账号 1200 次/小时，fail-open；只返回卡片字段，没有描述 / 价格记录 / 经纪电话）；详情页与申请页 → `GET /api/listings/[slug]`
   （可见性 + 房东本人预览 pending 自家房源（JWT 对 landlords 行）+ 相似房源在服务端用同一 `rankSimilar` 算好 + 私有列剥掉；匿名 300 / 登录 1500 次/小时）；
