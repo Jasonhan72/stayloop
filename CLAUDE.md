@@ -3425,3 +3425,7 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
   否则取列表前几个；每厂商最多 6 个）→ `inferDefaults` 写入 `model_catalog` → 经真实 `llmChat` 探测（slot `test`、source `cron/model-discover`）→ **通过 = enabled + user_selectable**
   （单价留空，用量看板会标未定价），失败 = 保留但停用、原因写进 note；厂商已不再列出的目录模型也探测一次，失败即停用。有变化或有厂商列表失败时给全部 `admin_users` 发一封汇总邮件。
   路由 `POST /api/cron/model-discover`（`x-cron-secret` 或管理员 JWT）；`lib/cron/secret.ts secretMatches` 抽成共用（realtor-freshness 同用）。管理页「发现新模型」按钮旁写明每周自动。
+- **首跑结果（2026-10-12）**：两轮共加入 32 个、其中 26 个通过并对用户开放；失败的保留停用（Gemini 2.5 ×3 厂商列表仍有但接口 404；百炼上 `ZHIPU/…`、`kimi/…`、`vanchin/…` 这类第三方托管
+  模型需在百炼开通产品）。DeepSeek 当时余额不足（402）把 `deepseek-v4-flash` 判为失败停用，用户充值后直接探测 `deepseek-v4-flash` / `deepseek-flash` 都通过，已手动重新启用并开放；
+  厂商现列 `deepseek-flash` / `deepseek-v4-pro`，旧 id 仍可用。**每轮每厂商最多加 6 个**，60 天内的新模型会在接下来几周里逐批加完；`-latest` 别名与 `customtools` 变体没有特别过滤，
+  管理员看邮件决定停用。
