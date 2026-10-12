@@ -85,6 +85,8 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
   const [draft, setDraft] = useState('')
   const [saving, setSaving] = useState(false)
   const [persona, setPersona] = useState<string | null>(null)
+  // Inline two-step confirm for forgetting the profile (no native window.confirm).
+  const [confirmForget, setConfirmForget] = useState(false)
   const [personaEditing, setPersonaEditing] = useState(false)
   const [personaDraft, setPersonaDraft] = useState('')
   const [personaSaving, setPersonaSaving] = useState(false)
@@ -234,7 +236,7 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
   }
   async function forgetProfile() {
     if (!uid || !profile) return
-    if (!window.confirm(zh ? '忘掉它对你的画像（包括你自己写的项）？下一轮对话后它会重新学习。' : 'Forget its profile of you, including what you wrote? It relearns after the next conversation.')) return
+    setConfirmForget(false)
     const { data: hit, error } = await supabase.from('user_memories').delete().eq('user_id', uid).eq('role', 'self').eq('memory_type', 'system').eq('key', USER_MODEL_KEY).select('key')
     if (error) { setFieldErr(error.message); return }
     setProfile(null)
@@ -318,7 +320,15 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
                     ? (zh ? `更新于 ${fmtDate(latestDate(profile.updated_at, p?.updated_at), zh)}` : `Updated ${fmtDate(latestDate(profile.updated_at, p?.updated_at), zh)}`)
                     : (zh ? '尚未生成' : 'Not yet')}
                 </span>
-                {profile && <button type="button" onClick={() => void forgetProfile()} className="text-[12px] font-bold text-danger">{zh ? '忘掉画像' : 'Forget'}</button>}
+                {profile && (confirmForget ? (
+                  <span className="inline-flex flex-wrap items-center justify-end gap-2" data-testid="assistant-forget-profile-confirm">
+                    <span className="text-[12px] text-body-2">{zh ? '忘掉它对你的画像（包括你自己写的项）？下一轮对话后它会重新学习。' : 'Forget its profile of you, including what you wrote? It relearns after the next conversation.'}</span>
+                    <button type="button" onClick={() => void forgetProfile()} className="rounded-full bg-danger px-2.5 py-1 text-[12px] font-bold text-white">{zh ? '确认忘掉' : 'Confirm forget'}</button>
+                    <button type="button" onClick={() => setConfirmForget(false)} className={action}>{zh ? '取消' : 'Cancel'}</button>
+                  </span>
+                ) : (
+                  <button type="button" onClick={() => setConfirmForget(true)} data-testid="assistant-forget-profile" className="text-[12px] font-bold text-danger">{zh ? '忘掉画像' : 'Forget'}</button>
+                ))}
               </div>
               {fieldErr && !fieldEditing && <p role="alert" className="mt-1 text-[12px] text-danger">{fieldErr}</p>}
               <p className="mt-2 text-[11px] text-body-3">{zh ? `画像跨三种身份合成，只在你（${role === 'landlord' ? '房东' : role === 'agent' ? '经纪' : '租客'}或其他身份）与它对话时使用。` : 'One profile across your hats, used only when you talk with it.'}</p>

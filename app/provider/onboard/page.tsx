@@ -40,6 +40,8 @@ export default function ProviderOnboardPage() {
   const [ef, setEf] = useState({ number: '', holder_name: '', expires_at: '' })
   // The row being renewed (not just its kind): the hint depends on whether that record still counts.
   const [renewHint, setRenewHint] = useState<Cred | null>(null)
+  // Inline two-step confirm for removing a credential (no native window.confirm).
+  const [confirmDel, setConfirmDel] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -91,7 +93,7 @@ export default function ProviderOnboardPage() {
     setCf({ kind: c.kind, number: '', holder_name: c.holder_name || '', expires_at: '' })
     setRenewHint(c)
   }
-  async function delCred(id: string) { if (!window.confirm(zh ? '删除这条资质？已核验的记录也会一起删除；如果它是该工种唯一有效的一条，派单会立刻跳过你。续期请用「续期」。' : 'Remove this credential? Its verification goes with it; if it is the only valid one for a trade, dispatch skips you at once. To renew, use “renew”.')) return; await supabase.from('provider_credentials').delete().eq('id', id); await load() }
+  async function delCred(id: string) { setConfirmDel(null); await supabase.from('provider_credentials').delete().eq('id', id); await load() }
 
   const input = 'w-full rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]'
   const label = 'block text-[12.5px] font-semibold text-body-2'
@@ -161,8 +163,15 @@ export default function ProviderOnboardPage() {
                   <span className={'ml-auto rounded-full px-2 py-[2px] font-mono text-[10.5px] font-bold ' + (c.verified_at ? 'bg-success/10 text-success' : 'bg-amber-50 text-amber-800')}>{c.verified_at ? (zh ? '已核' : 'verified') : (zh ? '待核' : 'pending')}</span>
                   <button onClick={() => { setEditing(editing === c.id ? null : c.id); setEf({ number: c.number || '', holder_name: c.holder_name || '', expires_at: c.expires_at || '' }) }} className="min-h-[36px] px-2 text-[11px] text-body-3 underline" data-testid="credential-edit">{zh ? '更新' : 'edit'}</button>
                   {c.expires_at && <button onClick={() => renewCred(c)} className="min-h-[36px] px-2 text-[11px] text-body-3 underline" data-testid="credential-renew">{zh ? '续期' : 'renew'}</button>}
-                  <button onClick={() => void delCred(c.id)} className="min-h-[36px] px-2 text-[11px] text-body-3 underline">{zh ? '删除' : 'remove'}</button>
+                  {confirmDel !== c.id && <button type="button" onClick={() => setConfirmDel(c.id)} className="min-h-[36px] px-2 text-[11px] text-body-3 underline" data-testid="credential-remove">{zh ? '删除' : 'remove'}</button>}
                 </div>
+                {confirmDel === c.id && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-surface-chip p-3 text-[12px]" data-testid="credential-remove-confirm">
+                    <span className="text-body-2">{zh ? '删除这条资质？已核验的记录也会一起删除；如果它是该工种唯一有效的一条，派单会立刻跳过你。续期请用「续期」。' : 'Remove this credential? Its verification goes with it; if it is the only valid one for a trade, dispatch skips you at once. To renew, use “renew”.'}</span>
+                    <button type="button" disabled={busy} onClick={() => void delCred(c.id)} className="rounded-full bg-danger px-3 py-1 text-[12px] font-semibold text-white disabled:opacity-50">{zh ? '确认删除' : 'Confirm remove'}</button>
+                    <button type="button" onClick={() => setConfirmDel(null)} className="rounded-full border border-line-divider bg-white px-3 py-1 text-[12px] text-body-3">{zh ? '取消' : 'Cancel'}</button>
+                  </div>
+                )}
                 {editing === c.id && (
                   <div className="mt-2 grid gap-2 rounded-lg bg-surface-chip p-3 sm:grid-cols-3">
                     <input className={input} placeholder={zh ? '编号' : 'Number'} value={ef.number} onChange={(e) => setEf({ ...ef, number: e.target.value })} />

@@ -3462,3 +3462,6 @@ Stayloop Inc. 刚注册，准备请一位 TRREB 会员经纪以 IDX/VOW 方式�
   挂在 `WorkOrderCard` 对房东 / 租客、accepted / paid / closed 的工单下；纯规则 `lib/marketplace/reviews.ts`。守卫 `tests/fourRoleAudit20261012_f.spec.ts`。
   审计方要的第二套房源已建：`[TEST] 200 Test QA Lane`（`test-200-test-qa-lane-qa2`，muse-landlord 名下、已核验、$2,300）用来验「无材料申请 → 一键筛查」的提示。
   报告方法论页的「5 维加权评分」在筛查模块内，未改。
+- **第三轮复验（16:00）**：NEW-1、A⑦、P1-1 无材料提示全部通过；新 P1 **NEW-2「保存修改」卡死**——同一根因（改客户邮箱时的 `window.confirm`）。
+  **登录后界面里不再用原生 confirm / alert**（自动化浏览器会卡在上面，对真实用户也是阻塞弹窗）：客户表改邮箱、设置页撤销委托、消息撤回、服务商删资质、助理「忘掉画像」、
+  租约页删除全部改成页内两步确认（`<thing>-confirm` testid），守卫 `tests/fourRoleAudit20261012_f/g.spec.ts`。后台 `/admin/*` 与工作台 Checkout 报错的 `alert` 未动。

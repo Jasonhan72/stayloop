@@ -129,7 +129,10 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
     setEditForm({ name: c.name, email: c.email ?? '', phone: c.phone ?? '', budget: c.budget ?? '', area: c.area ?? '', notes: c.notes ?? '' })
     setEditingId(c.id)
   }
-  async function saveEdit(c: ClientRow) {
+  // The client whose email change is waiting for its inline second click (no native confirm —
+  // audit 2026-10-12 NEW-2: window.confirm froze the automated browser, same as NEW-1).
+  const [confirmEmail, setConfirmEmail] = useState<string | null>(null)
+  async function saveEdit(c: ClientRow, ackEmail = false) {
     const f = { name: editForm.name.trim().slice(0, 120), email: editForm.email.trim().slice(0, 200), phone: editForm.phone.trim().slice(0, 40), budget: editForm.budget.trim().slice(0, 80), area: editForm.area.trim().slice(0, 160), notes: editForm.notes.trim().slice(0, 2000) }
     if (!f.name) { setErr(zh ? '姓名不能为空。' : 'The name cannot be empty.'); return }
     if (f.email && !EMAIL_RE.test(f.email)) { setErr(zh ? '邮箱格式不对（例如 name@gmail.com）。' : 'That email does not look right (e.g. name@gmail.com).'); return }
@@ -144,8 +147,9 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
       if (bound && bound.status === 'pending') { setErr(zh ? '这位客户有待确认的委托，请先撤回再改邮箱（确认链接绑定在原邮箱上）。' : 'This client has a pending delegation. Withdraw it before changing the email (the confirmation link is bound to the old address).'); return }
       if (bound) { setErr(zh ? '有效委托期间不能改这位客户的邮箱（委托绑定在客户确认时的账号上）。确需更换请先撤回委托。' : 'The email cannot change while a delegation is active (it is bound to the account that confirmed). Withdraw it first if you must.'); return }
       // Whoever holds the new address becomes the other side of the existing agent ↔ client conversation.
-      if (c.email && !window.confirm(zh ? '改邮箱后，新邮箱的持有人会看到你和这位客户已有的对话。只在修正填错的邮箱时改；换了联系人请新建一位客户。继续？' : 'Whoever holds the new email will see your existing conversation with this client. Only correct a mistyped email this way; for a different person add a new client. Continue?')) return
+      if (c.email && !ackEmail) { setConfirmEmail(c.id); return }
     }
+    setConfirmEmail(null)
     const patch: Partial<ClientRow> = {}
     if (f.name !== c.name) patch.name = f.name
     if (emailChanged) patch.email = f.email || null
@@ -246,7 +250,15 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
               <input className={input} aria-label={zh ? '目标区域' : 'Target area'} placeholder={zh ? '目标区域' : 'Target area'} value={editForm.area} onChange={(e) => setEditForm({ ...editForm, area: e.target.value })} />
               <input className={input + ' sm:col-span-3'} aria-label={zh ? '备注' : 'Notes'} placeholder={zh ? '备注（不要写受保护特征）' : 'Notes (no protected characteristics)'} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
               <div className="flex items-center gap-3 sm:col-span-3">
-                <button type="button" disabled={busy || !editForm.name.trim()} onClick={() => void saveEdit(c)} className="rounded-full bg-brand px-4 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50">{zh ? '保存修改' : 'Save changes'}</button>
+                {confirmEmail === c.id ? (
+                  <span className="inline-flex flex-wrap items-center gap-2" data-testid="client-email-change-confirm">
+                    <span className="text-[12px] text-body-2">{zh ? '改邮箱后，新邮箱的持有人会看到你和这位客户已有的对话。只在修正填错的邮箱时改；换了联系人请新建一位客户。' : 'Whoever holds the new email will see your existing conversation with this client. Only correct a mistyped email this way; for a different person add a new client.'}</span>
+                    <button type="button" disabled={busy} onClick={() => void saveEdit(c, true)} className="rounded-full bg-brand px-4 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50">{zh ? '确认修改邮箱' : 'Confirm the new email'}</button>
+                    <button type="button" disabled={busy} onClick={() => setConfirmEmail(null)} className="rounded-full border border-line-divider bg-white px-3 py-1.5 text-[12.5px] text-body-3">{zh ? '取消' : 'Cancel'}</button>
+                  </span>
+                ) : (
+                  <button type="button" disabled={busy || !editForm.name.trim()} onClick={() => void saveEdit(c)} className="rounded-full bg-brand px-4 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50">{zh ? '保存修改' : 'Save changes'}</button>
+                )}
                 <button type="button" onClick={() => { setEditingId(null); setErr(null) }} className="text-[12px] text-body-3 underline">{zh ? '取消' : 'Cancel'}</button>
               </div>
             </div>

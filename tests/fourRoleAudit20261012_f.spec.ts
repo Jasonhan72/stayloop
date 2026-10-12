@@ -38,3 +38,13 @@ describe('provider review entry (A⑦)', () => {
     expect(f).toMatch(/if \(!user \|\| !providerId \|\| mine === undefined\) return null/)
   })
 })
+
+describe('client email change is an inline two-step confirm too (NEW-2)', () => {
+  it('no window.confirm anywhere in the client book; the save button becomes a confirm row', () => {
+    const s = readFileSync('components/agent/ClientBook.tsx', 'utf8')
+    expect(s).not.toMatch(/window\.confirm\(/)
+    expect(s).toMatch(/if \(c\.email && !ackEmail\) \{ setConfirmEmail\(c\.id\); return \}/)
+    expect(s).toMatch(/data-testid="client-email-change-confirm"/)
+    expect(s).toMatch(/onClick=\{\(\) => void saveEdit\(c, true\)\}/)
+  })
+})

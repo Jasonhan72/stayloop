@@ -22,6 +22,9 @@ export default function MyDelegations({ zh }: { zh: boolean }) {
   const [agentNames, setAgentNames] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  // Inline two-step confirm (the audit's browser froze on native window.confirm): the row id
+  // whose revoke button is waiting for its second click.
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null)
   const load = useCallback(async () => {
     if (!auth.user) return
     const { data } = await supabase.from('delegations').select(COLS).order('created_at', { ascending: false }).limit(50)
@@ -39,7 +42,7 @@ export default function MyDelegations({ zh }: { zh: boolean }) {
   }, [auth.user])
   useEffect(() => { if (!auth.loading) void load() }, [auth.loading, load])
   async function revoke(d: DelegationRow) {
-    if (!window.confirm(zh ? '撤销这份委托？立即生效，对方会收到通知。' : 'Revoke this delegation? Effective immediately; the other side is told.')) return
+    setConfirmRevoke(null)
     setBusy(d.id); setErr(null)
     const { data } = await supabase.auth.getSession()
     const res = await fetch(`/api/delegations/${d.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` }, body: JSON.stringify({ action: 'revoke' }) })
@@ -72,7 +75,15 @@ export default function MyDelegations({ zh }: { zh: boolean }) {
       </div>
       {/* Only on a live or pending engagement, and only on the newest row per client (revoked rows can dead-end). */}
       {d.client_id && (isDelegationLive(d) || d.status === 'pending') && newestPerClient.has(d.id) && <MessageButton target={{ kind: 'agent_client', ref: d.client_id }} zh={zh} label={messageLabel} testId="delegation-message" />}
-      {['pending', 'active'].includes(d.status) && <button type="button" disabled={busy === d.id} onClick={() => void revoke(d)} className="rounded-lg border border-danger/40 bg-white px-3 py-1.5 text-[12px] font-semibold text-danger disabled:opacity-50">{d.delegate_auth_id === me ? (zh ? '撤回' : 'Withdraw') : (zh ? '撤销' : 'Revoke')}</button>}
+      {['pending', 'active'].includes(d.status) && (confirmRevoke === d.id ? (
+        <span className="inline-flex flex-wrap items-center gap-1.5" data-testid="delegation-revoke-confirm">
+          <span className="text-[11.5px] text-body-2">{zh ? '撤销这份委托？立即生效，对方会收到通知。' : 'Revoke this delegation? Effective immediately; the other side is told.'}</span>
+          <button type="button" disabled={busy === d.id} onClick={() => void revoke(d)} className="rounded-lg bg-danger px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50">{d.delegate_auth_id === me ? (zh ? '确认撤回' : 'Confirm withdraw') : (zh ? '确认撤销' : 'Confirm revoke')}</button>
+          <button type="button" disabled={busy === d.id} onClick={() => setConfirmRevoke(null)} className="rounded-lg border border-line-divider bg-white px-3 py-1.5 text-[12px] text-body-3">{zh ? '取消' : 'Cancel'}</button>
+        </span>
+      ) : (
+        <button type="button" disabled={busy === d.id} onClick={() => setConfirmRevoke(d.id)} data-testid="delegation-revoke" className="rounded-lg border border-danger/40 bg-white px-3 py-1.5 text-[12px] font-semibold text-danger disabled:opacity-50">{d.delegate_auth_id === me ? (zh ? '撤回' : 'Withdraw') : (zh ? '撤销' : 'Revoke')}</button>
+      ))}
     </div>
   )
   return (

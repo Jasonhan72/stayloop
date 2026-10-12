@@ -52,6 +52,8 @@ function RealLeaseDetail({ id }: { id: string }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [signName, setSignName] = useState('')
+  // Inline two-step confirm for withdraw / delete (no native window.confirm).
+  const [confirmDelete, setConfirmDelete] = useState(false)
   // The household this lease is the current terms of (its uploaded file lives in that household's folder).
   const [householdId, setHouseholdId] = useState<string | null>(null)
   const [fileUrl, setFileUrl] = useState<string | null | 'denied'>(null)
@@ -120,12 +122,14 @@ function RealLeaseDetail({ id }: { id: string }) {
 
   // An unsigned lease can be deleted (RLS: leases_landlord_delete). For a sent one this is a
   // withdrawal: the tenant's signing link stops working.
-  const removeLease = async (sent: boolean) => {
+  const removeLease = async () => {
     if (busy) return
-    const ok = typeof window === 'undefined' || window.confirm(sent
-      ? (zh ? '撤回并删除这份已发送、尚未签署的租约？租客手上的签署链接会失效。' : 'Withdraw and delete this sent, unsigned lease? The tenant’s signing link will stop working.')
-      : (zh ? '删除这份草稿？' : 'Delete this draft?'))
-    if (!ok) return
+    // Outside a browser there is no second click to wait for, so the call proceeds as before;
+    // in the browser the first click only opens the inline confirm row (no native dialog) and
+    // the second click (confirmDelete already set) does the deletion.
+    const ok = typeof window === 'undefined' || confirmDelete
+    if (!ok) { setConfirmDelete(true); return }
+    setConfirmDelete(false)
     setBusy(true); setErr(null); setMsg(null)
     const { data, error } = await supabase
       .from('lease_documents')
@@ -235,11 +239,21 @@ function RealLeaseDetail({ id }: { id: string }) {
                   {zh ? '编辑草稿' : 'Edit draft'}
                 </Link>
               )}
-              {withdrawable && (
-                <button onClick={() => void removeLease(!!l.sent_at)} disabled={busy} className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body-3 transition hover:border-red-400 hover:text-red-600 disabled:opacity-40" data-testid="lease-delete">
+              {withdrawable && (confirmDelete ? (
+                <span className="inline-flex flex-wrap items-center gap-2" data-testid="lease-delete-confirm">
+                  <span className="text-[12.5px] text-body-2">{l.sent_at
+                    ? (zh ? '撤回并删除这份已发送、尚未签署的租约？租客手上的签署链接会失效。' : 'Withdraw and delete this sent, unsigned lease? The tenant’s signing link will stop working.')
+                    : (zh ? '删除这份草稿？' : 'Delete this draft?')}</span>
+                  <button onClick={() => void removeLease()} disabled={busy} className="rounded-[10px] bg-danger px-4 py-[10px] text-[13px] font-semibold text-white disabled:opacity-40">
+                    {l.sent_at ? (zh ? '确认撤回并删除' : 'Confirm withdraw & delete') : (zh ? '确认删除' : 'Confirm delete')}
+                  </button>
+                  <button onClick={() => setConfirmDelete(false)} disabled={busy} className="rounded-[10px] border border-line-divider bg-white px-4 py-[10px] text-[13px] text-body-3 disabled:opacity-40">{zh ? '取消' : 'Cancel'}</button>
+                </span>
+              ) : (
+                <button onClick={() => void removeLease()} disabled={busy} className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body-3 transition hover:border-red-400 hover:text-red-600 disabled:opacity-40" data-testid="lease-delete">
                   {l.sent_at ? (zh ? '撤回并删除' : 'Withdraw & delete') : (zh ? '删除草稿' : 'Delete draft')}
                 </button>
-              )}
+              ))}
               {sendable && (
                 <button onClick={sendForSigning} disabled={busy || !l.tenant_email} className="sl-btn-primary !px-5 !py-[10px] !text-[13px] disabled:opacity-40">
                   {busy ? '…' : l.sent_at ? (zh ? '重发签署邀请' : 'Resend signing invite') : (zh ? '发送给租客签署 →' : 'Send to tenant for signing →')}

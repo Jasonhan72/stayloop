@@ -55,6 +55,9 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   const [tid, setTid] = useState<string | null>(null)
   const [denied, setDenied] = useState<string | null>(null)
   const [msgs, setMsgs] = useState<ThreadMessage[]>([])
+  // Inline two-step confirm for retraction (no native window.confirm): the message id waiting
+  // for its second click.
+  const [confirmRetract, setConfirmRetract] = useState<number | null>(null)
   const [reads, setReads] = useState<ReadMark[]>([])
   const readsRef = useRef<ReadMark[]>([])
   const [open, setOpen] = useState(!compact)
@@ -210,7 +213,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   }
   async function retract(m: ThreadMessage) {
     if (!tid || !me) return
-    if (!window.confirm(zh ? '撤回这条消息？原文会保留在记录中，对方会看到「已撤回」。' : 'Retract this message? The original stays in the record; others see "retracted".')) return
+    setConfirmRetract(null)
     const { error } = await supabase.from('thread_messages').insert({ thread_id: tid, sender_id: me, sender_kind: viewer === 'admin' ? 'admin' : viewer, acting_role: viewer, kind: 'retraction', body: zh ? '撤回了一条消息' : 'Retracted a message', ref_message_id: m.id })
     if (error) setErr(error.message); else await load()
   }
@@ -301,7 +304,15 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
                     )}
                     <div className={'mt-1 flex flex-wrap items-center gap-2 text-[10px] ' + (isMine && !formal ? 'text-white/70' : 'text-body-3')}>
                       {isMine && !m.retracted && <span data-testid="read-state">{zh ? READ_LABEL[readStateFor(m.id, reads, me)].zh : READ_LABEL[readStateFor(m.id, reads, me)].en}</span>}
-                      {isMine && !m.retracted && canRetract(m, me) && <button type="button" onClick={() => void retract(m)} className="underline underline-offset-2">{zh ? '撤回' : 'Retract'}</button>}
+                      {isMine && !m.retracted && canRetract(m, me) && (confirmRetract === m.id ? (
+                        <span className="inline-flex flex-wrap items-center gap-1.5" data-testid="thread-retract-confirm">
+                          <span>{zh ? '撤回这条消息？原文会保留在记录中，对方会看到「已撤回」。' : 'Retract this message? The original stays in the record; others see "retracted".'}</span>
+                          <button type="button" onClick={() => void retract(m)} className="rounded-full border border-current px-2 py-[1px] text-[10.5px] font-semibold">{zh ? '确认撤回' : 'Confirm retract'}</button>
+                          <button type="button" onClick={() => setConfirmRetract(null)} className="underline underline-offset-2">{zh ? '取消' : 'Cancel'}</button>
+                        </span>
+                      ) : (
+                        <button type="button" onClick={() => setConfirmRetract(m.id)} data-testid="thread-retract" className="underline underline-offset-2">{zh ? '撤回' : 'Retract'}</button>
+                      ))}
                       {!isMine && lastFromOther?.id === m.id && (mine?.last_acknowledged_id ?? 0) < m.id && <button type="button" onClick={() => void mark({ last_acknowledged_id: m.id })} className="rounded-full border border-line-strong px-2 py-[1px] text-[10.5px] font-semibold" data-testid="acknowledge">{zh ? '确认收到' : 'Acknowledge'}</button>}
                       {!isMine && (mine?.last_acknowledged_id ?? 0) >= m.id && m.kind === 'message' && <span>✓ {zh ? '你已确认' : 'you acknowledged'}</span>}
                     </div>
