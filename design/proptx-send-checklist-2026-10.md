@@ -9,8 +9,8 @@
 - 邮件的作用：先把四个问题问清、让对方认识我们；发完请会员去门户发起。
 
 ## 2. 邮件里要你填的
-- 发起接入的会员经纪：姓名、RECO 注册号、经纪公司名；最好先跟其 Broker of Record 打招呼（他们要签字）。
-- 你的电话与邮箱（署名 Jason Han, Founder, Stayloop Inc.）。
+- 发起接入的会员经纪：Sheng Chu（个人公司 Sheng Chu Realty Inc.，挂靠经纪公司 JDL Realty Inc.）；**还缺 RECO 注册号**；最好先跟 JDL Realty 的 Broker of Record 打招呼（他们要签字）。
+- 署名 Jason Han, Founder, Stayloop Inc. · 647-862-6518 · jasonhan72@gmail.com（已填）。
 - 草稿：`design/proptx-inquiry-email-2026-10.md`（英文正文已按今天的站点状态改好）。
 
 ## 3. 门户申请时 Stayloop Inc. 要提供的（会员填或你提供给会员）
