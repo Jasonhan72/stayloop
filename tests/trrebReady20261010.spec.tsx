@@ -194,11 +194,11 @@ describe('8.05(b) confirmation email · 8.06 password age · 8.13 search audit �
     expect(route).toContain("if (meta.terms_confirm_sent_version === TERMS_VERSION) return NextResponse.json({ ok: true, already: true })")
     expect(route).toContain('terms_confirm_sent_version: TERMS_VERSION')
     expect(route).toContain("action: 'terms_confirmation_emailed', target_type: 'account', target_id: user.id")
-    // agent_audit_events.target_id is uuid — a version string there fails silently (found in prod 2026-10-11)
-    expect(gate).toContain("action: 'terms_accepted', targetType: 'account', targetId: auth.user.id")
     const gate = readFileSync('components/legal/TermsConsentGate.tsx', 'utf8')
     expect(gate).toContain("fetch('/api/legal/terms-confirmation'")
     expect(gate).toContain('data-testid="terms-gate-name"')
+    // agent_audit_events.target_id is uuid — a version string there fails silently (found in prod 2026-10-11)
+    expect(gate).toContain("action: 'terms_accepted', targetType: 'account', targetId: auth.user.id")
   })
   it('passwords expire after 90 days for password accounts only; every password write stamps the clock', () => {
     const terms = readFileSync('lib/legal/terms.ts', 'utf8')
