@@ -47,7 +47,7 @@ export type LeaseFact = {
   listing_place?: { province?: string | null; address?: string | null; city?: string | null; postal_code?: string | null } | null
   unit_place?: { street?: string | null; city?: string | null; postal?: string | null } | null
 }
-export type HouseholdFact = { id: string; current_lease_id: string | null; verified: boolean | null; status: string | null; end_date: string | null; address?: string | null; unit?: string | null; city?: string | null; monthly_rent?: number | null }
+export type HouseholdFact = { id: string; current_lease_id: string | null; verified: boolean | null; status: string | null; end_date: string | null; address?: string | null; unit?: string | null; city?: string | null; monthly_rent?: number | null; /** pending invite for this tenant (my_pending_invites.token) → /join/<token> */ invite_token?: string | null }
 export type RentFact = { lease_id: string | null; due_date: string; status: string | null; amount?: number | null }
 export type TicketFact = { household_id: string | null; status: string | null }
 export type RenewalCardFact = { lease_id?: string; stage?: string; status: string; action_type: string; executed_at?: string | null; execution_result?: { ok?: unknown } | null }
@@ -354,7 +354,8 @@ export function tenantLifecycle(f: TenantFacts, today = new Date()): Lifecycle {
 
   mid.steps = [
     { key: 'sign', label: { zh: '签署租约', en: 'Sign the lease' }, state: leaseSigned ? 'done' : leaseToSign || awaitingLandlord ? 'current' : 'todo', detail: leaseToSign ? { zh: '等你签署（查收邮件里的链接）', en: 'Awaiting your signature (link in your email)' } : awaitingLandlord ? { zh: '你已签署 · 等房东回签', en: 'You signed · awaiting the landlord' } : undefined, href: '/tenant/lease' },
-    { key: 'join', label: { zh: '确认在管租约', en: 'Confirm the tenancy' }, state: joined ? 'done' : hh ? 'current' : 'todo', detail: hh && !joined ? { zh: '接受邮件里的邀请后可见租金记录与报修', en: 'Accept the emailed invitation to see the ledger and repairs' } : undefined, href: joined ? `/h/${hh!.id}` : '/tenant/lease' },
+    // In-app acceptance (2026-10-12, Muse test: "接受只能点邮件里的链接"): the pending invite's token comes with the facts, so the step links to /join/<token>.
+    { key: 'join', label: { zh: hh && !joined && hh.invite_token ? '接受邀请' : '确认在管租约', en: hh && !joined && hh.invite_token ? 'Accept the invitation' : 'Confirm the tenancy' }, state: joined ? 'done' : hh ? 'current' : 'todo', detail: hh && !joined ? (hh.invite_token ? { zh: `房东邀请你加入 ${hh.address || '在管租约'} · 接受后可见租金记录与报修`, en: `Your landlord invited you to ${hh.address || 'the tenancy'} · accept to see the ledger and repairs` } : { zh: '接受邮件里的邀请后可见租金记录与报修', en: 'Accept the emailed invitation to see the ledger and repairs' }) : undefined, href: joined ? `/h/${hh!.id}` : hh?.invite_token ? `/join/${hh.invite_token}` : '/tenant/lease' },
     { key: 'rent', label: { zh: '租金记录', en: 'Rent ledger' }, state: rentDue.length ? 'current' : joined ? 'done' : 'todo', detail: rentDue.length ? { zh: `${rentDue.length} 期待付`, en: `${rentDue.length} due` } : undefined, href: hh ? `/h/${hh.id}` : '/tenant/lease' },
     { key: 'repairs', label: { zh: '报修', en: 'Repairs' }, state: openTickets.length ? 'current' : joined ? 'done' : 'todo', detail: openTickets.length ? { zh: `${openTickets.length} 张工单进行中`, en: `${openTickets.length} tickets open` } : undefined, href: hh ? `/h/${hh.id}` : '/tenant/maintenance', prompt: { zh: '我要报修：【哪里】【什么问题】，【从什么时候开始】，【是否紧急】。', en: 'Repair request: 【where】【what】, 【since when】, 【urgent?】.' } },
   ]

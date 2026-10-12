@@ -57,7 +57,8 @@ export type TenantFactsRaw = {
   members: string[]
   member_roles: { household_id: string; role: string }[]
   households: HouseholdRow[]
-  invites: { household_id: string; address: string | null; unit: string | null; current_lease_id: string | null; end_date: string | null }[]
+  /** `token` = the invite the signed-in email was sent (my_pending_invites returns it to the invitee only) → /join/<token>. */
+  invites: { household_id: string; address: string | null; unit: string | null; current_lease_id: string | null; end_date: string | null; token?: string | null }[]
   shares: number
   showings: { kind: string | null; status: string | null }[]
   rent: RentRow[]

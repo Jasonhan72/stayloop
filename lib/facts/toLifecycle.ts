@@ -32,7 +32,7 @@ export function tenantFactsToLifecycle(f: TenantFactsRaw, today = new Date()): L
     leases: f.leases as LeaseFact[],
     households: f.households as HouseholdFact[],
     memberOf: f.members,
-    pendingInvites: f.invites.map((i) => ({ id: i.household_id, current_lease_id: i.current_lease_id, verified: false, status: 'pending', end_date: i.end_date, address: i.address, unit: i.unit })),
+    pendingInvites: f.invites.map((i) => ({ id: i.household_id, current_lease_id: i.current_lease_id, verified: false, status: 'pending', end_date: i.end_date, address: i.address, unit: i.unit, invite_token: i.token ?? null })),
     rent: f.rent as RentFact[],
     tickets: f.tickets as TicketFact[],
     passportShares: f.shares,

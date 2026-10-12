@@ -207,3 +207,13 @@ describe('hard constraints: message > memory; the model can only tighten', () =>
     expect(read('lib/agent/listingSearch.ts')).toContain('overBudget')
   })
 })
+
+describe('pending invite accepted in-app (2026-10-12)', () => {
+  it('my_pending_invites returns the token to the invitee and the tenant rail links the join step to /join/<token>', () => {
+    const mig = readFileSync('supabase/migrations/20261012_pending_invites_token.sql', 'utf8')
+    expect(mig).toContain('current_lease_id uuid, token text)')
+    expect(mig).toContain("where lower(i.invited_email) = lower(coalesce(auth.jwt() ->> 'email', ''))")
+    expect(readFileSync('lib/facts/toLifecycle.ts', 'utf8')).toContain('invite_token: i.token ?? null')
+    expect(readFileSync('lib/lifecycle/stages.ts', 'utf8')).toContain('hh?.invite_token ? `/join/${hh.invite_token}` : \'/tenant/lease\'')
+  })
+})
