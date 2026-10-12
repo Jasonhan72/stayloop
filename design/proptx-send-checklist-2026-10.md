@@ -9,7 +9,7 @@
 - 邮件的作用：先把四个问题问清、让对方认识我们；发完请会员去门户发起。
 
 ## 2. 邮件里要你填的
-- 发起接入的会员经纪：Sheng Chu（个人公司 Sheng Chu Realty Inc.，挂靠经纪公司 JDL Realty Inc.）；**还缺 RECO 注册号**；最好先跟 JDL Realty 的 Broker of Record 打招呼（他们要签字）。
+- 发起接入的会员经纪：Sheng Chu（个人公司 Sheng Chu Realty Inc.，挂靠经纪公司 JDL Realty Inc.；416-786-2018，chu-sheng@hotmail.com）；**还缺 RECO 注册号**；最好先跟 JDL Realty 的 Broker of Record 打招呼（他们要签字）。
 - 署名 Jason Han, Founder, Stayloop Inc. · 647-862-6518 · jasonhan72@gmail.com（已填）。
 - 草稿：`design/proptx-inquiry-email-2026-10.md`（英文正文已按今天的站点状态改好）。
 
@@ -23,7 +23,7 @@
 - /terms 第 5 节九条规则、注册勾选、登录后一次确认、确认邮件、90 天密码。
 - 每张卡 / 详情页的挂牌经纪公司；页脚「被认为可靠但不保证」+ 版权 + 更正通道（hello@stayloop.ai，48 小时）。
 - 来源分组与筛选；每次 ≤100 套；匿名不能直读数据库；卖方展示指令与 24 小时时效的列已就位。
-- 发起会员的联系卡位：拿到会员信息后把 `NEXT_PUBLIC_MLS_SPONSOR_NAME / BROKERAGE / EMAIL / PHONE` 填进 CF Pages 环境变量重新部署，卡片即显示（8.12）。
+- 发起会员的联系卡位（8.12）：协议签妥、feed 接入时把 `NEXT_PUBLIC_MLS_SPONSOR_NAME=Sheng Chu`、`NEXT_PUBLIC_MLS_SPONSOR_BROKERAGE=JDL Realty Inc.`、`NEXT_PUBLIC_MLS_SPONSOR_PHONE=416-786-2018`、`NEXT_PUBLIC_MLS_SPONSOR_EMAIL=chu-sheng@hotmail.com` 填进 CF Pages 环境变量（构建内联，须重新部署），卡片即显示。现在先不挂——协议未签前页面上不该出现「发起会员」。
 - Supabase 后台两项（你来做）：注册验证邮件模板加一句「注册即同意服务条款」；`password_min_length` 改 8。
 
 ## 5. 收到回复后
