@@ -12,7 +12,7 @@ describe('L7-anon D-02: /landlord copy matches the shipped screening facts', () 
       expect(s, bad).not.toContain(bad)
   })
   it('names the four scored areas and leaves the decision with the landlord', () => {
-    expect(s).toContain('四项评分')
+    expect(s).toContain('四项计分')
     expect(s).toContain('付款能力、信用、租务与司法历史、核验')
     expect(s).toContain('ability to pay, credit, tenancy & court history, verification')
     expect(s).toMatch(/不排名、不设收入倍数截止线\(OHRC\)/)

@@ -286,6 +286,10 @@ export default function LeaseImportPage() {
     }
   }
 
+  // Signed in but the hats not yet known: no shell yet — activeHat would frame the page as
+  // 租客 for a moment on an agent / landlord account (four-role audit 2026-10-12, P1-5).
+  if (loading || (user && hats.loading)) return <div className="min-h-screen bg-[#F3F8FC]" />
+
   if (!loading && !user) {
     return (
       <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">

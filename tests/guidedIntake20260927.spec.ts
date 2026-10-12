@@ -249,7 +249,9 @@ describe('wiring', () => {
     expect(card).toContain("from '@/lib/agent/attachments'"); expect(bar).toContain("from '@/lib/agent/attachments'")
     expect(bar).not.toMatch(/const MAX_BYTES|readAsDataURL/)
     expect(card).toMatch(/className=\{`sl-input w-full/)
-    expect(card).toContain('if (picks.length && !step.input && !step.attach && !opt?.note) setTimeout(() => advance(a), 140)')
+    expect(card).toContain('if (picks.length && !step.input && !step.attach && !opt?.note) {')
+    // 2026-10-12 (P2-2): the 140 ms auto-advance is a tracked timer that only fires on the step it was scheduled on
+    expect(card).toContain('autoRef.current = { at, t: setTimeout(() => { autoRef.current = null; if (idxRef.current === at) advance(a) }, 140) }')
     for (const id of ['intake-card', 'intake-chip', 'intake-next', 'intake-back', 'intake-skip', 'intake-send', 'intake-draft', 'intake-close', 'intake-summary', 'intake-review', 'intake-danger-note']) expect(card).toContain(`data-testid="${id}"`)
   })
 })

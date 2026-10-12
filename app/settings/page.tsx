@@ -95,6 +95,11 @@ export default function SettingsPage() {
     }
   }
 
+  // The page is prerendered and my_hats answers after sign-in; framing it by activeHat before
+  // that answer flashed the tenant rail and「租客」at an agent or provider (four-role audit
+  // 2026-10-12, P1-5). Blank until auth and the hats are known — the same gate as /messages.
+  if (auth.loading || hats.loading) return <div className="min-h-screen bg-[#F3F8FC]" />
+
   return (
     <WorkspaceShell role={shellRole} hideAside>
       <div className="mx-auto max-w-[780px]">

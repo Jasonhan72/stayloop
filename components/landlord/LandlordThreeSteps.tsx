@@ -22,8 +22,8 @@ const STEPS: { n: string; title: Bi; desc: Bi; cta: Bi; href: string }[] = [
     n: '02',
     title: { zh: '申请人提交材料，你一键筛查', en: 'Applicant submits docs, you screen in one click' },
     desc: {
-      zh: '付款能力、信用、租务与司法历史、核验四项打分，附取证与法庭 / LTB 记录，几分钟出报告。',
-      en: 'Scores ability to pay, credit, rental and legal history, and verification, with forensics and court / LTB records — a report in minutes.',
+      zh: '付款能力、信用、租务与司法历史、核验四项计分，报告另列不计分的『申请完整度与沟通』；附取证与法庭 / LTB 记录，几分钟出报告。',
+      en: 'Four scored items — ability to pay, credit, rental and legal history, verification — plus an unscored application-completeness note; with forensics and court / LTB records, a report in minutes.',
     },
     cta: { zh: '也可自己发起筛查 →', en: 'Or run a screening yourself →' },
     href: '/screening',

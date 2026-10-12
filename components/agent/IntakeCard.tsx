@@ -47,6 +47,15 @@ export default function IntakeCard({
   const inputRef = useRef<HTMLInputElement>(null)
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // The chip auto-advance (140 ms) is a timer that outlives the click. Any
+  // navigation cancels it, and it only fires if the card is still on the step
+  // it was scheduled on — a stale timer used to throw the user forward after
+  // they had pressed Back (audit 2026-10-12 P2-2: one step skipped).
+  const autoRef = useRef<{ t: ReturnType<typeof setTimeout>; at: number } | null>(null)
+  const idxRef = useRef(0)
+  idxRef.current = review ? -1 : idx
+  const cancelAuto = () => { if (autoRef.current) { clearTimeout(autoRef.current.t); autoRef.current = null } }
+  useEffect(() => cancelAuto, [])
 
   // Keep the card in view as it grows / moves on; focus a lone text field.
   useEffect(() => {
@@ -66,11 +75,12 @@ export default function IntakeCard({
     } else setIdx(idx + 1)
   }
   const canNext = !!step.optional || isAnswered(step, cur, atts.length)
-  const next = () => { if (canNext) advance(answers) }
-  const back = () => { if (review) setReview(false); else if (idx > 0) setIdx(idx - 1) }
-  const skip = () => advance({ ...answers, [step.key]: ANSWER_EMPTY })
-  const jumpTo = (i: number) => { setReview(false); setIdx(i) }
+  const next = () => { cancelAuto(); if (canNext) advance(answers) }
+  const back = () => { cancelAuto(); if (review) setReview(false); else if (idx > 0) setIdx(idx - 1) }
+  const skip = () => { cancelAuto(); advance({ ...answers, [step.key]: ANSWER_EMPTY }) }
+  const jumpTo = (i: number) => { cancelAuto(); setReview(false); setIdx(i) }
   const pick = (v: string) => {
+    cancelAuto()
     if (step.multi) {
       update({ picks: cur.picks.includes(v) ? cur.picks.filter((x) => x !== v) : [...cur.picks, v] })
       return
@@ -81,7 +91,10 @@ export default function IntakeCard({
     // A single-choice step with nothing else to fill advances on the tap
     // (Typeform speed); a choice that carries a note (the emergency line)
     // stays so the note is read.
-    if (picks.length && !step.input && !step.attach && !opt?.note) setTimeout(() => advance(a), 140)
+    if (picks.length && !step.input && !step.attach && !opt?.note) {
+      const at = idx
+      autoRef.current = { at, t: setTimeout(() => { autoRef.current = null; if (idxRef.current === at) advance(a) }, 140) }
+    }
   }
   const addFiles = async (fl: FileList | null) => {
     const read = await readFilesAsAttachments(fl)

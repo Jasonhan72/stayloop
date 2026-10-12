@@ -83,6 +83,7 @@ async function resend(admin: SupabaseClient, sb: SupabaseClient, id: string, me:
     agentAuthId: me, agent: { legal_name: p.legal_name, reco_number: p.reco_number, brokerage_name: p.brokerage_name },
     scope: d.scope, actions: d.allowed_actions, expiresAt: d.expires_at,
   })
-  await admin.from('agent_audit_events').insert({ actor_id: me, actor_type: 'user', action: 'delegation_link_resent', target_type: 'delegation', target_id: id, acting_role: 'agent', delegation_id: id, metadata: { emailed } }).then(() => undefined, () => undefined)
-  return NextResponse.json({ ok: true, emailed })
+  const failure = emailed.ok ? {} : { reason: emailed.reason, detail: emailed.detail }
+  await admin.from('agent_audit_events').insert({ actor_id: me, actor_type: 'user', action: 'delegation_link_resent', target_type: 'delegation', target_id: id, acting_role: 'agent', delegation_id: id, metadata: { emailed: emailed.ok, ...failure } }).then(() => undefined, () => undefined)
+  return NextResponse.json({ ok: true, emailed: emailed.ok, ...failure })
 }

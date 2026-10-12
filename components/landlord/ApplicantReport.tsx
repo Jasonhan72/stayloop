@@ -96,7 +96,8 @@ export default function ApplicantReport({
       {/* Summary band — conclusion before detail (SingleKey report order). */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h2 className="text-[18px] font-bold tracking-tight">{zh ? '筛查报告 · 四项评分' : 'Screening report · four scores'}</h2>
+          <h2 className="text-[18px] font-bold tracking-tight">{zh ? '筛查报告 · 四项计分' : 'Screening report · four scored items'}</h2>
+          <div className="mt-1 font-mono text-[10.5px] text-body-3">{zh ? '四项计分，报告另列不计分的『申请完整度与沟通』' : 'Four scored items, plus an unscored application-completeness note'}</div>
           <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{aiLine || fallbackAdvice(score)[lang]}</p>
         </div>
         <div className="flex items-center gap-3">
@@ -117,7 +118,7 @@ export default function ApplicantReport({
         </span>
         {flags.length === 0 ? (
           <span className="rounded-md bg-success/10 px-2.5 py-1 text-[11.5px] font-semibold text-success">
-            {zh ? '✓ 未发现红旗 · 四项评分都在参考区间' : '✓ No red flags · all four scores in the reference range'}
+            {zh ? '✓ 未发现红旗 · 四项计分都在参考区间' : '✓ No red flags · all four scored items in the reference range'}
           </span>
         ) : (
           flags.map((f) => (

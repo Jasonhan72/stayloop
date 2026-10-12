@@ -20,17 +20,23 @@ export default function ProposeDelegation({ client, zh, onDone, onCancel }: { cl
     setBusy(true); setErr(null); setMsg(null)
     const { data } = await supabase.auth.getSession()
     const res = await fetch('/api/delegations', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` }, body: JSON.stringify({ client_id: client.id, scope, allowed_actions: actions, months }) })
-    const j = (await res.json().catch(() => ({}))) as { error?: string; emailed?: boolean }
+    const j = (await res.json().catch(() => ({}))) as { error?: string; emailed?: boolean; reason?: string; detail?: string }
     if (!res.ok) {
       const map: Record<string, { zh: string; en: string }> = {
         registration_not_live: { zh: '你的 RECO 注册未处于有效状态。', en: 'Your RECO registration is not live.' },
         client_email_required: { zh: '先给客户填一个邮箱。', en: 'Add the client’s email first.' },
         paperwork_required: { zh: '先记录代表协议与 Information Guide 的日期。', en: 'Record the representation agreement and Information Guide dates first.' },
         already_delegated: { zh: '这位客户已有待确认或有效的委托。', en: 'This client already has a pending or active delegation.' },
+        client_email_undeliverable: { zh: '客户邮箱是测试用的保留域名（example.com 之类），邮件发不到；先改成客户真实的邮箱。', en: 'The client’s email is a reserved test domain (example.com and the like) and cannot receive mail — enter their real address first.' },
       }
       setErr(j.error && map[j.error] ? (zh ? map[j.error].zh : map[j.error].en) : j.error || `HTTP ${res.status}`)
     } else if (j.emailed === false) {
       // The row exists but the email did not leave: say so, never 「已发到」 (sweep 2026-10-01).
+      if (j.reason === 'undeliverable_domain') {
+        setErr(zh ? `委托已创建，但确认邮件发不到 ${client.email}：这个邮箱域名无法投递（example.com 这类测试域名收不到信）。改成客户真实的邮箱后在客户表这一行点「重发链接」。` : `The delegation was created but mail cannot be delivered to ${client.email}: that domain is undeliverable (test domains like example.com receive nothing). Fix the address, then use 「Resend link」 on this client’s row.`)
+        await onDone()
+        return
+      }
       setErr(zh ? `委托已创建，但确认邮件没有发出去（邮件服务出错）。在客户表这一行点「重发链接」再试，或「撤回」后检查邮箱 ${client.email} 是否正确。` : `The delegation was created but the confirmation email did not go out (mail service error). Use 「Resend link」 on this client’s row, or 「Withdraw」 and check that ${client.email} is right.`)
       await onDone()
     } else {

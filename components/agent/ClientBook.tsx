@@ -18,6 +18,7 @@ import { useReportLiveRows } from '@/lib/liveRows'
 import ProposeDelegation from '@/components/delegations/ProposeDelegation'
 import MessageButton from '@/components/messages/MessageButton'
 import { allows, isDelegationLive, STATUS_LABEL, type DelegationRow } from '@/lib/delegations/shared'
+import { isUndeliverableEmailDomain, type EmailFailureReason } from '@/lib/emailDeliverability'
 
 export type ClientRow = {
   id: string
@@ -40,6 +41,10 @@ const EMPTY: { name: string; client_role: ClientRole; email: string; phone: stri
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 type ContactForm = { name: string; email: string; phone: string; budget: string; area: string; notes: string }
 const sameEmail = (a: string | null | undefined, b: string | null | undefined) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase()
+// example.com / *.test / *.invalid / localhost: nothing is ever delivered there, so the row is refused before it
+// can produce a delegation whose link "did not go out" (四角色审计 2026-10-12 · P1-4).
+const RESERVED_DOMAIN_MSG = { zh: '这是测试用的保留域名，邮件发不到；请填客户真实邮箱。', en: 'That is a reserved test domain (example.com, .test, …); mail cannot be delivered there. Enter the client’s real email.' }
+const UNDELIVERABLE_MSG = { zh: '这个邮箱域名无法投递（example.com 这类测试域名收不到信）。改成客户真实的邮箱后再重发。', en: 'This email domain cannot receive mail (test domains like example.com never get delivered). Change it to the client’s real email, then resend.' }
 
 export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: number) => void }) {
   const { user, loading } = useAuth()
@@ -87,7 +92,8 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
     if (!user || !form.name.trim()) return
     setNotice(null)
     const email = form.email.trim()
-    if (email && !EMAIL_RE.test(email)) { setErr(zh ? '邮箱格式不对（例如 name@example.com）。' : 'That email does not look right (e.g. name@example.com).'); return }
+    if (email && !EMAIL_RE.test(email)) { setErr(zh ? '邮箱格式不对（例如 name@gmail.com）。' : 'That email does not look right (e.g. name@gmail.com).'); return }
+    if (email && isUndeliverableEmailDomain(email)) { setErr(zh ? RESERVED_DOMAIN_MSG.zh : RESERVED_DOMAIN_MSG.en); return }
     // One row per client: re-adding someone to fix their email made a second row with its own thread.
     const dup = email ? rows?.find((r) => sameEmail(r.email, email)) : null
     if (dup) { setErr(zh ? `「${dup.name}」已经用这个邮箱记在客户表里了；要改资料请在那一行点「编辑资料」。` : `${dup.name} is already in your client table with this email; use 「Edit details」 on that row.`); return }
@@ -126,7 +132,8 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
   async function saveEdit(c: ClientRow) {
     const f = { name: editForm.name.trim().slice(0, 120), email: editForm.email.trim().slice(0, 200), phone: editForm.phone.trim().slice(0, 40), budget: editForm.budget.trim().slice(0, 80), area: editForm.area.trim().slice(0, 160), notes: editForm.notes.trim().slice(0, 2000) }
     if (!f.name) { setErr(zh ? '姓名不能为空。' : 'The name cannot be empty.'); return }
-    if (f.email && !EMAIL_RE.test(f.email)) { setErr(zh ? '邮箱格式不对（例如 name@example.com）。' : 'That email does not look right (e.g. name@example.com).'); return }
+    if (f.email && !EMAIL_RE.test(f.email)) { setErr(zh ? '邮箱格式不对（例如 name@gmail.com）。' : 'That email does not look right (e.g. name@gmail.com).'); return }
+    if (f.email && isUndeliverableEmailDomain(f.email)) { setErr(zh ? RESERVED_DOMAIN_MSG.zh : RESERVED_DOMAIN_MSG.en); return }
     const dup = f.email ? rows?.find((r) => r.id !== c.id && sameEmail(r.email, f.email)) : null
     if (dup) { setErr(zh ? `「${dup.name}」已经用这个邮箱记在客户表里了。` : `${dup.name} already has this email in your client table.`); return }
     const emailChanged = (c.email ?? '').trim().toLowerCase() !== f.email.toLowerCase()
@@ -155,7 +162,7 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
     try {
       const { data } = await supabase.auth.getSession()
       const res = await fetch(`/api/delegations/${d.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` }, body: JSON.stringify({ action }) })
-      const j = (await res.json().catch(() => ({}))) as { error?: string; emailed?: boolean }
+      const j = (await res.json().catch(() => ({}))) as { error?: string; emailed?: boolean; reason?: EmailFailureReason; detail?: string }
       if (!res.ok) {
         const map: Record<string, { zh: string; en: string }> = {
           rate_limited: { zh: '操作太频繁，请稍后再试。', en: 'Too many attempts; try again later.' },
@@ -165,9 +172,17 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
         const m = j.error && map[j.error]
         setErr(m ? (zh ? m.zh : m.en) : /^status_/.test(j.error || '') ? (zh ? '这份委托已不是待确认状态。' : 'This delegation is no longer pending.') : j.error || `HTTP ${res.status}`)
       } else if (action === 'resend') {
+        // The route says why it did not leave (P1-4 2026-10-12): a reserved test domain is the agent's to fix,
+        // not something to retry; a provider error carries the provider's own words.
+        const reason: EmailFailureReason | undefined = j.reason ?? (isUndeliverableEmailDomain(d.principal_email) ? 'undeliverable_domain' : undefined)
+        const detail = j.detail ? ` ${zh ? '邮件服务返回：' : 'Mail service said: '}${j.detail}` : ''
         setNotice(j.emailed
           ? (zh ? `确认链接已重新发到 ${d.principal_email}。` : `The confirmation link was sent again to ${d.principal_email}.`)
-          : (zh ? `还是没有发出去（邮件服务出错）。请稍后再试，或撤回后检查邮箱 ${d.principal_email} 是否正确。` : `It still did not go out (mail service error). Try later, or withdraw and check ${d.principal_email}.`))
+          : reason === 'undeliverable_domain'
+            ? (zh ? `还是没有发出去。${UNDELIVERABLE_MSG.zh}（${d.principal_email}）` : `It still did not go out. ${UNDELIVERABLE_MSG.en} (${d.principal_email})`)
+            : reason === 'rate_limited'
+              ? (zh ? `还是没有发出去（邮件服务限流）。请过一会儿再点「重发链接」。${detail}` : `It still did not go out (the mail service is rate-limiting). Try 「Resend link」 again in a little while.${detail}`)
+              : (zh ? `还是没有发出去（邮件服务出错）。请稍后再试，或撤回后检查邮箱 ${d.principal_email} 是否正确。${detail}` : `It still did not go out (mail service error). Try later, or withdraw and check ${d.principal_email}.${detail}`))
       } else {
         setNotice(zh ? '已撤回。' : 'Withdrawn.')
       }
@@ -300,19 +315,24 @@ export default function ClientBook({ zh, onRows }: { zh: boolean; onRows?: (n: n
                                   const li = linkInfo[d.id]
                                   const moved = !!c.email && !sameEmail(c.email, d.principal_email)
                                   // unknown (rows from before the send was recorded): the 待客户确认 chip says enough
+                                  const undeliverable = isUndeliverableEmailDomain(d.principal_email)
                                   const label = moved
                                     ? (zh ? '客户邮箱已改 · 撤回后重新发起' : 'Email changed · withdraw and propose again')
                                     : li?.emailed === false
-                                      ? (zh ? '确认邮件未发出' : 'Link email not sent')
+                                      ? undeliverable
+                                        ? (zh ? '确认邮件未发出 · 邮箱域名无法投递' : 'Link email not sent · domain cannot receive mail')
+                                        : (zh ? '确认邮件未发出' : 'Link email not sent')
                                       : li?.emailed
                                         ? (zh ? `链接已发到客户邮箱${li.at ? ` · ${li.at.slice(0, 10)}` : ''}` : `Link sent to the client’s email${li.at ? ` · ${li.at.slice(0, 10)}` : ''}`)
                                         : null
                                   return (<>
-                                    {label && <span data-testid="delegation-link-status" className={'rounded-[8px] border px-2.5 py-[5px] text-[11.5px] ' + (li?.emailed === false || moved ? 'border-danger/40 text-danger' : 'border-line-divider text-body-3')} title={zh ? `确认链接发往 ${d.principal_email}；客户用该邮箱登录后确认` : `The confirmation link goes to ${d.principal_email}; they confirm while signed in with it`}>{label}</span>}
+                                    {label && <span data-testid="delegation-link-status" className={'rounded-[8px] border px-2.5 py-[5px] text-[11.5px] ' + (li?.emailed === false || moved ? 'border-danger/40 text-danger' : 'border-line-divider text-body-3')} title={li?.emailed === false && undeliverable ? (zh ? UNDELIVERABLE_MSG.zh : UNDELIVERABLE_MSG.en) : zh ? `确认链接发往 ${d.principal_email}；客户用该邮箱登录后确认` : `The confirmation link goes to ${d.principal_email}; they confirm while signed in with it`}>{label}</span>}
                                     {!moved && <button type="button" disabled={busy} onClick={() => void delegationAction(d, 'resend')} data-testid="delegation-resend" className="rounded-[8px] border border-line-strong bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-body hover:border-brand hover:text-brand disabled:opacity-50">{zh ? '重发链接' : 'Resend link'}</button>}
                                     <button type="button" disabled={busy} onClick={() => void delegationAction(d, 'revoke')} data-testid="delegation-withdraw" className="rounded-[8px] border border-danger/40 bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-danger disabled:opacity-50">{zh ? '撤回' : 'Withdraw'}</button>
                                   </>)
                                 })()
+                              : paper && c.email && isUndeliverableEmailDomain(c.email)
+                                ? <span data-testid="propose-delegation-undeliverable" className="rounded-[8px] border border-danger/40 px-2.5 py-[5px] text-[11.5px] text-danger" title={zh ? UNDELIVERABLE_MSG.zh : UNDELIVERABLE_MSG.en}>{zh ? '委托（邮箱域名无法投递 · 请改邮箱）' : 'Delegation (domain cannot receive mail · fix the email)'}</span>
                               : paper && c.email && EMAIL_RE.test(c.email.trim())
                                 ? <button type="button" onClick={() => setProposeFor(c.id)} title={zh ? '客户确认后，筛查报告也会出现在客户自己的账号里' : 'Once the client confirms, screening reports also appear in their own account'} className="rounded-[8px] border border-brand/40 bg-white px-2.5 py-[5px] text-[11.5px] font-semibold text-brand" data-testid="propose-delegation-button">{zh ? '发起委托' : 'Propose delegation'}</button>
                                 : <span className="rounded-[8px] border border-line-divider px-2.5 py-[5px] text-[11.5px] text-body-3" title={zh ? '先记录代表协议与 Information Guide，并填客户邮箱' : 'Record the agreement and Information Guide dates and an email first'}>{zh ? '委托（缺文件 / 邮箱）' : 'Delegation (paperwork / email)'}</span>}

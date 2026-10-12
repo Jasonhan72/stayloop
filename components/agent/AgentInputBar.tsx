@@ -243,7 +243,7 @@ export default function AgentInputBar({
             submit()
           }
         }}
-        aria-label={`Message ${agentName}`}
+        aria-label={lang === 'zh' ? `给 ${agentName} 发消息` : `Message ${agentName}`}
         placeholder={lang === 'zh' ? '写点什么…' : 'Write a message…'}
         className={pill ? 'order-2 block max-h-60 min-h-[40px] min-w-0 flex-1 basis-0 resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-body outline-none placeholder:text-body-4' : 'order-2 block max-h-60 min-h-[40px] min-w-0 flex-1 basis-0 resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-body outline-none placeholder:text-body-4 md:order-1 md:min-h-[52px] md:basis-full md:px-4 md:pb-0 md:pt-4'}
       />

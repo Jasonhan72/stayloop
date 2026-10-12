@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { isRegistrationLive } from '@/lib/agentProfile'
 import { BASIS_VERSION, validateProposal, type DelegationAction, type DelegationScope } from '@/lib/delegations/shared'
+import { isUndeliverableEmailDomain } from '@/lib/email'
 import { sendDelegationLink } from './confirmEmail'
 
 export const runtime = 'edge'
@@ -38,6 +39,8 @@ export async function POST(req: Request) {
   const c = client as { id: string; name: string; email: string | null; client_role: string; representation_agreement_at: string | null; info_guide_given_at: string | null } | null
   if (!c) return NextResponse.json({ error: 'client_not_found' }, { status: 404 })
   if (!c.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.email)) return NextResponse.json({ error: 'client_email_required' }, { status: 422 })
+  // example.com / *.test / … can never receive the link: no pending row, no send (P1-4 2026-10-12).
+  if (isUndeliverableEmailDomain(c.email)) return NextResponse.json({ error: 'client_email_undeliverable', reason: 'undeliverable_domain' }, { status: 422 })
   if (!c.representation_agreement_at || !c.info_guide_given_at) return NextResponse.json({ error: 'paperwork_required' }, { status: 422 })
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
@@ -59,7 +62,9 @@ export async function POST(req: Request) {
     agentAuthId: ud.user.id, agent: { legal_name: p.legal_name, reco_number: p.reco_number, brokerage_name: p.brokerage_name },
     scope: v.value.scope as DelegationScope[], actions: v.value.allowed_actions as DelegationAction[], expiresAt,
   })
-  const sent = { ok: emailed }
-  await admin.from('agent_audit_events').insert({ actor_id: ud.user.id, actor_type: 'user', action: 'delegation_proposed', target_type: 'delegation', target_id: (row as { id: string }).id, acting_role: 'agent', delegation_id: (row as { id: string }).id, metadata: { client_id: c.id, scope: v.value.scope, allowed_actions: v.value.allowed_actions, expires_at: expiresAt, emailed: sent.ok } }).then(() => undefined, () => undefined)
-  return NextResponse.json({ delegation: row, emailed: sent.ok })
+  // Why it did not leave travels with the response and the audit row (no column on delegations): the client
+  // book can then say "this domain cannot receive mail" instead of a generic mail-service error (P1-4 2026-10-12).
+  const failure = emailed.ok ? {} : { reason: emailed.reason, detail: emailed.detail }
+  await admin.from('agent_audit_events').insert({ actor_id: ud.user.id, actor_type: 'user', action: 'delegation_proposed', target_type: 'delegation', target_id: (row as { id: string }).id, acting_role: 'agent', delegation_id: (row as { id: string }).id, metadata: { client_id: c.id, scope: v.value.scope, allowed_actions: v.value.allowed_actions, expires_at: expiresAt, emailed: emailed.ok, ...failure } }).then(() => undefined, () => undefined)
+  return NextResponse.json({ delegation: row, emailed: emailed.ok, ...failure })
 }

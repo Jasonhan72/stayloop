@@ -17,8 +17,12 @@ export interface SendEmailArgs {
 export interface SendEmailResult {
   ok: boolean
   id?: string
+  /** Why the provider refused, e.g. `resend 422: {"message":"Invalid \`to\` field …"}`. Classify it with
+   *  classifyEmailFailure() before showing it to a person (四角色审计 2026-10-12 · P1-4). */
   error?: string
 }
+
+export { classifyEmailFailure, isUndeliverableEmailDomain, type EmailFailure, type EmailFailureReason } from './emailDeliverability'
 
 export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY

@@ -97,7 +97,7 @@ describe('the login card and the shared sign-in hook', () => {
     expect(read('app/register/page.tsx')).toContain('<AuthPage mode="register" />')
     const shell = read('components/auth/AuthPage.tsx') + read('components/auth/SignInBlock.tsx')
     for (const s of ['signInWithOtp', 'signInWithOAuth', 'resetPasswordForEmail', 'function callbackUrl', 'magic-link', 'auth.signUp(']) expect(shell, s).not.toContain(s)
-    expect(shell).toContain('homeForHats(remembered, data as HatsLite)') // the signed-in bounce is unchanged
+    expect(shell).toContain('landingAfterSignIn(remembered, remembered ? null : role, data as HatsLite)') // the signed-in bounce: a held hat, the callback's landing semantics (2026-10-12)
     expect(shell).toContain('<LoginCard next={next} intent={intent}')
     expect(card).toContain("import GoogleIcon from '@/components/auth/GoogleIcon'")
   })

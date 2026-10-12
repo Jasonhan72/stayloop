@@ -56,6 +56,8 @@ type LinkedScreening = {
   v3_tier: string | null
   hard_gates_triggered: string[] | null
   verification: unknown
+  /** Why a run ended in status 'error' (e.g. no_documents) — four-role audit 2026-10-12 P1-1. */
+  error: string | null
 }
 
 type AppDetail = {
@@ -173,7 +175,16 @@ function RealApplicantDetail({ id }: { id: string }) {
     try {
       const { data: sess } = await supabase.auth.getSession()
       const res = await fetch('/api/screening/from-application', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sess.session?.access_token ?? ''}` }, body: JSON.stringify({ application_id: app.id }) })
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; screening_id?: string; existing?: boolean; status?: string; error?: string }
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; screening_id?: string; existing?: boolean; status?: string; error?: string; copy_failed?: number }
+      if (res.status === 422 && j.error === 'no_documents') {
+        // Four-role audit 2026-10-12 P1-1: no row is created for an application without
+        // material; say so instead of leaving a failed run as the only trace.
+        setErr(zh
+          ? '申请没有附任何材料，无法筛查。请 TA 在申请对话里补传材料（工资单、在职信、证件…），上传后再点「一键筛查」。'
+          : 'This application has no documents, so there is nothing to screen. Ask the applicant to add them in the application conversation (pay stubs, employment letter, ID…), then press “Screen” again.')
+        setNeedsMoreOpen(true)
+        return
+      }
       if (!res.ok || !j.screening_id) { setErr(j.error || `HTTP ${res.status}`); return }
       setScreeningId(j.screening_id)
       window.location.href = `/screening/app?screening=${j.screening_id}${j.existing && j.status === 'scored' ? '' : '&run=1'}`
@@ -205,7 +216,7 @@ function RealApplicantDetail({ id }: { id: string }) {
     if (!appId || !user) return
     let cancelled = false
     ;(async () => {
-      const { data: sc } = await supabase.from('screenings').select('id, status, ai_score, ai_summary, ai_summary_zh, v3_tier, hard_gates_triggered, verification').eq('application_id', appId).order('created_at', { ascending: false }).limit(1)
+      const { data: sc } = await supabase.from('screenings').select('id, status, ai_score, ai_summary, ai_summary_zh, v3_tier, hard_gates_triggered, verification, error').eq('application_id', appId).order('created_at', { ascending: false }).limit(1)
       if (cancelled) return
       if (sc && sc.length) { setScreeningId(sc[0].id as string); setLinked(sc[0] as unknown as LinkedScreening) }
     })()
@@ -461,6 +472,13 @@ function RealApplicantDetail({ id }: { id: string }) {
   // "Scoring" only while a linked screening is actually running (site test 2026-10-02: an
   // applicant nobody had screened carried a "Scoring" chip above "not screened yet").
   const linkedRunning = !!linked && (linked.status === 'uploading' || linked.status === 'scoring')
+  // A run that ended in error is not "the screening": the button offers to run again and the
+  // score card says why it failed (audit 2026-10-12 P1-1: the failed row hid the retry forever).
+  const linkedFailed = !!linked && linked.status === 'error'
+  const failedWhy = !linkedFailed ? null
+    : linked!.error === 'no_documents'
+      ? (zh ? '上次筛查没有跑：申请没有附任何材料。' : 'The last run did not start: the application had no documents.')
+      : (zh ? `上次筛查失败（${linked!.error || '未知原因'}）。` : `The last run failed (${linked!.error || 'unknown reason'}).`)
   const overall = app.ai_score ?? (linkedScored ? linked!.ai_score : null)
   const recommended = app.status === 'approved' || (overall != null && overall >= 75 && app.status !== 'declined')
   // Stamps mean applicant-authorised third-party verification (Veriff /
@@ -558,8 +576,8 @@ function RealApplicantDetail({ id }: { id: string }) {
             )}
             <p className="mt-4 text-[11.5px] text-body-3">
               {pc
-                ? (zh ? '评分与档位仅供参考 · 不能作为拒绝的依据，录取与否由你本人决定。完整报告含四项评分（付款能力、信用、租务与司法历史、核验）、取证与公开记录检索。' : 'Score and tier are information only — never grounds to decline; you make the decision yourself. The full report has the four scored items (ability to pay, credit, rental and legal history, verification), forensics and public-record checks.')
-                : (zh ? '评分与档位仅供参考 · 非拒绝依据（OHRC 租房政策）。完整报告含四项评分（付款能力、信用、租务与司法历史、核验）、取证、法庭与 LTB 检索。' : 'Score and tier are information only — never grounds to decline (OHRC). The full report has the four scored items (ability to pay, credit, rental and legal history, verification), forensics, court and LTB checks.')}
+                ? (zh ? '评分与档位仅供参考 · 不能作为拒绝的依据，录取与否由你本人决定。完整报告按四项计分（付款能力、信用、租务与司法历史、核验），另列不计分的「申请完整度与沟通」、取证与公开记录检索。' : 'Score and tier are information only — never grounds to decline; you make the decision yourself. The full report has four scored items (ability to pay, credit, rental and legal history, verification) plus an unscored application-completeness note, forensics and public-record checks.')
+                : (zh ? '评分与档位仅供参考 · 非拒绝依据（OHRC 租房政策）。完整报告按四项计分（付款能力、信用、租务与司法历史、核验），另列不计分的「申请完整度与沟通」、取证、法庭与 LTB 检索。' : 'Score and tier are information only — never grounds to decline (OHRC). The full report has four scored items (ability to pay, credit, rental and legal history, verification) plus an unscored application-completeness note, forensics, court and LTB checks.')}
             </p>
             <Link href={`/screening/${linked.id}/report`} className="sl-btn-primary mt-4 inline-block !py-[10px] text-center">{zh ? '打开完整报告 →' : 'Open the full report →'}</Link>
           </div>
@@ -573,11 +591,13 @@ function RealApplicantDetail({ id }: { id: string }) {
               </div>
             </div>
             <p className="mt-6 rounded-lg bg-surface-chip px-4 py-6 text-center text-[13px] text-body-2">
-              {linked
+              {linkedFailed
+                ? <span data-testid="screening-failed-why">{failedWhy} {zh ? '补齐材料后点「重新筛查」。' : 'Add the documents, then press “Screen again”.'}</span>
+                : linked
                 ? (zh ? '筛查已经发起，还没有出分。点「查看筛查报告」看进度。' : 'A screening has started but has no score yet — open the screening report to see its progress.')
                 : zh
-                  ? '还没有筛查。点「一键筛查」，按付款能力、信用、租务与司法历史、核验四项打分，通常几分钟出报告。'
-                  : 'Not screened yet. Use “Screen with the submitted documents”: it scores ability to pay, credit, rental and legal history, and verification, usually within minutes.'}
+                  ? '还没有筛查。点「一键筛查」，按付款能力、信用、租务与司法历史、核验四项计分（报告另列不计分的「申请完整度与沟通」），通常几分钟出报告。'
+                  : 'Not screened yet. Use “Screen with the submitted documents”: four scored items (ability to pay, credit, rental and legal history, verification) plus an unscored application-completeness note, usually within minutes.'}
             </p>
           </div>
         )}
@@ -639,7 +659,7 @@ function RealApplicantDetail({ id }: { id: string }) {
                 disabled={screenBusy}
                 onClick={startScreening}
               >
-                {screenBusy ? (zh ? '准备筛查…' : 'Preparing…') : screeningId ? (zh ? '🔍 查看筛查报告' : '🔍 Open screening report') : (zh ? '🔍 一键筛查（复用申请材料）' : '🔍 Screen with the submitted documents')}
+                {screenBusy ? (zh ? '准备筛查…' : 'Preparing…') : linkedFailed ? (zh ? '🔍 重新筛查' : '🔍 Screen again') : screeningId ? (zh ? '🔍 查看筛查报告' : '🔍 Open screening report') : (zh ? '🔍 一键筛查（复用申请材料）' : '🔍 Screen with the submitted documents')}
               </button>
               <button
                 className="rounded-lg border border-success/50 bg-white px-4 py-[10px] text-[13.5px] font-semibold text-success disabled:opacity-50"
@@ -669,7 +689,7 @@ function RealApplicantDetail({ id }: { id: string }) {
               <Link href={`/landlord/leases/new?application_id=${app.id}`} className="sl-btn-secondary text-center">
                 {zh ? '📄 起草租约' : '📄 Draft lease'}
               </Link>
-              {screeningId && (
+              {screeningId && !linkedFailed && (
                 <Link href={`/screening/app?screening=${screeningId}`} className="sl-btn-secondary text-center">
                   {zh ? '🪪 请 TA 本人核验（身份 / 银行 / 征信）' : '🪪 Ask them to verify (identity / bank / credit)'}
                 </Link>

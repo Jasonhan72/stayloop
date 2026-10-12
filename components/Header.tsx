@@ -64,7 +64,12 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
     r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)
   // The identity the header names — label, colour, the avatar menu's「当前：…」chip and the
   // current row: the area you are in (lib/displayIdentity.ts). Permissions read the hats.
-  const displayRole = displayIdentity(pathname, home.onProvider, currentRole)
+  const displayRole = displayIdentity(pathname, home.onProvider, currentRole, hats)
+  // Pages are prerendered and my_hats answers after sign-in; until it does, activeHat falls
+  // back to 租客 and an agent / provider account saw「我是租客」for a moment (four-role audit
+  // 2026-10-12, P1-5). While the hats load the header commits to no identity: a grey「我是…」,
+  // no「当前：…」chip, a placeholder where the identity rows go. Visitors are unaffected.
+  const identityPending = home.signedIn && hats.loading
 
   // The menu names hats, never assistants: 「当前：房东」「房东工作台」「租客 / 房东 / 经纪」
   // (user 2026-09-25: the assistant names — Atlas, Nova and the like — made it unclear who the
@@ -74,6 +79,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   const [pendingCount, setPendingCount] = useState(0)
   useEffect(() => {
     if (auth.loading || !auth.user) { setPendingCount(0); return }
+    if (identityPending) return // the hat is not known yet; re-runs once it is
     let cancelled = false
     // the displayed hat's cards; the provider hat has none, so its pages keep the active hat's
     const countRole = displayRole === 'provider' ? currentRole : displayRole
@@ -81,7 +87,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
     void load()
     window.addEventListener(PENDING_CHANGED_EVENT, load)
     return () => { cancelled = true; window.removeEventListener(PENDING_CHANGED_EVENT, load) }
-  }, [auth.loading, auth.user, currentRole, displayRole, pathname])
+  }, [auth.loading, auth.user, currentRole, displayRole, pathname, identityPending])
 
   // Messages (消息系统 A 期): the envelope folded into the hamburger (user 2026-09-30) —
   // one red dot for "something is waiting": approval cards on this hat or unread messages.
@@ -158,17 +164,28 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
     const meta = profilePhotoOf(auth.user)
     if (meta) { setAvatarUrl(meta); writeCachedProfilePhoto(uid, meta) } else setAvatarUrl(readCachedProfilePhoto(uid))
   }, [auth.user])
-  const avatarBg =
-    displayRole === 'provider' ? `linear-gradient(135deg, #FDBA74, ${PROVIDER_ACCENT})` : (ROLE_THEME[displayRole as RoleKey] ?? ROLE_THEME.landlord).avatarGradient
+  const avatarBg = identityPending
+    ? 'linear-gradient(135deg, #CBD5E1, #94A3B8)' // no identity colour until the hats are known
+    : displayRole === 'provider' ? `linear-gradient(135deg, #FDBA74, ${PROVIDER_ACCENT})` : (ROLE_THEME[displayRole as RoleKey] ?? ROLE_THEME.landlord).avatarGradient
 
   // Signed in, the「我是」trigger names the displayed identity (providers included).
   const actingLabel = lang === 'zh' ? ROLE_META[displayRole].label : ROLE_META[displayRole].labelEn
   // …in that identity's colour, the same one as the「当前：房东」chip in the avatar menu, so the
   // acting role reads at a glance (user 2026-09-29:「我是房东这个菜单文字的颜色也改成…一样的
   // 绿色」, then「我是经纪，我是服务商，也是要一样的处理下」): landlord green, tenant purple,
-  // agent blue, provider orange.
-  const identityColor = home.signedIn ? ROLE_META[displayRole].color : null
-  const navIdentityLabel = lang === 'zh' ? `我是${actingLabel}` : `I’m ${/^[aeiou]/i.test(actingLabel) ? 'an' : 'a'} ${actingLabel.toLowerCase()}`
+  // agent blue, provider orange. No colour while the hats are still loading.
+  const identityColor = home.signedIn && !identityPending ? ROLE_META[displayRole].color : null
+  const navIdentityLabel = identityPending
+    ? (lang === 'zh' ? '我是…' : 'I’m …')
+    : lang === 'zh' ? `我是${actingLabel}` : `I’m ${/^[aeiou]/i.test(actingLabel) ? 'an' : 'a'} ${actingLabel.toLowerCase()}`
+  // What the identity rows' slot shows until my_hats answers (P1-5): three grey bars, no hat named.
+  const identitySkeleton = (
+    <div className="px-4 py-3" aria-busy="true" data-testid="identity-skeleton">
+      <div className="h-3 w-12 rounded bg-[#EBEBEB]" />
+      <div className="mt-3 h-4 w-40 rounded bg-[#EBEBEB]" />
+      <div className="mt-2 h-4 w-32 rounded bg-[#EBEBEB]" />
+    </div>
+  )
   // The hat rows: the hamburger's folded list and the「我是」dropdown render the same set.
   const identityRows = (
     <>
@@ -251,7 +268,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
               onClick={() => setProductOpen((v) => !v)}
               className="group inline-flex items-center gap-1 text-[14px] transition"
               style={{
-                color: identityColor ?? (isProductActive ? '#171717' : '#3F3F46'),
+                color: identityColor ?? (identityPending ? '#717171' : isProductActive ? '#171717' : '#3F3F46'),
                 fontWeight: identityColor || isProductActive ? 600 : 400,
               }}
               aria-haspopup="menu"
@@ -263,7 +280,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
             </button>
             {productOpen && home.signedIn && (
               <div className="sl-card absolute left-0 mt-3 w-[300px] overflow-hidden p-1" role="menu" data-testid="nav-identity-menu">
-                {identityRows}
+                {identityPending ? identitySkeleton : identityRows}
               </div>
             )}
             {productOpen && !home.signedIn && (
@@ -363,15 +380,25 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       </span>
                       <div className="min-w-0">
                         <div className="truncate text-[14px] font-semibold text-[#222]">{auth.fullName || auth.email}</div>
+                        {identityPending ? (
+                          <div className="mt-1 h-4 w-20 rounded-full bg-[#EBEBEB]" aria-busy="true" data-testid="identity-chip-skeleton" />
+                        ) : (
                         <div className="mt-0.5 inline-flex items-center gap-1.5 rounded-full px-2 py-[2px] text-[11px] font-bold" style={{ background: ROLE_META[displayRole].color + '14', color: ROLE_META[displayRole].color }}>
                           <span className="h-1.5 w-1.5 rounded-full" style={{ background: ROLE_META[displayRole].color }} />
                           {lang === 'zh' ? `当前：${ROLE_META[displayRole].label}` : `Now: ${ROLE_META[displayRole].labelEn}`}
                         </div>
+                        )}
                       </div>
                     </div>
                     <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
 
-                    {/* Primary — the displayed identity's workspace */}
+                    {/* Primary — the displayed identity's workspace (a bar until the hats are known) */}
+                    {identityPending ? (
+                      <div className="flex items-center gap-3 px-4 py-3" aria-busy="true" data-testid="workspace-link-skeleton">
+                        <WorkspaceIcon />
+                        <div className="h-4 w-28 rounded bg-[#EBEBEB]" />
+                      </div>
+                    ) : (
                     <Link
                       href={ROLE_META[displayRole]?.home || '/tenant/agent'}
                       onClick={() => setMenuOpen(false)}
@@ -382,7 +409,8 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       <span className="flex-1">{lang === 'zh' ? `${ROLE_META[displayRole].label}工作台` : `${ROLE_META[displayRole].labelEn} workspace`}</span>
                       {pendingCount > 0 && <span className="rounded-full bg-[#FF385C] px-2 py-[1px] text-[11px] font-bold text-white">{pendingCount}</span>}
                     </Link>
-                    {displayRole === 'landlord' && (
+                    )}
+                    {!identityPending && displayRole === 'landlord' && (
                       <Link
                         href="/dashboard"
                         onClick={() => setMenuOpen(false)}
@@ -433,7 +461,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       {heldRoles.length > 1 && <span className="text-[12px] font-normal text-[#717171]">{lang === 'zh' ? `${heldRoles.length} 个身份` : `${heldRoles.length} identities`}</span>}
                       <span className={'text-[#717171] transition-transform ' + (hatsOpen ? 'rotate-90' : '')}>›</span>
                     </button>
-                    {hatsOpen && <div id="sl-identity-list" className="pb-1" data-testid="identity-list">{identityRows}</div>}
+                    {hatsOpen && <div id="sl-identity-list" className="pb-1" data-testid="identity-list">{identityPending ? identitySkeleton : identityRows}</div>}
 
                     <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
 

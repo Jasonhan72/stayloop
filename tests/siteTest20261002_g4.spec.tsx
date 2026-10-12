@@ -117,7 +117,7 @@ describe('L7 D4 · four scored items, never five dimensions', () => {
       expect(s, f).not.toMatch(/五个维度|五维|five dimensions/i)
     }
     expect(read('app/screening/copy.ts')).toContain('可解释评分:四项评分')
-    expect(read('app/landlord/applicants/[id]/page.tsx')).toContain('完整报告含四项评分（付款能力、信用、租务与司法历史、核验）')
+    expect(read('app/landlord/applicants/[id]/page.tsx')).toContain('完整报告按四项计分（付款能力、信用、租务与司法历史、核验），另列不计分的「申请完整度与沟通」')
   })
 })
 

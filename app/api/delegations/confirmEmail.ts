@@ -3,7 +3,7 @@
 // actually left is stored on the row (link_emailed / link_emailed_at), so the client
 // book never says 「链接已发到客户邮箱」 for a send that failed (sweep 2026-10-01).
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
+import { sendEmail, renderAgentMessageEmail, classifyEmailFailure, isUndeliverableEmailDomain, type EmailFailureReason } from '@/lib/email'
 import { ensureThread, replyTokenFor } from '@/lib/threads/server'
 import { replyAddress } from '@/lib/threads/emailReply'
 import { ACTION_LABEL, BASIS_VERSION, SCOPE_LABEL, type DelegationAction, type DelegationScope } from '@/lib/delegations/shared'
@@ -25,7 +25,17 @@ export type LinkEmailArgs = {
   expiresAt: string
 }
 
-export async function sendDelegationLink(admin: SupabaseClient, a: LinkEmailArgs): Promise<boolean> {
+/** What the routes return and write to the audit row. `reason` / `detail` only when `ok` is false
+ *  (四角色审计 2026-10-12 · P1-4: the agent must be able to tell "the address cannot receive mail" from
+ *  "the mail service hiccuped"). The delegations table has no column for it, so it is not stored on the row. */
+export type LinkEmailOutcome = { ok: boolean; reason?: EmailFailureReason; detail?: string }
+
+export async function sendDelegationLink(admin: SupabaseClient, a: LinkEmailArgs): Promise<LinkEmailOutcome> {
+  // A reserved / test domain (example.com, *.test, …) can never receive the link: say so without spending a send.
+  if (isUndeliverableEmailDomain(a.to)) {
+    await admin.from('delegations').update({ link_emailed: false, link_emailed_at: new Date().toISOString() }).eq('id', a.delegationId).then(() => undefined, () => undefined)
+    return { ok: false, reason: 'undeliverable_domain', detail: `reserved test domain: ${a.to.slice(a.to.lastIndexOf('@') + 1).slice(0, 80)}` }
+  }
   const link = `${SITE()}/delegate/${a.token}`
   const scopeZh = a.scope.map((s) => SCOPE_LABEL[s]?.zh ?? s).join('、'); const scopeEn = a.scope.map((s) => SCOPE_LABEL[s]?.en ?? s).join(', ')
   const actZh = a.actions.map((x) => ACTION_LABEL[x]?.zh ?? x).join('、'); const actEn = a.actions.map((x) => ACTION_LABEL[x]?.en ?? x).join(', ')
@@ -42,5 +52,7 @@ export async function sendDelegationLink(admin: SupabaseClient, a: LinkEmailArgs
   const sent = await sendEmail({ to: a.to, subject, html, text: plain, replyTo: tok ? replyAddress(tok) : undefined, fromName: `${p.legal_name} 经 Stayloop` })
   // Best-effort: before the A8 migration the columns do not exist and this is a no-op.
   await admin.from('delegations').update({ link_emailed: sent.ok, link_emailed_at: new Date().toISOString() }).eq('id', a.delegationId).then(() => undefined, () => undefined)
-  return sent.ok
+  if (sent.ok) return { ok: true }
+  const f = classifyEmailFailure(sent.error, a.to)
+  return { ok: false, reason: f.reason, detail: f.detail }
 }

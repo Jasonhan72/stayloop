@@ -20,7 +20,7 @@ const CFG: RoleLandingConfig = {
   ctaNote: { zh: '免费发布房源 · 租金 0 抽成', en: 'List free · 0% rent commission' },
   agentPoints: [
     { zh: '申请按待筛查 / 待决定 / 已决定分组', en: 'Applications grouped: to screen / to decide / decided' },
-    { zh: '四项评分 + 每条结论标出处', en: 'Four scored areas, every conclusion sourced' },
+    { zh: '四项计分 + 一项提示 · 每条结论标出处', en: 'Four scored items + one note · every conclusion sourced' },
     { zh: 'RTA 雷区,当场拦下', en: 'RTA landmines flagged live' },
     { zh: '安省标准租约 · 电子签', en: 'Ontario standard lease · e-sign' },
   ],
@@ -36,7 +36,7 @@ const CFG: RoleLandingConfig = {
   journey: [
     { h: { zh: '一句话挂牌', en: 'List in one sentence' }, b: { zh: '贴 Realtor.ca 链接或说一句话,AI 生成房源草稿;你核对后发布,Stayloop 审核后上线。', en: 'Paste a Realtor.ca link or say one sentence — AI drafts the listing; you review and publish, and it goes live after Stayloop checks it.' } },
     { h: { zh: '申请按阶段整理', en: 'Applications, sorted by stage' }, b: { zh: '按待筛查 / 待决定 / 已决定分组,缺什么材料一眼看到;在申请对话里请 TA 补。', en: 'Grouped into to screen / to decide / decided, with missing documents visible at a glance; ask for them in the application thread.' } },
-    { h: { zh: '一键筛查', en: 'One-click screening' }, b: { zh: '四项评分:付款能力、信用、租务与司法历史、核验;文件取证、LTB 判令与法院记录逐条标出处。', en: 'Four scored areas: ability to pay, credit, tenancy & court history, verification; document forensics, LTB orders and court records, each sourced.' } },
+    { h: { zh: '一键筛查', en: 'One-click screening' }, b: { zh: '四项计分:付款能力、信用、租务与司法历史、核验;报告另列不计分的『申请完整度与沟通』;文件取证、LTB 判令与法院记录逐条标出处。', en: 'Four scored items: ability to pay, credit, tenancy & court history, verification; plus an unscored application-completeness note; document forensics, LTB orders and court records, each sourced.' } },
     { h: { zh: '你来决定', en: 'You decide' }, b: { zh: '不排名、不设收入倍数截止线(OHRC);录取或婉拒由你决定,通知信先给你预览再发。', en: 'No ranking, no income-multiple cut-off (OHRC); you accept or decline, and the notice is shown to you before it is sent.' } },
     { h: { zh: '租约到续约', en: 'Lease to renewal' }, b: { zh: '安省标准租约与电子签;双签后成为在管租约,报修、租金记录、续约 90 / 60 / 30 天提醒都在这里。', en: 'Ontario standard lease and e-sign; once both sign it becomes a managed tenancy, with repairs, the rent record and 90 / 60 / 30-day renewal reminders in one place.' } },
   ],
@@ -51,7 +51,7 @@ const CFG: RoleLandingConfig = {
       file: 'sarah-02-logic.jpg',
       fallback: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=700&q=80&fit=crop&auto=format',
       label: { zh: 'AI 助理接管', en: 'The AI Agent takes over' },
-      text: { zh: 'AI 生成房源草稿,「不养宠」雷区当场拦下;每份申请按材料整理,一键筛查出四项评分,每条结论标出处。', en: 'AI drafted the listing and flagged the "no pets" landmine on the spot; applications were organised by their documents, and one-click screening gave four scored areas with every conclusion sourced.' },
+      text: { zh: 'AI 生成房源草稿,「不养宠」雷区当场拦下;每份申请按材料整理,一键筛查出四项计分,每条结论标出处。', en: 'AI drafted the listing and flagged the "no pets" landmine on the spot; applications were organised by their documents, and one-click screening gave four scored items with every conclusion sourced.' },
     },
     {
       file: 'sarah-03-decide.jpg',

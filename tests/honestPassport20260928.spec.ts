@@ -81,7 +81,7 @@ describe('pricing and the agent screening card say what ships', () => {
     expect(s).not.toMatch(/先有委托|starts with a delegation/)
     expect(s).toMatch(/RECO 注册核验有效就能直接筛查/)
     expect(s).toMatch(/发起委托/)
-    expect(s).toMatch(/付款能力、信用、租务与司法历史、核验四项打分/)
+    expect(s).toMatch(/付款能力、信用、租务与司法历史、核验四项计分/)
     expect(s).toMatch(/href="#client-book"/)
     // the anchor the card points at
     expect(read('components/agent/ClientBook.tsx')).toMatch(/data-testid="client-book" id="client-book"/)

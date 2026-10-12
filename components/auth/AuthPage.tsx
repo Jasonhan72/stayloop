@@ -20,7 +20,7 @@ import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAuth, roleStorageKey } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { ROLE_HOME } from '@/lib/useOnboarding'
-import { homeForHats, type HatsLite } from '@/lib/landlordHat'
+import { landingAfterSignIn, type HatsLite } from '@/lib/landlordHat'
 
 export default function AuthPage({ mode }: { mode: 'signin' | 'register' }) {
   const router = useRouter()
@@ -35,15 +35,19 @@ export default function AuthPage({ mode }: { mode: 'signin' | 'register' }) {
   // Already signed in → no form. Honor an explicit ?next= / ?redirect= target,
   // else land on a workspace this account actually holds (SL-T-08). The
   // remembered hat is read raw: 'provider' is a landing hat that the Role type
-  // does not carry (2026-09-26).
+  // does not carry (2026-09-26). Only what this browser remembers for the
+  // account is the person's own choice; useAuth's in-memory role is a hint —
+  // the auth callback's landingAfterSignIn semantics, so a 'tenant' hint never
+  // sends a pure service provider to the tenant chat (four-role audit
+  // 2026-10-12, P2-4).
   useEffect(() => {
     if (!signedIn || !user) return
     const q = new URLSearchParams(window.location.search)
     const redirect = q.get('next') ?? q.get('redirect')
     const safe = redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\') ? redirect : null
     if (safe) { router.replace(safe); return }
-    const remembered = window.localStorage.getItem(roleStorageKey(user.id)) ?? role
-    void Promise.resolve(getSupabaseBrowser().rpc('my_hats')).then(({ data }) => router.replace(homeForHats(remembered, data as HatsLite)), () => router.replace(role ? ROLE_HOME[role] : '/tenant/agent'))
+    const remembered = window.localStorage.getItem(roleStorageKey(user.id))
+    void Promise.resolve(getSupabaseBrowser().rpc('my_hats')).then(({ data }) => router.replace(landingAfterSignIn(remembered, remembered ? null : role, data as HatsLite)), () => router.replace(role ? ROLE_HOME[role] : '/tenant/agent'))
   }, [signedIn, user, role, router])
 
   if (signedIn) {

@@ -200,6 +200,9 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
   const ticketEmailed = m.emailed !== false
   const needsMore = m.decision === 'needs_more'
   const entryNoticeSent = m.entry_notice_sent !== false
+  const hat = typeof m.hat === 'string' ? m.hat : ''
+  const hatZh = ({ tenant: '租客', landlord: '房东', agent: '经纪', provider: '服务商' } as Record<string, string>)[hat] ?? ''
+  const hatEn = ({ tenant: 'tenant', landlord: 'landlord', agent: 'agent', provider: 'provider' } as Record<string, string>)[hat] ?? 'new'
   const map: Record<string, { zh: string; en: string }> = {
     turn: { zh: '和你对话了一轮', en: 'A conversation turn' },
     agent_turn: { zh: '和你对话了一轮', en: 'A conversation turn' },
@@ -267,6 +270,18 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     approval_abandoned: { zh: '你放弃了一张已批准但还没执行的卡片，什么也没有发出', en: 'You dropped an approved card that had not run — nothing was sent' },
     household_lease_attached_from_esign: { zh: '双签完成，新租约已接到原来的在管租约上', en: 'Both signed — the new lease was attached to the existing managed tenancy' },
     household_import_corrected: { zh: '你更正了导入的在管租约信息', en: 'You corrected an imported tenancy record' },
+    // Audit 2026-10-12 (minor): events routes / triggers write that fell through as raw English.
+    terms_confirmation_emailed: { zh: '已给你发了服务条款确认邮件', en: 'Terms confirmation email sent to you' },
+    application_file_downloaded: { zh: '你下载了一份申请材料', en: 'You downloaded an application document' },
+    hat_activated: { zh: `开通了${hatZh}身份`, en: `Activated the ${hatEn} role` },
+    delegation_expired: { zh: '委托已到期', en: 'Delegation expired' },
+    provider_verified: { zh: '管理员核验通过了服务商资料', en: 'Admin verified the provider profile' },
+    provider_rejected: { zh: '管理员未通过服务商资料', en: 'Admin rejected the provider profile' },
+    provider_suspended: { zh: '管理员暂停了服务商', en: 'Admin suspended the provider' },
+    provider_expired: { zh: '管理员标记服务商资质已过期', en: 'Admin marked the provider’s credentials expired' },
+    marketplace_config_changed: { zh: '管理员修改了服务市场设置（资质过期宽限）', en: 'Admin changed a marketplace setting (credential grace period)' },
+    trust_api_key_created: { zh: '管理员发放了一把 Stayloop API 密钥', en: 'Admin issued a Stayloop API key' },
+    trust_api_key_updated: { zh: '管理员更新了一把 Stayloop API 密钥', en: 'Admin updated a Stayloop API key' },
   }
   const hit = map[action] ?? map[action.replace(/^(tenant|landlord|agent)_/, '')]
   if (hit) return hit[lang]

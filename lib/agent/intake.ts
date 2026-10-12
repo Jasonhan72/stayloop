@@ -58,7 +58,12 @@ export type IntakeQuery = {
 export type IntakeSpec = {
   id: string
   title: Bi
-  /** one line under the card label: how many steps, what they ask */
+  /**
+   * one line under the card label: what the steps ask. Specs are written
+   * WITHOUT the step count; `withStepCount` prefixes「N 步 · 」/ "N steps · "
+   * from `steps.length` so the number can never drift from the steps (P2-2,
+   * 2026-10-12: PRICING's outline once said 5 by hand).
+   */
   outline: Bi
   steps: IntakeStep[]
   compose: (q: IntakeQuery) => string
@@ -179,7 +184,7 @@ const WHEN_CHIPS: IntakeOption[] = [
 const FIND_HOME: IntakeSpec = {
   id: 'find_home',
   title: { zh: '帮我找房', en: 'Find me a home' },
-  outline: { zh: '5 步 · 区域 · 预算 · 户型 · 硬条件 · 入住时间', en: '5 steps · area · budget · unit · must-haves · move-in' },
+  outline: { zh: '区域 · 预算 · 户型 · 硬条件 · 入住时间', en: 'area · budget · unit · must-haves · move-in' },
   steps: [
     { key: 'area', ask: { zh: '想住哪一带？', en: 'Where do you want to live?' }, hint: { zh: '选一个，或直接写街道 / 地铁站 / 社区名', en: 'Pick one, or type a street, subway station or neighbourhood' }, options: AREAS, input: 'text', placeholder: { zh: '例如 Yonge & Eglinton、Liberty Village', en: 'e.g. Yonge & Eglinton, Liberty Village' } },
     { key: 'budget', ask: { zh: '每月预算上限？', en: 'Monthly budget cap?' }, options: [...RENT_CHIPS, { value: '4000', label: { zh: '$4,000', en: '$4,000' } }, { value: 'nolimit', label: { zh: '不限 · 先看行情', en: 'No cap — show me the market' } }], input: 'money', placeholder: { zh: '自己填一个数', en: 'Or type a number' } },
@@ -213,7 +218,7 @@ const FIND_HOME: IntakeSpec = {
 const EXPLAIN_LEASE: IntakeSpec = {
   id: 'explain_lease',
   title: { zh: '解读租约', en: 'Explain my lease' },
-  outline: { zh: '3 步 · 租约在哪 · 最关心哪几条 · 你的处境', en: '3 steps · the lease · what matters · your situation' },
+  outline: { zh: '租约在哪 · 最关心哪几条 · 你的处境', en: 'the lease · what matters · your situation' },
   steps: [
     { key: 'source', ask: { zh: '租约在哪？', en: 'Where is the lease?' }, hint: { zh: '上传文件，或把条款贴进来；安省标准租约也可以直接问', en: 'Upload it, paste the clauses, or ask about the Ontario Standard Lease' }, options: [
       { value: 'upload', label: { zh: '上传租约（PDF / 照片）', en: 'Upload the lease (PDF / photos)' } },
@@ -267,7 +272,7 @@ const EMERGENCY_PHRASE: Record<string, Bi> = {
 const REPAIR: IntakeSpec = {
   id: 'repair',
   title: { zh: '发起报修', en: 'Report a repair' },
-  outline: { zh: '7 步 · 哪里 · 什么问题 · 从何时 · 紧急程度 · 进门 · 宠物 · 照片', en: '7 steps · where · what · since · urgency · entry · pets · photos' },
+  outline: { zh: '哪里 · 什么问题 · 从何时 · 紧急程度 · 进门 · 宠物 · 照片', en: 'where · what · since · urgency · entry · pets · photos' },
   steps: [
     { key: 'where', ask: { zh: '哪里出了问题？', en: 'Where is the problem?' }, options: [
       { value: 'kitchen', label: { zh: '厨房', en: 'Kitchen' } },
@@ -344,7 +349,7 @@ const REPAIR: IntakeSpec = {
 const STAMPS: IntakeSpec = {
   id: 'stamps',
   title: { zh: '盖下一枚章', en: 'Earn my next stamp' },
-  outline: { zh: '2 步 · 哪一枚 · 为了什么', en: '2 steps · which stamp · what for' },
+  outline: { zh: '哪一枚 · 为了什么', en: 'which stamp · what for' },
   steps: [
     { key: 'which', ask: { zh: '想先了解哪一枚？', en: 'Which stamp first?' }, options: [
       { value: 'identity', label: { zh: '身份章', en: 'Identity stamp' } },
@@ -375,7 +380,7 @@ const STAMPS: IntakeSpec = {
 const SCREEN: IntakeSpec = {
   id: 'screen',
   title: { zh: '租客筛查', en: 'Tenant screening' },
-  outline: { zh: '3 步 · 到哪一步了 · 几位申请人 · 目标月租', en: '3 steps · stage · how many · target rent' },
+  outline: { zh: '到哪一步了 · 几位申请人 · 目标月租', en: 'stage · how many · target rent' },
   steps: [
     { key: 'stage', ask: { zh: '申请人到哪一步了？', en: 'Where is the applicant?' }, options: [
       { value: 'docs_in', label: { zh: '已收到申请材料', en: 'Documents received' } },
@@ -399,7 +404,7 @@ const SCREEN: IntakeSpec = {
 const LIST: IntakeSpec = {
   id: 'list',
   title: { zh: '发布房源', en: 'List a property' },
-  outline: { zh: '7 步 · 地址 · 类型 · 户型 · 租金 · 入住 · 条件 · 补充', en: '7 steps · address · type · unit · rent · available · terms · extras' },
+  outline: { zh: '地址 · 类型 · 户型 · 租金 · 入住 · 条件 · 补充', en: 'address · type · unit · rent · available · terms · extras' },
   steps: [
     { key: 'address', ask: { zh: '地址和单元号？', en: 'Address and unit?' }, input: 'text', placeholder: { zh: '28 Avondale Ave #1203, Toronto', en: '28 Avondale Ave #1203, Toronto' } },
     { key: 'type', ask: { zh: '房源类型？', en: 'Property type?' }, options: UNIT_TYPES },
@@ -428,7 +433,7 @@ const LIST: IntakeSpec = {
 const APPLICATIONS: IntakeSpec = {
   id: 'applications',
   title: { zh: '看看新申请', en: 'Review applications' },
-  outline: { zh: '2 步 · 哪些房源 · 按什么整理', en: '2 steps · which listings · organise by' },
+  outline: { zh: '哪些房源 · 按什么整理', en: 'which listings · organise by' },
   steps: [
     { key: 'scope', ask: { zh: '看哪些申请？', en: 'Which applications?' }, options: [
       { value: 'all', label: { zh: '全部房源', en: 'All listings' } },
@@ -453,7 +458,7 @@ const APPLICATIONS: IntakeSpec = {
 const RENEWAL: IntakeSpec = {
   id: 'renewal',
   title: { zh: '续约方案', en: 'Renewal options' },
-  outline: { zh: '3 步 · 哪份租约 · 你的打算 · 到期日', en: '3 steps · which lease · your intention · end date' },
+  outline: { zh: '哪份租约 · 你的打算 · 到期日', en: 'which lease · your intention · end date' },
   steps: [
     { key: 'which', ask: { zh: '看哪份租约？', en: 'Which lease?' }, options: [
       { value: 'all', label: { zh: '全部快到期的', en: 'Every lease coming up' } },
@@ -484,7 +489,7 @@ const RENEWAL: IntakeSpec = {
 const COMPLIANCE: IntakeSpec = {
   id: 'compliance',
   title: { zh: '合规检查', en: 'Compliance check' },
-  outline: { zh: '2 步 · 检查什么 · 贴文本或上传', en: '2 steps · what to check · paste or upload' },
+  outline: { zh: '检查什么 · 贴文本或上传', en: 'what to check · paste or upload' },
   steps: [
     { key: 'what', ask: { zh: '检查什么？', en: 'Check what?' }, options: [
       { value: 'listing', label: { zh: '一套房源的挂牌文案', en: 'A listing’s text' } },
@@ -509,7 +514,7 @@ const COMPLIANCE: IntakeSpec = {
 const AGENT_SCREEN: IntakeSpec = {
   id: 'agent_screen',
   title: { zh: '租客筛查', en: 'Tenant screening' },
-  outline: { zh: '3 步 · 代表协议 · 申请人同意 · 几位申请人', en: '3 steps · representation · consent · how many' },
+  outline: { zh: '代表协议 · 申请人同意 · 几位申请人', en: 'representation · consent · how many' },
   steps: [
     { key: 'rep', ask: { zh: '和房东客户签了书面代表协议吗？', en: 'Do you have a written representation agreement with the landlord?' }, options: [
       { value: 'yes', label: { zh: '已签', en: 'Yes, signed' } },
@@ -541,7 +546,7 @@ const AGENT_SCREEN: IntakeSpec = {
 const PRICING: IntakeSpec = {
   id: 'pricing',
   title: { zh: '挂牌定价', en: 'Price the listing' },
-  outline: { zh: '5 步 · 区域 · 类型 · 户型 · 卖点 · 入住日', en: '5 steps · area · type · unit · features · move-in' },
+  outline: { zh: '区域 · 类型 · 户型 · 卖点 · 入住日', en: 'area · type · unit · features · move-in' },
   steps: [
     { key: 'area', ask: { zh: '房源在哪个区域？', en: 'Where is the unit?' }, options: AREAS, input: 'text', placeholder: { zh: '街道 / 楼名 / 社区', en: 'Street / building / neighbourhood' } },
     { key: 'type', ask: { zh: '房源类型？', en: 'Property type?' }, options: UNIT_TYPES },
@@ -567,7 +572,7 @@ const PRICING: IntakeSpec = {
 const SHOWING: IntakeSpec = {
   id: 'showing',
   title: { zh: '带看准备包', en: 'Showing prep pack' },
-  outline: { zh: '3 步 · 什么时候 · 哪套房 · 房东授权答什么', en: '3 steps · when · which unit · what you may answer' },
+  outline: { zh: '什么时候 · 哪套房 · 房东授权答什么', en: 'when · which unit · what you may answer' },
   steps: [
     { key: 'when', ask: { zh: '什么时候带看？', en: 'When is the showing?' }, options: [
       { value: 'today', label: { zh: '今天', en: 'Today' } },
@@ -597,7 +602,7 @@ const SHOWING: IntakeSpec = {
 const LEASE_DEPOSIT: IntakeSpec = {
   id: 'lease_deposit',
   title: { zh: '租约与押金', en: 'Lease & deposit' },
-  outline: { zh: '2 步 · 想弄清哪几条 · 你代表谁', en: '2 steps · which points · whom you represent' },
+  outline: { zh: '想弄清哪几条 · 你代表谁', en: 'which points · whom you represent' },
   steps: [
     { key: 'topics', ask: { zh: '想弄清哪几条？（可多选）', en: 'Which points? (pick any)' }, multi: true, options: [
       { value: 'forms', label: { zh: '安省标准租约 vs OREA Form 400 各管什么', en: 'Ontario Standard Lease vs OREA Form 400' } },
@@ -623,7 +628,7 @@ const LEASE_DEPOSIT: IntakeSpec = {
 const BOUNDARIES: IntakeSpec = {
   id: 'boundaries',
   title: { zh: '合规边界', en: 'Compliance boundaries' },
-  outline: { zh: '2 步 · 想弄清哪几条 · 什么场景', en: '2 steps · which points · which situation' },
+  outline: { zh: '想弄清哪几条 · 什么场景', en: 'which points · which situation' },
   steps: [
     { key: 'topics', ask: { zh: '想弄清哪几条？（可多选）', en: 'Which points? (pick any)' }, multi: true, options: [
       { value: 'questions', label: { zh: '哪些问题不能问（人权法）', en: 'Questions that are off-limits (Human Rights Code)' } },
@@ -646,7 +651,14 @@ const BOUNDARIES: IntakeSpec = {
   },
 }
 
-export const INTAKES: Record<string, IntakeSpec> = {
+/** Prefix the outline with the real step count — the only place the number is written. */
+export function withStepCount(spec: IntakeSpec): IntakeSpec {
+  const n = spec.steps.length
+  const strip = (t: string) => t.replace(/^\d+ (步|steps) · /, '')
+  return { ...spec, outline: { zh: `${n} 步 · ${strip(spec.outline.zh)}`, en: `${n} steps · ${strip(spec.outline.en)}` } }
+}
+
+const RAW_INTAKES: Record<string, IntakeSpec> = {
   find_home: FIND_HOME,
   explain_lease: EXPLAIN_LEASE,
   repair: REPAIR,
@@ -662,6 +674,8 @@ export const INTAKES: Record<string, IntakeSpec> = {
   lease_deposit: LEASE_DEPOSIT,
   boundaries: BOUNDARIES,
 }
+
+export const INTAKES: Record<string, IntakeSpec> = Object.fromEntries(Object.entries(RAW_INTAKES).map(([k, v]) => [k, withStepCount(v)]))
 
 export function intakeFor(id: string | undefined | null): IntakeSpec | null {
   return id ? INTAKES[id] ?? null : null

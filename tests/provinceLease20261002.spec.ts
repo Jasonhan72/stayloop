@@ -111,7 +111,7 @@ describe('/landlord/applicants/[id] · decision copy follows the listing provinc
     expect(page).toContain("const code = listing ? listingProvince(listing) : 'ON'")
     // Ontario literals (also pinned by threeRoleFilm / siteTest specs)
     expect(page).toContain('`批准后我会给${applicantWhoSp}发录取通知（发到 TA 申请时填写的邮箱），并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。`')
-    expect(page).toContain("'评分与档位仅供参考 · 非拒绝依据（OHRC 租房政策）。完整报告含四项评分（付款能力、信用、租务与司法历史、核验）、取证、法庭与 LTB 检索。'")
+    expect(page).toContain("'评分与档位仅供参考 · 非拒绝依据（OHRC 租房政策）。完整报告按四项计分（付款能力、信用、租务与司法历史、核验），另列不计分的「申请完整度与沟通」、取证、法庭与 LTB 检索。'")
     expect(page).toContain("{zh ? 'RTA 提示：' : 'RTA notice: '}")
     // the draft-lease link stays (its page shows the province card)
     expect(page).toContain('href={`/landlord/leases/new?application_id=${app.id}`}')

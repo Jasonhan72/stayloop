@@ -43,9 +43,9 @@ describe('where the logo goes', () => {
     expect(nav).toContain('data-testid="nav-identity-menu"')
     expect(nav).toContain('{productOpen && !home.signedIn && (')
     expect(nav).toContain('{PRODUCT_ITEMS.map((item) => (') // visitors still get the four role pages
-    expect(h).toContain("const navIdentityLabel = lang === 'zh' ? `我是${actingLabel}`")
+    expect(h).toContain(": lang === 'zh' ? `我是${actingLabel}`") // behind the P1-5 loading branch (grey「我是…」while my_hats loads, tests/fourRoleAudit20261012_b.spec.ts)
     // one set of rows, rendered by the dropdown and by the hamburger's folded list
-    expect((h.match(/\{identityRows\}/g) || []).length).toBe(2)
+    expect((h.match(/\{identityPending \? identitySkeleton : identityRows\}/g) || []).length).toBe(2) // a placeholder while my_hats loads (P1-5, 2026-10-12)
     // switching a hat or opening a door closes both surfaces; Escape / outside click already close the dropdown
     expect(h).toContain('const closeMenus = () => { setMenuOpen(false); setProductOpen(false) }')
     const rows = h.slice(h.indexOf('const identityRows = ('), h.indexOf('\n  return ('))

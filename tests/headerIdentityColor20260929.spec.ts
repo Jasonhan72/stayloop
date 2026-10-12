@@ -25,13 +25,13 @@ describe('which identity the header names', () => {
     expect(displayIdentity('/settings', false, 'tenant')).toBe('tenant')
   })
   it('the label, its colour, the chip, the current row and the workspace link all read it', () => {
-    expect(header).toContain('const displayRole = displayIdentity(pathname, home.onProvider, currentRole)')
+    expect(header).toContain('const displayRole = displayIdentity(pathname, home.onProvider, currentRole, hats)') // + the hats: a pure provider on a neutral page (P2-4, tests/fourRoleAudit20261012_b.spec.ts)
     expect(header).toContain("const actingLabel = lang === 'zh' ? ROLE_META[displayRole].label : ROLE_META[displayRole].labelEn")
-    expect(header).toContain('const identityColor = home.signedIn ? ROLE_META[displayRole].color : null')
+    expect(header).toContain('const identityColor = home.signedIn && !identityPending ? ROLE_META[displayRole].color : null') // no colour while my_hats loads (P1-5)
     expect(header).toMatch(/style=\{\{ background: ROLE_META\[displayRole\]\.color \+ '14', color: ROLE_META\[displayRole\]\.color \}\}/)
     expect(header).toContain('const isCurrent = r === displayRole')
     expect(header).toContain("href={ROLE_META[displayRole]?.home || '/tenant/agent'}")
-    expect(header).toContain("color: identityColor ?? (isProductActive ? '#171717' : '#3F3F46')")
+    expect(header).toContain("color: identityColor ?? (identityPending ? '#717171' : isProductActive ? '#171717' : '#3F3F46')")
     expect(header).toContain('fontWeight: identityColor || isProductActive ? 600 : 400')
     expect(header).toContain('bold={!!identityColor || isProductActive}')
     // an unverified agent on the agent pages: the agent row is current and says so

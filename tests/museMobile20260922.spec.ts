@@ -155,6 +155,6 @@ describe('signed-in homepage + identity menu', () => {
     expect(list).toMatch(/\(\['tenant', 'landlord', 'agent'\] as const\)\.map/)
     expect(list).toContain('data-testid="become-provider"')
     expect(list).toContain('href="/provider/jobs"')
-    expect(header).toContain('{hatsOpen && <div id="sl-identity-list" className="pb-1" data-testid="identity-list">{identityRows}</div>}')
+    expect(header).toContain('{hatsOpen && <div id="sl-identity-list" className="pb-1" data-testid="identity-list">{identityPending ? identitySkeleton : identityRows}</div>}')
   })
 })

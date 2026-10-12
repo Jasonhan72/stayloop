@@ -50,7 +50,7 @@ type GateNote = { zh: string; en: string }
 type GateMore = { zh: string; en: string; href: string }
 const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: string; href: string; note?: GateNote; more?: GateMore }> = {
   '/landlord/finance': {
-    zh: '还没有收支记录。导入一份已签租约,租金台账从第一天起自动记录。', en: 'No ledger yet. Import a signed lease and the rent ledger starts itself.',
+    zh: '还没有租金记录。台账来自在管租约——租客接受邀请后，每期租金自动出现在这里，双方都可记录已付。', en: 'No rent records yet. The ledger comes from managed tenancies — once the tenant accepts the invitation, every rent period appears here and either side can mark it paid.',
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
   },
   '/landlord/maintenance': {

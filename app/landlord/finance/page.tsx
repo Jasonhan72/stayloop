@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import TrrebTrendChart from '@/components/agent/TrrebTrendChart'
+import RentLedger from '@/components/landlord/RentLedger'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import {
   AsideBlock,
@@ -118,7 +119,10 @@ export default function LandlordFinancePage() {
   ]
 
   return (
-    <WorkspaceShell role="landlord" aside={<Aside lang={lang} insights={insights} />}>
+    // The real ledger renders above the honest empty state (liveSlot) and, in demo
+    // mode, above the design sample — same as the maintenance board.
+    <WorkspaceShell role="landlord" aside={<Aside lang={lang} insights={insights} />} liveSlot={<RentLedger />}>
+      <RentLedger />
       <PageHeader
         title={zh ? '财务 · 2026 YTD' : 'Finance · 2026 YTD'}
         sub={

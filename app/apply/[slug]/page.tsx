@@ -671,8 +671,8 @@ export default function ApplyPage() {
                       ? '这些文件都是可选的，只在你愿意时提供。房东可以查看你的身份证件，但不能复印、拍照或记录证件信息，所以这里不收证件文件（魁北克信息查阅委员会（CAI）指引）。PDF / JPG / PNG · 单个最大 25 MB（大照片会自动压缩）。'
                       : 'These documents are optional — provide them only if you want to. A landlord may look at your ID but may not copy, photograph or record its details, so no ID file is collected here (Commission d’accès à l’information (CAI) guidance). PDF / JPG / PNG · 25 MB max each (large photos are compressed automatically).')
                   : zh
-                  ? '上传文件可让房东用 AI 即时核验你的资料。PDF / JPG / PNG · 单个最大 25 MB（大照片会自动压缩）。'
-                  : 'Uploading documents lets the landlord verify your details instantly with AI. PDF / JPG / PNG · 25 MB max each (large photos are compressed automatically).'}
+                  ? '上传文件可让房东用 AI 即时核验你的资料。没有附材料的申请，房东无法筛查；提交后也可以在申请对话里补传。PDF / JPG / PNG · 单个最大 25 MB（大照片会自动压缩）。'
+                  : 'Uploading documents lets the landlord verify your details instantly with AI. An application without documents cannot be screened; you can also add them in the application conversation after submitting. PDF / JPG / PNG · 25 MB max each (large photos are compressed automatically).'}
               </p>
               <div className="space-y-3">
                 {fileKinds.map(({ kind, label, hint }) => (
