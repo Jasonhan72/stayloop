@@ -86,7 +86,9 @@ describe('second round (user 2026-09-25: Airbnb header, neighbourhood block, map
   const page = read('app/listings/[slug]/page.tsx')
   it('title block above the photos: crumb · address as the only H1 · badge · one-line summary; share and save untouched', () => {
     // site test 2026-10-02 · D-06: the unit-aware helper (no "608 - 1080 BAY STREET #608")
-    expect(page).toContain('<h1 className="min-w-0 text-[26px] font-bold tracking-tight sm:text-[30px]">{listingTitle(listing.address, listing.unit)}</h1>')
+    // 2026-10-11: the H1 falls back to neighbourhood · city when the seller withholds the address (PropTx 8.14)
+    expect(page).toContain('<h1 className="min-w-0 text-[26px] font-bold tracking-tight sm:text-[30px]" data-testid="listing-h1">')
+    expect(page).toContain(': listingTitle(listing.address, listing.unit)}')
     // Airbnb exactly (user, round 3): no crumb above the title, Share / Save on the title row, one white 查看全部照片 pill on the mosaic
     expect(page).not.toContain("aria-label={zh ? '位置' : 'Breadcrumb'}")
     expect(page).toContain("{zh ? '查看全部照片' : 'Show all photos'}")

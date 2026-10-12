@@ -177,7 +177,8 @@ describe('listings without photos are never published or shown', () => {
     expect(r.error).toBe(LISTING_PUBLISH_MSG.noPhotos.zh)
   })
   it('browse page, assistant search, admin queue and wizard apply the same predicate', () => {
-    expect(readFileSync('app/listings/page.tsx', 'utf8')).toMatch(/filter\(\(l\) => hasUsablePhotos\(l\.images\)\)/)
+    // 2026-10-11: the browse page reads through /api/listings/search, which applies the same predicate server-side
+    expect(readFileSync('app/api/listings/search/route.ts', 'utf8')).toMatch(/filter\(\(l\) => hasUsablePhotos\(l\.images\)\)/)
     expect(readFileSync('lib/agent/listingSearch.ts', 'utf8')).toMatch(/\.filter\(\(r\) => hasUsablePhotos\(r\.images\)\)/)
     expect(readFileSync('app/admin/verify/page.tsx', 'utf8')).toMatch(/disabled=\{busy === r\.id \|\| !hasUsablePhotos\(r\.images\)\}/)
     expect(readFileSync('app/dashboard/listings/new/page.tsx', 'utf8')).toMatch(/disabled=\{submitting \|\| photos\.length === 0\}/)

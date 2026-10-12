@@ -25,7 +25,7 @@ describe('D-06 · unit not repeated when the address already carries it', () => 
     expect(addressHasUnit('100 King St W', '100')).toBe(false)
   })
   it('the detail page H1 and similar-homes cards use the helper, never raw address + " #unit"', () => {
-    expect(detail).toMatch(/<h1[^>]*>\{listingTitle\(listing\.address, listing\.unit\)\}<\/h1>/)
+    expect(detail).toMatch(/<h1[^>]*data-testid="listing-h1">[\s\S]{0,260}: listingTitle\(listing\.address, listing\.unit\)\}\s*<\/h1>/) // withheld-address fallback added 2026-10-11
     expect(detail).toContain('{listingTitle(sl.address, sl.unit)}</Link>')
     expect(detail).not.toMatch(/\.unit \? ` #\$\{/)
   })
