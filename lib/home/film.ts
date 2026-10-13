@@ -189,8 +189,8 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
     w.wait(700)
     w.ask('david', L({ zh: '帮 Sarah 的 King West 一房定租金', en: 'Price Sarah’s one-bed in King West' }))
     w.push({ k: 'reply', lane: 'david', msg: { text: L({
-      zh: '按同区一房的实时挂牌和 TRREB 官方成交数据，建议挂 $2,800/月；楼层高、景观好可以略往上调。',
-      en: 'From live one-bed listings nearby and TRREB’s official leased data: list at $2,800/month, a little more for a high floor or a view.',
+      zh: '按 Stayloop 同区一房的在租挂牌和 TRREB 公开季报的成交均价，建议挂 $2,800/月；楼层高、景观好可以略往上调。',
+      en: 'From Stayloop one-bed listings nearby and the leased average in TRREB’s public quarterly report: list at $2,800/month, a little more for a high floor or a view.',
     }) } })
     w.push({ k: 'status', lane: 'david', status: 'result' })
     w.wait(1400)

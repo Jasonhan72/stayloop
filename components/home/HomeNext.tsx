@@ -120,7 +120,7 @@ const ROLES: {
       en: 'Say it in plain language; every listing is real. Showings, applications, signing and repairs sit in one place, and you can see each step.',
     },
     benefits: [
-      { b: { zh: '真实挂牌 + 官方行情作答', en: 'Real listings + official market data' }, s: { zh: 'TRREB 官方成交对照，不编造；看房和提问直接送到房东。', en: 'Checked against official TRREB transactions, never invented; showings and questions go straight to the landlord.' } },
+      { b: { zh: '真实挂牌 + 官方行情作答', en: 'Real listings + official market data' }, s: { zh: '对照 TRREB 公开季报的成交均价，注明季度与来源；看房和提问直接送到房东。', en: 'Checked against official TRREB transactions, never invented; showings and questions go straight to the landlord.' } },
       { b: { zh: '申请进度看得见', en: 'See where your application stands' }, s: { zh: '已提交、房东已查看、筛查、决定、租约，每一步都看得到。', en: 'Submitted, viewed by the landlord, screened, decided, lease: every step is visible.' } },
       { b: { zh: '租约讲清楚，报修有着落', en: 'Leases explained, repairs followed up' }, s: { zh: '英文租约逐条讲成中文；报修可附照片，有人上门前按 RTA 提前通知你。', en: 'English leases explained clause by clause; repairs can carry photos, and you are notified before anyone enters, as the RTA requires.' } },
     ],
@@ -149,16 +149,16 @@ const ROLES: {
     benefits: [
       { b: { zh: '租客筛查，直接发起', en: 'Run tenant screening yourself' }, s: { zh: 'RECO 注册核验有效即可，报告记在你名下；客户确认委托后，从客户表那一行发起的筛查，房东客户在自己的账号里也看得到。', en: 'A verified RECO registration is enough and the report sits under your name; once the client confirms a delegation, screenings started from their row in your client book show in their own account too.' } },
       { b: { zh: '{ai} 记住每位客户', en: '{ai} remembers every client' }, s: { zh: '预算、区域、偏好只说一次；下次开口它就接上。', en: 'Budget, area, preferences said once; next time it picks up where you left off.' } },
-      { b: { zh: '挂牌定价有依据', en: 'Pricing with sources' }, s: { zh: '同区实时挂牌加 TRREB 官方成交做比价，写明样本与来源。', en: 'Live listings nearby plus official TRREB data, with the sample and the source stated.' } },
+      { b: { zh: '挂牌定价有依据', en: 'Pricing with sources' }, s: { zh: 'Stayloop 同区在租挂牌加 TRREB 公开季报的成交均价做比价，写明样本与来源。', en: 'Live listings nearby plus official TRREB data, with the sample and the source stated.' } },
     ],
     chips: [
       { label: { zh: '租客筛查', en: 'Tenant screening' }, prompt: { zh: '我替房东客户收到一份租房申请。帮我筛查这位申请人：告诉我报告会查什么、要申请人提交哪些材料，然后带我开始。', en: 'I have a rental application for my landlord client. Screen the applicant: tell me what the report checks, what the applicant must submit, then take me to start.' } },
-      { label: { zh: '挂牌定价', en: 'Price the listing' }, prompt: { zh: '帮客户的房源定租金：拉这个区域同户型的实时挂牌和 TRREB 官方成交数据做比价。', en: "Price my client's unit: pull live listings for the same area and unit type plus the TRREB benchmark for comparison." } },
+      { label: { zh: '挂牌定价', en: 'Price the listing' }, prompt: { zh: '帮客户的房源定租金：拉这个区域同户型的 Stayloop 在租挂牌和 TRREB 季报的成交均价做比价。', en: "Price my client's unit: pull live listings for the same area and unit type plus the TRREB benchmark for comparison." } },
       { label: { zh: '合规边界', en: 'Compliance boundaries' }, prompt: { zh: '带看和收申请时：哪些问题不能问（人权法）、哪些话不能替房东答、TRESA 要我先给客户什么文件？', en: 'At showings and intake: which questions are off-limits (Human Rights Code), what must I not answer for the landlord, and what does TRESA require me to give a client first?' } },
     ],
     modules: [
       { h: { zh: '客户表与委托', en: 'Client book and delegations' }, s: { zh: 'TRESA 两个日期 · 委托由客户确认 · 委托下发起的筛查客户也看得到', en: 'Two TRESA dates · delegation confirmed by the client · screenings under a delegation show in the client’s account' }, href: '/agent/clients' },
-      { h: { zh: '挂牌定价与带看准备', en: 'Pricing and showing prep' }, s: { zh: '实时挂牌 + TRREB 比价 · 带看准备包 · 租约与押金规则', en: 'Live listings + TRREB benchmark · showing prep pack · lease and deposit rules' }, href: '/agent/agent' },
+      { h: { zh: '挂牌定价与带看准备', en: 'Pricing and showing prep' }, s: { zh: '在租挂牌 + TRREB 季报比价 · 带看准备包 · 租约与押金规则', en: 'Live listings + TRREB benchmark · showing prep pack · lease and deposit rules' }, href: '/agent/agent' },
       { h: { zh: '规则与合规边界', en: 'Rules and boundaries' }, s: { zh: 'RTA · OHRC · TRESA 条文与编号 · 发布与租约保存前自动检查', en: 'RTA · OHRC · TRESA clauses with ids · checked before a listing or lease is saved' }, href: '/rules' },
     ],
     cta: { zh: '让 {ai} 安排工作 →', en: 'Let {ai} run your day →' },
@@ -200,7 +200,7 @@ const ROLES: {
 // hero states it in one clause and the FAQ no longer repeats it.
 const FLOW: { h: Bi; p: Bi }[] = [
   { h: { zh: '你说一句', en: 'You say it' }, p: { zh: '「多大附近、能养猫、4000 以内」这样说就行；不想打字，也可以点卡片一步步选。', en: '"Near UofT, cats OK, under 4000" is enough; or tap a card and pick step by step.' } },
-  { h: { zh: '它去办', en: 'It does the work' }, p: { zh: '查真实挂牌与 TRREB 行情、核材料真伪、查 LTB 与法院记录、起草租约与通知。', en: 'Searches real listings and TRREB data, checks documents, looks up LTB and court records, drafts leases and notices.' } },
+  { h: { zh: '它去办', en: 'It does the work' }, p: { zh: '查 Stayloop 在租挂牌与 TRREB 季报行情、核材料真伪、查 LTB 与法院记录、起草租约与通知。', en: 'Searches real listings and TRREB data, checks documents, looks up LTB and court records, drafts leases and notices.' } },
   { h: { zh: '你来批准', en: 'You approve' }, p: { zh: '会影响到别人的动作先变成一张卡片，写明将分享什么、不分享什么；批准后 60 秒内可撤销。', en: 'Anything that reaches another person becomes a card first, saying what will and will not be shared; an approval can be undone for 60 seconds.' } },
   { h: { zh: '执行并留痕', en: 'Done, and logged' }, p: { zh: '每一步写进审计记录；一件租赁事务的聊天记录可以导出，带内容指纹。', en: 'Every step goes to the audit log; a rental matter’s chat history can be exported, fingerprinted.' } },
 ]
@@ -494,7 +494,7 @@ export default function HomeNext() {
           <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 sm:mt-14 sm:gap-10 lg:grid-cols-4 sm:max-lg:mt-10">
             <Fact n={fmt(stats?.screenings)} s={zh ? <>份筛查报告已生成，<i>每条结论注明所依据的数值</i></> : <>screening reports generated, <i>every conclusion cites its numbers</i></>} />
             <Fact n={fmt(stats?.ltbOrders)} s={zh ? <>份 LTB 判令已入库可查，<i>姓名命中须地址佐证</i></> : <>LTB orders on file and searchable, <i>name hits need address corroboration</i></>} />
-            <Fact n={fmt(stats?.trrebQuarters)} s={zh ? <>个季度的 TRREB 官方成交数据，<i>行情有据</i></> : <>quarters of official TRREB data, <i>market answers with sources</i></>} />
+            <Fact n={fmt(stats?.trrebQuarters)} s={zh ? <>个季度的 TRREB 公开季报成交均价，<i>注明来源</i></> : <>quarters of official TRREB data, <i>market answers with sources</i></>} />
             <Fact n={fmt(stats?.listings)} s={zh ? <>套公开房源，<i>房东直租 · 平台核验</i></> : <>public listings, <i>direct from landlords · platform-verified</i></>} />
           </div>
         </div>
