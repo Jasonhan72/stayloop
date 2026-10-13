@@ -3487,3 +3487,23 @@ SingleKey（2025-02）、OpenRoom（2025-07，部里评估了一年含其判令�
 `_v3.cra_mode` 记录当次筛查的模式。**公司类核验（注册库 / Gazette / RDAP / 按公司名查法院）、取证、一致性、申请人自带征信、Veriff / Flinks 都不受影响。**
 切换：CF Pages 后台加 `CRA_MODE=tool`（服务端变量，不用重新构建），本地 `.env.development.local`。`.env.example` 有说明。守卫 `tests/craMode20261012.spec.ts`。
 通道二（申请人自查页 + PDF、房东报告识别自查件）未做。
+
+## PropTx 拒绝 → Realtor.ca 读取全部停止、导入房源归档（2026-10-13 · V0.7 · 用户「按照你的建议马上修改」）
+
+PropTx Data Agreements 2026-10-13 回信拒绝（原文要点在 `design/proptx-refusal-and-listings-strategy-2026-10.md`）：VOW/IDX 只能用于会员经纪自己品牌的站、用途须属于该经纪的经纪业务，
+AVP 不得用它做自己的产品；**任何 MLS 数据不得经过任何第三方 AI**。CREA DDF 同构、REALTOR.ca 条款禁止未授权商业使用。**以后不要再提 PropTx / DDF / 任何 Realtor.ca 抓取**；
+唯一还可以问的是 Rentals.ca 网络（Rentsync）的付费授权（草稿 `design/rentsync-inquiry-email-2026-10.md`，是否发送由用户定）。TRREB 公开季报 PDF 不受影响。落地（守卫 `tests/realtorReadsOff20261013.spec.ts`、
+`tests/realtorCopy20261013.spec.ts`、`tests/realtorFreshness20261003.spec.ts`「wiring」）：
+- **`lib/listings/externalSources.ts`**：`REALTOR_LIVE_READS = false` 是常量不是环境变量（重新打开需要授权，不是配置）；`isMlsHost()`（realtor.ca 及子域、mls.ca 等）；Rentals.ca / Kijiji 链接构造。
+- **读取全部关闭**：`searchListings` 的商业分支直接返回链接；住宅分支不再跑 `jinaRealtor`（行情卡只剩 TRREB 季报，`sample=0`）；turn 路由的 `fetchUrlContent` 对 MLS 主机返回「不读取」原因，
+  模型被告知请房东自己给字段；`/api/cron/realtor-freshness` 授权后立即返回 `disabled:true`，pg_cron `realtor-freshness` 已 unschedule（迁移 `20261013_realtor_freshness_unschedule.sql`，已应用 prod）；
+  `scripts/realtor-import/` 顶部标 STOPPED。
+- **链接代替读取**：`buildExternalLinks(c, kind)`（`lib/agent/listingSearch.ts`）——住宅：Toronto 社区 slug 页或 GTA 城市页（`/N-bedroom-apartments-for-rent` / `/houses-for-rent` / `/rentals`）+
+  Rentals.ca 城市页 + Kijiji（多伦多市 / GTA 两个分类页）；商业：每个点名城市的 `commercial-space-for-lease`。turn 响应多了 `external_links`，`ChatMessage.links` → `AgentChat` 在消息下渲染
+  外链胶囊（`data-testid="external-links"`）；回复由系统追加一句「Stayloop 不再替你读取 Realtor.ca 的房源（MLS 规则不允许第三方平台与 AI 使用其数据），按你的条件直接打开」。
+  `ExternalStatus` 多了 `'disabled'`。提示词：找房数据边界、挂牌定价、续约行情卡、房东导入四处改写。
+- **数据**：生产 114 套在架 Realtor 导入行 + 2 套用 Realtor 照片的房东测试号房源（1001 Bay #1618、280 Dundas #515）`is_active=false, status='archived'`（行保留）；在架只剩 3 套房东直租。
+  审核账号 `proptx-review@stayloop.ai` 已删除。
+- **PropTx 痕迹清理**：条款第 1 条（TRREB 会员客户关系）删除、`TERMS_VERSION = '2026-10-13'`（所有账号再确认一次）、所有权 / 审计条款去掉 MLS 与协会；详情页发起会员卡位与
+  `NEXT_PUBLIC_MLS_SPONSOR_* / MLS_ATTRIBUTION` 删除；`/partners` Realtor.ca 条目标「已停用」；全站营销 / FAQ / 向导 / 动画里「Realtor.ca 实时」「一键导入 Realtor.ca 链接」改为房东直租 + TRREB。
+  10-10 为 Article 8 做的通用改进（条款同意、姓名、审计轨迹、密码时效、服务端分页与限流、feed 展示列）保留。

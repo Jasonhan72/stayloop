@@ -307,7 +307,8 @@ export default function ListingsPage() {
     <div className="bg-white lg:flex lg:h-[100dvh] lg:flex-col lg:overflow-hidden" style={{ minHeight: '100vh' }}>
       <Header />
       {/* The "demo stage · TRREB not connected" bar was removed 2026-10-03 (user: drop the sample-data bars
-          for space) — every listing shown here is real (verified landlord listings + Realtor.ca imports). */}
+          for space) — every listing shown here is real (verified landlord listings; the Realtor.ca imports were archived
+          2026-10-13 when Stayloop stopped reading Realtor.ca — lib/listings/externalSources.ts). */}
 
       {/* The page had no h1 element (site test 2026-10-02 · L7 D-08 / L6 D7). Visually
           hidden so the designed search-first layout does not change. */}
@@ -435,10 +436,10 @@ export default function ListingsPage() {
 
         {filtersOpen && (
         <div className="relative mt-2.5 flex w-full flex-wrap items-center gap-2" data-testid="listings-filter-panel">
-          {/* Source — searched separately per the MLS rules; 'all' keeps the groups labelled below. */}
+          {/* Source — searched separately; 'realtor' only shows while a legacy row is in the results (archived 2026-10-13). */}
           <div role="group" aria-label={zh ? '来源' : 'Source'} data-testid="listings-source-filter"
             style={{ display: 'inline-flex', border: '1px solid #9FBBD0', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
-            {(['all', 'stayloop', 'realtor'] as SourceKey[]).map((k) => (
+            {(['all', 'stayloop', 'realtor'] as SourceKey[]).filter((k) => k !== 'realtor' || sourceFilter === 'realtor' || pageItems.some((l) => sourceOf(l) === 'realtor')).map((k) => (
               <button key={k} type="button" onClick={() => setSourceFilter(k)} aria-pressed={sourceFilter === k}
                 style={{
                   padding: '8px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 0, whiteSpace: 'nowrap',
@@ -1001,7 +1002,7 @@ function ListingCard({
         {/* Listing brokerage / source, no smaller than the listing facts above (PropTx Rule 8.26). */}
         <div style={{ fontSize: 13, color: '#3F3F46', marginTop: 4 }} data-testid="card-brokerage">
           {sourceOf(l) === 'realtor'
-            ? <>{zh ? '挂牌 · ' : 'Listed by '}<b style={{ fontWeight: 600, color: '#171717' }}>{l.brokerage || 'Realtor.ca'}</b></>
+            ? <>{zh ? '挂牌 · ' : 'Listed by '}<b style={{ fontWeight: 600, color: '#171717' }}>{l.brokerage || (zh ? '房东直租' : 'Direct from landlord')}</b></>
             : <>{zh ? '房东直租 · ' : 'Direct from landlord · '}<b style={{ fontWeight: 600, color: '#171717' }}>Stayloop</b></>}
         </div>
         {l.amenities && l.amenities.length > 0 && (

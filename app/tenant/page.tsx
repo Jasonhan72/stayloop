@@ -35,7 +35,7 @@ const CFG: RoleLandingConfig = {
   },
   journey: [
     { h: { zh: '为 AI 起名', en: 'Name your AI' }, b: { zh: '任何你喜欢的名字。从此 TA 只为你一个人。', en: 'Any name you like. From now on it works only for you.' } },
-    { h: { zh: '说需求,收房源', en: 'Say it, get matches' }, b: { zh: '一句话,它从 Stayloop 核验房源和 Realtor.ca 实时挂牌里替你筛,配 TRREB 官方行情。', en: 'One sentence and it filters Stayloop-verified listings and live Realtor.ca listings for you, with the official TRREB benchmark.' } },
+    { h: { zh: '说需求,收房源', en: 'Say it, get matches' }, b: { zh: '一句话,它从 Stayloop 核验过的房东直租房源里替你筛,配 TRREB 官方行情;想看更多站点,它按你的条件给出 Realtor.ca / Rentals.ca / Kijiji 的跳转链接。', en: 'One sentence and it filters Stayloop-verified landlord listings for you, with the official TRREB benchmark; for more sites it hands you Realtor.ca / Rentals.ca / Kijiji links built from your criteria.' } },
     { h: { zh: '看房与申请', en: 'View and apply' }, b: { zh: '在房源页预约看房、向房东提问、提交申请;每一步进度都看得到。', en: 'Request a viewing, ask the landlord and apply from the listing page; you can see each step as it moves.' } },
     { h: { zh: '签约', en: 'Sign' }, b: { zh: '安省标准租约电子签,签之前逐条讲给你听。', en: 'E-sign the Ontario standard lease, explained clause by clause before you sign.' } },
     { h: { zh: '入住之后', en: 'After you move in' }, b: { zh: '报修可附照片、续约方案提前送到,都在你和房东共享的在管租约里。', en: 'Repairs with photos and renewal options ahead of time, all in the managed tenancy you share with your landlord.' } },
@@ -112,12 +112,12 @@ const CFG: RoleLandingConfig = {
     { label: { zh: '房东不得向你收筛查费 · RTA s.134', en: 'Landlords may not charge you screening fees · RTA s.134' }, href: '/screening' },
     { label: { zh: '数据库驻加拿大', en: 'Database in Canada' }, href: '/privacy' },
     { label: { zh: '不收 SIN', en: 'No SIN collected' }, href: '/privacy' },
-    { label: { zh: '真实房源：Stayloop 核验 + Realtor.ca', en: 'Real listings: Stayloop-verified + Realtor.ca' }, href: '/listings' },
+    { label: { zh: '真实房源：房东直租 · Stayloop 核验', en: 'Real listings: direct from landlords, Stayloop-verified' }, href: '/listings' },
   ],
   benefits: [
     {
       h: { zh: '找房：说一句，它去翻', en: 'Search: say it once, it combs the city' },
-      b: { zh: '预算、区域、房型、宠物、通勤——对话里说清，它查 Stayloop 核验房源与 Realtor.ca 实时挂牌，配 TRREB 官方行情，一次给 6 套、可以「换一批」。', en: 'Budget, area, layout, pets, commute — say it in the chat and it searches Stayloop-verified listings plus live Realtor.ca, with the official TRREB benchmark, six at a time with "show me more".' },
+      b: { zh: '预算、区域、房型、宠物、通勤——对话里说清，它查 Stayloop 核验过的房东直租房源，配 TRREB 官方行情，一次给 6 套、可以「换一批」；再给你带着这些条件的 Realtor.ca / Rentals.ca / Kijiji 链接，自己点开看。', en: 'Budget, area, layout, pets, commute — say it in the chat and it searches Stayloop-verified landlord listings, with the official TRREB benchmark, six at a time with "show me more"; it also gives you Realtor.ca / Rentals.ca / Kijiji links carrying your criteria to open yourself.' },
       ask: { zh: '预算 2800，能养猫，离 King 站走路 15 分钟，帮我找 6 套。', en: 'Under $2,800, cats OK, 15-minute walk to King station — find me six.' },
     },
     {
@@ -133,16 +133,16 @@ const CFG: RoleLandingConfig = {
   ],
   proof: {
     key: 'listings',
-    label: { zh: '套公开房源可搜（平台核验或 Realtor.ca 实时）', en: 'public listings searchable (platform-verified or live from Realtor.ca)' },
+    label: { zh: '套房东直租房源可搜（经平台核验）', en: 'landlord-direct listings searchable (platform-verified)' },
     note: { zh: '这是此刻数据库里对外可见的房源数，不含任何演示数据。TRREB 季度行情与 LTB 判令目录的数量在首页的数据带里。', en: 'The number of listings publicly visible in the database right now — no demo rows. TRREB quarters and LTB order counts are on the homepage data band.' },
   },
   faq: [
-    { q: { zh: 'AI 助理找的房源来自哪里？', en: 'Where do the listings come from?' }, a: { zh: 'Stayloop 上经人工核验的房源，加上 Realtor.ca 的实时挂牌抓取（示范阶段，TRREB 数据库尚未接入）。行情线来自 TRREB 季度租赁市场报告。', en: 'Stayloop listings verified by hand, plus live Realtor.ca listings (demonstration stage — the TRREB feed is not yet connected). The benchmark line comes from the TRREB quarterly rental market report.' } },
+    { q: { zh: 'AI 助理找的房源来自哪里？', en: 'Where do the listings come from?' }, a: { zh: '房东在 Stayloop 直接发布、经人工核验后上线的房源。行情线来自 TRREB 季度租赁市场报告。Stayloop 不读取 Realtor.ca 等站点的房源（MLS 规则不允许第三方平台或 AI 使用其数据），AI 助理会按你的条件给出 Realtor.ca / Rentals.ca / Kijiji 的跳转链接，由你自己打开。', en: 'Listings landlords publish directly on Stayloop, verified by hand before they go live. The benchmark line comes from the TRREB quarterly rental market report. Stayloop does not read listings from Realtor.ca or similar sites (MLS rules do not allow third-party platforms or AI to use that data); the AI Agent gives you Realtor.ca / Rentals.ca / Kijiji links built from your criteria to open yourself.' } },
     { q: { zh: '我的资料谁能看？', en: 'Who can see my information?' }, a: { zh: '你在申请或核验里提交的材料只有那位房东能读；你和 AI 助理的对话不会分享给任何人。数据库在 AWS 蒙特利尔，我们不收 SIN。', en: 'Material you submit in an application or verification is readable only by that landlord; your AI Agent conversation is shared with no one. The database is in AWS Montréal and we never collect a SIN.' } },
     { q: { zh: '房东用 Stayloop 筛查了我，我能看报告吗？', en: 'A landlord screened me on Stayloop — can I see the report?' }, a: { zh: '可以。按《消费者报告法》s.10(7)，你可以在 60 天内要求房东说明参考了哪些信息及来源；报告自带申请人通知信。争议请写 privacy@stayloop.ai。', en: 'Yes. Under Consumer Reporting Act s.10(7) you can ask the landlord within 60 days what information was used and where it came from; the report includes an applicant notice. Disputes: privacy@stayloop.ai.' } },
     { q: { zh: '房东可以向我收申请费或筛查费吗？', en: 'Can a landlord charge me an application or screening fee?' }, a: { zh: '不可以（RTA s.134）。也不能收宠物押金、清洁押金或超过一个月租金的押金（s.106）。房源页的「入住前费用一览」会列出合法的三项。', en: 'No (RTA s.134). Nor pet deposits, cleaning deposits or a rent deposit above one month (s.106). The "Move-in costs" card on each listing lists the only lawful items.' } },
     { q: { zh: '为什么没有「在线交租」？', en: 'Why is there no online rent payment?' }, a: { zh: '因为还没做。工作台里标着样例的页面都挂了琥珀色说明，按钮不会扣款。租金记录目前是在管租约里的自述「标记已付」。', en: 'Because it is not built yet. Sample pages in the workspace carry an amber notice and no button moves money. Rent records today are self-reported "mark as paid" entries in a managed tenancy.' } },
-    { q: { zh: '商业场地也能找吗？', en: 'Can it search commercial space too?' }, a: { zh: '可以。说清面积、净高、用途和区域，它会在 Realtor.ca 上按区域扇出检索并给对比表；商业租约不受 RTA 保护，用途要向市府书面确认。', en: 'Yes. State size, clear height, use and area; it fans out across Realtor.ca by area and returns a comparison table. Commercial leases are outside the RTA and zoning must be confirmed in writing with the municipality.' } },
+    { q: { zh: '商业场地也能找吗？', en: 'Can it search commercial space too?' }, a: { zh: '它不再替你检索 Realtor.ca 上的商业场地。说清面积、净高、用途和城市，它会给你这些城市的 Realtor.ca 商业空间页链接，由你自己打开比较；商业租约不受 RTA 保护，用途要向市府书面确认。', en: 'It no longer searches Realtor.ca for commercial space. State size, clear height, use and the cities, and it hands you Realtor.ca commercial-space links for those cities to open and compare yourself. Commercial leases are outside the RTA and zoning must be confirmed in writing with the municipality.' } },
   ],
 }
 

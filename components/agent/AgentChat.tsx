@@ -368,6 +368,17 @@ export default function AgentChat({
                 </div>
               )}
               {/* Proactive market context — real prices computed server-side */}
+              {/* Deep links to Realtor.ca / Rentals.ca / Kijiji with the person's
+                  criteria — the external source is linked, never read (2026-10-13). */}
+              {m.role === 'agent' && !!m.links?.length && (
+                <div className="mt-2 flex flex-wrap gap-2" data-testid="external-links">
+                  {m.links.map((l) => (
+                    <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-full border border-line-divider bg-white px-3 py-1 text-[12.5px] font-semibold text-brand hover:bg-surface-2">
+                      {l.label} ↗
+                    </a>
+                  ))}
+                </div>
+              )}
               {m.role === 'agent' && m.market && (
                 <div className="w-full max-w-[480px] rounded-xl border border-line-divider bg-white p-3.5">
                   <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">

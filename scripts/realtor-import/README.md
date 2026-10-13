@@ -1,3 +1,15 @@
+# ⛔ STOPPED 2026-10-13 — 不要再运行这些脚本
+
+**PropTx / TRREB 于 2026-10-13 拒绝了 Stayloop 的数据申请；PropTx MLS 规则、CREA DDF 条款与 REALTOR.ca 使用条款都禁止第三方平台与 AI
+使用 MLS 数据。** Stayloop 自此不再读取 Realtor.ca 的任何页面（`lib/listings/externalSources.ts` 的 `REALTOR_LIVE_READS = false`），
+已导入的 Realtor.ca 房源全部归档，每小时的在架检查（`/api/cron/realtor-freshness`）已停用并取消 pg_cron 任务
+（`supabase/migrations/20261013_realtor_freshness_unschedule.sql`）。
+
+这个目录只作历史记录保留：**不要运行 `fetch.sh` / `plan.mjs` / `details.mjs` / `insert.mjs` / `translate.mjs`，也不要再写新的 Realtor.ca
+抓取脚本**。重新开放需要持牌的数据接入（产品决策），不是改一个常量。背景见 `design/proptx-refusal-and-listings-strategy-2026-10.md`。
+
+---
+
 # Realtor.ca 批量导入（示范阶段 · TRREB 未接入）
 
 上三轮（2026-09-06 · 10-02 · 10-03）的脚本都留在会话 scratchpad 里，会话一关就没了；这一份（2026-10-06 那轮用的）放进仓库。

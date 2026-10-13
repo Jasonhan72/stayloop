@@ -34,7 +34,7 @@ const CFG: RoleLandingConfig = {
     note: { zh: '每一步留痕可审,决定只属于你。', en: 'Every step audited — the decision is only yours.' },
   },
   journey: [
-    { h: { zh: '一句话挂牌', en: 'List in one sentence' }, b: { zh: '贴 Realtor.ca 链接或说一句话,AI 生成房源草稿;你核对后发布,Stayloop 审核后上线。', en: 'Paste a Realtor.ca link or say one sentence — AI drafts the listing; you review and publish, and it goes live after Stayloop checks it.' } },
+    { h: { zh: '一句话挂牌', en: 'List in one sentence' }, b: { zh: '说一句话（或贴自己的公开房源页链接）,AI 生成房源草稿;你核对后发布,Stayloop 审核后上线。Realtor.ca 与 MLS 页面不再读取。', en: 'Say one sentence (or paste a public listing page of your own) — AI drafts the listing; you review and publish, and it goes live after Stayloop checks it. Realtor.ca and MLS pages are not read.' } },
     { h: { zh: '申请按阶段整理', en: 'Applications, sorted by stage' }, b: { zh: '按待筛查 / 待决定 / 已决定分组,缺什么材料一眼看到;在申请对话里请 TA 补。', en: 'Grouped into to screen / to decide / decided, with missing documents visible at a glance; ask for them in the application thread.' } },
     { h: { zh: '一键筛查', en: 'One-click screening' }, b: { zh: '四项计分:付款能力、信用、租务与司法历史、核验;报告另列不计分的『申请完整度与沟通』;文件取证、LTB 判令与法院记录逐条标出处。', en: 'Four scored items: ability to pay, credit, tenancy & court history, verification; plus an unscored application-completeness note; document forensics, LTB orders and court records, each sourced.' } },
     { h: { zh: '你来决定', en: 'You decide' }, b: { zh: '不排名、不设收入倍数截止线(OHRC);录取或婉拒由你决定,通知信先给你预览再发。', en: 'No ranking, no income-multiple cut-off (OHRC); you accept or decline, and the notice is shown to you before it is sent.' } },

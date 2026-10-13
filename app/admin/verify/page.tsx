@@ -128,8 +128,8 @@ export default function AdminVerifyPage() {
         <h1 className="mt-2 text-[30px] font-extrabold tracking-tight">{zh ? '房源验证' : 'Listing verification'}</h1>
         <p className="mt-2 text-[13.5px] text-body-2">
           {zh
-            ? '房东发布的房源需人工验证后才公开展示并获得 VERIFIED 标;Realtor.ca 来源的房源无需验证即已上线(带来源标)。'
-            : 'Landlord-published listings go public with a VERIFIED badge only after review; Realtor.ca-sourced listings are already live with a source badge.'}
+            ? '房东发布的房源需人工验证后才公开展示并获得 VERIFIED 标。此前导入的 Realtor.ca 房源已于 2026-10-13 归档,不再读取 Realtor.ca。'
+            : 'Landlord-published listings go public with a VERIFIED badge only after review. Imported Realtor.ca rows were archived on 2026-10-13; Realtor.ca is no longer read.'}
         </p>
 
         <RealtorFreshnessCard zh={zh} />

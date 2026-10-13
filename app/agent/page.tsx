@@ -85,7 +85,7 @@ const CFG: RoleLandingConfig = {
     },
     {
       h: { zh: '挂牌定价：同区同户型的挂牌中位数', en: 'Pricing a listing: same-area, same-layout median' },
-      b: { zh: '同一条 Stayloop → Realtor.ca → TRREB 管线，给你挂牌中位数与官方季度基准，按房源条件调整。', en: 'The same Stayloop → Realtor.ca → TRREB pipeline gives the asking-rent median and the official quarterly benchmark, adjusted for the unit.' },
+      b: { zh: 'Stayloop 在租房源 + TRREB 官方季度基准，给你挂牌中位数与成交均价，按房源条件调整。', en: 'Stayloop listings plus the official TRREB quarterly benchmark give the asking-rent median and the leased average, adjusted for the unit.' },
       ask: { zh: 'Liberty Village 一居带车位，现在挂多少合适？', en: 'A one-bed with parking in Liberty Village — what should it list at now?' },
     },
     {

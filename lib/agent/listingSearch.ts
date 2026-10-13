@@ -1,19 +1,24 @@
-// Listing search for the agent turn: Stayloop's own listings first, then a
-// LIVE external fallback (Realtor.ca via the Jina reader/search API) when
-// Stayloop has no match. Runs server-side (edge). Requires JINA_API_KEY.
+// Listing search for the agent turn: Stayloop's own listings + the TRREB
+// benchmark. The live Realtor.ca fallback (Jina reader/search) is OFF since
+// 2026-10-13 (REALTOR_LIVE_READS in lib/listings/externalSources.ts): MLS
+// rules do not allow a third-party platform or an AI to use that data, so the
+// search returns deep links the person opens themselves instead.
 import type { ListingCard } from './types'
 import { LISTINGS_PAGE } from '@/lib/agent/listingPaging'
 import { hasUsablePhotos, LISTING_VISIBILITY_OR, LISTING_VISIBILITY_OR_GROUP } from '../listingVisibility'
 import { readTrrebBenchmark, type TrrebBenchmark } from './trrebRent'
 import { captureException } from '../observability/sentry'
-import { BUDGET_ANON, BUDGET_MEMBER, commercialKind, searchCommercial, summarizeCommercial } from './commercialSearch'
+import { BUDGET_ANON, BUDGET_MEMBER, commercialKind, searchCommercial, summarizeCommercial, resolveRealtorBase, listPageUrls, searchAreas, type CommercialKind } from './commercialSearch'
+import { REALTOR_LIVE_READS, rentalsCaUrl, kijijiUrl, type ExternalLink } from '@/lib/listings/externalSources'
 
 // Whether the live Realtor.ca source actually answered. 'unavailable' is a
 // provider failure (Jina 402 balance exhausted, 401/403 key, 429 quota, or
 // every read failing) — NOT thin inventory. The reply must say which, or a
 // dead key reads as "该区域房源有限" for weeks (2026-09-12: the Jina prepaid
 // balance ran out and every search silently fell back to the DB's 2 rows).
-export type ExternalStatus = { status: 'ok' | 'unavailable' | 'no_key'; reason?: string }
+// 'disabled' — Stayloop does not read the external source at all (2026-10-13);
+// the result carries `links` for the person to open instead.
+export type ExternalStatus = { status: 'ok' | 'unavailable' | 'no_key' | 'disabled'; reason?: string }
 
 export type SearchCriteria = {
   area?: string | null
@@ -207,7 +212,7 @@ export async function searchListings(
   c: SearchCriteria,
   exclude: string[] = [],
   opts: { anonymous?: boolean } = {},
-): Promise<{ listings: ListingCard[]; market?: MarketStats; notice?: string; noticeEn?: string; external: ExternalStatus; summary?: string; checked?: number; overBudget?: number }> {
+): Promise<{ listings: ListingCard[]; market?: MarketStats; notice?: string; noticeEn?: string; external: ExternalStatus; summary?: string; checked?: number; overBudget?: number; links?: ExternalLink[] }> {
   // The commercial path reads the RAW area: normalizeArea keeps only the
   // first city of "Markham/ Richmond Hill /Vaughan", which silently turned a
   // three-city ask into a Markham-only search whose Vaughan hits were then
@@ -228,6 +233,7 @@ export async function searchListings(
     const ex0 = new Set(exclude.map((s) => s.toLowerCase()))
     const target0 = Math.min(Math.max(c.count ?? LISTINGS_PAGE, 1), LISTINGS_PAGE)
     const cc = { ...c, area: rawArea }
+    if (!REALTOR_LIVE_READS) return { listings: [], external: { status: 'disabled' }, links: buildExternalLinks(cc, ckind), checked: 0 }
     const res = await searchCommercial(cc, ckind, externalFromStatuses, { exclude, budget: opts.anonymous ? BUDGET_ANON : BUDGET_MEMBER }).catch((e: unknown) => ({
       cards: [] as ListingCard[],
       external: { status: 'unavailable', reason: String((e as Error)?.message || e).slice(0, 120) } as ExternalStatus,
@@ -264,7 +270,10 @@ export async function searchListings(
   // the market card is computed exclusively from Realtor.ca asking prices —
   // the primary area's full visible sample, pre-budget — never from our own
   // inventory and never from the LLM.
-  const extPromise = jinaRealtor({ ...c, count: fetchCount }).catch(
+  const extPromise = (REALTOR_LIVE_READS
+    ? jinaRealtor({ ...c, count: fetchCount })
+    : Promise.resolve({ cards: [] as ListingCard[], statRows: [] as StatRow[], external: { status: 'disabled' } as ExternalStatus })
+  ).catch(
     (e: unknown) => ({ cards: [] as ListingCard[], statRows: [] as StatRow[], external: { status: 'unavailable', reason: String((e as Error)?.message || e).slice(0, 120) } as ExternalStatus }),
   )
   // Official TRREB benchmark (cached quarterly report, fast DB read) —
@@ -304,9 +313,10 @@ export async function searchListings(
       trreb,
     }
   }
+  const links = REALTOR_LIVE_READS ? undefined : buildExternalLinks(c, null)
   if (stay.length >= pool) {
     const f = filterByStreetToken(stay, streetRef, areaLabel())
-    return { listings: f.listings.slice(0, pool), market, notice: f.notice, external, overBudget }
+    return { listings: f.listings.slice(0, pool), market, notice: f.notice, external, overBudget, links }
   }
 
   // No synthetic fallback: when neither Stayloop nor Realtor.ca has a real
@@ -317,7 +327,36 @@ export async function searchListings(
   const seen = new Set(stay.map((l) => l.address.toLowerCase()))
   const filled = [...stay, ...ext.filter((l) => !seen.has(l.address.toLowerCase()))]
   const f = filterByStreetToken(filled, streetRef, areaLabel())
-  return { listings: f.listings.slice(0, pool), market, notice: f.notice, external, overBudget }
+  return { listings: f.listings.slice(0, pool), market, notice: f.notice, external, overBudget, links }
+}
+
+// ---------- deep links instead of reads (2026-10-13) ----------
+// The person opens Realtor.ca / Rentals.ca / Kijiji with their criteria; we
+// never fetch those pages. Residential: the neighbourhood page when the area
+// is a known Toronto neighbourhood slug, else the city page. Commercial: the
+// commercial-space page for each city named (≤4).
+export function buildExternalLinks(c: SearchCriteria, kind: CommercialKind | null): ExternalLink[] {
+  const links: ExternalLink[] = []
+  if (kind) {
+    for (const city of searchAreas(c).slice(0, 4)) {
+      links.push({ site: 'realtor', label: `Realtor.ca · ${city}`, url: listPageUrls(resolveRealtorBase(city), kind)[0] })
+    }
+    if (!links.length) links.push({ site: 'realtor', label: 'Realtor.ca', url: listPageUrls(resolveRealtorBase(c.area, c.area_candidates), kind)[0] })
+    return links
+  }
+  // A named GTA city (Markham, Mississauga…) gets its city page; a Toronto
+  // neighbourhood gets its verified neighbourhood slug when one exists.
+  const cityBase = resolveRealtorBase(c.area, c.area_candidates)
+  const slugs = cityBase.startsWith('https://www.realtor.ca/on/toronto/') ? resolveRealtorSlugs([c.area, ...(c.area_candidates ?? [])], 1) : []
+  const base = slugs.length ? `https://www.realtor.ca/on/toronto/${slugs[0]}` : cityBase
+  const beds = typeof c.min_beds === 'number' && c.min_beds >= 1 && c.min_beds <= 4 ? Math.round(c.min_beds) : null
+  const house = isHouseQuery(c.keywords, normalizeType(c))
+  const path = house ? 'houses-for-rent' : beds ? `${beds}-bedroom-apartments-for-rent` : 'rentals'
+  links.push({ site: 'realtor', label: 'Realtor.ca', url: `${base}/${path}` })
+  const city = base.replace('https://www.realtor.ca/on/', '').split('/')[0].replace(/-/g, ' ')
+  links.push({ site: 'rentals', label: 'Rentals.ca', url: rentalsCaUrl(city) })
+  links.push({ site: 'kijiji', label: 'Kijiji', url: kijijiUrl(city) })
+  return links
 }
 
 // ---------- Stayloop's own listings ----------

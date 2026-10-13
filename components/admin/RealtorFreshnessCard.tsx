@@ -1,13 +1,19 @@
 'use client'
 
-// /admin/verify · Realtor.ca freshness. Imported listings are read on an hourly
-// rotation (/api/cron/realtor-freshness); a listing whose Realtor.ca page says
-// "no longer exists" twice in a row goes offline on its own. This card shows
-// where the rotation stands and what it took down.
+// /admin/verify · Realtor.ca freshness. Imported listings used to be read on an
+// hourly rotation (/api/cron/realtor-freshness); a listing whose Realtor.ca page
+// said "no longer exists" twice in a row went offline on its own.
+//
+// STOPPED 2026-10-13: PropTx / CREA rules forbid third-party and AI use of MLS
+// data, so Stayloop no longer reads Realtor.ca. REALTOR_LIVE_READS is false,
+// the imported rows were archived, the hourly sweep is unscheduled and the
+// "check a batch now" button is gone. The card still shows the counts for the
+// historical rows (what the rotation found, what it took down).
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { summarize, type RealtorCheck, type FreshnessSummary } from '@/lib/listings/realtorFreshness'
+import { REALTOR_LIVE_READS } from '@/lib/listings/externalSources'
 
 type Row = {
   id: string
@@ -77,22 +83,39 @@ export default function RealtorFreshnessCard({ zh }: { zh: boolean }) {
 
   return (
     <section className="sl-card mt-6 p-5" data-testid="realtor-freshness">
+      {!REALTOR_LIVE_READS && (
+        <div
+          role="status"
+          data-testid="realtor-reads-stopped"
+          className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900"
+        >
+          {zh
+            ? 'Realtor.ca 读取已于 2026-10-13 停止（PropTx / CREA 规则不允许第三方平台与 AI 使用 MLS 数据）。导入的房源已全部归档，每小时的在架检查已停用；下面的数字只是历史记录。'
+            : 'Realtor.ca reads stopped on 2026-10-13 (PropTx / CREA rules do not allow third-party platforms or AI to use MLS data). The imported listings were archived and the hourly sweep is disabled; the counts below are historical.'}
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-[16px] font-semibold">{zh ? 'Realtor.ca 房源在架检查' : 'Realtor.ca listing freshness'}</h2>
           <p className="mt-1 text-[12.5px] text-body-3">
-            {zh
-              ? `每小时轮流读 20 套房源的 Realtor.ca 原页；连续两次显示已不存在就自动下架，挂牌价变了就同步。最近一次：${when(s.lastRun, zh)}`
-              : `Reads 20 listings' Realtor.ca pages every hour; two "no longer exists" readings in a row take a listing offline, and price changes are synced. Last run: ${when(s.lastRun, zh)}`}
+            {REALTOR_LIVE_READS
+              ? (zh
+                ? `每小时轮流读 20 套房源的 Realtor.ca 原页；连续两次显示已不存在就自动下架，挂牌价变了就同步。最近一次：${when(s.lastRun, zh)}`
+                : `Reads 20 listings' Realtor.ca pages every hour; two "no longer exists" readings in a row take a listing offline, and price changes are synced. Last run: ${when(s.lastRun, zh)}`)
+              : (zh
+                ? `停用前每小时轮流读 20 套房源的 Realtor.ca 原页；连续两次显示已不存在就自动下架。最后一次：${when(s.lastRun, zh)}`
+                : `Before it was disabled, it read 20 listings' Realtor.ca pages every hour; two "no longer exists" readings in a row took a listing offline. Last run: ${when(s.lastRun, zh)}`)}
           </p>
         </div>
-        <button
-          onClick={runNow}
-          disabled={running}
-          className="rounded-lg border border-line-strong bg-white px-3 py-2 text-[12.5px] font-semibold text-body-2 hover:border-brand hover:text-brand disabled:opacity-50"
-        >
-          {running ? (zh ? '检查中…（约 1 分钟）' : 'Checking… (~1 min)') : (zh ? '现在检查一批' : 'Check a batch now')}
-        </button>
+        {REALTOR_LIVE_READS && (
+          <button
+            onClick={runNow}
+            disabled={running}
+            className="rounded-lg border border-line-strong bg-white px-3 py-2 text-[12.5px] font-semibold text-body-2 hover:border-brand hover:text-brand disabled:opacity-50"
+          >
+            {running ? (zh ? '检查中…（约 1 分钟）' : 'Checking… (~1 min)') : (zh ? '现在检查一批' : 'Check a batch now')}
+          </button>
+        )}
       </div>
       {note && <div className="mt-2 text-[12.5px] text-body-2">{note}</div>}
 

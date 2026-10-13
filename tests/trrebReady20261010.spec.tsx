@@ -18,7 +18,8 @@ describe('8.26 listing brokerage shown prominently', () => {
   it('browse cards and the detail title carry the listing brokerage at listing-fact size', () => {
     // the browse page reads through /api/listings/search; the brokerage is among the card columns there
     expect(search).toContain('brokerage,display_address,display_avm')
-    expect(listPage).toMatch(/data-testid="card-brokerage"[\s\S]{0,400}l\.brokerage \|\| 'Realtor\.ca'/)
+    // 2026-10-13: Realtor.ca imports are archived; a legacy row without a brokerage falls back to the landlord-direct label
+    expect(listPage).toMatch(/data-testid="card-brokerage"[\s\S]{0,400}l\.brokerage \|\| \(zh \? '房东直租' : 'Direct from landlord'\)/)
     expect(listPage).toMatch(/data-testid="card-brokerage"/)
     expect(listPage).toMatch(/fontSize: 13, color: '#3F3F46', marginTop: 4 \}\} data-testid="card-brokerage"/)
     expect(detailPage).toMatch(/data-testid="listing-brokerage-line"/)
@@ -36,7 +37,10 @@ describe('8.25 / 8.07 reliability notice + copyright on every listing page', () 
     const notice = read('lib/listings/dataNotice.ts')
     expect(notice).toMatch(/被认为可靠，但不保证准确/)
     expect(notice).toMatch(/deemed reliable but is not guaranteed accurate/)
-    expect(notice).toMatch(/MLS® and REALTOR® are trademarks of The Canadian Real Estate Association/)
+    // 2026-10-13: no MLS feed, no Realtor.ca reads — the notice names landlords as the only source and carries no MLS line
+    expect(notice).toMatch(/来源：房东在 Stayloop 直接发布的房源/)
+    expect(notice).toMatch(/Sources: listings published directly by landlords on Stayloop/)
+    expect(notice.replace(/^\/\/.*$/gm, '')).not.toMatch(/MLS|Realtor\.ca|SPONSOR/)
     expect(read('components/listings/ListingDataNotice.tsx')).toContain('data-testid="listing-data-notice"')
   })
 })
@@ -54,6 +58,8 @@ describe('8.28 / 8.29 sources labelled and searched separately', () => {
   it('the browse page has a source filter, groups by source, and labels each group', () => {
     expect(listPage).toContain("type SourceKey = 'all' | 'stayloop' | 'realtor'")
     expect(listPage).toContain('data-testid="listings-source-filter"')
+    // 2026-10-13: the Realtor.ca option only shows while a legacy realtor row is in the result set
+    expect(listPage).toContain(".filter((k) => k !== 'realtor' || sourceFilter === 'realtor' || pageItems.some((l) => sourceOf(l) === 'realtor'))")
     expect(listPage).toMatch(/data-testid=\{`listings-group-\$\{g\.key\}`\}/)
     expect(search).toContain("if (source !== 'all') q = source === 'realtor' ? q.eq('source', 'realtor') : q.neq('source', 'realtor')")
     expect(listPage).toContain("if (sourceFilter !== 'all') qs.set('source', sourceFilter)")
@@ -81,12 +87,15 @@ describe('8.13 anti-scraping: anon is read-only on listings', () => {
 })
 
 describe('8.09–8.11 terms of use', () => {
-  it('nine listing-data clauses: 8.09(a) customer relationship, personal use, bona fide interest, no copying, no AI, no scraping, ownership, audit access, no fee / no representation agreement', () => {
-    expect(terms).toContain("export const TERMS_VERSION = '2026-10-10'")
+  it('eight listing-data clauses (2026-10-13: no MLS feed, so no 8.09(a) customer-relationship clause): personal use, bona fide interest, no copying, no AI, no scraping, ownership, audit access, no fee / no representation agreement', () => {
+    expect(terms).toContain("export const TERMS_VERSION = '2026-10-13'")
     const clauses = terms.match(/^\s+zh: '/gm) || []
-    expect(clauses.length).toBe(9)
-    for (const needle of ['经纪-消费者（客户）关系', '这不是代表协议', '非商业用途', '真实的租赁、购买或出售意向', '转授权', 'AI 系统', '抓取', '版权属于其来源', '核查', '不产生任何费用', '代表协议']) expect(terms).toContain(needle)
-    for (const needle of ['broker-consumer (customer) relationship', 'non-commercial', 'bona fide interest', 'sublicense', 'AI system', 'Scraping', 'copyright', 'verify compliance', 'no fee', 'representation']) expect(terms).toContain(needle)
+    expect(clauses.length).toBe(8)
+    for (const needle of ['非商业用途', '真实的租赁、购买或出售意向', '转授权', 'AI 系统', '抓取', '版权属于其来源', '发布房源的房东与挂牌方', '核查', '不产生任何费用', '代表协议']) expect(terms).toContain(needle)
+    for (const needle of ['non-commercial', 'bona fide interest', 'sublicense', 'AI system', 'Scraping', 'copyright', 'landlords and listing parties who publish them', 'verify compliance', 'no fee', 'representation']) expect(terms).toContain(needle)
+    for (const gone of ['经纪-消费者（客户）关系', 'TRREB 会员经纪', 'broker-consumer (customer) relationship', '房地产协会、MLS® 系统及其会员', 'MLS® systems and their members']) expect(terms).not.toContain(gone)
+    // the /terms intro no longer claims an MLS licence or Realtor.ca as a source
+    expect(termsPage).not.toMatch(/Realtor\.ca|MLS®/)
     expect(termsPage).toContain('data-testid="terms-listing-data"')
     expect(termsPage).toContain('LISTING_DATA_CLAUSES.map')
     expect(termsPage).toContain('TERMS_VERSION')
@@ -127,10 +136,12 @@ describe('8.19 privacy policy names association audits', () => {
   })
 })
 
-describe('8.12 sponsoring member slot · 8.13 view audit trail', () => {
-  it('the detail page has an env-driven sponsor card and logs a listing_viewed audit row for signed-in viewers', () => {
-    expect(detailPage).toContain('data-testid="listing-sponsor-member"')
-    expect(read('lib/listings/dataNotice.ts')).toContain('NEXT_PUBLIC_MLS_SPONSOR_NAME')
+describe('8.12 sponsoring member slot removed (2026-10-13) · 8.13 view audit trail', () => {
+  it('the detail page has no sponsor card and no env-driven sponsor config, and still logs a listing_viewed audit row for signed-in viewers', () => {
+    expect(detailPage).not.toContain('listing-sponsor-member')
+    expect(detailPage).not.toContain('SPONSOR_MEMBER')
+    expect(read('lib/listings/dataNotice.ts')).not.toContain('NEXT_PUBLIC_MLS_SPONSOR')
+    expect(read('lib/listings/dataNotice.ts')).not.toContain('MLS_ATTRIBUTION')
     expect(detailPage).toContain("action: 'listing_viewed'")
     expect(detailPage).toMatch(/if \(auth\.loading \|\| !auth\.user \|\| !listing\?\.id \|\| viewedRef\.current === listing\.id\) return/)
     expect(read('lib/agent/ideas.ts')).toContain('listing_viewed:')

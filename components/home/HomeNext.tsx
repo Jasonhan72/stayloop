@@ -105,7 +105,7 @@ const ROLES: {
     ],
     modules: [
       { h: { zh: '租客筛查', en: 'Tenant screening' }, s: { zh: '材料取证 · 收入佐证 · LTB 判令与法院记录', en: 'Document forensics · income corroboration · LTB orders and court records' }, href: '/screening' },
-      { h: { zh: '发布房源与申请队列', en: 'Listing and applications' }, s: { zh: '五步向导 · 一键导入 Realtor.ca 链接 · 核验后上线 · 申请一键筛查', en: 'Five-step wizard · import from a Realtor.ca link · live after verification · one-tap screening from an application' }, href: '/dashboard/listings/new' },
+      { h: { zh: '发布房源与申请队列', en: 'Listing and applications' }, s: { zh: '五步向导 · 一句话出草稿 · 核验后上线 · 申请一键筛查', en: 'Five-step wizard · a draft from one sentence · live after verification · one-tap screening from an application' }, href: '/dashboard/listings/new' },
       { h: { zh: '租约、续约与维修', en: 'Leases, renewals and repairs' }, s: { zh: '标准租约电子签 · 续约 90 / 60 / 30 天 · 报修派给已核验服务商', en: 'Standard lease e-sign · renewal at 90 / 60 / 30 days · repairs dispatched to verified providers' }, href: '/landlord/leases' },
     ],
     cta: { zh: '让 {ai} 协助管理房源 →', en: 'Let {ai} help manage your rentals →' },
@@ -248,7 +248,7 @@ const FAQ: { q: Bi; a: Bi; href: string; more: Bi }[] = [
   },
   {
     q: { zh: '房源和行情从哪里来？', en: 'Where do the listings and market numbers come from?' },
-    a: { zh: '公开房源有两类：房东在 Stayloop 发布、经管理员核验后上线的；以及从 Realtor.ca 导入并标明来源的（目前是示范阶段，TRREB 数据库尚未接入）。行情对照用 TRREB 官方按季度公布的成交数据，页面会写明季度与来源。', en: 'Two kinds of public listings: ones landlords publish on Stayloop and an admin verifies before they go live, and ones imported from Realtor.ca with the source shown (a demonstration stage; the TRREB database is not connected yet). Market comparisons use TRREB’s official quarterly transaction data, with the quarter and source stated on the page.' },
+    a: { zh: '公开房源都是房东在 Stayloop 直接发布、经管理员核验后上线的。行情对照用 TRREB 官方按季度公布的成交数据，页面会写明季度与来源。Stayloop 不再从 Realtor.ca 导入或读取房源（MLS 规则不允许第三方平台或 AI 使用其数据）；想看那些站点，AI 助理会按你的条件给出跳转链接。', en: 'Every public listing is published directly by a landlord on Stayloop and verified by an admin before it goes live. Market comparisons use TRREB’s official quarterly transaction data, with the quarter and source stated on the page. Stayloop no longer imports or reads listings from Realtor.ca (MLS rules do not allow third-party platforms or AI to use that data); to look there, the AI Agent gives you links built from your criteria.' },
     href: '/listings', more: { zh: '看房源 →', en: 'Browse listings →' },
   },
   {
@@ -495,7 +495,7 @@ export default function HomeNext() {
             <Fact n={fmt(stats?.screenings)} s={zh ? <>份筛查报告已生成，<i>每条结论注明所依据的数值</i></> : <>screening reports generated, <i>every conclusion cites its numbers</i></>} />
             <Fact n={fmt(stats?.ltbOrders)} s={zh ? <>份 LTB 判令已入库可查，<i>姓名命中须地址佐证</i></> : <>LTB orders on file and searchable, <i>name hits need address corroboration</i></>} />
             <Fact n={fmt(stats?.trrebQuarters)} s={zh ? <>个季度的 TRREB 官方成交数据，<i>行情有据</i></> : <>quarters of official TRREB data, <i>market answers with sources</i></>} />
-            <Fact n={fmt(stats?.listings)} s={zh ? <>套公开房源，<i>平台核验或 Realtor.ca 实时</i></> : <>public listings, <i>platform-verified or live from Realtor.ca</i></>} />
+            <Fact n={fmt(stats?.listings)} s={zh ? <>套公开房源，<i>房东直租 · 平台核验</i></> : <>public listings, <i>direct from landlords · platform-verified</i></>} />
           </div>
         </div>
       </section>

@@ -89,7 +89,8 @@ describe('homepage FAQ', () => {
     expect(home).toContain('<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />')
     expect(home).toContain('data-testid="home-faq"')
     // the facts the answers rest on — each one is a shipped, checkable behaviour
-    for (const s of ['OHRC 租房政策', 's.10(7)', 'AWS 蒙特利尔', 'TRREB 数据库尚未接入', '每小时有次数上限']) expect(block, s).toContain(s)
+    // 2026-10-13: Realtor.ca is no longer read; the listings answer says so instead of「TRREB 数据库尚未接入」
+    for (const s of ['OHRC 租房政策', 's.10(7)', 'AWS 蒙特利尔', '不再从 Realtor.ca 导入或读取房源', '每小时有次数上限']) expect(block, s).toContain(s)
     // never a pricing claim in the FAQ (pricing has one source: /pricing)
     expect(block).not.toMatch(/\$\d|每月|per month/)
   })

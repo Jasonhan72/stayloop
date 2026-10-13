@@ -16,6 +16,7 @@ import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, nonOntarioPr
 import { effectiveProvince, type ProvinceCode, type ProvinceRow } from '@/lib/provinces'
 import { matchOwnedListing, mergeWithExisting, type OwnedListingRow } from '@/lib/agent/draftExisting'
 import { flattenMarkdown, isProviderCapacityError } from '@/lib/agent/turnHelpers'
+import { isMlsHost, MLS_READ_REFUSED_REASON, EXTERNAL_LINKS_NOTE, type ExternalLink } from '@/lib/listings/externalSources'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
 import { applyHardConstraints, constraintsNote } from '@/lib/agent/hardConstraints'
@@ -155,6 +156,8 @@ async function fetchUrlContent(url: string): Promise<FetchResult> {
   } catch {
     return { content: '[invalid URL]', images: [] }
   }
+  // Realtor.ca / MLS pages are never read (2026-10-13, lib/listings/externalSources.ts).
+  if (isMlsHost(url)) return { content: null, images: [], reason: MLS_READ_REFUSED_REASON }
   const jinaKey = process.env.JINA_API_KEY
   let failReason = jinaKey ? '' : 'no reader key configured'
   try {
@@ -764,10 +767,13 @@ export async function POST(req: Request) {
   }
 
   // Listing search (tenant): when the model flags intent, search Stayloop's
-  // own listings first, then fall back to external (Realtor.ca).
+  // own listings (the Realtor.ca fallback is off since 2026-10-13 — deep links instead).
   let listings: ListingCard[] | undefined
   let listingsSource: 'stayloop' | 'realtor' | undefined
   let listingsNotice: string | undefined
+  // Deep links to Realtor.ca / Rentals.ca / Kijiji with the person's criteria
+  // (the external source is no longer read, 2026-10-13).
+  let externalLinks: ExternalLink[] | undefined
   let market: Record<string, unknown> | undefined
   let followups: { question: string; options: string[] }[] | undefined
   const search = parsed?.search as Record<string, unknown> | null | undefined
@@ -817,7 +823,7 @@ export async function POST(req: Request) {
     }
   } else if ((role === 'tenant' || role === 'agent') && search && typeof search === 'object') {
     // Agent: "挂牌定价" — comparables for a landlord client's unit. Same
-    // real-data pipeline (Stayloop → Realtor.ca → TRREB benchmark); the
+    // real-data pipeline (Stayloop → TRREB benchmark; Realtor.ca is linked, not read); the
     // model is told to write no prices itself (lib/agent/prompts.ts).
     try {
       // Commercial asks fan out over up to 8 named cities; residential keeps 3.
@@ -856,6 +862,8 @@ export async function POST(req: Request) {
         min_clear_ft: typeof search.min_clear_ft === 'number' && search.min_clear_ft > 0 ? search.min_clear_ft : null,
         use: typeof search.use === 'string' && search.use.trim() ? search.use.trim().slice(0, 120) : null,
       }, Array.isArray(body.exclude) ? body.exclude.slice(0, 200).map((x) => String(x).slice(0, 160)) : [], { anonymous })
+      if (result.links?.length) externalLinks = result.links
+      const zhReply = uiLang !== 'en' || /[\u4e00-\u9fff]/.test(message)
       if (result.listings.length) {
         listings = result.listings
         // Street/building queries with no exact-address hit carry an honest
@@ -887,7 +895,11 @@ export async function POST(req: Request) {
         if (wanted && !result.summary && result.listings.length < wanted) {
           const zhMsg = uiLang !== 'en'
           // A dead live source is not thin inventory — say which it was.
-          if (result.external.status === 'unavailable') {
+          if (result.external.status === 'disabled') {
+            out.reply += zhMsg
+              ? `\n\n（Stayloop 库里符合条件的只有 ${result.listings.length} 套。${EXTERNAL_LINKS_NOTE.zh}见下方链接。）`
+              : `\n\n(Only ${result.listings.length} in Stayloop's own inventory match. ${EXTERNAL_LINKS_NOTE.en} see the links below.)`
+          } else if (result.external.status === 'unavailable') {
             out.reply += zhMsg
               ? `\n\n（这次只有 ${result.listings.length} 套，全部来自 Stayloop 库；Realtor.ca 实时抓取暂时不可用，所以不是该区域真的只有这些。稍后再问我一次即可。）`
               : `\n\n(Only ${result.listings.length} here, all from Stayloop's own inventory — the live Realtor.ca source is temporarily unavailable, so this is not the area's full picture. Ask again a little later.)`
@@ -902,7 +914,11 @@ export async function POST(req: Request) {
         // The model's reply usually promises cards — correct it honestly
         // instead of fabricating inventory.
         const zhMsg = uiLang !== 'en'
-        out.reply += result.external.status === 'unavailable'
+        out.reply += result.external.status === 'disabled'
+          ? (zhReply
+            ? `\n\nStayloop 库里没有符合条件的房源。${EXTERNAL_LINKS_NOTE.zh}见下方链接。`
+            : `\n\nNothing in Stayloop's own inventory matches. ${EXTERNAL_LINKS_NOTE.en} see the links below.`)
+          : result.external.status === 'unavailable'
           ? (zhMsg
             ? '\n\n这次没能拿到房源：Stayloop 库里没有匹配，而 Realtor.ca 实时抓取暂时不可用。请稍后再问我一次 —— 我不会拿编造的房源充数。'
             : "\n\nNo listings this time: nothing matched in Stayloop's inventory and the live Realtor.ca source is temporarily unavailable. Ask again a little later — I won't pad the results with made-up listings.")
@@ -1109,6 +1125,7 @@ export async function POST(req: Request) {
     listings,
     listings_source: listingsSource,
     listings_notice: listingsNotice,
+    external_links: externalLinks,
     listings_page: listings ? (typeof searchObj.count === 'number' ? Math.min(Math.max(Math.round(searchObj.count), 1), 6) : 6) : undefined,
     // The criteria the listing search ran with — the only way to tell, from
     // outside, whether an empty result came from the model's fields or the

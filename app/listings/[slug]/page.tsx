@@ -22,7 +22,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/lib/useAuth'
 import { writeAuditEvent } from '@/lib/agent/audit'
 import ListingDataNotice from '@/components/listings/ListingDataNotice'
-import { SPONSOR_MEMBER } from '@/lib/listings/dataNotice'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { VerificationBadge } from '@/components/ListingBadges'
@@ -884,7 +883,7 @@ export default function ListingDetailPage() {
                     {all && all.n > 0 && (
                       <div className="rounded-[12px] border border-line-divider bg-white p-4">
                         <div className="text-[13px] font-bold">{zh ? '出租 · 挂牌价' : 'Rentals · asking'}</div>
-                        <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? 'Stayloop + Realtor.ca 在租样本' : 'Stayloop + Realtor.ca listings'}</div>
+                        <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? 'Stayloop 在租样本' : 'Stayloop listings'}</div>
                         <div className="mt-2 text-[12px] text-body-3">{same && same.median != null ? bedLabel : (zh ? '全部户型' : 'All sizes')}</div>
                         <div className="text-[22px] font-extrabold leading-tight">${((same && same.median != null ? same.median : all.median) ?? 0).toLocaleString()}</div>
                         <div className="text-[11.5px] text-body-3">{(() => { const n = same && same.median != null ? same.n : all.n; return n === 1 ? (zh ? '仅 1 套在租（非中位）' : '1 listed (not a median)') : zh ? `中位 · ${n} 套在租` : `median · ${n} listed` })()}</div>
@@ -913,7 +912,7 @@ export default function ListingDetailPage() {
                     </div>
                     )}
                   </div>
-                  <div className="mt-2 text-[11.5px] text-body-3">{zh ? `挂牌价来自 Stayloop 与 Realtor.ca 在租房源${benchmark ? '；成交均价来自 TRREB 季度租赁市场报告（成交，非挂牌）' : ''}。` : `Asking rents from Stayloop and Realtor.ca listings${benchmark ? '; leased averages from the TRREB quarterly rental report (leased, not asking)' : ''}.`}</div>
+                  <div className="mt-2 text-[11.5px] text-body-3">{zh ? `挂牌价来自 Stayloop 上在租的房东直租房源${benchmark ? '；成交均价来自 TRREB 季度租赁市场报告（成交，非挂牌）' : ''}。` : `Asking rents from landlord-direct listings on Stayloop${benchmark ? '; leased averages from the TRREB quarterly rental report (leased, not asking)' : ''}.`}</div>
                 </Section>
               )
             })()}
@@ -1159,23 +1158,6 @@ export default function ListingDetailPage() {
                 </button>
               )}
             </div>
-
-            {/* MLS sponsoring member (PropTx Rule 8.12): the member under whose data agreement the
-                site runs, with a way to reach them. Rendered only once NEXT_PUBLIC_MLS_SPONSOR_* is set. */}
-            {SPONSOR_MEMBER && (
-              <div className="sl-card p-5" data-testid="listing-sponsor-member">
-                <span className="sl-eyebrow">{zh ? 'MLS® 数据与咨询' : 'MLS® data & enquiries'}</span>
-                <div className="mt-2 text-[14px] font-bold text-ink">{SPONSOR_MEMBER.name}</div>
-                {SPONSOR_MEMBER.brokerage && <div className="text-[13px] text-body-2">{SPONSOR_MEMBER.brokerage}</div>}
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
-                  {SPONSOR_MEMBER.email && <a href={`mailto:${SPONSOR_MEMBER.email}`} className="font-semibold text-brand hover:underline">{SPONSOR_MEMBER.email}</a>}
-                  {SPONSOR_MEMBER.phone && <a href={`tel:${SPONSOR_MEMBER.phone.replace(/[^+\d]/g, '')}`} className="font-semibold text-brand hover:underline">{SPONSOR_MEMBER.phone}</a>}
-                </div>
-                <p className="mt-2 text-[11.5px] leading-relaxed text-body-3">
-                  {zh ? '对任何 MLS® 房源有疑问，可直接联系这位经纪；Stayloop 不参与交易。' : 'Questions about any MLS® listing can go to this member directly; Stayloop takes no part in the trade.'}
-                </p>
-              </div>
-            )}
 
           </aside>
         </section>

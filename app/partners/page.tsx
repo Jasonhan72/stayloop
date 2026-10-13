@@ -11,7 +11,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useT, type Lang } from '@/lib/i18n'
 
-type Status = 'live' | 'sandbox' | 'preparing' | 'demo'
+type Status = 'live' | 'sandbox' | 'preparing' | 'demo' | 'ended'
 type Cat = 'screening' | 'listings' | 'verification' | 'ai'
 
 const STATUS: Record<Status, { label: Record<Lang, string>; cls: string }> = {
@@ -19,6 +19,7 @@ const STATUS: Record<Status, { label: Record<Lang, string>; cls: string }> = {
   sandbox: { label: { zh: '已接入 · 沙箱', en: 'Integrated · sandbox' }, cls: 'bg-warning/10 text-warning' },
   preparing: { label: { zh: '筹备中', en: 'In preparation' }, cls: 'bg-surface-chip text-body-3' },
   demo: { label: { zh: '示范阶段', en: 'Demonstration stage' }, cls: 'bg-warning/10 text-warning' },
+  ended: { label: { zh: '已停用', en: 'Discontinued' }, cls: 'bg-surface-chip text-body-3' },
 }
 
 const CATS: { key: Cat | 'all'; label: Record<Lang, string> }[] = [
@@ -48,9 +49,9 @@ const SOURCES: { name: string; cat: Cat; status: Status; use: Record<Lang, strin
     use: { zh: '雇主是银行时不查公司注册库，直接对照《银行法》附表（OSFI 监管实体）。', en: 'When the employer is a bank it is matched against the Bank Act schedules (OSFI-regulated entities) instead of a corporate registry.' } },
   { name: 'RDAP (domain registration data)', cat: 'screening', status: 'live', href: 'https://rdap.org',
     use: { zh: '在职信上的雇主域名注册日期；域名不存在或注册晚于信称入职一年以上会标记。', en: 'Registration date of the employer domain on an employment letter; a non-existent domain, or one registered more than a year after the claimed start date, is flagged.' } },
-  { name: 'Realtor.ca (live listings)', cat: 'listings', status: 'demo', href: 'https://www.realtor.ca',
-    use: { zh: '租客 AI 助理的实时房源补充与行情样本（经 Jina 阅读器抓取）；导入房源带来源徽章。', en: 'Live listing top-up and market samples for the tenant AI Agent (read via the Jina reader); imported listings carry a source badge.' },
-    note: { zh: '示范阶段：TRREB 数据库未接入，正式数据源计划换 DDF Partner。', en: 'Demonstration stage: the TRREB feed is not connected; the production source is planned to be DDF Partner.' } },
+  { name: 'Realtor.ca', cat: 'listings', status: 'ended', href: 'https://www.realtor.ca',
+    use: { zh: '曾作为示范阶段的房源来源，已导入的房源已归档。', en: 'Was a demonstration-stage listing source; the imported listings have been archived.' },
+    note: { zh: '2026-10-13 起不再读取：PropTx / CREA 的规则不允许第三方平台或 AI 使用 MLS 数据；AI 助理改为按你的条件给出 Realtor.ca 跳转链接。', en: 'Not read since 2026-10-13: PropTx / CREA rules do not allow third-party platforms or AI to use MLS data; the AI Agent now hands you a jump to Realtor.ca built from your criteria instead.' } },
   { name: 'TRREB Rental Market Report', cat: 'listings', status: 'live', href: 'https://trreb.ca/market-data/rental-market-report/',
     use: { zh: '季度官方租赁基准（按房型均租），每周一自动刷新；行情卡与续约 90 天触点都引用它。', en: 'Official quarterly benchmark (average rent by layout), refreshed every Monday; the market card and the 90-day renewal touchpoint both cite it.' } },
   { name: 'Veriff', cat: 'verification', status: 'sandbox', href: 'https://www.veriff.com',
@@ -67,7 +68,7 @@ const SOURCES: { name: string; cat: Cat; status: Status; use: Record<Lang, strin
   { name: 'Alibaba DashScope (Qwen OCR fallback)', cat: 'ai', status: 'live',
     use: { zh: '扫描件无法读取时的 OCR 回退，端点在中国大陆；隐私页第 2 节如实披露。', en: 'OCR fallback for unreadable scans; endpoint in mainland China, disclosed in section 2 of the privacy page.' } },
   { name: 'Jina Reader / Search', cat: 'ai', status: 'live', href: 'https://jina.ai',
-    use: { zh: '网页阅读与检索中转（Realtor.ca、CanLII 索引、雇主网页、TRREB 季报），服务器在德国 / 美国。', en: 'Web reading and search relay (Realtor.ca, the CanLII index, employer pages, the TRREB report); servers in Germany / United States.' } },
+    use: { zh: '网页阅读与检索中转（CanLII 索引、雇主网页、TRREB 季报），服务器在德国 / 美国。', en: 'Web reading and search relay (the CanLII index, employer pages, the TRREB report); servers in Germany / United States.' } },
 ]
 
 export default function PartnersPage() {

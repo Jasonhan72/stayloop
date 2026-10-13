@@ -41,8 +41,8 @@ export default function TermsPage() {
           </Section>
           <Section title={zh ? '5 · 房源信息的使用' : '5 · Use of listing information'}>
             <p>{zh
-              ? '平台上的房源信息来自房东直接发布、Realtor.ca，以及向 Stayloop 授权的房地产协会与 MLS® 系统。使用这些信息即表示你同意以下规则：'
-              : 'Listing information on the platform comes from landlords who publish directly, from Realtor.ca, and from real estate associations and MLS® systems that license data to Stayloop. By using it you agree to the following:'}</p>
+              ? '平台上的房源信息来自房东直接发布。使用这些信息即表示你同意以下规则：'
+              : 'Listing information on the platform comes from landlords who publish directly. By using it you agree to the following:'}</p>
             <ol className="mt-3 list-decimal space-y-2 pl-5" data-testid="terms-listing-data">
               {LISTING_DATA_CLAUSES.map((c, i) => <li key={i}>{zh ? c.zh : c.en}</li>)}
             </ol>

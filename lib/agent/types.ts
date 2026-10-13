@@ -256,6 +256,9 @@ export type ChatMessage = {
   listingsNotice?: string
   // Page size for the listing cards (the count the user asked for, ≤ 6; default 6).
   listingsPage?: number
+  // Deep links (Realtor.ca / Rentals.ca / Kijiji) the person opens with their
+  // criteria — the external source is linked, never read (2026-10-13).
+  links?: { label: string; url: string; site: 'realtor' | 'rentals' | 'kijiji' }[]
   market?: MarketInsight
   followups?: FollowUp[]
   draftListing?: DraftListing

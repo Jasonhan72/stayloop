@@ -1,10 +1,19 @@
 // Realtor.ca freshness sweep: takes imported listings offline once their
 // Realtor.ca page says "no longer exists", and follows price changes.
 //
-// pg_cron (hourly, :35) POSTs here with x-cron-secret; an admin can also run
-// it from /admin/verify (user JWT + is_stayloop_admin). Each run reads the
-// REALTOR_BATCH least recently checked rows through Jina. Decisions are in
-// lib/listings/realtorFreshness.ts (pure, tested).
+// STOPPED 2026-10-13: PropTx / TRREB refused Stayloop's data request and MLS
+// rules forbid third-party / AI use, so Stayloop no longer reads Realtor.ca
+// (or cdn.realtor.ca) at all. REALTOR_LIVE_READS (lib/listings/externalSources)
+// is false; after authorization this route answers { disabled: true } before
+// any Realtor.ca request. The imported rows were archived separately and the
+// pg_cron job is unscheduled (20261013_realtor_freshness_unschedule.sql). The
+// sweep code below is kept intact (tested) but unreachable while the constant
+// is false.
+//
+// Original behaviour: pg_cron (hourly, :35) POSTs here with x-cron-secret; an
+// admin can also run it from /admin/verify (user JWT + is_stayloop_admin). Each
+// run reads the REALTOR_BATCH least recently checked rows through Jina.
+// Decisions are in lib/listings/realtorFreshness.ts (pure, tested).
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { captureException } from '@/lib/observability/sentry'
@@ -16,6 +25,7 @@ import {
   type RealtorReading,
 } from '@/lib/listings/realtorFreshness'
 import { secretMatches } from '@/lib/cron/secret'
+import { REALTOR_LIVE_READS } from '@/lib/listings/externalSources'
 
 export const runtime = 'edge'
 
@@ -69,6 +79,9 @@ type Row = { id: string; slug: string | null; mls_number: string | null; source_
 
 export async function POST(req: Request) {
   if (!(await authorized(req))) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  // 2026-10-13: Realtor.ca reads are off (PropTx / CREA rules). Nothing below
+  // runs — no Jina read, no cdn.realtor.ca HEAD check, no writes.
+  if (!REALTOR_LIVE_READS) return NextResponse.json({ ok: true, disabled: true, reason: 'realtor_reads_off' })
   const key = process.env.JINA_API_KEY
   if (!key) return NextResponse.json({ error: 'JINA_API_KEY not configured' }, { status: 503 })
 

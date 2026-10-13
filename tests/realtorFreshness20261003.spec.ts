@@ -140,6 +140,32 @@ describe('wiring', () => {
   it('admin verify page shows the card', () => {
     expect(fs.readFileSync('app/admin/verify/page.tsx', 'utf8')).toMatch(/<RealtorFreshnessCard/)
   })
+  // 2026-10-13: PropTx / CREA rules — Stayloop stopped reading Realtor.ca. The
+  // route must bail out (after auth) before any Realtor.ca / cdn.realtor.ca
+  // request, and the hourly pg_cron job is unscheduled by a migration.
+  it('route imports REALTOR_LIVE_READS and answers disabled before any fetch', () => {
+    expect(route).toMatch(/import \{ REALTOR_LIVE_READS \} from '@\/lib\/listings\/externalSources'/)
+    const guard = route.indexOf('if (!REALTOR_LIVE_READS) return NextResponse.json({ ok: true, disabled: true, reason: \'realtor_reads_off\' })')
+    const auth = route.indexOf("if (!(await authorized(req)))")
+    const firstFetch = route.indexOf('fetch(', route.indexOf('export async function POST'))
+    expect(guard).toBeGreaterThan(auth)
+    expect(guard).toBeLessThan(firstFetch)
+    expect(route).toMatch(/STOPPED 2026-10-13/)
+  })
+  it('migration unschedules the hourly job, tolerating its absence', () => {
+    const path = 'supabase/migrations/20261013_realtor_freshness_unschedule.sql'
+    expect(fs.existsSync(path)).toBe(true)
+    const unsched = fs.readFileSync(path, 'utf8')
+    expect(unsched).toContain("cron.unschedule('realtor-freshness')")
+    expect(unsched).toMatch(/if exists \(select 1 from cron\.job where jobname = 'realtor-freshness'\)/)
+  })
+  it('admin card shows the stopped notice and no "check a batch now" button when reads are off', () => {
+    const card = fs.readFileSync('components/admin/RealtorFreshnessCard.tsx', 'utf8')
+    expect(card).toMatch(/import \{ REALTOR_LIVE_READS \} from '@\/lib\/listings\/externalSources'/)
+    expect(card).toContain('data-testid="realtor-reads-stopped"')
+    expect(card).toMatch(/2026-10-13/)
+    expect(card).toMatch(/\{REALTOR_LIVE_READS && \(\s*<button/)
+  })
 })
 
 describe('borrowed cdn.realtor.ca photos on Stayloop-published rows (2026-10-11)', () => {

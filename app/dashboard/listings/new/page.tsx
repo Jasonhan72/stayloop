@@ -38,7 +38,7 @@ const AMENITIES: { id: string; zh: string; en: string }[] = [
   { id: 'storage', zh: '储物间', en: 'Storage locker' },
 ]
 
-const IMPORT_SOURCES = ['Realtor.ca', 'MLS#', 'Kijiji', 'Zumper']
+const IMPORT_SOURCES = ['公开房源页', 'Kijiji', 'Zumper']
 const UTILITY_OPTIONS: { id: string; zh: string; en: string }[] = [
   { id: 'hydro', zh: '电', en: 'Hydro' }, { id: 'water', zh: '水', en: 'Water' }, { id: 'heat', zh: '暖气', en: 'Heat' },
   { id: 'gas', zh: '燃气', en: 'Gas' }, { id: 'internet', zh: '网络', en: 'Internet' }, { id: 'cable', zh: '有线电视', en: 'Cable' },
@@ -335,8 +335,8 @@ export default function NewListingPage() {
                 </h2>
                 <p className="mt-1 text-[13px] text-body-2">
                   {lang === 'zh'
-                    ? `把 Realtor.ca 链接 / MLS® 编号 / 公开房源页交给 ${aiName}：它读页面、整理成挂牌草稿并带回照片，你逐项确认后再发布。`
-                    : `Hand ${aiName} a Realtor.ca link, an MLS® number or a public listing page: it reads the page, drafts the listing and brings the photos along; you confirm field by field before publishing.`}
+                    ? `把自己的公开房源页链接交给 ${aiName}：它读页面、整理成挂牌草稿并带回照片，你逐项确认后再发布。Realtor.ca 与 MLS 页面不再读取。`
+                    : `Hand ${aiName} a public listing page of your own: it reads the page, drafts the listing and brings the photos along; you confirm field by field before publishing. Realtor.ca and MLS pages are not read.`}
                 </p>
               </div>
             </div>
@@ -355,7 +355,7 @@ export default function NewListingPage() {
             <div className="mt-3 grid grid-cols-[1fr_auto] gap-2 rounded-xl border-2 border-brand bg-white p-1.5">
               <input
                 className="sl-input !border-none !bg-transparent font-mono text-[14px]"
-                placeholder={lang === 'zh' ? '贴链接 / 输 MLS#（如 C7845921）' : 'Paste link / enter MLS# (e.g. C7845921)'}
+                placeholder={lang === 'zh' ? '贴自己的公开房源页链接' : 'Paste a public listing page of your own'}
                 value={importQuery}
                 onChange={(e) => setImportQuery(e.target.value)}
               />
@@ -376,8 +376,8 @@ export default function NewListingPage() {
 
             <p className="mt-3 text-[11.5px] leading-relaxed text-body-3">
               {lang === 'zh'
-                ? <>支持：Realtor.ca 房源链接、MLS® 编号、其他公开房源页链接（需登录才能看的页面读不到）。PDF / 截图请到 <Link href="/landlord/agent" className="text-brand underline underline-offset-2">{aiName} 对话</Link>里用「+」附件上传。解析结果先生成草稿卡片，你逐项确认后才发布——{aiName} 不会补写你没提供的事实。暂不支持 CSV / Excel 批量导入。</>
-                : <>Supported: Realtor.ca listing links, MLS® numbers and other public listing pages (login-walled pages cannot be read). For a PDF or screenshot, use the "+" attachment in <Link href="/landlord/agent" className="text-brand underline underline-offset-2">the {aiName} chat</Link>. Parsing produces a draft card you confirm field by field before publishing — {aiName} never fills in facts you did not provide. CSV / Excel bulk import is not available yet.</>}
+                ? <>支持：自己的公开房源页链接，如 Kijiji、Zumper（Realtor.ca 与 MLS 页面不再读取；需登录才能看的页面读不到）。PDF / 截图请到 <Link href="/landlord/agent" className="text-brand underline underline-offset-2">{aiName} 对话</Link>里用「+」附件上传。解析结果先生成草稿卡片，你逐项确认后才发布——{aiName} 不会补写你没提供的事实。暂不支持 CSV / Excel 批量导入。</>
+                : <>Supported: a public listing page of your own, such as Kijiji or Zumper (Realtor.ca and MLS pages are not read; login-walled pages cannot be read). For a PDF or screenshot, use the "+" attachment in <Link href="/landlord/agent" className="text-brand underline underline-offset-2">the {aiName} chat</Link>. Parsing produces a draft card you confirm field by field before publishing — {aiName} never fills in facts you did not provide. CSV / Excel bulk import is not available yet.</>}
             </p>
           </div>
 

@@ -902,6 +902,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       let listingsSource: ChatMessage['listingsSource']
       let listingsNotice: ChatMessage['listingsNotice']
       let listingsPage: ChatMessage['listingsPage']
+      let links: ChatMessage['links']
       let market: ChatMessage['market']
       let followups: ChatMessage['followups']
       let draftListing: ChatMessage['draftListing']
@@ -943,6 +944,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
           listingsSource = turn.listingsSource
           listingsNotice = turn.listingsNotice
           listingsPage = turn.listingsPage
+          links = turn.links
           market = turn.market
           followups = turn.followups
           draftListing = turn.draftListing
@@ -1036,6 +1038,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
           listingsSource = turn.listingsSource
           listingsNotice = turn.listingsNotice
           listingsPage = turn.listingsPage
+          links = turn.links
           market = turn.market
           followups = turn.followups
           draftListing = turn.draftListing
@@ -1110,7 +1113,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       // Append the agent's reply (with any listing/draft cards) to the thread it
       // was asked in. If the user opened another conversation meanwhile, the
       // reply is written to that row instead of the one on screen (review 2026-09-25).
-      const reply: ChatMessage = { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, market, followups, draftListing }
+      const reply: ChatMessage = { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, links, market, followups, draftListing }
       if (sentThread && threadIdRef.current !== sentThread) {
         void appendToThread(getSupabaseBrowser(), sentThread, [reply]).then(() => notifyActivityChanged())
         return

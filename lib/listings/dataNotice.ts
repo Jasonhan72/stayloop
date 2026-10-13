@@ -1,40 +1,27 @@
-// Listing-data attribution + accuracy notice (2026-10-10, TRREB readiness).
-// MLS rules (PropTx Art. 8.25 / 8.07) want every page that shows listing
-// information to say the data is deemed reliable but not guaranteed and to
-// carry the supplying association's copyright line. The MLS board line is
-// filled in when a feed is live (NEXT_PUBLIC_MLS_ATTRIBUTION); until then the
-// notice names the sources we actually have.
-export const MLS_ATTRIBUTION = (process.env.NEXT_PUBLIC_MLS_ATTRIBUTION || '').trim()
-
-/** The sponsoring MLS member whose IDX/VOW agreement the site runs under — shown on listing pages (Art. 8.12). */
-export const SPONSOR_MEMBER = (() => {
-  const name = (process.env.NEXT_PUBLIC_MLS_SPONSOR_NAME || '').trim()
-  if (!name) return null
-  return {
-    name,
-    brokerage: (process.env.NEXT_PUBLIC_MLS_SPONSOR_BROKERAGE || '').trim() || null,
-    email: (process.env.NEXT_PUBLIC_MLS_SPONSOR_EMAIL || '').trim() || null,
-    phone: (process.env.NEXT_PUBLIC_MLS_SPONSOR_PHONE || '').trim() || null,
-  }
-})()
-
+// Listing-data attribution + accuracy notice (2026-10-10; rewritten 2026-10-13).
+// Every page that shows listing information says the data is deemed reliable
+// but not guaranteed, names the sources we actually have and gives a
+// corrections channel. Since 2026-10-13 the only source is landlords who
+// publish directly on Stayloop: PropTx refused an IDX/VOW feed and Realtor.ca
+// is no longer read (lib/listings/externalSources.ts), so there is no MLS
+// attribution line and no sponsoring member to name.
 export const CORRECTIONS_EMAIL = 'hello@stayloop.ai'
 
 export function dataNoticeText(zh: boolean): { reliability: string; sources: string; copyright: string; corrections: string } {
   const year = new Date().getFullYear()
   return {
     reliability: zh
-      ? '房源信息被认为可靠，但不保证准确；请在决定前向挂牌经纪公司或房东核实。'
-      : 'Listing information is deemed reliable but is not guaranteed accurate. Verify with the listing brokerage or landlord before you decide.',
+      ? '房源信息被认为可靠，但不保证准确；请在决定前向房东核实。'
+      : 'Listing information is deemed reliable but is not guaranteed accurate. Verify with the landlord before you decide.',
     sources: zh
-      ? `来源：房东在 Stayloop 直接发布的房源、Realtor.ca${MLS_ATTRIBUTION ? `、${MLS_ATTRIBUTION}` : ''}。每套房源都标明了来源与挂牌经纪公司。`
-      : `Sources: listings published directly by landlords on Stayloop, Realtor.ca${MLS_ATTRIBUTION ? `, ${MLS_ATTRIBUTION}` : ''}. Every listing shows its source and listing brokerage.`,
+      ? '来源：房东在 Stayloop 直接发布的房源，每套都经平台核验后上线并标明发布方。'
+      : 'Sources: listings published directly by landlords on Stayloop; each one goes live after platform verification and shows who published it.',
     copyright: zh
-      ? `© ${year} 各挂牌经纪公司与提供数据的房地产协会 / MLS® 系统保留房源信息的版权；Stayloop 自有内容 © ${year} Stayloop。MLS®、REALTOR® 是加拿大房地产协会（CREA）的商标。`
-      : `© ${year} Listing information is copyright of the listing brokerages and the real estate associations / MLS® systems that supply it; Stayloop’s own content © ${year} Stayloop. MLS® and REALTOR® are trademarks of The Canadian Real Estate Association (CREA).`,
-    // PropTx 8.16: a channel for the listing brokerage to flag anything Stayloop ADDS beyond the feed, fixed within 48 h.
+      ? `© ${year} 房源信息、照片的版权属于发布房源的房东与挂牌方；Stayloop 自有内容 © ${year} Stayloop。`
+      : `© ${year} Listing information and photos are copyright of the landlords and listing parties who publish them; Stayloop’s own content © ${year} Stayloop.`,
+    // A channel for the publisher to flag anything Stayloop ADDS beyond what they wrote, fixed within 48 h.
     corrections: zh
-      ? `挂牌经纪公司或协会若认为本页由 Stayloop 附加的信息（翻译、交通站点、社区简介、租金记录）不准确，请发邮件至 ${CORRECTIONS_EMAIL}，我们会在 48 小时内更正或移除。`
-      : `Listing brokerages and associations: if anything Stayloop adds on this page beyond the listing data (translation, transit, neighbourhood note, rent history) is inaccurate, email ${CORRECTIONS_EMAIL} and we will correct or remove it within 48 hours.`,
+      ? `房东或挂牌方若认为本页由 Stayloop 附加的信息（翻译、交通站点、社区简介、租金记录）不准确，请发邮件至 ${CORRECTIONS_EMAIL}，我们会在 48 小时内更正或移除。`
+      : `Landlords and listing parties: if anything Stayloop adds on this page beyond what you published (translation, transit, neighbourhood note, rent history) is inaccurate, email ${CORRECTIONS_EMAIL} and we will correct or remove it within 48 hours.`,
   }
 }

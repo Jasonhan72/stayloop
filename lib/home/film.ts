@@ -210,10 +210,10 @@ export function filmFor(lang: Lang, now: Date): FilmChapter[] {
     w.ask('mia', L({ zh: 'King West 一房，能养猫，2,800 以内', en: 'One-bed in King West, cats OK, under $2,800' }))
     const listings: ListingCard[] = [
       { id: 'film-l1', source: 'stayloop', title: UNIT, address: `${UNIT} · King St W`, neighborhood: 'King West', city: 'Toronto', price: RENT, beds: 1, baths: 1, sqft: 610, image: FILM_STOCK[0], tags: zh ? ['允许宠物', '近 504 电车'] : ['Pets OK', 'By the 504'] },
-      { id: 'film-l2', source: 'realtor', title: 'Strachan Ave', address: 'Strachan Ave & King St W', neighborhood: 'Niagara', city: 'Toronto', price: 2750, beds: 1, baths: 1, sqft: 580, image: FILM_STOCK[1], tags: ['den', zh ? '允许宠物' : 'Pets OK'] },
+      { id: 'film-l2', source: 'stayloop', title: 'Unit 905', address: 'Unit 905 · King St W', neighborhood: 'King West', city: 'Toronto', price: 2750, beds: 1, baths: 1, sqft: 580, image: FILM_STOCK[1], tags: ['den', zh ? '允许宠物' : 'Pets OK'] },
     ]
     w.push({ k: 'reply', lane: 'mia', msg: {
-      text: L({ zh: '找到 2 套合适的：1 套 Stayloop 已核验，1 套来自 Realtor.ca 实时挂牌。点开卡片看详情、约看房。', en: 'Found 2 that fit: 1 verified on Stayloop, 1 live on Realtor.ca. Open a card for details and to book a showing.' })
+      text: L({ zh: '找到 2 套合适的，都是 Stayloop 已核验的房东直租房源。点开卡片看详情、约看房。', en: 'Found 2 that fit, both landlord-direct listings verified on Stayloop. Open a card for details and to book a showing.' })
         + constraintsNote({ max_price: RENT, min_beds: 1, pets: true, from_memory: [], no_budget_limit: false }, zh, 0),
       listings,
       // One card per page in a phone-width chat: Unit 1207 first, the second behind 「换一批」.
