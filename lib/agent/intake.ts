@@ -404,7 +404,7 @@ const SCREEN: IntakeSpec = {
 const LIST: IntakeSpec = {
   id: 'list',
   title: { zh: '发布房源', en: 'List a property' },
-  outline: { zh: '地址 · 类型 · 户型 · 租金 · 入住 · 条件 · 补充', en: 'address · type · unit · rent · available · terms · extras' },
+  outline: { zh: '地址 · 类型 · 户型 · 租金 · 入住 · 条件 · 补充 · 照片', en: 'address · type · unit · rent · available · terms · extras · photos' },
   steps: [
     { key: 'address', ask: { zh: '地址和单元号？', en: 'Address and unit?' }, input: 'text', placeholder: { zh: '28 Avondale Ave #1203, Toronto', en: '28 Avondale Ave #1203, Toronto' } },
     { key: 'type', ask: { zh: '房源类型？', en: 'Property type?' }, options: UNIT_TYPES },
@@ -419,6 +419,7 @@ const LIST: IntakeSpec = {
       { value: 'no_smoking', label: { zh: '禁烟', en: 'No smoking' } },
       { value: 'one_year', label: { zh: '一年起租', en: 'One-year minimum' } },
     ] },
+    { key: 'photos', ask: { zh: '加几张照片？', en: 'Add photos?' }, hint: { zh: '最多 3 张，第一张是封面；没有照片的房源不会上线。要传更多就用「快速发布」页', en: 'Up to 3 here, the first is the cover; a listing without photos never goes live. Use Quick publish for more' }, optional: true, attach: true },
     { key: 'extra', ask: { zh: '还有什么要写进去？', en: 'Anything else for the listing?' }, optional: true, input: 'text', placeholder: { zh: '面积、卫生间数、楼层、朝向、押金…', en: 'Size, bathrooms, floor, exposure, deposit…' } },
   ],
   compose: (q) => {

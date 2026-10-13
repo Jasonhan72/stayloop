@@ -221,6 +221,9 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
   const shownListings = useRef<Set<string>>(new Set())
   // URL images accumulated across turns so a draft in a follow-up turn gets them.
   const urlImagesRef = useRef<string[]>([])
+  // Photos the landlord attached in chat since the last draft card (2026-10-13): they
+  // become the draft's photos so「发布」works from the conversation, not only from the wizard.
+  const photoAttachRef = useRef<string[]>([])
   // Storage scope for chat history: the authed user's id, or 'anon' for demo.
   const chatScopeRef = useRef('anon')
   // Conversation threads (agent_threads, 2026-09-25): a live session keeps its
@@ -875,6 +878,8 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       const history = messagesRef.current.slice(-6).map((m) => ({ role: m.role, text: m.text }))
       // Show the user's message (with any attachments) in the thread immediately.
       const userMsg: ChatMessage = { id: nextId(), role: 'user', text: message.trim(), attachments }
+      const attachedPhotos = (attachments || []).filter((a) => a.isImage && a.dataUrl.startsWith('data:image/')).map((a) => a.dataUrl)
+      if (attachedPhotos.length) photoAttachRef.current = [...photoAttachRef.current, ...attachedPhotos].slice(-12)
       setMessages((m) => [...m, userMsg])
       setStatus('understanding')
 
@@ -953,6 +958,12 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
           // If draft has no images, attach accumulated images from prior URL turns.
           if (draftListing && (!draftListing.images || !draftListing.images.length) && urlImagesRef.current.length) {
             draftListing = { ...draftListing, images: urlImagesRef.current }
+          }
+          // Chat-attached photos become the new draft's photos (a rewrite of an owned
+          // listing keeps the stored photos); the buffer empties once a card has them.
+          if (draftListing && !draftListing.listing_id && (!draftListing.images || !draftListing.images.length) && photoAttachRef.current.length) {
+            draftListing = { ...draftListing, images: photoAttachRef.current }
+            photoAttachRef.current = []
           }
           // A re-draft of the same property keeps the facts extracted earlier
           // unless this message changed them (fact drift, 2026-09-25).
