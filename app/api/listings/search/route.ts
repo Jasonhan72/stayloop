@@ -82,6 +82,11 @@ export async function GET(req: Request) {
   q = sort === 'price_asc' ? q.order('monthly_rent', { ascending: true }) : sort === 'price_desc' ? q.order('monthly_rent', { ascending: false }) : q.order('created_at', { ascending: false })
   q = q.order('id', { ascending: true }).range(from, from + PAGE_SIZE + 9)
   const { data, error, count } = await q
+  // A page past the end makes PostgREST answer 416 (PGRST103) — that is an
+  // empty page, not a failure (found 2026-10-13 probing ?page=1 on a 5-row site).
+  if (error && error.code === 'PGRST103') {
+    return NextResponse.json({ items: [], total: 0, page, pages: 1, page_size: PAGE_SIZE }, { headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } })
+  }
   if (error) return NextResponse.json({ error: 'search_failed' }, { status: 502, headers: { 'Cache-Control': 'no-store' } })
 
   type Row = Record<string, unknown> & { images: unknown; pet_policy: string | null; display_address: boolean; address: string; unit: string | null }
