@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getRequestContext } from '@cloudflare/next-on-pages'
+import { personalRecordLookupsAllowed } from '@/lib/compliance/craMode'
 
 export const runtime = 'edge'
 
@@ -33,6 +34,9 @@ type Body = {
 export async function POST(req: Request) {
   const apiKey = (req.headers.get('x-api-key') || '').trim()
   if (!apiKey) return NextResponse.json({ error: 'x-api-key header required' }, { status: 401 })
+  // CRA_MODE=tool: furnishing reports to partners is exactly what the Act
+  // registers; the endpoint is closed until registration (lib/compliance/craMode.ts).
+  if (!personalRecordLookupsAllowed()) return NextResponse.json({ error: 'cra_mode_tool', message: 'Partner screening is unavailable until Stayloop\'s Consumer Reporting Act registration is complete.' }, { status: 503 })
   let body: Body
   try { body = (await req.json()) as Body } catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }) }
 

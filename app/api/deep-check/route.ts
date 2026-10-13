@@ -36,6 +36,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { stripNul } from '@/lib/screening/jsonSafe'
 const EMPLOYER_KINDS = new Set(['employment_letter', 'offer_letter', 'pay_stub', 't4'])
 import { runDeepCheck } from '@/lib/forensics'
+import { personalRecordLookupsAllowed } from '@/lib/compliance/craMode'
 import { employerExtraChecks, extractEmployerDomains, federalStatusText, gazetteLookup, rdapLookup, registryStatusKind, type RdapResult, mergeTradeNames } from '@/lib/forensics/employer-checks'
 import { portalPartySearch, partyNamesCompany } from '@/lib/screening/portalClient'
 import { canonicalizeEmployerName, searchOpenCorporates, RegistryAuthError } from '@/lib/forensics/arm-length'
@@ -609,7 +610,10 @@ export async function POST(req: Request) {
       signatory_phone: payload.signatory_phone,
       hr_phone_collision: payload.hr_phone_collision,
       related_names: payload.related_names,
-      webSearch: makeWebIndexSearch(),
+      // CRA_MODE=tool: no web search for the applicant / related parties by
+      // name (lib/compliance/craMode.ts). Company-only lookups (registry,
+      // Gazette, RDAP, courts by company name) are unaffected.
+      webSearch: personalRecordLookupsAllowed() ? makeWebIndexSearch() : undefined,
       webRead: makeWebRead(),
       companyLookup: makeCachedCompanyLookup(cacheClient),
     })

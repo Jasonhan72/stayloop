@@ -179,6 +179,7 @@ export function courtNoteZh(note: string | null | undefined): string {
   if (!o) return ''
   let m: RegExpMatchArray | null
   if (o === 'No applicant name provided') return '没有申请人姓名'
+  if (/^Not searched: in landlord-tool mode Stayloop does not look up public records/.test(o)) return '未检索：在完成《消费者报告法》注册之前，房东工具模式下 Stayloop 不替房东查询关于申请人本人的公开记录；可由申请人自查后提供结果。'
   if (/^Full name required/.test(o)) return '需要完整姓名（名 + 姓）；只有一个名字无法可靠检索法庭记录。'
   if (/^Full-text search of canlii\.org via its public web index: no page mentions/.test(o)) return '经公开网页索引全文检索 canlii.org：没有任何页面提到这个完整姓名。'
   if ((m = o.match(/^(\d+) decision page\(s\) on canlii\.org mention this exact name/))) return `canlii.org 上有 ${m[1]} 个判决页面提到这个完整姓名。提到不等于当事人——律师、裁决员和无关案件都可能同名；请逐个阅读，这些结果不计入评分。`

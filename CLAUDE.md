@@ -3476,3 +3476,14 @@ SingleKey（2025-02）、OpenRoom（2025-07，部里评估了一年含其判令�
 `lib/i18n.tsx` 里错误的「联邦监管的信用报告机构」改为 Equifax / TransUnion）。**注册前不做**：公开按姓名查 LTB 判令、Equifax 直拉上线、对外省房东开放筛查（魁北克另有 CAI 登记制）。
 守卫 `tests/craWording20261012.spec.ts`。注册门槛里对新公司最要紧的是 Reg. 177 s.6(b)「两年消费者报告相关经验」（按申请人的高管 / 董事经历评估，部里可要求补充材料）、安省对公开放的固定营业场所（非住宅）、
 执业会计师出具的财务报表。
+
+## `CRA_MODE` 开关：房东工具模式（2026-10-12 · 用户「先做开关与门控」）
+
+方案 `design/cra-compliance-without-registration-2026-10.md`。`lib/compliance/craMode.ts`：服务端环境变量 `CRA_MODE`，`registered`（默认，现状不变）/ `tool`。
+**tool 模式下关闭的只有「Stayloop 替房东查关于申请人本人的公开记录」**：`screen-score` 的 `runCourtRecordCheck`（法院门户 + CanLII 索引）在姓名校验之后直接返回两条
+`status:'skipped'` 行；LTB 判令目录主名（`ltbCheck.status='skipped'`，summary 用 `CRA_TOOL_SKIP_NOTE_*`，用 `throw 'cra_mode_tool'` 走原 catch 但保留 skipped 行）与补充名都只推一条 skipped 行；
+`deep-check` 的 `runDeepCheck` 不再传 `webSearch`（按申请人 / 关联人姓名在网上找人的 `arm_length_web_index_party_named` 就不会跑，Gazette 用自己的 `makeWebIndexSearch()` 不受影响）；
+`/api/v1/screen` 返回 503 `cra_mode_tool`。三个渲染器（结果页 / 报告页 / 打印 PDF）本来就把 `skipped` 算「未检索 · 不代表无记录」，`courtNoteZh` 翻译了英文注记；
+`_v3.cra_mode` 记录当次筛查的模式。**公司类核验（注册库 / Gazette / RDAP / 按公司名查法院）、取证、一致性、申请人自带征信、Veriff / Flinks 都不受影响。**
+切换：CF Pages 后台加 `CRA_MODE=tool`（服务端变量，不用重新构建），本地 `.env.development.local`。`.env.example` 有说明。守卫 `tests/craMode20261012.spec.ts`。
+通道二（申请人自查页 + PDF、房东报告识别自查件）未做。

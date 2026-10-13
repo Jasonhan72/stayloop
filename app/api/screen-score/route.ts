@@ -42,6 +42,7 @@ import { runCoherenceReview, coherenceToPromptBlock, coherenceToFlags, type Cohe
 import { courtDefendantHitsFromGates, scoreRubric, type RubricFacts, type RubricResult } from '@/lib/screening/rubric'
 import { courtHistoryQualifier, gateCapFor, identityNameVerdict, missingRequiredSections, stringFlags } from '@/lib/screening/scoreGuards'
 import { searchCanliiViaIndex } from '@/lib/screening/canliiIndex'
+import { craMode, craToolSkipQuery, personalRecordLookupsAllowed, CRA_TOOL_SKIP_NOTE_EN, CRA_TOOL_SKIP_NOTE_ZH } from '@/lib/compliance/craMode'
 import { callerHats, mayScreen, SCREENING_ROLE_CODE, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
 import { V3_WEIGHTS } from '@/lib/screening-types'
 
@@ -476,6 +477,15 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
       ? 'No applicant name provided'
       : 'Full name required (first + last name). Single names are too ambiguous for court record lookup.'
     queries.push({ source: 'CanLII — all Ontario databases', tier: 'free', status: 'skipped', hits: null, note: reason })
+    return { queries, total_hits: 0, queried_name: searchName, records: [], databases_searched: 0 }
+  }
+
+  // CRA_MODE=tool (lib/compliance/craMode.ts): no public-record lookup about
+  // the applicant as a person runs on the landlord's behalf. Both rows are
+  // recorded as skipped so every renderer counts them as not searched.
+  if (!personalRecordLookupsAllowed()) {
+    queries.push(craToolSkipQuery('CanLII — all Ontario databases'))
+    queries.push(craToolSkipQuery('Ontario Courts Portal — party search'))
     return { queries, total_hits: 0, queried_name: searchName, records: [], databases_searched: 0 }
   }
 
@@ -2186,6 +2196,17 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       const ltbName = (typeof parsed.extracted_name === 'string' && parsed.extracted_name.trim())
         || nameForLookup
 
+      if (!personalRecordLookupsAllowed()) {
+        // CRA_MODE=tool: the catalogue is not consulted about this person.
+        ltbCheck = {
+          status: 'skipped', queried_name: ltbName, as_respondent: [], as_applicant: [], corroborated: [],
+          summary_en: CRA_TOOL_SKIP_NOTE_EN, summary_zh: CRA_TOOL_SKIP_NOTE_ZH,
+          coverage: { from: null, to: null, orders: null },
+        }
+        courtDetail.queries.push(craToolSkipQuery('LTB Order Catalogue — Ontario Open Data', 'https://data.ontario.ca/dataset/ltb-order-catalogue'))
+        throw new Error('cra_mode_tool')
+      }
+
       const r = await searchLtbOrders(
         (fn, args) => supabase.rpc(fn, args) as never,
         ltbName,
@@ -2226,9 +2247,10 @@ If the uploaded evidence does not support the dimension, score it per the rubric
           hardGates.push('court_record_defendant')
         }
       }
-    } catch {
+    } catch (e) {
       // A catalogue outage must never fail a screening; the other sources stand.
-      ltbCheck = null
+      // (The tool-mode skip above also lands here, keeping its skipped row.)
+      if (!(e instanceof Error && e.message === 'cra_mode_tool')) ltbCheck = null
     }
 
     // Enforce hard gates in backend (don't fully trust Claude).
@@ -3289,6 +3311,10 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       // uncorroborated name matches stay namesakes.
       let supplementalLtbCorroborated = 0
       for (const extraName of newNames) {
+        if (!personalRecordLookupsAllowed()) {
+          courtDetail.queries.push(craToolSkipQuery(`LTB Order Catalogue — Ontario Open Data (${extraName})`, 'https://data.ontario.ca/dataset/ltb-order-catalogue'))
+          continue
+        }
         try {
           const declaredForExtra = (crossDocVerification?.application_summary?.prev_residences ?? [])
             .map((r) => r.address)
@@ -3479,6 +3505,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       coherence_review: coherence,
         ltb_check: ltbCheck,
         rubric,
+        cra_mode: craMode(),
       },
       _details_en: parsed.details_en,
       _details_zh: parsed.details_zh,
