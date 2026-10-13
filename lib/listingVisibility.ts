@@ -18,6 +18,17 @@ export const LISTING_VISIBILITY_OR_GROUP = `or(${LISTING_VISIBILITY_OR})`
 // such a row; the browse page, the assistant search and the admin queue all
 // apply the same predicate so a row that slips through (imports, legacy) is
 // still never shown.
+// 2026-10-13: every listing left on the site is test data (the Realtor.ca
+// imports were archived). `listings.is_test` (or a "[TEST]" title/address)
+// marks a listing as 测试房源 · 非实际房源 wherever it is shown.
+export function isTestListing(l: { is_test?: boolean | null; title?: string | null; address?: string | null } | null | undefined): boolean {
+  if (!l) return false
+  if (l.is_test === true) return true
+  return /^\s*\[TEST\]/i.test(l.title || '') || /^\s*\[TEST\]/i.test(l.address || '')
+}
+
+export const TEST_LISTING_LABEL = { zh: '测试房源 · 非实际房源', en: 'Test listing · not a real rental' }
+
 export function hasUsablePhotos(images: unknown): boolean {
   return Array.isArray(images) && images.some((u) => typeof u === 'string' && /^(https?:\/\/|data:image\/)/i.test(u))
 }

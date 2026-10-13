@@ -19,7 +19,7 @@ export const ANON_DETAILS_PER_HOUR = 300
 export const USER_DETAILS_PER_HOUR = 1500
 const PRIVATE_COLUMNS = ['broker_phone', 'realtor_check', 'management_company'] as const
 const SIMILAR_RANK_COLUMNS = 'id, slug, address, city, neighborhood, lat, lng, bedrooms, has_den, property_type, monthly_rent, created_at, status, display_address'
-const SIMILAR_CARD_COLUMNS = `${SIMILAR_RANK_COLUMNS}, unit, bathrooms, sqft, images, thumb_a, thumb_b, source, brokerage`
+const SIMILAR_CARD_COLUMNS = `${SIMILAR_RANK_COLUMNS}, unit, bathrooms, sqft, images, thumb_a, thumb_b, source, brokerage, is_test`
 const SIMILAR_POOL = 500
 const SIMILAR_SHORTLIST = 12
 

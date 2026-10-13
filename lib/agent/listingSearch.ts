@@ -367,7 +367,7 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   const p = new URLSearchParams()
   p.set(
     'select',
-    'id,title,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,trust_tier,images,amenities,has_den,slug,source,verification_status'
+    'id,title,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,trust_tier,images,amenities,has_den,slug,source,verification_status,is_test'
   )
   p.set('is_active', 'eq.true')
   const wantType = normalizeType(c)
@@ -419,6 +419,7 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
         // unverified banner instead of counting them as Stayloop inventory.
         id: String(r.id),
         source: (r.source === 'realtor' ? 'realtor' : 'stayloop') as 'stayloop' | 'realtor',
+        is_test: r.is_test === true || /^\s*\[TEST\]/i.test(String(r.title || r.address || '')),
         title: (r.title as string) || (r.address as string) || '房源',
         address: (() => {
           const a = ((r.address as string) || '').trim()

@@ -3507,3 +3507,12 @@ AVP 不得用它做自己的产品；**任何 MLS 数据不得经过任何第三
 - **PropTx 痕迹清理**：条款第 1 条（TRREB 会员客户关系）删除、`TERMS_VERSION = '2026-10-13'`（所有账号再确认一次）、所有权 / 审计条款去掉 MLS 与协会；详情页发起会员卡位与
   `NEXT_PUBLIC_MLS_SPONSOR_* / MLS_ATTRIBUTION` 删除；`/partners` Realtor.ca 条目标「已停用」；全站营销 / FAQ / 向导 / 动画里「Realtor.ca 实时」「一键导入 Realtor.ca 链接」改为房东直租 + TRREB。
   10-10 为 Article 8 做的通用改进（条款同意、姓名、审计轨迹、密码时效、服务端分页与限流、feed 展示列）保留。
+
+### 在架房源全部标为测试（2026-10-13 · 用户「现有的房源是否都可以标记一下，测试用，非实际房源」+「jina 抓取的功能要保留」）
+
+- **Jina 抓取代码保留**（`jinaRealtor` / `commercialSearch` / `fetchUrlContent` 都在），只是对 Realtor.ca / MLS 主机关闭；房东贴自己的公开房源页（非 MLS）仍可由 AI 读页起草。
+  将来若开放给房东自用，别把 MLS 主机的例外加回来——PropTx 的 AI 禁令不分谁贴的链接。
+- `listings.is_test`（迁移 `20261013_listings_is_test.sql`，已应用 prod）：5 条在架房源（jasonhan72 的 Avondale / 蒙特利尔 / Simcoe 三套 + 两条 `[TEST]` QA 草稿）全部 `true`；
+  `public_stats()` 的房源数排除 `is_test`。`lib/listingVisibility.ts isTestListing()`（列优先，其次 `[TEST]` 前缀）+ `TEST_LISTING_LABEL`「测试房源 · 非实际房源」：浏览卡、详情页标题下
+  （「用于演示，不接受真实租赁」）、相似房源卡、AI 对话卡（角标 TEST 取代 VERIFIED）、申请页（「提交的申请不会促成真实租赁」）五处 `data-testid="test-listing-badge"`。
+  搜索 API / 相似卡列 / AI 搜索 select 都带 `is_test`。守卫 `tests/testListings20261013.spec.ts`。新发布的真实房源默认 `false`。

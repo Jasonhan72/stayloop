@@ -75,9 +75,10 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
             slot now carries the same source/verification chip as /listings. */}
         <span
           className="absolute left-3 top-3 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white"
-          style={{ background: external ? '#B45309' : '#00ACE4' }}
+          style={{ background: external ? '#B45309' : l.is_test ? '#92400E' : '#00ACE4' }}
+          data-testid={l.is_test ? 'test-listing-badge' : undefined}
         >
-          {external ? 'REALTOR.CA' : 'VERIFIED'}
+          {external ? 'REALTOR.CA' : l.is_test ? (zh ? '测试房源' : 'TEST') : 'VERIFIED'}
         </span>
         <FavHeart
           fav={fav}

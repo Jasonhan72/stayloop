@@ -92,6 +92,8 @@ export type AgentResult = {
 export type ListingCard = {
   id: string
   source: 'stayloop' | 'realtor'
+  // 2026-10-13: test data, shown with a 测试房源 badge (lib/listingVisibility.ts).
+  is_test?: boolean
   title: string
   address: string
   neighborhood?: string

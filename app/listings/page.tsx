@@ -1,5 +1,6 @@
 'use client'
 
+import { isTestListing, TEST_LISTING_LABEL } from '@/lib/listingVisibility'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react'
@@ -61,6 +62,7 @@ interface DBListing {
   has_den?: boolean | null
   display_address?: boolean | null
   display_avm?: boolean | null
+  is_test?: boolean | null
   source?: string | null
   verification_status?: string | null
 }
@@ -992,6 +994,11 @@ function ListingCard({
             </>
           )}
         </div>
+        {isTestListing(l) && (
+          <div className="mb-1 inline-block rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800" data-testid="test-listing-badge">
+            {zh ? TEST_LISTING_LABEL.zh : TEST_LISTING_LABEL.en}
+          </div>
+        )}
         <div style={{ fontSize: 13, fontWeight: 600 }}>
           {l.address}
           {l.unit && ` · Unit ${l.unit}`}

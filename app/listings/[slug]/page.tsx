@@ -2,6 +2,7 @@
 
 export const runtime = 'edge'
 
+import { isTestListing, TEST_LISTING_LABEL } from '@/lib/listingVisibility'
 import Link from 'next/link'
 import { listingProvince, listingTitle, parkingStat } from '@/lib/listingDisplay'
 import { petBanAllowed, postalCodeIn, rulesFor } from '@/lib/provinces'
@@ -59,6 +60,7 @@ interface DBListing {
    *  already blanks address / unit / coordinates when display_address is false. */
   display_address?: boolean | null
   display_avm?: boolean | null
+  is_test?: boolean | null
   slug: string
   address: string
   unit: string | null
@@ -457,6 +459,11 @@ export default function ListingDetailPage() {
                   ? [listing.neighborhood, listing.city].filter(Boolean).join(' · ') || (zh ? '房源' : 'Listing')
                   : listingTitle(listing.address, listing.unit)}
               </h1>
+              {isTestListing(listing) && (
+                <div className="mt-2 inline-block rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-[12px] font-bold text-amber-800" data-testid="test-listing-badge">
+                  {zh ? `${TEST_LISTING_LABEL.zh} · 用于演示，不接受真实租赁` : `${TEST_LISTING_LABEL.en} · for demonstration only`}
+                </div>
+              )}
               {(listing.display_address === false || !listing.address) && (
                 <div className="mt-1 text-[13px] text-body-3" data-testid="listing-address-withheld">{zh ? '地址按卖方要求不公开 · 约看房时由经纪告知' : 'Address withheld at the seller’s request · shared by the agent when you book a showing'}</div>
               )}
@@ -1198,6 +1205,7 @@ export default function ListingDetailPage() {
                       )}
                       {(sl.images?.length ?? 0) > 0 && <span className="absolute bottom-2 left-2 rounded-md bg-black/55 px-2 py-0.5 font-mono text-[10.5px] text-white">📷 {sl.images!.length}</span>}
                       {sl.source === 'realtor' && <span className="absolute right-2 top-2 rounded-md bg-white/90 px-2 py-0.5 font-mono text-[10px] font-bold text-body-2">REALTOR.CA</span>}
+                      {isTestListing(sl) && <span className="absolute right-2 top-2 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800" data-testid="test-listing-badge">{zh ? '测试房源' : 'TEST'}</span>}
                     </Link>
                     <div className="p-4">
                       <div className="flex items-start justify-between gap-2">

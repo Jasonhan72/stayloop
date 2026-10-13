@@ -2,6 +2,7 @@
 
 export const runtime = 'edge'
 
+import { isTestListing, TEST_LISTING_LABEL } from '@/lib/listingVisibility'
 import { useState, useRef, useEffect } from 'react'
 import { prepareUploads } from '@/lib/screening/prepareUpload'
 import { useParams } from 'next/navigation'
@@ -564,6 +565,11 @@ export default function ApplyPage() {
             <h1 className="mt-3 text-[32px] font-extrabold tracking-tight sm:text-[40px]">
               {zh ? '提交申请' : 'Submit application'}
             </h1>
+            {isTestListing(summary as { is_test?: boolean | null; title?: string | null; address?: string | null } | null) && (
+              <div className="mx-auto mt-3 max-w-[560px] rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-[13px] font-semibold text-amber-800" data-testid="test-listing-badge">
+                {zh ? `${TEST_LISTING_LABEL.zh}：这套房源只用于演示，提交的申请不会促成真实租赁。` : `${TEST_LISTING_LABEL.en}: this listing is for demonstration only; an application here will not lead to a real tenancy.`}
+              </div>
+            )}
             <p className="mt-2 text-[14px] leading-relaxed text-body-2">
               {!provinceKnown
                 ? (zh ? '所有字段都加密存储 · 房东只看到你授权的内容' : 'Every field is encrypted · landlords only see what you authorize')
