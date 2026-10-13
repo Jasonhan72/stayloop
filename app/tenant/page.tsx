@@ -35,7 +35,7 @@ const CFG: RoleLandingConfig = {
   },
   journey: [
     { h: { zh: '为 AI 起名', en: 'Name your AI' }, b: { zh: '任何你喜欢的名字。从此 TA 只为你一个人。', en: 'Any name you like. From now on it works only for you.' } },
-    { h: { zh: '说需求,收房源', en: 'Say it, get matches' }, b: { zh: '一句话,它从 Stayloop 核验过的房东直租房源里替你筛,配 TRREB 官方行情;想看更多站点,它按你的条件给出 Realtor.ca / Rentals.ca / Kijiji 的跳转链接。', en: 'One sentence and it filters Stayloop-verified landlord listings for you, with the official TRREB benchmark; for more sites it hands you Realtor.ca / Rentals.ca / Kijiji links built from your criteria.' } },
+    { h: { zh: '说需求,收房源', en: 'Say it, get matches' }, b: { zh: '一句话,它从 Stayloop 核验过的房东直租房源里替你筛,配 CMHC 分区均租和统计局季度挂牌租金;想看更多站点,它按你的条件给出 Realtor.ca / Rentals.ca / Kijiji 的跳转链接。', en: 'One sentence and it filters Stayloop-verified landlord listings for you, with CMHC zone averages and Statistics Canada quarterly asking rents; for more sites it hands you Realtor.ca / Rentals.ca / Kijiji links built from your criteria.' } },
     { h: { zh: '看房与申请', en: 'View and apply' }, b: { zh: '在房源页预约看房、向房东提问、提交申请;每一步进度都看得到。', en: 'Request a viewing, ask the landlord and apply from the listing page; you can see each step as it moves.' } },
     { h: { zh: '签约', en: 'Sign' }, b: { zh: '安省标准租约电子签,签之前逐条讲给你听。', en: 'E-sign the Ontario standard lease, explained clause by clause before you sign.' } },
     { h: { zh: '入住之后', en: 'After you move in' }, b: { zh: '报修可附照片、续约方案提前送到,都在你和房东共享的在管租约里。', en: 'Repairs with photos and renewal options ahead of time, all in the managed tenancy you share with your landlord.' } },
@@ -117,7 +117,7 @@ const CFG: RoleLandingConfig = {
   benefits: [
     {
       h: { zh: '找房：说一句，它去翻', en: 'Search: say it once, it combs the city' },
-      b: { zh: '预算、区域、房型、宠物、通勤——对话里说清，它查 Stayloop 核验过的房东直租房源，配 TRREB 官方行情，一次给 6 套、可以「换一批」；再给你带着这些条件的 Realtor.ca / Rentals.ca / Kijiji 链接，自己点开看。', en: 'Budget, area, layout, pets, commute — say it in the chat and it searches Stayloop-verified landlord listings, with the official TRREB benchmark, six at a time with "show me more"; it also gives you Realtor.ca / Rentals.ca / Kijiji links carrying your criteria to open yourself.' },
+      b: { zh: '预算、区域、房型、宠物、通勤——对话里说清，它查 Stayloop 核验过的房东直租房源，配 CMHC 分区均租和统计局季度挂牌租金，一次给 6 套、可以「换一批」；再给你带着这些条件的 Realtor.ca / Rentals.ca / Kijiji 链接，自己点开看。', en: 'Budget, area, layout, pets, commute — say it in the chat and it searches Stayloop-verified landlord listings, with CMHC zone averages and Statistics Canada quarterly asking rents, six at a time with "show me more"; it also gives you Realtor.ca / Rentals.ca / Kijiji links carrying your criteria to open yourself.' },
       ask: { zh: '预算 2800，能养猫，离 King 站走路 15 分钟，帮我找 6 套。', en: 'Under $2,800, cats OK, 15-minute walk to King station — find me six.' },
     },
     {
@@ -134,10 +134,10 @@ const CFG: RoleLandingConfig = {
   proof: {
     key: 'listings',
     label: { zh: '套房东直租房源可搜（经平台核验）', en: 'landlord-direct listings searchable (platform-verified)' },
-    note: { zh: '这是此刻数据库里对外可见的房源数，不含任何演示数据。TRREB 季度行情与 LTB 判令目录的数量在首页的数据带里。', en: 'The number of listings publicly visible in the database right now — no demo rows. TRREB quarters and LTB order counts are on the homepage data band.' },
+    note: { zh: '这是此刻数据库里对外可见的房源数，不含任何演示数据。统计局挂牌租金的季度数与 LTB 判令目录的数量在首页的数据带里。', en: 'The number of listings publicly visible in the database right now — no demo rows. Statistics Canada rent quarters and LTB order counts are on the homepage data band.' },
   },
   faq: [
-    { q: { zh: 'AI 助理找的房源来自哪里？', en: 'Where do the listings come from?' }, a: { zh: '房东在 Stayloop 直接发布、经人工核验后上线的房源。行情线来自 TRREB 季度租赁市场报告。Stayloop 不读取 Realtor.ca 等站点的房源（MLS 规则不允许第三方平台或 AI 使用其数据），AI 助理会按你的条件给出 Realtor.ca / Rentals.ca / Kijiji 的跳转链接，由你自己打开。', en: 'Listings landlords publish directly on Stayloop, verified by hand before they go live. The benchmark line comes from the TRREB quarterly rental market report. Stayloop does not read listings from Realtor.ca or similar sites (MLS rules do not allow third-party platforms or AI to use that data); the AI Agent gives you Realtor.ca / Rentals.ca / Kijiji links built from your criteria to open yourself.' } },
+    { q: { zh: 'AI 助理找的房源来自哪里？', en: 'Where do the listings come from?' }, a: { zh: '房东在 Stayloop 直接发布、经人工核验后上线的房源。行情基准来自 CMHC 租赁市场调查的分区均租（年度）和统计局的季度挂牌租金，每个数字注明来源。Stayloop 不读取 Realtor.ca 等站点的房源（MLS 规则不允许第三方平台或 AI 使用其数据），AI 助理会按你的条件给出 Realtor.ca / Rentals.ca / Kijiji 的跳转链接，由你自己打开。', en: 'Listings landlords publish directly on Stayloop, verified by hand before they go live. The benchmark comes from CMHC Rental Market Survey zone averages (annual) and Statistics Canada quarterly asking rents, each figure with its source. Stayloop does not read listings from Realtor.ca or similar sites (MLS rules do not allow third-party platforms or AI to use that data); the AI Agent gives you Realtor.ca / Rentals.ca / Kijiji links built from your criteria to open yourself.' } },
     { q: { zh: '我的资料谁能看？', en: 'Who can see my information?' }, a: { zh: '你在申请或核验里提交的材料只有那位房东能读；你和 AI 助理的对话不会分享给任何人。数据库在 AWS 蒙特利尔，我们不收 SIN。', en: 'Material you submit in an application or verification is readable only by that landlord; your AI Agent conversation is shared with no one. The database is in AWS Montréal and we never collect a SIN.' } },
     { q: { zh: '房东用 Stayloop 筛查了我，我能看报告吗？', en: 'A landlord screened me on Stayloop — can I see the report?' }, a: { zh: '可以。按《消费者报告法》s.10(7)，你可以在 60 天内要求房东说明参考了哪些信息及来源；报告自带申请人通知信。争议请写 privacy@stayloop.ai。', en: 'Yes. Under Consumer Reporting Act s.10(7) you can ask the landlord within 60 days what information was used and where it came from; the report includes an applicant notice. Disputes: privacy@stayloop.ai.' } },
     { q: { zh: '房东可以向我收申请费或筛查费吗？', en: 'Can a landlord charge me an application or screening fee?' }, a: { zh: '不可以（RTA s.134）。也不能收宠物押金、清洁押金或超过一个月租金的押金（s.106）。房源页的「入住前费用一览」会列出合法的三项。', en: 'No (RTA s.134). Nor pet deposits, cleaning deposits or a rent deposit above one month (s.106). The "Move-in costs" card on each listing lists the only lawful items.' } },

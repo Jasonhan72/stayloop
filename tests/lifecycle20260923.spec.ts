@@ -129,19 +129,26 @@ describe('Trust API v1', () => {
 })
 
 // ---------------------------------------------------------------------------
-// End-to-end run 2026-09-23: the renewal card quoted "TRREB 2019 Q1" because
-// the proactive scanner read the cache unordered (1,000+ rows across every
-// area/quarter; limit 64 → the oldest 64). The reader must pin the board-wide
-// apartment series and order newest first.
+// End-to-end run 2026-09-23: the renewal card quoted "2019 Q1" because the
+// proactive scanner read the cache unordered (1,000+ rows across every
+// area/quarter; limit 64 → the oldest 64). 2026-10-13: the source is now
+// Statistics Canada's quarterly asking rent (public.rent_benchmarks, source
+// statcan · kind asking · Toronto CMA) — the reader must still pin the one
+// series and order newest first.
 // ---------------------------------------------------------------------------
-describe('proactive market line reads the latest TRREB quarter (e2e 2026-09-23)', () => {
+describe('proactive market line reads the latest StatCan quarter (e2e 2026-09-23 · source swap 2026-10-13)', () => {
   const src = readFileSync('app/api/agent/proactive/route.ts', 'utf8')
-  it('filters to All TRREB Areas / apartment and orders period desc', () => {
-    const fn = src.slice(src.indexOf('async function loadMarket'), src.indexOf('marketFromRows((data'))
-    expect(fn).toMatch(/\.eq\('area', 'All TRREB Areas'\)/)
-    expect(fn).toMatch(/\.eq\('property_type', 'apartment'\)/)
+  it('filters to statcan / asking / toronto cma and orders period desc', () => {
+    const fn = src.slice(src.indexOf('async function loadMarket'), src.indexOf('return marketFromRows('))
+    expect(fn).toMatch(/\.from\('rent_benchmarks'\)/)
+    expect(fn).toMatch(/\.eq\('source', 'statcan'\)/)
+    expect(fn).toMatch(/\.eq\('kind', 'asking'\)/)
+    expect(fn).toMatch(/\.eq\('area_key', 'toronto cma'\)/)
     expect(fn).toMatch(/\.order\('period', \{ ascending: false \}\)/)
     expect(fn).not.toMatch(/\.limit\(64\)/)
+    expect(fn).not.toMatch(/trreb_rent_stats/)
+    // bedrooms → bed_type for marketFromRows
+    expect(src).toContain("map((r) => ({ period: r.period, bed_type: r.bedrooms, avg_rent: r.avg_rent }))")
   })
 })
 

@@ -3537,3 +3537,18 @@ AVP 不得用它做自己的产品；**任何 MLS 数据不得经过任何第三
   此前不会进草稿卡（只有链接抓来的 http 图片会），发布会因「没有照片」被拒。现在：`useAgentSession` 把本轮及之前几轮附的图片（data URL，最多 12 张）放进**新**草稿卡的
   `images`（已有房源的改写卡保留库里照片），卡片拿到照片后缓冲清空；「发布房源」引导卡多一步可选的「加几张照片？」（最多 3 张，提示要传更多用快速发布页）；
   房东提示词允许模型只从照片填看得见的事实（类型 / 卧卫 / 家具 / 设施 / den），政策项永远只按用户所说。守卫 `tests/chatPublishPhotos20261013.spec.ts`。
+
+## 租金基准换源：TRREB 季报 → CMHC + 统计局（2026-10-13 · 用户「你看一下所有的这些，还是要合规」）
+
+外部审计指出首页六处写「TRREB 官方数据 / 实时挂牌」。核实：trreb.ca 只写「All rights reserved」，报告 PDF 只有版权声明，没有任何转载许可；我们此前每周经 Jina 读它的季报 PDF、
+把均租存进 `trreb_rent_stats` 并在站上与 AI 回复里转载——不合规。**现在不再读取、不再展示 TRREB 数字**（pg_cron `trreb-rent-refresh` 已 unschedule，`/api/agent/trreb-refresh`
+与 `lib/agent/trrebRent.ts` 删除，表保留不读）。替代来源两个，都是开放授权：
+- **CMHC Rental Market Survey**（大多伦多工作簿，每年 10 月调查、12 月发布）：表 1.1.2 专门出租公寓 31 个分区 × 户型平均租金，表 4.1.3 出租公寓单元子区域 × 户型。
+  许可允许转载与增值产品，必须注明「Source: Canada Mortgage and Housing Corporation (CMHC), Rental Market Survey, October 2025」。注意 CMHC 均租是**在住单元**的调查均值，
+  比新签约价低（多伦多中心区一房 $2,042 vs 出租公寓单元 $2,531），文案只能叫「调查均租」，不能叫「成交」。
+- **Statistics Canada 表 46-10-0092-01**（季度，多伦多 CMA 按户型的平均挂牌租金，最新 2026 Q2）：开放许可。用作趋势图与季度参考。
+落地：表 `rent_benchmarks`（迁移 `20261013_rent_benchmarks.sql`，已应用 prod；anon 可读）；`scripts/rent-benchmarks/`（`cmhc_to_json.py` 纯标准库解析 xlsx、`load.mjs` 上传 +
+拉统计局 WDS 全表 CSV）；`.github/workflows/rent-benchmarks-refresh.yml` 每月 15 日刷新统计局，CMHC 每年手动；`lib/market/rentBenchmark.ts readRentBenchmark()`
+（公寓单元优先 CMHC 子区域，其余 CMHC 分区，回退全市 / CMA；附统计局序列；`benchmarkAttribution()` 来源句每处必显示）。`public_stats()` 的季度数改为统计局季度数
+（`benchmark_quarters`，`trreb_quarters` 保留一版作别名）。
+「实时挂牌」字样同日全部改掉（我们已不读外部挂牌）。守卫 `tests/rentBenchmark20261013.spec.ts`、`tests/realtorCopy20261013.spec.ts`。

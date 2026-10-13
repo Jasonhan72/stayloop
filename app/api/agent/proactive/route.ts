@@ -41,7 +41,7 @@ export const runtime = 'edge'
 
 // Renewal touchpoints (90 / 60 / 30 days) are planned by
 // lib/agent/renewalStages.ts — see its header. The route only loads leases,
-// existing actions and the TRREB market line, then inserts what is missing.
+// existing actions and the StatCan market line, then inserts what is missing.
 const RENEWAL_TYPES = ['send_renewal_letter', 'renewal_checkpoint', 'send_message']
 // P1 2026-09-23: invite reminders ride on send_message (metadata.invite_id);
 // re-list prompts are their own approval-only type.
@@ -173,19 +173,20 @@ async function expireStaleRenewalCards(sb: SupabaseClient, userId: string, stale
 }
 
 async function loadMarket(sb: SupabaseClient): Promise<MarketLine | null> {
-  // The cache holds every quarter since 2019 × every TRREB area × apartment /
-  // townhouse (1,000+ rows). An unordered 64-row read returned the oldest 64
-  // rows (all 2019 Q1) and the renewal card quoted seven-year-old rents
-  // (found by the 2026-09-23 end-to-end run). Pin the board-wide apartment
-  // series, newest first: marketFromRows then picks the latest quarter.
+  // Statistics Canada quarterly asking rent (table 46-10-0092-01), Toronto
+  // CMA, by bedroom count — public.rent_benchmarks (2026-10-13; the TRREB
+  // report is retired, no licence). Pin the CMA series newest first (an
+  // unordered read of the old cache once quoted 2019 Q1 rents on a renewal
+  // card, e2e 2026-09-23): marketFromRows then picks the latest quarter.
   const { data } = await sb
-    .from('trreb_rent_stats')
-    .select('period, bed_type, avg_rent')
-    .eq('area', 'All TRREB Areas')
-    .eq('property_type', 'apartment')
+    .from('rent_benchmarks')
+    .select('period, bedrooms, avg_rent')
+    .eq('source', 'statcan')
+    .eq('kind', 'asking')
+    .eq('area_key', 'toronto cma')
     .order('period', { ascending: false })
-    .limit(8)
-  return marketFromRows((data ?? []) as { period: string; bed_type: number; avg_rent: number }[])
+    .limit(12)
+  return marketFromRows(((data ?? []) as { period: string; bedrooms: number; avg_rent: number }[]).map((r) => ({ period: r.period, bed_type: r.bedrooms, avg_rent: r.avg_rent })))
 }
 
 function buildRentReminderProposal(userId: string, l: LeaseRow, dueDate: string) {

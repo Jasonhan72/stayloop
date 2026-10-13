@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
-import TrrebTrendChart from '@/components/agent/TrrebTrendChart'
+import BenchmarkTrendChart from '@/components/agent/BenchmarkTrendChart'
 import RentLedger from '@/components/landlord/RentLedger'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import {
@@ -17,7 +17,7 @@ import {
   Tr,
 } from '@/components/workspace'
 import { useAIName } from '@/lib/aiName'
-import { readTrrebBenchmark, type TrrebBenchmark } from '@/lib/agent/trrebRent'
+import { benchmarkAttribution, benchmarkLabel, readRentBenchmark, type RentBenchmark } from '@/lib/market/rentBenchmark'
 import {
   CRA776_LABEL,
   EXPENSES,
@@ -433,18 +433,19 @@ function Aside({ lang, insights }: { lang: Lang; insights: AIInsight[] }) {
 }
 
 /**
- * Official TRREB quarterly benchmark for the King West unit, read from the
- * same cache the agent workspace uses (lib/agent/trrebRent). No cached row →
- * the block renders nothing rather than an invented number.
+ * Official rent benchmark for the King West unit (CMHC Rental Market Survey /
+ * StatCan asking rent), read from the same table the agent workspace uses
+ * (lib/market/rentBenchmark). No row → the block renders nothing rather than
+ * an invented number.
  */
 function MarketBenchmark({ lang }: { lang: Lang }) {
   const zh = lang === 'zh'
   const accent = ROLE_THEME.landlord.accent
-  const [bm, setBm] = useState<TrrebBenchmark | null>(null)
+  const [bm, setBm] = useState<RentBenchmark | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    void readTrrebBenchmark(1, ['King West'], 'apartment').then((r) => {
+    void readRentBenchmark(1, ['King West'], 'apartment').then((r) => {
       if (!cancelled) setBm(r)
     })
     return () => {
@@ -457,16 +458,16 @@ function MarketBenchmark({ lang }: { lang: Lang }) {
 
   return (
     <div className="rounded-xl border border-line-divider bg-white p-3.5">
-      <div className="text-[12.5px] font-bold">TRREB Rental Market Report</div>
+      <div className="text-[12.5px] font-bold">{zh ? '公开租金基准 · CMHC / 统计局' : 'Public rent benchmark · CMHC / StatCan'}</div>
       {bm ? (
         <>
           <div className="mt-0.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
-            {bm.period} · {bm.area}
+            {benchmarkLabel(bm, lang)}
           </div>
           <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
             {zh
-              ? `官方 1 房成交均价 $${bm.avg.toLocaleString()}。Unit 1207 现租 $${CURRENT_RENT.toLocaleString()} · `
-              : `Official 1-bed average leased rent $${bm.avg.toLocaleString()}. Unit 1207 currently rents at $${CURRENT_RENT.toLocaleString()} · `}
+              ? `官方 1 房${bm.source === 'statcan' ? '挂牌均价' : '均租'} $${bm.avg.toLocaleString()}。Unit 1207 现租 $${CURRENT_RENT.toLocaleString()} · `
+              : `Official 1-bed ${bm.source === 'statcan' ? 'average asking rent' : 'average rent'} $${bm.avg.toLocaleString()}. Unit 1207 currently rents at $${CURRENT_RENT.toLocaleString()} · `}
             <b style={{ color: accent }}>
               {delta != null && delta >= 0
                 ? zh
@@ -477,13 +478,14 @@ function MarketBenchmark({ lang }: { lang: Lang }) {
                   : `${Math.abs(delta ?? 0).toFixed(1)}% below the official average`}
             </b>
           </p>
-          {bm.history && bm.history.length >= 4 && <TrrebTrendChart history={bm.history} accent={accent} />}
+          <p className="mt-1 text-[10.5px] text-body-3">{benchmarkAttribution(bm, lang)}</p>
+          {bm.history && bm.history.length >= 4 && <BenchmarkTrendChart history={bm.history} accent={accent} lang={lang} />}
         </>
       ) : (
         <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
           {zh
-            ? '官方季度基准正在刷新，稍后再看。Unit 1207 现租 $2,800。'
-            : 'The official quarterly benchmark is refreshing — check back shortly. Unit 1207 currently rents at $2,800.'}
+            ? '公开租金基准暂时读不到，稍后再看。Unit 1207 现租 $2,800。'
+            : 'The public rent benchmark is unavailable right now — check back shortly. Unit 1207 currently rents at $2,800.'}
         </p>
       )}
       <p className="mt-2.5 border-t border-line-divider pt-2 text-[11px] leading-relaxed text-body-3">

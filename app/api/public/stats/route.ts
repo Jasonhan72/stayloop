@@ -18,7 +18,9 @@ const HEADERS = { 'Cache-Control': `public, max-age=1800, s-maxage=${CACHE_SECON
 // Fixed key: the route takes no inputs, so every colo shares one entry regardless of query string.
 const CACHE_KEY = 'https://www.stayloop.ai/api/public/stats'
 
-type Stats = { screenings: number | null; ltbOrders: number | null; listings: number | null; trrebQuarters: number | null; ltbOrdersEstimated: boolean }
+// 2026-10-13: the quarter count is the StatCan asking-rent series (table 46-10-0092-01) loaded into
+// rent_benchmarks; `trrebQuarters` stays for one release as an alias so cached pages keep rendering.
+type Stats = { screenings: number | null; ltbOrders: number | null; listings: number | null; benchmarkQuarters: number | null; trrebQuarters: number | null; ltbOrdersEstimated: boolean }
 
 async function readStats(): Promise<Stats | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -33,7 +35,8 @@ async function readStats(): Promise<Stats | null> {
     screenings: num(d.screenings),
     ltbOrders: num(d.ltb_orders),
     listings: num(d.listings),
-    trrebQuarters: num(d.trreb_quarters),
+    benchmarkQuarters: num(d.benchmark_quarters ?? d.trreb_quarters),
+    trrebQuarters: num(d.benchmark_quarters ?? d.trreb_quarters),
     ltbOrdersEstimated: d.ltb_orders_estimated === true,
   }
 }

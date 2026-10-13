@@ -1,6 +1,7 @@
 // Stayloop V5.3 — Agent spine types
 // Source of truth: /tenant/agent execution spec §9–§10.
 // Shared by all three roles (tenant · landlord · agent).
+import type { RentBenchmark } from '@/lib/market/rentBenchmark'
 
 export type AgentRole = 'tenant' | 'landlord' | 'agent'
 
@@ -227,17 +228,11 @@ export type MarketInsight = {
   median: number
   max: number
   budget?: number | null
-  // Official benchmark from the TRREB quarterly Rental Market Report
-  // (average LEASED rent for the resolved TRREB area, cached in
-  // trreb_rent_stats).
-  trreb?: {
-    period: string
-    avg: number
-    prev_avg?: number | null
-    leased?: number | null
-    area: string
-    history?: { period: string; avg: number }[]
-  }
+  // Official benchmark from openly licensed sources (2026-10-13): the CMHC
+  // Rental Market Survey zone / condo sub-area average for the bedroom count,
+  // or Statistics Canada's quarterly asking rent (Toronto CMA) when CMHC has
+  // no row — both read from public.rent_benchmarks, never written by a model.
+  benchmark?: RentBenchmark
 }
 
 // A clarifying question the agent proactively asks, with tap-to-answer chips.

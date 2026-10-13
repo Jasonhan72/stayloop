@@ -10,7 +10,7 @@
 //      and goals become "shall I …" prompts.
 //   3. The workflow stage: the next step of the role's pipeline.
 //   4. Concrete memories (budget / area / move date …) → a check the
-//      assistant can run against real data (TRREB, listings, renewals).
+//      assistant can run against real data (rent benchmark, listings, renewals).
 //   5. Existing recommendations (RecommendationDeck) as page links.
 import type { AgentRole, BiText, MemoryItem, PendingAction, Recommendation, WorkflowState } from './types'
 import { WORKFLOW_STAGES, stageIndex } from './orchestrator'
@@ -152,7 +152,7 @@ export function buildIdeas(args: {
     push({
       id: 'market',
       kind: 'memory',
-      text: t(lang, `查一下${a ? ` ${a} ` : ''}这个季度的 TRREB 均租`, `Check this quarter’s TRREB average rent${a ? ` for ${a}` : ''}`),
+      text: t(lang, `查一下${a ? ` ${a} ` : ''}这个季度的公开租金基准`, `Check this quarter’s public rent benchmark${a ? ` for ${a}` : ''}`),
       why: t(lang, `你记在案的${b ? `预算 ${b}` : ''}${b && a ? '、' : ''}${a ? `区域 ${a}` : ''}`, `From your saved ${b ? `budget ${b}` : ''}${b && a ? ' and ' : ''}${a ? `area ${a}` : ''}`),
       prompt: t(lang, `${a ? a : '我要找的区域'}${b ? `，预算 ${b}` : ''}，现在的行情怎么样？`, `${a ? a : 'my area'}${b ? `, budget ${b}` : ''} — what is the market like now?`),
     })

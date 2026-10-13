@@ -33,7 +33,7 @@ type Bi = { zh: string; en: string }
 export type HeroExample = { role: AssistantRole; img: string; alt: Bi; ask: Bi }
 
 // Every example is something that role's anonymous preview really answers (tests/homeAsk20261001):
-// tenants and agents get the live listing + TRREB pipeline, landlords the listing-draft card, the
+// tenants and agents get the listing + rent-benchmark pipeline, landlords the listing-draft card, the
 // screening hand-off and — when renewal is asked about — the same RTA facts as tenants; years are
 // absolute because the prompt carries no date.
 export const HERO_EXAMPLES: HeroExample[] = [

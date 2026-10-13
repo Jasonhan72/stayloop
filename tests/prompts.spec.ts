@@ -63,9 +63,10 @@ describe('agent (Brief) system prompt', () => {
     expect(p).toContain('委托一撤销')
     expect(p).not.toContain('六个维度')
   })
-  it('carries the pricing rule (search → real listings + TRREB, no hand-written prices)', () => {
+  it('carries the pricing rule (search → real listings + CMHC / StatCan public benchmark, no hand-written prices)', () => {
     expect(p).toContain('挂牌定价')
-    expect(p).toContain('TRREB')
+    expect(p).toContain('CMHC 租赁市场调查与统计局季度挂牌租金(公开数据)')
+    expect(p).not.toContain('TRREB') // retired 2026-10-13 (no licence to republish the report)
     expect(p).toContain('绝不要自己手写任何具体价格数字')
   })
   it('carries the Ontario leasing fact pack and nothing beyond it', () => {

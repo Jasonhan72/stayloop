@@ -479,10 +479,10 @@ const RENEWAL: IntakeSpec = {
     const expiry = q.said('expiry')
     const intent = q.pick('intent')
     if (zh) {
-      const tail = intent === 'end' ? '我不打算续约：告诉我需要哪些通知（N 表）、期限和程序。' : `我${q.said('intent') || '还没定'}；给我 A/B 方案、N1 截止日和 TRREB 行情。`
+      const tail = intent === 'end' ? '我不打算续约：告诉我需要哪些通知（N 表）、期限和程序。' : `我${q.said('intent') || '还没定'}；给我 A/B 方案、N1 截止日和统计局的挂牌租金行情。`
       return `帮我看${which}的续约${expiry ? `（${expiry}到期）` : ''}：${tail}`
     }
-    const tail = intent === 'end' ? 'I am not renewing: which notices (N forms), deadlines and steps apply?' : `I want to ${(q.said('intent') || 'decide').toLowerCase()}; give me options A/B, the N1 deadline and the TRREB benchmark.`
+    const tail = intent === 'end' ? 'I am not renewing: which notices (N forms), deadlines and steps apply?' : `I want to ${(q.said('intent') || 'decide').toLowerCase()}; give me options A/B, the N1 deadline and the StatCan asking-rent benchmark.`
     return `Review the renewal of ${which}${expiry ? ` (ends ${expiry})` : ''}: ${tail}`
   },
 }
@@ -565,8 +565,8 @@ const PRICING: IntakeSpec = {
   compose: (q) => {
     const zh = q.lang === 'zh'
     const area = q.said('area'); const type = q.said('type'); const beds = q.said('beds'); const feats = q.said('features'); const date = q.said('date')
-    if (zh) return `帮客户的房源定租金：${[area, type, beds].filter(Boolean).join('，')}${feats ? `，${feats}` : ''}${date ? `，${date}可入住` : ''}；拉同区域同户型的实时挂牌和 TRREB 官方成交数据做比价。`
-    return `Price my client's unit: ${[area, type, beds].filter(Boolean).join(', ')}${feats ? `, ${feats.toLowerCase()}` : ''}${date ? `, available ${date.toLowerCase()}` : ''}; pull live listings for the same area and unit type plus the TRREB benchmark.`
+    if (zh) return `帮客户的房源定租金：${[area, type, beds].filter(Boolean).join('，')}${feats ? `，${feats}` : ''}${date ? `，${date}可入住` : ''}；拉同区域同户型的实时挂牌和 CMHC / 统计局的公开租金基准做比价。`
+    return `Price my client's unit: ${[area, type, beds].filter(Boolean).join(', ')}${feats ? `, ${feats.toLowerCase()}` : ''}${date ? `, available ${date.toLowerCase()}` : ''}; pull live listings for the same area and unit type plus the CMHC / StatCan public rent benchmark.`
   },
 }
 

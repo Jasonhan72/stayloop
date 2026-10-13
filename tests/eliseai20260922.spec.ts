@@ -30,7 +30,7 @@ describe('renewal touchpoints 90 / 60 / 30 (item F)', () => {
     expect(stageForDays(-1)).toBeNull()
   })
 
-  it('first touchpoint is always the A/B letter, with the TRREB line and stage=90d', () => {
+  it('first touchpoint is always the A/B letter, with the benchmark line (StatCan, never TRREB) and stage=90d', () => {
     const market = marketFromRows([
       { period: '2026 Q1', bed_type: 1, avg_rent: 2300 },
       { period: '2026 Q2', bed_type: 1, avg_rent: 2350 },
@@ -42,7 +42,10 @@ describe('renewal touchpoints 90 / 60 / 30 (item F)', () => {
     expect(out).toHaveLength(1)
     expect(out[0].action_type).toBe('send_renewal_letter')
     expect(out[0].metadata.stage).toBe('90d')
-    expect(out[0].summary).toContain('TRREB 2026 Q2')
+    // 2026-10-13: the line cites Statistics Canada's quarterly asking rents; TRREB's report is no longer republished
+    expect(out[0].summary).toContain('2026 年第 2 季度')
+    expect(out[0].summary).toContain('统计局')
+    expect(out[0].summary).not.toContain('TRREB')
     // The lease ends ~100 days out (late 2026) → the increase takes effect in 2027 → 1.9% (review 2026-09-23: keyed on the effective date, not the end date).
     expect(out[0].summary).toContain('$2,853')
   })
@@ -153,7 +156,7 @@ describe('role landing template (items A B C D I J)', () => {
   })
   it('each role page: 5 chips, 3 benefits, 6–8 FAQs, and a stats key that exists', () => {
     for (const [p, s] of pages) {
-      expect(s, p).toMatch(/proof: \{\s*key: '(screenings|ltbOrders|listings|trrebQuarters)'/)
+      expect(s, p).toMatch(/proof: \{\s*key: '(screenings|ltbOrders|listings|benchmarkQuarters)'/)
       expect((s.match(/\n    \{ label: \{ zh: /g) || []).length, `${p} chips`).toBe(5)
       expect((s.match(/\n      ask: \{ zh: /g) || []).length, `${p} benefits`).toBe(3)
       const faqs = (s.match(/\n    \{ q: \{ zh: /g) || []).length
@@ -169,8 +172,10 @@ describe('role landing template (items A B C D I J)', () => {
 describe('partners → data sources (item L)', () => {
   const s = readFileSync('app/partners/page.tsx', 'utf8')
   it('lists sources with a real status and no partnership claims', () => {
-    for (const name of ['Ontario LTB order catalogue', 'TRREB Rental Market Report', 'Veriff', 'Flinks', 'Equifax Canada', 'Alibaba DashScope'])
+    for (const name of ['Ontario LTB order catalogue', 'CMHC Rental Market Survey', 'Statistics Canada · Quarterly Rent Statistics (Table 46-10-0092-01)', 'Veriff', 'Flinks', 'Equifax Canada', 'Alibaba DashScope'])
       expect(s).toContain(name)
+    // 2026-10-13: the TRREB report (all rights reserved) is listed as discontinued, never as live
+    expect(s).toMatch(/name: 'TRREB Rental Market Report', cat: 'listings', status: 'ended'/)
     expect(s).toMatch(/status: 'sandbox'/)
     expect(s).toMatch(/status: 'preparing'/)
     expect(s).not.toMatch(/RBC|Aviva|成为合作伙伴|Become a partner/)

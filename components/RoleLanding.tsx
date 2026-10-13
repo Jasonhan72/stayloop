@@ -19,7 +19,7 @@ import { displayAiName } from '@/lib/agent/assistantName'
 import { useOnboarded } from '@/lib/useOnboarding'
 
 type Bi = { zh: string; en: string }
-type StatKey = 'screenings' | 'ltbOrders' | 'listings' | 'trrebQuarters'
+type StatKey = 'screenings' | 'ltbOrders' | 'listings' | 'benchmarkQuarters'
 type Stats = Partial<Record<StatKey, number>> & { ok?: boolean; at?: string }
 
 export type RoleLandingConfig = {

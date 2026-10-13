@@ -52,8 +52,15 @@ const SOURCES: { name: string; cat: Cat; status: Status; use: Record<Lang, strin
   { name: 'Realtor.ca', cat: 'listings', status: 'ended', href: 'https://www.realtor.ca',
     use: { zh: '曾作为示范阶段的房源来源，已导入的房源已归档。', en: 'Was a demonstration-stage listing source; the imported listings have been archived.' },
     note: { zh: '2026-10-13 起不再读取：PropTx / CREA 的规则不允许第三方平台或 AI 使用 MLS 数据；AI 助理改为按你的条件给出 Realtor.ca 跳转链接。', en: 'Not read since 2026-10-13: PropTx / CREA rules do not allow third-party platforms or AI to use MLS data; the AI Agent now hands you a jump to Realtor.ca built from your criteria instead.' } },
-  { name: 'TRREB Rental Market Report', cat: 'listings', status: 'live', href: 'https://trreb.ca/market-data/rental-market-report/',
-    use: { zh: '季度官方租赁基准（按房型均租），每周一自动刷新；行情卡与续约 90 天触点都引用它。', en: 'Official quarterly benchmark (average rent by layout), refreshed every Monday; the market card and the 90-day renewal touchpoint both cite it.' } },
+  { name: 'TRREB Rental Market Report', cat: 'listings', status: 'ended', href: 'https://trreb.ca/market-data/rental-market-report/',
+    use: { zh: '曾作为行情卡与续约 90 天触点的季度基准。', en: 'Was the quarterly benchmark behind the market card and the 90-day renewal touchpoint.' },
+    note: { zh: '2026-10-13 起不再读取 TRREB 季报（版权所有，未获转载许可）。', en: 'Not read since 2026-10-13: the report is all rights reserved and Stayloop holds no licence to reproduce it.' } },
+  { name: 'CMHC Rental Market Survey', cat: 'listings', status: 'live', href: 'https://www.cmhc-schl.gc.ca/professionals/housing-markets-data-and-research/housing-data/data-tables/rental-market/rental-market-report-data-tables',
+    use: { zh: '分区 × 户型的年度平均租金（专门出租公寓与出租公寓单元），每年 10 月调查、12 月发布；行情卡与续约触点的基准。', en: 'Annual average rent by zone and bedroom count (purpose-built apartments and rental condominium units), surveyed each October and published in December; the benchmark behind the market card and the renewal touchpoint.' },
+    note: { zh: '按 CMHC 数据使用许可转载并注明来源。', en: 'Reproduced under the CMHC data licence agreement with the source stated.' } },
+  { name: 'Statistics Canada · Quarterly Rent Statistics (Table 46-10-0092-01)', cat: 'listings', status: 'live', href: 'https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=4610009201',
+    use: { zh: '多伦多 CMA 按户型的季度平均挂牌租金；首页数据带的季度数和行情卡的趋势线来自它。', en: 'Quarterly average asking rent for the Toronto CMA by unit type; the quarter count on the homepage band and the trend line on the market card come from it.' },
+    note: { zh: '加拿大政府开放许可。', en: 'Open Government Licence – Canada.' } },
   { name: 'Veriff', cat: 'verification', status: 'sandbox', href: 'https://www.veriff.com',
     use: { zh: '申请人本人授权的证件 + 活体核验，只保留证件末四位。', en: 'Applicant-authorised document and liveness check; only the last four characters of the ID are kept.' },
     note: { zh: '生产凭证待签约。', en: 'Production credentials pending contract.' } },
@@ -68,7 +75,7 @@ const SOURCES: { name: string; cat: Cat; status: Status; use: Record<Lang, strin
   { name: 'Alibaba DashScope (Qwen OCR fallback)', cat: 'ai', status: 'live',
     use: { zh: '扫描件无法读取时的 OCR 回退，端点在中国大陆；隐私页第 2 节如实披露。', en: 'OCR fallback for unreadable scans; endpoint in mainland China, disclosed in section 2 of the privacy page.' } },
   { name: 'Jina Reader / Search', cat: 'ai', status: 'live', href: 'https://jina.ai',
-    use: { zh: '网页阅读与检索中转（CanLII 索引、雇主网页、TRREB 季报），服务器在德国 / 美国。', en: 'Web reading and search relay (the CanLII index, employer pages, the TRREB report); servers in Germany / United States.' } },
+    use: { zh: '网页阅读与检索中转（CanLII 索引、雇主网页），服务器在德国 / 美国。', en: 'Web reading and search relay (the CanLII index, employer pages); servers in Germany / United States.' } },
 ]
 
 export default function PartnersPage() {

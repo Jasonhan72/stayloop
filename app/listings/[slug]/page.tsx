@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { listingProvince, listingTitle, parkingStat } from '@/lib/listingDisplay'
 import { petBanAllowed, postalCodeIn, rulesFor } from '@/lib/provinces'
 import ListingLocationMap from '@/components/ListingLocationMap'
-import { readTrrebBenchmark, type TrrebBenchmark } from '@/lib/agent/trrebRent'
+import { benchmarkAttribution, benchmarkLabel, readRentBenchmark, type RentBenchmark } from '@/lib/market/rentBenchmark'
 import { daysOnMarket, fmtDistance, groupFeatures, lastPriceChange, pricePerSqft, walkMinutes, type ListingTransit, type PriceEvent } from '@/lib/listingInsights'
 import { localizeValue, resolveDescription, resolveList, resolveValue } from '@/lib/listingLang'
 import { type SimilarMatch } from '@/lib/listingSimilar'
@@ -206,9 +206,9 @@ export default function ListingDetailPage() {
   const slug = params?.slug
   const [listing, setListing] = useState<DBListing | null>(null)
   // Transit / building / neighbourhood facts (server-side, cached per listing)
-  // and the TRREB benchmark for this bedroom count (public cache table).
+  // and the CMHC / StatCan rent benchmark for this bedroom count (public.rent_benchmarks).
   const [insight, setInsight] = useState<Insight | null | undefined>(undefined)
-  const [benchmark, setBenchmark] = useState<TrrebBenchmark | null>(null)
+  const [benchmark, setBenchmark] = useState<RentBenchmark | null>(null)
   // Transit, building and neighbourhood facts: one call per listing, without a
   // language, so they never wait on the translation model (2026-10-02).
   useEffect(() => {
@@ -258,12 +258,12 @@ export default function ListingDetailPage() {
   useEffect(() => {
     if (!listing) return
     let cancelled = false
-    // TRREB publishes apartment / townhouse averages by bedroom count: a detached house or an unknown
-    // bedroom count has no comparable row (an 8-bed house read "300% above the 3+ bed condo average").
-    const trrebType = listing.property_type === 'townhouse' ? 'townhouse' : ['apartment', 'condo'].includes(listing.property_type || '') ? 'apartment' : null
-    // TRREB covers the Toronto region: no benchmark for a listing outside Ontario (2026-10-02).
-    if (trrebType && listing.bedrooms != null && listingProvince(listing) === 'ON') {
-      readTrrebBenchmark(listing.bedrooms, [listing.neighborhood, listing.city], trrebType)
+    // The CMHC survey covers apartments (purpose-built zones / rental condos) by bedroom count: a detached
+    // house or an unknown bedroom count has no comparable row (an 8-bed house read "300% above the 3+ bed condo average").
+    const benchmarkType = listing.property_type === 'townhouse' ? 'townhouse' : listing.property_type === 'condo' ? 'condo' : listing.property_type === 'apartment' ? 'apartment' : null
+    // The benchmark covers the Toronto CMA: no benchmark for a listing outside Ontario (2026-10-02).
+    if (benchmarkType && listing.bedrooms != null && listingProvince(listing) === 'ON') {
+      readRentBenchmark(listing.bedrooms, [listing.neighborhood, listing.city], benchmarkType)
         .then((b) => { if (!cancelled) setBenchmark(b) })
         .catch(() => { /* benchmark is optional */ })
     }
@@ -869,15 +869,16 @@ export default function ListingDetailPage() {
               const all = insight?.neighborhood?.all
               const rel = (v: number, what: string) => {
                 const d = Math.round(((listing.monthly_rent - v) / v) * 100)
-                // A space before a Latin name ("比 TRREB 成交均价"), none before Chinese ("比同区中位挂牌价").
+                // A space before a Latin name ("比 CMHC 均租"), none before Chinese ("比同区中位挂牌价").
                 const w = /^[A-Za-z]/.test(what) ? ` ${what}` : what
                 if (zh) return d === 0 ? `与${w}持平` : `比${w}${d > 0 ? '高' : '低'} ${Math.abs(d)}%`
                 return d === 0 ? `at the ${what}` : `${Math.abs(d)}% ${d > 0 ? 'above' : 'below'} the ${what}`
               }
               const yoy = benchmark && benchmark.prev_avg ? Math.round(((benchmark.avg - benchmark.prev_avg) / benchmark.prev_avg) * 1000) / 10 : null
-              // "TRREB 全区 · 2026 年第 2 季度" / "TRREB Toronto C01 · 2026 Q1" — district codes stay as published.
-              const trrebArea = benchmark ? localizeValue('trreb_area', benchmark.area, lang) ?? benchmark.area : ''
-              const trrebSource = benchmark ? `${/TRREB/i.test(trrebArea) ? trrebArea : `TRREB ${trrebArea}`} · ${localizeValue('trreb_period', benchmark.period, lang) ?? benchmark.period}` : ''
+              // "CMHC · Zone 1 - Toronto (Central) · 2025 年 10 月" / "StatCan · Toronto CMA · 2026 Q2" — area rows stay as published.
+              const benchmarkSource = benchmark ? benchmarkLabel(benchmark, lang) : ''
+              const benchmarkIsAsking = benchmark?.source === 'statcan'
+              const benchmarkWhat = benchmark ? (zh ? (benchmarkIsAsking ? 'StatCan 挂牌均价' : 'CMHC 调查均租') : benchmarkIsAsking ? 'StatCan asking average' : 'CMHC survey average') : ''
               return (
                 <Section zh={zh} title={zh ? `关于 ${listing.neighborhood || city}` : `About ${listing.neighborhood || city}`} eyebrow="NEIGHBOURHOOD">
                   {insight?.profile && (
@@ -898,11 +899,11 @@ export default function ListingDetailPage() {
                     )}
                     {benchmark && (
                       <div className="rounded-[12px] border border-line-divider bg-white p-4">
-                        <div className="text-[13px] font-bold">{zh ? '出租 · 成交均价' : 'Rentals · leased'}</div>
-                        <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{trrebSource}</div>
-                        <div className="mt-2 text-[12px] text-body-3">{bedLabel} · {listing.property_type === 'townhouse' ? (zh ? '联排' : 'townhouse') : (zh ? '公寓' : 'apartment')}</div>
+                        <div className="text-[13px] font-bold">{zh ? (benchmarkIsAsking ? '出租 · 挂牌均价' : '出租 · 调查均租') : benchmarkIsAsking ? 'Rentals · asking average' : 'Rentals · survey average'}</div>
+                        <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{benchmarkSource}</div>
+                        <div className="mt-2 text-[12px] text-body-3">{bedLabel} · {benchmark.kind === 'condo' ? (zh ? '出租公寓单元' : 'rental condo') : benchmark.kind === 'purpose_built' ? (zh ? '专门出租公寓楼' : 'purpose-built') : (zh ? '挂牌' : 'asking')}</div>
                         <div className="text-[22px] font-extrabold leading-tight">${benchmark.avg.toLocaleString()}</div>
-                        <div className="text-[11.5px] text-body-3">{benchmark.leased?.toLocaleString() ?? '—'} {zh ? '宗成交' : 'leased'}{yoy != null ? <span className={`ml-1.5 ${yoy >= 0 ? 'text-red-600' : 'text-emerald-700'}`}>{zh ? '同比 ' : 'YoY '}{yoy >= 0 ? '+' : ''}{yoy}%</span> : null}</div>
+                        <div className="text-[11.5px] text-body-3">{benchmark.quality ? (zh ? `可靠性 ${benchmark.quality}` : `reliability ${benchmark.quality}`) : (zh ? '多伦多地区' : 'Toronto area')}{yoy != null ? <span className={`ml-1.5 ${yoy >= 0 ? 'text-red-600' : 'text-emerald-700'}`}>{zh ? '同比 ' : 'YoY '}{yoy >= 0 ? '+' : ''}{yoy}%</span> : null}</div>
                       </div>
                     )}
                     {/* 8.15.02: the seller may opt out of any automated value / comparison beside the listing */}
@@ -913,13 +914,14 @@ export default function ListingDetailPage() {
                       <div className="mt-2 text-[22px] font-extrabold leading-tight">${listing.monthly_rent.toLocaleString()}</div>
                       <ul className="mt-1 space-y-0.5 text-[11.5px] text-body-3">
                         {same && same.median != null && <li>{rel(same.median, insight?.neighborhood?.scope === 'city' ? (zh ? '全市中位挂牌价' : 'city median asking') : (zh ? '同区中位挂牌价' : 'area median asking'))}</li>}
-                        {benchmark && <li>{rel(benchmark.avg, zh ? 'TRREB 成交均价' : 'TRREB leased average')}</li>}
+                        {benchmark && <li>{rel(benchmark.avg, benchmarkWhat)}</li>}
                         {!(same && same.median != null) && !benchmark && <li>{zh ? '暂无同区对比数据' : 'No area comparison yet'}</li>}
                       </ul>
                     </div>
                     )}
                   </div>
-                  <div className="mt-2 text-[11.5px] text-body-3">{zh ? `挂牌价来自 Stayloop 上在租的房东直租房源${benchmark ? '；成交均价来自 TRREB 季度租赁市场报告（成交，非挂牌）' : ''}。` : `Asking rents from landlord-direct listings on Stayloop${benchmark ? '; leased averages from the TRREB quarterly rental report (leased, not asking)' : ''}.`}</div>
+                  <div className="mt-2 text-[11.5px] text-body-3">{zh ? `挂牌价来自 Stayloop 上在租的房东直租房源${benchmark ? (benchmarkIsAsking ? '；挂牌均价来自加拿大统计局季度租金统计' : '；调查均租来自 CMHC 租赁市场调查（调查均租，非挂牌价）') : ''}。` : `Asking rents from landlord-direct listings on Stayloop${benchmark ? (benchmarkIsAsking ? '; asking averages from Statistics Canada quarterly rent statistics' : '; survey averages from the CMHC Rental Market Survey (survey rents, not asking)') : ''}.`}</div>
+                  {benchmark && <div className="mt-1 text-[10.5px] text-body-3" data-testid="benchmark-attribution">{benchmarkAttribution(benchmark, lang)}</div>}
                 </Section>
               )
             })()}

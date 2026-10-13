@@ -618,11 +618,11 @@ export default function NewListingPage() {
                 <h2 className="text-[18px] font-bold">{lang === 'zh' ? '3 · 价格 + 条件' : '3 · Price + terms'}</h2>
                 <p className="text-[13px] text-body-2">
                   {form.province !== 'ON'
-                    // The price help pulls Toronto-area comparables and TRREB (an Ontario board) — not offered elsewhere.
+                    // The price help pulls Toronto-area comparables and the CMHC / StatCan Toronto benchmarks — not offered elsewhere.
                     ? (lang === 'zh' ? '这里不预填任何价格。' : 'Nothing is pre-filled here.')
                     : lang === 'zh'
-                    ? <>不确定该挂多少？发布后在 <Link href="/landlord/agent" className="text-brand underline underline-offset-2">{aiName} 对话</Link>里问「这套该挂多少」，会拉同区域真实挂牌与 TRREB 官方数据——这里不预填任何价格。</>
-                    : <>Not sure about the price? After publishing, ask {aiName} in <Link href="/landlord/agent" className="text-brand underline underline-offset-2">the chat</Link> — it pulls live comparables and TRREB data. Nothing is pre-filled here.</>}
+                    ? <>不确定该挂多少？发布后在 <Link href="/landlord/agent" className="text-brand underline underline-offset-2">{aiName} 对话</Link>里问「这套该挂多少」，会拉同区域真实挂牌，对照 CMHC 分区均租与统计局季度挂牌租金——这里不预填任何价格。</>
+                    : <>Not sure about the price? After publishing, ask {aiName} in <Link href="/landlord/agent" className="text-brand underline underline-offset-2">the chat</Link> — it pulls comparables nearby and the CMHC / Statistics Canada benchmarks. Nothing is pre-filled here.</>}
                 </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label={lang === 'zh' ? '月租 (CAD) *' : 'Monthly rent (CAD) *'}><input className="sl-input" type="number" required value={form.monthly_rent} onChange={(e) => set('monthly_rent', e.target.value)} /></Field>

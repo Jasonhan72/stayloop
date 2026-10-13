@@ -193,8 +193,8 @@ describe('listing detail: failures are not facts, client writes cannot forge his
     expect(route).not.toContain('Cache-Control') // POST responses are never cached
     expect(route).toContain('export function normCity(city: string): string')
   })
-  it('the page: TRREB only for apartment / townhouse with a bedroom count, no days-on-market for imports, similar homes from the same city with usable photos, no dead ScoreCard', () => {
-    expect(page).toContain("const trrebType = listing.property_type === 'townhouse' ? 'townhouse' : ['apartment', 'condo'].includes(listing.property_type || '') ? 'apartment' : null")
+  it('the page: the rent benchmark only for apartment / condo / townhouse with a bedroom count, no days-on-market for imports, similar homes from the same city with usable photos, no dead ScoreCard', () => {
+    expect(page).toContain("const benchmarkType = listing.property_type === 'townhouse' ? 'townhouse' : listing.property_type === 'condo' ? 'condo' : listing.property_type === 'apartment' ? 'apartment' : null")
     expect(page).toContain("const dom = listing.source === 'realtor' ? null : daysOnMarket(listing.published_at || listing.created_at)")
     // 2026-10-10: the row text moved into components/listing/RentHistory.tsx with the gated history
     expect(readFileSync('components/listing/RentHistory.tsx', 'utf8')).toContain("if (h.event === 'imported') return zh ? '导入 Stayloop（Realtor.ca 挂牌）' : 'Imported (Realtor.ca listing)'")

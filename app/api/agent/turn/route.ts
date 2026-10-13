@@ -798,7 +798,7 @@ export async function POST(req: Request) {
     !modelSignalsRealSearch &&
     (RENEWAL_INTENT_RE.test(message) || parsed?.intent === 'renewal')
   if (renewalTurn) {
-    // Market evidence ONLY: median asking price + TRREB official benchmark
+    // Market evidence ONLY: median asking price + the CMHC / StatCan benchmark
     // for the tenant's area — never listing cards, never followup chips.
     // Area preference: model's search object → lease address → nothing
     // (searchListings then falls back to a Toronto-wide sample).
@@ -823,7 +823,7 @@ export async function POST(req: Request) {
     }
   } else if ((role === 'tenant' || role === 'agent') && search && typeof search === 'object') {
     // Agent: "挂牌定价" — comparables for a landlord client's unit. Same
-    // real-data pipeline (Stayloop → TRREB benchmark; Realtor.ca is linked, not read); the
+    // real-data pipeline (Stayloop → CMHC / StatCan benchmark; Realtor.ca is linked, not read); the
     // model is told to write no prices itself (lib/agent/prompts.ts).
     try {
       // Commercial asks fan out over up to 8 named cities; residential keeps 3.

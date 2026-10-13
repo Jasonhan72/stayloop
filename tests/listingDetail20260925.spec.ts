@@ -58,7 +58,7 @@ describe('page, route and migration', () => {
     expect(page).toContain('<RentHistory zh={zh} history={listing.price_history}')
     expect(readFileSync('components/listing/RentHistory.tsx', 'utf8')).toContain('eyebrow="RENT HISTORY"')
     expect(page).toContain("fetch('/api/listings/enrich', { method: 'POST'")
-    expect(page).toContain("readTrrebBenchmark(listing.bedrooms, [listing.neighborhood, listing.city], trrebType)") // review 2026-09-25: apartment / townhouse with a bedroom count only
+    expect(page).toContain("readRentBenchmark(listing.bedrooms, [listing.neighborhood, listing.city], benchmarkType)") // review 2026-09-25: apartment / condo / townhouse with a bedroom count only; CMHC / StatCan since 2026-10-13
     // 2026-10-02: labels through lib/listingLang.ts (one language per page)
     expect(page).toContain('groupFeatures({ amenities: listing.amenities, building_features: listing.building_features, appliances: listing.appliances }, lang, (raw, field, l) => resolveValue(field, raw, l, l === lang ? tr : null))')
     expect(page).toContain('daysOnMarket(listing.published_at || listing.created_at)')
@@ -98,10 +98,11 @@ describe('second round (user 2026-09-25: Airbnb header, neighbourhood block, map
     expect(page).toContain("{fav ? (zh ? '取消收藏' : 'Saved') : (zh ? '收藏' : 'Save')}")
     expect(page).toContain("zh ? '整套公寓' : 'Entire apartment'")
   })
-  it('one neighbourhood block: AI primer (labelled) + asking / leased / this-listing tiles', () => {
+  it('one neighbourhood block: AI primer (labelled) + asking / survey-average / this-listing tiles', () => {
     expect(page).toContain("{zh ? 'AI 根据公开资料整理的社区简介 · 不含数字与人群描述 · 仅供了解'")
     expect(page).toContain("{zh ? '出租 · 挂牌价' : 'Rentals · asking'}")
-    expect(page).toContain("{zh ? '出租 · 成交均价' : 'Rentals · leased'}")
+    // 2026-10-13: the second tile is the CMHC survey average (or StatCan asking average), never a TRREB leased figure
+    expect(page).toContain("{zh ? (benchmarkIsAsking ? '出租 · 挂牌均价' : '出租 · 调查均租') : benchmarkIsAsking ? 'Rentals · asking average' : 'Rentals · survey average'}")
     expect(page).toContain("{zh ? '这套房源' : 'This listing'}")
     const r = read('app/api/listings/enrich/route.ts')
     expect(r).toContain("from('neighborhood_profiles')")

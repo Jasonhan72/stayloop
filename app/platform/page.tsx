@@ -27,7 +27,7 @@ const STAGES: Stage[] = [
     title: { zh: '租前', en: 'Before the lease' },
     lead: { zh: '从一句话找房，到房东手里一份有依据的筛查报告。', en: 'From a one-sentence search to a screening report the landlord can trust.' },
     caps: [
-      { t: { zh: '对话找房 · 真实挂牌 + TRREB 行情', en: 'Conversational search · live listings + TRREB data' }, href: '/tenant/agent' },
+      { t: { zh: '对话找房 · 真实挂牌 + CMHC / 统计局行情', en: 'Conversational search · real listings + CMHC / Statistics Canada benchmarks' }, href: '/tenant/agent' },
       { t: { zh: '房源发布 · 发布前合规检查', en: 'Listing publish · compliance checks before publish' }, href: '/dashboard/listings/new' },
       { t: { zh: '看房请求与提问 · 进房东待办', en: 'Showing requests & questions · into the landlord queue' }, href: '/listings' },
       { t: { zh: '在线申请 · 材料直达房东', en: 'Online application · documents straight to the landlord' }, href: '/listings' },

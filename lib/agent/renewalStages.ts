@@ -4,8 +4,9 @@
 // renewal window and every renewal-related action already proposed, it
 // returns the pending actions that are still missing:
 //
-//   90d  (≤120 days)  send_renewal_letter — A/B rent options + TRREB market
-//                     line; on approval the letter is really sent.
+//   90d  (≤120 days)  send_renewal_letter — A/B rent options + StatCan market
+//                     line (quarterly asking rent, Toronto CMA); on approval
+//                     the letter is really sent.
 //   60d  (≤60 days)   renewal_checkpoint stage=60d — only when the letter was
 //                     never sent: the N1 service deadline is close, the
 //                     landlord acknowledges the card (executor just stamps it).
@@ -27,6 +28,7 @@ import { rentAmount } from './chatCopy'
 import { N1_NOTICE_DAYS, guidelineFor, n1DeadlineFor } from '@/lib/ontario/rules'
 import { MAX_RENEWAL_WINDOW_DAYS, leaseEndFact, provinceTouchpoint, provinceWindowDays } from '@/lib/provinces/renewal'
 import type { ProvinceCode } from '@/lib/provinces/detect'
+import { statcanPeriodLabel } from '@/lib/market/rentBenchmark'
 
 // The guideline is per calendar year of the increase's effective date (RTA
 // s.120; 2026 = 2.1%, 2027 = 1.9%) — see lib/ontario/rules.ts RENT_GUIDELINE.
@@ -197,7 +199,17 @@ export function marketLineText(m: MarketLine | null | undefined): string {
     .filter((b) => Number.isFinite(m.avg_by_bed[b]))
     .map((b) => `${b === 3 ? '3+' : b} 房 $${Math.round(m.avg_by_bed[b]).toLocaleString()}`)
   if (!parts.length) return ''
-  return `TRREB ${m.period} 均租：${parts.join(' · ')}。`
+  return `统计局（StatCan）${marketPeriodLabel(m.period, 'zh')}多伦多 CMA 挂牌均租：${parts.join(' · ')}。`
+}
+
+/** '2026-04' (StatCan quarter start month) → '2026 年第 2 季度' / '2026 Q2'; a legacy '2026 Q2' is kept as is. */
+export function marketPeriodLabel(period: string, lang: 'zh' | 'en'): string {
+  if (/^\d{4}-\d{2}$/.test(period)) return statcanPeriodLabel(period, lang)
+  if (lang === 'zh') {
+    const m = period.match(/^(\d{4})\s*Q([1-4])$/)
+    if (m) return `${m[1]} 年第 ${m[2]} 季度`
+  }
+  return period
 }
 
 // Same figure as the card's buttons, the executed line and the letter: a
@@ -616,10 +628,10 @@ export function planRenewalActions(
   return out
 }
 
-/** Latest TRREB quarter → market line, from trreb_rent_stats rows. */
+/** Latest StatCan quarter → market line, from rent_benchmarks rows (bed_type = bedrooms 0–3). */
 export function marketFromRows(rows: { period: string; bed_type: number; avg_rent: number | string }[] | null | undefined): MarketLine | null {
   if (!rows || !rows.length) return null
-  // Periods sort lexically ('2026 Q1' < '2026 Q2'); pick the latest.
+  // Periods sort lexically ('2026-01' < '2026-04'); pick the latest.
   const latest = rows.map((r) => r.period).sort().at(-1)!
   const avg_by_bed: Record<number, number> = {}
   for (const r of rows) if (r.period === latest) avg_by_bed[r.bed_type] = Number(r.avg_rent)

@@ -1,12 +1,13 @@
-// Listing search for the agent turn: Stayloop's own listings + the TRREB
-// benchmark. The live Realtor.ca fallback (Jina reader/search) is OFF since
+// Listing search for the agent turn: Stayloop's own listings + the rent
+// benchmark (CMHC / StatCan, lib/market/rentBenchmark — the TRREB report was
+// retired 2026-10-13, no licence). The live Realtor.ca fallback (Jina reader/search) is OFF since
 // 2026-10-13 (REALTOR_LIVE_READS in lib/listings/externalSources.ts): MLS
 // rules do not allow a third-party platform or an AI to use that data, so the
 // search returns deep links the person opens themselves instead.
 import type { ListingCard } from './types'
 import { LISTINGS_PAGE } from '@/lib/agent/listingPaging'
 import { hasUsablePhotos, LISTING_VISIBILITY_OR, LISTING_VISIBILITY_OR_GROUP } from '../listingVisibility'
-import { readTrrebBenchmark, type TrrebBenchmark } from './trrebRent'
+import { readRentBenchmark, type RentBenchmark } from '@/lib/market/rentBenchmark'
 import { captureException } from '../observability/sentry'
 import { BUDGET_ANON, BUDGET_MEMBER, commercialKind, searchCommercial, summarizeCommercial, resolveRealtorBase, listPageUrls, searchAreas, type CommercialKind } from './commercialSearch'
 import { REALTOR_LIVE_READS, rentalsCaUrl, kijijiUrl, type ExternalLink } from '@/lib/listings/externalSources'
@@ -179,7 +180,7 @@ export type MarketStats = {
   median: number
   max: number
   budget?: number | null
-  trreb?: TrrebBenchmark
+  benchmark?: RentBenchmark
 }
 
 // One市场样本行：address 用于跨页去重（同一套房出现在通用页和卧室专属页时只计一次）。
@@ -276,14 +277,16 @@ export async function searchListings(
   ).catch(
     (e: unknown) => ({ cards: [] as ListingCard[], statRows: [] as StatRow[], external: { status: 'unavailable', reason: String((e as Error)?.message || e).slice(0, 120) } as ExternalStatus }),
   )
-  // Official TRREB benchmark (cached quarterly report, fast DB read) —
-  // resolved to the user's area (district/municipality) when the map covers
-  // it, TRREB-wide otherwise. Townhouse searches read the townhouse tables.
-  const trrebType = normalizeType(c) === 'townhouse' ? 'townhouse' : 'apartment'
-  const trrebPromise = readTrrebBenchmark(
+  // Official benchmark (CMHC survey zone / condo sub-area + StatCan asking
+  // series, fast DB read) — resolved to the user's area when the zone map
+  // covers it, City of Toronto / CMA otherwise. Condo searches read the condo
+  // sub-area table first; townhouses fall back to the purpose-built zone.
+  const nt = normalizeType(c)
+  const benchmarkType = nt === 'condo' ? 'condo' : nt === 'townhouse' ? 'townhouse' : 'apartment'
+  const benchmarkPromise = readRentBenchmark(
     c.min_beds,
     [c.area, ...(c.area_candidates ?? [])],
-    trrebType,
+    benchmarkType,
   ).catch(() => null)
 
   // Stayloop's own listings come first (verified). If there aren't enough new
@@ -295,13 +298,13 @@ export async function searchListings(
   // Distinct listings in the area sample that the budget cap removed — the
   // reply states the number instead of silently showing fewer cards (节点 1).
   const overBudget = c.max_price ? new Set(extRes.statRows.filter((r) => r.price > (c.max_price as number)).map((r) => r.address.toLowerCase())).size : 0
-  const trreb = await trrebPromise
-  if (market && trreb) market.trreb = trreb
+  const benchmark = await benchmarkPromise
+  if (market && benchmark) market.benchmark = benchmark
   // The Realtor.ca sample was too thin (<3 clean prices) but the official
-  // TRREB benchmark resolved — still show it: emit a minimal trreb-only
+  // benchmark resolved — still show it: emit a minimal benchmark-only
   // market object. sample=0 tells the chat card to hide the live-sample rows
   // (range / median / budget bar) and render only the benchmark section.
-  if (!market && trreb) {
+  if (!market && benchmark) {
     market = {
       area: c.area || c.area_candidates?.[0] || 'Toronto',
       beds: c.min_beds ?? null,
@@ -310,7 +313,7 @@ export async function searchListings(
       median: 0,
       max: 0,
       budget: c.max_price ?? null,
-      trreb,
+      benchmark,
     }
   }
   const links = REALTOR_LIVE_READS ? undefined : buildExternalLinks(c, null)

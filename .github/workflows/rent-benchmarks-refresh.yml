@@ -1,0 +1,25 @@
+name: rent-benchmarks-refresh
+# Monthly reload of Statistics Canada table 46-10-0092-01 (quarterly asking rents,
+# Toronto CMA) into public.rent_benchmarks. CMHC's annual workbook is loaded by hand
+# (scripts/rent-benchmarks/README.md). schedule + workflow_dispatch only: the repo is
+# public and the job holds the service-role key.
+on:
+  schedule:
+    - cron: '20 7 15 * *'
+  workflow_dispatch:
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://uotcczsfeiptnabamzcd.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Preflight
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "SUPABASE_SERVICE_ROLE_KEY secret missing"; exit 1; }
+      - name: Load StatCan quarterly asking rents
+        run: node scripts/rent-benchmarks/load.mjs statcan

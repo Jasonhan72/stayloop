@@ -15,6 +15,12 @@ const FORBIDDEN = [
   'listing-sponsor-member',
   'NEXT_PUBLIC_MLS_SPONSOR',
   'TRREB 会员经纪',
+  // 2026-10-13: the rent benchmark is CMHC + Statistics Canada; TRREB's report (all rights reserved)
+  // is no longer republished, and neither source is a "leased" / 成交 figure.
+  'TRREB 官方',
+  'official TRREB',
+  'TRREB 成交',
+  'TRREB leased',
 ]
 
 // Scope: everything a visitor reads, minus the modules another decision owns —

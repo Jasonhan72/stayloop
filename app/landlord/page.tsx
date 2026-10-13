@@ -88,7 +88,7 @@ const CFG: RoleLandingConfig = {
     },
     {
       h: { zh: '续约：到期前 90 / 60 / 30 天提醒你', en: 'Renewals: 90 / 60 / 30 days out' },
-      b: { zh: '先给同区 TRREB 行情与 A / B 两个方案，再替你起草续约信；30 天仍无回复就提醒你直接联系。所有发送都要你点确认。', en: 'First the TRREB benchmark and an A / B rent option, then the renewal letter; at 30 days with no reply it tells you to call. Nothing is sent until you approve.' },
+      b: { zh: '先给 CMHC 分区均租、统计局季度挂牌租金与 A / B 两个方案，再替你起草续约信；30 天仍无回复就提醒你直接联系。所有发送都要你点确认。', en: 'First the CMHC zone average, the Statistics Canada quarterly asking rent and an A / B rent option, then the renewal letter; at 30 days with no reply it tells you to call. Nothing is sent until you approve.' },
       ask: { zh: '我的租约明年 3 月到期，现在该做什么？', en: 'My lease ends next March — what should I be doing now?' },
     },
   ],

@@ -1,20 +1,29 @@
 'use client'
 
-// Compact 2-year quarterly trend of the TRREB avg leased rent — rendered
-// inside the market card. Single series: the role accent carries the line,
-// text stays in text tokens, last point is direct-labeled, every point has a
-// hover <title>. No legend (the benchmark line above names the series).
+// Compact 2-year quarterly trend of the Statistics Canada average ASKING
+// rent (table 46-10-0092-01, Toronto CMA, lib/market/rentBenchmark history)
+// — rendered inside the market card. Single series: the role accent carries
+// the line, text stays in text tokens, last point is direct-labeled, every
+// point has a hover <title>. The caption names the series (no legend).
 
 type Point = { period: string; avg: number }
 
 function shortPeriod(p: string): string {
-  // '2024 Q3' → '24Q3'
+  // StatCan '2026-04' (quarter start month) → '26Q2'; legacy '2024 Q3' → '24Q3'
+  const q = p.match(/^(\d{4})-(\d{2})$/)
+  if (q) return `${q[1].slice(2)}Q${Math.floor((Number(q[2]) - 1) / 3) + 1}`
   const m = p.match(/^(\d{4})\s*Q(\d)$/)
   return m ? `${m[1].slice(2)}Q${m[2]}` : p
 }
 
-export default function TrrebTrendChart({ history, accent }: { history: Point[]; accent: string }) {
+export const BENCHMARK_TREND_CAPTION = {
+  zh: 'StatCan 季度挂牌租金 · 多伦多 CMA',
+  en: 'StatCan quarterly asking rent · Toronto CMA',
+} as const
+
+export default function BenchmarkTrendChart({ history, accent, lang = 'zh' }: { history: Point[]; accent: string; lang?: 'zh' | 'en' }) {
   if (history.length < 4) return null
+  const caption = BENCHMARK_TREND_CAPTION[lang]
   const W = 440
   const H = 132
   const L = 42
@@ -41,7 +50,8 @@ export default function TrrebTrendChart({ history, accent }: { history: Point[];
   const fmt = (v: number) => `$${Math.round(v).toLocaleString()}`
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 block w-full" role="img" aria-label="TRREB quarterly average rent trend">
+    <div className="mt-2">
+    <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" aria-label={caption}>
       {grid.map((v) => (
         <g key={v}>
           <line x1={L} x2={L + iw} y1={y(v)} y2={y(v)} stroke="#E9E7E2" strokeWidth="1" />
@@ -85,5 +95,7 @@ export default function TrrebTrendChart({ history, accent }: { history: Point[];
         {fmt(last.avg)}
       </text>
     </svg>
+    <div className="mt-0.5 text-[10.5px] text-body-3">{caption}</div>
+    </div>
   )
 }

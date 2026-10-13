@@ -8,7 +8,8 @@ import AgentInputBar, { type ComposerDraft } from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
 import ListingChatCard from './ListingChatCard'
 import CommercialCompareTable from './CommercialCompareTable'
-import TrrebTrendChart from './TrrebTrendChart'
+import BenchmarkTrendChart from './BenchmarkTrendChart'
+import { benchmarkAttribution, benchmarkLabel } from '@/lib/market/rentBenchmark'
 import Link from 'next/link'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage, PendingAction, WorkflowState } from '@/lib/agent/types'
@@ -55,12 +56,12 @@ const SUGGESTIONS: Record<AgentRole, { key: string; icon: string; label: { zh: s
   // Agent cards follow the Ontario leasing-agent workflow (research
   // 2026-09-13: RECO/TRESA leasing obligations, RTA s.106/s.134, OHRC
   // rental policy): screen the landlord client's applicants, price the
-  // unit against real listings + TRREB, prep the showing, paper the lease,
+  // unit against real listings + the public rent benchmark, prep the showing, paper the lease,
   // stay inside the rules. Each card is backed by a real capability of
   // /api/agent/turn — no card promises what Brief cannot do.
   agent: [
     { key: 'agent_screen', icon: '🔎', label: { zh: '租客筛查', en: 'Tenant screening' }, prompt: { zh: '我替房东客户收到一份租房申请。帮我筛查这位申请人：告诉我报告会查什么、要申请人提交哪些材料，然后带我开始。', en: 'I have a rental application for my landlord client. Screen the applicant: tell me what the report checks, what the applicant must submit, then take me to start.' } },
-    { key: 'pricing', icon: '📊', label: { zh: '挂牌定价', en: 'Price the listing' }, prompt: { zh: '帮客户的房源定租金：拉这个区域同户型的 Stayloop 在租挂牌和 TRREB 季报的成交数据做比价。', en: "Price my client's unit: pull live listings for the same area and unit type plus the TRREB benchmark for comparison." } },
+    { key: 'pricing', icon: '📊', label: { zh: '挂牌定价', en: 'Price the listing' }, prompt: { zh: '帮客户的房源定租金：拉这个区域同户型的 Stayloop 在租挂牌和 CMHC / 统计局的公开租金基准做比价。', en: "Price my client's unit: pull live listings for the same area and unit type plus the CMHC / StatCan public rent benchmark for comparison." } },
     { key: 'showing', icon: '📋', label: { zh: '带看准备包', en: 'Showing prep pack' }, prompt: { zh: '帮我为下一场带看准备材料包：房东授权回答与不授权回答的清单、现场 checklist、要向申请人收的材料。', en: 'Prep my next showing: what the landlord authorised me to answer and what not, an on-site checklist, and the documents to collect from applicants.' } },
     { key: 'lease_deposit', icon: '📝', label: { zh: '租约与押金', en: 'Lease & deposit' }, prompt: { zh: '客户要签约了：安省标准租约和 OREA Form 400 各管什么、押金最多收多少、哪些费用不能收、签后几天内要给租客副本？', en: 'My client is ready to sign: what do the Ontario Standard Lease and OREA Form 400 each cover, how much deposit is allowed, which charges are prohibited, and when must the tenant get a copy?' } },
     { key: 'boundaries', icon: '🛡️', label: { zh: '合规边界', en: 'Compliance boundaries' }, prompt: { zh: '带看和收申请时：哪些问题不能问（人权法）、哪些话不能替房东答、TRESA 要我先给客户什么文件？', en: 'At showings and intake: which questions are off-limits (Human Rights Code), what must I not answer for the landlord, and what does TRESA require me to give a client first?' } },
@@ -388,7 +389,7 @@ export default function AgentChat({
                     )}
                   </div>
                   {/* sample-derived rows only when a live asking-price sample
-                      exists — a trreb-only market (sample 0) skips straight to
+                      exists — a benchmark-only market (sample 0) skips straight to
                       the official benchmark below */}
                   {m.market.sample > 0 && (
                     <>
@@ -412,21 +413,29 @@ export default function AgentChat({
                       </p>
                     </>
                   )}
-                  {/* Official TRREB quarterly benchmark — leased (closed) rents,
-                      thousands of transactions, vs the asking-price sample above */}
-                  {m.market.trreb && (
-                    <p className="mt-2 border-t border-line-divider pt-2 text-[11.5px] leading-relaxed text-body-3">
-                      {lang === 'zh'
-                        ? `官方基准 · TRREB ${m.market.trreb.area} · ${m.market.trreb.period}：${m.market.beds ? `${Math.min(m.market.beds, 3)} 房` : ''} condo 成交均价 $${m.market.trreb.avg.toLocaleString()}`
-                        : `Official benchmark · TRREB ${m.market.trreb.area} · ${m.market.trreb.period}: ${m.market.beds ? `${Math.min(m.market.beds, 3)}-bed ` : ''}condo avg leased rent $${m.market.trreb.avg.toLocaleString()}`}
-                      {m.market.trreb.leased != null && (lang === 'zh' ? ` · ${m.market.trreb.leased.toLocaleString()} 宗成交` : ` · ${m.market.trreb.leased.toLocaleString()} leases`)}
-                      {m.market.trreb.prev_avg != null && m.market.trreb.prev_avg > 0 && (
-                        <> · {lang === 'zh' ? '同比' : 'YoY'} {(((m.market.trreb.avg - m.market.trreb.prev_avg) / m.market.trreb.prev_avg) * 100).toFixed(1)}%</>
-                      )}
-                    </p>
-                  )}
-                  {m.market.trreb?.history && m.market.trreb.history.length >= 4 && (
-                    <TrrebTrendChart history={m.market.trreb.history} accent={accent} />
+                  {/* Official benchmark (2026-10-13): CMHC Rental Market Survey
+                      average rent for the zone / condo sub-area (annual), or
+                      StatCan's quarterly asking rent when CMHC has no row —
+                      openly licensed, attribution printed under the figure. */}
+                  {m.market.benchmark && (() => {
+                    const b = m.market.benchmark
+                    const bed = m.market.beds != null ? Math.min(m.market.beds, 3) : null
+                    const what = lang === 'zh' ? (b.source === 'statcan' ? '挂牌均价' : '均租') : b.source === 'statcan' ? 'avg asking rent' : 'avg rent'
+                    const bedLabel = bed == null ? '' : lang === 'zh' ? `${bed}${bed >= 3 ? '+' : ''} 房 ` : `${bed}${bed >= 3 ? '+' : ''}-bed `
+                    const yoy = b.prev_avg != null && b.prev_avg > 0 ? (((b.avg - b.prev_avg) / b.prev_avg) * 100).toFixed(1) : null
+                    return (
+                      <div className="mt-2 border-t border-line-divider pt-2" data-testid="market-benchmark">
+                        <p className="text-[11.5px] leading-relaxed text-body-3">
+                          {lang === 'zh' ? '官方基准 · ' : 'Official benchmark · '}{benchmarkLabel(b, lang)}
+                          {lang === 'zh' ? '：' : ': '}{bedLabel}{what} ${b.avg.toLocaleString()}
+                          {yoy != null && <> · {lang === 'zh' ? '同比' : 'YoY'} {yoy}%</>}
+                        </p>
+                        <p className="mt-0.5 text-[10.5px] text-body-3">{benchmarkAttribution(b, lang)}</p>
+                      </div>
+                    )
+                  })()}
+                  {m.market.benchmark?.history && m.market.benchmark.history.length >= 4 && (
+                    <BenchmarkTrendChart history={m.market.benchmark.history} accent={accent} lang={lang} />
                   )}
                 </div>
               )}

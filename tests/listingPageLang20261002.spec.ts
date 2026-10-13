@@ -64,7 +64,7 @@ describe('(2) no hard-coded English reaches the Chinese UI', () => {
     expect(page).toContain("alt={zh ? `照片 ${idx + 1}` : `Photo ${idx + 1}`}")
   })
   it('zh-branch literals carry no English words except brands, regulators, laws and units', () => {
-    const allowed = new Set(['Stayloop', 'Realtor.ca', 'REALTOR.CA', 'OpenStreetMap', 'Google', 'AI', 'TRREB', 'RECO', 'RTA', 's.', 'MLS®', 'OHRC', 'GO', 'km', 'm', 'ft'])
+    const allowed = new Set(['Stayloop', 'Realtor.ca', 'REALTOR.CA', 'OpenStreetMap', 'Google', 'AI', 'CMHC', 'StatCan', 'RECO', 'RTA', 's.', 'MLS®', 'OHRC', 'GO', 'km', 'm', 'ft'])
     for (const [name, src] of [['page', page], ['MoveInCosts', costs], ['ListingDescription', descr], ['ListingRulesNote', read('components/listing/ListingRulesNote.tsx')]] as const) {
       const re = /\bzh\s*\?\s*(['`])((?:\\.|(?!\1)[\s\S])*?)\1/g
       let m: RegExpExecArray | null
@@ -101,7 +101,7 @@ describe('(2) no hard-coded English reaches the Chinese UI', () => {
     expect(page).toContain('const brokerName = cleanBrokerName(listing.broker_name)')
     expect(page).not.toContain('listing.broker_name ||')
   })
-  it('enums and vocabularies through the shared dictionary: 共管公寓 / 共管产权 / 永久产权 / utilities / TRREB', () => {
+  it('enums and vocabularies through the shared dictionary: 共管公寓 / 共管产权 / 永久产权 / utilities / benchmark labels', () => {
     expect(localizeValue('property_type', 'condo', 'zh')).toBe('共管公寓')
     expect(localizeValue('ownership_title', 'condominium', 'zh')).toBe('共管产权')
     expect(localizeValue('ownership_title', 'freehold', 'zh')).toBe('永久产权')
@@ -113,8 +113,10 @@ describe('(2) no hard-coded English reaches the Chinese UI', () => {
     expect(page).toContain("const ownership = resolveValue('ownership_title', listing.ownership_title, lang, tr)")
     expect(page).toContain("value={resolveValue('property_type', listing.property_type, lang, tr) || (zh ? '其他' : 'Other')}")
     expect(page).toContain("const utilities = resolveList('utilities_included', listing.utilities_included, lang, tr)")
-    expect(page).toContain("localizeValue('trreb_area', benchmark.area, lang)")
-    expect(page).toContain("localizeValue('trreb_period', benchmark.period, lang)")
+    // 2026-10-13: the benchmark caption and attribution come from lib/market/rentBenchmark (CMHC / StatCan), per language
+    expect(page).toContain("const benchmarkSource = benchmark ? benchmarkLabel(benchmark, lang) : ''")
+    expect(page).toContain('{benchmarkAttribution(benchmark, lang)}')
+    expect(page).not.toContain("localizeValue('trreb_area'")
   })
   it('the detail badge says 已核验 in Chinese; the agent category is one language at a time', () => {
     expect(badges).toContain("<span className=\"sl-chip fit\">{zh ? '已核验' : 'VERIFIED'}</span>")
