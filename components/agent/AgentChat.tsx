@@ -9,7 +9,7 @@ import DraftListingChatCard from './DraftListingChatCard'
 import ListingChatCard from './ListingChatCard'
 import CommercialCompareTable from './CommercialCompareTable'
 import BenchmarkTrendChart from './BenchmarkTrendChart'
-import { benchmarkAttribution, benchmarkLabel } from '@/lib/market/rentBenchmark'
+import { benchmarkAttribution, statcanPeriodLabel, benchmarkLabel } from '@/lib/market/rentBenchmark'
 import Link from 'next/link'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage, PendingAction, WorkflowState } from '@/lib/agent/types'
@@ -430,6 +430,16 @@ export default function AgentChat({
                           {lang === 'zh' ? '：' : ': '}{bedLabel}{what} ${b.avg.toLocaleString()}
                           {yoy != null && <> · {lang === 'zh' ? '同比' : 'YoY'} {yoy}%</>}
                         </p>
+                        {b.alt && (
+                          <p className="text-[11.5px] leading-relaxed text-body-3" data-testid="market-benchmark-alt">
+                            {lang === 'zh' ? `${b.alt.kind === 'condo' ? '出租公寓单元' : '专门出租公寓楼'} · CMHC · ${b.alt.area}：${bedLabel}均租 $${b.alt.avg.toLocaleString()}` : `${b.alt.kind === 'condo' ? 'Rental condo units' : 'Purpose-built apartments'} · CMHC · ${b.alt.area}: ${bedLabel}avg rent $${b.alt.avg.toLocaleString()}`}
+                          </p>
+                        )}
+                        {b.source === 'cmhc' && b.asking && (
+                          <p className="text-[11.5px] leading-relaxed text-body-3" data-testid="market-benchmark-asking">
+                            {lang === 'zh' ? `统计局 ${statcanPeriodLabel(b.asking.period, 'zh')} 多伦多 CMA 挂牌均价：${bedLabel}$${b.asking.avg.toLocaleString()}` : `Statistics Canada ${statcanPeriodLabel(b.asking.period, 'en')} Toronto CMA asking average: ${bedLabel}$${b.asking.avg.toLocaleString()}`}
+                          </p>
+                        )}
                         <p className="mt-0.5 text-[10.5px] text-body-3">{benchmarkAttribution(b, lang)}</p>
                       </div>
                     )

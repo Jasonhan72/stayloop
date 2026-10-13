@@ -132,3 +132,22 @@ describe('no TRREB figures printed anywhere (retired 2026-10-13)', () => {
     expect(read('app/api/agent/proactive/route.ts')).toContain(".from('rent_benchmarks')")
   })
 })
+
+import { benchmarkCandidates } from '@/lib/market/rentBenchmark'
+describe('benchmarkCandidates — most specific first, honest fallbacks', () => {
+  it('a Toronto condo reads the condo sub-area, then the city, then the CMA; purpose-built is the alt', () => {
+    const c = benchmarkCandidates(['Yonge & Sheppard', 'Toronto'], 'condo')
+    expect(c[0]).toEqual({ kind: 'condo', areas: ['North York', 'Toronto', 'Toronto CMA'] })
+    expect(c[1]).toEqual({ kind: 'purpose_built', areas: ['Zone 14 - North York (Northeast)', 'City of Toronto (Zones 1-17)', 'Toronto CMA'] })
+  })
+  it('an ambiguous "apartment" also prefers the condo figure; a townhouse reads purpose-built first', () => {
+    expect(benchmarkCandidates(['Bay Street Corridor'], 'apartment')[0].kind).toBe('condo')
+    expect(benchmarkCandidates(['Bay Street Corridor'], 'townhouse')[0].kind).toBe('purpose_built')
+  })
+  it('a GTA area outside the City of Toronto never falls back to the City of Toronto row', () => {
+    const c = benchmarkCandidates(['Oshawa'], 'condo')
+    expect(c[0].areas).toEqual(['Durham Region', 'Toronto CMA'])
+    expect(c[1].areas).toEqual(['Durham Region', 'Toronto CMA'])
+    expect(c.flatMap((x) => x.areas)).not.toContain('City of Toronto (Zones 1-17)')
+  })
+})

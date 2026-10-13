@@ -33,6 +33,8 @@ export type RentBenchmark = {
   history?: { period: string; avg: number }[]
   /** The StatCan asking-rent benchmark alongside a CMHC figure (same bedroom count). */
   asking?: { period: string; avg: number; prev_avg?: number | null }
+  /** The other CMHC kind for the same area, when it exists (condo ↔ purpose-built). */
+  alt?: { kind: BenchmarkKind; area: string; period: string; avg: number; quality?: string | null }
 }
 
 /** CMHC bedroom bucket: 0 studio · 1 · 2 · 3 = three or more. */
@@ -120,10 +122,29 @@ async function fetchRows(params: Record<string, string>): Promise<Row[]> {
   }
 }
 
+const TORONTO_ZONE = /^Zone ([1-9]|1[0-7]) |\(Zones 1-17\)|\(Zones 5-7\)|\(Zones 10-12\)|\(Zones 13-17\)|^Zone [89] /
+
 /**
- * The benchmark for a unit: CMHC condo sub-area for condos, CMHC purpose-built
- * zone otherwise (fallback: city, then CMA), with the StatCan asking-rent
- * series attached. Null only when no source has the bedroom bucket.
+ * Which CMHC rows to try, most specific first. Condos (and the ambiguous
+ * "apartment" a renter means in Toronto) read the condo sub-area first —
+ * CMHC's purpose-built averages are occupied-stock rents and sit well below
+ * what a unit leases for today; the other kind is still fetched as `alt` so the
+ * card can show both. A GTA area outside the City of Toronto falls back to the
+ * CMA row, never to the City of Toronto row.
+ */
+export function benchmarkCandidates(areaTerms: (string | null | undefined)[], propertyType: 'apartment' | 'condo' | 'townhouse' | 'house'): { kind: BenchmarkKind; areas: string[] }[] {
+  const zone = cmhcZoneFor(areaTerms)
+  const sub = cmhcCondoAreaFor(areaTerms)
+  const inToronto = zone ? TORONTO_ZONE.test(zone) : areaTerms.some((t) => /toronto/i.test(t || ''))
+  const pb = { kind: 'purpose_built' as const, areas: [...new Set([zone, inToronto ? 'City of Toronto (Zones 1-17)' : null, 'Toronto CMA'].filter((a): a is string => !!a))] }
+  const condo = { kind: 'condo' as const, areas: [...new Set([sub, inToronto ? 'Toronto' : null, 'Toronto CMA'].filter((a): a is string => !!a))] }
+  return propertyType === 'townhouse' || propertyType === 'house' ? [pb, condo] : [condo, pb]
+}
+
+/**
+ * The benchmark for a unit: the first CMHC candidate with a row (the other
+ * kind attached as `alt`), the StatCan asking-rent series attached for the
+ * trend and the quarterly figure. Null only when no source has the bedroom bucket.
  */
 export async function readRentBenchmark(
   minBeds?: number | null,
@@ -132,16 +153,7 @@ export async function readRentBenchmark(
 ): Promise<RentBenchmark | null> {
   const bed = bedBucket(minBeds)
   if (bed == null) return null
-  const condo = propertyType === 'condo'
-  const candidates: { kind: BenchmarkKind; areas: string[] }[] = condo
-    ? [
-        { kind: 'condo', areas: [cmhcCondoAreaFor(areaTerms), 'Toronto', 'Toronto CMA'].filter((a): a is string => !!a) },
-        { kind: 'purpose_built', areas: [cmhcZoneFor(areaTerms), 'City of Toronto (Zones 1-17)', 'Toronto CMA'].filter((a): a is string => !!a) },
-      ]
-    : [
-        { kind: 'purpose_built', areas: [cmhcZoneFor(areaTerms), 'City of Toronto (Zones 1-17)', 'Toronto CMA'].filter((a): a is string => !!a) },
-        { kind: 'condo', areas: [cmhcCondoAreaFor(areaTerms), 'Toronto', 'Toronto CMA'].filter((a): a is string => !!a) },
-      ]
+  const candidates = benchmarkCandidates(areaTerms, propertyType)
   const [askingRows, ...cmhcSets] = await Promise.all([
     fetchRows({ source: 'eq.statcan', kind: 'eq.asking', bedrooms: `eq.${bed}`, order: 'period.desc', limit: '12' }),
     ...candidates.map((c) => fetchRows({ source: 'eq.cmhc', kind: `eq.${c.kind}`, bedrooms: `eq.${bed}`, area_key: `in.(${c.areas.map((a) => `"${a.toLowerCase().replace(/"/g, '')}"`).join(',')})`, order: 'period.desc', limit: '12' })),
@@ -151,16 +163,21 @@ export async function readRentBenchmark(
     : undefined
   const history = askingRows.length ? askingRows.slice(0, 8).map((r) => ({ period: r.period, avg: Number(r.avg_rent) })).reverse() : undefined
 
-  for (let i = 0; i < candidates.length; i++) {
+  const pick = (i: number): RentBenchmark | null => {
     const rows = cmhcSets[i]
-    if (!rows.length) continue
+    if (!rows.length) return null
     const latest = rows.map((r) => r.period).sort().at(-1)!
     for (const area of candidates[i].areas) {
       const row = rows.find((r) => r.period === latest && r.area.toLowerCase() === area.toLowerCase())
-      if (row) {
-        return { source: 'cmhc', kind: candidates[i].kind, period: row.period, area: row.area, avg: Number(row.avg_rent), prev_avg: row.prev_avg != null ? Number(row.prev_avg) : null, quality: row.quality, history, asking }
-      }
+      if (row) return { source: 'cmhc', kind: candidates[i].kind, period: row.period, area: row.area, avg: Number(row.avg_rent), prev_avg: row.prev_avg != null ? Number(row.prev_avg) : null, quality: row.quality }
     }
+    return null
+  }
+  const found = candidates.map((_, i) => pick(i))
+  const primary = found.find((b): b is RentBenchmark => !!b)
+  if (primary) {
+    const alt = found.find((b) => b && b !== primary) || undefined
+    return { ...primary, history, asking, alt: alt ? { kind: alt.kind, area: alt.area, period: alt.period, avg: alt.avg, quality: alt.quality } : undefined }
   }
   if (asking) return { source: 'statcan', kind: 'asking', period: asking.period, area: 'Toronto CMA', avg: asking.avg, prev_avg: asking.prev_avg, history, asking }
   return null
