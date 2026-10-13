@@ -76,3 +76,24 @@ describe('wiring', () => {
     expect(read('app/dashboard/listings/new/page.tsx')).toContain('data-testid="wizard-quick-hint"')
   })
 })
+
+// Found on the first production walkthrough (2026-10-13): the generated copy says
+// 「不收申请费 / no application fee」 and the s.134 rule flagged it.
+import { checkListingCompliance, mentionsFee } from '@/lib/ontario/rules'
+import { draftListingCopy } from '@/lib/listingCopy'
+describe('negated fee mentions are compliance, not breaches', () => {
+  it('mentionsFee ignores 不收申请费 / no application fee but still catches a real fee', () => {
+    expect(mentionsFee('安省标准租约；押金不超过一个月租金，不收申请费。')).toBe(false)
+    expect(mentionsFee('Ontario Standard Lease; no application fee.')).toBe(false)
+    expect(mentionsFee('We never charge an application fee.')).toBe(false)
+    expect(mentionsFee('Application fee $50 due with the form.')).toBe(true)
+    expect(mentionsFee('需交申请费 $50。')).toBe(true)
+    expect(mentionsFee('no application fee, but a $25 processing fee applies')).toBe(true)
+  })
+  it('the generated copy passes the Ontario compliance check and does not repeat the city', () => {
+    const c = draftListingCopy({ address: '28 Avondale Ave, North York', unit: '605', city: 'North York', property_type: 'condo', bedrooms: 1, bathrooms: 1, monthly_rent: 2650, furnished: 'no', amenities: [{ zh: '景观', en: 'View' }] })
+    expect(checkListingCompliance({ title: c.title, description: c.description, monthly_rent: 2650 }).findings.filter((f) => f.rule === 'RTA-134-no-fees')).toEqual([])
+    expect(c.description).not.toContain('North York, North York')
+    expect(c.description).toContain('#605')
+  })
+})

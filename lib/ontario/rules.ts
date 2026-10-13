@@ -345,6 +345,13 @@ const AC_BAN_RE = /\b(no|zero)\s+(window\s+|portable\s+)?(air[\s-]?conditioners?
 const PET_BAN_RE = /\b(no|zero)\s+(pets?|animals?|dogs?|cats?)\b|不(许|得|允许|可以?)?养?(宠物|狗|猫)|禁止?(宠物|养宠|养狗|养猫)|pets?\s+(are\s+)?not\s+(allowed|permitted)/i
 const FEE_RE = /\b(application|screening|credit[- ]check|processing|admin(istration)?)\s+fee\b|申请费|筛查费|信用(检查|查询)费|手续费|管理费(?=[^一-龥]|$)/i
 const PET_DEPOSIT_RE = /\bpet\s+(deposit|fee)\b|宠物(押金|费)|clean(ing)?\s+(deposit|fee)|清洁(押金|费)|damage\s+deposit|损坏押金/i
+// A listing that SAYS it charges no such fee is complying, not breaching (2026-10-13:
+// the generated copy's「不收申请费 / no application fee」tripped the rule). Negated mentions
+// are removed before the fee regex runs.
+const FEE_NEGATED_RE = /(不收取?|不会收取?|无需?|没有|免)\s*(任何)?(申请费|筛查费|信用(检查|查询)费|手续费|管理费)|\b(no|without|zero|never\s+charge(s|d)?\s+an?)\s+(application|screening|credit[- ]check|processing|admin(istration)?)\s+fees?\b/gi
+export function mentionsFee(text: string): boolean {
+  return FEE_RE.test((text || '').replace(FEE_NEGATED_RE, ' '))
+}
 
 export function checkListingCompliance(input: ListingInput): { passed: boolean; findings: Finding[] } {
   const f: Finding[] = []
@@ -360,7 +367,7 @@ export function checkListingCompliance(input: ListingInput): { passed: boolean; 
   if (input.pets_allowed === 'no' || PET_BAN_RE.test(text)) {
     f.push({ rule: 'RTA-14-no-pet-clause', statute: 'RTA s.14', severity: 'block', message: { zh: '出现「禁止养宠」条款或设置。安省租约中禁宠条款无效，改为「允许 / 有限制」。', en: 'A "no pets" term or setting is present. Pet bans are void in Ontario leases — use allowed / restricted.' } })
   }
-  if ((input.application_fee != null && Number(input.application_fee) > 0) || FEE_RE.test(text)) {
+  if ((input.application_fee != null && Number(input.application_fee) > 0) || mentionsFee(text)) {
     f.push({ rule: 'RTA-134-no-fees', statute: 'RTA s.134(1)', severity: 'block', message: { zh: '提到申请费 / 筛查费 / 手续费。安省禁止向申请人收取任何此类费用。', en: 'An application / screening / processing fee is mentioned. Ontario prohibits charging applicants any such fee.' } })
   }
   if (PET_DEPOSIT_RE.test(text)) {
@@ -395,7 +402,7 @@ export function checkLeaseTerms(input: LeaseTermsInput): { passed: boolean; find
   if (AC_BAN_RE.test(sb)) {
     f.push({ rule: 'RTA-36-1-tenant-ac', statute: 'RTA s.36.1', severity: 'block', message: { zh: '附表 B 禁止租客安装空调，该条款自 2026-07-01 起无效。', en: 'Schedule B bans air conditioners; such a clause is void since 2026-07-01.' } })
   }
-  if (FEE_RE.test(sb) || PET_DEPOSIT_RE.test(sb)) {
+  if (mentionsFee(sb) || PET_DEPOSIT_RE.test(sb)) {
     f.push({ rule: 'RTA-134-no-fees', statute: 'RTA s.134', severity: 'block', message: { zh: '附表 B 含额外费用或押金条款。', en: 'Schedule B adds a fee or deposit that is not permitted.' } })
   }
   if (input.start_date && input.end_date && input.end_date < input.start_date) {

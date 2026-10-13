@@ -20,7 +20,9 @@ describe('Ontario rules single source', () => {
     expect(r.passed).toBe(false)
     expect(r.findings.map((f) => f.rule).sort()).toEqual(['RTA-106-deposit-cap', 'RTA-134-no-fees', 'RTA-134-no-fees', 'RTA-14-no-pet-clause'])
     expect(checkListingCompliance({ description: '不允许养宠物' }).findings[0].rule).toBe('RTA-14-no-pet-clause')
-    expect(checkListingCompliance({ description: 'pet friendly, no application fee ever' }).findings.map((f) => f.rule)).toContain('RTA-134-no-fees')
+    // 2026-10-13: a negated mention ("no application fee") is compliance, not a breach — see tests/quickPublish20261013.spec.ts.
+    expect(checkListingCompliance({ description: 'pet friendly, no application fee ever' }).findings.map((f) => f.rule)).not.toContain('RTA-134-no-fees')
+    expect(checkListingCompliance({ description: 'application fee $50 on signing' }).findings.map((f) => f.rule)).toContain('RTA-134-no-fees')
   })
   it('lease terms: TRREB is only a warning, pet ban in Schedule B blocks, dates must be ordered', () => {
     expect(checkLeaseTerms({ rent_amount: 2000, deposit_amount: 2000, form_type: 'trreb' }).passed).toBe(true)
