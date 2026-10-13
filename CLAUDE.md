@@ -3516,3 +3516,20 @@ AVP 不得用它做自己的产品；**任何 MLS 数据不得经过任何第三
   `public_stats()` 的房源数排除 `is_test`。`lib/listingVisibility.ts isTestListing()`（列优先，其次 `[TEST]` 前缀）+ `TEST_LISTING_LABEL`「测试房源 · 非实际房源」：浏览卡、详情页标题下
   （「用于演示，不接受真实租赁」）、相似房源卡、AI 对话卡（角标 TEST 取代 VERIFIED）、申请页（「提交的申请不会促成真实租赁」）五处 `data-testid="test-listing-badge"`。
   搜索 API / 相似卡列 / AI 搜索 select 都带 `is_test`。守卫 `tests/testListings20261013.spec.ts`。新发布的真实房源默认 `false`。
+
+## 房东首发 · 第 1 步：快速发布（2026-10-13 · V0.8 第二项 · 用户「按这个顺序做，先从极简发布开始」）
+
+方案 `design/landlord-first-publishing-and-syndication-2026-10.md`（含渠道可行性表：Meta Page / IG 可自动，Kijiji 只能走专业账户 XML feed，Facebook Marketplace 只经 Zumper，
+微信 / 小红书 / FB 群只能人工；社交账号由用户建）。Rentsync 询问邮件 v2 由用户自己发。守卫 `tests/quickPublish20261013.spec.ts`。
+- **`/dashboard/listings/quick`**：第一屏只填地址（省份自动识别，可改）、单元、月租、照片（拖放或选择，≤12 张，存 1600px、给模型 1024px 的副本）；
+  「让 AI 看照片填其余」→ `POST /api/listings/quick-draft`（登录态、每用户每小时 10 次 + 全站 200 次 fail-closed、≤8 张 jpeg/png/webp data URL 每张 ≤1.5 MB、
+  classify 槽位的视觉模型、jsonMode、60s）→ `lib/listings/quickDraft.ts parseQuickDraftGuess`（只认词表：类型 6 种、卧 0–10、卫 0.5–10 半档、家具、`AMENITY_VOCAB` 16 项、
+  面积估计 150–10000、封面序号、两句中立描述、各项置信度；超范围即 null，垃圾文本即空猜测）。**提示词明令不猜政策**（宠物 / 吸烟 / 水电 / 租期 / 押金），
+  同一房间多张照片不重复计数，客厅里的床不算卧室。
+- **第二屏**：「AI 从照片里看到的」每项可改并标「AI 识别」；**面积估值只作建议**（placeholder + 「用 AI 估值 N（估）」按钮，绝不自动填入）；「照片里看不出的（请你填）」
+  宠物（按省份决定是否给「不允许」）/ 吸烟 / 租期 / 可入住日 / 租金包含 / 押金（省份押金规则与问题红字）；标题与描述由 `draftListingCopy` 按已确认字段确定性生成，
+  房东一改就停止重生成（可点「重新按字段生成」）；合规检查 `checkListingComplianceFor` 命中红框；重复地址给「重新上架」；发布走与向导完全相同的
+  `buildListingRow(slim) + publishListing`、TRESA s.32 披露（安省且账号有经纪档案）、管理员核验后公开，成功后 `/dashboard?new=<slug>`。
+- 入口：`/dashboard` 主按钮改为「⚡ 快速发布」（五步向导降为次按钮）；向导顶部一条「想更快？快速发布」提示。
+- 本地实测（classify 槽 = claude-sonnet-4-6，4 张图 15 秒）：模型把三张 CGI 场景图判为「不是单位内部」、卧卫留 null，只从真正的室内图读出落地窗 / 景观 / 木地板，封面建议第 4 张。
+- 第 2 步（找经纪挂 MLS）、第 3 步（同步记录 + 人工线）未做。

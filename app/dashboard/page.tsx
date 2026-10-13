@@ -283,8 +283,11 @@ export default function Dashboard() {
                   {lang === 'zh' ? '由 Stayloop 开通 · 免费使用中' : 'Granted by Stayloop · no charge'}
                 </span>
               )}
-              <Link href="/dashboard/listings/new" className="sl-btn-primary !py-[10px] !px-4 !text-[13.5px]">
-                {lang === 'zh' ? '+ 新建房源' : '+ New listing'}
+              <Link href="/dashboard/listings/quick" className="sl-btn-primary !py-[10px] !px-4 !text-[13.5px]" data-testid="quick-publish-link">
+                {lang === 'zh' ? '⚡ 快速发布' : '⚡ Quick publish'}
+              </Link>
+              <Link href="/dashboard/listings/new" className="sl-btn-secondary !py-[10px] !px-4 !text-[13.5px]">
+                {lang === 'zh' ? '+ 五步向导' : '+ 5-step wizard'}
               </Link>
             </div>
           </div>

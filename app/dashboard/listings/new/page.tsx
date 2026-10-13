@@ -315,6 +315,11 @@ export default function NewListingPage() {
         />
       )}
       <div className="mx-auto max-w-[760px]">
+          <div className="mb-3 rounded-lg border border-line-divider bg-surface-2 px-3 py-2 text-[12.5px] text-body-2" data-testid="wizard-quick-hint">
+            {lang === 'zh' ? '想更快？' : 'In a hurry? '}
+            <Link href="/dashboard/listings/quick" className="font-semibold text-brand underline">{lang === 'zh' ? '快速发布' : 'Quick publish'}</Link>
+            {lang === 'zh' ? '：地址 + 月租 + 照片，其余由 AI 看照片填，你核对后发布。' : ': address + rent + photos; the AI fills the rest from the photos and you confirm.'}
+          </div>
           <Link
             href="/dashboard"
             className="font-mono text-[12px] text-body-3 hover:text-body"
