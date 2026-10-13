@@ -1,24 +1,23 @@
-# Rentsync / Rentals.ca 数据授权询问（草稿 · 2026-10-13）
+# Rentsync / Rentals.ca 询问邮件（草稿 v2 · 2026-10-13）
 
-收件人：Rentsync（Rentals.ca 网络的运营方，含 Rentfaster.ca、TorontoRentals.com、RentBoard.ca）——官网 rentsync.com 的 Contact / Partnerships 表单，或 Zumper 加拿大合作团队。
-发件人：Jason Han，Stayloop Inc.
+发送方式：用你自己的邮箱发（合作询问不该从系统邮箱 hello@ 发）。收件入口：rentsync.com 的 Contact / Partnerships 表单（公开页面没有列出合作邮箱，表单是唯一入口）；
+Zumper 的加拿大业务也由 Rentsync 独家运营，所以同一封信就够。两个问题一起问：**进（他们的房源给我们展示）和出（我们的房东房源同步到他们网络 + Kijiji + Facebook Marketplace）**。
 
 ---
 
-Subject: Licensed rental-listings data feed for an Ontario tenant-screening and tenancy platform (Stayloop Inc.)
+Subject: Listings partnership inquiry — Stayloop Inc. (Ontario landlord & tenant platform)
 
 Hello,
 
-I run Stayloop (www.stayloop.ai), an Ontario platform where landlords publish rentals, screen applicants and manage the tenancy, and where tenants search and apply with an AI assistant. We are not a brokerage and do not take commissions.
+I run Stayloop (www.stayloop.ai), an Ontario platform where landlords publish rentals, screen applicants and manage the tenancy, and where tenants search and apply with an AI assistant. We are not a brokerage and we hold no MLS data.
 
-We would like to show renters active rental listings from the Rentals.ca network alongside landlord-direct listings, with full attribution and a link back to the listing on your site for every result. Could you tell me whether Rentsync offers a licensed data feed or API for this, and on what terms? Specifically:
+I'd like to explore two things with Rentsync:
 
-1. Is an outbound listings feed (active rentals, GTA first) available to a third-party platform, and what are the commercial terms?
-2. Are there restrictions on how the data may be processed? Our assistant uses AI to match a renter's stated criteria (area, budget, bedrooms, pets) to listings; it does not rewrite listing content.
-3. What attribution, link-back and refresh (24 h) requirements apply?
-4. Alternatively, is there a syndication path in the other direction, so landlords who publish on Stayloop can push their listing to the Rentals.ca network?
+1. Outbound syndication. Our landlords publish on Stayloop first; we'd like to push those listings to the Rentals.ca network (Rentals.ca, Rentfaster, TorontoRentals), to Zumper, and, if you distribute there, to Kijiji and Facebook Marketplace. Do you accept a scheduled data file or API from a platform like ours, and what are the terms and fees?
 
-We hold no MLS data and have no intention of scraping; we are asking because we want a licensed source.
+2. Inbound listings. Would Rentsync license an active-rentals feed (GTA first) for display on Stayloop with full attribution and a link back to the listing on your site? Our assistant uses AI to match a renter's stated criteria (area, budget, bedrooms, pets) to listings; it does not rewrite listing content. If AI matching is a concern, please say so and we'll scope accordingly.
+
+Happy to share volumes and a sample of our listing data. Who is the right person for partnerships?
 
 Thank you,
 Jason Han
