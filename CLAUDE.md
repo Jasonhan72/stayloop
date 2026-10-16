@@ -3632,5 +3632,5 @@ AVP 不得用它做自己的产品；**任何 MLS 数据不得经过任何第三
     block 红 / warn 琥珀，末尾链到官方 PDF。官方链接九个全部核过（GET 200、PDF 以 `%PDF-` 开头；N1 无 2026/09 版标，N4 / N12 / L1 有）。
   - 表 `notice_service_records`（本人 select / insert，**无 update / delete**）：「我已把官方表格 X 于 <日期> 以 <方式> 送达」→ 记录 + 审计 `notice_served_recorded`；页底列该租约的送达记录。
     生产实跑：选 N4 → 勾 10-01 与 08-01 两期（合计 $4,900）→ 终止日填 10-20 标红「早于最早允许的 10-23（送达后 7 天）」→ 改邮寄 → 最早变 10-28 → 记录送达 → 记录行出现。
-- **顺带修的旧问题**：`lib/matters/states.ts isRentOutstanding` 把 `late`（= 已付但迟付）当成未付——今日卡写「下期租金 2026-09-01（已过 45 天）」而那期已付；现在只有 `due` 算未付（与 `ledger.isRecordedPayment` 一致）。
+- **顺带修的旧问题**：`lib/matters/states.ts isRentOutstanding` 把 `late`（= 已付但迟付）当成未付——今日卡写「下期租金 2026-09-01（已过 45 天）」而那期已付；现在只有 `due` 算未付（与 `ledger.isRecordedPayment` 一致），`lib/lifecycle/stages.ts` 房东 / 租客两处内联的同一判断也改为共用它（ship66）。注意事实 RPC 的 `rent` 只带已有行，没有行的未记录账期（占位行尚未生成时）不在 rail 计数里——账期级的完整视图在 `/h/[id]` 租金页。
 - **未做（阶段 4 起）**：乙 #7 申请人材料包；丁 #17–19 REST + OpenAPI、远程 MCP、ToS；经纪 $29 档 / 团队档功能表收回；对外省租约 N 表工具箱只显示该省审裁机构链接、不做算术。
