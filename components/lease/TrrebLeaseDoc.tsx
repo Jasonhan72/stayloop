@@ -1,13 +1,15 @@
 'use client'
 
-// Renderer for the TRREB Agreement to Lease — Residential (Form 400
-// structure). Pure display, mirroring OntarioLeaseDoc: give it terms +
-// signatures and it renders the document — used by the drafting preview,
-// the tenant signing page, the landlord detail page, and the print/PDF
+// Renderer for the offer-to-lease summary of terms (Stayloop's own format,
+// form_type 'trreb'). Pure display, mirroring OntarioLeaseDoc: give it terms +
+// signatures and it renders the document — used by the landlord's drafting
+// preview, the tenant signing page, the landlord detail page, and the print/PDF
 // backup (window.print with print styles). The printed document is clean
 // English; on-screen chrome may add zh hints with `print:hidden`.
+// 2026-10-16: 原 Form 400 对照已移除 (V1.0 discussion paper item 3) — this
+// layout is Stayloop's own, not a copy of any real-estate-board form.
 import type { LeaseSignature } from '@/lib/lease/ontario'
-import type { TrrebLeaseTerms } from '@/lib/lease/trreb'
+import type { OfferSummaryTerms } from '@/lib/lease/trreb'
 
 function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
@@ -29,13 +31,13 @@ function Field({ k, v }: { k: string; v: React.ReactNode }) {
   )
 }
 
-export default function TrrebLeaseDoc({
+export default function OfferSummaryDoc({
   terms,
   landlordSignature,
   tenantSignature,
   status,
 }: {
-  terms: TrrebLeaseTerms
+  terms: OfferSummaryTerms
   landlordSignature?: LeaseSignature | null
   tenantSignature?: LeaseSignature | null
   status?: string
@@ -63,14 +65,15 @@ export default function TrrebLeaseDoc({
       {/* Header */}
       <div className="border-b-2 border-neutral-900 pb-4">
         <div className="text-[11px] font-bold uppercase tracking-widest text-neutral-500">
-          Agreement to Lease — Residential (TRREB Form 400 style)
+          Offer to Lease — Summary of Terms (Stayloop format)
         </div>
-        <h1 className="mt-1 text-[22px] font-extrabold tracking-tight">Agreement to Lease — Residential</h1>
+        <h1 className="mt-1 text-[22px] font-extrabold tracking-tight">Offer to Lease — Summary of Terms</h1>
         <p className="mt-2 text-[11.5px] leading-relaxed text-neutral-600">
-          This Agreement to Lease follows the structure of the Toronto Regional Real Estate Board's Form 400.
+          This summary records the terms the parties agree to before the Ontario standard lease is signed; it is
+          Stayloop's own layout and is not a substitute for the standard lease required by O. Reg. 9/18.
           The resulting tenancy is governed by the <i>Residential Tenancies Act, 2006</i> (Ontario); any term
-          that conflicts with the Act is void and unenforceable. 本租赁协议采用 TRREB Form 400 结构；由此产生的
-          租赁关系受安省《住宅租赁法》约束，与该法冲突的条款无效。
+          that conflicts with the Act is void and unenforceable. 本要约要点摘要是 Stayloop 自有格式，记录签署安省
+          标准租约前双方议定的要点，不能代替标准租约；由此产生的租赁关系受安省《住宅租赁法》约束，与该法冲突的条款无效。
         </p>
         {fullySigned && (
           <div className="mt-2 inline-block rounded border border-green-700 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-green-700">
@@ -88,8 +91,8 @@ export default function TrrebLeaseDoc({
       </div>
 
       <Section n={1} title="Parties to this Agreement">
-        <Field k="Landlord (Lessor)" v={t.landlord_legal_name} />
-        <Field k="Tenant(s) (Lessee)" v={t.tenant_names.filter(Boolean).join(', ')} />
+        <Field k="Landlord" v={t.landlord_legal_name} />
+        <Field k="Tenant(s)" v={t.tenant_names.filter(Boolean).join(', ')} />
       </Section>
 
       <Section n={2} title="Premises">
@@ -171,7 +174,7 @@ export default function TrrebLeaseDoc({
         </p>
       </Section>
 
-      <Section n={11} title="Schedule A — Additional Terms">
+      <Section n={11} title="Additional Terms">
         {t.schedule_a ? (
           <p className="whitespace-pre-wrap">{t.schedule_a}</p>
         ) : (
@@ -186,7 +189,7 @@ export default function TrrebLeaseDoc({
       <Section n={12} title="Signatures">
         <div className="mt-2 grid grid-cols-2 gap-6">
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-neutral-500">Landlord (Lessor)</div>
+            <div className="text-[11px] uppercase tracking-wider text-neutral-500">Landlord</div>
             {landlordSignature ? (
               <>
                 <div className="mt-3 border-b border-neutral-800 pb-1 font-serif text-[19px] italic">{landlordSignature.name}</div>
@@ -199,7 +202,7 @@ export default function TrrebLeaseDoc({
             )}
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-neutral-500">Tenant (Lessee)</div>
+            <div className="text-[11px] uppercase tracking-wider text-neutral-500">Tenant</div>
             {tenantSignature ? (
               <>
                 <div className="mt-3 border-b border-neutral-800 pb-1 font-serif text-[19px] italic">{tenantSignature.name}</div>
@@ -214,8 +217,8 @@ export default function TrrebLeaseDoc({
         </div>
         <p className="mt-4 text-[11px] leading-relaxed text-neutral-500">
           The parties agree that electronic signatures on this document are valid under the Electronic Commerce
-          Act, 2000 (Ontario). Upon acceptance, this Agreement forms a binding agreement to lease between the
-          parties. A copy of this agreement must be provided to the tenant within 21 days after signing. This
+          Act, 2000 (Ontario). Upon acceptance, this summary records the agreed terms of the offer; the tenancy
+          itself must be set out in the Ontario standard lease. A copy of this document must be provided to the tenant within 21 days after signing. This
           document is retained online permanently and can be viewed or downloaded by either party at any time.
         </p>
       </Section>

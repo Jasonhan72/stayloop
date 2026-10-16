@@ -18,6 +18,7 @@ import type {
 } from './types'
 import { writeAuditEvent } from './audit'
 import { upsertMemories } from './memory'
+import { ATTACH_MAX_BYTES, ATTACH_MAX_FILES } from './attachments'
 import { ROLE_THEME } from '../roleTheme'
 
 export const ROLE_META: Record<
@@ -149,6 +150,14 @@ export type AgentTurn = {
   urlImages?: string[]
 }
 
+/** A PDF attachment with a base64 payload (by MIME type, or by extension when the browser gave none). */
+export function isPdfAttachment(a: ChatAttachment): boolean {
+  if (a.isImage || !a.dataUrl.includes(';base64,')) return false
+  return a.isPdf === true || a.mediaType === 'application/pdf' || /\.pdf$/i.test(a.name)
+}
+// base64 inflates 4/3 over the 4 MB file cap.
+const PDF_B64_MAX_CHARS = Math.ceil(ATTACH_MAX_BYTES / 3) * 4
+
 export async function runAgentTurn(args: {
   // client/userId are absent on the anonymous path — there is nothing to
   // persist to and no RLS scope to persist under.
@@ -184,6 +193,14 @@ export async function runAgentTurn(args: {
     .filter((a) => a.isImage && a.dataUrl.includes(';base64,'))
     .map((a) => ({ media_type: a.mediaType, data: a.dataUrl.split(';base64,')[1] }))
   const attachmentNames = (attachments ?? []).map((a) => a.name)
+  // PDF attachments (乙 #9, 2026-10-16) → base64 the route extracts the text layer from
+  // (≤ 3 files, ≤ 4 MB each — the same limits the composer applies). Anonymous previews
+  // send them too; the server reads only the first one there.
+  const documents = (attachments ?? [])
+    .filter(isPdfAttachment)
+    .slice(0, ATTACH_MAX_FILES)
+    .map((a) => ({ name: a.name.slice(0, 120), media_type: 'application/pdf', data: a.dataUrl.split(';base64,')[1] }))
+    .filter((d) => d.data.length <= PDF_B64_MAX_CHARS)
 
   // Authed turns attach the caller's session token (per-user cost gate).
   // Anonymous preview turns send NO Authorization — the route runs them under
@@ -206,7 +223,7 @@ export async function runAgentTurn(args: {
     res = await fetch('/api/agent/turn', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, exclude: exclude ?? [], history: history ?? [], lang }),
+      body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, documents, exclude: exclude ?? [], history: history ?? [], lang }),
       signal: AbortSignal.timeout(100_000),
     })
     // A 429 says which limit: Retry-After 600 = the site-wide anonymous cap, 3600 = this visitor's hour.

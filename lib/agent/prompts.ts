@@ -4,6 +4,7 @@
 import { GUIDELINE_TEXT } from '@/lib/ontario/rules'
 import { aiFactsBlock, effectiveProvince, provinceName, type NonOntarioCode, type ProvinceRow } from '@/lib/provinces'
 import { isGenericAiName } from './assistantName'
+import { tenantFactsFor } from './tenantFacts'
 import type { AgentRole, MemoryItem, WorkflowState } from './types'
 
 const PERSONA: Record<AgentRole, { name: string; persona: string; caps: string }> = {
@@ -167,6 +168,15 @@ const MAINTENANCE_TRIAGE_RULES = `
 - 紧急件:没有暖气(尤其冬天)、停水、燃气味、漏电、大面积漏水或淹水、门锁失效无法锁门、一氧化碳或烟雾报警。遇到这些 priority 一律 high,reply 里先写"现在该做什么"(燃气味 → 开窗离开、打燃气公司紧急电话;漏水 → 关总阀;没暖气 → 先电话房东,不接就发短信留证据),再出卡片;不要为了补齐四件事拖延紧急件。
 - 不替用户编造时间、位置或宠物情况;用户没说的字段留空。`
 
+// 法规引用纪律（租客 · 2026-10-16 乙 #8/#9）：条号只能来自事实包；没有的不编，改说去 LTB 页面核对。
+// 这是信息不是个案法律意见（Law Society Act s.1(5)–(6)）。
+const TENANT_CITATION_RULE = `
+# 法规引用纪律(租客)
+- 法条号、表格名、天数只能来自下方「安省租客事实包」、续约专线的 RTA 事实包或系统注入的省份事实块。事实包没有写的,【不要编条号】、不要编表格名或期限,改说「这点我这里没有核过的条文,建议到 LTB 页面核对(tribunalsontario.ca/ltb)」。
+- 这是信息不是个案法律意见:涉及具体纠纷时给 LTB / 社区法律诊所 / Tenant Duty Counsel 入口,不替用户下「一定赢 / 一定无效」的结论。
+- 用户上传租约 PDF 时,系统会把文字层附在消息里(【附件：… 的文字】块):逐条对照事实包「租约与无效条款」里列的项,逐项说哪条有效、哪条无效、依据哪一条;没列到的条款只解释含义,不下无效结论。租约地址在安省以外时,只按系统注入的该省事实块讲,不套用 RTA / LTB / N 表。扫描件读不出文字的,照系统的提示请用户截图,不要凭想象解读。
+`
+
 const HAT_LABEL: Record<AgentRole, string> = { tenant: '租客', landlord: '房东', agent: '经纪' }
 
 // 外省物业(2026-10-02 · 用户「外省的要查外省的法规，不要用安省的法规和说法」):这份提示里的
@@ -188,9 +198,18 @@ export function buildSystemPrompt(
   /** The speaking style the person set on assistant_profiles.vibe (already sanitized) — tone only. */
   vibe?: string | null,
   /** The persona the person wrote on assistant_profiles.persona (already sanitized) — who the assistant is and how it works, inside the rules. */
-  persona?: string | null
+  persona?: string | null,
+  /** This turn's context (2026-10-16 · V1.0 阶段 2 乙 #8/#9): the user's message drives the tenant
+   *  facts pack; leaseDocuments = a PDF came with the turn (forces the lease-terms section). */
+  context?: { message?: string; leaseDocuments?: boolean }
 ): string {
   const p = PERSONA[role]
+  // 租客事实包：任何租客问题都按关键词注入（不只是续约意图）。续约专线已激活时跳过「涨租」
+  // 指针段（RTA_RENEWAL_FACTS 会另行注入，不重复写）。
+  const tenantFacts =
+    role === 'tenant'
+      ? tenantFactsFor(context?.message ?? '', { leaseDocuments: !!context?.leaseDocuments, renewalLane: RENEWAL_INTENT_RE.test(context?.message ?? '') })
+      : ''
   const name = agentName || p.name
   // Not named yet → no name: it calls itself by the generic label (user 2026-09-28: 中文「AI 助理」、英文「AI Agent」).
   const nameLine = isGenericAiName(agentName) ? '用户还没有给你起名字：中文对话里自称「AI 助理」，英文对话里自称「AI Agent」' : `你的名字是 ${name}`
@@ -229,7 +248,7 @@ ${ACTION_RULE[role]}
 4. 跨角色沟通必须经过系统中枢,你看不到对方 Agent 的内部状态。${CONTACT_RULE[role]}
 5. 合规底线(OHRC/RTA):任何决定都不得基于受保护特征(种族/国籍/宗教/家庭状况/有无孩子/性取向/残疾/年龄/婚姻)。${role === 'landlord' ? '拒绝申请人必须给具体、与租住能力相关的合法理由(收入、材料、历史);决定由房东本人在申请人页做,你只帮他把理由想清楚、措辞写合规。' : ''}不起草安省无效条款(如"禁止养宠")。${PROVINCE_SCOPE[role]}
 ${role === 'tenant' ? MAINTENANCE_TRIAGE_RULES : ''}
-${role === 'tenant' ? '6. 护照盖章:任何盖章邀请都要同时给等大的"暂不盖"选项;银行章永远有 PDF 替代银行连接且完全等价;盖章压力必须市场化("Sarah 想多了解你"),不是 paywall("解锁更多功能")。话术示例:"房东发来核验链接时，银行那一步大约 5 分钟；不想连银行，交 PDF 流水也一样。"章不限制任何房源，不要说盖章能解锁房源或加快审批。\n' : ''}
+${role === 'tenant' ? '6. 护照盖章:任何盖章邀请都要同时给等大的"暂不盖"选项;银行章永远有 PDF 替代银行连接且完全等价;盖章压力必须市场化("Sarah 想多了解你"),不是 paywall("解锁更多功能")。话术示例:"房东发来核验链接时，银行那一步大约 5 分钟；不想连银行，交 PDF 流水也一样。"章不限制任何房源，不要说盖章能解锁房源或加快审批。\n' : ''}${role === 'tenant' ? TENANT_CITATION_RULE + (tenantFacts ? `\n${tenantFacts}\n` : '') : ''}
 # 术语:护照盖章(Passport Stamps)
 用户的信任验证体系叫「护照盖章」——四枚章:身份章🪪 / 收入章💼 / 银行章🏦 / 信用+法庭章⚖️(内部字段 trust_tier 1-4 = 已盖前 N 枚)。对用户只说"章"(如"已盖 2/4 枚章""盖上银行章"),绝不说"认证 N 级"或"Tier N"。
 

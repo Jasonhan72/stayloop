@@ -126,8 +126,8 @@ const SAMPLE_NOTE: Record<string, GateNote> = {
     en: 'Only the share link and the rent-reporting waitlist are live here; stamp status, view log and verification history are sample data.',
   },
   '/tenant/lease': {
-    zh: '本页只有「在管租约」列表是真实数据；租约条款、签署进度与 AI 助理解读是示范数据。',
-    en: 'Only the managed-lease list is live here; the clauses, signing progress and AI Agent commentary are sample data.',
+    zh: '本页的「在管租约」列表、N1 涨租核对与退租工具是真实功能；下面的租约条款、签署进度与 AI 助理解读是示范数据。',
+    en: 'The managed-lease list, the N1 rent-increase check and the move-out tools are live; the clauses, signing progress and AI Agent commentary below are sample data.',
   },
 }
 
@@ -250,6 +250,8 @@ function isAgentOnlyRoute(path: string): boolean {
   if (!path.startsWith('/agent/')) return false
   // The assistant home, verification, and the phone tabs around the
   // assistant (todo / ideas / progress) stay open before RECO verification.
+  // The offer / lease-points checklist (V1.0 stage 2 · 丙 #14) is an information tool, open as well.
+  if (/^\/agent\/checklist(\/|$)/.test(path)) return false
   return !/^\/agent\/(agent|verify|todo|ideas|progress|audit)(\/|$)/.test(path)
 }
 function usePathnameSafe(): string { return usePathname() || '' }

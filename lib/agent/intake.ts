@@ -269,10 +269,33 @@ const EMERGENCY_PHRASE: Record<string, Bi> = {
   gas: { zh: '燃气味 / 一氧化碳报警', en: 'gas smell / carbon monoxide alarm' },
 }
 
+/**
+ * 乙 #11 (2026-10-16): the landlord's email, for tenants whose landlord is not on
+ * Stayloop. Optional — with a confirmed managed tenancy or a signed lease the
+ * executor already knows the landlord, and an address given once is kept
+ * (tenant_landlord_contacts) for every later letter and repair. The composed
+ * line uses the exact label「房东邮箱：」/ "Landlord's email:" the execute route
+ * reads, so the address reaches the executor through the message itself.
+ */
+const LANDLORD_EMAIL_STEP: IntakeStep = {
+  key: 'landlord_email',
+  ask: { zh: '房东的邮箱？', en: 'Your landlord’s email?' },
+  hint: { zh: '没有在管租约时需要；填过一次会记住，以后可以留空', en: 'Needed when no managed tenancy is on file; once given it is remembered, so you can leave it blank later' },
+  optional: true,
+  input: 'text',
+  placeholder: { zh: 'landlord@example.com', en: 'landlord@example.com' },
+}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+function landlordEmailLine(q: IntakeQuery): string {
+  const e = q.text('landlord_email').trim()
+  if (!EMAIL_RE.test(e)) return ''
+  return q.lang === 'zh' ? `房东邮箱：${e}。` : `Landlord's email: ${e}. `
+}
+
 const REPAIR: IntakeSpec = {
   id: 'repair',
   title: { zh: '发起报修', en: 'Report a repair' },
-  outline: { zh: '哪里 · 什么问题 · 从何时 · 紧急程度 · 进门 · 宠物 · 照片', en: 'where · what · since · urgency · entry · pets · photos' },
+  outline: { zh: '哪里 · 什么问题 · 从何时 · 紧急程度 · 进门 · 宠物 · 房东邮箱 · 照片', en: 'where · what · since · urgency · entry · pets · landlord email · photos' },
   steps: [
     { key: 'where', ask: { zh: '哪里出了问题？', en: 'Where is the problem?' }, options: [
       { value: 'kitchen', label: { zh: '厨房', en: 'Kitchen' } },
@@ -316,6 +339,7 @@ const REPAIR: IntakeSpec = {
       { value: 'cat', label: { zh: '有猫', en: 'A cat' } },
       { value: 'dog', label: { zh: '有狗', en: 'A dog' } },
     ], input: 'text', placeholder: { zh: '其他', en: 'Other' } },
+    LANDLORD_EMAIL_STEP,
     { key: 'photos', ask: { zh: '拍几张照片？', en: 'Add a few photos?' }, hint: { zh: '最多 3 张，能让房东和师傅少跑一趟', en: 'Up to 3 — saves the landlord and the trades a trip' }, optional: true, attach: true },
   ],
   compose: (q) => {
@@ -339,10 +363,42 @@ const REPAIR: IntakeSpec = {
     const entry = q.said('entry')
     const petsPick = q.pick('pets')
     const pets = petsPick === 'none' ? (zh ? '没有宠物' : 'no pets') : q.said('pets')
+    const llEmail = landlordEmailLine(q)
     if (zh) {
-      return `我要报修：${where}${whatLabel ? whatLabel : '有问题'}${detail ? `——${detail}` : ''}。从${since}开始${urgencyText ? `，${urgencyText}` : ''}。${entry ? `维修人员进门：${entry}。` : ''}${pets ? `家里${pets}。` : ''}${q.attachments ? `已附 ${q.attachments} 张照片。` : ''}请整理成报修工单发给房东。`
+      return `我要报修：${where}${whatLabel ? whatLabel : '有问题'}${detail ? `——${detail}` : ''}。从${since}开始${urgencyText ? `，${urgencyText}` : ''}。${entry ? `维修人员进门：${entry}。` : ''}${pets ? `家里${pets}。` : ''}${q.attachments ? `已附 ${q.attachments} 张照片。` : ''}${llEmail}请整理成报修工单发给房东。`
     }
-    return `Repair request: ${where} — ${whatLabel || 'a problem'}${detail ? ` (${detail})` : ''}. Since ${since}${urgencyText ? `; ${urgencyText}` : ''}. ${entry ? `Entry: ${entry}. ` : ''}${pets ? `Pets: ${pets}. ` : ''}${q.attachments ? `${q.attachments} photo(s) attached. ` : ''}Turn it into a repair ticket for my landlord.`
+    return `Repair request: ${where} — ${whatLabel || 'a problem'}${detail ? ` (${detail})` : ''}. Since ${since}${urgencyText ? `; ${urgencyText}` : ''}. ${entry ? `Entry: ${entry}. ` : ''}${pets ? `Pets: ${pets}. ` : ''}${q.attachments ? `${q.attachments} photo(s) attached. ` : ''}${llEmail}Turn it into a repair ticket for my landlord.`
+  },
+}
+
+// 乙 #11 (2026-10-16): write to the landlord — also when the landlord is not on
+// Stayloop (the email goes to the address the tenant gives; see the execute route).
+const CONTACT_LANDLORD: IntakeSpec = {
+  id: 'contact_landlord',
+  title: { zh: '联系房东', en: 'Contact my landlord' },
+  outline: { zh: '说什么 · 具体内容 · 房东邮箱', en: 'topic · the message · landlord email' },
+  steps: [
+    { key: 'topic', ask: { zh: '想和房东说什么？', en: 'What is it about?' }, options: [
+      { value: 'repair_followup', label: { zh: '催一下还没修的问题', en: 'Follow up on a repair' } },
+      { value: 'renewal', label: { zh: '续约 / 涨租', en: 'Renewal / rent increase' } },
+      { value: 'deposit', label: { zh: '押金与利息', en: 'Deposit and interest' } },
+      { value: 'move_out', label: { zh: '退租', en: 'Moving out' } },
+      { value: 'entry', label: { zh: '进入通知 / 看房安排', en: 'Entry notice / showings' } },
+      { value: 'other', label: { zh: '其他', en: 'Something else' } },
+    ], input: 'text', placeholder: { zh: '一句话概括', en: 'One line' } },
+    { key: 'message', ask: { zh: '具体想说什么？', en: 'What do you want to say?' }, hint: { zh: '写事实和你的请求；我整理成一封有礼貌的信，发出前你会看到全文', en: 'State the facts and what you are asking for; it becomes a courteous letter you see in full before it goes' }, input: 'textarea', placeholder: { zh: '例如：厨房水龙头 10 月 2 日报修后还没有人来，请在本周安排维修。', en: 'e.g. the kitchen tap I reported on Oct 2 has not been looked at — please arrange a repair this week.' } },
+    LANDLORD_EMAIL_STEP,
+  ],
+  compose: (q) => {
+    const zh = q.lang === 'zh'
+    const topicPick = q.pick('topic')
+    const topic = topicPick === 'other' ? q.text('topic') : q.said('topic')
+    const msg = q.text('message').trim()
+    const llEmail = landlordEmailLine(q)
+    if (zh) {
+      return `帮我给房东写一封信${topic ? `，关于${topic}` : ''}：${msg || '（请先帮我问清楚该写什么）'}${llEmail ? ` ${llEmail}` : ''} 写好后给我看全文，确认后再发。`
+    }
+    return `Write a letter to my landlord${topic ? ` about ${topic}` : ''}: ${msg || '(help me work out what to say first)'}${llEmail ? ` ${llEmail}` : ' '}Show me the full text and send it only after I confirm.`
   },
 }
 
@@ -663,6 +719,7 @@ const RAW_INTAKES: Record<string, IntakeSpec> = {
   find_home: FIND_HOME,
   explain_lease: EXPLAIN_LEASE,
   repair: REPAIR,
+  contact_landlord: CONTACT_LANDLORD,
   stamps: STAMPS,
   screen: SCREEN,
   list: LIST,

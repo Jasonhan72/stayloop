@@ -69,6 +69,7 @@ export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
     { key: 'msgs',      href: '/messages',         icon: <MailIcon />,    label: { zh: '消息', en: 'Messages' } , desc: { zh: '和客户、各方的对话', en: 'Conversations with clients and other parties' }, group: 'inbox' },
     { key: 'clients',   href: '/agent/clients',    icon: <UsersIcon />,   label: { zh: '客户', en: 'Clients' } , desc: { zh: '客户表、委托与代客筛查', en: 'Clients, delegations and screening for clients' }, group: 'pages' },
     { key: 'tasks',     href: '/agent/tasks',      icon: <TaskIcon />,    label: { zh: '任务', en: 'Tasks' } , desc: { zh: '客户表生成的待跟进事项', en: 'Follow-ups generated from your client book' }, group: 'pages' },
+    { key: 'checklist', href: '/agent/checklist',  icon: <ChecklistIcon />, label: { zh: '核对清单', en: 'Checklist' } , desc: { zh: '要约与租约要点的确定性核对', en: 'Deterministic check of offer and lease points' }, group: 'pages' },
     { key: 'cal',       href: '/agent/calendar',   icon: <CalendarIcon />, label: { zh: '日历', en: 'Calendar' } , desc: { zh: '日程（示范）', en: 'Calendar (sample)' }, group: 'pages' },
     { key: 'earn',      href: '/agent/earnings',   icon: <CashIcon />,    label: { zh: '佣金', en: 'Earnings' } , desc: { zh: '佣金记录（示范，尚未上线）', en: 'Earnings (sample, not live yet)' }, group: 'pages' },
     { key: 'audit',     href: '/agent/audit',      icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '你的操作和它替你做的事，逐条留痕', en: 'Everything you and your AI Agent did, line by line' }, group: 'records' },
@@ -248,6 +249,7 @@ export function CashIcon()  { return I('M12 1v22|M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3
 export function ScreenIcon() { return I('M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z|M21 21l-5.6-5.6|M7.8 10.6l1.8 1.8 3.4-3.6') }
 export function SearchIcon() { return I('M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z|M21 21l-5.6-5.6') }
 export function TaskIcon() { return I('M9 6h11|M9 12h11|M9 18h11|M4 6l1 1 2-2|M4 12l1 1 2-2|M4 18l1 1 2-2') }
+export function ChecklistIcon() { return I('M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z|M16 5h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2|M8.5 13.5l2.2 2.2 4.8-5') }
 export function CalendarIcon() { return I('M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z|M16 2v4|M8 2v4|M3 10h18') }
 export function AuditIcon() { return I('M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z|M9 12l2 2 4-4') }
 export function UsersIcon() { return I('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2|M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8|M23 21v-2a4 4 0 0 0-3-3.87|M16 3.13a4 4 0 0 1 0 7.75') }

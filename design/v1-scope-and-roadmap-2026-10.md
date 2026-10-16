@@ -1,6 +1,6 @@
 # V1.0 正式版 · 范围与路线图（讨论稿，2026-10-13）
 
-**这是讨论稿，不是执行令。** 四条调研线的原稿在 `design/research/v1/`（租客 `tenant-tools`、经纪 `agent-tools`、房东 `landlord-retention`、开放 API `open-api`，各自带对标原料与法规原文），法规核查回执 `legal-check-2026-10.md`。本稿只做取舍与排序；任何一项动手前都要你再确认。
+**用户 2026-10-15「按照你的建议来」——已转为执行；阶段 1 已上线（见 CLAUDE.md「V1.0 阶段 1」），其余按第 4 节顺序逐阶段部署。** 四条调研线的原稿在 `design/research/v1/`（租客 `tenant-tools`、经纪 `agent-tools`、房东 `landlord-retention`、开放 API `open-api`，各自带对标原料与法规原文），法规核查回执 `legal-check-2026-10.md`。本稿只做取舍与排序；任何一项动手前都要你再确认。
 
 ## 1. 一句话结论
 

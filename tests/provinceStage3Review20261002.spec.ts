@@ -73,7 +73,7 @@ describe('Ontario-only promises are kept off listings elsewhere', () => {
   it('a lease record for a home outside Ontario is not labelled or offered as Ontario’s standard lease', () => {
     const p = read('app/landlord/leases/[id]/page.tsx')
     expect(p).toContain("const outside = recordOnly && province !== 'ON'")
-    expect(p).toContain("{outside ? `${provName} · ${zh ? '租约记录' : 'LEASE RECORD'}` : <>{isTrreb ? 'TRREB FORM 400' : 'ONTARIO STANDARD LEASE'} · {l.status.toUpperCase()}</>}")
+    expect(p).toContain("{outside ? `${provName} · ${zh ? '租约记录' : 'LEASE RECORD'}` : <>{isTrreb ? (zh ? '要约要点摘要' : 'OFFER SUMMARY') : 'ONTARIO STANDARD LEASE'} · {l.status.toUpperCase()}</>}")
     // The province is resolved before the lease is shown (no Ontario wording first).
     expect(p.indexOf('setProvince(')).toBeLessThan(p.indexOf('setLease(data)'))
   })

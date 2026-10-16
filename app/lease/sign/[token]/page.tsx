@@ -10,9 +10,9 @@ import InsuranceReferralCard from '@/components/tenant/InsuranceReferralCard'
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import OntarioLeaseDoc from '@/components/lease/OntarioLeaseDoc'
-import TrrebLeaseDoc from '@/components/lease/TrrebLeaseDoc'
+import OfferSummaryDoc from '@/components/lease/TrrebLeaseDoc'
 import type { OntarioLeaseTerms, LeaseSignature } from '@/lib/lease/ontario'
-import type { TrrebLeaseTerms } from '@/lib/lease/trreb'
+import type { OfferSummaryTerms } from '@/lib/lease/trreb'
 import { useT } from '@/lib/i18n'
 import { leaseActionErrorText, leaseErrorNeedsReload } from '@/lib/lease/leaseState'
 
@@ -31,7 +31,7 @@ type ViewLease = {
   id: string
   form_type: string
   status: string
-  terms: OntarioLeaseTerms | TrrebLeaseTerms
+  terms: OntarioLeaseTerms | OfferSummaryTerms
   tenant_name: string | null
   unit_label: string | null
   landlord_signature: LeaseSignature | null
@@ -147,8 +147,8 @@ export default function LeaseSignPage() {
         <div className="sl-card overflow-hidden !p-0 print:border-none print:shadow-none">
           {/* Unknown/legacy form_type falls back to the Ontario renderer (back-compat). */}
           {lease.form_type === 'trreb' ? (
-            <TrrebLeaseDoc
-              terms={lease.terms as TrrebLeaseTerms}
+            <OfferSummaryDoc
+              terms={lease.terms as OfferSummaryTerms}
               landlordSignature={lease.landlord_signature}
               tenantSignature={lease.tenant_signature}
               status={lease.status}

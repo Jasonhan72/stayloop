@@ -267,6 +267,11 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     work_order_dispatch_no_candidate: { zh: '没有符合资质的服务商可派——需要你在报修单上手动指派', en: 'No qualified provider to dispatch — assign one on the ticket' },
     delegation_link_resent: { zh: '你重新发送了委托确认链接', en: 'You re-sent a delegation confirmation link' },
     application_decision_drafted: { zh: '你起草了一份申请决定通知（等你批准后才发出）', en: 'You drafted an application decision notice (sent only once you approve it)' },
+    // V1.0 stage 2 (2026-10-16): agent intake links.
+    agent_intake_link_created: { zh: '你生成了一条客户收件链接', en: 'You created a client intake link' },
+    agent_intake_link_revoked: { zh: '你撤销了一条客户收件链接', en: 'You revoked a client intake link' },
+    agent_intake_received: { zh: '客户通过收件链接交来了材料，筛查记录已建立', en: 'A client sent documents through your intake link — a screening record was created' },
+    tenant_landlord_contact_saved: { zh: '你记下了房东的联系邮箱', en: 'You saved your landlord\'s contact e-mail' },
     approval_abandoned: { zh: '你放弃了一张已批准但还没执行的卡片，什么也没有发出', en: 'You dropped an approved card that had not run — nothing was sent' },
     household_lease_attached_from_esign: { zh: '双签完成，新租约已接到原来的在管租约上', en: 'Both signed — the new lease was attached to the existing managed tenancy' },
     household_import_corrected: { zh: '你更正了导入的在管租约信息', en: 'You corrected an imported tenancy record' },

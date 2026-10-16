@@ -3,8 +3,8 @@
 export const runtime = 'edge'
 
 // Draft a lease on one of two form systems keyed by form_type:
-// the Ontario Standard Form of Lease ('ontario_standard') or the TRREB
-// Agreement to Lease — Residential, Form 400 style ('trreb'). Saving creates
+// the Ontario Standard Form of Lease ('ontario_standard') or the offer-to-lease
+// summary of terms in Stayloop's own format ('trreb'; lib/lease/trreb.ts). Saving creates
 // a draft lease_documents row; the detail page then sends it to the tenant
 // for online signing. Arriving with ?application_id=<uuid> prefills the form
 // from that application + its listing (one-click draft from an applicant).
@@ -16,9 +16,9 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import OntarioLeaseDoc from '@/components/lease/OntarioLeaseDoc'
-import TrrebLeaseDoc from '@/components/lease/TrrebLeaseDoc'
+import OfferSummaryDoc from '@/components/lease/TrrebLeaseDoc'
 import { emptyOntarioTerms, checkAdditionalTerms, type OntarioLeaseTerms } from '@/lib/lease/ontario'
-import { emptyTrrebTerms, type TrrebLeaseTerms } from '@/lib/lease/trreb'
+import { emptyOfferSummaryTerms, type OfferSummaryTerms } from '@/lib/lease/trreb'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
 import { useT } from '@/lib/i18n'
@@ -177,7 +177,7 @@ function NewLeasePageInner() {
 
   const [formType, setFormType] = useState<FormType>('ontario_standard')
   const [t, setT] = useState<OntarioLeaseTerms>(emptyOntarioTerms())
-  const [tt, setTt] = useState<TrrebLeaseTerms>(emptyTrrebTerms())
+  const [tt, setTt] = useState<OfferSummaryTerms>(emptyOfferSummaryTerms())
   const [tenantEmail, setTenantEmail] = useState('')
   const [preview, setPreview] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -231,7 +231,7 @@ function NewLeasePageInner() {
       if (!leaseIsEditableDraft(data)) { setEditBlocked(data.id); return }
       const ft: FormType = data.form_type === 'trreb' ? 'trreb' : 'ontario_standard'
       setFormType(ft)
-      if (ft === 'trreb') setTt({ ...emptyTrrebTerms(), ...((data.terms || {}) as Partial<TrrebLeaseTerms>) })
+      if (ft === 'trreb') setTt({ ...emptyOfferSummaryTerms(), ...((data.terms || {}) as Partial<OfferSummaryTerms>) })
       else setT({ ...emptyOntarioTerms(), ...((data.terms || {}) as Partial<OntarioLeaseTerms>) })
       setTenantEmail(data.tenant_email || '')
       setApplicationId(data.application_id ?? null)
@@ -401,7 +401,7 @@ function NewLeasePageInner() {
   }, [authLoading, landlord, applicationParam])
 
   const patch = (p: Partial<OntarioLeaseTerms>) => setT((prev) => ({ ...prev, ...p }))
-  const patchT = (p: Partial<TrrebLeaseTerms>) => setTt((prev) => ({ ...prev, ...p }))
+  const patchT = (p: Partial<OfferSummaryTerms>) => setTt((prev) => ({ ...prev, ...p }))
 
   const save = async () => {
     if (saving || !landlord) return
@@ -417,7 +417,7 @@ function NewLeasePageInner() {
         return
       }
       if (!tt.term.end_date) {
-        setErr(zh ? 'TRREB 协议需要租期到期日' : 'A TRREB agreement needs a term end date')
+        setErr(zh ? '要约要点摘要需要租期到期日' : 'An offer summary needs a term end date')
         return
       }
     } else {
@@ -431,7 +431,7 @@ function NewLeasePageInner() {
       }
     }
     // RTA/OHRC guardrail on the free-text terms — void terms don't get drafted.
-    // The same check covers Ontario §15 additional terms and TRREB Schedule A.
+    // The same check covers Ontario §15 additional terms and the offer summary's additional terms.
     const check = checkAdditionalTerms((isTrreb ? tt.schedule_a : t.additional_terms) || '')
     // Ontario rules single source (lib/ontario/rules.ts): deposit cap, void
     // pet bans, extra fees in Schedule B, date order — blocks before saving.
@@ -577,20 +577,20 @@ function NewLeasePageInner() {
         <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
-              {formType === 'trreb' ? 'TRREB FORM 400' : 'ONTARIO STANDARD LEASE'} · {zh ? '起草' : 'DRAFT'}
+              {formType === 'trreb' ? (zh ? '要约要点摘要' : 'OFFER SUMMARY') : 'ONTARIO STANDARD LEASE'} · {zh ? '起草' : 'DRAFT'}
             </div>
             <h1 className="mt-1 text-[24px] font-bold tracking-tight sm:text-[30px]">
               {editId
                 ? (zh ? '编辑租约草稿' : 'Edit the lease draft')
                 : formType === 'trreb'
-                ? (zh ? '起草 TRREB 租赁协议' : 'Draft a TRREB Agreement to Lease')
+                ? (zh ? '起草要约要点摘要' : 'Draft an offer summary of terms')
                 : (zh ? '起草安省标准租约' : 'Draft an Ontario Standard Lease')}
             </h1>
             <p className="mt-1 text-[13px] text-body-2">
               {formType === 'trreb'
                 ? (zh
-                    ? '按 TRREB Form 400（Agreement to Lease — Residential）结构填写。保存后可发送给租客在线签署，签完双方可随时下载 PDF 备份。'
-                    : 'Follows the TRREB Form 400 (Agreement to Lease — Residential) structure. Save, send to your tenant for online signing, then both parties can download PDF backups anytime.')
+                    ? 'Stayloop 自有格式：记录签标准租约前双方议定的要点（租金、租期、押金、包含的服务、附加条款），不代替安省标准租约。保存后可发送给租客在线签署，签完双方可随时下载 PDF 备份。'
+                    : 'Stayloop’s own format: records the points agreed before the standard lease is signed (rent, term, deposit, included services, additional terms); it does not replace the Ontario standard lease. Save, send to your tenant for online signing, then both parties can download PDF backups anytime.')
                 : (zh
                     ? '按安省法定标准租约（2229E）结构填写。保存后可发送给租客在线签署，签完双方可随时下载 PDF 备份。'
                     : 'Follows the mandatory Ontario Standard Form of Lease (2229E). Save, send to your tenant for online signing, then both parties can download PDF backups anytime.')}
@@ -645,7 +645,7 @@ function NewLeasePageInner() {
         {preview ? (
           <div className="mt-6 sl-card overflow-hidden !p-0">
             {formType === 'trreb'
-              ? <TrrebLeaseDoc terms={tt} status="draft" />
+              ? <OfferSummaryDoc terms={tt} status="draft" />
               : <OntarioLeaseDoc terms={t} status="draft" />}
           </div>
         ) : (
@@ -654,7 +654,7 @@ function NewLeasePageInner() {
             <div className="grid gap-3 sm:grid-cols-2">
               {([
                 ['ontario_standard', zh ? '安省标准租约' : 'Ontario Standard Lease', zh ? '法定标准租约（2229E）· 大多数租赁的默认选择' : 'Mandatory standard form (2229E) · the default for most tenancies'],
-                ['trreb', zh ? 'TRREB 协议 Form 400' : 'TRREB Form 400', zh ? 'Agreement to Lease — Residential · 经纪交易常用' : 'Agreement to Lease — Residential · common in brokered deals'],
+                ['trreb', zh ? '要约要点摘要' : 'Offer summary of terms', zh ? 'Stayloop 自有格式 · 签标准租约前先定下要点' : 'Stayloop’s own format · settle the points before the standard lease'],
               ] as const).map(([ft, title, sub]) => (
                 <button
                   key={ft}
@@ -784,8 +784,8 @@ function NewLeasePageInner() {
             ) : (
               <>
                 <SectionCard title={zh ? '1 · 当事人' : '1 · Parties'}>
-                  <Input label={zh ? '房东法定名称（Lessor）' : 'Landlord legal name (Lessor)'} value={tt.landlord_legal_name} onChange={(v) => patchT({ landlord_legal_name: v })} required placeholder="e.g. 1000123 Ontario Inc. / Jason Han" />
-                  <Input label={zh ? '租客姓名（Lessee）' : 'Tenant name (Lessee)'} value={tt.tenant_names[0] || ''} onChange={(v) => patchT({ tenant_names: [v, ...(tt.tenant_names.slice(1))] })} required placeholder="e.g. Aanchal Bajaj" />
+                  <Input label={zh ? '房东法定名称' : 'Landlord legal name'} value={tt.landlord_legal_name} onChange={(v) => patchT({ landlord_legal_name: v })} required placeholder="e.g. 1000123 Ontario Inc. / Jason Han" />
+                  <Input label={zh ? '租客姓名' : 'Tenant name'} value={tt.tenant_names[0] || ''} onChange={(v) => patchT({ tenant_names: [v, ...(tt.tenant_names.slice(1))] })} required placeholder="e.g. Aanchal Bajaj" />
                   <Input label={zh ? '第二位租客（可选）' : 'Second tenant (optional)'} value={tt.tenant_names[1] || ''} onChange={(v) => patchT({ tenant_names: [tt.tenant_names[0] || '', v] })} placeholder="e.g. Karaan Mehrottra" />
                   <Input label={zh ? '租客邮箱（发送签署邀请）' : 'Tenant email (signing invitation)'} value={tenantEmail} onChange={setTenantEmail} type="email" placeholder="tenant@email.com" />
                 </SectionCard>

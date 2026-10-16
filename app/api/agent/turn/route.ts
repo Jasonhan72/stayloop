@@ -10,10 +10,11 @@ import { tenantCardRecipient } from '@/lib/agent/chatCopy'
 import { NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
-import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback, landlordRenewalFacts, landlordListingsBlock } from '@/lib/agent/prompts'
+import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback, landlordRenewalFacts, landlordListingsBlock, OUT_OF_PROVINCE_FACTS_HEADING } from '@/lib/agent/prompts'
+import { parseTurnDocuments, extractAttachmentTexts, renderDocumentBlocks, detectDocumentProvince, type TurnDocument } from '@/lib/agent/attachmentText'
 import { ANON_TURNS_PER_HOUR, ANON_TURNS_SITE_PER_HOUR } from '@/lib/agent/anonLimits'
 import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, nonOntarioProvince, provinceOfDraft, provinceOfOwnedListingInMessage, type TurnOutput } from '@/lib/agent/guardrail'
-import { effectiveProvince, type ProvinceCode, type ProvinceRow } from '@/lib/provinces'
+import { aiFactsBlock, effectiveProvince, provinceName, type ProvinceCode, type ProvinceRow } from '@/lib/provinces'
 import { matchOwnedListing, mergeWithExisting, type OwnedListingRow } from '@/lib/agent/draftExisting'
 import { flattenMarkdown, isProviderCapacityError } from '@/lib/agent/turnHelpers'
 import { isMlsHost, MLS_READ_REFUSED_REASON, EXTERNAL_LINKS_NOTE, type ExternalLink } from '@/lib/listings/externalSources'
@@ -65,6 +66,9 @@ type TurnRequest = {
   stageLabel?: string
   images?: { media_type: string; data: string }[]
   attachment_names?: string[]
+  // PDF attachments (base64, ≤ 4 MB each, ≤ 3; anonymous turns read the first only) — the
+  // server extracts the text layer (lib/agent/attachmentText.ts) so 「解读租约」 reads the lease.
+  documents?: TurnDocument[]
   exclude?: string[]
   history?: { role: 'user' | 'agent'; text: string }[]
   // UI language of the caller — drives the reply-language instruction and
@@ -363,8 +367,11 @@ export async function POST(req: Request) {
     .filter((im) => im && typeof im.data === 'string' && /^image\//.test(im.media_type || ''))
     .slice(0, 3)
   const attachmentNames = Array.isArray(body.attachment_names) ? body.attachment_names.slice(0, 10).map((n) => String(n).slice(0, 120)) : []
-  if (!VALID_ROLES.has(role) || typeof message !== 'string' || (!message.trim() && imgs.length === 0)) {
-    return NextResponse.json({ error: 'role and message (or an image) are required' }, { status: 400 })
+  // PDF attachments: count / size clamps here (anonymous: first file only); the text budget
+  // (12,000 per file · 25,000 total · 6,000 anonymous) is applied at extraction time.
+  const docs = parseTurnDocuments(body.documents, { anonymous })
+  if (!VALID_ROLES.has(role) || typeof message !== 'string' || (!message.trim() && imgs.length === 0 && docs.length === 0)) {
+    return NextResponse.json({ error: 'role and message (or an attachment) are required' }, { status: 400 })
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
@@ -540,8 +547,10 @@ export async function POST(req: Request) {
     }
   }
 
-  const system =
-    buildSystemPrompt(role, agentName, memories, workflow, typeof body.stageLabel === 'string' ? body.stageLabel.slice(0, 80) : undefined, uiLang, vibe, persona) +
+  // `let`: the PDF attachments are read inside runTurn (behind the heartbeat); a lease from
+  // another province appends that province's fact block before the model is called.
+  let system =
+    buildSystemPrompt(role, agentName, memories, workflow, typeof body.stageLabel === 'string' ? body.stageLabel.slice(0, 80) : undefined, uiLang, vibe, persona, { message, leaseDocuments: docs.length > 0 }) +
     renewalAddendum +
     (landlordRenewalCtx ? landlordRenewalFacts() : '') +
     landlordAddendum +
@@ -579,8 +588,30 @@ export async function POST(req: Request) {
     }
   }
 
+  // PDF attachments → text layer (乙 #9). Each file's block says plainly when it is a scan
+  // (no text layer) so the model asks for screenshots instead of imagining the clauses.
+  let docContext = ''
+  const docNames = new Set<string>()
+  if (docs.length) {
+    const docResults = await extractAttachmentTexts(docs, { anonymous })
+    for (const r of docResults) docNames.add(r.name)
+    docContext = renderDocumentBlocks(docResults)
+    // 外省租约按该省规则（2026-10-02 的 lib/provinces 接法）：文件地址指向安省以外时注入该省
+    // 事实块，并让 guardrail 按该省评估（messageProvince 只在没有别的来源时由文件决定）。
+    const docProvince = detectDocumentProvince(docResults.map((r) => r.text).join('\n'))
+    if (docProvince && docProvince !== 'ON') {
+      if (!messageProvince) messageProvince = docProvince
+      const block = aiFactsBlock(docProvince)
+      if (block) {
+        system += `\n\n${OUT_OF_PROVINCE_FACTS_HEADING}\n（用户上传的文件地址在${provinceName(docProvince, 'zh')}：解读这份文件只按下面这块，不套用 RTA / LTB / N 表 / 安省标准租约。）\n${block}`
+      }
+    }
+  }
+
   // Build the user turn — text (+ attachment note) and any image blocks for Vision.
-  const nonImage = attachmentNames.filter((n) => !/\.(png|jpe?g|webp|gif|heic|heif)$/i.test(n))
+  // PDFs that went through extraction carry their own block above; the "not extracted" note is
+  // only for the other non-image files (e.g. .docx).
+  const nonImage = attachmentNames.filter((n) => !/\.(png|jpe?g|webp|gif|heic|heif)$/i.test(n) && !docNames.has(n))
   const note = attachmentNames.length
     ? `\n\n[用户上传了文件：${attachmentNames.join('、')}]` +
       (nonImage.length ? `\n[注意：${nonImage.join('、')} 不是图片,系统没有提取其内容,你看不到正文——请如实说明并请用户截图或粘贴文字,不要凭想象回答其中的条款。]` : '')
@@ -591,7 +622,7 @@ export async function POST(req: Request) {
       hist.map((h) => `${h.role === 'user' ? '用户' : agentName}: ${String(h.text || '').slice(0, 200)}`).join('\n') +
       '\n\n[当前消息]\n'
     : ''
-  const userText = histText + (message.trim() || '（用户上传了文件,请查看并回应）').slice(0, 4000) + note + urlContext
+  const userText = histText + (message.trim() || '（用户上传了文件,请查看并回应）').slice(0, 4000) + note + docContext + urlContext
   const userContent: ChatMessage['content'] = imgs.length
     ? [
         { type: 'text', text: userText },

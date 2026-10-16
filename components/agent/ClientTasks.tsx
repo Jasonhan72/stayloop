@@ -26,7 +26,7 @@ export default function ClientTasks({ zh }: { zh: boolean }) {
     if (loading || !user) return
     // Same reachability rule as the client book: an email to relay to, or a live delegation (the client has an account).
     Promise.all([
-      supabase.from('agent_clients').select('id, name, stage, client_role, representation_agreement_at, info_guide_given_at, last_contact_at, updated_at, area, budget, email').eq('agent_auth_id', user.id).limit(200),
+      supabase.from('agent_clients').select('id, name, stage, client_role, representation_agreement_at, representation_agreement_expires_at, info_guide_given_at, info_guide_delivered_at, info_guide_delivery_note, multi_rep_consent_at, lease_end_date, last_contact_at, updated_at, area, budget, email').eq('agent_auth_id', user.id).limit(200),
       supabase.from('delegations').select('client_id, status, expires_at').eq('delegate_auth_id', user.id).eq('status', 'active'),
     ]).then(([{ data }, { data: dl }]) => {
         const rows = (data ?? []) as (Parameters<typeof clientTasks>[0][number] & { email: string | null })[]

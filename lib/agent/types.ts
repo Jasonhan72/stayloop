@@ -216,6 +216,9 @@ export type ChatAttachment = {
   mediaType: string
   dataUrl: string // data:<mime>;base64,<...>
   isImage: boolean
+  /** PDF attachment (乙 #9): the orchestrator sends it as `documents` and the route reads its text layer.
+   *  Optional — derived from mediaType / the .pdf extension when absent. */
+  isPdf?: boolean
 }
 
 // Real market context computed server-side from actual listing prices

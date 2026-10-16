@@ -77,7 +77,7 @@ describe('/landlord/leases/new · a home outside Ontario gets the province card,
     expect(page.match(/void run\(\)\.finally\(\(\) => \{ if \(!cancelled\) setResolvedKey\(key\) \}\)/g)?.length).toBe(3)
     const gate = between(page, '  if (outside) {', '\n  }\n')
     expect(gate).toContain('<ProvinceLeaseCard gate={outside} zh={zh} />')
-    expect(page.indexOf('  if (outside) {')).toBeLessThan(page.indexOf("{formType === 'trreb' ? 'TRREB FORM 400' : 'ONTARIO STANDARD LEASE'}"))
+    expect(page.indexOf('  if (outside) {')).toBeLessThan(page.indexOf("{formType === 'trreb' ? (zh ? '要约要点摘要' : 'OFFER SUMMARY') : 'ONTARIO STANDARD LEASE'}"))
   })
   it('the card: the province rules, the official link, the import path — nothing Ontario', () => {
     const card = between(page, 'function ProvinceLeaseCard(', '\nfunction NewLeasePageInner(')

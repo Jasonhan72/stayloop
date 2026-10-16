@@ -1,12 +1,19 @@
-// TRREB Agreement to Lease — Residential (Form 400 structure) — the digital
-// terms model. This is system #2 of two: it shares the same lease_documents
-// row shape as the Ontario Standard Lease (form_type 'ontario_standard' in
-// lib/lease/ontario.ts) with a different terms schema + renderer
-// (components/lease/TrrebLeaseDoc.tsx). The Schedule A free text runs through
-// the same checkAdditionalTerms() RTA/OHRC guardrail as Ontario's §15.
+// Offer-to-lease summary of terms (Stayloop's own format) — the digital terms
+// model behind form_type 'trreb'. This is system #2 of two: it shares the same
+// lease_documents row shape as the Ontario Standard Lease (form_type
+// 'ontario_standard' in lib/lease/ontario.ts) with a different terms schema +
+// renderer (components/lease/TrrebLeaseDoc.tsx). The additional-terms free text
+// runs through the same checkAdditionalTerms() RTA/OHRC guardrail as Ontario's §15.
+//
+// 2026-10-16 (V1.0 stage 2, discussion paper item 3): 原 Form 400 对照已移除。
+// This summary is Stayloop's own layout of the points an offer settles before
+// the Ontario standard lease is signed; it does not reproduce, mirror or stand
+// in for any real-estate-board form, and only the landlord's workbench
+// (/landlord/leases/new) can draft it. The form_type value 'trreb' and the file
+// name stay for the stored rows and imports.
 
-export type TrrebLeaseTerms = {
-  // Parties (Form 400: Tenant = Lessee, Landlord = Lessor)
+export type OfferSummaryTerms = {
+  // Parties
   landlord_legal_name: string
   tenant_names: string[]
   // Premises
@@ -16,7 +23,7 @@ export type TrrebLeaseTerms = {
     city: string
     postal?: string
   }
-  // Term — "for a term of … commencing …"
+  // Term — start, end and an optional spelled-out duration
   term: {
     start_date: string
     end_date: string
@@ -29,11 +36,11 @@ export type TrrebLeaseTerms = {
     payable_to?: string
     methods?: string
   }
-  // Deposit — "upon acceptance", held by the Deposit Holder, credited toward
-  // first and last month's rent (RTA: deposits beyond LMR are illegal)
+  // Deposit — held by the named holder; RTA s.105–106: at most one month,
+  // applied only to the last rental period
   deposit: {
     amount?: number | null
-    holder?: string // e.g. listing brokerage "in trust"
+    holder?: string // e.g. a brokerage "in trust"
     applied_to_first_last?: boolean
   }
   // Use of premises — residential use only; only the named occupants
@@ -61,15 +68,15 @@ export type TrrebLeaseTerms = {
   // Chattels included / fixtures rented (e.g. hot water tank)
   chattels_included?: string
   fixtures_rented?: string
-  // Schedule(s) — Schedule A free text = additional terms (guardrailed)
+  // Additional terms free text (guardrailed); the stored key keeps its name
   schedule_a?: string
-  // Irrevocability — offer open for acceptance until this date
+  // Offer open for acceptance until this date
   irrevocability_date?: string
   // References / credit check acknowledgement clause
   references_credit_ack?: boolean
 }
 
-export function emptyTrrebTerms(): TrrebLeaseTerms {
+export function emptyOfferSummaryTerms(): OfferSummaryTerms {
   return {
     landlord_legal_name: '',
     tenant_names: [''],

@@ -37,6 +37,8 @@ await probe('404 unknown path', `${BASE}/no-such-page-${Date.now()}`, {}, { stat
 await probe('308 apex → www', `https://stayloop.ai/pricing`, {}, { status: 308, location: 'www.stayloop.ai/pricing' })
 await probe('308 /landlord/settings → /settings', `${BASE}/landlord/settings`, {}, { status: 308, location: '/settings' })
 await probe('308 screening.stayloop.ai → /screening', `https://screening.stayloop.ai/anything`, {}, { status: 308, location: 'www.stayloop.ai/screening' })
+await probe('intake page no-referrer', `${BASE}/intake/not-a-real-token?${bust()}`, {}, { status: 200, headers: { 'referrer-policy': /no-referrer$/ } })
+await probe('agent-intake unknown token → 404', `${BASE}/api/agent-intake/not-a-token`, {}, { status: [404, 400] })
 await probe('verify page no-referrer', `${BASE}/verify/not-a-real-token?${bust()}`, {}, { status: 200, headers: { 'referrer-policy': /no-referrer$/ } })
 await probe('public share invalid token', `${BASE}/p/invalid-token-xyz?${bust()}`, {}, { status: 200 })
 await probe('listing detail 404 on unknown slug renders', `${BASE}/listings/no-such-slug-xyz?${bust()}`, {}, { status: [200, 404] })

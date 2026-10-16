@@ -270,6 +270,11 @@ export default function TenantMoveInPage() {
           <Link href={`/tenant/agent?prompt=${encodeURIComponent(lang === 'zh' ? '入住检查完成，帮我把检查结果提交给房东' : 'Move-in check complete — submit the results to my landlord')}`} className="sl-btn-primary px-7 py-3.5">{lang === 'zh' ? '完成入住检查 · 提交给 Sarah' : 'Finish move-in check · submit to Sarah'}</Link>
           <Link href={`/tenant/agent?prompt=${encodeURIComponent(lang === 'zh' ? '入住检查发现问题，先暂停提交，帮我记录问题清单' : 'Found issues during move-in check — pause the submission and help me log them')}`} className="sl-btn-ghost px-6 py-3.5">{lang === 'zh' ? '有问题，先暂停' : 'Something’s wrong, pause'}</Link>
         </div>
+        {/* 乙 #10: the move-out tools live on the lease page */}
+        <p className="mt-4 text-center text-[12.5px] text-body-3" data-testid="move-out-entry">
+          {lang === 'zh' ? '要退租了？' : 'Moving out?'}{' '}
+          <Link href="/tenant/lease#move-out" className="font-semibold text-brand-strong underline underline-offset-2">{lang === 'zh' ? '退租工具 →' : 'Move-out tools →'}</Link>
+        </p>
       </div>
     </WorkspaceShell>
   )

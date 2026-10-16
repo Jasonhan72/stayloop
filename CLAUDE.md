@@ -3558,3 +3558,14 @@ AVP 不得用它做自己的产品；**任何 MLS 数据不得经过任何第三
 方案 `design/v1-research-plan-2026-10.md`；四条线原稿 `design/research/v1/{tenant-tools,agent-tools,landlord-retention,open-api}-2026-10.md`（对标原料在同目录子文件夹，每条带 URL 与 ≤15 词引语）；法规核查 `legal-check-2026-10.md`（七组法规对照官方原文，16 处措辞修正已标在各稿顶部；安省法条可直接读 e-Laws 接口 `ontario.ca/laws/api/v2/legislation/en/act-content/statute/<编号>`，RTA 06r17 / LSA 90l08 / TRESA 02r30 / CRA 90c33）；**讨论稿 `design/v1-scope-and-roadmap-2026-10.md`（未执行，等用户确认）**。
 最硬的事实：外部真实房东只有 14 人 / 51 份筛查、第 8 天后回访为 0、筛查之后的每一步都是 0；租赁经纪侧市场没有专用产品；现有 API 零外部调用方；远程 MCP 已在边缘路由上跑通原型（scratchpad，不进仓库）。
 结论性边界（写进了讨论稿 3.3）：不做在线收租 / 代收（FINTRAC 汇款业务 + RPAA 支付功能）、不代填 / 代选 / 代送 LTB 表格（LSA s.1(5)–(7)，官方 PDF 是 Crown copyright 不改写）、不做 OREA Form 400 本体、不做任何 MLS 路径、注册前不对第三方开放筛查与按姓名查记录。
+
+## V1.0 阶段 1「发布前补路」（2026-10-15 · 用户「按照你的建议来」→ 讨论稿路线图开始执行）
+
+拍板项按建议落定：四条线并行；在线收租 / 代收不做；经纪公司路线不留口；API 第一档先免费换接入量；Form 400 渲染器只留房东并改名（阶段 2）；经纪付费档 $29 保留、团队档功能清单先下架（阶段 2）；CRA 注册与三项律师确认由用户推进。阶段 1 落地（守卫 `tests/v1stage1_{nextStep,followUp,auditAndDemo,apiTier3}.spec.ts`；迁移 `20261015_landlord_followups.sql` 已应用 prod）：
+- **筛查后的「下一步」**（`lib/screening/nextStep.ts nextStepsFor` 纯函数 + `components/screening/NextStepCard.tsx`，挂在 done 页结论卡之下与 report 页末尾——筛查模块只做了加法）：有申请的 approve → 起草标准租约（`/landlord/leases/new?application_id=`）+ 发录取通知；conditional / decline → 申请人页补材料 / 婉拒（须理由）；手动筛查的 approve → 起草租约 + 把现有租约录进来；`error` → 「同一批文件重跑」。文案只写「下一步 · 由你决定」，不含分数 / 建议录取。
+- **失败筛查「重跑」**：筛查页历史列表 error 行的「↻ 重跑」（`runAnalysis({ id, fileCount })` 走现有 existing 分支，不重新上传）+ `errorReasonText` 显示失败原因（`screenings.error`）。
+- **回访邮件** `lib/landlord/followUp.ts`：首筛 ≥3 天 / ≥14 天且没有租约 / 在管租约的真实房东各发一封（d3 / d14，中英双语；测试号、`@stayloop.ai`、首筛超过 60 天的不发；每房东每轮一封），成功才写 `landlord_followups`（service role 专用、unique(landlord, stage)）+ 审计 `landlord_followup_emailed`；挂在 `/api/agent/proactive` cron 模式末尾（`followups: {sent, skipped}`）。
+- **审计分类** `lib/audit/eventKinds.ts`（`isPageOpenEvent` = `*_session_started` + `listing_viewed` / `listings_searched`；`isOutcomeEvent`；`isAuditRow`）：审计页默认在 SQL 里排除页面打开事件并有「显示浏览记录」开关（旧正则还误藏了 `thread_*` 审计事件）；面板「最近替你办完」改从这一处导入。
+- **示范清理**：`/tenant/move-in` 的「Stripe 托管」段改为押金收据事实卡（RTA s.105–106 / s.109，利息比例从 `guidelineFor` 取）；`/tenant/payments` 删掉「立即支付 / 自动扣款 / 押金托管」，换成真实入口（记录已付 → `/h/<id>?tab=rent`、在租约对话里问房东）；DEMO_GATE 的 note 改为「Stayloop 不经手租金…不会扣款」。首页两条找房示例换成押金 / 退租通知两题。
+- **API 第三档关闭**：`lib/api/partnerScreening.ts partnerScreeningEnabled`（`PARTNER_SCREENING_API=on` 且 `CRA_MODE=registered` 才开，默认关）→ `/v1/screen` 503 `partner_screening_closed`；`/stayloop-api` 与文档页按三档重写（第二档同意基础改为 PIPEDA 4.3，不再引 s.8(1)(b)；「给 AI 客户端的说明」采用 Personal Agent 措辞：实时、不得留存 / 建索引 / 训练；远程 MCP 只写「筹备中」）。
+下一步：阶段 2（租客事实包 + 20 问、读租约 PDF、核对 N1 与退租三件套、无在管租约也能发信；经纪收件链接、核对清单、TRESA 文件完整化、跟进提醒）。

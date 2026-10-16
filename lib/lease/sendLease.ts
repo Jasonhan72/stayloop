@@ -38,9 +38,9 @@ export function buildLeaseInvite(lease: LeaseForSend, link: string): { subject: 
   const tenant = escapeHtml(lease.tenant_name || 'there')
   const unit = escapeHtml(lease.unit_label || 'your new home')
   const isTrreb = lease.form_type === 'trreb'
-  const formLabel = isTrreb ? 'TRREB Agreement to Lease (Form 400)' : 'Ontario Standard Lease'
+  const formLabel = isTrreb ? 'Offer to Lease — Summary of Terms' : 'Ontario Standard Lease'
   const docName = isTrreb
-    ? 'Agreement to Lease — Residential (TRREB Form 400 style)'
+    ? 'Offer to Lease — Summary of Terms (Stayloop format)'
     : 'Residential Tenancy Agreement (Ontario Standard Form of Lease)'
   return {
     subject: `Your lease for ${lease.unit_label || 'your new home'} is ready to sign — ${formLabel}`,
@@ -53,7 +53,7 @@ ${link}
 
 This link is yours to keep — after signing it remains your permanent access to view and download the agreement anytime.
 
-你的租约（${isTrreb ? 'TRREB Form 400 租赁协议' : '安省标准租约'}）已备好，点击上方链接在线查看并签署。签署完成后该链接长期有效，可随时查看和下载备份。
+你的租约（${isTrreb ? '要约要点摘要' : '安省标准租约'}）已备好，点击上方链接在线查看并签署。签署完成后该链接长期有效，可随时查看和下载备份。
 
 — Stayloop`,
     html: `<p>Hi ${tenant},</p><p>Your landlord has prepared your <b>${docName}</b> for <b>${unit}</b>.</p><p><a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Review &amp; sign online →</a></p><p style="color:#64748b;font-size:13px">This link is yours to keep — after signing it remains your permanent access to view and download the agreement anytime.<br/>你的租约已备好，签署完成后该链接长期有效，可随时查看和下载备份。</p><p>— Stayloop</p>`,

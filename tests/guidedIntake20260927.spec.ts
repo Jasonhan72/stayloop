@@ -40,10 +40,10 @@ function requiredOnly(spec: IntakeSpec): IntakeAnswers {
 describe('every quick-start card has a guided intake and every intake is well-formed', () => {
   const chat = read('components/agent/AgentChat.tsx')
   const keys = [...chat.matchAll(/key: '(\w+)', icon:/g)].map((m) => m[1])
-  it('14 cards → 14 intakes, no template left in the table', () => {
-    expect(keys.length).toBe(14)
+  it('15 cards → 15 intakes, no template left in the table', () => {
+    expect(keys.length).toBe(15)
     for (const k of keys) expect(INTAKES[k], k).toBeTruthy()
-    expect(new Set(keys).size).toBe(14)
+    expect(new Set(keys).size).toBe(15)
     expect(chat.split('export default function AgentChat')[0]).not.toMatch(/template: \{ zh:/)
   })
   it('steps: ≥2 per intake, the first is required, bilingual strings, unique chip values, ≥2 chips where there are chips', () => {
@@ -160,7 +160,7 @@ describe('IntakeCard behaviour (react-test-renderer)', () => {
     const root = r.root
     const progress = () => String(byId(root, 'intake-progress')[0].props.children)
     expect(progress()).toContain('第 1 步')
-    expect(progress()).toContain('共 7 步')
+    expect(progress()).toContain('共 8 步')
     // 1 where: has a text input → the chip does not auto-advance; Next does
     click(chip(root, '厨房')); expect(progress()).toContain('第 1 步')
     click(byId(root, 'intake-next')[0]); expect(progress()).toContain('第 2 步')
@@ -182,7 +182,10 @@ describe('IntakeCard behaviour (react-test-renderer)', () => {
     click(chip(root, '先打电话约时间')); act(() => { vi.advanceTimersByTime(200) }); expect(progress()).toContain('第 6 步')
     // 6 pets (optional, has input) → pick + Next
     click(chip(root, '有猫')); click(byId(root, 'intake-next')[0]); expect(progress()).toContain('第 7 步')
-    // 7 photos: optional attach → skip
+    // 7 landlord email (乙 #11, optional, text only) → skip: with a managed tenancy it is not needed
+    expect(byId(root, 'intake-input').length).toBe(1)
+    click(byId(root, 'intake-skip')[0]); expect(progress()).toContain('第 8 步')
+    // 8 photos: optional attach → skip
     expect(byId(root, 'intake-attach').length).toBe(1)
     click(byId(root, 'intake-skip')[0])
     expect(progress()).toContain('最后一步')

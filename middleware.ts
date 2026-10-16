@@ -25,9 +25,11 @@ function withSecurityHeaders(res: NextResponse): NextResponse {
 
 // /verify/<token>: the token IS the credential and the page hands the
 // person to Veriff / Flinks by full navigation — never send it as Referer
-// (review 2026-09-13). Everything else: origin only across sites.
+// (review 2026-09-13). /intake/<token> (V1.0 stage 2): same — the agent's
+// client intake link is the credential. Everything else: origin only across sites.
 function withReferrerPolicy(res: NextResponse, pathname: string): NextResponse {
-  res.headers.set('Referrer-Policy', pathname.startsWith('/verify/') ? 'no-referrer' : 'strict-origin-when-cross-origin')
+  const tokenPage = pathname.startsWith('/verify/') || pathname.startsWith('/intake/')
+  res.headers.set('Referrer-Policy', tokenPage ? 'no-referrer' : 'strict-origin-when-cross-origin')
   return res
 }
 

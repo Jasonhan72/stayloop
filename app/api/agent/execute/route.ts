@@ -657,6 +657,126 @@ async function resolveTenantLandlord(admin: Admin, userId: string, callerEmail: 
 }
 
 // ---------------------------------------------------------------------------
+// 乙 #11 (2026-10-16): the landlord is not on Stayloop. The tenant supplies the
+// landlord's email themselves — the intake step writes「房东邮箱：…」/
+// "Landlord's email: …" into the message, and the model carries it in the
+// card's body / description — and it is kept in tenant_landlord_contacts (one
+// row per tenant) so every later letter and repair goes there without asking
+// again. Only an address the tenant gave is ever used: it is read from a
+// labelled line or from the tenant's own row, never derived from anyone else's
+// data. No thread exists for an off-platform landlord, so there is no relay
+// reply address; the email says so instead of pretending.
+// ---------------------------------------------------------------------------
+const LANDLORD_EMAIL_LABEL_RE = /(?:房东(?:的)?(?:邮箱|电子邮件|电邮|email)|landlord(?:'s|’s)?\s*e-?mail(?:\s*address)?)\s*[:：]\s*<?([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})>?/i
+
+function landlordEmailFromText(text: unknown): string | null {
+  if (typeof text !== 'string' || !text) return null
+  const m = LANDLORD_EMAIL_LABEL_RE.exec(text)
+  const e = m?.[1]?.trim().replace(/[.。]+$/, '').toLowerCase() ?? ''
+  return EMAIL_RE.test(e) && e.length <= 254 ? e : null
+}
+
+type LandlordContact = { email: string; name: string | null; unit: string | null }
+
+async function tenantLandlordContact(admin: Admin, userId: string): Promise<LandlordContact | null> {
+  const { data } = await admin.from('tenant_landlord_contacts').select('landlord_email, landlord_name, unit_label').eq('tenant_auth_id', userId).maybeSingle()
+  const row = data as { landlord_email: string; landlord_name: string | null; unit_label: string | null } | null
+  if (!row || !EMAIL_RE.test(row.landlord_email || '')) return null
+  return { email: row.landlord_email.toLowerCase(), name: row.landlord_name, unit: row.unit_label }
+}
+
+async function saveTenantLandlordContact(admin: Admin, userId: string, email: string): Promise<void> {
+  const { error } = await admin
+    .from('tenant_landlord_contacts')
+    .upsert({ tenant_auth_id: userId, landlord_email: email, updated_at: new Date().toISOString() }, { onConflict: 'tenant_auth_id' })
+  // Deployed ahead of the 20261016 migration: the send still goes to the address the tenant gave.
+  if (error) console.warn('[execute] tenant_landlord_contacts upsert failed:', error.message)
+}
+
+/** The address from a labelled line in the card (saved for next time), else the tenant's saved contact. */
+async function resolveLandlordContact(admin: Admin, userId: string, texts: unknown[]): Promise<LandlordContact | null> {
+  for (const t of texts) {
+    const e = landlordEmailFromText(t)
+    if (e) {
+      await saveTenantLandlordContact(admin, userId, e)
+      return { email: e, name: null, unit: null }
+    }
+  }
+  return tenantLandlordContact(admin, userId)
+}
+
+const CONTACT_RELAY_NOTE = {
+  zh: '这封邮件由租客经 Stayloop 发出，发到的是租客自己记录的房东邮箱。回复此邮件不会转给租客——请用你们原有的联系方式回复。',
+  en: 'This email was sent by the tenant through Stayloop, to the landlord address the tenant recorded. Replies to this address are not forwarded to the tenant — please reply through the contact details you already have for them.',
+}
+
+// Repair request to an off-platform landlord: the email is the deliverable. A
+// maintenance_tickets row on the tenant's own tenants row (no household — none
+// exists) keeps a record the tenant can read under maint_parties; it is written
+// only after the email went out, so a failed send leaves nothing behind to
+// duplicate on retry. The receipt says plainly whether a ticket was recorded.
+async function executeMaintenanceByContact(
+  admin: Admin,
+  userId: string,
+  action: ActionRow,
+  contact: LandlordContact,
+  d: { title: string; description: string; priority: string; emergency: boolean; category: string; entryPermission: string | null },
+  preview: boolean,
+): Promise<NextResponse> {
+  const m = action.metadata || {}
+  const zhLines = triageLines(m, true).map((l) => `  • ${l}`).join('\n')
+  const enLines = triageLines(m, false).map((l) => `  • ${l}`).join('\n')
+  const label = await displayNameFor(admin, userId)
+  const who = label ? `租客 ${label}` : '租客'
+  const whoEn = label ? `Your tenant ${label}` : 'Your tenant'
+  const subject = `${d.emergency ? '【紧急】' : ''}报修 · ${contact.unit || ''}${contact.unit ? ' · ' : ''}${d.title} — ${d.emergency ? 'URGENT ' : ''}Repair request`
+  const body = `你好，
+
+${who}经 Stayloop 向你发出报修请求：
+
+  • 位置 / 问题：${d.title}
+  • 说明：${d.description || '（无）'}
+  • 紧急程度：${d.priority}${d.emergency ? '（影响居住安全或基本服务，请今天联系租客）' : ''}
+${zhLines ? zhLines + '\n' : ''}${d.emergency ? '按 RTA s.20 房东须保持单位适合居住；供暖、供水、燃气、门锁这类问题不能等。\n' : ''}
+${CONTACT_RELAY_NOTE.zh}
+
+Hi,
+
+${whoEn} sent a repair request through Stayloop:
+
+  • Issue: ${d.title}
+  • Details: ${d.description || '(none)'}
+  • Priority: ${d.priority}${d.emergency ? ' (habitability — please contact your tenant today)' : ''}
+${enLines ? enLines + '\n' : ''}${d.emergency ? 'Under RTA s.20 the landlord must keep the unit fit for habitation; heat, water, gas and locks cannot wait.\n' : ''}
+${CONTACT_RELAY_NOTE.en}`
+  // The tenant gave this address themselves, so the preview may show it.
+  if (preview) return PREVIEW({ subject, body, to: contact.email })
+  if (!(await claimExecution(admin, action.id))) return afterLostClaim(admin, action.id)
+  const { html, text } = renderAgentMessageEmail({ subject, body })
+  const result = await sendEmail({ to: contact.email, subject, html, text, fromName: label ? `${label} 经 Stayloop` : '租客 经 Stayloop' })
+  if (!result.ok) {
+    await releaseClaim(admin, action.id, result.error)
+    return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
+  }
+  let ticketId: string | null = null
+  const { data: tRow } = await admin.from('tenants').select('id').eq('auth_id', userId).limit(1).maybeSingle()
+  if (tRow && (tRow as { id: string }).id) {
+    const ticketRow: Record<string, unknown> = { tenant_id: (tRow as { id: string }).id, opened_by: userId, title: d.title, description: [d.description, ...triageLines(m, true), `房东邮箱（租客记录）：${contact.email}`].filter(Boolean).join('\n'), priority: d.priority, status: 'new', category: d.category, entry_permission: d.entryPermission, emergency: d.emergency }
+    let { data: ticket, error: tErr } = await admin.from('maintenance_tickets').insert(ticketRow).select('id').single()
+    if (tErr && /entry_permission|emergency|PGRST204|42703/i.test(`${tErr.message} ${tErr.code ?? ''}`)) {
+      const { entry_permission: _ep, emergency: _em, ...legacy } = ticketRow
+      void _ep; void _em
+      ;({ data: ticket, error: tErr } = await admin.from('maintenance_tickets').insert(legacy).select('id').single())
+    }
+    ticketId = (ticket as { id: string } | null)?.id ?? null
+  }
+  const shown = `房东（${contact.email}）`
+  const note = ticketId ? '已记录工单（未挂在管租约） / Ticket recorded (not on a managed tenancy)' : '未建工单，只发了邮件 / No ticket created — email only'
+  const executionResult = { ok: true, kind: ticketId ? 'ticket' : 'email', ticket_id: ticketId, household_id: null, email_id: result.id, sent_to: shown, via: 'landlord_contact', note }
+  return finalizeExecution(admin, userId, action, 'executed_maintenance_request', executionResult, { ticket_id: ticketId, household_id: null, sent_to: shown, emailed: true, via: 'landlord_contact', note })
+}
+
+// ---------------------------------------------------------------------------
 // Executor: maintenance_request (tenant). metadata: { title, description,
 // priority }. Creates the ticket on the tenant's verified managed tenancy
 // (the same table /h/[id] uses) and tells the landlord by email + push. No
@@ -671,9 +791,15 @@ async function executeMaintenanceRequest(admin: Admin, userId: string, action: A
   const emergency = isEmergencyMaintenance(m)
   const priority = emergency ? 'high' : ['low', 'medium', 'high'].includes(String(m.priority)) ? String(m.priority) : 'medium'
   if (!title) return NextResponse.json({ executed: false, reason: 'ticket title missing' }, { status: 422 })
-  const ll = await resolveTenantLandlord(admin, userId, callerEmail)
-  if (!ll || !ll.household_id) return NextResponse.json({ executed: false, reason: 'no_household_on_file' }, { status: 422 })
   const category = typeof m.category === 'string' && (MAINTENANCE_CATEGORIES as readonly string[]).includes(m.category) ? m.category : 'repair'
+  const ll = await resolveTenantLandlord(admin, userId, callerEmail)
+  if (!ll || !ll.household_id) {
+    // 乙 #11: no managed tenancy — the landlord's own email (given by the tenant) still gets the request.
+    const contact = await resolveLandlordContact(admin, userId, [m.description, m.body, action.summary])
+    if (!contact) return NextResponse.json({ executed: false, reason: 'no_household_on_file' }, { status: 422 })
+    const ep = (ENTRY_PERMISSIONS as readonly string[]).includes(String(m.entry_permission)) ? String(m.entry_permission) : null
+    return executeMaintenanceByContact(admin, userId, action, contact, { title, description, priority, emergency, category, entryPermission: ep }, preview)
+  }
   // The same problem already has an open ticket on this tenancy (the tenant
   // filed it from the hub, or approved an earlier card): add the new detail to
   // it instead of a second ticket, second landlord email and second dispatch.
@@ -940,11 +1066,17 @@ async function executeSendMessage(
   let to = rowTo && EMAIL_RE.test(rowTo) ? rowTo : EMAIL_RE.test(candidate) ? candidate : (EMAIL_RE.test(fallback) ? fallback : null)
   let derived = false
   let tenancyId: string | null = null
+  let contact: LandlordContact | null = null
   if (!to && action.role === 'tenant') {
     // Turn-proposed cards carry no address; the landlord comes from the
     // tenant's own tenancy rows (see resolveTenantLandlord).
     const ll = await resolveTenantLandlord(admin, userId, callerEmail)
     if (ll) { to = ll.email; derived = true; tenancyId = ll.household_id }
+    else {
+      // 乙 #11: no tenancy on file — the address the tenant gave (in this message or earlier) still works.
+      contact = await resolveLandlordContact(admin, userId, [m.body, m.description])
+      if (contact) { to = contact.email; derived = true }
+    }
   }
   if (!to) {
     return NextResponse.json({ executed: false, reason: action.role === 'tenant' ? 'no_landlord_on_file' : 'no valid recipient email' }, { status: 422 })
@@ -962,6 +1094,29 @@ async function executeSendMessage(
   const subject =
     (typeof m.subject === 'string' && m.subject.trim()) ||
     '来自您的 Stayloop 代理的消息 / Message from your Stayloop agent'
+  // 乙 #11: a tenant writing to a landlord who is not on Stayloop. Plain email to
+  // the address the tenant recorded; the letter says who sent it and that
+  // replies are not relayed (no thread exists for this landlord).
+  if (contact) {
+    const label = await displayNameFor(admin, userId)
+    const full = `${label ? `${label}（租客）经 Stayloop 给你发来一封信 / ${label} (tenant) sent you this through Stayloop` : '你的租客经 Stayloop 给你发来一封信 / Your tenant sent you this through Stayloop'}：
+
+${bodyText}
+
+—
+${CONTACT_RELAY_NOTE.zh}
+${CONTACT_RELAY_NOTE.en}`
+    if (preview) return PREVIEW({ subject, body: full, to: contact.email })
+    if (!(await claimExecution(admin, action.id))) return afterLostClaim(admin, action.id)
+    const { html, text } = renderAgentMessageEmail({ subject, body: full })
+    const result = await sendEmail({ to: contact.email, subject, html, text, fromName: label ? `${label} 经 Stayloop` : '租客 经 Stayloop' })
+    if (!result.ok) {
+      await releaseClaim(admin, action.id, result.error)
+      return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
+    }
+    const shown = `房东（${contact.email}）`
+    return finalizeExecution(admin, userId, action, 'executed_send_message', { ok: true, kind: 'email', email_id: result.id, sent_to: shown, via: 'landlord_contact' }, { sent_to: shown, subject, email_id: result.id, via: 'landlord_contact' })
+  }
   // A tenant writing to their own landlord: the message goes into the tenancy
   // conversation (recorded, relayed by email with a reply address); the tenant
   // never sees the landlord's personal address (找得到人 2026-09-30).

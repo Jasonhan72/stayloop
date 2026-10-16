@@ -139,9 +139,11 @@ export function existingTicketText(title: string | null | undefined, zh: boolean
 }
 
 type Bi = { zh: string; en: string }
+// 乙 #11 (2026-10-16): a tenant whose landlord is not on Stayloop can still send — tell the AI Agent the
+// landlord's email once (it is kept in tenant_landlord_contacts) and every later letter / repair goes there.
 const NEED_TENANCY: Bi = {
-  zh: '你的账号上还没有已确认的在管租约或已签租约，不知道该发给哪位房东——先在「租约」里接受房东的邀请或导入已签租约（/leases/import）',
-  en: "this account has no confirmed managed tenancy or signed lease yet, so there is no landlord to send it to — accept your landlord's invitation or import a signed lease (/leases/import) first",
+  zh: '你的账号上还没有已确认的在管租约或已签租约，也没有记录房东的邮箱，不知道该发给谁——告诉我房东的邮箱，我记下来以后都能发；或者在「租约」里接受房东的邀请 / 导入已签租约（/leases/import）',
+  en: "this account has no confirmed managed tenancy, signed lease or saved landlord email yet, so there is no one to send it to — tell me your landlord's email and I will keep it for every later message; or accept your landlord's invitation / import a signed lease (/leases/import)",
 }
 const NO_TENANT_EMAIL: Bi = { zh: '档案里没有租客的邮箱', en: 'there is no tenant email on file' }
 const NO_LEASE: Bi = { zh: '找不到对应的租约（或它不属于你）', en: 'the lease could not be found (or is not yours)' }

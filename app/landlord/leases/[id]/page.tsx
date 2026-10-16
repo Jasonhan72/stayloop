@@ -8,9 +8,9 @@ import { useState, useEffect, useCallback } from 'react'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { SampleBanner } from '@/components/SampleNotice'
 import OntarioLeaseDoc from '@/components/lease/OntarioLeaseDoc'
-import TrrebLeaseDoc from '@/components/lease/TrrebLeaseDoc'
+import OfferSummaryDoc from '@/components/lease/TrrebLeaseDoc'
 import type { OntarioLeaseTerms, LeaseSignature } from '@/lib/lease/ontario'
-import type { TrrebLeaseTerms } from '@/lib/lease/trreb'
+import type { OfferSummaryTerms } from '@/lib/lease/trreb'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAIName } from '@/lib/aiName'
@@ -28,7 +28,7 @@ type DbLease = {
   id: string
   form_type: string
   status: string
-  terms: OntarioLeaseTerms | TrrebLeaseTerms
+  terms: OntarioLeaseTerms | OfferSummaryTerms
   tenant_name: string | null
   tenant_email: string | null
   unit_label: string | null
@@ -219,7 +219,7 @@ function RealLeaseDetail({ id }: { id: string }) {
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
-                {outside ? `${provName} · ${zh ? '租约记录' : 'LEASE RECORD'}` : <>{isTrreb ? 'TRREB FORM 400' : 'ONTARIO STANDARD LEASE'} · {l.status.toUpperCase()}</>}
+                {outside ? `${provName} · ${zh ? '租约记录' : 'LEASE RECORD'}` : <>{isTrreb ? (zh ? '要约要点摘要' : 'OFFER SUMMARY') : 'ONTARIO STANDARD LEASE'} · {l.status.toUpperCase()}</>}
               </div>
               <h1 className="mt-1 text-[22px] font-bold tracking-tight sm:text-[28px]">
                 {l.tenant_name || '—'} · {l.unit_label || '—'}
@@ -332,8 +332,8 @@ function RealLeaseDetail({ id }: { id: string }) {
         <div className="mt-6 sl-card overflow-hidden !p-0 print:mt-0 print:border-none print:shadow-none">
           {hasTerms ? (
             isTrreb ? (
-              <TrrebLeaseDoc
-                terms={l.terms as TrrebLeaseTerms}
+              <OfferSummaryDoc
+                terms={l.terms as OfferSummaryTerms}
                 landlordSignature={l.landlord_signature}
                 tenantSignature={l.tenant_signature}
                 status={l.status}

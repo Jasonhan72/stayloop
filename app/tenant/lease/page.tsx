@@ -7,6 +7,8 @@ import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import HouseholdList from '@/components/HouseholdList'
+import N1CheckCard from '@/components/tenant/N1CheckCard'
+import MoveOutTools from '@/components/tenant/MoveOutTools'
 import {
   AsideBlock,
   PageHeader,
@@ -134,6 +136,10 @@ export default function TenantLeasePage() {
     <WorkspaceShell role="tenant" aside={<SigningAside lang={lang} insights={insights} />}>
       <InsuranceReferralCard />
       <HouseholdList />
+      {/* Real tenant tools (V1.0 stage 2, 乙 #10) — above the sample lease below: check an N1 against
+          lib/ontario/rules, and N9 dates / deposit interest / move-out checklist. No account data. */}
+      <N1CheckCard />
+      <MoveOutTools />
       <PageHeader
         title={zh ? 'Unit 1207 · King West 租约' : 'Unit 1207 · King West Lease'}
         sub={

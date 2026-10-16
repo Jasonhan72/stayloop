@@ -44,6 +44,7 @@ const SUGGESTIONS: Record<AgentRole, { key: string; icon: string; label: { zh: s
     { key: 'find_home', icon: '🔍', label: { zh: '帮我找房', en: 'Find me a home' }, prompt: { zh: '帮我找市中心 $2,500 以内的一居室,最好离地铁近。', en: 'Find me a downtown 1-bed under $2,500, close to the subway.' } },
     { key: 'explain_lease', icon: '📄', label: { zh: '解读租约', en: 'Explain my lease' }, prompt: { zh: '帮我逐条解释租约里最需要注意的条款。', en: 'Walk me through the lease clauses I should watch out for.' } },
     { key: 'repair', icon: '🔧', label: { zh: '发起报修', en: 'Report a repair' }, prompt: { zh: '厨房水槽漏水,帮我整理成报修工单发给房东。', en: 'The kitchen sink is leaking — turn this into a repair ticket for my landlord.' } },
+    { key: 'contact_landlord', icon: '✉️', label: { zh: '联系房东', en: 'Contact my landlord' }, prompt: { zh: '帮我给房东写一封信：厨房水龙头 10 月 2 日报修后还没人来，请本周安排维修。', en: 'Write to my landlord: the kitchen tap I reported on Oct 2 has not been looked at — please arrange a repair this week.' } },
     { key: 'stamps', icon: '⭐', label: { zh: '盖下一枚章', en: 'Earn my next stamp' }, prompt: { zh: '我现在盖了几枚章?下一枚怎么盖,能解锁什么?', en: 'How many stamps do I have? How do I earn the next one, and what does it unlock?' } },
   ],
   landlord: [
