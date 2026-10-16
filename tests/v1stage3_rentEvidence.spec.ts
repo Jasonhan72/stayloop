@@ -217,3 +217,15 @@ describe('dashboards carry the 凭证 column', () => {
     expect(s).toContain('href={`/h/${r.household_id}?tab=rent`} data-testid="rent-evidence-badge"')
   })
 })
+
+describe('a paid-late period is not outstanding (prod check 2026-10-16)', () => {
+  it('isRentOutstanding agrees with the ledger: late = recorded, due = outstanding', async () => {
+    const { isRentOutstanding } = await import('../lib/matters/states')
+    const { isRecordedPayment } = await import('../lib/household/ledger')
+    expect(isRentOutstanding({ status: 'due' })).toBe(true)
+    expect(isRentOutstanding({ status: 'late' })).toBe(false)
+    expect(isRentOutstanding({ status: 'paid' })).toBe(false)
+    expect(isRecordedPayment({ status: 'late' })).toBe(true)
+  })
+})
+

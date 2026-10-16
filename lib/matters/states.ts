@@ -140,8 +140,12 @@ export const RENT_STATE_LABEL: Record<string, Bi & { tone: Tone }> = {
   late: { zh: '逾期', en: 'Late', tone: 'danger' },
   failed: { zh: '失败', en: 'Failed', tone: 'danger' },
 }
+// 'late' is a RECORDED payment that arrived after the due date (mark_rent_paid
+// writes it; lib/household/ledger isRecordedPayment counts it as paid). Only
+// 'due' is still outstanding — the today card once showed a paid-late period as
+// "next rent, 45 days past" (prod check 2026-10-16).
 export function isRentOutstanding(r: { status: string | null | undefined }): boolean {
-  return r.status === 'due' || r.status === 'late'
+  return r.status === 'due'
 }
 
 // ── Booleans never reach the screen raw ───────────────────────────────────
