@@ -3634,3 +3634,28 @@ AVP 不得用它做自己的产品；**任何 MLS 数据不得经过任何第三
     生产实跑：选 N4 → 勾 10-01 与 08-01 两期（合计 $4,900）→ 终止日填 10-20 标红「早于最早允许的 10-23（送达后 7 天）」→ 改邮寄 → 最早变 10-28 → 记录送达 → 记录行出现。
 - **顺带修的旧问题**：`lib/matters/states.ts isRentOutstanding` 把 `late`（= 已付但迟付）当成未付——今日卡写「下期租金 2026-09-01（已过 45 天）」而那期已付；现在只有 `due` 算未付（与 `ledger.isRecordedPayment` 一致），`lib/lifecycle/stages.ts` 房东 / 租客两处内联的同一判断也改为共用它（ship66）。注意事实 RPC 的 `rent` 只带已有行，没有行的未记录账期（占位行尚未生成时）不在 rail 计数里——账期级的完整视图在 `/h/[id]` 租金页。
 - **未做（阶段 4 起）**：乙 #7 申请人材料包；丁 #17–19 REST + OpenAPI、远程 MCP、ToS；经纪 $29 档 / 团队档功能表收回；对外省租约 N 表工具箱只显示该省审裁机构链接、不做算术。
+
+## V1.0 阶段 4「申请包 · 一次准备多次复用」（2026-10-16 · 用户「继续做阶段 4」· 讨论稿乙 #7）
+
+三组并行（G13 数据层与路由 / G14 护照页改申请包 / G15 申请页一键填入），共用契约 `design/applicant-pack-contract-2026-10.md`（表 / 列 / 路由 / 同意 / 新鲜度，**改接口先改契约**）。
+迁移 `20261016_applicant_profiles.sql` 已应用 prod；部署 ship67；租客测试号在生产上走完「填申请包 → 勾同意 → 预览 → 去 `/apply` 一键填入 → 提交」。
+守卫 `tests/v1stage4_{profileData,passportPack,applyPack}.spec.*`（全套 2716 条）。原则：**每一项都是申请人自己提供或自己授权第三方出具的，Stayloop 不替任何人查任何人；不收 SIN；不问受保护特征；CRA 注册前不做「信用 / 法庭章」；租客免费是产品决定。**
+- **数据**：`applicant_profiles`（`auth_id` 主键，本人 RLS 四种）、`applicant_profile_history`（自述租史多段，`position` 排序）、`applicant_profile_files`（本人只能 select / delete，**insert 只由服务端**）；
+  文件存 `tenant-files/profile/<auth_id>/<kind>/<sha8>-<name>`，`profile_file_readable` 给本人 storage select（签名 URL 预览），没有客户端 insert 策略。Stayloop 内双方确认的租约**不落表**，
+  `lib/profile/history.ts stayloopHistory()` 按 `/p/<token>` 同一判定现算成「已核验 · 来自双方确认的租约」段（只有按时 / 迟付计数，无金额）。
+- **路由**：`POST /api/profile/files`（multipart；jpeg / png / webp / heic / pdf ≤25 MB；每用户每小时 30 次 fail-closed；服务器算 SHA-256；同 sha+kind 幂等；每种 6 / 总 20；审计 `applicant_pack_file_added`）、
+  `DELETE /api/profile/files?id=`、`POST /api/profile/attach { application_id, file_ids }`（应用行用 service role 读，`email` 必须等于 JWT 邮箱、建行 <1h、`files` 为空；复制到 `<application_id>/<kind>/…`，
+  返回 `ApplicationFile[]`，**不调** `attach_application_files`——页面与自己上传的合并后再调；审计 `applicant_pack_presented {to:'application', scope, file_count}`）。错误码人话在 `lib/profile/types.ts profileFileErrorText`。
+- **`/tenant/passport` = 「租客护照 · 申请包」**（959 → 430 行）：四枚章 / 「谁看过」/ 验证历史三块示范内容删除，`SAMPLE_NOTE` 不再标注；① 身份（不收 SIN，出生日期可选并注明只用于本人同意的信用查询）② 雇佣与收入
+  ③ 租史（Stayloop 段只读「已核验」+ 自述多段）④ 其他，每段单独保存、每项标「自述」；文件按 7 类分组，`lib/profile/freshness.ts`（工资单 / 对账单 90 · 180 天，在职信 180 · 365，征信 90 · 180，证件按到期日，到期前 30 天 aging）；
+  同意 `profile-v1-2026-10`（目的 / 内容 / 谁看 / 保留 / 撤回）勾选前预览 / 导出 / 一键填入禁用；「预览房东看到的样子」= 页内 `iframe srcDoc sandbox`，「导出 PDF」= `lib/profile/exportPack.ts renderApplicantPack`
+  （可打印 HTML，文件只列名字 + SHA-256，末尾固定声明）+ 审计 `applicant_pack_presented {to:'pdf'}`；分享链接 / API 范围 / 候补三块原样保留。侧栏「下一步」按完整度给确定性建议。
+- **`/apply/[slug]`**：登录用户表单上方 `components/apply/UseMyPack.tsx`——「用我的申请包填写」只填空字段（`profileToApplyForm`，雇佣状态经 `toApplyEmploymentStatus` 映射到下拉值），
+  列出包里本房源允许的 kind（魁北克不列证件）、`fresh` 默认勾、aging / stale 不勾并写「已 N 天，建议先更新」、未同意则禁用；提交 = 自己的文件上传完 → `POST /api/profile/attach` → 合并 → 一次 `attach_application_files`；
+  无档案的登录用户可勾「把这份申请存成我的申请包」（字段 upsert 进 `applicant_profiles`，`toPackEmploymentStatus` 反向映射，文件不复制、同意不代勾）。租客快捷卡「盖下一枚章」→「准备申请包」（`INTAKES.applicant_pack`，3 步）。
+- **契约之外补的**：`employment_status` 两边取值不同（包存 `employed / self_employed / student / retired / unemployed / other`，表单用 `Full-time employed …`），`lib/profile/types.ts` 两个映射函数双向转换，守卫钉住。
+- **生产实测**：租客号上传两份文件（paystub / id 带到期日），重复幂等、`package.json` 415、匿名签 URL 400、匿名读表 401；护照页填身份与雇佣并保存、勾同意、预览渲染出标题 / 雇佣 / Stayloop 租史段「1 期已记录」；
+  `/apply/test-200-test-qa-lane-qa2` 一键填入（雇佣状态显示「Full-time employed」），提交后 `applications.files` 含两份 `<app_id>/<kind>/<sha8>-<name>`、桶里对象存在、审计 `applicant_pack_presented` 带 `application_id` 与 scope。
+  **测试数据保留**：tenant-test 的申请包（两份 favicon 文件）与对 `[TEST] 200 Test QA Lane` 的一份申请。
+- **未做**：租客自发起 Veriff / Flinks 核验（`/api/verify/self`）——生产凭证未到位，页面只按 Stayloop 租史标「已核验」；申请包 PDF 不内嵌文件；`verification_requests` 对租客不可读，身份 / 收入的「已核验」标记要等自发起核验上线。
+  下一步阶段 5：丁 #17 REST + OpenAPI、#18 远程 MCP、ToS 条款、目录提交；经纪 $29 档 / 团队档功能表收回。
