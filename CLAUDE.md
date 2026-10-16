@@ -3599,3 +3599,38 @@ AVP 不得用它做自己的产品；**任何 MLS 数据不得经过任何第三
 - **顺带**：条款同意弹层的导语不再说「接入经纪公司与房地产协会授权的房源数据」（PropTx 已拒绝，10-13 漏改的一处；守卫在 `v1stage2_offerCheck`）。
 - **测试账号状态**：租客号与经纪号在核对时接受了 2026-10-13 版条款；经纪号名下多了一条 `[TEST] 阶段2 收件链接`（已撤销）与一份 `[TEST] Intake Applicant` 的筛查行（uploading，24 小时后日扫会标 error，不碍事）。
 - **未做（阶段 3 起）**：甲 #4 租金台账对账与提醒、甲 #5 N 表工具箱（日期计算 + 自填表 + 官方 PDF 链接 + 送达记录）；乙 #7 申请人材料包；丁 #17–19 REST + OpenAPI、远程 MCP、ToS 条款；经纪 $29 档 / 团队档功能表收回。
+
+## V1.0 阶段 3「每月回来」（2026-10-16 · 用户「继续做阶段 3」· 讨论稿甲 #4 租金对账 + 甲 #5 N 表工具箱）
+
+四组代理按文件互不重叠并行（G9 凭证与确认 / G10 流水 CSV / G11 提醒与 N4 联动 / G12 N 表工具箱），我做集成；迁移 `20261016_rent_evidence.sql`、`20261016_notice_service_records.sql`
+已应用 prod（回滚事务实测：记录人自确认 → `self_confirm`、对方成员确认成功并写审计、非成员 → `not_a_member`）；两次部署（ship64 功能、ship65 修一个顺带发现的旧问题），
+房东 / 租客测试号在生产上走完全部流程。守卫 `tests/v1stage3_{rentEvidence,csvReconcile,rentReminders,noticeForms}.spec.ts`（全套 2664 条）。**Stayloop 仍不经手资金**。
+- **甲 #4 · 每一期账期有凭证**：`rent_payments` 加 `confirmed_by/at`、`evidence_*`（path / sha256 / name / size / mime / by / at）、`note`；成员仍只有 SELECT，写入只有两个 definer RPC 与服务端。
+  - `confirm_rent_payment(p_lease, p_due)`：对方成员确认（记录人 = `tenant_id` 列，那列其实是「谁记录的」），自确认拒绝，幂等，写审计 `rent_confirmed`。
+  - `POST /api/rent/evidence`（multipart `lease_id / due_date / file / paid_on? / note?`；jpeg / png / webp / heic / pdf ≤10 MB；每用户每小时 30 次 fail-closed）：成员校验走调用者 RLS，
+    未记录的期带 `paid_on` 先经 `mark_rent_paid`，服务器算 SHA-256，service role 存 `tenancy-files/<household>/rent/<lease>/<due>-<sha8>.<ext>`（成员经现有桶策略可读），
+    **凭证只追加**：同哈希幂等 `duplicate:true`、不同文件 409 `evidence_exists`，没有 DELETE；审计 `rent_evidence_attached`。纯模块 `lib/household/rentEvidence.ts`。
+  - 租金页 `/h/[id]?tab=rent` 每期行抽成 `components/household/RentPeriodRow.tsx`：谁记录 · 对方已确认 / 等对方确认 · 「确认这一期已收到 / 已付」（只给非记录人）· 「附回执 / 标记已付并附回执」·
+    回执文件名 + 查看（签名 URL 600 秒）+ sha256 前 12 位 · 备注；房东看板 `RentLedger` 与租客 `MyRent` 多一列「凭证」（事实 RPC `rent_month` / `rent_all` 带新列，`RentRow` 类型同步）；
+    事务证据包的租金表多「对方确认」「回执 · SHA-256」两列。
+  - **流水 CSV 对账**（`lib/household/csvReconcile.ts` 纯模块 + `components/household/CsvReconcile.tsx`，挂在租金页房东成员可见处）：CSV **只在浏览器解析，不上传不落库**；
+    识别 RBC / TD / Scotiabank / CIBC / BMO / Tangerine·Simplii / 通用表头，BOM / 引号 / 括号负数 / 四种日期格式（斜杠歧义按整份文件判 MDY/DMY）；只取入账；
+    匹配 = 到期前 10 天到后 45 天内金额 ±1%，全局按「精确金额 > 租客姓名 / E-TRANSFER / RENT 关键词 > 离到期日最近」分配、每笔入账只配一期、识别两期合付；
+    `exact` 默认勾、`likely` 不勾、没配上的入账单列「这些入账没有对应账期」；「把勾选的 N 期记为已付」逐期调 `mark_rent_paid(paid_on = 入账日)`。
+  - **提醒与联动**（`lib/household/rentReminders.ts planRentReminders` 纯规划器，挂在 `/api/agent/proactive` cron 末尾，响应 `rent:{tenant_pushed, overdue_cards, expired, skipped}`）：
+    verified household 的租客成员在到期前 3 天收推送（幂等键 `rent_due:<lease>:<due>` 记在审计 `rent_due_pushed`）；账期**第 8 天**仍未记录 → 房东一张 **`rent_overdue`** 卡
+    （一份租约只出最新一期，metadata 带 `missed_count / arrears_total`；安省另带 `late_count_6m / persistent`（s.58）与 `n4_earliest_hand / n4_earliest_mail`，外省不带、不引安省法条），
+    卡片事实块 + 「租金记录 →」+ 「N 表工具箱 →」（**只预选租约，不预选表**）；批准 = 知悉（`executed_rent_overdue` 只盖章，进 `NOT_AN_OUTCOME`）；已记录的期让卡过期 `period_paid`。
+    生产实跑：把 `[TEST] 100 Test Ave` 时间穿越到 2026-08-01 起租后触发 cron → 「租金逾期 15 天 · 2026-10-01」卡（N4 最早 10-23 / 邮寄 10-28）→ 知悉 → 60 秒后执行。
+    **测试数据保持穿越后的日期**（起租 2026-08-01、到期 2027-07-31，9 月那期由租客号记录并附回执 favicon-32.png、房东号已确认），正式发布前不删。
+- **甲 #5 · N 表工具箱 `/landlord/notices`**（窄栏「通知」，租约列表页 `N_FORMS` 卡与租约详情页都链到它，**不再把一句话发给 AI**）：
+  - **边界（LSA s.1(5)）**：四张表 N1 / N4 / N12 / L1 并排等权、只写「这张表是什么」；送达方式是中性下拉（RTA s.191 · LTB Rule 3：亲手 / 门缝信箱 / 邮寄 +5 天 / 传真 / 双方同意的电邮），
+    只影响日期算术；`?lease=` 可预选、**没有 `?form=`**；页首明写「日期算术与填写稿，不是法律意见；官方表格须用 LTB 的 PDF，不改官方文件（Crown copyright）」；守卫 grep 页面与模块无「建议 / 推荐 / should serve」。
+  - 纯模块 `lib/ontario/noticeForms.ts`：`computeN1`（生效日 ≥ 视为送达 + 90、距上次涨租 ≥ 12 个月、涨幅 vs `guidelineFor(生效年)`，超线未勾 2018 豁免即 block 并说明 N2 是豁免单位的表、由房东自行判断）/
+    `computeN4`（终止日 ≥ `n4EarliestTermination`、送达须在到期后、欠款合计、2026/09 版）/ `computeN12`（≥60 天、终止日须为租期末日、≥120 天免补偿、买家自用永不豁免、60 天内入住）/
+    `computeL1`（最早申请日 = N4 终止日次日）；每条 flag 带 `ruleById(...).statute`；`fillSheet` = 我们自己的可打印 HTML「Stayloop 填写稿 · 不是官方表格」，值标「来自租约 / 你填写 / 按规则算出」，
+    block 红 / warn 琥珀，末尾链到官方 PDF。官方链接九个全部核过（GET 200、PDF 以 `%PDF-` 开头；N1 无 2026/09 版标，N4 / N12 / L1 有）。
+  - 表 `notice_service_records`（本人 select / insert，**无 update / delete**）：「我已把官方表格 X 于 <日期> 以 <方式> 送达」→ 记录 + 审计 `notice_served_recorded`；页底列该租约的送达记录。
+    生产实跑：选 N4 → 勾 10-01 与 08-01 两期（合计 $4,900）→ 终止日填 10-20 标红「早于最早允许的 10-23（送达后 7 天）」→ 改邮寄 → 最早变 10-28 → 记录送达 → 记录行出现。
+- **顺带修的旧问题**：`lib/matters/states.ts isRentOutstanding` 把 `late`（= 已付但迟付）当成未付——今日卡写「下期租金 2026-09-01（已过 45 天）」而那期已付；现在只有 `due` 算未付（与 `ledger.isRecordedPayment` 一致）。
+- **未做（阶段 4 起）**：乙 #7 申请人材料包；丁 #17–19 REST + OpenAPI、远程 MCP、ToS；经纪 $29 档 / 团队档功能表收回；对外省租约 N 表工具箱只显示该省审裁机构链接、不做算术。
