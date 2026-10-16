@@ -27,11 +27,12 @@ export default function N1CheckCard() {
   const [ran, setRan] = useState(false)
 
   const result = useMemo(() => {
-    if (!ran) return null
+    if (!ran || next.trim() === '') return null
     return checkN1({ currentRent: Number(current), newRent: Number(next), servedDate: served, effectiveDate: effective, lastIncreaseDate: last || null })
   }, [ran, current, next, served, effective, last])
 
-  const canRun = Number(current) > 0 && Number(next) >= 0 && /^\d{4}-\d{2}-\d{2}$/.test(served) && /^\d{4}-\d{2}-\d{2}$/.test(effective)
+  // An empty "new rent" must not be read as $0 (it showed −100% once): both amounts have to be typed.
+  const canRun = Number(current) > 0 && next.trim() !== '' && Number(next) >= 0 && /^\d{4}-\d{2}-\d{2}$/.test(served) && /^\d{4}-\d{2}-\d{2}$/.test(effective)
 
   return (
     <section id="n1-check" data-testid="n1-check-card" className="mb-5 overflow-hidden rounded-xl border border-line-divider bg-white">

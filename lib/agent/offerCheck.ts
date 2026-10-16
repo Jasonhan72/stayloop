@@ -58,7 +58,7 @@ export const OFFER_CHECK_IDS = [
   'deposit-over-one-month', 'deposit-purpose', 'fee-to-tenant', 'key-deposit', 'pet-ban', 'ac-ban',
   'increase-above-guideline', 'increase-automatic', 'post-dated-cheques', 'early-termination-penalty',
   'dates-order', 'missing-term', 'missing-rent', 'missing-payment-day', 'missing-services', 'missing-deposit',
-  'missing-address', 'missing-signature-date', 'province-outside-ontario',
+  'missing-address', 'missing-signature-date', 'province-outside-ontario', 'entry-without-notice',
 ] as const
 
 const href = (rule?: string) => (rule && ruleById(rule) ? `/rules#${rule}` : '/rules')
@@ -189,6 +189,7 @@ const DEPOSIT_PURPOSE_RE = /\bpet\s+(?:deposit|fee)\b|宠物(?:押金|费)|clean
 const AC_BAN_EXTRA_RE = /\b(?:shall|may|must|will|can)\s+not\s+(?:install|use|have|operate|place)\s+(?:any\s+|an?\s+)?(?:window\s+|portable\s+)?(?:air[\s-]?conditioner|a\/?c\b|ac\s+unit)|(?:不得|不能|不可|禁止|不允许|不准)(?:自行)?(?:安装|装|使用)(?:任何)?(?:空调|冷气)/i
 const POST_DATED_RE = /post[-\s]?dated\s+cheques?|预开(?:的)?支票|远期支票|pre[-\s]?authori[sz]ed\s+(?:debit|payment)s?|automatic\s+(?:debit|withdrawal|payment|bank\s+payment)s?|auto[-\s]?(?:debit|pay)|自动(?:扣款|转账|付款|扣除)|\bPAD\b/i
 const REQUIRED_RE = /\b(?:required|must|mandatory|shall\s+provide|as\s+a\s+condition|condition\s+of|agrees?\s+to\s+provide|will\s+provide|to\s+provide)\b|须|必须|需要?提供|要求|作为(?:签约|租赁)?(?:的)?条件|应提供|提供/i
+const ENTRY_ANYTIME_RE = /(?:enter|entry|access|inspect)\w*[^.\n]{0,60}?(?:at any time|any time|anytime|without (?:prior |advance |any )?notice|无需通知|不经通知|随时(?:进入|入内|检查))|(?:随时|无需通知|不经通知)[^。\n]{0,20}(?:进入|入内|检查|看房)/i
 const EARLY_TERM_RE = /提前(?:解约|退租|终止|搬离|离开)[^\n。;]{0,40}?(?:罚|违约金|扣除?|赔偿|没收|支付|付)|(?:违约金|罚金|罚款)[^\n。;]{0,30}?(?:提前|解约|退租)|(?:early\s+terminat\w*|break(?:ing|s)?\s+(?:the\s+|this\s+)?lease|terminat\w*\s+(?:the\s+lease\s+)?early|vacat\w*\s+(?:before|prior\s+to)\s+(?:the\s+)?(?:end|expiry))[^.\n;]{0,60}?(?:penalt\w*|fee|forfeit\w*|charge|liquidated|pay|owe|liable|lose\w*)|(?:penalt\w*|fee|forfeit\w*|liquidated\s+damages?)[^.\n;]{0,50}?(?:early\s+terminat\w*|break(?:ing|s)?\s+(?:the\s+|this\s+)?lease|terminat\w*\s+early)/i
 
 // What the Ontario standard lease (2229E) must carry; an offer that omits one is not wrong,
@@ -332,6 +333,16 @@ export function checkOfferText(text: string, opts: OfferCheckOptions = {}): Offe
       en: required
         ? 'The tenant is required to provide post-dated cheques or automatic debit. Neither the landlord nor anyone acting for the landlord may make them a condition of the tenancy (RTA s.108); the tenant may offer them, but cannot be required to.'
         : 'Post-dated cheques or automatic debit are mentioned. They can only be a payment method the tenant chooses, never a condition of the tenancy (RTA s.108) — make sure the offer does not say "must provide".',
+    })
+  }
+
+  // Landlord entry "at any time / without notice" (prod check 2026-10-16): RTA s.27 requires
+  // 24 hours' written notice, 8:00–20:00, except the s.26 cases.
+  if (ENTRY_ANYTIME_RE.test(t)) {
+    findings.push({
+      id: 'entry-without-notice', severity: 'block', rule: 'RTA-27-entry-notice', href: href('RTA-27-entry-notice'),
+      zh: '出现房东可「随时 / 不经通知」进入单位的条款。安省要求提前 24 小时书面通知并在 8:00–20:00 进入（RTA s.27），紧急情况与租客当场同意除外（s.26）；这类条款无效，标准租约里不能再写。',
+      en: 'There is a clause letting the landlord enter "at any time" or without notice. Ontario requires 24 hours\' written notice and entry between 8:00 and 20:00 (RTA s.27), except emergencies and consent at the door (s.26); the clause is void and cannot go into the standard lease.',
     })
   }
 

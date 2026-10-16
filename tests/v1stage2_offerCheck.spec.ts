@@ -213,3 +213,24 @@ describe('discussion-paper item 3: the trreb renderer is an offer summary in Sta
     expect(read('app/agent/checklist/page.tsx')).not.toMatch(/起草要约|生成要约|draft (an|the) offer|generate (an|the) offer/i)
   })
 })
+
+describe('entry-without-notice (prod check 2026-10-16)', () => {
+  it('flags "landlord may enter at any time" under RTA s.27 and leaves a proper 24-hour clause alone', () => {
+    const bad = checkOfferText('Unit 1207, 100 King St W. Rent $2,800 due on the 1st. Landlord may enter at any time for inspections.', { province: 'ON' })
+    expect(bad.findings.map((f) => f.id)).toContain('entry-without-notice')
+    expect(bad.findings.find((f) => f.id === 'entry-without-notice')?.href).toBe('/rules#RTA-27-entry-notice')
+    const ok = checkOfferText('Unit 1207, 100 King St W. Rent $2,800 due on the 1st. Landlord may enter with 24 hours written notice between 8 am and 8 pm.', { province: 'ON' })
+    expect(ok.findings.map((f) => f.id)).not.toContain('entry-without-notice')
+    const zh = checkOfferText('Unit 1207 · 月租 $2,800，每月 1 日付 · 房东无需通知可随时进入检查', { province: 'ON' })
+    expect(zh.findings.map((f) => f.id)).toContain('entry-without-notice')
+  })
+})
+
+describe('terms gate wording has no MLS / association claim (PropTx refusal 2026-10-13)', () => {
+  it('does not promise association-licensed listing data', async () => {
+    const fs = await import('node:fs')
+    const src = fs.readFileSync('components/legal/TermsConsentGate.tsx', 'utf8')
+    expect(src).not.toMatch(/地产协会|real estate associations|licensed from brokerages/)
+  })
+})
+

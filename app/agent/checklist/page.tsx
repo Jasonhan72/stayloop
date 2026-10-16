@@ -83,8 +83,8 @@ export default function AgentChecklistPage() {
             </div>
             <p className="mt-3 text-[12px] leading-relaxed text-body-3">
               {zh
-                ? '查的是：押金是否超过一个月、押金用途、向租客收的费用、钥匙押金、禁宠与禁装空调条款、自动涨租与超指导比例、预开支票 / 自动扣款是否被设为条件、提前解约罚金，以及标准租约必填而要约没写的项。外省房源只提示按该省规则核对。'
-                : 'It checks: deposit over one month, what the deposit is for, fees charged to the tenant, key deposit, pet and air-conditioner bans, automatic or above-guideline rent increases, post-dated cheques / automatic debit set as a condition, early-termination penalties, and the standard-lease items the offer leaves out. Outside Ontario it only reminds you to check that province’s rules.'}
+                ? '查的是：押金是否超过一个月、押金用途、向租客收的费用、钥匙押金、禁宠与禁装空调条款、自动涨租与超指导比例、预开支票 / 自动扣款是否被设为条件、提前解约罚金、房东「随时进入」条款，以及标准租约必填而要约没写的项。外省房源只提示按该省规则核对。'
+                : 'It checks: deposit over one month, what the deposit is for, fees charged to the tenant, key deposit, pet and air-conditioner bans, automatic or above-guideline rent increases, post-dated cheques / automatic debit set as a condition, early-termination penalties, landlord “entry at any time” clauses, and the standard-lease items the offer leaves out. Outside Ontario it only reminds you to check that province’s rules.'}
             </p>
           </div>
 

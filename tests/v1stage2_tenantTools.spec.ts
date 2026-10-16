@@ -229,3 +229,13 @@ describe('乙 #11 — no managed tenancy: the tenant’s recorded landlord email
     expect(executionReasonText('no_household_on_file', false)).toMatch(/landlord's email/)
   })
 })
+
+describe('N1CheckCard · an empty new rent is not $0 (prod check 2026-10-16)', () => {
+  it('requires the new rent to be typed before the check can run', async () => {
+    const fs = await import('node:fs')
+    const src = fs.readFileSync('components/tenant/N1CheckCard.tsx', 'utf8')
+    expect(src).toMatch(/next\.trim\(\) !== ''/)
+    expect(src).toMatch(/!ran \|\| next\.trim\(\) === ''/)
+  })
+})
+

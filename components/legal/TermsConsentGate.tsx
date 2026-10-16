@@ -85,8 +85,8 @@ export default function TermsConsentGate() {
         </h2>
         <p className="mt-2 text-[14px] leading-relaxed text-body-2">
           {zh
-            ? '为了接入经纪公司与房地产协会授权的房源数据，服务条款新增了下面这些规则。它们只约束房源信息的使用，不收取任何费用，也不建立任何代理关系。'
-            : 'To carry listing data licensed from brokerages and real estate associations, the Terms now include the rules below. They only govern how listing information may be used; nothing here charges a fee or creates representation.'}
+            ? '服务条款里有下面这些关于房源信息使用的规则。它们只约束房源信息的使用，不收取任何费用，也不建立任何代理关系。'
+            : 'The Terms include the rules below on how listing information may be used. They only govern listing information; nothing here charges a fee or creates representation.'}
         </p>
         <ol className="mt-4 max-h-[36dvh] list-decimal space-y-2 overflow-y-auto rounded-[12px] bg-surface px-4 py-3 pl-8 text-[13px] leading-relaxed text-body-2 sm:max-h-[260px]">
           {LISTING_DATA_CLAUSES.map((c, i) => <li key={i}>{zh ? c.zh : c.en}</li>)}
