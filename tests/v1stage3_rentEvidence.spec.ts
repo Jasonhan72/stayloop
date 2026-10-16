@@ -229,3 +229,12 @@ describe('a paid-late period is not outstanding (prod check 2026-10-16)', () => 
   })
 })
 
+describe('the lifecycle rail uses the same outstanding predicate', () => {
+  it('stages.ts does not re-inline status === late as unpaid', async () => {
+    const fs = await import('node:fs')
+    const src = fs.readFileSync('lib/lifecycle/stages.ts', 'utf8')
+    expect(src).not.toMatch(/r\.status === 'due' \|\| r\.status === 'late'/)
+    expect(src).toMatch(/f\.rent\.filter\(isRentOutstanding\)/)
+  })
+})
+

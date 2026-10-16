@@ -9,7 +9,7 @@
 //   • no scores, no percentages, no rankings in the rail;
 //   • each phase states what the AI does and what the person decides.
 import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
-import { isLeaseInForce } from '@/lib/matters/states'
+import { isLeaseInForce, isRentOutstanding } from '@/lib/matters/states'
 import { n1DeadlineFor } from '@/lib/ontario/rules'
 import { leaseProvince } from '@/lib/provinces/lease'
 import { provinceTouchpoint, provinceWindowDays } from '@/lib/provinces/renewal'
@@ -140,7 +140,7 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
   const sentLeases = f.leases.filter((l) => l.status === 'sent' || l.status === 'signed_tenant')
   const verifiedHh = f.households.filter((h) => h.verified)
   const unconfirmedHh = f.households.filter((h) => !h.verified)
-  const rentDue = f.rent.filter((r) => r.status === 'due' || r.status === 'late')
+  const rentDue = f.rent.filter(isRentOutstanding)
   const openTickets = f.tickets.filter((t) => t.status && !['done', 'cancelled'].includes(t.status))
   // Only a lease that is IN FORCE has a renewal window — a signed lease that has not
   // started yet is 已签待起租 (lib/matters/states, 节点 1 2026-09-26), whatever its end date.
@@ -326,7 +326,7 @@ export function tenantLifecycle(f: TenantFacts, today = new Date()): Lifecycle {
   const allHh = [...f.households, ...(f.pendingInvites ?? [])]
   const hh = allHh.find((h) => h.current_lease_id === lease?.id) ?? allHh[0]
   const joined = !!hh && f.memberOf.includes(hh.id)
-  const rentDue = f.rent.filter((r) => r.status === 'due' || r.status === 'late')
+  const rentDue = f.rent.filter(isRentOutstanding)
   const openTickets = f.tickets.filter((t) => t.status && !['done', 'cancelled'].includes(t.status))
   const endIso = hh?.end_date || lease?.end_date || null
   const daysToEnd = endIso ? daysBetween(todayUtc(today), parseDateOnly(endIso) ?? today) : null
