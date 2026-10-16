@@ -40,9 +40,10 @@ interface Props {
 // the next-step CTA for that surface; the fixtures stay one click away
 // behind "查看产品演示" (session-scoped).
 //
-// /tenant/passport and /tenant/lease are deliberately NOT gated: both carry
-// real functionality (share-token generation; HouseholdList) mixed with
-// demo sections, and blanket-hiding them would hide the real parts too.
+// /tenant/lease is deliberately NOT gated: it carries real functionality
+// (HouseholdList, the N1 check, move-out tools) mixed with demo sections, and
+// blanket-hiding it would hide the real parts too. /tenant/passport became the
+// applicant pack on 2026-10-16 (V1.0 阶段 4) — every block on it is real.
 // /landlord/leases and /landlord/applicants self-manage (real rows render
 // once any exist).
 type GateNote = { zh: string; en: string }
@@ -121,10 +122,6 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
 // gated — see above). They carry the banner permanently; the note says which
 // parts are real.
 const SAMPLE_NOTE: Record<string, GateNote> = {
-  '/tenant/passport': {
-    zh: '本页只有「分享链接」与「租金上报候补」是真实功能；四枚章的状态、查看记录与验证历史是示范数据。',
-    en: 'Only the share link and the rent-reporting waitlist are live here; stamp status, view log and verification history are sample data.',
-  },
   '/tenant/lease': {
     zh: '本页的「在管租约」列表、N1 涨租核对与退租工具是真实功能；下面的租约条款、签署进度与 AI 助理解读是示范数据。',
     en: 'The managed-lease list, the N1 rent-increase check and the move-out tools are live; the clauses, signing progress and AI Agent commentary below are sample data.',

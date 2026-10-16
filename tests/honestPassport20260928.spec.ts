@@ -2,7 +2,8 @@
 //
 // The tenant pages promised that a tenant verifies once and the result travels
 // to every landlord ("verify once, go anywhere"). Nothing does that: the four
-// passport stamps on /tenant/passport are sample data, verification only
+// passport stamps on /tenant/passport were sample data (removed 2026-10-16 when the
+// page became the real applicant pack), verification only
 // happens when a landlord sends a /verify link for one screening, and the one
 // real thing a tenant can carry is the read-only share link /p/<token> —
 // initials plus an on-time rent record taken only from leases both sides

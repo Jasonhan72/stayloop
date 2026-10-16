@@ -66,7 +66,8 @@ describe('2 · stamps unlock nothing', () => {
     expect(offending(/多 ?42%|42% more/)).toEqual([])
     expect(offending(/解锁更多房源|unlock more homes|快速通道|[Ff]ast lane|需 收入章"/)).toEqual([])
     for (const s of STAMPS) expect(`${s.gain_zh} ${s.gain_en}`).not.toMatch(/房源|更快|解锁|listings|faster|unlock/i)
-    expect(read('app/tenant/passport/page.tsx')).toContain("{zh ? '房东看到' : 'LANDLORDS SEE'}")
+    // 2026-10-16: the stamp cards are gone (the page is the real applicant pack); what remains is the fact about the share link
+    expect(read('app/tenant/passport/page.tsx')).toContain('分享链接只给姓名缩写与付租记录')
     expect(read('app/tenant/passport/page.tsx')).not.toMatch(/申请房源时自动附上|现场出示二维码|every view lands in your audit log|每次访问都进审计日志/)
     // the share card showed a decorative, non-scannable QR captioned「看房现场出示」 — removed; there is no QR feature
     expect(read('app/tenant/passport/page.tsx')).not.toMatch(/QrPlaceholder|看房现场出示|Show at viewings/)

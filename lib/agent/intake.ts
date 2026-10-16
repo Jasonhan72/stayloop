@@ -402,31 +402,44 @@ const CONTACT_LANDLORD: IntakeSpec = {
   },
 }
 
-const STAMPS: IntakeSpec = {
-  id: 'stamps',
-  title: { zh: '盖下一枚章', en: 'Earn my next stamp' },
-  outline: { zh: '哪一枚 · 为了什么', en: 'which stamp · what for' },
+// 乙 #7 (2026-10-16): the old "earn the next badge" card is gone with the
+// passport badges — the tenant card now helps build the application pack
+// (/tenant/passport), which /apply/[slug] fills in with one tap. Nothing here says a landlord sees more
+// or that any file is "verified": the pack is what the applicant provides.
+const APPLICANT_PACK: IntakeSpec = {
+  id: 'applicant_pack',
+  title: { zh: '准备申请包', en: 'Build my application pack' },
+  outline: { zh: '先准备哪部分 · 手头材料 · 什么时候用', en: 'which part · what I have · when I need it' },
   steps: [
-    { key: 'which', ask: { zh: '想先了解哪一枚？', en: 'Which stamp first?' }, options: [
-      { value: 'identity', label: { zh: '身份章', en: 'Identity stamp' } },
-      { value: 'income', label: { zh: '收入章', en: 'Income stamp' } },
-      { value: 'bank', label: { zh: '银行章', en: 'Bank stamp' } },
-      { value: 'credit', label: { zh: '信用 + 法庭章', en: 'Credit + court stamp' } },
-      { value: 'all', label: { zh: '都看看', en: 'All of them' } },
+    { key: 'part', ask: { zh: '想先准备哪部分？', en: 'Which part first?' }, hint: { zh: '申请包就是申请表会问的那些资料和文件，准备一次，以后每次申请一键填入。', en: 'The pack is what rental applications ask for — details and files — prepared once and filled in with one tap each time.' }, options: [
+      { value: 'identity', label: { zh: '个人与联系方式', en: 'Identity and contact details' } },
+      { value: 'income', label: { zh: '工作与收入', en: 'Employment and income' } },
+      { value: 'history', label: { zh: '租房历史', en: 'Rental history' } },
+      { value: 'files', label: { zh: '文件', en: 'Files' } },
+      { value: 'all', label: { zh: '全部', en: 'All of it' } },
     ] },
-    { key: 'why', ask: { zh: '盖章是为了？', en: 'What is it for?' }, optional: true, options: [
+    { key: 'have', ask: { zh: '现在手头有什么材料？', en: 'What do you have on hand right now?' }, hint: { zh: '可多选；没有也没关系。', en: 'Pick any; none is fine too.' }, multi: true, optional: true, options: [
+      { value: 'id', label: { zh: '政府证件', en: 'Government ID' } },
+      { value: 'paystub', label: { zh: '近期工资单', en: 'Recent pay stubs' } },
+      { value: 'bank_statement', label: { zh: '银行对账单', en: 'Bank statement' } },
+      { value: 'employment_letter', label: { zh: '在职证明信', en: 'Employment letter' } },
+      { value: 'landlord_contact', label: { zh: '上家房东联系方式', en: 'Previous landlord contact' } },
+      { value: 'nothing', label: { zh: '还没有', en: 'Nothing yet' } },
+    ] },
+    { key: 'when', ask: { zh: '什么时候要用？', en: 'When do you need it?' }, optional: true, options: [
       { value: 'applying', label: { zh: '正在申请一套房', en: 'Applying for a place now' } },
-      { value: 'prepare', label: { zh: '想提前准备', en: 'Getting ready ahead of time' } },
-      { value: 'curious', label: { zh: '只是想了解', en: 'Just curious' } },
-    ], input: 'text' },
+      { value: 'month', label: { zh: '一个月内', en: 'Within a month' } },
+      { value: 'later', label: { zh: '先准备着', en: 'Just getting ready' } },
+    ], input: 'text', placeholder: { zh: '比如：11 月 1 日要搬', en: 'e.g. moving on Nov 1' } },
   ],
   compose: (q) => {
     const zh = q.lang === 'zh'
-    const all = q.has('which', 'all') || !q.pick('which')
-    const which = q.said('which')
-    const why = q.said('why')
-    if (zh) return `我现在盖了几枚章？${all ? '每一枚' : `我想先盖「${which}」`}：怎么盖、要准备什么、盖上后房东能看到什么？${why ? `我${why}。` : ''}`
-    return `How many stamps do I have? ${all ? 'For each stamp' : `For the ${which}`}: how do I earn it, what do I need, and what will a landlord see?${why ? ` I am ${why.toLowerCase()}.` : ''}`
+    const all = q.has('part', 'all') || !q.pick('part')
+    const part = q.said('part')
+    const have = q.has('have', 'nothing') ? '' : q.said('have')
+    const when = q.said('when')
+    if (zh) return `帮我准备申请包：${all ? '全部都要准备' : `先准备「${part}」`}${have ? `，手头已有${have}` : '，手头还没有材料'}${when ? `，${when}` : ''}。告诉我每部分要填什么、文件怎么传、房东在申请里会看到什么，以及从哪里开始。`
+    return `Help me build my application pack: ${all ? 'all of it' : `starting with ${part.toLowerCase()}`}${have ? `, I already have ${have.toLowerCase()}` : ', I have no documents on hand yet'}${when ? `, ${when.toLowerCase()}` : ''}. Tell me what each part asks for, how to add files, what a landlord sees in an application, and where to start.`
   },
 }
 
@@ -720,7 +733,7 @@ const RAW_INTAKES: Record<string, IntakeSpec> = {
   explain_lease: EXPLAIN_LEASE,
   repair: REPAIR,
   contact_landlord: CONTACT_LANDLORD,
-  stamps: STAMPS,
+  applicant_pack: APPLICANT_PACK,
   screen: SCREEN,
   list: LIST,
   applications: APPLICATIONS,

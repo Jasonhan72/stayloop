@@ -45,7 +45,7 @@ const SUGGESTIONS: Record<AgentRole, { key: string; icon: string; label: { zh: s
     { key: 'explain_lease', icon: '📄', label: { zh: '解读租约', en: 'Explain my lease' }, prompt: { zh: '帮我逐条解释租约里最需要注意的条款。', en: 'Walk me through the lease clauses I should watch out for.' } },
     { key: 'repair', icon: '🔧', label: { zh: '发起报修', en: 'Report a repair' }, prompt: { zh: '厨房水槽漏水,帮我整理成报修工单发给房东。', en: 'The kitchen sink is leaking — turn this into a repair ticket for my landlord.' } },
     { key: 'contact_landlord', icon: '✉️', label: { zh: '联系房东', en: 'Contact my landlord' }, prompt: { zh: '帮我给房东写一封信：厨房水龙头 10 月 2 日报修后还没人来，请本周安排维修。', en: 'Write to my landlord: the kitchen tap I reported on Oct 2 has not been looked at — please arrange a repair this week.' } },
-    { key: 'stamps', icon: '⭐', label: { zh: '盖下一枚章', en: 'Earn my next stamp' }, prompt: { zh: '我现在盖了几枚章?下一枚怎么盖,能解锁什么?', en: 'How many stamps do I have? How do I earn the next one, and what does it unlock?' } },
+    { key: 'applicant_pack', icon: '🗂️', label: { zh: '准备申请包', en: 'Build my application pack' }, prompt: { zh: '帮我准备申请包：申请表会问什么、要传哪些文件、房东会看到什么？', en: 'Help me build my application pack: what do applications ask for, which files should I add, and what does a landlord see?' } },
   ],
   landlord: [
     { key: 'screen', icon: '🔎', label: { zh: '租客筛查', en: 'Tenant screening' }, prompt: { zh: '我要筛查一位申请人：告诉我报告会查什么、需要准备哪些材料，然后带我开始。', en: 'I want to screen an applicant: tell me what the report checks, what documents I need, then take me to start.' } },

@@ -206,23 +206,31 @@ describe('IntakeCard behaviour (react-test-renderer)', () => {
     vi.useFakeTimers()
     const onSend = vi.fn(); const onDraft = vi.fn(); const onClose = vi.fn()
     let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(React.createElement(IntakeCard, { spec: INTAKES.stamps, lang: 'en', accent: '#00ACE4', onSend, onDraft, onClose })) })
+    // 乙 #7 (2026-10-16): the tenant's fifth card is "build my application pack" (3 steps).
+    act(() => { r = TestRenderer.create(React.createElement(IntakeCard, { spec: INTAKES.applicant_pack, lang: 'en', accent: '#00ACE4', onSend, onDraft, onClose })) })
     const root = r.root
     const progress = () => String(byId(root, 'intake-progress')[0].props.children)
     expect(byId(root, 'intake-next')[0].props.disabled).toBe(true)
     expect(byId(root, 'intake-skip').length).toBe(0) // required step: no skip
-    click(chip(root, 'Income stamp'))
+    click(chip(root, 'Employment and income'))
     act(() => { vi.advanceTimersByTime(200) }) // chips-only step auto-advances
-    expect(progress()).toContain('Step 2 of 2')
+    expect(progress()).toContain('Step 2 of 3')
     click(byId(root, 'intake-back')[0])
-    expect(progress()).toContain('Step 1 of 2')
+    expect(progress()).toContain('Step 1 of 3')
     click(byId(root, 'intake-next')[0]) // already answered → forward again
-    expect(progress()).toContain('Step 2 of 2')
-    click(byId(root, 'intake-skip')[0]) // optional "why" step
+    expect(progress()).toContain('Step 2 of 3')
+    // 2 what I have (optional, multi): a multi step never auto-advances; pick two, then Next
+    click(chip(root, 'Recent pay stubs')); click(chip(root, 'Government ID'))
+    act(() => { vi.advanceTimersByTime(200) })
+    expect(progress()).toContain('Step 2 of 3')
+    click(byId(root, 'intake-next')[0])
+    expect(progress()).toContain('Step 3 of 3')
+    click(byId(root, 'intake-skip')[0]) // optional "when" step
     expect(byId(root, 'intake-review').length).toBe(1)
     click(byId(root, 'intake-draft')[0])
     expect(onDraft).toHaveBeenCalledTimes(1)
-    expect(onDraft.mock.calls[0][0]).toContain('Income stamp')
+    expect(onDraft.mock.calls[0][0]).toContain('employment and income')
+    expect(onDraft.mock.calls[0][0]).toContain('recent pay stubs')
     act(() => { byId(root, 'intake-card')[0].props.onKeyDown({ key: 'Escape', stopPropagation() {} }) })
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(onSend).not.toHaveBeenCalled()

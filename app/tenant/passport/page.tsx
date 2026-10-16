@@ -1,101 +1,31 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+// 租客护照 · 申请包 (V1.0 阶段 4 · 乙 #7 · G14, 2026-10-16).
+//
+// Everything on this page is real: the applicant's own pack (four
+// self-declared sections + files + consent, lib/profile/*), the preview /
+// printable export (lib/profile/exportPack.ts), the read-only share link
+// (/p/<token>: initials + on-time rent record from leases both sides
+// confirmed), the Stayloop API read scopes on that link, and the
+// rent-reporting waitlist. The four sample stamps, the sample view log and
+// the sample verification history are gone — nothing here is a placeholder.
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
-import {
-  AsideBlock,
-  PageHeader,
-  SectionCard,
-  StatStrip,
-  StatusPill,
-  Table,
-  Td,
-  Tr,
-} from '@/components/workspace'
+import { AsideBlock, PageHeader, SectionCard, StatStrip } from '@/components/workspace'
+import ProfileConsent from '@/components/profile/ProfileConsent'
+import ProfileFiles from '@/components/profile/ProfileFiles'
+import ProfileSections, { type ProfileDraft } from '@/components/profile/ProfileSections'
+import { writeAuditEvent } from '@/lib/agent/audit'
 import { useT, type Lang } from '@/lib/i18n'
+import { APPLICANT_PROFILE_CONSENT_VERSION, hasCurrentConsent, presentedMetadata } from '@/lib/profile/consent'
+import { packDisplayName, renderApplicantPack, sectionCompleteness, type PackVerified } from '@/lib/profile/exportPack'
+import { freshness } from '@/lib/profile/freshness'
+import { stayloopHistory } from '@/lib/profile/history'
+import { PROFILE_FILE_KINDS, type ApplicantProfile, type ProfileFile, type ProfileHistoryEntry, type StayloopHistoryEntry } from '@/lib/profile/types'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
-import { stampForTier, stampLabel, STAMP_CHECK_GREEN } from '@/lib/passportStamps'
-
-type Bi = { zh: string; en: string }
-
-type SharingMode = 'open' | 'conservative' | 'custom'
-
-interface TierInfo {
-  level: 1 | 2 | 3 | 4
-  title: Bi
-  desc: Bi
-  status: 'done' | 'current' | 'locked'
-  fields: Bi[]
-}
-
-const TIERS: TierInfo[] = [
-  {
-    level: 1,
-    title: { zh: '身份章', en: 'Identity stamp' },
-    desc: { zh: '扫证件 + 自拍，90 秒 · Veriff 验证', en: 'Scan ID + selfie, 90 seconds · Veriff verification' },
-    status: 'done',
-    fields: [
-      { zh: '法定姓名', en: 'Legal name' },
-      { zh: '身份证件', en: 'ID document' },
-      { zh: '邮箱 + 电话', en: 'Email + phone' },
-    ],
-  },
-  {
-    level: 2,
-    title: { zh: '收入章', en: 'Income stamp' },
-    desc: { zh: '连接银行 · 雇主 + 月收入自动核实', en: 'Connect bank · employer + income auto-verified' },
-    status: 'done',
-    fields: [
-      { zh: '月收入', en: 'Monthly income' },
-      { zh: '雇主名称', en: 'Employer' },
-      { zh: '工作年限', en: 'Years employed' },
-    ],
-  },
-  {
-    level: 3,
-    title: { zh: '银行章', en: 'Bank stamp' },
-    desc: { zh: '连接一次银行流水，约 5 分钟', en: 'Connect your bank once, ~5 minutes' },
-    status: 'current',
-    fields: [
-      { zh: '现金流稳定性', en: 'Cash-flow stability' },
-      { zh: '退款记录', en: 'NSF history' },
-    ],
-  },
-  {
-    level: 4,
-    title: { zh: '信用 + 法庭章', en: 'Credit + court stamp' },
-    desc: { zh: 'Equifax 信用分 + LTB 法庭记录', en: 'Equifax credit score + LTB court records' },
-    status: 'locked',
-    fields: [
-      { zh: '信用分', en: 'Credit score' },
-      { zh: 'LTB 记录', en: 'LTB records' },
-    ],
-  },
-]
-
-const SHARING_MODES: Array<{ key: SharingMode; title: Bi; desc: Bi }> = [
-  {
-    key: 'open',
-    title: { zh: '宽松', en: 'Open' },
-    desc: { zh: '共享全部已验证字段 — 90% 租客选这个', en: 'Share all verified fields — 90% of tenants choose this' },
-  },
-  {
-    key: 'conservative',
-    title: { zh: '保守', en: 'Conservative' },
-    desc: { zh: '仅共享验证结果 (✓/✗)，不暴露具体数值', en: 'Share verification results only (✓/✗), hide exact values' },
-  },
-  {
-    key: 'custom',
-    title: { zh: '自定义', en: 'Custom' },
-    desc: { zh: '逐项控制每个字段的可见性', en: 'Control visibility per field' },
-  },
-]
-
-/** Demo read-only share link (Mia Chen canon — shown to anonymous/preview visitors). */
-const DEMO_SHARE_URL = 'stayloop.ai/p/mia-chen-7f3a'
 
 /** 24 random bytes → 32-char base64url token (matches the DB check: ≥32, [A-Za-z0-9_-]). */
 function generateShareToken(): string {
@@ -108,55 +38,119 @@ function generateShareToken(): string {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/** Rent record — same 5 months as /tenant/payments history, oldest first. */
-const RENT_RECORD: Array<{ month: Bi; status: 'paid' | 'late' }> = [
-  { month: { zh: '1月', en: 'Jan' }, status: 'paid' },
-  { month: { zh: '2月', en: 'Feb' }, status: 'late' },
-  { month: { zh: '3月', en: 'Mar' }, status: 'paid' },
-  { month: { zh: '4月', en: 'Apr' }, status: 'paid' },
-  { month: { zh: '5月', en: 'May' }, status: 'paid' },
-]
-
-/**
- * Passport view log (demo) — makes good on the promise printed on the share
- * card (sample data; a real share link only counts its opens).
- */
-const VIEWS: Array<{ when: string; who: Bi; saw: Bi; tone: 'info' | 'neutral' }> = [
-  {
-    when: '5/14 20:11',
-    who: { zh: '站外只读链接', en: 'Off-platform read-only link' },
-    saw: { zh: '身份章 ✓ 收入章 ✓', en: 'Identity ✓ Income ✓' },
-    tone: 'info',
-  },
-  {
-    when: '5/12 09:40',
-    who: { zh: 'Sarah Wang（平台内授权）', en: 'Sarah Wang (in-platform authorization)' },
-    saw: { zh: '身份 + 收入章数据', en: 'Identity + income stamp data' },
-    tone: 'neutral',
-  },
-]
-
-/** What is still missing for each un-stamped seal. */
-const TODO: Record<number, { need: Bi; status: Bi }> = {
-  3: {
-    need: { zh: '需要：一次银行流水连接 · 预计 5 分钟', en: 'Needs: one bank connection · about 5 minutes' },
-    status: { zh: '当前状态：未开始', en: 'Status: not started' },
-  },
-  4: {
-    need: { zh: '需要：授权信用分与 LTB 法庭记录查询', en: 'Needs: authorize credit score + LTB record lookup' },
-    status: { zh: '当前状态：未开始', en: 'Status: not started' },
-  },
-}
-
+const PROFILE_COLUMNS = 'auth_id,first_name,last_name,phone,current_address,date_of_birth,employment_status,employer_name,job_title,employment_start_date,monthly_income,employer_phone,employer_email,num_occupants,has_pets,pet_details,is_smoker,additional_notes,consent_version,consent_at,created_at,updated_at'
+const HISTORY_COLUMNS = 'id,auth_id,position,prev_address,prev_landlord_name,prev_landlord_phone,prev_landlord_email,prev_rent,prev_move_in,prev_move_out,reason_for_leaving,created_at,updated_at'
+const FILE_COLUMNS = 'id,auth_id,kind,path,name,size,mime,sha256,as_of,uploaded_at'
 
 export default function TenantPassport() {
   const { lang } = useT()
   const zh = lang === 'zh'
   const { user } = useAuth()
-  const [sharingMode, setSharingMode] = useState<SharingMode>('open')
+  const uid = user?.id ?? null
   const [copied, setCopied] = useState(false)
 
-  // ── Off-platform share token (real rows for logged-in tenants; demo otherwise) ──
+  // ── Applicant pack (own rows, plain RLS) ──
+  const [profile, setProfile] = useState<ApplicantProfile | null>(null)
+  const [history, setHistory] = useState<ProfileHistoryEntry[]>([])
+  const [stayloop, setStayloop] = useState<StayloopHistoryEntry[]>([])
+  const [files, setFiles] = useState<ProfileFile[]>([])
+  const [verified, setVerified] = useState<PackVerified>({})
+  const [packLoaded, setPackLoaded] = useState(false)
+  const [consentBusy, setConsentBusy] = useState(false)
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
+  const [exportErr, setExportErr] = useState<string | null>(null)
+
+  const loadProfile = useCallback(async () => {
+    if (!uid) return
+    const { data } = await supabase.from('applicant_profiles').select(PROFILE_COLUMNS).eq('auth_id', uid).maybeSingle()
+    setProfile((data as ApplicantProfile | null) ?? null)
+  }, [uid])
+  const loadHistory = useCallback(async () => {
+    if (!uid) return
+    const { data } = await supabase.from('applicant_profile_history').select(HISTORY_COLUMNS).eq('auth_id', uid).order('position', { ascending: true })
+    setHistory((data as ProfileHistoryEntry[] | null) ?? [])
+  }, [uid])
+  const loadFiles = useCallback(async () => {
+    if (!uid) return
+    const { data } = await supabase.from('applicant_profile_files').select(FILE_COLUMNS).eq('auth_id', uid).order('uploaded_at', { ascending: false })
+    setFiles((data as ProfileFile[] | null) ?? [])
+  }, [uid])
+
+  useEffect(() => {
+    if (!uid) {
+      setProfile(null); setHistory([]); setStayloop([]); setFiles([]); setVerified({}); setPackLoaded(false)
+      return
+    }
+    let cancelled = false
+    const email = user?.email ?? null
+    Promise.all([
+      loadProfile(),
+      loadHistory(),
+      loadFiles(),
+      stayloopHistory(supabase, uid, email).then((rows) => { if (!cancelled) setStayloop(rows) }).catch(() => {}),
+      // Applicant-authorised verification steps (Veriff identity / Flinks bank). The
+      // table's policy is landlord-only, so for most tenants this reads nothing and
+      // only the Stayloop-confirmed tenancies carry「已核验」. Best-effort, never blocking.
+      (async () => {
+        if (!email) return
+        try {
+          const { data } = await supabase.from('verification_requests').select('steps,status').eq('tenant_email', email).in('status', ['consented', 'complete']).order('updated_at', { ascending: false }).limit(5)
+          type Step = { status?: string; sandbox?: boolean }
+          const ok = (k: string) => (data ?? []).some((r) => { const st = (r.steps as Record<string, Step> | null)?.[k]; return !!st && st.status === 'verified' && !st.sandbox })
+          if (!cancelled) setVerified({ identity: ok('identity'), income: ok('bank') })
+        } catch { /* tolerated */ }
+      })(),
+    ]).finally(() => { if (!cancelled) setPackLoaded(true) })
+    return () => { cancelled = true }
+  }, [uid, user?.email, loadProfile, loadHistory, loadFiles])
+
+  const saveProfile = useCallback(async (patch: ProfileDraft): Promise<string | null> => {
+    if (!uid) return zh ? '请先登录。' : 'Please sign in first.'
+    const { error } = await supabase.from('applicant_profiles').upsert({ auth_id: uid, ...patch }, { onConflict: 'auth_id' })
+    if (error) return zh ? '没保存上，请稍后再试。' : 'Could not save — try again shortly.'
+    await loadProfile()
+    return null
+  }, [uid, zh, loadProfile])
+
+  const consented = hasCurrentConsent(profile)
+  const toggleConsent = async (next: boolean) => {
+    if (!uid || consentBusy) return
+    setConsentBusy(true)
+    await saveProfile(next ? { consent_version: APPLICANT_PROFILE_CONSENT_VERSION, consent_at: new Date().toISOString() } : { consent_version: null, consent_at: null })
+    setConsentBusy(false)
+    if (!next) setPreviewHtml(null)
+  }
+
+  const completeness = useMemo(() => sectionCompleteness(profile, history, stayloop), [profile, history, stayloop])
+  const filledSections = Object.values(completeness).filter(Boolean).length
+  const staleFiles = useMemo(() => files.filter((f) => freshness(f.kind, f.as_of ?? f.uploaded_at).state !== 'fresh'), [files])
+  const packScope = useMemo(() => {
+    const s: string[] = []
+    if (completeness.identity) s.push('identity')
+    if (completeness.employment) s.push('employment')
+    if (completeness.history) s.push('history')
+    if (completeness.other) s.push('other')
+    if (files.length) s.push('files')
+    return s
+  }, [completeness, files.length])
+
+  const buildHtml = () => renderApplicantPack({ profile, history, stayloopHistory: stayloop, files, lang: zh ? 'zh' : 'en', verified })
+
+  const handlePreview = () => {
+    if (!consented) return
+    setPreviewHtml(buildHtml())
+  }
+  const handleExport = () => {
+    if (!uid || !consented) return
+    setExportErr(null)
+    const html = buildHtml()
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }))
+    const win = window.open(url, '_blank')
+    if (!win) { setExportErr(zh ? '浏览器拦住了新标签页，请允许弹出窗口后再试。' : 'The browser blocked the new tab — allow pop-ups and try again.'); return }
+    void writeAuditEvent(supabase, { actorId: uid, action: 'applicant_pack_presented', actingRole: 'tenant', metadata: presentedMetadata('pdf', packScope) })
+  }
+
+  // ── Off-platform share token (real rows for signed-in tenants) ──
   const [shareToken, setShareToken] = useState<{ token: string; expires_at: string; api_scopes?: string[] | null } | null>(null)
   // Stayloop API (plan §3.2): the applicant decides, scope by scope, whether a
   // third party holding this token may read conclusions through the API.
@@ -261,14 +255,12 @@ export default function TenantPassport() {
     setWaitlistBusy(false)
   }
 
-  // Display path (real token when logged-in with an active row; demo otherwise).
   const isRealShare = !!(user && shareToken)
-  const shareUrlDisplay = isRealShare ? `stayloop.ai/p/${shareToken!.token}` : DEMO_SHARE_URL
+  const shareUrlDisplay = isRealShare ? `stayloop.ai/p/${shareToken!.token}` : ''
 
   const handleCopy = async () => {
-    const text = isRealShare
-      ? `${window.location.origin}/p/${shareToken!.token}`
-      : `https://${DEMO_SHARE_URL}`
+    if (!isRealShare) return
+    const text = `${window.location.origin}/p/${shareToken!.token}`
     let ok = false
     try {
       await navigator.clipboard.writeText(text)
@@ -294,228 +286,110 @@ export default function TenantPassport() {
     }
   }
 
-  const currentTier = TIERS.find((t) => t.status === 'current') ?? TIERS[2]
-  const completedCount = TIERS.filter((t) => t.status === 'done').length
-  const progressPercent = (completedCount / TIERS.length) * 100
+  // ── Deterministic suggestions from the pack's completeness (no model call) ──
+  const insights: AIInsight[] = useMemo(() => {
+    const out: AIInsight[] = []
+    const missing: string[] = []
+    if (!completeness.identity) missing.push(zh ? '身份' : 'identity')
+    if (!completeness.employment) missing.push(zh ? '雇佣与收入' : 'employment & income')
+    if (!completeness.history) missing.push(zh ? '租史' : 'rental history')
+    if (!completeness.other) missing.push(zh ? '其他' : 'other')
+    if (missing.length) {
+      out.push({ text: { zh: `申请包还缺「${missing.join('、')}」这${missing.length > 1 ? '几' : '一'}段。房东通常先看联系方式、收入和最近两段租史。`, en: `The pack is still missing ${missing.join(', ')}. Landlords usually look at contact details, income and the last two tenancies first.` } })
+    } else {
+      out.push({ text: { zh: '四段资料都填了。申请前再看一眼收入和现住址是不是最新的。', en: 'All four sections are filled in. Before applying, check that income and current address are still current.' } })
+    }
+    if (staleFiles.length) {
+      const f = staleFiles[0]
+      const fr = freshness(f.kind, f.as_of ?? f.uploaded_at)
+      out.push({ text: { zh: `${zh ? fr.suggestZh : fr.suggestEn}${staleFiles.length > 1 ? `（共 ${staleFiles.length} 份要看一下）` : ''}`, en: `${fr.suggestEn}${staleFiles.length > 1 ? ` (${staleFiles.length} files to look at)` : ''}` } })
+    } else if (files.length === 0) {
+      out.push({ text: { zh: '还没有上传文件。最常被要求的是最近两张工资单和一份证件。', en: 'No files yet. The most commonly requested are your last two pay stubs and one piece of ID.' } })
+    } else {
+      out.push({ text: { zh: `${files.length} 份文件都在新鲜期内。`, en: `All ${files.length} files are current.` } })
+    }
+    if (!consented) {
+      out.push({ text: { zh: '同意还没有勾选——勾选后才能预览、导出或在申请时一键填入。', en: 'Consent is not ticked yet — tick it to preview, export or fill an application with the pack.' } })
+    } else {
+      out.push({ text: { zh: '同意已记录。申请房源时选「用我的申请包填写」，一分钟就能提交。', en: 'Consent is on file. When you apply, choose "fill with my pack" and you are done in a minute.' }, link: { label: { zh: '去看房源 →', en: 'Browse listings →' }, href: '/listings' } })
+    }
+    return out
+  }, [completeness, staleFiles, files.length, consented, zh])
 
-  const insights: AIInsight[] = [
-    {
-      text: {
-        zh: '房东发来本人核验链接时，银行那一步约 5 分钟；不想连银行，也可以在申请里上传 PDF 流水。',
-        en: 'When a landlord sends you a verification link, the bank step takes about 5 minutes; if you would rather not connect your bank, you can upload PDF statements with your application.',
-      },
-      action: {
-        label: { zh: '先了解一下', en: 'Tell me more' },
-        prompt: {
-          zh: '房东让我做本人核验，银行那一步要做什么？能不能用 PDF 流水代替？',
-          en: 'A landlord asked me to verify. What happens in the bank step, and can I send PDF statements instead?',
-        },
-      },
-    },
-    {
-      text: {
-        zh: 'Sarah Wang 本月查看了你的资料 3 次 — 通常代表强意向。要不要主动跟进？',
-        en: 'Sarah Wang viewed your profile 3 times this month — usually a strong signal. Want to follow up?',
-      },
-      action: {
-        label: { zh: '主动跟进', en: 'Follow up' },
-        prompt: {
-          zh: 'Sarah Wang 多次查看我的资料，帮我起草一条得体的跟进消息。',
-          en: 'Sarah Wang keeps viewing my profile — draft a tasteful follow-up message.',
-        },
-      },
-    },
-  ]
+  const updatedAt = profile?.updated_at ? new Date(profile.updated_at) : null
+  const kindsWithFiles = PROFILE_FILE_KINDS.filter((k) => files.some((f) => f.kind === k.kind)).length
 
   return (
     <WorkspaceShell role="tenant" aside={<Aside lang={lang} insights={insights} />}>
       <PageHeader
-        title={zh ? '租客护照' : 'Tenant Passport'}
+        title={zh ? '租客护照 · 申请包' : 'Tenant Passport · Application pack'}
         sub={
           <>
-            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-tenant">RENTAL PASSPORT</span>
+            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-tenant">APPLICATION PACK</span>
             <span className="mx-1.5 text-body-3">·</span>
             {zh
-              ? '你的 Passport 是给下一个房东看的只读记录：姓名缩写和按时付租记录，只取自双方都确认过的租约；用一个分享链接出示，随时可撤销。'
-              : 'Your Passport is a read-only record for your next landlord: your initials and on-time rent record, drawn only from leases both sides confirmed, shown through one share link you can revoke any time.'}
+              ? '把申请要用的资料和文件备在一处：你自己填、自己传，出示给谁由你决定。Stayloop 不替任何人查任何人。'
+              : 'Keep everything an application needs in one place: you fill it in, you upload it, you decide who sees it. Stayloop does not look anyone up on anyone’s behalf.'}
           </>
         }
       />
 
       <StatStrip
         stats={[
-          {
-            label: zh ? '盖章进度' : 'Stamps earned',
-            value: `${completedCount}/${TIERS.length}`,
-            sub: zh ? `下一枚：${currentTier.title.zh}` : `Next: ${currentTier.title.en}`,
-          },
-          {
-            label: zh ? '分享链接被查看' : 'Share link views',
-            value: zh ? '7 次' : '7',
-            sub: zh ? '链接会记下被打开的次数' : 'The link counts how often it is opened',
-          },
-          {
-            label: zh ? '有效授权' : 'Active authorizations',
-            value: zh ? '4 项' : '4',
-            sub: zh ? '本月被查询 3 次' : '3 queries this month',
-          },
-          {
-            label: zh ? '最近更新' : 'Last updated',
-            value: '5/12',
-            sub: zh ? '收入章数据刷新' : 'Income stamp data refreshed',
-          },
+          { label: zh ? '资料段' : 'Sections', value: `${filledSections}/4`, sub: filledSections === 4 ? (zh ? '四段都填了' : 'all four filled in') : (zh ? '房东先看联系方式与收入' : 'contact and income first'), tone: filledSections === 4 ? 'up' : 'default' },
+          { label: zh ? '文件' : 'Files', value: String(files.length), sub: zh ? `${kindsWithFiles}/${PROFILE_FILE_KINDS.length} 类 · ${staleFiles.length ? `${staleFiles.length} 份要更新` : '都在新鲜期'}` : `${kindsWithFiles}/${PROFILE_FILE_KINDS.length} kinds · ${staleFiles.length ? `${staleFiles.length} to refresh` : 'all current'}`, tone: staleFiles.length ? 'warn' : 'default' },
+          { label: zh ? '同意' : 'Consent', value: consented ? (zh ? '已勾选' : 'On file') : (zh ? '未勾选' : 'Not yet'), sub: consented ? APPLICANT_PROFILE_CONSENT_VERSION : (zh ? '出示前必须勾选' : 'required before presenting'), tone: consented ? 'up' : 'warn' },
+          { label: zh ? '最近更新' : 'Last updated', value: updatedAt ? updatedAt.toLocaleDateString(zh ? 'zh-CN' : 'en-CA', { month: 'numeric', day: 'numeric' }) : '—', sub: user ? (packLoaded ? (zh ? '资料保存在你的账号里' : 'saved in your account') : (zh ? '读取中…' : 'loading…')) : (zh ? '登录后可用' : 'sign in to use') },
         ]}
       />
 
       <div className="space-y-4">
-        {/* ── Progress card ── */}
-        <SectionCard className="p-4 sm:p-5" padded={false}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-[20px] font-bold tracking-tight text-tenant">
-                  {stampLabel(completedCount, lang)}
-                </span>
-              </div>
-              <p className="mt-1 text-[13px] text-body-2">
-                {zh
-                  ? `下一枚：${currentTier.title.zh} —— ${currentTier.desc.zh}`
-                  : `Next stamp: ${currentTier.title.en} — ${currentTier.desc.en}`}
-              </p>
-            </div>
-            <Link
-              href="/onboarding/tier1"
-              className="sl-btn-primary shrink-0 !px-4 !py-2 !text-[12.5px]"
-            >
-              {zh ? '盖这枚章 →' : 'Stamp it →'}
-            </Link>
+        {!user && (
+          <div className="rounded-xl border border-dashed border-line-strong bg-surface-chip px-4 py-3 text-[13px] text-body-2">
+            {zh ? '申请包存在你的账号里。' : 'Your pack lives in your account. '}
+            <Link href="/login?next=/tenant/passport" className="font-semibold text-brand hover:underline">{zh ? '登录后开始填写 →' : 'Sign in to start →'}</Link>
           </div>
+        )}
 
-          {/* Progress bar */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-[11px] font-mono font-semibold text-body-3 mb-2">
-              {TIERS.map((t) => (
-                <span key={t.level} className={t.status === 'done' ? 'text-tenant' : ''}>
-                  {t.status === 'done' ? '✓' : t.level}
-                </span>
-              ))}
-            </div>
-            <div className="h-2 w-full rounded-full bg-line-divider overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${progressPercent}%`,
-                  background: 'linear-gradient(90deg, #00ACE4 0%, #6B6B8F 100%)',
-                }}
-              />
-            </div>
-          </div>
+        <ProfileSections
+          zh={zh}
+          signedIn={!!user}
+          uid={uid}
+          profile={profile}
+          history={history}
+          stayloopHistory={stayloop}
+          verified={verified}
+          onSave={saveProfile}
+          onHistoryChanged={loadHistory}
+        />
 
-          {/* Stamp cards (四枚章位：已盖 / 下一枚 / 待盖) */}
-          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {TIERS.map((t) => {
-              const stamp = stampForTier(t.level)
-              return (
-                <div
-                  key={t.level}
-                  className={
-                    'relative rounded-xl px-4 py-3 transition ' +
-                    (t.status === 'done'
-                      ? 'border border-tenant/40 bg-tenant/[0.06]'
-                      : t.status === 'current'
-                      ? 'border-[1.5px] border-dashed border-warning/50 bg-warning/[0.04]'
-                      : 'border-[1.5px] border-dashed border-line-divider bg-surface-chip opacity-60')
-                  }
-                >
-                  <span
-                    className={
-                      'absolute top-3 right-3 font-mono text-[9px] font-bold tracking-wide ' +
-                      (t.status === 'done'
-                        ? ''
-                        : t.status === 'current'
-                        ? 'text-warning'
-                        : 'text-body-3')
-                    }
-                    style={t.status === 'done' ? { color: STAMP_CHECK_GREEN } : undefined}
-                  >
-                    {t.status === 'done'
-                      ? zh ? '✓ 已盖章' : '✓ Stamped'
-                      : t.status === 'current'
-                      ? zh ? `● 下一枚${stamp.est_zh ? ` · ${stamp.est_zh}` : ''}` : `● Next${stamp.est_en ? ` · ${stamp.est_en}` : ''}`
-                      : zh ? '待盖' : 'Locked'}
-                  </span>
-                  {/* Seal */}
-                  <div
-                    className={
-                      'relative mb-2 flex h-11 w-11 items-center justify-center rounded-full text-[20px] ' +
-                      (t.status === 'done'
-                        ? 'bg-gradient-to-br from-[#C4B5FD] to-tenant shadow-[0_4px_14px_rgba(0,172,228,0.4)]'
-                        : 'bg-surface-chip')
-                    }
-                    style={t.status === 'done' ? { transform: 'rotate(-8deg)' } : undefined}
-                  >
-                    <span className={t.status === 'locked' ? 'grayscale opacity-70' : ''}>{stamp.icon}</span>
-                    {t.status === 'done' && (
-                      <span
-                        aria-hidden
-                        className="absolute -right-[7px] -bottom-[7px] flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] font-extrabold text-white"
-                        style={{
-                          background: STAMP_CHECK_GREEN,
-                          border: '2.5px solid #131118',
-                          transform: 'rotate(8deg)',
-                        }}
-                      >
-                        ✓
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[13px] font-semibold tracking-tight">{t.title[lang]}</div>
-                  <div className="mt-0.5 text-[11.5px] leading-relaxed text-body-3">
-                    {zh ? stamp.what_zh : stamp.what_en}
-                  </div>
-                  {/* Which fields this stamp covers — verified list, or what's still missing */}
-                  <div className="mt-2 border-t border-dashed border-line-divider pt-1.5">
-                    <span className="block font-mono text-[9px] tracking-wider text-body-3">
-                      {t.status === 'done' ? (zh ? '已验证' : 'VERIFIED') : zh ? '补齐清单' : 'TO COMPLETE'}
-                    </span>
-                    <ul className="mt-1 space-y-0.5 text-[11.5px] leading-relaxed">
-                      {t.fields.map((f) => (
-                        <li key={f.en} className="flex items-start gap-1">
-                          <span
-                            className="mt-[1px] flex-none font-bold"
-                            style={t.status === 'done' ? { color: STAMP_CHECK_GREEN } : undefined}
-                          >
-                            {t.status === 'done' ? '✓' : '○'}
-                          </span>
-                          <span className={t.status === 'done' ? 'text-body-2' : 'text-body-3'}>{f[lang]}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    {t.status !== 'done' && TODO[t.level] && (
-                      <div className="mt-1 text-[11px] leading-relaxed text-body-3">
-                        <div>{TODO[t.level].need[lang]}</div>
-                        <div>{TODO[t.level].status[lang]}</div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-2 border-t border-dashed border-line-divider pt-1.5 text-[11.5px] leading-relaxed">
-                    <span className="block font-mono text-[9px] tracking-wider text-body-3">
-                      {zh ? '房东看到' : 'LANDLORDS SEE'}
-                    </span>
-                    <span className={t.status === 'done' ? 'text-tenant' : 'text-body-2'}>
-                      {zh ? stamp.gain_zh : stamp.gain_en}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          <div className="mt-4 text-center font-mono text-[10.5px] tracking-wide text-body-3">
-            {zh
-              ? '支持 护照 · 签证 · 枫叶卡 · 工签 —— 没有加拿大信用记录，也能盖章。'
-              : 'Passport · visa · PR card · work permit all supported — no Canadian credit history needed to earn stamps.'}
-          </div>
-        </SectionCard>
+        <ProfileFiles zh={zh} signedIn={!!user} files={files} onChanged={loadFiles} />
+
+        <ProfileConsent
+          zh={zh}
+          signedIn={!!user}
+          consented={consented}
+          consentAt={profile?.consent_at ?? null}
+          busy={consentBusy}
+          onToggle={toggleConsent}
+          onPreview={handlePreview}
+          onExport={handleExport}
+          applyHref="/listings"
+        />
+        {exportErr && <p className="text-[12.5px] text-danger" role="alert">{exportErr}</p>}
+
+        {previewHtml && (
+          <SectionCard
+            title={zh ? `预览 · 房东看到的样子（${packDisplayName(profile, 'zh')}）` : `Preview · what a landlord sees (${packDisplayName(profile, 'en')})`}
+            meta={zh ? '文件只列名字与指纹' : 'files listed by name and fingerprint only'}
+            padded={false}
+            action={<button type="button" onClick={() => setPreviewHtml(null)} className="text-[12px] font-semibold text-body-3 hover:text-ink">{zh ? '关闭' : 'Close'}</button>}
+          >
+            <div className="min-w-0 overflow-x-auto bg-[#E2E8F0]">
+              <iframe title={zh ? '申请包预览' : 'Application pack preview'} srcDoc={previewHtml} sandbox="" className="h-[70vh] min-h-[480px] w-full min-w-[320px] border-0" data-testid="pack-preview-frame" />
+            </div>
+          </SectionCard>
+        )}
 
         {/* ── Off-platform share (read-only snapshot) ── */}
         <SectionCard className="p-4 sm:p-5" padded={false}>
@@ -524,13 +398,12 @@ export default function TenantPassport() {
               <h2 className="text-[16px] font-bold tracking-tight">
                 {zh ? '分享给站外房东' : 'Share with any landlord'}
               </h2>
-              <p className="mt-1 max-w-[460px] text-[13px] leading-relaxed text-body-2">
+              <p className="mt-1 max-w-[520px] text-[13px] leading-relaxed text-body-2">
                 {zh
-                  ? '房东不在 Stayloop？一条只读链接就够了——对方无需注册，打开即可看到你的姓名缩写和按时付租记录。'
-                  : "Landlord not on Stayloop? One read-only link is all it takes — no sign-up needed on their side; they see your initials and on-time rent record."}
+                  ? '房东不在 Stayloop？一条只读链接就够了——对方无需注册，打开只看到你的姓名缩写和按时付租记录，只取自双方都确认过的租约；随时可撤销。完整的申请包请用上面的导出 PDF。'
+                  : "Landlord not on Stayloop? One read-only link is all it takes — no sign-up on their side; they see only your initials and on-time rent record, drawn only from leases both sides confirmed, and you can revoke it any time. For the full pack, use Export PDF above."}
               </p>
 
-              {/* Link + copy — real token for logged-in tenants, demo otherwise */}
               {user && !shareToken ? (
                 <div className="mt-4">
                   <button
@@ -551,6 +424,8 @@ export default function TenantPassport() {
                     </p>
                   )}
                 </div>
+              ) : !user ? (
+                <p className="mt-3 text-[12.5px] text-body-3">{zh ? '登录后可以生成链接。' : 'Sign in to generate a link.'}</p>
               ) : (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <span className="min-w-0 max-w-full truncate rounded-lg bg-surface-chip px-3.5 py-2.5 font-mono text-[12.5px] text-body">
@@ -563,16 +438,14 @@ export default function TenantPassport() {
                   >
                     {copied ? (zh ? '已复制 ✓' : 'Copied ✓') : zh ? '复制链接' : 'Copy link'}
                   </button>
-                  {isRealShare && (
-                    <button
-                      type="button"
-                      onClick={handleRevoke}
-                      disabled={shareBusy}
-                      className="shrink-0 rounded-lg px-3 py-2.5 text-[13px] font-semibold text-danger transition hover:bg-danger/5 disabled:opacity-60"
-                    >
-                      {shareBusy ? (zh ? '撤销中…' : 'Revoking…') : zh ? '撤销' : 'Revoke'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={handleRevoke}
+                    disabled={shareBusy}
+                    className="shrink-0 rounded-lg px-3 py-2.5 text-[13px] font-semibold text-danger transition hover:bg-danger/5 disabled:opacity-60"
+                  >
+                    {shareBusy ? (zh ? '撤销中…' : 'Revoking…') : zh ? '撤销' : 'Revoke'}
+                  </button>
                 </div>
               )}
               {isRealShare && (
@@ -602,12 +475,12 @@ export default function TenantPassport() {
               <ul className="mt-4 space-y-1.5 text-[12.5px] leading-relaxed text-body-2">
                 {[
                   {
-                    zh: '只读快照 —— 只显示验证结果，不含证件原件',
-                    en: 'Read-only snapshot — verification results only, never your original documents',
+                    zh: '只读快照 —— 姓名缩写与按时付租记录，没有金额，不含任何文件',
+                    en: 'Read-only snapshot — initials and on-time rent record, no amounts, never a document',
                   },
                   {
-                    zh: '由 Stayloop 直发，房东可验真，无法伪造',
-                    en: 'Served directly by Stayloop — landlords can verify authenticity, it cannot be forged',
+                    zh: '由 Stayloop 直发，房东可验真',
+                    en: 'Served directly by Stayloop, so a landlord can check it is genuine',
                   },
                   {
                     zh: '可随时撤销，撤销后立即失效',
@@ -615,9 +488,7 @@ export default function TenantPassport() {
                   },
                 ].map((b) => (
                   <li key={b.en} className="flex items-start gap-2">
-                    <span className="mt-[1px] font-bold" style={{ color: STAMP_CHECK_GREEN }}>
-                      ✓
-                    </span>
+                    <span className="mt-[1px] font-bold text-success">✓</span>
                     <span>{zh ? b.zh : b.en}</span>
                   </li>
                 ))}
@@ -626,314 +497,44 @@ export default function TenantPassport() {
           </div>
         </SectionCard>
 
-        {/* ── Who viewed the Passport (audit trail for the share link) ── */}
-        <SectionCard
-          title={zh ? '谁看过我的护照' : 'Who viewed your Passport'}
-          meta={zh ? '示范数据' : 'SAMPLE DATA'}
-          padded={false}
-          action={
-            <Link href="/tenant/audit" className="text-[12px] font-semibold text-tenant hover:underline">
-              {zh ? '完整审计日志 →' : 'Full audit log →'}
-            </Link>
-          }
-        >
-          <Table
-            head={[
-              zh ? '时间' : 'When',
-              zh ? '访问来源' : 'Source',
-              zh ? '看到了什么' : 'What they saw',
-            ]}
-          >
-            {VIEWS.map((v) => (
-              <Tr key={v.when}>
-                <Td mono>{v.when}</Td>
-                <Td align="right">
-                  <StatusPill tone={v.tone}>{v.who[lang]}</StatusPill>
-                </Td>
-                <Td align="right" muted>
-                  {v.saw[lang]}
-                </Td>
-              </Tr>
-            ))}
-          </Table>
-        </SectionCard>
-
-        {/* ── Sharing mode ── */}
+        {/* ── Rent reporting to credit bureau — waitlist ── */}
         <SectionCard className="p-4 sm:p-5" padded={false}>
-          <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h2 className="text-[16px] font-bold tracking-tight">
-                {zh ? '共享策略' : 'Sharing policy'}
-              </h2>
-              <p className="mt-1 text-[13px] text-body-2">
-                {zh
-                  ? '申请房源时，房东能看到哪些信息'
-                  : 'What landlords can see when you apply'}
-              </p>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-[16px] font-bold tracking-tight">
+              {zh ? '上报到信用局' : 'Report rent to the credit bureau'}
+            </h2>
+            <span className="rounded-full bg-tenant/10 px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-tenant">
+              {zh ? '即将上线' : 'COMING SOON'}
+            </span>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {SHARING_MODES.map((m) => (
+          <p className="mt-2 max-w-[560px] text-[13px] leading-relaxed text-body-2">
+            {zh
+              ? '按时交租也能积累信用：我们正在接入信用局，把你的按时租金记录上报 Equifax，帮你建立加拿大信用历史——对新移民尤其有用。上线后由你自主选择是否开启。'
+              : 'On-time rent can build credit too: we are working on reporting your on-time rent payments to Equifax to help build Canadian credit history — especially useful for newcomers. Opt-in only, once it launches.'}
+          </p>
+          <div className="mt-3">
+            {!user ? (
+              <Link href="/login" className="sl-btn-secondary inline-flex !px-4 !py-2 text-[13px]">
+                {zh ? '登录后加入等候名单' : 'Log in to join the waitlist'}
+              </Link>
+            ) : waitlistJoined ? (
+              <span className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold text-success">
+                {zh ? '已加入 ✓' : 'Joined ✓'}
+              </span>
+            ) : (
               <button
-                key={m.key}
                 type="button"
-                onClick={() => setSharingMode(m.key)}
-                className={
-                  'rounded-xl border px-4 py-4 text-left transition ' +
-                  (sharingMode === m.key
-                    ? 'border-tenant bg-tenant/[0.05] ring-1 ring-tenant/30'
-                    : 'border-line-divider hover:border-line-strong')
-                }
+                onClick={handleJoinWaitlist}
+                disabled={waitlistBusy}
+                className="sl-btn-secondary !px-4 !py-2 text-[13px] disabled:opacity-60"
               >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={
-                      'flex h-5 w-5 items-center justify-center rounded-full border-2 transition ' +
-                      (sharingMode === m.key
-                        ? 'border-tenant bg-tenant'
-                        : 'border-line-strong')
-                    }
-                  >
-                    {sharingMode === m.key && (
-                      <span className="block h-2 w-2 rounded-full bg-white" />
-                    )}
-                  </span>
-                  <span className="text-[14px] font-bold">{m.title[lang]}</span>
-                </div>
-                <p className="mt-2 pl-7 text-[12.5px] leading-relaxed text-body-2">
-                  {m.desc[lang]}
-                </p>
+                {waitlistBusy
+                  ? zh ? '提交中…' : 'Joining…'
+                  : zh ? '加入等候名单' : 'Join the waitlist'}
               </button>
-            ))}
-          </div>
-          {sharingMode === 'custom' && (
-            <div className="mt-4 rounded-xl border border-dashed border-line-strong bg-surface-chip px-5 py-4">
-              <p className="text-[13px] text-body-2">
-                {zh
-                  ? '自定义模式：你可以在每次申请时逐项选择共享哪些字段。'
-                  : 'Custom mode: you can choose per-field visibility each time you apply.'}
-              </p>
-            </div>
-          )}
-        </SectionCard>
-
-        {/* ── Sharing summary + link ── */}
-        <SectionCard className="p-4 sm:p-5" padded={false}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="text-[16px] font-bold tracking-tight">
-                {zh ? '授权管理' : 'Authorizations'}
-              </h2>
-              <p className="mt-1 text-[13px] text-body-2">
-                {zh
-                  ? '已授权 4 人/服务查看你的数据 · 本月被查询 3 次'
-                  : '4 people/services authorized · 3 queries this month'}
-              </p>
-            </div>
-            <Link
-              href="/tenant/passport/sharing"
-              className="sl-btn-secondary shrink-0 !px-4 !py-2 !text-[12.5px]"
-            >
-              {zh ? '管理授权 →' : 'Manage access →'}
-            </Link>
-          </div>
-
-          {/* Quick preview — top 2 authorizations */}
-          <div className="mt-5 space-y-2.5">
-            {[
-              {
-                name: 'Sarah Wang',
-                role: { zh: '房东 · Unit 1207', en: 'Landlord · Unit 1207' },
-                scope: { zh: '身份 + 收入章数据', en: 'Identity + income stamp data' },
-                color: '#F97316',
-              },
-              {
-                name: 'David Park',
-                role: { zh: 'Field Agent · 看房', en: 'Field Agent · Showing' },
-                scope: { zh: '偏好 + 看房问题', en: 'Preferences + questions' },
-                color: '#3B82F6',
-              },
-            ].map((g) => (
-              <div key={g.name} className="flex items-center gap-3 rounded-xl bg-surface-chip px-4 py-3">
-                <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[12px] font-bold text-white"
-                  style={{ background: g.color }}
-                >
-                  {g.name[0]}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <span className="text-[13.5px] font-semibold">{g.name}</span>
-                  <span className="ml-2 text-[12px] text-body-3">{g.role[lang]}</span>
-                </div>
-                <span className="hidden sm:inline text-[11.5px] font-mono text-body-3">{g.scope[lang]}</span>
-              </div>
-            ))}
-            <Link
-              href="/tenant/passport/sharing"
-              className="block text-center text-[12.5px] font-semibold text-tenant hover:underline pt-1"
-            >
-              {zh ? '查看全部 4 项授权 →' : 'View all 4 authorizations →'}
-            </Link>
+            )}
           </div>
         </SectionCard>
-
-        {/* ── Rent record ── */}
-        <SectionCard className="p-4 sm:p-5" padded={false}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h2 className="text-[16px] font-bold tracking-tight">
-                {zh ? '租金记录' : 'Rent record'}
-              </h2>
-              <p className="mt-1 max-w-[520px] text-[13px] leading-relaxed text-body-2">
-                {zh
-                  ? '每一笔按时租金都写进你的护照——对下一任房东，这是最有说服力的履约证明。经你授权才可见。'
-                  : "Every on-time rent payment is written into your Passport — the most convincing proof of reliability for your next landlord. Visible only with your authorization."}
-              </p>
-            </div>
-            <Link href="/tenant/payments" className="sl-btn-secondary shrink-0 !px-4 !py-2 !text-[12.5px]">
-              {zh ? '付款历史 →' : 'Payment history →'}
-            </Link>
-          </div>
-
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            {RENT_RECORD.map((m) => (
-              <div key={m.month.en} className="flex flex-col items-center gap-1.5">
-                <span
-                  className={
-                    'flex h-9 w-9 items-center justify-center rounded-full text-[14px] font-extrabold text-white ' +
-                    (m.status === 'late' ? 'bg-warning' : '')
-                  }
-                  style={m.status === 'paid' ? { background: STAMP_CHECK_GREEN } : undefined}
-                >
-                  {m.status === 'paid' ? '✓' : '!'}
-                </span>
-                <span className="font-mono text-[10.5px] text-body-3">{m.month[lang]}</span>
-              </div>
-            ))}
-            <div className="ml-1 text-[12.5px] leading-relaxed text-body-2">
-              <span className="font-semibold">
-                {zh ? '近 5 个月 4 次准时' : '4 of the last 5 months on time'}
-              </span>
-              <span className="block text-body-3">
-                {zh ? '2 月迟付 3 天 · 已附情况说明（银行转账延迟）' : 'Feb was 3 days late · explanation on file (bank transfer delay)'}
-              </span>
-            </div>
-          </div>
-
-          {/* ── Rent reporting to credit bureau — waitlist ── */}
-          <div className="mt-6 rounded-2xl border border-dashed border-line-strong bg-surface-chip p-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-[14px] font-bold tracking-tight">
-                {zh ? '上报到信用局' : 'Report rent to the credit bureau'}
-              </h3>
-              <span className="rounded-full bg-tenant/10 px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-tenant">
-                {zh ? '即将上线' : 'COMING SOON'}
-              </span>
-            </div>
-            <p className="mt-2 max-w-[560px] text-[13px] leading-relaxed text-body-2">
-              {zh
-                ? '按时交租也能积累信用：我们正在接入信用局，把你的按时租金记录上报 Equifax，帮你建立加拿大信用历史——对新移民尤其有用。上线后由你自主选择是否开启。'
-                : 'On-time rent can build credit too: we are working on reporting your on-time rent payments to Equifax to help build Canadian credit history — especially useful for newcomers. Opt-in only, once it launches.'}
-            </p>
-            <div className="mt-3">
-              {!user ? (
-                <Link href="/login" className="sl-btn-secondary inline-flex !px-4 !py-2 text-[13px]">
-                  {zh ? '登录后加入等候名单' : 'Log in to join the waitlist'}
-                </Link>
-              ) : waitlistJoined ? (
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold"
-                  style={{ color: STAMP_CHECK_GREEN }}
-                >
-                  {zh ? '已加入 ✓' : 'Joined ✓'}
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleJoinWaitlist}
-                  disabled={waitlistBusy}
-                  className="sl-btn-secondary !px-4 !py-2 text-[13px] disabled:opacity-60"
-                >
-                  {waitlistBusy
-                    ? zh ? '提交中…' : 'Joining…'
-                    : zh ? '加入等候名单' : 'Join the waitlist'}
-                </button>
-              )}
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* ── Verification history (archive) ── */}
-        <SectionCard
-          title={zh ? '验证历史' : 'Verification history'}
-          meta={zh ? '示范数据' : 'SAMPLE DATA'}
-          padded={false}
-        >
-          <Table
-            head={[
-              zh ? '章' : 'Stamp',
-              zh ? '验证内容' : 'Fields verified',
-              zh ? '更新时间' : 'Updated',
-              zh ? '状态' : 'Status',
-            ]}
-          >
-            {TIERS.map((t) => (
-              <Tr key={t.level}>
-                <Td>
-                  <div className="font-semibold">{t.title[lang]}</div>
-                  <div className="mt-0.5 text-[11.5px] text-body-3">{t.desc[lang]}</div>
-                </Td>
-                <Td align="right" muted>
-                  {t.fields.map((f) => f[lang]).join(' · ')}
-                </Td>
-                <Td align="right" mono muted>
-                  {t.status === 'done' ? (t.level === 1 ? '2025-08-01' : '2026-05-12') : '—'}
-                </Td>
-                <Td align="right">
-                  <StatusPill tone={t.status === 'done' ? 'ok' : t.status === 'current' ? 'pending' : 'neutral'}>
-                    {t.status === 'done'
-                      ? zh ? '已盖章' : 'Stamped'
-                      : t.status === 'current'
-                      ? zh ? '下一枚' : 'Next'
-                      : zh ? '待盖' : 'Locked'}
-                  </StatusPill>
-                </Td>
-              </Tr>
-            ))}
-          </Table>
-        </SectionCard>
-
-        {/* ── Quick actions ── */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Link
-            href="/tenant/audit"
-            className="flex items-center gap-4 rounded-xl border border-line-divider bg-white p-4 transition hover:border-line-strong"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-chip text-[18px]">
-              📋
-            </span>
-            <div>
-              <div className="text-[14px] font-bold">{zh ? '审计日志' : 'Audit log'}</div>
-              <div className="mt-0.5 text-[12.5px] text-body-2">
-                {zh ? '查看所有数据访问记录' : 'View all data access records'}
-              </div>
-            </div>
-          </Link>
-          <Link
-            href="/settings"
-            className="flex items-center gap-4 rounded-xl border border-line-divider bg-white p-4 transition hover:border-line-strong"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-chip text-[18px]">
-              🔐
-            </span>
-            <div>
-              <div className="text-[14px] font-bold">{zh ? '隐私设置' : 'Privacy settings'}</div>
-              <div className="mt-0.5 text-[12.5px] text-body-2">
-                {zh ? '管理通知偏好与数据保留' : 'Manage notification & data retention'}
-              </div>
-            </div>
-          </Link>
-        </div>
       </div>
     </WorkspaceShell>
   )
@@ -943,15 +544,15 @@ function Aside({ lang, insights }: { lang: Lang; insights: AIInsight[] }) {
   const zh = lang === 'zh'
   return (
     <div>
-      <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>
+      <AsideBlock title={zh ? '下一步' : 'NEXT STEPS'}>
         <AIProactive role="tenant" insights={insights} variant="rail" />
       </AsideBlock>
 
-      <AsideBlock title={zh ? '护照怎么用' : 'HOW TO USE IT'}>
+      <AsideBlock title={zh ? '申请包怎么用' : 'HOW TO USE IT'}>
         <ul className="space-y-2 text-[12.5px] leading-relaxed text-body-2">
-          <li>{zh ? '· 在本页生成只读分享链接，发给下一个房东' : '· Create a read-only share link on this page and send it to your next landlord'}</li>
-          <li>{zh ? '· 房东不在 Stayloop 也能打开，只显示姓名缩写和按时付租记录' : '· Landlords who are not on Stayloop can open it too; it shows only your initials and on-time rent record'}</li>
-          <li>{zh ? '· 链接随时可撤销，撤销后立即失效' : '· Revoke the link any time and it stops working at once'}</li>
+          <li>{zh ? '· 申请房源时一键填入：表单直接取这里的资料，文件由你勾选后附上' : '· Fill an application in one click: the form takes these details, and you tick which files go with it'}</li>
+          <li>{zh ? '· 导出 PDF 给站外房东：一份可打印的申请包，文件只列名字与指纹' : '· Export a PDF for a landlord off Stayloop: a printable pack that lists files by name and fingerprint only'}</li>
+          <li>{zh ? '· 分享链接只给姓名缩写与付租记录，取自双方都确认过的租约，随时可撤销' : '· The share link shows only your initials and rent record from leases both sides confirmed, and can be revoked any time'}</li>
         </ul>
       </AsideBlock>
     </div>

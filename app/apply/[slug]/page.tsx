@@ -14,6 +14,8 @@ import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { RegistrantDisclosureModal, useRegistrantProfile } from '@/components/RegistrantDisclosure'
 import { AgentPicker } from '@/components/AgentPicker'
+import UseMyPack from '@/components/apply/UseMyPack'
+import { toPackEmploymentStatus } from '@/lib/profile/types'
 import { listingProvince, listingTitle } from '@/lib/listingDisplay'
 import { applyConsentText, provinceName, rulesFor, type ProvinceCode } from '@/lib/provinces'
 import { cityOnly } from '@/components/listing/labels'
@@ -48,6 +50,30 @@ const MAX_FILES = 20
 // and a blank one failed every submission with a generic error).
 function phoneLooksValid(v: string): boolean {
   return (v.match(/\d/g) ?? []).length >= 7
+}
+
+// 乙 #7 (2026-10-16): files ticked from the applicant's own pack are copied into the
+// application by the server (POST /api/profile/attach checks the row is theirs, under an
+// hour old and still without files, copies each object under <application_id>/<kind>/…
+// and writes the applicant_pack_presented audit event). The manifest it returns has the
+// same shape as the files uploaded here, so the page attaches both in one RPC call.
+async function attachPackFiles(applicationId: string, fileIds: string[]): Promise<{ ok: true; files: ApplicationFile[] } | { ok: false; error: string }> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  if (!token) return { ok: false, error: 'not signed in' }
+  try {
+    const r = await fetch('/api/profile/attach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ application_id: applicationId, file_ids: fileIds }),
+    })
+    const j = (await r.json().catch(() => null)) as ApplicationFile[] | { files?: ApplicationFile[]; error?: string } | null
+    const list = Array.isArray(j) ? j : j?.files
+    if (!r.ok || !Array.isArray(list)) return { ok: false, error: (j && !Array.isArray(j) && j.error) || `HTTP ${r.status}` }
+    return { ok: true, files: list }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message || 'network' }
+  }
 }
 
 
@@ -93,6 +119,16 @@ export default function ApplyPage() {
   const submittingRef = useRef(false)
   // A signed-in applicant who already applied to this listing (by their login email).
   const [existingApp, setExistingApp] = useState<{ id: string; created_at: string } | null>(null)
+  // 乙 #7: the applicant's own pack (components/apply/UseMyPack). `packFileIds` are
+  // applicant_profile_files ids ticked for this application; the server copies them at
+  // submit time and the resulting manifest is kept on a ref so a retry does not copy twice.
+  const [packFileIds, setPackFileIds] = useState<string[]>([])
+  const packAttachedRef = useRef<ApplicationFile[] | null>(null)
+  const [packError, setPackError] = useState<string | null>(null)
+  const [pack, setPack] = useState<{ hasProfile: boolean; consented: boolean } | null>(null)
+  const [saveAsPack, setSaveAsPack] = useState(false)
+  const [packSaved, setPackSaved] = useState<'saved' | 'failed' | null>(null)
+  const signedIn = !!auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous
   const [files, setFiles] = useState<Record<FileKind, File[]>>({
     id: [],
     paystub: [],
@@ -115,6 +151,16 @@ export default function ApplyPage() {
   })
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
+  // Pack values land only in fields that are still empty at the moment of the merge —
+  // the component already filtered, this guards against a keystroke in between.
+  const fillFromPack = (patch: Record<string, string>) => setForm((f) => {
+    const next = { ...f } as Record<string, unknown>
+    for (const [k, v] of Object.entries(patch)) {
+      const cur = next[k]
+      if (cur === '' || cur === null || cur === undefined || (cur === 'false' && v === 'true')) next[k] = v
+    }
+    return next as typeof f
+  })
   // Prefill what the account already knows (SL-T-03) — only empty fields,
   // never overwriting what the applicant typed.
   useEffect(() => {
@@ -180,6 +226,8 @@ export default function ApplyPage() {
   const isOntario = province === 'ON'
   const quebec = province === 'QC'
   const fileKinds = fileKindsFor(province)
+  const collectedKinds = new Set<FileKind>([...fileKinds.map((k) => k.kind), 'other'])
+  const ownFileCount = (Object.keys(files) as FileKind[]).filter((k) => collectedKinds.has(k)).reduce((n, k) => n + files[k].length, 0)
   // The federal PIPEDA label only where the province's verified privacy law is PIPEDA (Quebec,
   // British Columbia and Alberta have their own private-sector laws).
   // Not before the listing is read, so a Quebec listing never flashes the federal label either.
@@ -240,9 +288,10 @@ export default function ApplyPage() {
       return
     }
     const collected = new Set<FileKind>([...fileKindsFor(province).map((k) => k.kind), 'other'])
-    const fileCount = (Object.keys(files) as FileKind[]).filter((k) => collected.has(k)).reduce((n, k) => n + files[k].length, 0)
+    // Own uploads + files ticked from the pack count against the same manifest cap.
+    const fileCount = (Object.keys(files) as FileKind[]).filter((k) => collected.has(k)).reduce((n, k) => n + files[k].length, 0) + packFileIds.length
     if (fileCount > MAX_FILES) {
-      setError(zh ? `最多附 ${MAX_FILES} 个文件，现在有 ${fileCount} 个，请移除一些。` : `Attach at most ${MAX_FILES} files — you have ${fileCount}. Please remove some.`)
+      setError(zh ? `最多附 ${MAX_FILES} 个文件（含申请包里勾选的），现在有 ${fileCount} 个，请移除一些。` : `Attach at most ${MAX_FILES} files (including those ticked from your pack) — you have ${fileCount}. Please remove some.`)
       return
     }
     setError(null)
@@ -395,6 +444,18 @@ export default function ApplyPage() {
       uploaded.push(...forThis)
     }
 
+    // 乙 #7: then the files ticked from the applicant's pack. The server copies them and
+    // returns their manifest entries; they are attached together with the files uploaded
+    // above. If the copy fails the error is shown and the rest still goes through — the
+    // applicant can add the pack files in the application conversation afterwards.
+    if (packFileIds.length && !packAttachedRef.current && signedIn) {
+      setUploadProgress(zh ? '正在从申请包复制文件…' : 'Copying files from your pack…')
+      const r = await attachPackFiles(inserted.id, packFileIds)
+      if (r.ok) { packAttachedRef.current = r.files; setPackError(null) }
+      else setPackError(zh ? `申请包里勾选的文件没有附上（${r.error}）。其余文件已照常提交；可以在申请对话里补传。` : `The files ticked from your pack were not attached (${r.error}). Everything else was submitted; you can add them in the application conversation.`)
+    }
+    if (packAttachedRef.current) uploaded.push(...packAttachedRef.current)
+
     if (uploaded.length > MAX_FILES) {
       setLoading(false)
       setUploadProgress(null)
@@ -417,6 +478,14 @@ export default function ApplyPage() {
       }
     }
 
+    // 乙 #7: "save this application as my pack" — form fields only (the files uploaded
+    // here are not copied: pack files get their fingerprint from the pack route). Consent
+    // is not written: the applicant gives it on the pack page. Failure is reported, not fatal.
+    if (saveAsPack && signedIn && auth.user && pack && !pack.hasProfile) {
+      const ok = await saveFormAsPack(auth.user.id)
+      setPackSaved(ok ? 'saved' : 'failed')
+    }
+
     // Notify landlord (fire-and-forget)
     try {
       await fetch('/api/notify-landlord', {
@@ -431,6 +500,33 @@ export default function ApplyPage() {
     setUploadProgress(null)
     setLoading(false)
     setSubmitted(true)
+  }
+
+  // Maps the flat form back to the applicant_profiles / applicant_profile_history columns
+  // (design/applicant-pack-contract-2026-10.md). Empty strings become NULL (date columns).
+  async function saveFormAsPack(uid: string): Promise<boolean> {
+    const d = (v: string) => (v && v.trim() ? v.trim() : null)
+    const n = (v: string) => { const x = parseInt(v, 10); return Number.isFinite(x) ? x : null }
+    const { error: pErr } = await supabase.from('applicant_profiles').upsert({
+      auth_id: uid,
+      first_name: d(form.first_name), last_name: d(form.last_name), phone: d(form.phone), current_address: d(form.current_address),
+      date_of_birth: d(form.date_of_birth),
+      employment_status: toPackEmploymentStatus(form.employment_status), employer_name: d(form.employer_name), job_title: d(form.job_title),
+      employment_start_date: d(form.employment_start_date), monthly_income: n(form.monthly_income),
+      employer_phone: d(form.employer_phone), employer_email: d(form.employer_email),
+      num_occupants: n(form.num_occupants) ?? 1, has_pets: form.has_pets === 'true', pet_details: d(form.pet_details),
+      is_smoker: form.is_smoker === 'true', additional_notes: d(form.additional_notes),
+    }, { onConflict: 'auth_id' })
+    if (pErr) { console.warn('save as pack failed', pErr); return false }
+    const hist = {
+      prev_address: d(form.prev_address), prev_landlord_name: d(form.prev_landlord_name), prev_landlord_phone: d(form.prev_landlord_phone),
+      prev_rent: n(form.prev_rent), prev_move_in: d(form.prev_move_in), prev_move_out: d(form.prev_move_out), reason_for_leaving: d(form.reason_for_leaving),
+    }
+    if (Object.values(hist).some((v) => v !== null)) {
+      const { error: hErr } = await supabase.from('applicant_profile_history').insert({ auth_id: uid, position: 0, ...hist })
+      if (hErr) { console.warn('save pack history failed', hErr); return false }
+    }
+    return true
   }
 
   if (listingCheck === 'notfound') {
@@ -514,6 +610,17 @@ export default function ApplyPage() {
                   ? '房东会尽快审阅你的申请并联系你。我们也会通过你的 AI 助理通知你进度。'
                   : 'The landlord will review your application and reach out soon. Your AI Agent will also keep you posted on progress.'}
               </p>
+              {packSaved && (
+                <p data-testid="apply-pack-saved" className="mt-3 text-[12.5px] leading-relaxed text-body-2">
+                  {packSaved === 'saved'
+                    ? (zh ? '这份申请的资料已存成你的申请包。文件可在申请包页另外上传。' : 'The details from this application are now your application pack. Files can be added on the pack page.')
+                    : (zh ? '申请已提交，但资料没能存成申请包；可以稍后在申请包页填写。' : 'The application went through, but the details could not be saved as your pack; you can fill it in on the pack page later.')}{' '}
+                  <Link href="/tenant/passport" className="font-semibold text-brand underline underline-offset-2">{zh ? '打开申请包 →' : 'Open my pack →'}</Link>
+                </p>
+              )}
+              {packError && (
+                <p data-testid="apply-pack-error" className="mt-3 text-[12.5px] leading-relaxed text-amber-800">{packError}</p>
+              )}
               <div className="mt-6 flex flex-wrap justify-center gap-2">
                 {createdAppId && auth.user && auth.user.email && auth.user.email.toLowerCase() === form.email.trim().toLowerCase() && (
                   <Link href={`/tenant/applications/${createdAppId}`} className="sl-btn-primary inline-flex">
@@ -611,6 +718,21 @@ export default function ApplyPage() {
                   ? '你的申请已经建立，上面填写的资料已随第一次提交保存，现在不能再改。只需处理下面的文件后再点一次提交；已经传上去的文件不会重复上传。资料如有错误，提交后在申请对话里告诉房东。'
                   : 'Your application already exists: the details above were saved with your first submit and can no longer be changed. Just sort out the files below and submit again — files already uploaded are not sent twice. If a detail is wrong, tell the landlord in the application conversation after submitting.'}
               </div>
+            )}
+            {signedIn && auth.user && (
+              <UseMyPack
+                zh={zh}
+                uid={auth.user.id}
+                form={form}
+                onFill={fillFromPack}
+                allowedKinds={fileKinds.map((k) => k.kind)}
+                selected={packFileIds}
+                onSelect={setPackFileIds}
+                ownCount={ownFileCount}
+                maxFiles={MAX_FILES}
+                locked={!!createdAppId}
+                onLoaded={setPack}
+              />
             )}
             <fieldset disabled={!!createdAppId} className="m-0 min-w-0 space-y-5 border-0 p-0">
             <Section tag="01" title={zh ? '个人信息' : 'Personal info'}>
@@ -766,9 +888,25 @@ export default function ApplyPage() {
             </div>
             </fieldset>
 
+            {signedIn && pack && !pack.hasProfile && !createdAppId && (
+              <label data-testid="apply-save-as-pack" className="flex cursor-pointer items-start gap-2 rounded-xl border border-line-divider bg-white px-4 py-3 text-[13px]">
+                <input type="checkbox" checked={saveAsPack} onChange={(e) => setSaveAsPack(e.target.checked)} className="mt-[3px] h-4 w-4 accent-brand" />
+                <span>
+                  <span className="font-semibold">{zh ? '把这份申请存成我的申请包' : 'Save this application as my application pack'}</span>
+                  <span className="mt-0.5 block text-[12px] leading-relaxed text-body-2">
+                    {zh ? '下次申请一键填入，随时可改可删。这里上传的文件不会复制进包，文件可在申请包页另外上传。' : 'Next time, fill an application with one tap; edit or delete it any time. Files uploaded here are not copied into the pack — add files on the pack page.'}
+                  </span>
+                </span>
+              </label>
+            )}
             {error && (
               <div className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-[13px] text-danger">
                 {error}
+              </div>
+            )}
+            {packError && !submitted && (
+              <div data-testid="apply-pack-error" className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+                {packError}
               </div>
             )}
             {uploadProgress && (

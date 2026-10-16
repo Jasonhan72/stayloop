@@ -267,6 +267,10 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     work_order_dispatch_no_candidate: { zh: '没有符合资质的服务商可派——需要你在报修单上手动指派', en: 'No qualified provider to dispatch — assign one on the ticket' },
     delegation_link_resent: { zh: '你重新发送了委托确认链接', en: 'You re-sent a delegation confirmation link' },
     application_decision_drafted: { zh: '你起草了一份申请决定通知（等你批准后才发出）', en: 'You drafted an application decision notice (sent only once you approve it)' },
+    // V1.0 stage 4 (2026-10-16): applicant pack.
+    applicant_pack_file_added: { zh: '你往申请包里添加了一份文件', en: 'You added a file to your application pack' },
+    applicant_pack_file_removed: { zh: '你从申请包里删除了一份文件', en: 'You removed a file from your application pack' },
+    applicant_pack_presented: { zh: '你出示了申请包（一键填入申请 / 导出 PDF / 分享）', en: 'You presented your application pack (filled an application / exported a PDF / shared)' },
     // V1.0 stage 3 (2026-10-16): rent evidence, confirmation, reminders, notice service records.
     rent_evidence_attached: { zh: '你给一期租金附上了回执', en: 'You attached a receipt to a rent period' },
     rent_confirmed: { zh: '你确认了对方记录的一期租金', en: 'You confirmed a rent period the other side recorded' },

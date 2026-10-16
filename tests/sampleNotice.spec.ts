@@ -14,7 +14,8 @@ const GATED = [
   '/tenant/passport/sharing', '/tenant/audit', '/landlord/audit',
   '/agent/tasks', '/agent/clients', '/agent/calendar', '/agent/earnings', '/agent/showings/*',
 ]
-const NOTED = ['/tenant/passport', '/tenant/lease']
+// /tenant/passport left this list on 2026-10-16: it is the real applicant pack now (tests/v1stage4_passportPack.spec.tsx).
+const NOTED = ['/tenant/lease']
 
 describe('sample-data notices', () => {
   it('gates every fixture-only workspace route', () => {
