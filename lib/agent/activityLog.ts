@@ -10,7 +10,7 @@ const NOT_DONE = new Set(['work_order_dispatch_no_candidate'])
 export const isNotDoneAction = (action: string): boolean => NOT_DONE.has(action)
 
 /** Executions that are only an acknowledgement or a bookkeeping flag — not something it did for you. */
-export const NOT_AN_OUTCOME = ['executed_claim_in_reply', 'executed_renewal_checkpoint', 'executed_relist_prompt'] as const
+export const NOT_AN_OUTCOME = ['executed_claim_in_reply', 'executed_renewal_checkpoint', 'executed_relist_prompt', 'executed_rent_overdue'] as const
 /** System events that finished something for the person (their own actions, e.g. confirming a delegation, are not listed). */
 export const OUTCOME_EVENTS = ['work_order_auto_dispatched', 'work_order_quote_auto_approved', 'household_created_from_esign'] as const
 /** Things it actually finished for you — the panel's 「最近替你办完」 (2026-10-04). Bookkeeping (a new avatar,

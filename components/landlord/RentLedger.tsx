@@ -27,10 +27,12 @@ import { useT } from '@/lib/i18n'
 import { useReportLiveRows } from '@/lib/liveRows'
 import { isLeaseInForce, RENT_STATE_LABEL } from '@/lib/matters/states'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/useAuth'
+import { evidenceBadge, EVIDENCE_BADGE_LABEL, type EvidenceBadge, type EvidenceRow } from '@/lib/household/rentEvidence'
 
 // ── Pure helpers (tested in tests/fourRoleAudit20261012_c.spec.ts) ──────────
 
-export type LedgerRent = {
+export type LedgerRent = EvidenceRow & {
   id: string
   lease_id: string | null
   due_date: string
@@ -38,6 +40,11 @@ export type LedgerRent = {
   amount: number | string | null
   paid_at: string | null
   method?: string | null
+}
+
+/** The 凭证 column's pill tone (G9 2026-10-16): a receipt or a confirmation is green, waiting is pending, none is neutral. */
+export const EVIDENCE_BADGE_TONE: Record<EvidenceBadge, PillTone> = {
+  receipt_confirmed: 'ok', receipt: 'ok', confirmed: 'ok', awaiting_me: 'pending', awaiting_other: 'pending', none: 'neutral',
 }
 export type LedgerHousehold = {
   id: string
@@ -170,6 +177,7 @@ export default function RentLedger() {
   const { lang } = useT()
   const zh = lang === 'zh'
   const { facts } = useFacts('landlord')
+  const { user } = useAuth()
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const hhIds = facts ? facts.households.map((h) => h.id).sort().join(',') : null
 
@@ -185,15 +193,26 @@ export default function RentLedger() {
         .in('id', ids)
       const households = ((hh as LedgerHousehold[] | null) ?? [])
       const leaseIds = Array.from(new Set(households.flatMap((h) => [h.current_lease_id, h.previous_lease_id, h.next_lease_id]).filter((x): x is string => !!x)))
-      const { data: rp } = leaseIds.length
-        ? await supabase
-            .from('rent_payments')
-            .select('id, lease_id, due_date, status, amount, paid_at, method')
-            .in('lease_id', leaseIds)
-            .order('due_date', { ascending: false })
-            .limit(600)
-        : { data: [] as LedgerRent[] }
-      if (!cancelled) setLoaded({ households, rents: ((rp as LedgerRent[] | null) ?? []) })
+      const [{ data: rp }, { data: ev }] = leaseIds.length
+        ? await Promise.all([
+            supabase
+              .from('rent_payments')
+              .select('id, lease_id, due_date, status, amount, paid_at, method')
+              .in('lease_id', leaseIds)
+              .order('due_date', { ascending: false })
+              .limit(600),
+            // The evidence marks (G9 2026-10-16): who recorded, the other side's confirmation, the receipt.
+            supabase
+              .from('rent_payments')
+              .select('id, tenant_id, confirmed_by, confirmed_at, evidence_path, evidence_name, evidence_at')
+              .in('lease_id', leaseIds)
+              .in('status', ['paid', 'late'])
+              .limit(600),
+          ])
+        : [{ data: [] as LedgerRent[] }, { data: [] as EvidenceRow[] }]
+      const marks = new Map(((ev as (EvidenceRow & { id: string })[] | null) ?? []).map((m) => [m.id, m]))
+      const rents = ((rp as LedgerRent[] | null) ?? []).map((r) => ({ ...r, ...(marks.get(r.id) ?? {}) }))
+      if (!cancelled) setLoaded({ households, rents })
     })().catch(() => { if (!cancelled) setLoaded({ households: [], rents: [] }) })
     return () => { cancelled = true }
   }, [hhIds])
@@ -235,7 +254,7 @@ export default function RentLedger() {
             title={zh ? '租金账期 · 全部在管租约' : 'Rent periods · all managed tenancies'}
             meta={zh ? `${lines.length} 期 · 按账期从新到旧` : `${lines.length} periods · newest first`}
           >
-            <Table head={[zh ? '房源' : 'Property', zh ? '账期' : 'Period', zh ? '应付' : 'Amount', zh ? '状态' : 'Status', zh ? '付款日' : 'Paid on']}>
+            <Table head={[zh ? '房源' : 'Property', zh ? '账期' : 'Period', zh ? '应付' : 'Amount', zh ? '状态' : 'Status', zh ? '付款日' : 'Paid on', zh ? '凭证' : 'Evidence']}>
               {lines.map((r) => (
                 <Tr key={r.id}>
                   <Td>
@@ -247,14 +266,23 @@ export default function RentLedger() {
                   <Td align="right" mono strong>{money(r.amount)}</Td>
                   <Td align="right"><StatusPill tone={LEDGER_STATE_LABEL[r.state].tone}>{L(r.state)}</StatusPill></Td>
                   <Td align="right" mono muted>{r.paid_at ? r.paid_at.slice(0, 10) : '—'}</Td>
+                  <Td align="right">
+                    {(() => {
+                      const b = evidenceBadge(r, user?.id ?? null)
+                      const text = zh ? EVIDENCE_BADGE_LABEL[b].zh : EVIDENCE_BADGE_LABEL[b].en
+                      return b === 'none'
+                        ? <span className="text-[11px] text-body-3" data-testid="rent-evidence-badge" data-badge={b}>{text}</span>
+                        : <Link href={`/h/${r.household_id}?tab=rent`} data-testid="rent-evidence-badge" data-badge={b}><StatusPill tone={EVIDENCE_BADGE_TONE[b]}>{text}</StatusPill></Link>
+                    })()}
+                  </Td>
                 </Tr>
               ))}
             </Table>
           </SectionCard>
           <p className="mt-2 text-[11px] text-body-3">
             {zh
-              ? '只记录，不经手资金：每期由你或租客在在管租约页「标记已付」。到账 = 已付（含迟付）的账期合计；逾期 = 账期已过仍未记录的。'
-              : 'Records only, no money handled: each period is marked paid by you or the tenant on the tenancy page. Received = paid periods (incl. late); overdue = past periods with no record.'}
+              ? '只记录，不经手资金：每期由你或租客在在管租约页「标记已付」。到账 = 已付（含迟付）的账期合计；逾期 = 账期已过仍未记录的。凭证 = 对方确认 + 回执，在在管租约页操作。'
+              : 'Records only, no money handled: each period is marked paid by you or the tenant on the tenancy page. Received = paid periods (incl. late); overdue = past periods with no record. Evidence = the other side’s confirmation + a receipt, both on the tenancy page.'}
           </p>
         </>
       )}

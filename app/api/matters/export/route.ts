@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     })
   }
   const hh = ((hhs ?? []) as { id: string; verified: boolean | null; status: string | null; current_lease_id: string | null }[])[0] ?? null
-  const { data: rent } = hh?.current_lease_id ? await admin.from('rent_payments').select('due_date, status, paid_at, amount').eq('lease_id', hh.current_lease_id).order('due_date') : { data: [] }
+  const { data: rent } = hh?.current_lease_id ? await admin.from('rent_payments').select('due_date, status, paid_at, amount, confirmed_at, evidence_name, evidence_sha256, evidence_at, note').eq('lease_id', hh.current_lease_id).order('due_date') : { data: [] }
   const app = ((apps ?? []) as { id: string; first_name: string | null; last_name: string | null; email: string | null; status: string | null; created_at: string; decision_notified_at: string | null; decision_reason: string | null }[])[0] ?? null
   const lease = ((leases ?? []) as { id: string; status: string | null; start_date: string | null; end_date: string | null; monthly_rent: number | null; sent_at: string | null; signed_at: string | null }[])[0] ?? null
   const screening = ((scr ?? []) as { id: string; status: string | null; created_at: string }[])[0] ?? null

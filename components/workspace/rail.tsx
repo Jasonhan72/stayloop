@@ -60,6 +60,7 @@ export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
     { key: 'apps',      href: '/landlord/applicants', icon: <FileIcon />, label: { zh: '申请', en: 'Applicants' } , desc: { zh: '收到的申请与一键筛查', en: 'Applications received and one-tap screening' }, group: 'pages' },
     { key: 'screen',    href: '/screening/app',    icon: <ScreenIcon />,  label: { zh: '筛查', en: 'Screening' } , desc: { zh: '租客筛查报告', en: 'Tenant screening reports' }, group: 'pages' },
     { key: 'lease',     href: '/landlord/leases',  icon: <LeaseIcon />,   label: { zh: '租约', en: 'Leases' } , desc: { zh: '租约、电子签与续约', en: 'Leases, e-signing and renewals' }, group: 'pages' },
+    { key: 'notices',   href: '/landlord/notices', icon: <NoticeIcon />,  label: { zh: '通知', en: 'Notices' } , desc: { zh: 'N 表日期算术、填写稿与送达记录', en: 'N-form date arithmetic, fill-in sheets and service records' }, group: 'pages' },
     { key: 'maint',     href: '/landlord/maintenance', icon: <ToolIcon />,label: { zh: '维修', en: 'Repairs' } , desc: { zh: '报修工单与派单', en: 'Repair tickets and dispatch' }, group: 'pages' },
     { key: 'providers', href: '/landlord/providers', icon: <UsersIcon />, label: { zh: '服务商', en: 'Providers' } , desc: { zh: '维修服务商目录与派单策略', en: 'Repair providers and your dispatch policy' }, group: 'pages' },
     { key: 'fin',       href: '/landlord/finance', icon: <CashIcon />,    label: { zh: '财务', en: 'Finance' } , desc: { zh: '收支面板（示范，尚未上线）', en: 'Finance panel (sample, not live yet)' }, group: 'pages' },
@@ -244,6 +245,8 @@ export function ListIcon()  { return I('M3 6h18|M3 12h18|M3 18h18') }
 export function FileIcon()  { return I('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z|M14 2v6h6|M16 13H8|M16 17H8|M10 9H8') }
 export function PassIcon()  { return I('M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z|M3 10h18|M9 16h.01') }
 export function LeaseIcon() { return I('M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6l2 2h6a2 2 0 0 1 2 2v3|M14 14l3 3 6-6') }
+/** A dated notice: a sheet with a calendar-style header and a line of text (notice toolbox, 2026-10-16). */
+export function NoticeIcon() { return I('M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z|M15 3v5h5|M8 12h8|M8 16h5|M8 3v3|M12 3v3') }
 export function ToolIcon()  { return I('M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z') }
 export function CashIcon()  { return I('M12 1v22|M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6') }
 export function ScreenIcon() { return I('M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z|M21 21l-5.6-5.6|M7.8 10.6l1.8 1.8 3.4-3.6') }

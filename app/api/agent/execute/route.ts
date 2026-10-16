@@ -77,6 +77,9 @@ type ActionRow = {
     // rent_reminder
     monthly_rent?: number
     due_date?: string
+    // rent_overdue (lib/household/rentReminders): approval = acknowledged
+    days_late?: number
+    persistent?: boolean
     // send_message
     to_email?: string
     subject?: string
@@ -1230,6 +1233,36 @@ async function executeRenewalCheckpoint(admin: Admin, userId: string, action: Ac
 }
 
 // ---------------------------------------------------------------------------
+// Executor: rent_overdue (lib/household/rentReminders · G11 2026-10-16)
+// metadata: { lease_id, household_id, due_date, amount, days_late, … }.
+// Approval = acknowledged — nothing is sent, no notice is drafted (LSA s.1(5)).
+// The lease must be the caller's (directly, or via the tenancy they run for a
+// tenant-imported lease with no landlord_id), and the period must still be
+// unrecorded: a period recorded since the card was written expires it.
+// ---------------------------------------------------------------------------
+async function executeRentOverdue(admin: Admin, userId: string, action: ActionRow, preview = false): Promise<NextResponse> {
+  const m = action.metadata || {}
+  const lease = (await loadOwnedLease(admin, userId, m.lease_id)) ?? (await loadHouseholdLease(admin, userId, m.household_id, m.lease_id))
+  if (!lease) return NextResponse.json({ executed: false, reason: 'lease not found or not yours' }, { status: 403 })
+  const dueDate = String(m.due_date || '')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return NextResponse.json({ executed: false, reason: 'card has no due date' }, { status: 422 })
+  const { data: periodRows } = await admin.from('rent_payments').select('status, paid_at').eq('lease_id', lease.id).eq('due_date', dueDate)
+  if (((periodRows ?? []) as { status: string | null; paid_at: string | null }[]).some(isRecordedPaid)) {
+    return expireCard(admin, action.id, { reason: 'period_paid', due_date: dueDate })
+  }
+  if (preview) return PREVIEW({ subject: action.title, body: action.summary || '', to: null })
+  if (!(await claimExecution(admin, action.id))) return afterLostClaim(admin, action.id)
+  const executionResult = { ok: true, kind: 'acknowledged', stage: 'overdue', lease_id: lease.id, due_date: dueDate, days_late: m.days_late ?? null }
+  return finalizeExecution(admin, userId, action, 'executed_rent_overdue', executionResult, {
+    lease_id: lease.id,
+    household_id: m.household_id ?? null,
+    due_date: dueDate,
+    days_late: m.days_late ?? null,
+    persistent: m.persistent ?? null,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Executor: showing_request / listing_inquiry
 // metadata: { intent_id, listing_id, messages[] }. The tenant's requests are
 // loaded from showing_intents (server-written by /api/showing-intent), the
@@ -1616,6 +1649,9 @@ async function runAction(admin: Admin, userId: string, callerEmail: string | nul
       // Approval = acknowledged (P1 2026-09-23); nothing is sent.
       if (preview) return PREVIEW({ subject: action.title, body: action.summary || '', to: null })
       return executeRenewalCheckpoint(admin, userId, action, 'executed_relist_prompt')
+    case 'rent_overdue':
+      // Approval = acknowledged (G11 2026-10-16); the period is re-checked, nothing is sent.
+      return executeRentOverdue(admin, userId, action, preview)
     case 'dispatch_work_order':
       return executeDispatchWorkOrder(admin, userId, action, preview)
     case 'approve_quote':

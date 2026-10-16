@@ -25,6 +25,9 @@ import { leaseDisplayState, leaseStateDetail } from '@/lib/matters/states'
 import MoveInChecklist from '@/components/household/MoveInChecklist'
 import MaintenancePanel from '@/components/household/MaintenancePanel'
 import PaymentPlanDraft from '@/components/household/PaymentPlanDraft'
+import CsvReconcile from '@/components/household/CsvReconcile'
+import RentPeriodRow, { type RentPeriodRecord } from '@/components/household/RentPeriodRow'
+import { evidenceErrorText } from '@/lib/household/rentEvidence'
 import ThreadPanel from '@/components/threads/ThreadPanel'
 import MessageButton from '@/components/messages/MessageButton'
 import { personName, roleLabel, type Person } from '@/lib/threads/shared'
@@ -56,7 +59,8 @@ interface Household {
 interface Member { user_id: string; role: string; status: string; joined_at: string }
 // No invited_email: the hub never shows another person's address (relay principle, 2026-09-30).
 interface Invite { id: string; invited_role: string; accepted_at: string | null; declined_at: string | null; revoked_at: string | null; expires_at: string }
-interface Payment { id: string; due_date: string; paid_at: string | null; amount: number | null; status: string }
+// Evidence columns (G9 2026-10-16): who recorded (tenant_id), the other side's confirmation, the receipt.
+interface Payment extends RentPeriodRecord { id: string; due_date: string; paid_at: string | null; amount: number | null; status: string }
 
 const ROLE_ZH: Record<string, string> = { landlord: '房东', tenant: '租客', agent: '经纪', property_manager: '物业' }
 type Tab = 'overview' | 'messages' | 'rent' | 'maintenance'
@@ -176,6 +180,18 @@ export default function HouseholdHub() {
     setBusy(false)
   }
 
+  // The other side's confirmation of a recorded period (G9 2026-10-16): the RPC refuses the
+  // recorder (`self_confirm`), an unrecorded period, and a non-member; a second confirmation keeps the first.
+  async function confirmPaid(due: string, leaseId: string | null = household?.current_lease_id ?? null) {
+    if (!leaseId || !user) return
+    setBusy(true)
+    const { error } = await supabase.rpc('confirm_rent_payment', { p_lease: leaseId, p_due: due })
+    setWriteError(error ? evidenceErrorText(error.message, zh) : null)
+    await load()
+    if (!error) notifyFactsChanged()
+    setBusy(false)
+  }
+
   async function openLeaseFile() {
     const { data: list } = await supabase.storage.from('tenancy-files').list(id)
     const first = list?.[0]
@@ -261,6 +277,15 @@ export default function HouseholdHub() {
     : invites.filter((i) => !i.accepted_at && !i.declined_at && !i.revoked_at && new Date(i.expires_at).getTime() > Date.now())
         .map((i) => ({ key: i.id, role: i.invited_role === 'property_manager' ? 'landlord' : i.invited_role }))
   const memberRole = (r: string) => (r === 'property_manager' ? 'landlord' : r)
+  // A member's display on a rent period: 我 / their name / their role word (never an address).
+  const whoLabel = (uid: string | null | undefined): string => {
+    if (!uid) return zh ? '成员' : 'a member'
+    if (uid === user?.id) return zh ? '我' : 'me'
+    const name = nameOf.get(uid)
+    if (name) return name
+    const role = members.find((m) => m.user_id === uid)?.role
+    return role ? roleLabel(memberRole(role), zh) : zh ? '对方' : 'the other side'
+  }
   const others = members.filter((m) => m.user_id !== user?.id)
   // The tenancy thread is shared by every member (and pending invitees by email): a
   // button may name one person only when exactly one other person is in it.
@@ -272,6 +297,30 @@ export default function HouseholdHub() {
     : (zh ? `发消息给${roleLabel(memberRole(soleOther.role), true)}` : `Message the ${roleLabel(memberRole(soleOther.role), false).toLowerCase()}`)
   // Past-due periods with nothing recorded (a 'due' placeholder is not a record) → the landlord may draft a repayment plan.
   const missedDue = ledger.missed
+  // The payment-date field for an unrecorded period (the hub's own date logic, shared by
+  // both lists): bounded like mark_rent_paid, with the lateness it would record spelled out.
+  const paidOnField = (due: string, key: string, paidOnValue: string, chk: ReturnType<typeof checkPaidOn>) => {
+    const p = { due }
+    return (
+      <>
+        <label className="flex items-center gap-1.5 text-[11px] text-body-3">
+          {zh ? '付款日期' : 'Paid on'}
+          <input type="date" value={paidOnValue} min={earliestPaidOn(p.due, today)} max={today} data-testid="rent-paid-on"
+            aria-label={zh ? `${p.due} 这一期的付款日期` : `Payment date for the ${p.due} period`}
+            onChange={(e) => setPaidOn((m) => ({ ...m, [key]: e.target.value }))}
+            className="rounded-md border border-line-divider bg-white px-2 py-1 text-[12px] text-ink" />
+        </label>
+        {chk.ok && chk.late && (
+          <span className="text-[11px] text-amber-700" data-testid="rent-paid-on-late">
+            {zh
+              ? `将记为迟付 ${chk.daysLate} 天${chk.countsTowardS58 ? '（超过 7 天，计入 s.58 次数）' : ''} · 不是这天付的请改成实际日期`
+              : `Will be recorded ${chk.daysLate} day(s) late${chk.countsTowardS58 ? ' (over 7 days — counts toward s.58)' : ''} · not paid that day? Change it to the actual date`}
+          </span>
+        )}
+        {!chk.ok && <span className="text-[11px] text-danger">{zh ? '付款日期不能晚于今天，也不能早于到期日 62 天以上。' : 'The payment date cannot be after today or more than 62 days before the due date.'}</span>}
+      </>
+    )
+  }
   const TABS: Array<{ id: Tab; zh: string; en: string }> = [
     { id: 'overview', zh: '概览', en: 'Overview' },
     { id: 'messages', zh: '对话', en: 'Messages' },
@@ -472,6 +521,9 @@ export default function HouseholdHub() {
           <p className="mt-1 text-[11.5px] text-body-3">
             {zh ? '只做记录与提醒,不经手资金。标记后各方可见。' : 'Records and reminders only — no money moves through Stayloop.'}
           </p>
+          <p className="mt-1 text-[11.5px] text-body-3" data-testid="rent-evidence-note">
+            {zh ? '待付的一期先「标记已付」。记录 + 对方确认 + 回执 = 这一期有凭证；导出聊天记录时一并带出。' : 'Mark a due period paid first. A record + the other side’s confirmation + a receipt = this period is evidenced; the chat export carries it along.'}
+          </p>
           {lateness && lateness.late.length > 0 && (
             <div className={'mt-3 rounded-lg px-3 py-2 text-[12px] ' + (lateness.persistent ? 'bg-danger/10 text-danger' : 'bg-amber-50 text-amber-800')}>
               {lateness.persistent
@@ -482,6 +534,9 @@ export default function HouseholdHub() {
                   ? `迟付（到期日 7 天后）${lateness.late.length} 次：${lateness.late.join('、')}。6 个月内满 3 次即为 RTA s.58 的「持续迟付」。`
                   : `${lateness.late.length} payment(s) more than 7 days late: ${lateness.late.join(', ')}. Three within 6 months meets the RTA s.58 definition of persistent late payment.`)}
             </div>
+          )}
+          {myRole === 'landlord' && household.current_lease_id && Number(household.monthly_rent) > 0 && (
+            <CsvReconcile leaseId={household.current_lease_id} householdId={id} periods={ledger.periods} monthlyRent={Number(household.monthly_rent) || 0} zh={zh} onDone={() => void load()} />
           )}
           {ontario && myRole === 'landlord' && missedDue.length > 0 && (
             <PaymentPlanDraft householdId={id} leaseId={household.current_lease_id} unit={address} monthlyRent={Number(household.monthly_rent) || 0} missed={missedDue} arrears={missedArrears(ledger, Number(household.monthly_rent) || 0)} recorded={ledger.recordedRows.length} zh={zh} />
@@ -496,24 +551,12 @@ export default function HouseholdHub() {
                   const paidOnValue = paidOn[`prev:${p.due}`] ?? today
                   const chk = checkPaidOn(p.due, paidOnValue, today)
                   return (
-                    <div key={p.due} className="flex flex-wrap items-center gap-3 rounded-lg border border-line-divider/60 bg-white px-4 py-2.5 text-[13px]" data-state={p.state}>
-                      <span className="font-mono font-semibold">{p.due}</span>
-                      {amount > 0 && <span className="text-body-3">${amount.toLocaleString()}</span>}
-                      <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                        <span className="font-mono text-[10px] font-bold text-amber-700">{zh ? '待付' : 'DUE'}</span>
-                        <label className="flex items-center gap-1.5 text-[11px] text-body-3">
-                          {zh ? '付款日期' : 'Paid on'}
-                          <input type="date" value={paidOnValue} min={earliestPaidOn(p.due, today)} max={today}
-                            aria-label={zh ? `${p.due} 这一期的付款日期` : `Payment date for the ${p.due} period`}
-                            onChange={(e) => setPaidOn((m) => ({ ...m, [`prev:${p.due}`]: e.target.value }))}
-                            className="rounded-md border border-line-divider bg-white px-2 py-1 text-[12px] text-ink" />
-                        </label>
-                        <button onClick={() => void markPaid(p.due, paidOnValue, prevLease.id)} disabled={busy || !chk.ok}
-                          className="rounded-md border border-line-divider px-3 py-1 text-[11px] font-bold hover:border-[#00ACE4] disabled:opacity-50">
-                          {zh ? '标记已付' : 'Mark paid'}
-                        </button>
-                      </span>
-                    </div>
+                    <RentPeriodRow key={p.due} due={p.due} amount={amount} state={p.state} upcoming={p.upcoming} onSchedule={p.onSchedule}
+                      record={p.record} leaseId={prevLease.id} myUid={user?.id ?? null} whoLabel={whoLabel} zh={zh} busy={busy} previous
+                      paidOnField={paidOnField(p.due, `prev:${p.due}`, paidOnValue, chk)} paidOnValue={paidOnValue} paidOnOk={chk.ok}
+                      onMarkPaid={() => void markPaid(p.due, paidOnValue, prevLease.id)}
+                      onConfirm={() => confirmPaid(p.due, prevLease.id)}
+                      onChanged={load} />
                   )
                 })}
               </div>
@@ -545,46 +588,12 @@ export default function HouseholdHub() {
                 const paidOnValue = paidOn[p.due] ?? today
                 const chk = checkPaidOn(p.due, paidOnValue, today)
                 return (
-                  <div key={p.due} className="flex flex-wrap items-center gap-3 rounded-lg border border-line-divider/60 px-4 py-2.5 text-[13px]" data-state={p.state}>
-                    <span className="font-mono font-semibold">{p.due}</span>
-                    {amount > 0 && <span className="text-body-3">${amount.toLocaleString()}</span>}
-                    {!p.onSchedule && p.state === 'due' && (
-                      <span className="text-[11px] text-body-3" data-testid="rent-off-schedule">{zh ? '不在每月账期上 · 不计入欠款合计' : 'Not on the monthly schedule · not counted in arrears'}</span>
-                    )}
-                    <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                      {p.state === 'paid' || p.state === 'late' ? (
-                        <span className="rounded-md px-2 py-0.5 font-mono text-[10px] font-bold"
-                          style={p.state === 'paid' ? { color: '#047857', background: '#04785714' } : { color: '#DC2626', background: '#DC262614' }}>
-                          {p.state === 'paid' ? (zh ? '✓ 已付' : '✓ PAID') : (zh ? '已付 · 迟付' : 'PAID LATE')}
-                        </span>
-                      ) : p.state === 'upcoming' ? (
-                        <span className="font-mono text-[10px] font-bold text-body-3">{zh ? '未到期' : 'UPCOMING'}</span>
-                      ) : (
-                        <>
-                          <span className="font-mono text-[10px] font-bold text-amber-700">{p.upcoming ? (zh ? '待付 · 未到期' : 'DUE · UPCOMING') : (zh ? '待付' : 'DUE')}</span>
-                          <label className="flex items-center gap-1.5 text-[11px] text-body-3">
-                            {zh ? '付款日期' : 'Paid on'}
-                            <input type="date" value={paidOnValue} min={earliestPaidOn(p.due, today)} max={today} data-testid="rent-paid-on"
-                              aria-label={zh ? `${p.due} 这一期的付款日期` : `Payment date for the ${p.due} period`}
-                              onChange={(e) => setPaidOn((m) => ({ ...m, [p.due]: e.target.value }))}
-                              className="rounded-md border border-line-divider bg-white px-2 py-1 text-[12px] text-ink" />
-                          </label>
-                          {chk.ok && chk.late && (
-                            <span className="text-[11px] text-amber-700" data-testid="rent-paid-on-late">
-                              {zh
-                                ? `将记为迟付 ${chk.daysLate} 天${chk.countsTowardS58 ? '（超过 7 天，计入 s.58 次数）' : ''} · 不是这天付的请改成实际日期`
-                                : `Will be recorded ${chk.daysLate} day(s) late${chk.countsTowardS58 ? ' (over 7 days — counts toward s.58)' : ''} · not paid that day? Change it to the actual date`}
-                            </span>
-                          )}
-                          {!chk.ok && <span className="text-[11px] text-danger">{zh ? '付款日期不能晚于今天，也不能早于到期日 62 天以上。' : 'The payment date cannot be after today or more than 62 days before the due date.'}</span>}
-                          <button onClick={() => void markPaid(p.due, paidOnValue)} disabled={busy || !chk.ok}
-                            className="rounded-md border border-line-divider px-3 py-1 text-[11px] font-bold hover:border-[#00ACE4] disabled:opacity-50">
-                            {zh ? '标记已付' : 'Mark paid'}
-                          </button>
-                        </>
-                      )}
-                    </span>
-                  </div>
+                  <RentPeriodRow key={p.due} due={p.due} amount={amount} state={p.state} upcoming={p.upcoming} onSchedule={p.onSchedule}
+                    record={p.record} leaseId={household.current_lease_id ?? ''} myUid={user?.id ?? null} whoLabel={whoLabel} zh={zh} busy={busy}
+                    paidOnField={paidOnField(p.due, p.due, paidOnValue, chk)} paidOnValue={paidOnValue} paidOnOk={chk.ok}
+                    onMarkPaid={() => void markPaid(p.due, paidOnValue)}
+                    onConfirm={() => confirmPaid(p.due)}
+                    onChanged={load} />
                 )
               })}
             </div>

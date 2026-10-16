@@ -267,6 +267,12 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     work_order_dispatch_no_candidate: { zh: '没有符合资质的服务商可派——需要你在报修单上手动指派', en: 'No qualified provider to dispatch — assign one on the ticket' },
     delegation_link_resent: { zh: '你重新发送了委托确认链接', en: 'You re-sent a delegation confirmation link' },
     application_decision_drafted: { zh: '你起草了一份申请决定通知（等你批准后才发出）', en: 'You drafted an application decision notice (sent only once you approve it)' },
+    // V1.0 stage 3 (2026-10-16): rent evidence, confirmation, reminders, notice service records.
+    rent_evidence_attached: { zh: '你给一期租金附上了回执', en: 'You attached a receipt to a rent period' },
+    rent_confirmed: { zh: '你确认了对方记录的一期租金', en: 'You confirmed a rent period the other side recorded' },
+    rent_due_pushed: { zh: 'AI 助理提醒了租客租金快到期', en: 'The AI Agent reminded the tenant that rent is due soon' },
+    executed_rent_overdue: { zh: '你已知悉一期租金逾期（只是知悉，没有发出任何通知）', en: 'You acknowledged an overdue rent period (nothing was sent)' },
+    notice_served_recorded: { zh: '你记录了一份官方通知的送达', en: 'You recorded serving an official notice' },
     // V1.0 stage 2 (2026-10-16): agent intake links.
     agent_intake_link_created: { zh: '你生成了一条客户收件链接', en: 'You created a client intake link' },
     agent_intake_link_revoked: { zh: '你撤销了一条客户收件链接', en: 'You revoked a client intake link' },

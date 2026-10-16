@@ -162,18 +162,17 @@ const SIGNING: Record<string, { sent: string; landlord: boolean; tenant: boolean
 
 // Ontario LTB notice forms the landlord can actually reach for. Each one
 // states its own timing rule; the rent-increase cap is never shown without
-// the post-2018 exemption beside it.
-const N_FORMS: { code: string; title: { zh: string; en: string }; rule: { zh: string; en: string }; prompt: { zh: string; en: string } }[] = [
+// the post-2018 exemption beside it. Every card links to the notice toolbox
+// (/landlord/notices — V1.0 阶段 3 甲 #5): date arithmetic over the lease row
+// and the landlord's own input, a fill-in sheet and the official LTB PDF.
+// Nothing here is sent to the AI Agent any more.
+const N_FORMS: { code: string; title: { zh: string; en: string }; rule: { zh: string; en: string } }[] = [
   {
     code: 'N1',
     title: { zh: '涨租', en: 'Rent increase' },
     rule: {
       zh: `提前 90 天 · 12 个月一次 · 指导上限按生效年份：${GUIDELINE_TEXT.zh}`,
       en: `90 days notice · once per 12 months · guideline by effective year: ${GUIDELINE_TEXT.en}`,
-    },
-    prompt: {
-      zh: `帮我准备一份 N1 涨租通知，检查 90 天提前期、12 个月间隔和生效年份的指导上限（${GUIDELINE_TEXT.zh}）是否满足。`,
-      en: `Prepare an N1 rent-increase notice for me and check the 90-day notice period, the 12-month interval and the guideline for the effective year (${GUIDELINE_TEXT.en}).`,
     },
   },
   {
@@ -183,10 +182,6 @@ const N_FORMS: { code: string; title: { zh: string; en: string }; rule: { zh: st
       zh: '2018 年 11 月后首次入住的单位不受指导上限约束',
       en: 'Units first occupied after November 2018 are exempt from the guideline cap',
     },
-    prompt: {
-      zh: '我的单位是 2018 年 11 月之后首次入住，帮我准备 N2 涨租通知，并确认豁免条件成立。',
-      en: 'My unit was first occupied after November 2018 — prepare an N2 rent-increase notice and confirm the exemption applies.',
-    },
   },
   {
     code: 'N4',
@@ -194,10 +189,6 @@ const N_FORMS: { code: string; title: { zh: string; en: string }; rule: { zh: st
     rule: {
       zh: `逾期次日即可送达 · 终止日至少送达后 ${N4_TERMINATION_DAYS} 天（邮寄 +5）· 2026-09-21 起用 2026/09 版，旧版 ${N4_OLD_FORMS_REJECTED_AFTER} 后不受理`,
       en: `Serve any day after the due date · termination date at least ${N4_TERMINATION_DAYS} days after service (mail +5) · use the 2026/09 form from 2026-09-21; older versions rejected after ${N4_OLD_FORMS_REJECTED_AFTER}`,
-    },
-    prompt: {
-      zh: '帮我准备 N4 欠租通知，核对到期日、欠款金额，以及终止日是否满足送达后 7 天（邮寄再加 5 天），并提醒我用 2026/09 版表格。',
-      en: 'Prepare an N4 non-payment notice: verify the due date, the arrears amount and that the termination date is at least 7 days after service (plus 5 for mail), and remind me to use the 2026/09 form.',
     },
   },
   {
@@ -207,10 +198,6 @@ const N_FORMS: { code: string; title: { zh: string; en: string }; rule: { zh: st
       zh: '至少提前 60 天、终止日为租期末日 · 提前 ≥120 天可免一个月补偿（买家自用除外）· 终止日后 60 天内须入住 · 2026/09 版',
       en: 'At least 60 days, ending on the last day of a rental period · ≥120 days’ notice waives the one-month compensation (not for purchaser’s use) · must occupy within 60 days · 2026/09 form',
     },
-    prompt: {
-      zh: '帮我准备 N12 房东自用通知：核对提前期（60 天；满 120 天可免一个月补偿）、终止日是否为租期末日、以及 60 天内入住的要求。',
-      en: 'Prepare an N12 notice for landlord’s own use: check the notice period (60 days; 120+ days waives the one-month compensation), that the termination date is the last day of a rental period, and the 60-day occupancy requirement.',
-    },
   },
   {
     code: 'N13',
@@ -218,10 +205,6 @@ const N_FORMS: { code: string; title: { zh: string; en: string }; rule: { zh: st
     rule: {
       zh: `提前 120 天 · 租客有回迁权（更新完工日 · 完工后 60 天通知）· 多伦多须 7 天内申请装修许可证（$${TORONTO_RENOVATION_LICENCE.feePerUnit}/单元，搬家补贴 $${TORONTO_RENOVATION_LICENCE.movingAllowance.studioOrOneBed.toLocaleString()} / $${TORONTO_RENOVATION_LICENCE.movingAllowance.twoPlusBed.toLocaleString()}）`,
       en: `120 days · tenant’s right to return (completion updates · 60 days’ notice to reoccupy) · Toronto: apply for a Rental Renovation Licence within 7 days ($${TORONTO_RENOVATION_LICENCE.feePerUnit}/unit; moving allowance $${TORONTO_RENOVATION_LICENCE.movingAllowance.studioOrOneBed.toLocaleString()} / $${TORONTO_RENOVATION_LICENCE.movingAllowance.twoPlusBed.toLocaleString()})`,
-    },
-    prompt: {
-      zh: '我要以装修为由发 N13：帮我核对 120 天提前期、建筑许可、租客回迁权义务，以及多伦多装修许可证（7 天内申请、$728/单元、搬家补贴与租金差价）。',
-      en: 'I want to serve an N13 for renovations: check the 120-day notice, the building permit, the tenant’s right-of-first-refusal duties, and Toronto’s Rental Renovation Licence (apply within 7 days, $728/unit, moving allowance and rent-gap).',
     },
   },
 ]
@@ -1006,7 +989,7 @@ function RailAside({ lang, aiNotice, activity }: { lang: Lang; aiNotice?: ReactN
           {N_FORMS.map((f) => (
             <Link
               key={f.code}
-              href={`/landlord/agent?prompt=${encodeURIComponent(f.prompt[lang])}&send=1`}
+              href="/landlord/notices"
               className="block rounded-[8px] border border-line-divider bg-white px-3 py-2 transition hover:border-landlord/50"
             >
               <div className="flex items-baseline gap-2">
@@ -1023,19 +1006,19 @@ function RailAside({ lang, aiNotice, activity }: { lang: Lang; aiNotice?: ReactN
         <p className="text-[12.5px] leading-relaxed text-body-2">
           {zh ? (
             <>
-              安省涨租指导上限按生效年份计：<b>{GUIDELINE_TEXT.zh}</b>（2027 年 1 月 1 日生效的涨租，N1 最晚 2026-10-03 送达）。2018 年 11 月后首次入住的单位不受限 — {aiName} 会先判断房龄，再决定是否套用。2026-09-21 起 N4 终止日改为送达后 {N4_TERMINATION_DAYS} 天，N12 提前 120 天可免一个月补偿。
+              安省涨租指导上限按生效年份计：<b>{GUIDELINE_TEXT.zh}</b>（2027 年 1 月 1 日生效的涨租，N1 最晚 2026-10-03 送达）。2018 年 11 月后首次入住的单位不受限 — 在工具箱里由你勾选是否属于这类单位。2026-09-21 起 N4 终止日改为送达后 {N4_TERMINATION_DAYS} 天，N12 提前 120 天可免一个月补偿。
             </>
           ) : (
             <>
-              {"Ontario's"} guideline depends on the year the increase takes effect: <b>{GUIDELINE_TEXT.en}</b> (for a Jan 1 2027 increase the N1 must be served by 2026-10-03). Units first occupied after November 2018 are exempt — {aiName} checks the {"unit's"} age first. Since 2026-09-21 an N4 ends no earlier than {N4_TERMINATION_DAYS} days after service and an N12 with 120+ days’ notice owes no compensation.
+              {"Ontario's"} guideline depends on the year the increase takes effect: <b>{GUIDELINE_TEXT.en}</b> (for a Jan 1 2027 increase the N1 must be served by 2026-10-03). Units first occupied after November 2018 are exempt — in the toolbox you tick whether the unit is one. Since 2026-09-21 an N4 ends no earlier than {N4_TERMINATION_DAYS} days after service and an N12 with 120+ days’ notice owes no compensation.
             </>
           )}
         </p>
         <Link
-          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我查看 Ontario N1 和 N2 涨租通知模板，以及使用时机和注意事项' : 'Show me the Ontario N1 and N2 rent increase notice templates, with timing rules and key considerations')}&send=1`}
+          href="/landlord/notices"
           className="mt-3 inline-block text-[12px] font-semibold text-brand hover:underline"
         >
-          {zh ? '查看 N1 / N2 通知模板 →' : 'View N1 / N2 notice templates →'}
+          {zh ? '打开 N 表工具箱 →' : 'Open the notice toolbox →'}
         </Link>
       </AsideBlock>
     </div>

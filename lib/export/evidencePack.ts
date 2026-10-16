@@ -20,7 +20,7 @@ export type EvidencePackData = {
   application: { id: string; applicant: string; status: string | null; created_at: string; decision_notified_at: string | null; decision_reason: string | null } | null
   screening: { id: string; status: string | null; created_at: string } | null
   lease: { id: string; status: string | null; start_date: string | null; end_date: string | null; monthly_rent: number | null; sent_at: string | null; signed_at: string | null } | null
-  household: { id: string; verified: boolean | null; status: string | null; rent: { due_date: string; status: string | null; paid_at: string | null; amount: number | null }[] } | null
+  household: { id: string; verified: boolean | null; status: string | null; rent: { due_date: string; status: string | null; paid_at: string | null; amount: number | null; confirmed_at?: string | null; evidence_name?: string | null; evidence_sha256?: string | null; evidence_at?: string | null; note?: string | null }[] } | null
   work_orders: PackWorkOrder[]
   threads: PackThread[]
   audit: PackAudit[]
@@ -77,7 +77,7 @@ export function renderEvidencePack(d: EvidencePackData, m: PackMeta): string {
       d.household ? `<td>${T(L, '在管租约', 'Managed tenancy')}</td><td>${esc(d.household.status ?? '—')}${d.household.verified ? ` · ${T(L, '双方确认', 'both confirmed')}` : ` · ${T(L, '未确认', 'unconfirmed')}`}</td><td>—</td><td>${T(L, '租金记录', 'Rent records')} ${d.household.rent.length}</td>` : '',
     ].filter(Boolean))}
     </tbody></table>`
-  const rent = d.household && d.household.rent.length ? `<h3>${T(L, '租金记录（只记录，不经手资金）', 'Rent records (records only; no money moves through Stayloop)')}</h3><table><thead><tr><th>${T(L, '到期', 'Due')}</th><th>${T(L, '状态', 'Status')}</th><th>${T(L, '记录时间', 'Recorded')}</th><th>${T(L, '金额', 'Amount')}</th></tr></thead><tbody>${rows(d.household.rent.map((r) => `<td>${esc(r.due_date)}</td><td>${esc(r.status ?? '—')}</td><td>${when(r.paid_at, L)}</td><td>${money(r.amount)}</td>`))}</tbody></table>` : ''
+  const rent = d.household && d.household.rent.length ? `<h3>${T(L, '租金记录（只记录，不经手资金）', 'Rent records (records only; no money moves through Stayloop)')}</h3><table><thead><tr><th>${T(L, '到期', 'Due')}</th><th>${T(L, '状态', 'Status')}</th><th>${T(L, '记录时间', 'Recorded')}</th><th>${T(L, '金额', 'Amount')}</th><th>${T(L, '对方确认', 'Confirmed')}</th><th>${T(L, '回执 · SHA-256', 'Receipt · SHA-256')}</th></tr></thead><tbody>${rows(d.household.rent.map((r) => `<td>${esc(r.due_date)}</td><td>${esc(r.status ?? '—')}</td><td>${when(r.paid_at, L)}</td><td>${money(r.amount)}</td><td>${r.confirmed_at ? when(r.confirmed_at, L) : '—'}</td><td>${r.evidence_sha256 ? `${esc(r.evidence_name ?? '')} · <code>${esc(r.evidence_sha256)}</code>${r.evidence_at ? ` · ${when(r.evidence_at, L)}` : ''}` : '—'}${r.note ? `<br><small>${esc(r.note)}</small>` : ''}</td>`))}</tbody></table>` : ''
   const wos = d.work_orders.length ? d.work_orders.map((w) => `
     <h3>${esc(w.scope || w.id)} · ${esc(w.contractor)} · <span class="meta">${esc(w.status)}${w.emergency ? ` · ${T(L, '紧急', 'emergency')}` : ''}</span></h3>
     <div class="meta">${T(L, '报价', 'Quote')} ${money(w.quote_amount)}${w.quote_version ? ` (v${w.quote_version})` : ''} · ${T(L, '批准', 'approved')} ${money(w.approved_amount)} · ${T(L, '账单', 'invoice')} ${money(w.invoice_amount)}${w.decline_code ? ` · ${T(L, '婉拒原因', 'declined')}: ${esc(w.decline_code)}` : ''}${w.cancel_reason ? ` · ${esc(w.cancel_reason)}` : ''}</div>

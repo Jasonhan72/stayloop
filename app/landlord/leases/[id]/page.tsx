@@ -226,6 +226,9 @@ function RealLeaseDetail({ id }: { id: string }) {
               </h1>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Link href={`/landlord/notices?lease=${l.id}`} className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand" data-testid="lease-notice-toolbox">
+                {zh ? 'N 表工具箱 →' : 'Notice toolbox →'}
+              </Link>
               {hasTerms && (
                 <button
                   onClick={() => window.print()}
@@ -662,10 +665,10 @@ function DetailAside({ lease, lang }: { lease: typeof LEASES[string]; lang: Lang
           {zh ? '发送催租提醒' : 'Send rent reminder'}
         </Link>
         <Link
-          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `起草 ${lease.tenant} 的 N1 涨租通知` : `Draft an N1 rent increase notice for ${lease.tenant}`)}&send=1`}
+          href="/landlord/notices"
           className="block w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-center text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
         >
-          {zh ? '起草 N1 涨租通知' : 'Draft N1 rent increase'}
+          {zh ? 'N 表工具箱 →' : 'Notice toolbox →'}
         </Link>
         <Link
           href="/landlord/maintenance"

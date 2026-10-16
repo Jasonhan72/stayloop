@@ -43,6 +43,28 @@ const RISK: Record<PendingAction['risk_level'], { label: { zh: string; en: strin
   high: { label: { zh: '高风险', en: 'HIGH RISK' }, cls: 'text-danger bg-danger/10' },
 }
 
+type RentOverdueFacts = {
+  leaseId: string | null; householdId: string | null; due: string; amount: number; daysLate: number
+  missedCount: number; arrearsTotal: number; ontario: boolean; lateCount: number; persistent: boolean
+  n4Hand: string | null; n4Mail: string | null
+}
+// Reads a rent_overdue card's metadata (written by the cron planner, lib/household/rentReminders);
+// anything malformed renders as nothing rather than as a wrong fact.
+function rentOverdueFacts(m: Record<string, unknown> | null): RentOverdueFacts | null {
+  if (!m) return null
+  const str = (k: string) => (typeof m[k] === 'string' ? (m[k] as string) : null)
+  const n = (k: string) => { const v = Number(m[k]); return Number.isFinite(v) ? v : 0 }
+  const due = str('due_date')
+  if (!due) return null
+  const id = (k: string) => { const v = str(k); return v && UUID_RE.test(v) ? v : null }
+  const iso = (k: string) => { const v = str(k); return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null }
+  return {
+    leaseId: id('lease_id'), householdId: id('household_id'), due: due.slice(0, 10), amount: n('amount'), daysLate: n('days_late'),
+    missedCount: n('missed_count'), arrearsTotal: n('arrears_total'), ontario: (str('province') ?? 'ON') === 'ON',
+    lateCount: n('late_count_6m'), persistent: m.persistent === true, n4Hand: iso('n4_earliest_hand'), n4Mail: iso('n4_earliest_mail'),
+  }
+}
+
 export default function ApprovalActionCard({
   action,
   onDecide,
@@ -114,6 +136,11 @@ export default function ApprovalActionCard({
   // anything that is not a same-origin path is ignored.
   const relistPath = action.action_type === 'relist_prompt' ? cardSitePath((action.metadata as { href?: unknown } | null)?.href) : null
 
+  // rent_overdue (G11 2026-10-16): the facts block below reads the card's metadata; the two
+  // links open the ledger and the notice toolbox with the lease preselected only — no form,
+  // no service method (LSA s.1(5): the platform picks neither).
+  const overdue = action.action_type === 'rent_overdue' ? rentOverdueFacts(action.metadata as Record<string, unknown> | null) : null
+
   // A tenant's chat card goes to their current landlord whatever the model wrote as recipient.
   const fixedTo = tenantCardRecipient(action.role, action.action_type, action.metadata as Record<string, unknown> | null, zh)
   const recipientShown = fixedTo ?? (action.recipient_label ? (noEmail(action.recipient_label) ?? recipientRole(action, zh)) : null)
@@ -178,6 +205,50 @@ export default function ApprovalActionCard({
         >
           <span aria-hidden="true">✉</span>{zh ? `回复 ${replyWho} →` : `Reply to ${replyWho} →`}
         </Link>
+      )}
+
+      {overdue && (
+        <div className="mt-4 rounded-xl border border-line-divider bg-surface-chip/40 p-3 text-[12.5px]" data-testid="card-rent-overdue">
+          <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '事实 · 来自租金记录' : 'FACTS · FROM THE RENT LEDGER'}</div>
+          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-body-2">
+            <dt className="text-body-3">{zh ? '这期' : 'This period'}</dt>
+            <dd className="font-semibold text-body">{overdue.due} · ${rentAmount(overdue.amount)} · {zh ? `逾期 ${overdue.daysLate} 天` : `${overdue.daysLate} days overdue`}</dd>
+            {overdue.missedCount > 1 && (
+              <>
+                <dt className="text-body-3">{zh ? '未记录' : 'Unrecorded'}</dt>
+                <dd>{zh ? `共 ${overdue.missedCount} 期 · 合计 $${rentAmount(overdue.arrearsTotal)}` : `${overdue.missedCount} periods · $${rentAmount(overdue.arrearsTotal)} in all`}</dd>
+              </>
+            )}
+            {overdue.ontario && (
+              <>
+                <dt className="text-body-3">{zh ? '6 个月内迟付' : 'Late in 6 months'}</dt>
+                <dd>
+                  {zh ? `${overdue.lateCount} 次超过 7 天` : `${overdue.lateCount} more than 7 days late`}
+                  <span className={`ml-2 rounded-md px-1.5 py-[1px] font-mono text-[10px] font-bold ${overdue.persistent ? 'bg-danger/10 text-danger' : 'bg-surface-chip text-body-3'}`} data-testid="card-s58">
+                    {overdue.persistent ? (zh ? '已构成 s.58 持续迟付' : 'RTA s.58 persistent late payment') : (zh ? '未构成 s.58（满 3 次）' : 'Below the s.58 threshold (3)')}
+                  </span>
+                </dd>
+                <dt className="text-body-3">{zh ? 'N4 最早终止日' : 'N4 earliest termination'}</dt>
+                <dd>
+                  {zh ? `今天送达 → ${overdue.n4Hand ?? '—'} · 邮寄 → ${overdue.n4Mail ?? '—'}` : `served today → ${overdue.n4Hand ?? '—'} · by mail → ${overdue.n4Mail ?? '—'}`}
+                  <div className="mt-0.5 text-[11.5px] text-body-3">{zh ? '只是日期算术。发不发、用哪张表、怎么送达，由你决定。' : 'Date arithmetic only. Whether to serve, which form, and how to serve it are your decisions.'}</div>
+                </dd>
+              </>
+            )}
+          </dl>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+            {overdue.householdId && (
+              <Link href={`/h/${overdue.householdId}?tab=rent`} data-testid="card-rent-ledger-link" className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-brand underline-offset-2 hover:underline">
+                {zh ? '租金记录 →' : 'Rent ledger →'}
+              </Link>
+            )}
+            {overdue.ontario && overdue.leaseId && (
+              <Link href={`/landlord/notices?lease=${overdue.leaseId}`} data-testid="card-notices-link" className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-brand underline-offset-2 hover:underline">
+                {zh ? 'N 表工具箱 →' : 'Notice toolbox →'}
+              </Link>
+            )}
+          </div>
+        </div>
       )}
 
       {relistPath && (

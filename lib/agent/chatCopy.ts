@@ -87,7 +87,8 @@ export function cardSitePath(v: unknown): string | null {
 }
 
 // Approval-only cards: approving them records that the person has seen them; nothing is sent.
-const ACKNOWLEDGE_TYPES = new Set(['renewal_checkpoint', 'relist_prompt'])
+// rent_overdue (G11 2026-10-16): the overdue facts + N4 date arithmetic; approving only records that the landlord saw them.
+const ACKNOWLEDGE_TYPES = new Set(['renewal_checkpoint', 'relist_prompt', 'rent_overdue'])
 export function isAcknowledgeOnly(actionType: string | null | undefined): boolean {
   return ACKNOWLEDGE_TYPES.has(String(actionType ?? ''))
 }
@@ -180,6 +181,7 @@ const REASON_TEXT: Record<string, Bi> = {
   invite_closed: { zh: '邀请已被接受或撤回', en: 'the invitation was already accepted or withdrawn' },
   past_due_date: { zh: '这期租金的到期日已经过了', en: "this rent period's due date has passed" },
   period_paid: { zh: '这期租金已记录付款', en: 'this rent period is already recorded as paid' },
+  'card has no due date': { zh: '这张卡片没有到期日，不能核对账期', en: 'this card has no due date, so the period cannot be checked' },
   listing_inactive: { zh: '房源已下架', en: 'the listing is no longer active' },
   ticket_closed: { zh: '这张报修单已经关闭', en: 'this repair ticket is already closed' },
   quote_changed: { zh: '报价在你批准之后变了，请先看新的报价', en: 'the quote changed after you approved it — review the new one first' },

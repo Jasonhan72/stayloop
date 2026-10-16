@@ -35,6 +35,7 @@ import { buildInviteReminderProposal, buildRelistProposal, inviteNeedsReminder, 
 import { notifyUser } from '@/lib/push/notify'
 import { runMarketplaceSweep } from '@/lib/marketplace/sweep'
 import { runLandlordFollowUps } from '@/lib/landlord/followUp'
+import { RENT_DUE_PUSH_ACTION, RENT_OVERDUE_ACTION_TYPE, planRentReminders, tenantDuePush, type ExistingOverdueCard, type ReminderHousehold, type ReminderMember, type ReminderRent } from '@/lib/household/rentReminders'
 import { leaseProvince, unitTermsOf } from '@/lib/provinces/lease'
 import type { ProvinceCode, ProvinceRow } from '@/lib/provinces/detect'
 
@@ -452,9 +453,116 @@ async function runRenewalSweep(): Promise<NextResponse> {
   return NextResponse.json({ created: inserts.length, expired, pushed, mode: 'cron' })
 }
 
+// ---------------------------------------------------------------------------
+// Rent due / overdue touchpoints (V1.0 阶段 3 甲 #4 · G11) — cron mode only.
+// Loader for lib/household/rentReminders (the pure planner): verified, active
+// tenancies, their current lease + rent rows + members; the keys already
+// pushed; the rent_overdue cards already written. Tenants get a push a few
+// days before a period falls due; landlords get one acknowledge-only
+// `rent_overdue` card per lease + due once a period is past the s.58 grace.
+// ---------------------------------------------------------------------------
+const RENT_SWEEP_LIMIT = 500
+const RENT_PUSH_LOOKBACK_DAYS = 14
+
+type RentSweepSummary = { tenant_pushed: number; overdue_cards: number; expired: number; skipped: number; error?: string }
+
+async function runRentReminderSweep(admin: SupabaseClient, now = new Date()): Promise<RentSweepSummary> {
+  const { data: hhRows, error: hhErr } = await admin
+    .from('households')
+    .select('id, current_lease_id, next_lease_id, monthly_rent, rent_due_day, start_date, verified, status, address, unit, city')
+    .eq('verified', true)
+    .eq('status', 'active')
+    .not('current_lease_id', 'is', null)
+    .limit(RENT_SWEEP_LIMIT)
+  if (hhErr) throw new Error(`household scan failed: ${hhErr.message}`)
+  const households = (hhRows ?? []) as ReminderHousehold[]
+  if (!households.length) return { tenant_pushed: 0, overdue_cards: 0, expired: 0, skipped: 0 }
+  const hhIds = households.map((h) => h.id)
+  const leaseIds = Array.from(new Set(households.flatMap((h) => [h.current_lease_id, h.next_lease_id ?? null]).filter(Boolean))) as string[]
+  const currentIds = households.map((h) => h.current_lease_id).filter(Boolean) as string[]
+
+  const [{ data: leaseRows, error: leaseErr }, { data: rentRows }, { data: memberRows }, { data: cardRows }, { data: pushedRows }] = await Promise.all([
+    admin.from('lease_documents').select(LEASE_COLS).in('id', leaseIds),
+    admin.from('rent_payments').select('lease_id, due_date, status, paid_at, amount').in('lease_id', currentIds),
+    admin.from('household_members').select('household_id, user_id, role, status').in('household_id', hhIds).eq('status', 'active'),
+    admin.from('agent_pending_actions').select('id, status, metadata').eq('action_type', RENT_OVERDUE_ACTION_TYPE).limit(2000),
+    admin.from('agent_audit_events').select('metadata').eq('action', RENT_DUE_PUSH_ACTION).gte('created_at', new Date(now.getTime() - RENT_PUSH_LOOKBACK_DAYS * 86_400_000).toISOString()).limit(2000),
+  ])
+  if (leaseErr) throw new Error(`lease load failed: ${leaseErr.message}`)
+  const leases = (leaseRows ?? []) as LeaseRow[]
+  // s.58 / N4 are Ontario's: the planner says them only for Ontario leases.
+  await attachPlaces(admin, leases)
+  const pushedKeys = ((pushedRows ?? []) as { metadata: { key?: unknown } | null }[]).map((r) => r.metadata?.key).filter((k): k is string => typeof k === 'string')
+
+  const plan = planRentReminders({
+    households,
+    leases,
+    rentRows: (rentRows ?? []) as ReminderRent[],
+    members: (memberRows ?? []) as ReminderMember[],
+    existingCards: (cardRows ?? []) as ExistingOverdueCard[],
+    pushedKeys,
+    today: now,
+  })
+  const skipped = Object.values(plan.skipped).reduce((a, b) => a + b, 0)
+
+  // Cards whose period was recorded since: expire them, say why.
+  let expired = 0
+  if (plan.expire.length) {
+    const { data } = await admin
+      .from('agent_pending_actions')
+      .update({ status: 'expired', execution_result: { ok: false, reason: 'period_paid', at: now.toISOString() } })
+      .in('id', plan.expire.map((e) => e.id))
+      .eq('status', 'pending')
+      .is('executed_at', null)
+      .select('id')
+    expired = data?.length ?? 0
+  }
+
+  // Tenant pushes: one per member per period, the key written to the audit
+  // trail whether or not a device received it (that is what makes it one).
+  let tenantPushed = 0
+  for (const p of plan.tenantDue) {
+    const msg = tenantDuePush(p)
+    const devices = await notifyUser(admin, p.userId, { kind: 'event', ...msg })
+    tenantPushed += devices > 0 ? 1 : 0
+    await admin.from('agent_audit_events').insert({
+      actor_id: p.userId,
+      actor_type: 'system',
+      action: RENT_DUE_PUSH_ACTION,
+      target_type: 'lease',
+      target_id: p.leaseId,
+      acting_role: 'tenant',
+      matter_type: 'household',
+      matter_id: p.householdId,
+      metadata: { key: p.key, lease_id: p.leaseId, household_id: p.householdId, due_date: p.due, amount: p.amount, days_until: p.daysUntil, devices },
+    }).then(() => undefined, () => undefined)
+  }
+
+  // Landlord cards + one approval push per landlord for this sweep.
+  let overdueCards = 0
+  if (plan.landlordOverdue.length) {
+    const { data: created, error: insErr } = await admin.from('agent_pending_actions').insert(plan.landlordOverdue).select('id, user_id, title')
+    if (insErr) throw new Error(`rent_overdue insert failed: ${insErr.message}`)
+    overdueCards = created?.length ?? 0
+    const perUser = new Map<string, { n: number; first: string }>()
+    for (const c of (created ?? []) as { user_id: string; title: string }[]) {
+      const cur = perUser.get(c.user_id)
+      perUser.set(c.user_id, { n: (cur?.n ?? 0) + 1, first: cur?.first ?? c.title })
+    }
+    await Promise.all(Array.from(perUser).map(([uid, v]) => notifyUser(admin, uid, {
+      kind: 'approval',
+      title: v.n === 1 ? v.first.slice(0, 80) : `${v.n} 期租金逾期 / ${v.n} rent periods overdue`,
+      body: '只是提醒，批准 = 知悉 / A reminder only — approving records that you saw it',
+      url: '/landlord/todo',
+    })))
+  }
+  return { tenant_pushed: tenantPushed, overdue_cards: overdueCards, expired, skipped }
+}
+
 // Cron mode = the renewal / reminder sweep above + the marketplace sweep
-// (overdue quotes, credential expiry ladder; 节点 3 2026-09-26). The two are
-// independent: a failure in one is reported, not allowed to hide the other.
+// (overdue quotes, credential expiry ladder; 节点 3 2026-09-26) + the rent
+// due / overdue touchpoints. All independent: a failure in one is reported,
+// not allowed to hide the others.
 async function runCronSweep(): Promise<NextResponse> {
   const admin: SupabaseClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -468,7 +576,9 @@ async function runCronSweep(): Promise<NextResponse> {
   // pass, same rule as the marketplace one — its failure is reported, never
   // allowed to hide the sweeps above.
   const followups = await runLandlordFollowUps(admin).catch((e: Error) => ({ sent: 0, skipped: 0, error: e.message }))
-  return NextResponse.json({ ...body, marketplace, followups }, { status: res.status })
+  // Rent due / overdue touchpoints (G11): same rule, its own line in the response.
+  const rent = await runRentReminderSweep(admin).catch((e: Error): RentSweepSummary => ({ tenant_pushed: 0, overdue_cards: 0, expired: 0, skipped: 0, error: e.message }))
+  return NextResponse.json({ ...body, marketplace, followups, rent }, { status: res.status })
 }
 
 // ---------------------------------------------------------------------------

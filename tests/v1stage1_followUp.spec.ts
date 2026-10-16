@@ -120,7 +120,7 @@ describe('wiring', () => {
     expect(cron.indexOf('runMarketplaceSweep(admin)')).toBeLessThan(cron.indexOf('runLandlordFollowUps(admin)'))
     expect(cron.indexOf('runRenewalSweep()')).toBeLessThan(cron.indexOf('runLandlordFollowUps(admin)'))
     expect(cron).toMatch(/runLandlordFollowUps\(admin\)\.catch\(/)
-    expect(cron).toMatch(/\{ \.\.\.body, marketplace, followups \}/)
+    expect(cron).toMatch(/\{ \.\.\.body, marketplace, followups(, rent)? \}/)
     expect(cron).toMatch(/sent: 0, skipped: 0/)
   })
 
