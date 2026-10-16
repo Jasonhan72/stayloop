@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import MoveInChecklist from '@/components/household/MoveInChecklist'
 import { leaseProvince } from '@/lib/provinces/lease'
+import { guidelineFor } from '@/lib/ontario/rules'
 import { useReportLiveRows } from '@/lib/liveRows'
 
 // The tenant's own tenancies (household membership) → the shared checklist
@@ -77,6 +78,8 @@ function Check({ on }: { on: boolean }) {
 export default function TenantMoveInPage() {
   const name = useAIName()
   const { lang } = useT()
+  // Deposit interest = the guideline for the year it falls due (lib/ontario/rules is the only source).
+  const guideline = guidelineFor(new Date())
   return (
     <WorkspaceShell role="tenant" hideAside liveSlot={<LiveMoveIn zh={lang === 'zh'} />}>
       <div className="mx-auto max-w-[760px]">
@@ -124,9 +127,9 @@ export default function TenantMoveInPage() {
           </div>
           <p className="mt-3 text-[13.5px] leading-relaxed text-body-2">
             {lang === 'zh' ? (
-              <>退租时最常见的纠纷就是押金。今天先把房子的真实状态拍清楚、确认收到的实物、核对押金托管 — 这三件事做完，你的 <b>$2,800 押金</b>在搬出时就有据可依。</>
+              <>退租时最常见的纠纷就是押金。今天先把房子的真实状态拍清楚、确认收到的实物、拿到押金和首月租金的收据 — 这三件事做完，你的 <b>$2,800 押金</b>在搬出时就有据可依。</>
             ) : (
-              <>The deposit is the most common dispute at move-out. Today, photograph the unit’s real condition, confirm what you received, and check the deposit escrow — once these three things are done, your <b>$2,800 deposit</b> has solid evidence behind it when you move out.</>
+              <>The deposit is the most common dispute at move-out. Today, photograph the unit’s real condition, confirm what you received, and get receipts for the deposit and first month’s rent — once these three things are done, your <b>$2,800 deposit</b> has solid evidence behind it when you move out.</>
             )}
           </p>
         </div>
@@ -205,52 +208,57 @@ export default function TenantMoveInPage() {
           </div>
         </div>
 
-        {/* ── Task 3 · deposit + first month rent ── */}
-        <div className="mb-5 sl-card p-5 sm:p-7">
-          <h2 className="text-[18px] font-bold tracking-tight">{lang === 'zh' ? '💰 押金 + 第一月租' : '💰 Deposit + first month rent'}</h2>
+        {/* ── Task 3 · deposit receipt (RTA s.105–106 facts; Stayloop never handles money) ── */}
+        <div className="mb-5 sl-card p-5 sm:p-7" data-testid="deposit-receipt-card">
+          <h2 className="text-[18px] font-bold tracking-tight">{lang === 'zh' ? '🧾 押金收据 + 首月租金收据' : '🧾 Deposit receipt + first month’s rent receipt'}</h2>
           <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
             {lang === 'zh'
-              ? '已自动从你的账户转出 · 由 Stripe 托管 · 见 audit log。'
-              : 'Automatically transferred from your account · held in Stripe escrow · see audit log.'}
+              ? '押金是付给房东的，Stayloop 不经手任何资金。今天要做的只有一件事：让房东给你一张写明金额和日期的收据（RTA s.109：你要求时房东必须免费出具）。'
+              : 'The deposit is paid to the landlord; Stayloop never handles money. The one thing to do today: get a receipt from the landlord stating the amount and date (RTA s.109: the landlord must provide one free of charge when asked).'}
           </p>
 
           <div className="mt-5 divide-y divide-line-divider rounded-2xl border border-line-divider">
-            <div className="flex items-center gap-3 px-4 py-4">
-              <Check on />
-              <div>
-                <div className="text-[14px] font-semibold">{lang === 'zh' ? '首月租 $2,800 · 已支付（6/1）' : 'First month rent $2,800 · paid (6/1)'}</div>
-                <div className="text-[12px] text-body-3">{lang === 'zh' ? '转给 Sarah Wang · Stripe' : 'Transferred to Sarah Wang · Stripe'}</div>
+            <div className="flex items-start gap-3 px-4 py-4">
+              <Check on={false} />
+              <div className="min-w-0">
+                <div className="text-[14px] font-semibold">{lang === 'zh' ? '租金押金 $2,800 · 收据' : 'Rent deposit $2,800 · receipt'}</div>
+                <div className="mt-0.5 text-[12px] leading-relaxed text-body-3">
+                  {lang === 'zh'
+                    ? `RTA s.105–106：押金最多一个月租金，只能抵扣租期最后一个月的租金，不能用于清洁、维修或损坏；房东每年按当年指导比例付息（${guideline.year} 年 ${guideline.pct}%）。安省没有损坏押金、宠物押金。`
+                    : `RTA s.105–106: at most one month’s rent, applied only to the last month of the tenancy — never to cleaning, repairs or damage; the landlord pays interest every year at that year’s guideline (${guideline.pct}% for ${guideline.year}). Ontario has no damage or pet deposits.`}
+                </div>
               </div>
-              <span className="ml-auto font-mono text-[11px] font-bold uppercase tracking-eyebrow text-success">
-                PAID
-              </span>
             </div>
-            <div className="flex items-center gap-3 px-4 py-4">
-              <Check on />
-              <div>
-                <div className="text-[14px] font-semibold">{lang === 'zh' ? '押金 $2,800 · Stripe 托管' : 'Deposit $2,800 · Stripe escrow'}</div>
-                <div className="text-[12px] text-body-3">{lang === 'zh' ? '退租前由第三方保管 · 双方任一方不可单独动用' : 'Held by a third party until move-out · neither party can use it alone'}</div>
+            <div className="flex items-start gap-3 px-4 py-4">
+              <Check on={false} />
+              <div className="min-w-0">
+                <div className="text-[14px] font-semibold">{lang === 'zh' ? '首月租金 $2,800 · 收据' : 'First month’s rent $2,800 · receipt'}</div>
+                <div className="mt-0.5 text-[12px] leading-relaxed text-body-3">
+                  {lang === 'zh'
+                    ? '按你和房东约定的方式支付（e-Transfer、支票……）。收据上要有地址、金额、期间和日期。'
+                    : 'Paid the way you and the landlord agreed (e-Transfer, cheque…). The receipt should state the address, amount, period and date.'}
+                </div>
               </div>
-              <span className="ml-auto font-mono text-[11px] font-bold uppercase tracking-eyebrow text-success">
-                ESCROW
-              </span>
+            </div>
+            <div className="flex items-start gap-3 px-4 py-4">
+              <Check on={false} />
+              <div className="min-w-0">
+                <div className="text-[14px] font-semibold">{lang === 'zh' ? '钥匙押金（如有）' : 'Key deposit (if any)'}</div>
+                <div className="mt-0.5 text-[12px] leading-relaxed text-body-3">
+                  {lang === 'zh'
+                    ? '只能按钥匙或门禁卡的更换成本收取，交还时全额退还。'
+                    : 'Only up to the replacement cost of the keys or fob, refunded in full when they are returned.'}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="mt-4 rounded-xl bg-surface-chip p-3 font-mono text-[11px] leading-relaxed text-body-3">
-            {lang === 'zh' ? (
-              <>
-                AUDIT LOG · 2026-06-01 09:14 — 押金 $2,800 转入 Stripe 托管账户（Mia Chen → escrow）
-                <br />
-                AUDIT LOG · 2026-06-01 09:14 — 首月租 $2,800 已结算给 Sarah Wang
-              </>
-            ) : (
-              <>
-                AUDIT LOG · 2026-06-01 09:14 — Deposit $2,800 transferred to Stripe escrow account (Mia Chen → escrow)
-                <br />
-                AUDIT LOG · 2026-06-01 09:14 — First month rent $2,800 settled to Sarah Wang
-              </>
-            )}
+          <div className="mt-4 rounded-xl bg-surface-chip p-3 text-[12px] leading-relaxed text-body-3">
+            {lang === 'zh'
+              ? '收据拿到后，在在管租约页记录首月租金已付；押金利息到期没收到，可以在租约对话里问房东。'
+              : 'Once you have the receipts, record the first month as paid on your tenancy page; if deposit interest is not paid when due, ask the landlord in the tenancy thread.'}
+            {' '}
+            <Link href="/tenant/payments" className="font-semibold text-brand-strong underline underline-offset-2">{lang === 'zh' ? '去租金记录 →' : 'Rent records →'}</Link>
           </div>
         </div>
 

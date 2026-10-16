@@ -24,9 +24,10 @@ describe('sample-data notices', () => {
     for (const r of NOTED) expect(shell, r).toContain(`'${r}': {`)
     expect(shell).toContain('SAMPLE_NOTE[path]')
   })
-  it('renders the shared amber banner in demo mode, and says pay-now does not debit', () => {
+  it('renders the shared amber banner in demo mode, and says nothing is debited', () => {
     expect(shell).toContain('<SampleBanner')
-    expect(shell).toMatch(/立即支付.*不会扣款/)
+    expect(shell).toMatch(/不经手租金.*不会扣款/)
+    expect(shell).not.toMatch(/立即支付/)
   })
   it('labels the sample applicant and sample lease detail pages', () => {
     for (const f of ['app/landlord/applicants/[id]/page.tsx', 'app/landlord/leases/[id]/page.tsx']) {

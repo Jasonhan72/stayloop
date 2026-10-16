@@ -22,6 +22,8 @@ export const runtime = 'edge'
 
 import { courtNoteZh, courtSourceZh, localizeResult } from '@/lib/screening/localize'
 import { signalLabel } from '@/lib/screening/signalLabels'
+import { nextStepsFor } from '@/lib/screening/nextStep'
+import NextStepCard from '@/components/screening/NextStepCard'
 import { useState, useEffect } from 'react'
 import { dissolutionReason } from '@/lib/forensics/employer-checks'
 import Link from 'next/link'
@@ -1940,6 +1942,14 @@ export default function ReportPage() {
 
         </div>
         {/* end collapsible sections */}
+
+        {/* Next step (V1.0 甲 #1) — the report used to end here with no way
+            on to the lease / decision pages (research C1-3). Links only. */}
+        <NextStepCard
+          steps={nextStepsFor({ tier: r.v3_tier, status: screening.status, applicationId: screening.application_id ?? null, screeningId: id, lang: zh ? 'zh' : 'en' })}
+          zh={zh}
+          className="mt-8"
+        />
 
       </div>
 

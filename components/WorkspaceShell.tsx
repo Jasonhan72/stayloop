@@ -66,8 +66,8 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     zh: '还没有租金记录。加入或导入你的在管租约后,每月租金在这里留痕——准时记录会进入你的租客护照。', en: 'No rent records yet. Join or import your managed tenancy and every month leaves a record here.',
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
     note: {
-      zh: '在线收租尚未上线：「立即支付」不会扣款，没有任何银行或支付机构接入。',
-      en: 'Online rent collection is not live yet: "Pay now" does not debit anything — no bank or payment processor is connected.',
+      zh: 'Stayloop 不经手租金：这里只记录每期是否已付，没有任何银行或支付机构接入，不会扣款。',
+      en: 'Stayloop does not handle rent money: this page only records whether each period was paid — no bank or payment processor is connected and nothing is debited.',
     },
   },
   '/tenant/move-in': {

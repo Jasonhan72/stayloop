@@ -3552,3 +3552,9 @@ AVP 不得用它做自己的产品；**任何 MLS 数据不得经过任何第三
 （公寓单元优先 CMHC 子区域，其余 CMHC 分区，回退全市 / CMA；附统计局序列；`benchmarkAttribution()` 来源句每处必显示）。`public_stats()` 的季度数改为统计局季度数
 （`benchmark_quarters`，`trreb_quarters` 保留一版作别名）。
 「实时挂牌」字样同日全部改掉（我们已不读外部挂牌）。守卫 `tests/rentBenchmark20261013.spec.ts`、`tests/realtorCopy20261013.spec.ts`。
+
+## V1.0 正式版调研（2026-10-13 · 用户「先写调研方案，我确定后再执行」→「经纪访谈不用了，其余按建议开始做，最后生成讨论稿，执行需我再确认」）
+
+方案 `design/v1-research-plan-2026-10.md`；四条线原稿 `design/research/v1/{tenant-tools,agent-tools,landlord-retention,open-api}-2026-10.md`（对标原料在同目录子文件夹，每条带 URL 与 ≤15 词引语）；法规核查 `legal-check-2026-10.md`（七组法规对照官方原文，16 处措辞修正已标在各稿顶部；安省法条可直接读 e-Laws 接口 `ontario.ca/laws/api/v2/legislation/en/act-content/statute/<编号>`，RTA 06r17 / LSA 90l08 / TRESA 02r30 / CRA 90c33）；**讨论稿 `design/v1-scope-and-roadmap-2026-10.md`（未执行，等用户确认）**。
+最硬的事实：外部真实房东只有 14 人 / 51 份筛查、第 8 天后回访为 0、筛查之后的每一步都是 0；租赁经纪侧市场没有专用产品；现有 API 零外部调用方；远程 MCP 已在边缘路由上跑通原型（scratchpad，不进仓库）。
+结论性边界（写进了讨论稿 3.3）：不做在线收租 / 代收（FINTRAC 汇款业务 + RPAA 支付功能）、不代填 / 代选 / 代送 LTB 表格（LSA s.1(5)–(7)，官方 PDF 是 Crown copyright 不改写）、不做 OREA Form 400 本体、不做任何 MLS 路径、注册前不对第三方开放筛查与按姓名查记录。

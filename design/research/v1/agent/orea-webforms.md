@@ -1,0 +1,8 @@
+# OREA 标准表单 / CREA WEBForms — 页面摘要（2026-10-13 实读 orea.com/standard-forms-clauses、orea.com/standard-forms-clauses/Terms-of-Use、orea.com/advocacy/TRESA/TRESA-Standard-Forms；CREA 页面 crea.ca/technology/crea-webforms 经搜索摘要）
+
+- **是什么**：OREA 维护安省的标准表单（100–821 号）与 300+ 条款，「help to facilitate almost every real estate transaction in Ontario」；会员通过 **CREA WEBForms**（Lone Wolf TransactionDesk 驱动）填表、存档、电子签。WEBForms「available to REALTORS® as a part of your membership with CREA」（CREA）；电子签 Authentisign「automatically linked」，DocuSign / NEXONE / eZmax 可自接；2013 年 CREA 谈到的会员价 Authentisign $39/年、DocuSign $199/年（旧数据，未核实现价）。
+- **谁能用**：「These OREA Standard Forms are for use by OREA members and certain licensees only.」「Any other use or reproduction is prohibited except with the prior written consent of OREA.」「the OREA Standard Forms may not be modified or amended in any manner」；软件平台要给表单加功能，「OREA requires written consent through the execution of a separate licence agreement」。
+- **Form 400 · Agreement to Lease – Residential**：OREA 目录里的 400 系列租赁要约；经纪拿它写租客的要约（租金、起止日、押金、附表 A 附加条款、不可撤回期限）。它**不能代替**安省《标准租约》（2018-04-30 起强制，ontario.ca/standardlease）；押金最多一个月且不能作损坏押金（Bennett Jones 对标准租约的解读）。
+- **Form 410 · Rental Application – Residential**：租客申请表——法定姓名、出生日期、证件类型、现住址与前住址、雇主与收入、前房东、推荐人、车辆、**信用与推荐人核查的同意签名**。法律不强制用它，但多数经纪 / 房东用它统一收件；可问的问题受 O. Reg. 290/98 约束（lethub.co 对安省申请表的说明）。正式表在 OREA 会员登录后，网上流传的 PDF 都是非官方抄件。
+- **TRESA 改版**：OREA 说「have reviewed, revised, and created new Forms and Clauses while also eliminating some Forms」，具体清单在会员区的 2025 Summary of Revisions（未能读取）。
+- **对我们的含义**：OREA 表单是版权件且只许会员使用；Stayloop 不能复制、仿制或「加功能」。我们现有的 `lib/lease/trreb.ts` / `TrrebLeaseDoc.tsx` 按「Form 400 structure」渲染租赁协议——文字不是 OREA 原文，但结构与命名对照 Form 400，上线给经纪用之前要先过 OREA 许可或改成与 Form 400 无关的自有「租赁要约摘要」。

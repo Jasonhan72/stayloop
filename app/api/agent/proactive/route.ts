@@ -34,6 +34,7 @@ import { IN_FORCE_STATUSES, SCAN_WINDOW_DAYS, STALE_EXPIRED_BY, SUCCESSOR_STATUS
 import { buildInviteReminderProposal, buildRelistProposal, inviteNeedsReminder, leaseNeedsRelist, RELIST_LOOKBACK_DAYS, type EndedLeaseRow, type InviteRow } from '@/lib/agent/proactiveExtras'
 import { notifyUser } from '@/lib/push/notify'
 import { runMarketplaceSweep } from '@/lib/marketplace/sweep'
+import { runLandlordFollowUps } from '@/lib/landlord/followUp'
 import { leaseProvince, unitTermsOf } from '@/lib/provinces/lease'
 import type { ProvinceCode, ProvinceRow } from '@/lib/provinces/detect'
 
@@ -463,7 +464,11 @@ async function runCronSweep(): Promise<NextResponse> {
   const marketplace = await runMarketplaceSweep(admin).catch((e: Error) => ({ error: e.message }))
   const res = await runRenewalSweep()
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
-  return NextResponse.json({ ...body, marketplace }, { status: res.status })
+  // Post-screening follow-up e-mails (V1.0 阶段 1 · 甲 #3): third independent
+  // pass, same rule as the marketplace one — its failure is reported, never
+  // allowed to hide the sweeps above.
+  const followups = await runLandlordFollowUps(admin).catch((e: Error) => ({ sent: 0, skipped: 0, error: e.message }))
+  return NextResponse.json({ ...body, marketplace, followups }, { status: res.status })
 }
 
 // ---------------------------------------------------------------------------

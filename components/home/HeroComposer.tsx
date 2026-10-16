@@ -37,7 +37,8 @@ export type HeroExample = { role: AssistantRole; img: string; alt: Bi; ask: Bi }
 // screening hand-off and — when renewal is asked about — the same RTA facts as tenants; years are
 // absolute because the prompt carries no date.
 export const HERO_EXAMPLES: HeroExample[] = [
-  { role: 'tenant', img: '/home/film/mia-subway.webp', alt: { zh: '租客 Mia 在地铁上用手机找房', en: 'Mia, a tenant, searching on her phone on the subway' }, ask: { zh: '帮我在 King West 找一套 $2,800 以内的一房', en: 'Find me a one-bedroom in King West under $2,800' } },
+  // Tenant examples ask about rules, not listings (乙 #12, 2026-10-15): the preview has no listing data, so a search answers with 0 units.
+  { role: 'tenant', img: '/home/film/mia-subway.webp', alt: { zh: '租客 Mia 在地铁上用手机查租房规则', en: 'Mia, a tenant, checking the rules on her phone on the subway' }, ask: { zh: '房东要我付一个月押金加钥匙押金，合法吗？', en: 'My landlord wants one month’s deposit plus a key deposit — is that legal?' } },
   { role: 'landlord', img: '/home/film/sarah-kitchen.webp', alt: { zh: '房东 Sarah 在厨房用电脑', en: 'Sarah, a landlord, at her laptop in the kitchen' }, ask: { zh: '帮我发一个房源：28 Avondale Ave 1203，1+1，$2,450，11 月 1 日起租', en: 'List my unit: 28 Avondale Ave #1203, 1+1, $2,450, available November 1' } },
   { role: 'tenant', img: '/home/film/showing.webp', alt: { zh: '经纪带租客看房', en: 'An agent showing a tenant an apartment' }, ask: { zh: '看房时要问房东哪些问题？', en: 'What should I ask the landlord at a viewing?' } },
   { role: 'agent', img: '/home/film/david-lobby.webp', alt: { zh: '经纪 David 在公寓大堂', en: 'David, an agent, in a condo lobby' }, ask: { zh: '帮我给 King West 的两房定个挂牌价', en: 'Help me price a two-bedroom listing in King West' } },
@@ -46,7 +47,7 @@ export const HERO_EXAMPLES: HeroExample[] = [
   { role: 'tenant', img: '/home/film/mia-sofa.webp', alt: { zh: 'Mia 晚上在沙发上用电脑', en: 'Mia on the sofa with her laptop in the evening' }, ask: { zh: '房东说 2027 年涨租 5%，合法吗？', en: 'My landlord wants a 5% rent increase in 2027 — is that legal?' } },
   { role: 'agent', img: '/home/film/david-car.webp', alt: { zh: 'David 在车里看平板', en: 'David checking his tablet in the car' }, ask: { zh: '租房押金最多能收多少？', en: 'What is the most a landlord can take as a deposit?' } },
   { role: 'landlord', img: '/home/film/sarah-tea.webp', alt: { zh: 'Sarah 端着茶看手机', en: 'Sarah with a cup of tea, reading her phone' }, ask: { zh: '租客的租约 2027 年 1 月到期，续约最多能涨多少？', en: 'My tenant’s lease ends in January 2027 — how much can I raise the rent at renewal?' } },
-  { role: 'tenant', img: '/home/film/mia-cafe.webp', alt: { zh: 'Mia 在咖啡馆看手机', en: 'Mia in a café, looking at her phone' }, ask: { zh: 'Liberty Village 两房，预算 $3,500 以内', en: 'Two bedrooms in Liberty Village, up to $3,500' } },
+  { role: 'tenant', img: '/home/film/mia-cafe.webp', alt: { zh: 'Mia 在咖啡馆看手机', en: 'Mia in a café, looking at her phone' }, ask: { zh: '租约到期前多久要给房东退租通知？', en: 'How much notice do I have to give before moving out at the end of my lease?' } },
 ]
 
 export const ROLE_LABEL: Record<AssistantRole, Bi> = {

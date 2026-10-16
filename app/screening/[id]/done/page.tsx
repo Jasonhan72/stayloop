@@ -15,6 +15,8 @@ import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { signalLabel } from '@/lib/screening/signalLabels'
+import { nextStepsFor } from '@/lib/screening/nextStep'
+import NextStepCard from '@/components/screening/NextStepCard'
 
 /* ---------- helpers ---------- */
 
@@ -142,6 +144,9 @@ export default function ScanDonePage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [screening, setScreening] = useState<any>(null)
   const [loadError, setLoadError] = useState(false)
+  // V1.0 甲 #1: whether a lease was already drafted from this screening's
+  // application — only changes the wording of the "next step" lease link.
+  const [hasLease, setHasLease] = useState(false)
 
   useEffect(() => {
     if (!user || !id) return
@@ -157,6 +162,17 @@ export default function ScanDonePage() {
         else setScreening(data)
       })
   }, [user, id])
+
+  const applicationId: string | null = screening?.application_id ?? null
+  useEffect(() => {
+    if (!user || !applicationId) return
+    supabase
+      .from('lease_documents')
+      .select('id')
+      .eq('application_id', applicationId)
+      .limit(1)
+      .then(({ data }) => setHasLease(Array.isArray(data) && data.length > 0))
+  }, [user, applicationId])
 
   if (authLoading || (!screening && !loadError)) return <LoadingShell zh={zh} />
   if (loadError) return <NotFoundShell zh={zh} />
@@ -176,6 +192,8 @@ export default function ScanDonePage() {
   const coverage = screening.evidence_coverage != null ? Math.round(screening.evidence_coverage * 100) : null
   const fileCount = Array.isArray(screening.files) ? screening.files.length : 0
   const createdAt = screening.created_at ? new Date(screening.created_at).toLocaleString(zh ? 'zh-CN' : 'en-CA') : ''
+  // V1.0 甲 #1 — what the landlord can do next (links only, no recommendation).
+  const nextSteps = nextStepsFor({ tier, status: screening.status, applicationId, screeningId: id, hasLease, lang: zh ? 'zh' : 'en' })
 
   return (
     <div style={{ background: '#FFFFFF', color: '#171717', minHeight: '100vh' }}>
@@ -307,6 +325,9 @@ export default function ScanDonePage() {
               </div>
             </div>
           </div>
+
+          {/* Next step (V1.0 甲 #1) — directly under the conclusion card */}
+          <NextStepCard steps={nextSteps} zh={zh} className="mt-6" />
 
           {/* Dimension Scores */}
           {Object.keys(dims).length > 0 && (

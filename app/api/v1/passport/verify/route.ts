@@ -24,8 +24,8 @@ async function sha256Hex(input: string): Promise<string> {
 }
 
 const BOUNDARY = {
-  zh: '本响应只包含申请人本人授权分享的核验结论（消费者本人书面指示下的披露，《消费者报告法》s.8(1)(b)），不含文件；申请人可随时撤销 token。依据 s.10(7)，申请人有权在 60 天内索取不利决定所依据信息的性质与来源。',
-  en: 'This response contains only conclusions the applicant chose to share (a disclosure on the consumer’s own written instructions, Consumer Reporting Act s.8(1)(b)) — no documents — and the applicant can revoke the token at any time. Under s.10(7) the applicant may, within 60 days, ask for the nature and source of information behind an adverse decision.',
+  zh: '本响应只包含申请人本人授权分享的核验结论，不含文件；同意的法律基础是 PIPEDA 原则 4.3（本人知情同意），披露按《消费者报告法》对报告机构的标准处理：只在申请人本人书面指示下、按其勾选的范围披露；申请人可随时撤销 token。依据《消费者报告法》s.10(7)，申请人有权在 60 天内索取不利决定所依据信息的性质与来源。',
+  en: 'This response contains only conclusions the applicant chose to share — no documents. The legal basis for the disclosure is the applicant’s consent (PIPEDA Principle 4.3); it is handled to the standard the Consumer Reporting Act sets for reporting agencies: only on the applicant’s own written instructions and only for the scopes they ticked. The applicant can revoke the token at any time. Under Consumer Reporting Act s.10(7) the applicant may, within 60 days, ask for the nature and source of information behind an adverse decision.',
 }
 
 export async function POST(req: Request) {

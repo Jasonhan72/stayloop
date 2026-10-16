@@ -5,8 +5,11 @@
 // assistant panel listed real events — the "审计记录冲突" of the external
 // review. Each row answers: when · as which hat · did what · on which matter ·
 // with what result. Rows come from agent_audit_events under the caller's own
-// RLS (actor = self); conversation turns and session bookkeeping are not
-// audit events and are filtered out.
+// RLS (actor = self); conversation turns are not audit events and are filtered
+// out. Page opens (`*_session_started`, listing views, searches — 84% of the
+// rows, 甲 #6 2026-10-15) are hidden by default behind 「显示浏览记录」 so the
+// list answers "what did I do", not "what did I look at"; the classification
+// is lib/audit/eventKinds, shared with the AI Agent panel.
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -14,11 +17,11 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { useReportLiveRows } from '@/lib/liveRows'
 import { auditActionLabel } from '@/lib/agent/ideas'
+import { isAuditRow, isPageOpenEvent, PAGE_OPEN_ACTIONS, PAGE_OPEN_SUFFIX } from '@/lib/audit/eventKinds'
 import type { WorkspaceRole } from '@/components/workspace/rail'
 
 type Row = { id: string; action: string; created_at: string; actor_type: string | null; acting_role: string | null; matter_type: string | null; matter_id: string | null; target_type: string | null; target_id: string | null; metadata: Record<string, unknown> | null }
 
-const NOT_AUDIT = /session|turn$|thread_|_turn|reflect/
 const HAT: Record<string, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'Tenant' }, landlord: { zh: '房东', en: 'Landlord' }, agent: { zh: '经纪', en: 'Agent' }, provider: { zh: '服务商', en: 'Provider' }, admin: { zh: '管理员', en: 'Admin' }, self: { zh: '本人', en: 'Self' } }
 const MATTER: Record<string, { zh: string; en: string }> = { lease: { zh: '租约', en: 'Lease' }, application: { zh: '申请', en: 'Application' }, household: { zh: '在管租约', en: 'Tenancy' }, work_order: { zh: '工单', en: 'Work order' }, ticket: { zh: '报修', en: 'Ticket' }, listing: { zh: '房源', en: 'Listing' }, screening: { zh: '筛查', en: 'Screening' } }
 
@@ -49,15 +52,21 @@ export default function LiveAuditLog({ role }: { role: WorkspaceRole }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const [rows, setRows] = useState<Row[] | null>(null)
+  // 「显示浏览记录」: off by default. Page opens are excluded in SQL when hidden — they
+  // outnumber real actions ~5:1, and a client-side filter over the last 120 rows used to
+  // leave the list with a handful of entries.
+  const [showViews, setShowViews] = useState(false)
   useReportLiveRows('audit', rows ? rows.length : null)
   useEffect(() => {
     if (auth.loading || !auth.user) return
     let cancelled = false
-    supabase.from('agent_audit_events').select('id, action, created_at, actor_type, acting_role, matter_type, matter_id, target_type, target_id, metadata').eq('actor_id', auth.user.id).order('created_at', { ascending: false }).limit(120)
-      .then(({ data }) => { if (!cancelled) setRows(((data ?? []) as Row[]).filter((r) => !NOT_AUDIT.test(r.action)).slice(0, 60)) })
+    let q = supabase.from('agent_audit_events').select('id, action, created_at, actor_type, acting_role, matter_type, matter_id, target_type, target_id, metadata').eq('actor_id', auth.user.id)
+    if (!showViews) q = q.not('action', 'like', `%${PAGE_OPEN_SUFFIX}`).not('action', 'in', `(${PAGE_OPEN_ACTIONS.join(',')})`)
+    q.order('created_at', { ascending: false }).limit(120)
+      .then(({ data }) => { if (!cancelled) setRows(((data ?? []) as Row[]).filter((r) => isAuditRow(r.action, showViews)).slice(0, 60)) })
     return () => { cancelled = true }
-  }, [auth.loading, auth.user])
-  if (!rows || rows.length === 0) return null
+  }, [auth.loading, auth.user, showViews])
+  if (!rows || (rows.length === 0 && !showViews)) return null
   const hatOf = (r: Row) => {
     const k = r.acting_role ?? (typeof r.metadata?.role === 'string' ? (r.metadata.role as string) : null) ?? (r.actor_type === 'system' ? 'system' : null)
     return k === 'system' ? (zh ? '系统' : 'System') : k && HAT[k] ? (zh ? HAT[k].zh : HAT[k].en) : '—'
@@ -68,6 +77,13 @@ export default function LiveAuditLog({ role }: { role: WorkspaceRole }) {
         <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '审计 · 真实记录' : 'AUDIT · LIVE'}</div>
         <div className="text-[11.5px] text-body-3">{zh ? '谁 · 以什么身份 · 做了什么 · 对象 · 结果。对话轮次不是审计事件。' : 'Who · as which hat · did what · on which matter · with what result. Chat turns are not audit events.'}</div>
       </div>
+      <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 text-[12px] text-body-2" data-testid="audit-show-views">
+        <input type="checkbox" className="h-3.5 w-3.5" checked={showViews} onChange={(e) => setShowViews(e.target.checked)} />
+        {zh ? '显示浏览记录（打开页面、查看房源、搜索——这些不是「做了事」）' : 'Show browsing (page opens, listing views, searches — not things you did)'}
+      </label>
+      {rows.length === 0 && (
+        <p className="mt-3 text-[12.5px] text-body-3">{zh ? '还没有浏览记录。' : 'No browsing recorded yet.'}</p>
+      )}
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-[12.5px]">
           <thead className="font-mono text-[10.5px] uppercase tracking-eyebrowLg text-body-3">
@@ -79,7 +95,7 @@ export default function LiveAuditLog({ role }: { role: WorkspaceRole }) {
               const o = outcome(r, zh)
               const m = r.matter_type && MATTER[r.matter_type] ? (zh ? MATTER[r.matter_type].zh : MATTER[r.matter_type].en) : null
               return (
-                <tr key={r.id}>
+                <tr key={r.id} className={isPageOpenEvent(r.action) ? 'text-body-3' : ''} data-kind={isPageOpenEvent(r.action) ? 'page-open' : 'action'}>
                   <td className="whitespace-nowrap py-2 pr-3 font-mono text-[11px] text-body-3">{new Date(r.created_at).toLocaleString(zh ? 'zh-CN' : 'en-CA', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}</td>
                   <td className="py-2 pr-3">{hatOf(r)}</td>
                   <td className="py-2 pr-3">{auditActionLabel(r.action, lang, r.metadata || undefined)}</td>

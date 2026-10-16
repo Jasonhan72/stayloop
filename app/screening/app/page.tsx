@@ -39,6 +39,20 @@ interface Screening {
   ai_summary_zh?: string | null
   status: string
   created_at: string
+  // V1.0 甲 #2: the failure reason the scoring route stamps on an error row,
+  // and the file manifest it kept — a failed row can be re-scored from it.
+  error?: string | null
+  files?: unknown[] | null
+}
+
+// V1.0 甲 #2 — the stamped `screenings.error` in plain words. The route writes
+// short codes (`no_documents`) or the raw model / HTTP message (≤500 chars).
+function errorReasonText(err: string | null | undefined, zh: boolean): string | null {
+  const e = (err || '').trim()
+  if (!e) return zh ? '没有记录原因（可能是中途卡住后被清理标记为失败）' : 'No reason recorded (the run probably stalled and was later marked failed)'
+  if (e === 'no_documents') return zh ? '没有可评估的材料' : 'nothing to assess (no documents)'
+  if (/uncaught|timeout|timed out|524|502|aborted/i.test(e)) return zh ? `评分中断（${e.slice(0, 80)}）` : `scoring was interrupted (${e.slice(0, 80)})`
+  return e.length > 120 ? `${e.slice(0, 120)}…` : e
 }
 
 // ───────────────────────────────────────────────────── Constants ──
@@ -1952,7 +1966,7 @@ export default function ScreenPage() {
   async function loadHistory() {
     const { data } = await supabase
       .from('screenings')
-      .select('id, tenant_name, ai_extracted_name, ai_score, ai_summary, ai_summary_zh, status, created_at')
+      .select('id, tenant_name, ai_extracted_name, ai_score, ai_summary, ai_summary_zh, status, created_at, error, files')
       .order('created_at', { ascending: false })
       .limit(20)
     if (data) setHistory(data)
@@ -4224,6 +4238,37 @@ export default function ScreenPage() {
                       {clickable && !isLoading && <span style={{ marginLeft: 8, color: 'var(--text-muted)' }}>· {t('history.viewHint')}</span>}
                     </div>
                     {summaryFor(s, lang === 'zh') && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{summaryFor(s, lang === 'zh')}</div>}
+                    {/* V1.0 甲 #2 — a failed screening gets a way out other than
+                        delete-and-re-upload: re-score from the file manifest the
+                        row already carries (same path as ?screening=<id>&run=1). */}
+                    {s.status === 'error' && (() => {
+                      const nFiles = Array.isArray(s.files) ? s.files.length : 0
+                      const reason = errorReasonText(s.error, lang === 'zh')
+                      return (
+                        <div data-testid="screening-rerun" style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px' }} onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); if (nFiles > 0) void runAnalysis({ id: s.id, fileCount: nFiles }) }}
+                            disabled={analyzing || classifying || nFiles === 0}
+                            className="sl-btn-secondary"
+                            style={{ fontSize: 12, padding: '6px 14px', minHeight: 32, opacity: nFiles === 0 ? 0.5 : 1, cursor: nFiles === 0 ? 'not-allowed' : 'pointer' }}
+                            title={nFiles === 0 ? (lang === 'zh' ? '这条记录没有保存任何文件，无法重跑' : 'No files were kept on this row, so it cannot be re-run') : undefined}
+                          >
+                            ↻ {lang === 'zh' ? '重跑' : 'Re-run'}
+                          </button>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                            {nFiles > 0
+                              ? (lang === 'zh' ? `用原来的 ${nFiles} 个文件重新评分，不会再传一次` : `Re-scores the same ${nFiles} file${nFiles === 1 ? '' : 's'} — nothing is uploaded again`)
+                              : (lang === 'zh' ? '没有可重跑的文件：删除这条记录后重新上传' : 'No files to re-run: delete this row and upload again')}
+                          </span>
+                          {reason && (
+                            <span style={{ fontSize: 11, color: '#B45309', lineHeight: 1.5, flexBasis: '100%' }}>
+                              {lang === 'zh' ? '上次失败原因：' : 'Last failure: '}{reason}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </li>
                 )
               })}

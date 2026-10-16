@@ -129,7 +129,9 @@ describe('the audit page is real', () => {
     const a = read('components/audit/LiveAuditLog.tsx')
     expect(a).toContain("select('id, action, created_at, actor_type, acting_role, matter_type, matter_id, target_type, target_id, metadata')")
     expect(a).toContain('data-testid="live-audit"')
-    expect(a).toMatch(/const NOT_AUDIT = \/session\|turn\$/)
+    // 甲 #6 (2026-10-15): the classification moved to lib/audit/eventKinds; chat turns are still never listed
+    expect(a).toContain("from '@/lib/audit/eventKinds'")
+    expect(a).toContain('isAuditRow(r.action, showViews)')
   })
   it('execution receipts carry the acting hat and the matter; the writer derives the matter from ids', async () => {
     const ex = read('app/api/agent/execute/route.ts')

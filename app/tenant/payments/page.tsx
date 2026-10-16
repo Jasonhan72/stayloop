@@ -4,6 +4,8 @@ import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import MyRent from '@/components/tenant/MyRent'
+import MessageButton from '@/components/messages/MessageButton'
+import { useFacts } from '@/lib/facts/useFacts'
 import {
   AsideBlock,
   PageHeader,
@@ -18,12 +20,14 @@ import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 import { downloadCsv, toCsv } from '@/lib/csv'
 
+// Sample rows. Rent is paid the way tenant and landlord agreed (e-Transfer, cheque…);
+// Stayloop only records it — there is no debit rail (「不经手资金」).
 const HISTORY = [
-  { date: '2026-05-01', amount: 2800, status: 'paid', method: { zh: 'Flinks · RBC ****8721', en: 'Flinks · RBC ****8721' } },
-  { date: '2026-04-01', amount: 2800, status: 'paid', method: { zh: 'Flinks · RBC ****8721', en: 'Flinks · RBC ****8721' } },
-  { date: '2026-03-01', amount: 2800, status: 'paid', method: { zh: 'e-Transfer', en: 'e-Transfer' } },
+  { date: '2026-05-01', amount: 2800, status: 'paid', method: { zh: 'e-Transfer', en: 'e-Transfer' } },
+  { date: '2026-04-01', amount: 2800, status: 'paid', method: { zh: 'e-Transfer', en: 'e-Transfer' } },
+  { date: '2026-03-01', amount: 2800, status: 'paid', method: { zh: '支票', en: 'Cheque' } },
   { date: '2026-02-01', amount: 2800, status: 'late', method: { zh: '迟付 3 天', en: '3 days late' } },
-  { date: '2026-01-01', amount: 2800, status: 'paid', method: { zh: 'Flinks · RBC ****8721', en: 'Flinks · RBC ****8721' } },
+  { date: '2026-01-01', amount: 2800, status: 'paid', method: { zh: 'e-Transfer', en: 'e-Transfer' } },
 ]
 
 /**
@@ -60,7 +64,7 @@ const DEPOSITS = [
 const ACTIVITY = [
   {
     when: '5/01 09:02',
-    text: { zh: '扣款成功 $2,800 · RBC ****8721', en: 'Debit succeeded $2,800 · RBC ****8721' },
+    text: { zh: '已记录 5 月租金 $2,800 · e-Transfer', en: 'May rent $2,800 recorded · e-Transfer' },
     tone: 'ok' as const,
   },
   {
@@ -130,14 +134,14 @@ export default function TenantPaymentsPage() {
       <StatStrip
         stats={[
           {
-            label: zh ? '本年已付' : 'Paid year to date',
+            label: zh ? '本年已记录' : 'Recorded year to date',
             value: `$${paidYtd.toLocaleString()}`,
             sub: zh ? `${HISTORY.length} 期 · 每期 $2,800` : `${HISTORY.length} periods · $2,800 each`,
           },
           {
-            label: zh ? '押金托管' : 'Deposit held',
+            label: zh ? '押金 · 最后一月租金' : "Deposit · last month's rent",
             value: '$2,800',
-            sub: zh ? '最后一月租金押金' : "Last month's rent deposit",
+            sub: zh ? '付给房东 · RTA s.106 每年计息' : 'Paid to the landlord · interest yearly, RTA s.106',
           },
           {
             label: zh ? '准时率' : 'On-time rate',
@@ -154,25 +158,22 @@ export default function TenantPaymentsPage() {
       />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <SectionCard title={zh ? '下次扣款' : 'Next payment'}>
+        <SectionCard title={zh ? '下次账期' : 'Next period'}>
           <div className="flex items-baseline gap-3">
             <span className="text-[24px] font-extrabold tracking-tight [font-variant-numeric:tabular-nums]">$2,800</span>
             <span className="text-[13px] text-body-3">{zh ? '/ 月' : '/ mo'}</span>
           </div>
-          <div className="mt-1 text-[12.5px] text-body-2">{zh ? '5月22日 · 自动扣款 · RBC ****8721' : 'May 22 · auto-debit · RBC ****8721'}</div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '帮我提前支付这个月的房租【金额】' : 'Help me pay this month’s rent of 【amount】 early')}`} className="sl-btn-secondary !px-4 !py-2 !text-[12.5px]">{zh ? '立即支付（提前付）' : 'Pay now (early)'}</Link>
-            <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '我想申请暂停 1 个月房租扣款，帮我向房东发起申请' : 'I’d like to pause rent auto-debit for 1 month — help me request landlord consent')}`} className="sl-btn-ghost !px-4 !py-2 !text-[12.5px]">{zh ? '暂停 1 个月（需房东同意）' : 'Pause 1 month (needs landlord consent)'}</Link>
-          </div>
+          <div className="mt-1 text-[12.5px] text-body-2">{zh ? '6 月 1 日到期 · 按你和房东约定的方式支付 · 这里只记录，不扣款' : 'Due June 1 · paid the way you and the landlord agreed · recorded here, never debited'}</div>
+          <RentActions zh={zh} />
 
           <div className="mt-4 rounded-xl bg-success/10 p-3.5 text-[12.5px] leading-relaxed text-success">
             {allOnTime
               ? zh
-                ? '✓ 你今年所有付款都准时 · 你的还款记录已计入 护照信任分'
-                : '✓ All your payments this year were on time · your payment record counts toward your Passport trust score'
+                ? '✓ 你今年所有付款都准时 · 准时记录会进入你的租客护照'
+                : '✓ All your payments this year were on time · on-time records feed your tenant passport'
               : zh
-                ? `${onTime}/${HISTORY.length} 期准时（2 月迟付 3 天）· 你的还款记录已计入 护照信任分`
-                : `${onTime}/${HISTORY.length} periods on time (February was 3 days late) · your payment record counts toward your Passport trust score`}
+                ? `${onTime}/${HISTORY.length} 期准时（2 月迟付 3 天）· 准时记录会进入你的租客护照`
+                : `${onTime}/${HISTORY.length} periods on time (February was 3 days late) · on-time records feed your tenant passport`}
             <Link href="/tenant/passport" className="ml-2 font-semibold underline underline-offset-2">
               {zh ? '在护照中查看 →' : 'View in Passport →'}
             </Link>
@@ -285,6 +286,38 @@ export default function TenantPaymentsPage() {
         </SectionCard>
       </div>
     </WorkspaceShell>
+  )
+}
+
+/**
+ * The real entry points under the sample card (乙 #12, 2026-10-15): the same two
+ * actions MyRent offers per instalment — ask the landlord in the tenancy thread,
+ * record a payment on /h/<id>?tab=rent — resolved from the tenant's own facts.
+ * Without a tenancy there is nothing to record, so the only honest link is import.
+ */
+function RentActions({ zh }: { zh: boolean }) {
+  const { facts, loading } = useFacts('tenant')
+  const houses = facts ? facts.households.filter((h) => facts.member_roles.some((m) => m.household_id === h.id && m.role === 'tenant')) : []
+  if (loading) return <div className="mt-4 h-8" aria-hidden="true" />
+  if (houses.length === 0) {
+    return (
+      <div className="mt-4 flex flex-wrap items-center gap-2" data-testid="rent-actions-empty">
+        <Link href="/leases/import" className="sl-btn-secondary !px-4 !py-2 !text-[12.5px]">{zh ? '导入已签租约后可记录 →' : 'Import a signed lease to record →'}</Link>
+        <span className="text-[12px] text-body-3">{zh ? '有在管租约后，这里可以记录已付、在租约对话里问房东。' : 'Once you have a managed tenancy you can record payments and ask the landlord here.'}</span>
+      </div>
+    )
+  }
+  return (
+    <div className="mt-4 space-y-2" data-testid="rent-actions">
+      {houses.slice(0, 3).map((h) => (
+        <div key={h.id} className="flex flex-wrap items-center gap-2">
+          {houses.length > 1 && <span className="text-[12px] text-body-3">{h.address}{h.unit ? ` #${h.unit}` : ''}</span>}
+          <Link href={`/h/${h.id}?tab=rent`} className="sl-btn-secondary !px-4 !py-2 !text-[12.5px]">{zh ? '记录已付 →' : 'Record a payment →'}</Link>
+          <MessageButton variant="chip" zh={zh} label={zh ? '在租约对话里问房东' : 'Ask in the tenancy thread'} testId="rent-ask-landlord-card"
+            target={{ kind: 'tenancy', ref: h.id, draft: zh ? '关于这个月的租金：' : 'About this month’s rent: ' }} />
+        </div>
+      ))}
+    </div>
   )
 }
 

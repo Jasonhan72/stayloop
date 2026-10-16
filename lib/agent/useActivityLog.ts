@@ -6,7 +6,9 @@
 // hook) was retired on 2026-10-04.
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { isOutcomeAction, NOT_AN_OUTCOME, OUTCOME_EVENTS, outcomeHat } from './activityLog'
+// Event classification lives in lib/audit/eventKinds (甲 #6, 2026-10-15): the outcome
+// lists and the page-open filter are read from one module by every consumer.
+import { isOutcomeAction, NOT_AN_OUTCOME, OUTCOME_EVENTS, outcomeHat } from '@/lib/audit/eventKinds'
 
 export { fmtRowTime } from './activityLog'
 

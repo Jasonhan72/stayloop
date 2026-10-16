@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { personalRecordLookupsAllowed } from '@/lib/compliance/craMode'
+import { partnerScreeningEnabled, PARTNER_SCREENING_CLOSED } from '@/lib/api/partnerScreening'
 
 export const runtime = 'edge'
 
@@ -32,10 +33,14 @@ type Body = {
 }
 
 export async function POST(req: Request) {
+  // Third tier (V1.0 丁 #19): furnishing a screening report to a partner is the
+  // very act the Consumer Reporting Act registers. The endpoint is closed until
+  // PARTNER_SCREENING_API=on AND CRA_MODE=registered (lib/api/partnerScreening.ts).
+  if (!partnerScreeningEnabled()) return NextResponse.json(PARTNER_SCREENING_CLOSED, { status: 503 })
   const apiKey = (req.headers.get('x-api-key') || '').trim()
   if (!apiKey) return NextResponse.json({ error: 'x-api-key header required' }, { status: 401 })
-  // CRA_MODE=tool: furnishing reports to partners is exactly what the Act
-  // registers; the endpoint is closed until registration (lib/compliance/craMode.ts).
+  // Defence in depth: CRA_MODE=tool closes it too even if the switch above is on
+  // (partnerScreeningEnabled already requires registered mode).
   if (!personalRecordLookupsAllowed()) return NextResponse.json({ error: 'cra_mode_tool', message: 'Partner screening is unavailable until Stayloop\'s Consumer Reporting Act registration is complete.' }, { status: 503 })
   let body: Body
   try { body = (await req.json()) as Body } catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }) }
