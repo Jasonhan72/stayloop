@@ -7,7 +7,12 @@
 // referral fees are off the table). No showing fees; online rent collection
 // is NOT live, so nothing here may promise it.
 // The privacy of a tenant is never a product — paid value never changes an
-// applicant's eligibility or ranking. Trust API is the 4th business line.
+// applicant's eligibility or ranking. The Stayloop API is the 4th business line.
+// 2026-10-16 (V1.0 stage 5): the landlord Business tier keeps its name and
+// price but no feature list — nothing is built for teams yet, so the card says
+// so and points to /contact; the API section lists tier 1 (free, keyless,
+// seven endpoints + MCP) and an institutional tier that is "contact us" until
+// there are real institutional callers (open-api research D4-2).
 import Link from 'next/link'
 import { TRIAL_DAYS } from '@/lib/billing/entitlement'
 import { LANDLORD_GO, LANDLORD_PRO, LANDLORD_PRO_PRICE } from '@/lib/billing/landlordPlans'
@@ -28,7 +33,10 @@ type Tier = {
   cta: LS
   href: string
   includesLabel: LS
-  features: Feature[]
+  /** Omitted on a tier whose feature list is deliberately not published (landlord Business, 2026-10-16). */
+  features?: Feature[]
+  /** Shown in place of the feature list when `features` is absent. */
+  note?: LS
   highlight?: boolean
 }
 
@@ -95,17 +103,13 @@ const PLANS: RolePlan[] = [
       {
         name: { zh: '团队', en: 'Business' },
         price: { zh: '$39', en: '$39' },
-        priceUnit: { zh: '/ 月', en: '/ month' },
-        tagline: { zh: '团队协作，管理多套物业。', en: 'Team collaboration across properties.' },
-        cta: { zh: '升级到团队版', en: 'Upgrade to Business' },
+        priceUnit: { zh: '/ 月 · 尚未开售', en: '/ month · not yet on sale' },
+        tagline: { zh: '给管理多套物业的团队。尚未开售。', en: 'For teams managing several properties. Not yet on sale.' },
+        cta: { zh: '联系我们', en: 'Contact us' },
         href: '/contact',
-        includesLabel: { zh: '专业的全部,另加:', en: 'Everything in Pro, plus:' },
-        features: [
-          { zh: '多成员协作 + 权限', en: 'Multi-member collaboration + roles' },
-          { zh: '多物业组合面板', en: 'Portfolio dashboard' },
-          { zh: '操作审计留痕', en: 'Full audit trail' },
-          { zh: '优先支持', en: 'Priority support' },
-        ],
+        includesLabel: { zh: '包含:', en: 'Included:' },
+        // 2026-10-16: no feature list — nothing team-specific is built yet; the list is decided when a real team needs it.
+        note: { zh: '功能清单待定，等有真实团队需求再定。现在需要多人协作的房东请联系我们，先用专业档。', en: 'The feature list is to be decided once a real team needs it. Landlords who need multi-user access today: contact us and use Pro for now.' },
       },
     ],
   },
@@ -227,14 +231,18 @@ function RolePlansSection({ lang, zh }: { lang: Lang; zh: boolean }) {
             </Link>
             <div className="mt-6 border-t border-line-divider pt-5">
               <div className="text-[12.5px] font-bold text-body">{t.includesLabel[lang]}</div>
-              <ul className="mt-3 space-y-2 text-[13px]">
-                {t.features.map((f) => (
-                  <li key={f.zh} className="flex items-start gap-2">
-                    <span className="mt-[3px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[10px]" style={{ background: `${plan.accent}22`, color: plan.accent }}>✓</span>
-                    <span className="leading-snug">{f[lang]}{f.href && <> <Link href={f.href} className="whitespace-nowrap text-brand underline underline-offset-2">{lang === 'zh' ? '了解 →' : 'Learn →'}</Link></>}</span>
-                  </li>
-                ))}
-              </ul>
+              {t.features ? (
+                <ul className="mt-3 space-y-2 text-[13px]">
+                  {t.features.map((f) => (
+                    <li key={f.zh} className="flex items-start gap-2">
+                      <span className="mt-[3px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[10px]" style={{ background: `${plan.accent}22`, color: plan.accent }}>✓</span>
+                      <span className="leading-snug">{f[lang]}{f.href && <> <Link href={f.href} className="whitespace-nowrap text-brand underline underline-offset-2">{lang === 'zh' ? '了解 →' : 'Learn →'}</Link></>}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-[13px] leading-relaxed text-body-3" data-testid="tier-note">{t.note?.[lang]}</p>
+              )}
             </div>
           </div>
         ))}
@@ -276,26 +284,50 @@ export default function PricingPage() {
         {/* Role switcher + named tiers per role */}
         <RolePlansSection lang={lang} zh={zh} />
 
-        {/* Stayloop API — 4th business line */}
-        <section className="mx-auto max-w-[1100px] px-5 pb-12 sm:px-7 lg:px-12">
+        {/* Stayloop API — 4th business line. Tier 1 is free and keyless (seven endpoints + MCP);
+            the institutional tier has no price until there are real institutional callers. */}
+        <section className="mx-auto max-w-[1100px] px-5 pb-12 sm:px-7 lg:px-12" data-testid="pricing-api">
           <div className="sl-card overflow-hidden p-8" style={{ background: 'linear-gradient(135deg, #0B0B0E 0%, #1E293B 100%)' }}>
             <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#93C5FD' }}>
-              {zh ? 'STAYLOOP API · 给合作方的接口' : 'STAYLOOP API · For partners'}
+              {zh ? 'STAYLOOP API · 给开发者与合作方的接口' : 'STAYLOOP API · For developers and partners'}
             </div>
             <h2 className="mt-2 text-[26px] font-bold tracking-tight text-white">
-              {zh ? '把房源合规检查、申请人出示的核验结论和筛查接进你的系统' : 'Listing compliance checks, applicant-presented verification and screening, inside your own system'}
+              {zh ? '租房规则、合规检查、日期算术和租金基准，接进你的系统或你的 AI 客户端' : 'Rental rules, compliance checks, date arithmetic and rent benchmarks, inside your system or your AI client'}
             </h2>
-            <p className="mt-3 max-w-[760px] text-[14px] leading-relaxed" style={{ color: '#D3E3EF' }}>
-              {zh
-                ? '三个端点，每个都有真实后端：房源合规检查免费无需密钥；申请人主动出示核验结论，合作方只拿到结论、拿不到文件；发起筛查走与产品同一条管线。面向金融机构的用途待法律意见。'
-                : 'Three endpoints, each with a real backend: listing compliance is free and keyless; applicants present verification conclusions and partners never see documents; screening runs on the same pipeline as the product. Use by financial institutions is pending legal advice.'}
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="rounded-[14px] border border-white/15 bg-white/5 p-5" data-testid="pricing-api-tier1">
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="text-[17px] font-bold text-white">{zh ? '第一档 · 开放' : 'Tier 1 · open'}</div>
+                  <div className="text-[13px] font-semibold" style={{ color: '#93C5FD' }}>{zh ? '免费 · 无需密钥' : 'Free · no key'}</div>
+                </div>
+                <p className="mt-2 text-[13.5px] leading-relaxed" style={{ color: '#D3E3EF' }}>
+                  {zh
+                    ? '七个端点 + 一个 MCP 端点：规则清单、房源合规检查、租约条款检查、租金指导比例、N4 最早终止日、持续迟付判定、租金基准（CMHC + 加拿大统计局，开放授权）。不接受、不存储个人信息；按调用方或 IP 限流。'
+                    : 'Seven endpoints + one MCP endpoint: the rules list, listing compliance, lease-terms check, rent-increase guideline, N4 earliest termination, persistent late payment, rent benchmarks (CMHC + Statistics Canada, open licences). No personal data accepted or stored; rate-limited per caller or IP.'}
+                </p>
+                <Link href="/stayloop-api/docs" className="mt-4 inline-flex items-center justify-center rounded-[10px] bg-white px-5 py-[10px] text-[14px] font-semibold text-ink transition hover:opacity-90">
+                  {zh ? '接口文档 →' : 'API docs →'}
+                </Link>
+              </div>
+              <div className="rounded-[14px] border border-white/15 bg-white/5 p-5" data-testid="pricing-api-institutional">
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="text-[17px] font-bold text-white">{zh ? '机构档' : 'Institutional'}</div>
+                  <div className="text-[13px] font-semibold" style={{ color: '#93C5FD' }}>{zh ? '联系我们' : 'Contact us'}</div>
+                </div>
+                <p className="mt-2 text-[13.5px] leading-relaxed" style={{ color: '#D3E3EF' }}>
+                  {zh
+                    ? '物业系统、经纪工具等需要更高配额、申请人授权的核验结论（第二档）或支持承诺的机构。定价等有真实机构调用方后再定；筛查接口在 Stayloop 完成《消费者报告法》注册前不开放。'
+                    : 'For property systems, brokerage tools and other institutions that need higher quotas, applicant-authorised verification (tier 2) or a support commitment. Pricing is set once there are real institutional callers; the screening endpoint stays closed until Stayloop’s Consumer Reporting Act registration is complete.'}
+                </p>
+                <Link href="/contact" className="mt-4 inline-flex items-center justify-center rounded-[10px] border border-white/40 px-5 py-[10px] text-[14px] font-semibold text-white transition hover:bg-white/10">
+                  {zh ? '联系我们 →' : 'Contact us →'}
+                </Link>
+              </div>
+            </div>
+            <p className="mt-4 text-[12.5px]" style={{ color: '#93A4B8' }}>
+              <Link href="/stayloop-api" className="underline">{zh ? '了解 Stayloop API →' : 'About the Stayloop API →'}</Link>
+              {zh ? ' · 使用规则见服务条款第 7 节' : ' · usage rules: Terms of Service §7'}
             </p>
-            <Link
-              href="/stayloop-api"
-              className="mt-5 inline-flex items-center justify-center rounded-[10px] bg-white px-5 py-[12px] text-[14px] font-semibold text-ink transition hover:opacity-90"
-            >
-              {zh ? '了解 Stayloop API →' : 'About Stayloop API →'}
-            </Link>
           </div>
         </section>
 

@@ -91,6 +91,11 @@ export default function TermsConsentGate() {
         <ol className="mt-4 max-h-[36dvh] list-decimal space-y-2 overflow-y-auto rounded-[12px] bg-surface px-4 py-3 pl-8 text-[13px] leading-relaxed text-body-2 sm:max-h-[260px]">
           {LISTING_DATA_CLAUSES.map((c, i) => <li key={i}>{zh ? c.zh : c.en}</li>)}
         </ol>
+        <p className="mt-2 text-[12.5px] leading-relaxed text-body-3">
+          {zh
+            ? <>本版新增第 7 节「API 使用规则」，只对接入 Stayloop API 或 MCP 端点的开发者生效：<a href="/terms" target="_blank" rel="noreferrer" className="text-brand hover:underline">查看条款 ↗</a></>
+            : <>This version adds section 7, the API usage rules, which apply only if you call the Stayloop API or MCP endpoint: <a href="/terms" target="_blank" rel="noreferrer" className="text-brand hover:underline">read the Terms ↗</a></>}
+        </p>
         {needsName && (
           <label className="mt-4 block text-[13px] text-body-2">
             {zh ? '你的姓名（数据规则要求我们记录每位用户的姓名）' : 'Your name (the data rules require us to hold each user’s name)'}

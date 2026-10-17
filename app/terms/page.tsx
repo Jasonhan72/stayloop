@@ -3,7 +3,7 @@
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useT } from '@/lib/i18n'
-import { LISTING_DATA_CLAUSES, TERMS_VERSION } from '@/lib/legal/terms'
+import { API_CLAUSES, LISTING_DATA_CLAUSES, TERMS_VERSION } from '@/lib/legal/terms'
 
 export default function TermsPage() {
   const { lang } = useT()
@@ -54,6 +54,14 @@ export default function TermsPage() {
             <p>{zh
               ? '本条款受 Ontario 省法律管辖。任何争议先经 Stayloop 内部 mediator 调解,再提交 Ontario Superior Court 处理。'
               : 'These terms are governed by the laws of the Province of Ontario. Any dispute first goes to mediation by an internal Stayloop mediator, then to the Ontario Superior Court.'}</p>
+          </Section>
+          <Section title={zh ? '7 · API 使用规则' : '7 · API usage rules'}>
+            <p>{zh
+              ? '调用 Stayloop API（含 MCP 端点）即表示你同意以下规则。第一档（规则、合规检查、日期算术、租金基准）免费、无需密钥；这些规则随服务条款生效，不随密钥发放。接口说明见 /stayloop-api/docs。'
+              : 'By calling the Stayloop API (including the MCP endpoint) you agree to the rules below. Tier 1 (rules, compliance checks, date arithmetic, rent benchmarks) is free and keyless; these rules take effect with the Terms, not with a key. The reference is at /stayloop-api/docs.'}</p>
+            <ol className="mt-3 list-decimal space-y-2 pl-5" data-testid="terms-api-rules">
+              {API_CLAUSES.map((c, i) => <li key={i}>{zh ? c.zh : c.en}</li>)}
+            </ol>
           </Section>
         </article>
       </main>

@@ -5,6 +5,10 @@
 // Everything on this page exists at www.stayloop.ai/api/v1. Tier 3 (/screen)
 // is closed until Stayloop's Consumer Reporting Act registration is complete.
 // Copy states boundaries in the same words the API responses use.
+// Stage 5 (2026-10-16, design/open-api-contract-2026-10.md): tier 1 is seven
+// endpoints + one MCP endpoint, free and keyless — rules, compliance checks,
+// date arithmetic, rent benchmarks (CMHC + Statistics Canada, open licences).
+// No prices here, no limit numbers (the docs read them from lib/api/v1Limits).
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -28,12 +32,12 @@ const TIER_CLASS: Record<Tier, string> = {
 
 const ENDPOINTS: { code: string; tier: Tier; title: Bi; body: Bi; who: Bi; key: Bi }[] = [
   {
-    code: 'POST /listings/compliance',
+    code: 'GET /rules · POST /listings/compliance · … + MCP',
     tier: 'open',
-    title: { zh: '房源合规检查', en: 'Listing compliance' },
-    body: { zh: '押金 ≤ 一个月（RTA s.106）、钥匙押金（O. Reg. 516/06 s.17）、禁宠条款无效（s.14）、申请费 / 宠物押金 / 清洁押金禁止（s.134）。确定性规则，返回规则编号与法条链接；只做规则比对，不是法律意见。', en: 'Deposit ≤ one month (RTA s.106), key deposit (O. Reg. 516/06 s.17), void pet bans (s.14), no application / pet / cleaning fees (s.134). Deterministic rules; returns rule ids with statute links. Rule matching only, not legal advice.' },
-    who: { zh: '房源平台、物业系统在发布前调用', en: 'Listing platforms and property systems, before publishing' },
-    key: { zh: '免费 · 无需密钥 · 不接受、不存储个人信息', en: 'Free · no key · accepts and stores no personal data' },
+    title: { zh: '七个端点 + 一个 MCP 端点', en: 'Seven endpoints + one MCP endpoint' },
+    body: { zh: '规则清单、房源合规检查、租约条款检查、租金指导比例、N4 最早终止日、持续迟付判定、租金基准，以及把同一套工具交给 AI 客户端的 MCP 端点。确定性规则与日期算术，返回规则编号与法条链接；只做规则比对，不是法律意见。', en: 'The rules list, listing compliance, lease-terms check, rent-increase guideline, N4 earliest termination, persistent late payment, rent benchmarks, and an MCP endpoint that hands the same tools to AI clients. Deterministic rules and date arithmetic; returns rule ids with statute links. Rule matching only, not legal advice.' },
+    who: { zh: '房源平台、物业系统、经纪工具，以及 Claude / Claude Code / Cursor 这样的 AI 客户端', en: 'Listing platforms, property systems, brokerage tools, and AI clients such as Claude / Claude Code / Cursor' },
+    key: { zh: '免费 · 无需密钥 · 不接受、不存储个人信息 · 按调用方或 IP 限流', en: 'Free · no key · accepts and stores no personal data · rate-limited per caller or IP' },
   },
   {
     code: 'POST /passport/verify',
@@ -53,18 +57,29 @@ const ENDPOINTS: { code: string; tier: Tier; title: Bi; body: Bi; who: Bi; key: 
   },
 ]
 
+// What tier 1 actually contains — the five facts a reader needs before the docs.
+const TIER1_FACTS: { title: Bi; body: Bi }[] = [
+  { title: { zh: '规则', en: 'Rules' }, body: { zh: '安省与其他 12 个省 / 地区的住宅租赁规则清单，每条带编号、法条与快照日 as_of。', en: 'The residential tenancy rules of Ontario and the other 12 provinces / territories, each with an id, the statute and the as_of snapshot date.' } },
+  { title: { zh: '合规检查', en: 'Compliance checks' }, body: { zh: '房源与租约条款的确定性检查：押金上限、钥匙押金、禁宠条款、申请费 / 宠物押金 / 清洁押金。返回命中的规则编号与法条链接。', en: 'Deterministic checks on listings and lease terms: deposit caps, key deposits, pet bans, application / pet / cleaning fees. Returns the rule ids hit, with statute links.' } },
+  { title: { zh: '日期算术', en: 'Date arithmetic' }, body: { zh: '租金指导比例与 N1 截止日、N4 最早终止日、持续迟付判定。只做算术，不选表、不建议是否发出任何通知。', en: 'Rent-increase guideline with the N1 deadline, N4 earliest termination, persistent late payment. Arithmetic only — it does not pick forms or advise whether to serve any notice.' } },
+  { title: { zh: '租金基准', en: 'Rent benchmarks' }, body: { zh: 'CMHC 租赁市场调查与加拿大统计局的季度挂牌租金，都是开放授权；响应带必填的来源句 attribution，展示时必须原样保留。调查均租不是成交价。', en: 'CMHC Rental Market Survey and Statistics Canada’s quarterly asking rents, both under open licences; the response carries a mandatory attribution that must be shown as-is. A survey average is not a leased price.' } },
+  { title: { zh: 'MCP', en: 'MCP' }, body: { zh: '同一套工具经 Streamable HTTP 开放给 AI 客户端，无鉴权；Claude、Claude Code、Cursor 填一个地址即可接入。', en: 'The same tools over Streamable HTTP for AI clients, no auth; Claude, Claude Code and Cursor connect with a single URL.' } },
+]
+
 const BOUNDARY: Bi[] = [
   { zh: '核验结论只在申请人签发的 token 有效期内、按申请人勾选的范围返回。同意的法律基础是 PIPEDA 原则 4.3（本人知情同意）；披露按《消费者报告法》对报告机构的标准处理——只在申请人本人书面指示下、按其勾选的范围披露，申请人可随时撤销。', en: 'Conclusions are returned only within an applicant-issued token’s validity and only for the scopes the applicant ticked. The legal basis is the applicant’s consent (PIPEDA Principle 4.3); the disclosure is handled to the standard the Consumer Reporting Act sets for reporting agencies — only on the applicant’s own written instructions, only for the ticked scopes, revocable at any time.' },
   { zh: '筛查分数与档位是房东自行决定的参考信息，不是拒绝依据（OHRC 租房政策）；不得设收入比截止线。', en: 'Screening score and tier are information for the landlord’s own decision, never grounds to decline (OHRC housing policy); no income-ratio cut-offs.' },
   { zh: '合作方发起筛查（第三档）在 Stayloop 完成《消费者报告法》注册前暂不开放；开放后也只对房东身份的接入方，并要求申请人的同意记录。', en: 'Partner-initiated screening (tier 3) is closed until Stayloop’s Consumer Reporting Act registration is complete; once open it is limited to landlord-bound keys and requires the applicant’s consent record.' },
   { zh: '面向金融机构的用途尚未开放，待法律意见。', en: 'Use by financial institutions is not yet open, pending legal advice.' },
-  { zh: '密钥由 Stayloop 发放，只存哈希，可随时停用；限流：verify 120/分钟，compliance 每 IP 120/小时。', en: 'Keys are issued by Stayloop, stored hashed, and can be disabled at any time. Limits: verify 120/min, compliance 120/h per IP.' },
+  { zh: '第二档密钥由 Stayloop 发放，只存哈希，可随时停用；第一档与 MCP 按调用方或 IP 限流，具体次数写在文档里。', en: 'Tier 2 keys are issued by Stayloop, stored hashed, and can be disabled at any time; tier 1 and MCP are rate-limited per caller or IP, with the numbers in the docs.' },
+  { zh: '使用规则在服务条款第 7 节：只能用于你自己的产品，不得转售、不得训练模型，租金基准必须展示来源句。', en: 'Usage rules are in the Terms of Service §7: your own product only, no resale, no model training, benchmarks must show the attribution.' },
 ]
 
 const AI_CLIENTS: Bi[] = [
   { zh: '允许：由用户发起的实时访问——用户自己的 AI 助理在对话中替 TA 实时调用，把结果展示给这位用户。', en: 'Allowed: real-time access initiated by a user — a person’s own AI Agent calling on their behalf during a conversation and showing the result to that person.' },
   { zh: '不允许：留存响应、为响应建索引、用于训练模型或作为数据集转售；第二档响应含个人信息，只能在该用户的会话内使用。', en: 'Not allowed: retaining responses, indexing them, training models on them or reselling them as a dataset; tier 2 responses contain personal information and may be used only within that user’s session.' },
-  { zh: '远程 MCP 服务器筹备中。', en: 'A remote MCP server is in preparation.' },
+  { zh: '以上工具与端点只做确定性规则与日期算术，不是法律意见。', en: 'The tools and endpoints above do deterministic rules and date arithmetic only; they are not legal advice.' },
+  { zh: 'MCP 端点已开放：Claude、Claude Code、Cursor 的接法在文档里。', en: 'The MCP endpoint is live: how to connect Claude, Claude Code and Cursor is in the docs.' },
 ]
 
 export default function StayloopApiPage() {
@@ -82,17 +97,19 @@ export default function StayloopApiPage() {
           </h1>
           <p className="mt-4 max-w-[680px] text-[16px] leading-[1.6] text-body-2">
             {zh
-              ? '规则检查可直接调用；核验结论由申请人本人授权后才返回；合作方发起筛查要等 Stayloop 完成《消费者报告法》注册后才开放。同源 Base URL，没有 SDK，任何 HTTP 客户端即可。'
-              : 'Rule checks are open; verification conclusions are returned only with the applicant’s authorisation; partner-initiated screening opens once Stayloop’s Consumer Reporting Act registration is complete. Same-origin base URL, no SDK, any HTTP client.'}
+              ? '规则、合规检查、日期算术、租金基准：七个端点 + 一个 MCP 端点，免费、无需密钥；核验结论由申请人本人授权后才返回；合作方发起筛查要等 Stayloop 完成《消费者报告法》注册后才开放。同源 Base URL，没有 SDK，任何 HTTP 客户端即可。'
+              : 'Rules, compliance checks, date arithmetic, rent benchmarks: seven endpoints + one MCP endpoint, free and keyless; verification conclusions are returned only with the applicant’s authorisation; partner-initiated screening opens once Stayloop’s Consumer Reporting Act registration is complete. Same-origin base URL, no SDK, any HTTP client.'}
           </p>
           <div className="mt-5 flex flex-wrap gap-2 text-[12.5px]">
             <span className="rounded-full border border-line-divider bg-white px-3 py-1">Base <code className="font-mono">https://www.stayloop.ai/api/v1</code></span>
-            <span className="rounded-full border border-line-divider bg-white px-3 py-1">{zh ? '密钥头 ' : 'Key header '}<code className="font-mono">X-API-Key</code></span>
+            <span className="rounded-full border border-line-divider bg-white px-3 py-1">MCP <code className="font-mono">https://www.stayloop.ai/api/mcp</code></span>
+            <span className="rounded-full border border-line-divider bg-white px-3 py-1">{zh ? '密钥头 ' : 'Key header '}<code className="font-mono">X-API-Key</code>{zh ? '（仅第二档）' : ' (tier 2 only)'}</span>
             <span className="rounded-full border border-line-divider bg-white px-3 py-1">{zh ? '数据库驻加拿大' : 'Database in Canada'}</span>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/stayloop-api/docs" className="sl-btn-primary">{zh ? '接口文档与示例' : 'Docs and examples'}</Link>
-            <Link href="/contact" className="sl-btn-secondary">{zh ? '申请密钥 / 试点' : 'Request a key / pilot'}</Link>
+            <Link href="/stayloop-api/docs#mcp" className="sl-btn-secondary">{zh ? '接入 MCP' : 'Connect over MCP'}</Link>
+            <Link href="/contact" className="sl-btn-ghost">{zh ? '第二档密钥 / 试点' : 'Tier 2 key / pilot'}</Link>
           </div>
         </div>
       </section>
@@ -117,11 +134,21 @@ export default function StayloopApiPage() {
 
       <section className="border-y border-line-divider" style={{ background: '#F3F8FC' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-12 sm:px-7">
-          <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '它从哪里来' : 'Where it comes from' }</h2>
+          <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '第一档里有什么' : 'What is in tier 1'}</h2>
+          <p className="mt-2 max-w-[760px] text-[14.5px] leading-relaxed text-body-2">{zh ? '全部免费、无需密钥、不接受也不存储个人信息；每个响应带规则快照日 as_of 与固定的边界句。' : 'All free, keyless, and no personal data accepted or stored; every response carries the as_of snapshot date and the fixed boundary sentence.'}</p>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5" data-testid="tier1-facts">
+            {TIER1_FACTS.map((f) => (
+              <div key={f.title.en} className="rounded-2xl border border-line-divider bg-white p-4">
+                <div className="text-[15px] font-bold">{pick(f.title, lang)}</div>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-body-2">{pick(f.body, lang)}</p>
+              </div>
+            ))}
+          </div>
+          <h2 className="mt-10 text-[22px] font-extrabold tracking-tight">{zh ? '它从哪里来' : 'Where it comes from' }</h2>
           <p className="mt-2 max-w-[760px] text-[14.5px] leading-relaxed text-body-2">
             {zh
-              ? 'API 不是另一套系统。房源合规检查用的是发布向导与租约草稿同一份规则；核验结论来自申请人本人授权的核验与双方确认的在管租约；筛查（开放后）就是房东在工作台点的那一次筛查。'
-              : 'The API is not a second system. Compliance uses the same rules as the publish wizard and lease drafts; conclusions come from applicant-authorised verification and counterparty-confirmed tenancies; a screening (once open) is the very screening a landlord runs in the workspace.'}
+              ? 'API 不是另一套系统。规则与合规检查用的是发布向导、租约草稿与 /rules 页同一份规则；日期算术是续约卡与 N 表工具箱同一套函数；租金基准是房源页同一张表；核验结论来自申请人本人授权的核验与双方确认的在管租约；筛查（开放后）就是房东在工作台点的那一次筛查。'
+              : 'The API is not a second system. Rules and compliance checks use the same rules as the publish wizard, lease drafts and the /rules page; the date arithmetic is the same functions behind the renewal card and the N-form toolbox; rent benchmarks are the same table the listing page reads; conclusions come from applicant-authorised verification and counterparty-confirmed tenancies; a screening (once open) is the very screening a landlord runs in the workspace.'}
             {' '}<Link href="/platform" className="underline">{zh ? '看整条流程 →' : 'See the whole flow →'}</Link>
           </p>
         </div>
@@ -136,7 +163,7 @@ export default function StayloopApiPage() {
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[14.5px] leading-relaxed text-body-2">
           {AI_CLIENTS.map((b) => <li key={b.en}>{pick(b, lang)}</li>)}
         </ul>
-        <p className="mt-6 text-[13px] text-body-3">{zh ? '数据来源目录见 ' : 'Data sources: '}<Link href="/partners" className="underline">/partners</Link>{zh ? '；规则全文见 ' : '; rules: '}<Link href="/rules" className="underline">/rules</Link>.</p>
+        <p className="mt-6 text-[13px] text-body-3">{zh ? '数据来源目录见 ' : 'Data sources: '}<Link href="/partners" className="underline">/partners</Link>{zh ? '；规则全文见 ' : '; rules: '}<Link href="/rules" className="underline">/rules</Link>{zh ? '；使用规则见 ' : '; usage rules: '}<Link href="/terms" className="underline">/terms</Link>.</p>
       </section>
       <Footer />
     </div>

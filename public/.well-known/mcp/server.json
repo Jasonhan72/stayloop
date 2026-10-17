@@ -1,0 +1,14 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "ai.stayloop/rules",
+  "title": "Stayloop · Ontario & Canada rental rules",
+  "description": "Canadian tenancy rules, notice-date arithmetic and CMHC/StatCan rent benchmarks. Read-only.",
+  "version": "2026-10-16",
+  "websiteUrl": "https://www.stayloop.ai/stayloop-api",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://www.stayloop.ai/api/mcp"
+    }
+  ]
+}

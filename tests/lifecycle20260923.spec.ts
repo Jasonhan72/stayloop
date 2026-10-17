@@ -103,7 +103,8 @@ describe('closed loop wiring', () => {
 describe('Trust API v1', () => {
   it('compliance endpoint is anonymous, rate-limited, stores no listing text', () => {
     const s = readFileSync('app/api/v1/listings/compliance/route.ts', 'utf8')
-    expect(s).toMatch(/underHourlyLimit\(`compliance:\$\{ip\}`, 120, true\)/)
+    // Stage 5 (2026-10-16): the limit lives in lib/api/v1Limits and the route goes through handleV1.
+    expect(s).toMatch(/handleV1\(req, 'listings_compliance'/)
     expect(s).toMatch(/source: 'compliance_api', rule_id: f\.rule, severity: f\.severity, metadata: \{\} /)
   })
   it('passport verify needs a partner key, an applicant token with api_scopes, and returns conclusions only', () => {

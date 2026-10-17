@@ -88,8 +88,11 @@ describe('8.13 anti-scraping: anon is read-only on listings', () => {
 
 describe('8.09–8.11 terms of use', () => {
   it('eight listing-data clauses (2026-10-13: no MLS feed, so no 8.09(a) customer-relationship clause): personal use, bona fide interest, no copying, no AI, no scraping, ownership, audit access, no fee / no representation agreement', () => {
-    expect(terms).toContain("export const TERMS_VERSION = '2026-10-13'")
-    const clauses = terms.match(/^\s+zh: '/gm) || []
+    // 2026-10-16 (V1.0 stage 5): version bumped for the API usage rules (API_CLAUSES, tests/v1stage5_docsTerms.spec.tsx);
+    // the listing-data block itself still has eight clauses
+    expect(terms).toContain("export const TERMS_VERSION = '2026-10-16'")
+    const listingBlock = terms.slice(terms.indexOf('export const LISTING_DATA_CLAUSES'), terms.indexOf('export const API_CLAUSES'))
+    const clauses = listingBlock.match(/^\s+zh: '/gm) || []
     expect(clauses.length).toBe(8)
     for (const needle of ['非商业用途', '真实的租赁、购买或出售意向', '转授权', 'AI 系统', '抓取', '版权属于其来源', '发布房源的房东与挂牌方', '核查', '不产生任何费用', '代表协议']) expect(terms).toContain(needle)
     for (const needle of ['non-commercial', 'bona fide interest', 'sublicense', 'AI system', 'Scraping', 'copyright', 'landlords and listing parties who publish them', 'verify compliance', 'no fee', 'representation']) expect(terms).toContain(needle)

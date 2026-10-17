@@ -66,7 +66,8 @@ describe('/stayloop-api pages describe three tiers', () => {
       expect(src).toMatch(/not yet open|closed/i)
       expect(src).toContain('PIPEDA')
       expect(src).toContain('消费者报告法')
-      for (const e of ['POST /listings/compliance', 'POST /passport/verify', 'POST /screen']) expect(src).toContain(e)
+      // stage 5 (2026-10-16): tier 1 is rendered from lib/api/openapi.ts, but the compliance endpoint is still named in prose
+      for (const e of ['/listings/compliance', 'POST /passport/verify', 'POST /screen']) expect(src).toContain(e)
     })
     it(`${name}: no s.8(1)(b) as authority, no listing-feed claims, no stale naming`, () => {
       expect(src).not.toMatch(/8\(1\)\(b\)/)
@@ -74,15 +75,17 @@ describe('/stayloop-api pages describe three tiers', () => {
       expect(src).not.toMatch(/不是消费者报告机构|not a consumer reporting agency/)
       expect(src).not.toMatch(/助手|管家/)
     })
-    it(`${name}: AI-client terms — real-time user-initiated only, no retention / indexing / training; MCP only "in preparation"`, () => {
+    it(`${name}: AI-client terms — real-time user-initiated only, no retention / indexing / training; MCP is live (stage 5, 2026-10-16), no longer "in preparation"`, () => {
       expect(src).toMatch(/实时/)
       expect(src).toMatch(/留存/)
       expect(src).toMatch(/建索引|索引/)
       expect(src).toMatch(/训练/)
       expect(src).toMatch(/MCP/)
-      expect(src).toMatch(/筹备中/)
-      expect(src).toMatch(/in preparation/)
-      expect(src).not.toMatch(/MCP[^\n]{0,80}20\d\d-\d\d/)
+      expect(src).toContain('https://www.stayloop.ai/api/mcp')
+      expect(src).not.toMatch(/筹备中/)
+      expect(src).not.toMatch(/in preparation/)
+      // no promised launch date for anything — the only dates are the API version constant and protocol versions in examples
+      expect(src).not.toMatch(/(上线|open|launch)[^\n]{0,40}20\d\d-\d\d-\d\d/)
     })
   }
   it('docs: the 503 body is shown and the error table lists it', () => {
