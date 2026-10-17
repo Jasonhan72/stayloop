@@ -3659,3 +3659,22 @@ AVP 不得用它做自己的产品；**任何 MLS 数据不得经过任何第三
   **测试数据保留**：tenant-test 的申请包（两份 favicon 文件）与对 `[TEST] 200 Test QA Lane` 的一份申请。
 - **未做**：租客自发起 Veriff / Flinks 核验（`/api/verify/self`）——生产凭证未到位，页面只按 Stayloop 租史标「已核验」；申请包 PDF 不内嵌文件；`verification_requests` 对租客不可读，身份 / 收入的「已核验」标记要等自发起核验上线。
   下一步阶段 5：丁 #17 REST + OpenAPI、#18 远程 MCP、ToS 条款、目录提交；经纪 $29 档 / 团队档功能表收回。
+
+## V1.0 阶段 5「开放」（2026-10-16 · 用户「继续做阶段 5」· 讨论稿丁 #17 / #18 + 条款 + 目录材料 + 定价收口）
+
+三组并行（G16 REST 第一档 + OpenAPI / G17 远程 MCP / G18 文档、条款、定价），共用契约 `design/open-api-contract-2026-10.md`（**改接口先改契约**）。无迁移；部署 ship68（路由审计 100/100，含 19 条新探针）；
+生产 curl 逐端点核对通过。守卫 `tests/v1stage5_{restApi,mcp,docsTerms}.spec.*`（全套 2793 条）。**第一档 = 自家确定性规则 / 日期算术 / 开放授权的租金基准，不含个人信息，免费无密钥；第二档（`passport/verify`）与第三档（`screen`，CRA 注册前关闭）原样。**
+- **通用层**（`lib/api/v1Http.ts` / `v1Limits.ts`）：`API_VERSION = RULES_AS_OF = '2026-10-16'`（响应头 `x-api-version`、体 `as_of`）；统一错误体 `{error, message, retry_after?}`（`invalid_json · invalid_input · unsupported_province · not_available · rate_limited · method_not_allowed`）；
+  CORS `*`；限流一张表 `V1_LIMITS`（按 `X-Client-Id`（可选自报 ≤64 字符）或 IP 每键每小时 300、每端点全站 5,000、MCP 每键 600；fail-open），路由经 `handleV1(req, endpoint, fn)` 自动并入 `as_of` + `boundary`（中英固定句：只做确定性规则与日期算术、不是法律意见、不选表、不建议是否发出、不接受不存储个人信息）。
+  **路由里不得再出现限流数字字面量**（守卫 grep）。
+- **核心函数 `lib/api/v1Core.ts`**（路由与 MCP 工具都只调它）：`coreRules`（ON 走 `ONTARIO_RULES`；12 个外省把 `PROVINCE_RULES` 的每个带 cite + url 的事实展开成 `<CODE>-<topic>` 规则，含 `source_url`）、`coreListingCompliance`（ON `checkListingCompliance`；外省复用 `checkListingComplianceFor`，`notes` 写明只核押金与费用类）、
+  `coreLeaseTermsCheck`（外省新写五项：不许押金 / 押金上限 / 钥匙押金 / 预收末月租 / 租约格式 + 日期顺序）、`coreGuideline`、`coreN4EarliestTermination`、`corePersistentLatePayment`（≤120 期）、`coreRentBenchmark(sb, …)`（非 ON → 404 `not_available`；`attribution` 必填）。
+  `province` 经 `normalizeProvince`（`qc` / `Quebec` / `魁北克` 都收）。
+- **端点**（`app/api/v1/**`，edge）：`GET /rules`、`POST /listings/compliance`（改造，向后兼容：原 `rule / url / checked` 字段保留，`boundary` 变为 `{zh,en}`，多 `rule_id / source_url / as_of / province`）、`POST /lease/terms-check`、`GET /guideline`、`GET /n4/earliest-termination`、`POST /late-payment/persistent`、`GET /rent-benchmark`、`GET /openapi.json`（`lib/api/openapi.ts` 手写的 3.1 对象，`OPENAPI_ENDPOINTS` 简表供文档页；带点的目录段 `openapi.json/` 在 next-on-pages 上构建正常）。
+- **远程 MCP `POST /api/mcp`**（Streamable HTTP、无状态、只 JSON 不开 SSE、无鉴权、**零第三方依赖**——自写 JSON-RPC 子集 `lib/mcp/jsonrpc.ts` + JSON Schema 子集校验 `lib/mcp/validate.ts`）：`initialize`（协议版本 `2026-07-28` / `2025-06-18` / `2025-03-26`，`serverInfo.name='stayloop'`）、`notifications/*` 202、`ping`、`tools/list`、`tools/call`；批量按序；`GET / DELETE` 405；Origin 存在且非 https → 403；`MCP-Protocol-Version` 回显；限流走同一张表（X-Client-Id 优先，解掉 Claude 全体用户共用出口 IP 的问题）。
+  七个工具 `lib/mcp/tools.ts MCP_TOOLS`（`list_rules · check_listing_compliance · check_lease_terms · rent_increase_guideline · n4_earliest_termination · persistent_late_payment · rent_benchmark`，全部 `readOnlyHint:true / destructiveHint:false / idempotentHint:true / openWorldHint:false`，描述含边界句与来源）；入参错误 → `isError:true`（不是协议错误）。
+  `public/.well-known/mcp/server.json`（官方 Registry `2025-12-11` schema，`name: ai.stayloop/rules`）；**提交材料** `design/mcp-directory-submission-2026-10.md`（Claude 目录九步答案、Cursor `mcp.json`、`claude mcp add --transport http stayloop https://www.stayloop.ai/api/mcp`、ChatGPT 插件门户材料清单、Registry 域名证明两种做法）——**提交动作由用户做**，待定项：图标、目录类别、联系人、`version` 用日期还是 semver、域名证明用 DNS TXT（HTTP 文件会撞 apex→www 308）。
+- **文档与条款**：`/stayloop-api/docs` 第一档从 `OPENAPI_ENDPOINTS` 渲染（通用约定里限流数字从 `V1_LIMITS` 读）、新「MCP 端点」一节（Claude / Claude Code / Cursor 接法 + curl）；`/stayloop-api` 营销页「七个端点 + 一个 MCP 端点」；`lib/legal/terms.ts API_CLAUSES` 七条（许可范围 / 署名 / 个人信息 / 禁止 / 筛查注册前不提供 / 无 SLA · 日期版本 · 弃用 90 天 / 责任与停用），`/terms` 第 7 节「API 使用规则」，`TERMS_VERSION = '2026-10-16'`（所有账号再确认一次；同意弹层多一行指向第 7 节，确认邮件同时列出七条）。
+- **定价**：团队档功能清单下架（只剩名字 + $39 尚未开售 + 联系我们 + 「功能清单待定」）；经纪 $29 / $59 仍「即将推出」；新增 API 两卡（第一档免费无密钥 → docs；机构档「联系我们」，定价等 ≥3 个真实调用方再定）。
+- **生产核对（2026-10-16 晚）**：`openapi.json` 3.1.0 · 7 路径 · 缓存头；`rules?province=QC` 13 条带 `source_url`；compliance 命中 `RTA-106-deposit-cap` + `RTA-14-no-pet-clause`；guideline 2027 → 1.9% · N1 2026-10-03；N4 邮寄 11-02 → 视为 11-07 → 最早 11-14；late-payment 三次 → persistent；rent-benchmark condo Toronto 2025-10 $2,365 带 attribution；坏日期 400；MCP initialize / tools/list 7 个 / tools/call（guideline、benchmark）/ 坏入参 isError / GET 405 / http origin 403；server.json 可取；四个页面新内容在。
+- **未做 / 之后**：第二档 OAuth（Supabase OAuth 2.1 同意页 + RFC 9728 元数据，V1.1）；Webhook；机构密钥自助申请页；ChatGPT 插件提交；MCP 目录与 Registry 的实际提交（材料已备，用户操作）。
