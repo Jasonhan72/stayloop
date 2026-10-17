@@ -19,6 +19,8 @@ export default function AdminHomePage() {
   // null = loading, number = count, 'error' = RPC failed (show an error
   // state instead of a forever-spinning "…").
   const [members, setMembers] = useState<number | 'error' | null>(null)
+  // V0.8: open consumer file requests + open disputes (Consumer Reporting Act s.12 / s.13 queue).
+  const [consumerOpen, setConsumerOpen] = useState<number | 'error' | null>(null)
 
   useEffect(() => {
     if (!role) return
@@ -30,6 +32,17 @@ export default function AdminHomePage() {
     supabase.rpc('admin_list_members').then(({ data, error }) => setMembers(!error && Array.isArray(data) ? data.length : 'error'))
     supabase.rpc('admin_platform_stats').then(({ data, error }) =>
       setStats(!error && data && !(data as Record<string, unknown>).error ? (data as Record<string, number>) : 'error'))
+    ;(async () => {
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        const res = await fetch('/api/admin/consumer', { headers: { Authorization: `Bearer ${sess.session?.access_token ?? ''}` } })
+        const j = (await res.json().catch(() => ({}))) as { requests?: Array<{ status?: string }>; disputes?: Array<{ status?: string }> }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const reqs = (j.requests ?? []).filter((r) => r.status !== 'fulfilled' && r.status !== 'closed').length
+        const disp = (j.disputes ?? []).filter((d) => d.status === 'open').length
+        setConsumerOpen(reqs + disp)
+      } catch { setConsumerOpen('error') }
+    })()
   }, [role])
 
   if (auth.loading || loading) {
@@ -94,6 +107,14 @@ export default function AdminHomePage() {
               ? `${members} 位成员`
               : `${members} members`,
       hot: members === 'error',
+    },
+    {
+      href: '/admin/consumer-requests',
+      icon: '📂',
+      title: zh ? '消费者档案请求' : 'Consumer file requests',
+      desc: zh ? '《消费者报告法》s.12 / s.13：申请人索取自己的筛查档案（邮寄 / 电话 2 个工作日）与逐项争议的核实、更正与收件人通知。' : 'Consumer Reporting Act s.12 / s.13: applicants requesting their own screening file (mail / phone within 2 business days) and item-by-item disputes — verify, correct, notify recipients.',
+      stat: consumerOpen == null ? '…' : consumerOpen === 'error' ? (zh ? '加载失败' : 'load failed') : zh ? `${consumerOpen} 待办` : `${consumerOpen} open`,
+      hot: consumerOpen === 'error' || (typeof consumerOpen === 'number' && consumerOpen > 0),
     },
     {
       href: '/admin/partners',

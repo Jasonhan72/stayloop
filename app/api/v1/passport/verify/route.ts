@@ -12,6 +12,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyUser } from '@/lib/push/notify'
+import { activeAlertFor, alertPublic } from '@/lib/consumer/alerts'
 
 export const runtime = 'edge'
 
@@ -89,5 +90,7 @@ export async function POST(req: Request) {
   await admin.from('agent_audit_events').insert({ actor_id: tok.tenant_user_id, actor_type: 'system', action: 'trust_api_passport_verify', target_type: 'passport_share_token', metadata: { scopes, partner_id: partner.id, partner_name: partner.partner_name } })
   void notifyUser(admin, tok.tenant_user_id as string, { kind: 'event', title: '你的护照被查看了 / Your passport was checked', body: `${partner.partner_name} · ${scopes.join(', ')}`, url: '/tenant/passport' })
 
-  return NextResponse.json({ verified: true, scopes, ...out, issued_by: 'applicant', boundary: BOUNDARY, audited: true })
+  // Consumer Reporting Act s.12.2: an identity alert the applicant placed on their file rides on every disclosure.
+  const alert = email ? alertPublic(await activeAlertFor(admin, email)) : null
+  return NextResponse.json({ verified: true, scopes, ...out, alert, issued_by: 'applicant', boundary: BOUNDARY, audited: true })
 }

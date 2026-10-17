@@ -35,6 +35,11 @@ export default function PrivacyPage() {
             <p>{zh
               ? '每个字段都可以随时撤销共享。账户删除后,加密原文 30 天内擦除,衍生 hash (用于 fraud 检测) 保留 12 个月。'
               : 'You can revoke sharing of any field at any time. After you delete your account, the encrypted originals are erased within 30 days, while derived hashes (used for fraud detection) are retained for 12 months.'}</p>
+            <p className="mt-2">{zh ? (
+              <>被房东或经纪筛查过的申请人，可以按安省《消费者报告法》免费索取自己的筛查档案、对任何一条提出争议并要求更正、在档案上设置身份警示：说明见 <Link href="/consumer-rights" className="font-semibold text-brand hover:underline">你的权利</Link>，入口在 <Link href="/my-file" className="font-semibold text-brand hover:underline">我的筛查档案</Link>（用申请时的邮箱）。</>
+            ) : (
+              <>An applicant screened by a landlord or agent can, under Ontario’s Consumer Reporting Act, get their own screening file free of charge, dispute any item and ask for a correction, and place an identity alert on the file: see <Link href="/consumer-rights" className="font-semibold text-brand hover:underline">your rights</Link>; the entry point is <Link href="/my-file" className="font-semibold text-brand hover:underline">My screening file</Link> (with the email you applied with).</>
+            )}</p>
           </Section>
           <Section title={zh ? '3a · 消息与沟通记录' : '3a · Messages and conversation records'}>
             <p>{zh

@@ -5,6 +5,7 @@
 // minimal snapshot (initials + stamp statuses + rent punctuality — never
 // documents, ID numbers or contact info) and hands it to the client view.
 import { createClient } from '@supabase/supabase-js'
+import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import PublicPassportView, { type PassportSnapshot } from './view'
 
@@ -54,6 +55,17 @@ async function loadSnapshot(token: string): Promise<PassportSnapshot | null> {
       .from('passport_share_tokens')
       .update({ view_count: (row.view_count ?? 0) + 1 })
       .eq('token', token)
+  } catch {
+    /* non-fatal */
+  }
+  // Consumer Reporting Act s.12(3) (V0.8): every open is one append-only row —
+  // the applicant's disclosure pack lists each one by time. IP only as sha256[0:16].
+  try {
+    const h = await headers()
+    const ip = h.get('cf-connecting-ip') || (h.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon'
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip))
+    const ipHash = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16)
+    await sb.from('passport_share_views').insert({ token, ip_hash: ipHash, user_agent: (h.get('user-agent') || '').slice(0, 200) || null })
   } catch {
     /* non-fatal */
   }

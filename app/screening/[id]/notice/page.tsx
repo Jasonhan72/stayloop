@@ -130,6 +130,13 @@ export default function NoticePage() {
               ? '你可以向我们索取本次决定所依据的信息摘要，并指出任何不准确之处；如认为公开记录与你无关（例如同名），请告诉我们，我们会复核。你也可以写信至 privacy@stayloop.ai 要求查阅、更正或删除 Stayloop 保存的与你相关的个人信息，注明本信日期与房源地址。'
               : 'You may ask us for a summary of the information this decision relied on and point out anything inaccurate; if you believe a public record is not about you (for example a namesake), tell us and we will re-check. You may also write to privacy@stayloop.ai to access, correct or delete personal information Stayloop holds about you, quoting the date of this letter and the property address.'}
           </p>
+          <p className="mt-1 text-[13.5px] leading-relaxed">
+            {zh
+              ? '你也可以用申请时的邮箱，在 www.stayloop.ai/my-file 免费索取自己的筛查档案、对任何一条提出争议、设置身份警示；三项权利的说明见 '
+              : 'You can also use the email you applied with at www.stayloop.ai/my-file to get your own screening file free of charge, dispute any item and set an identity alert; the three rights are explained at '}
+            <Link href="/consumer-rights" className="font-semibold underline">www.stayloop.ai/consumer-rights</Link>
+            {zh ? '。' : '.'}
+          </p>
           <p className="mt-2 text-[13.5px] leading-relaxed">
             {zh
               ? '本决定未考虑《安大略省人权法典》所列的任何受保护特征（包括种族、宗教、残障、家庭状况、收入来源等）。'

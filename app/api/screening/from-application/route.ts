@@ -133,6 +133,9 @@ export async function POST(req: Request) {
       files,
       notes,
       application_id: appId,
+      // Consumer Reporting Act s.11(3): the applicant was told in writing — the application form's consent is the record.
+      notice_confirmed_at: new Date().toISOString(),
+      notice_confirmed_how: 'application_consent',
     })
     .select('id')
     .single()

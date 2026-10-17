@@ -15,6 +15,7 @@ import { getSupabaseBrowser } from '@/lib/supabase'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import SubscriptionCard from '@/components/settings/SubscriptionCard'
 import DisplayNameCard from '@/components/settings/DisplayNameCard'
+import LandlordPhoneCard from '@/components/settings/LandlordPhoneCard'
 import PushSettingsCard from '@/components/mobile/PushSettingsCard'
 import MyDelegations from '@/components/delegations/MyDelegations'
 
@@ -175,6 +176,7 @@ export default function SettingsPage() {
             {shellRole === 'landlord' && auth.user && (
               <SubscriptionCard userId={auth.user.id} zh={zh} />
             )}
+            {shellRole === 'landlord' && auth.user && <LandlordPhoneCard userId={auth.user.id} zh={zh} />}
             {shellRole === 'agent' && auth.user && (
               <div className="sl-card p-5" data-testid="agent-plan-note">
                 <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '套餐 · 经纪' : 'PLAN · AGENT'}</div>

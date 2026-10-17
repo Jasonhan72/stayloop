@@ -24,6 +24,8 @@ import { courtNoteZh, courtSourceZh, localizeResult } from '@/lib/screening/loca
 import { signalLabel } from '@/lib/screening/signalLabels'
 import { nextStepsFor } from '@/lib/screening/nextStep'
 import NextStepCard from '@/components/screening/NextStepCard'
+import CorrectionsNotice from '@/components/screening/CorrectionsNotice'
+import ConsumerAlertBanner from '@/components/screening/ConsumerAlertBanner'
 import { useState, useEffect } from 'react'
 import { dissolutionReason } from '@/lib/forensics/employer-checks'
 import Link from 'next/link'
@@ -488,6 +490,12 @@ export default function ReportPage() {
             {zh ? '打印 / PDF' : 'Print / PDF'}
           </button>
         </div>
+
+        {/* V0.8 · consumer file access — corrections (s.13) and the applicant's
+            identity alert (s.12.1) sit above the verdict; both render nothing
+            when there is nothing to show. Additive only. */}
+        <ConsumerAlertBanner screeningId={id} zh={zh} className="mt-8" />
+        <CorrectionsNotice screeningId={id} zh={zh} className="mt-4" />
 
         {/* VERDICT CARD */}
         <div
@@ -1950,6 +1958,12 @@ export default function ReportPage() {
           zh={zh}
           className="mt-8"
         />
+
+        {/* V0.8 · the applicant's own door to this file (CRA s.12 / s.13 / s.12.1). */}
+        <p className="mt-4 text-[12.5px] leading-relaxed text-body-3" data-testid="consumer-rights-link">
+          {zh ? '申请人可以用申请时的邮箱免费索取自己的档案、对任何一条提出争议、设置身份警示 → ' : 'The applicant can get their own file free of charge with the email they applied with, dispute any item and set an identity alert → '}
+          <Link href="/consumer-rights" className="font-semibold text-brand hover:underline">/consumer-rights</Link>
+        </p>
 
       </div>
 

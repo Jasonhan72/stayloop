@@ -114,6 +114,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     files: present.map((f) => ({ path: f.path, name: f.name, size: f.size, mime: f.mime, kind: f.kind })),
     notes: intakeScreeningNotes({ linkId: v.link.id, clientId: v.link.client_id, label: v.link.label, submission: { ...sub, files: present }, lookupsAllowed }),
     delegation_id: delegationId,
+    // Consumer Reporting Act s.11(3): the applicant signed the intake authorisation themselves.
+    notice_confirmed_at: new Date().toISOString(),
+    notice_confirmed_how: 'intake_consent',
   }).select('id').maybeSingle()
   if (sErr || !scr) return NextResponse.json({ error: sErr?.message || 'could not create screening' }, { status: 500, headers: NO_STORE })
   const screeningId = (scr as { id: string }).id

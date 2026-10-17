@@ -73,7 +73,7 @@ describe('submitting', () => {
     act(() => { r.root.findByType('form').props.onSubmit({ preventDefault() {} }) })
     expect(push).toHaveBeenCalledWith(assistantPromptHref('agent', '押金最多收多少'))
   })
-  it('rotating examples never change the role chip (a tenant question typed during a landlord example went to the landlord, 2026-10-01)', () => {
+  it('rotating examples never change the role chip, and only the chip’s own examples rotate (2026-10-17: a landlord saw「试试（租客）…」)', () => {
     let r!: TestRenderer.ReactTestRenderer
     act(() => { r = TestRenderer.create(React.createElement(HeroComposer, { zh: false })) })
     const next = r.root.find((n) => n.type === 'button' && n.props['aria-label'] === 'Next example')
@@ -81,10 +81,24 @@ describe('submitting', () => {
     act(() => { next.props.onClick() })
     expect(HERO_EXAMPLES[1].role).toBe('landlord')
     expect(byTestId(r, 'home-ask-role').props.value).toBe('tenant')
-    expect(String(byTestId(r, 'home-ask-input').props.placeholder)).toBe(`Try (landlord) ‘${HERO_EXAMPLES[1].ask.en}’`)
+    const tenantAsks = HERO_EXAMPLES.filter((x) => x.role === 'tenant').map((x) => `Try ‘${x.ask.en}’`)
+    expect(tenantAsks).toContain(String(byTestId(r, 'home-ask-input').props.placeholder))
+    expect(String(byTestId(r, 'home-ask-input').props.placeholder)).not.toMatch(/\(landlord\)|\(agent\)/)
     act(() => { byTestId(r, 'home-ask-input').props.onChange({ target: { value: 'One bedroom near U of T' } }) })
     act(() => { r.root.findByType('form').props.onSubmit({ preventDefault() {} }) })
     expect(push).toHaveBeenCalledWith(assistantPromptHref('tenant', 'One bedroom near U of T'))
+  })
+  it('switching the chip jumps to that role’s first example and keeps rotating inside it', () => {
+    let r!: TestRenderer.ReactTestRenderer
+    act(() => { r = TestRenderer.create(React.createElement(HeroComposer, { zh: true })) })
+    act(() => { byTestId(r, 'home-ask-role').props.onChange({ target: { value: 'landlord' } }) })
+    const landlordAsks = HERO_EXAMPLES.filter((x) => x.role === 'landlord').map((x) => `试试「${x.ask.zh}」`)
+    expect(String(byTestId(r, 'home-ask-input').props.placeholder)).toBe(landlordAsks[0])
+    const next = r.root.find((n) => n.type === 'button' && n.props['aria-label'] === '下一个例子')
+    for (let k = 0; k < landlordAsks.length + 1; k++) {
+      act(() => { next.props.onClick() })
+      expect(landlordAsks).toContain(String(byTestId(r, 'home-ask-input').props.placeholder))
+    }
   })
   it('the placeholder names the example’s role only when it differs from the chip', () => {
     const t = HERO_EXAMPLES.find((x) => x.role === 'tenant')!

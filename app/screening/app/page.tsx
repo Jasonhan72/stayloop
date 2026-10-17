@@ -1598,6 +1598,14 @@ export default function ScreenPage() {
   const tier: 'free' | 'pro' = (plan === 'pro' || plan === 'team') ? 'pro' : 'free'
 
   const [files, setFiles] = useState<File[]>([])
+  // 《消费者报告法》s.11(3) (V0.8 · 2026-10-17): before a NEW screening the landlord attests the
+  // applicant was told in writing (Form 410 / the application page's consent / an intake-link
+  // authorisation); the row is then stamped notice_confirmed_how='landlord_attested'. Rows reached
+  // via ?screening= (application / intake flows) were stamped by their own route, so no checkbox.
+  const [noticeConfirmed, setNoticeConfirmed] = useState(false)
+  const [noticeFromDeepLink, setNoticeFromDeepLink] = useState(false)
+  useEffect(() => { try { setNoticeFromDeepLink(/^[0-9a-f-]{36}$/i.test(new URLSearchParams(window.location.search).get('screening') || '')) } catch { /* no window */ } }, [])
+  const noticeGateOpen = noticeFromDeepLink || noticeConfirmed
   // AI-detected kinds per file (keyed by a stable file signature: name+size)
   const [fileKinds, setFileKinds] = useState<Record<string, string[]>>({})
   // 2026-06-02 — Employers visible in ANY classified file (lease, business
@@ -2310,6 +2318,10 @@ export default function ScreenPage() {
   })
 
   const reset = () => {
+    // A screening opened from a link had its s.11(3) notice recorded upstream; a fresh one started
+    // from here does not — show the checkbox again (V0.8 consumer file access, 2026-10-17).
+    setNoticeFromDeepLink(false)
+    setNoticeConfirmed(false)
     setFiles([])
     setFileKinds({})
     setResult(null)
@@ -2355,6 +2367,11 @@ export default function ScreenPage() {
     if (landlord.isAnonymous) return
     if (!existing && files.length === 0) {
       setError(t('screen.err.min'))
+      return
+    }
+    // s.11(3): a new screening needs the landlord's attestation (the button is disabled too; this is the backstop).
+    if (!existing && !noticeGateOpen) {
+      setError(lang === 'zh' ? '请先勾选「申请人已收到书面通知」（《消费者报告法》s.11(3)）再开始筛查。' : 'Tick “the applicant has been notified in writing” (Consumer Reporting Act s.11(3)) before starting.')
       return
     }
     setAnalyzing(true)
@@ -2578,6 +2595,10 @@ export default function ScreenPage() {
       }
       screeningId = row.id
       setProgress(2)
+      // s.11(3) attestation (V0.8): stamp the new row; a failure here never blocks the screening.
+      try {
+        await supabase.from('screenings').update({ notice_confirmed_at: new Date().toISOString(), notice_confirmed_how: 'landlord_attested' }).eq('id', row.id)
+      } catch { /* non-blocking */ }
 
       // 2. Upload files to storage — one-at-a-time with retry.
       // Sequential upload avoids browser connection-pool saturation
@@ -3233,6 +3254,24 @@ export default function ScreenPage() {
                   </div>
                 )}
 
+                {/* 《消费者报告法》s.11(3) attestation (V0.8 · 2026-10-17) — required for a new
+                    screening; rows opened via ?screening= were stamped by their own route. */}
+                {!noticeFromDeepLink && (
+                  <label data-testid="notice-confirm" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 14, padding: '11px 14px', background: noticeConfirmed ? '#F0FDF4' : '#F3F8FC', border: `1px solid ${noticeConfirmed ? '#BBF7D0' : '#D3E3EF'}`, borderRadius: 12, fontSize: 12.5, color: '#1B1B3C', lineHeight: 1.55, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={noticeConfirmed} onChange={(e) => setNoticeConfirmed(e.target.checked)} style={{ marginTop: 3, width: 16, height: 16, flex: '0 0 auto' }} />
+                    <span>
+                      {lang === 'zh'
+                        ? '申请人已收到书面通知，知道会被筛查（Form 410 / 申请页同意 / 收件链接授权）· 《消费者报告法》s.11(3)'
+                        : 'The applicant has been notified in writing that they will be screened (Form 410 / the application page consent / an intake-link authorisation) · Consumer Reporting Act s.11(3)'}
+                      {!noticeConfirmed && (
+                        <span style={{ display: 'block', marginTop: 3, fontSize: 11.5, color: '#6E6E8A' }}>
+                          {lang === 'zh' ? '未勾选前不能开始新筛查；勾选会记录在这份筛查上。' : 'A new screening cannot start until this is ticked; the attestation is recorded on the screening.'}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                )}
+
                 {/* On a phone the form (drop zone + file list + name + rent)
                     is taller than the viewport, so this button sits below the
                     fold: a first-time landlord uploaded files and then had
@@ -3243,7 +3282,7 @@ export default function ScreenPage() {
                     and does not work here — the button is near the bottom of
                     its parent, so it would have almost no travel to stick over. */}
                 {(() => {
-                  const isDisabled = files.length === 0 || classifying || preparing
+                  const isDisabled = files.length === 0 || classifying || preparing || !noticeGateOpen
                   return (
                     <div>
                     <button
@@ -4301,7 +4340,7 @@ export default function ScreenPage() {
               )}
             </div>
             {(() => {
-              const isDisabled = files.length === 0 || classifying || preparing
+              const isDisabled = files.length === 0 || classifying || preparing || !noticeGateOpen
               return (
                 <button
                   onClick={() => runAnalysis()}

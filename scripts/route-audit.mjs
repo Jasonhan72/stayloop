@@ -28,7 +28,7 @@ async function probe(name, url, opts = {}, expect = {}) {
 // nosniff on worker-rendered pages and APIs, and the microphone allowed for the
 // site itself (the voice-input button) — site test 2026-10-02, L4:D1 / L4:D5.
 const HDR = { 'strict-transport-security': /max-age=\d+/, 'x-frame-options': /DENY/i, 'referrer-policy': /strict-origin-when-cross-origin/, 'x-content-type-options': /^nosniff$/i, 'permissions-policy': /microphone=\(self\)/ }
-const PUBLIC = ['/', '/pricing', '/tenant', '/landlord', '/agent', '/platform', '/stayloop-api', '/stayloop-api/docs', '/services', '/screening', '/about', '/partners', '/contact', '/disputes', '/listings', '/privacy', '/terms', '/login', '/register', '/onboarding/name?role=landlord', '/onboarding/tier1', '/leases/import', '/screening/app', '/dashboard', '/settings', '/landlord/agent', '/landlord/notices', '/tenant/agent', '/agent/agent', '/agent/verify', '/notifications', '/provider/jobs', '/provider/history', '/delegate/not-a-real-token']
+const PUBLIC = ['/', '/pricing', '/tenant', '/landlord', '/agent', '/platform', '/stayloop-api', '/stayloop-api/docs', '/services', '/screening', '/about', '/partners', '/contact', '/disputes', '/listings', '/privacy', '/terms', '/login', '/register', '/onboarding/name?role=landlord', '/onboarding/tier1', '/leases/import', '/screening/app', '/dashboard', '/settings', '/landlord/agent', '/landlord/notices', '/tenant/agent', '/agent/agent', '/agent/verify', '/notifications', '/provider/jobs', '/provider/history', '/delegate/not-a-real-token', '/my-file', '/consumer-rights']
 for (const p of PUBLIC) await probe(`GET ${p}`, `${BASE}${p}${p.includes('?') ? '&' : '?'}${bust()}`, {}, { status: 200, headers: HDR })
 // Cloudflare Email Obfuscation must find no address in a text run here, or the
 // rewritten DOM breaks hydration (React #418) — L6-public:D1.
@@ -39,6 +39,11 @@ await probe('308 /landlord/settings → /settings', `${BASE}/landlord/settings`,
 await probe('308 screening.stayloop.ai → /screening', `https://screening.stayloop.ai/anything`, {}, { status: 308, location: 'www.stayloop.ai/screening' })
 await probe('intake page no-referrer', `${BASE}/intake/not-a-real-token?${bust()}`, {}, { status: 200, headers: { 'referrer-policy': /no-referrer$/ } })
 await probe('agent-intake unknown token → 404', `${BASE}/api/agent-intake/not-a-token`, {}, { status: [404, 400] })
+// V0.8 consumer file access (CRA s.12 / s.13 / s.12.1): the applicant's one-time link page
+// carries no-referrer and says the link is invalid without any fetch; the request
+// endpoint never reveals whether an email exists (200), or rejects a malformed one (400).
+await probe('my-file token page: no-referrer + invalid-link text', `${BASE}/my-file/not-a-token?${bust()}`, {}, { status: 200, headers: { 'referrer-policy': /no-referrer$/ }, bodyIncludes: '链接无效' })
+await probe('consumer/request bad email → 400 or 200', `${BASE}/api/consumer/request`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"email":"not-an-email"}' }, { status: [200, 400, 429] })
 await probe('verify page no-referrer', `${BASE}/verify/not-a-real-token?${bust()}`, {}, { status: 200, headers: { 'referrer-policy': /no-referrer$/ } })
 await probe('public share invalid token', `${BASE}/p/invalid-token-xyz?${bust()}`, {}, { status: 200 })
 await probe('listing detail 404 on unknown slug renders', `${BASE}/listings/no-such-slug-xyz?${bust()}`, {}, { status: [200, 404] })

@@ -17,6 +17,8 @@ import { useT } from '@/lib/i18n'
 import { signalLabel } from '@/lib/screening/signalLabels'
 import { nextStepsFor } from '@/lib/screening/nextStep'
 import NextStepCard from '@/components/screening/NextStepCard'
+import CorrectionsNotice from '@/components/screening/CorrectionsNotice'
+import ConsumerAlertBanner from '@/components/screening/ConsumerAlertBanner'
 
 /* ---------- helpers ---------- */
 
@@ -268,6 +270,12 @@ export default function ScanDonePage() {
               </Link>
             </div>
           </div>
+
+          {/* V0.8 · consumer file access — the applicant's identity alert (s.12.1)
+              and any correction records (s.13) above the conclusion card; both
+              render nothing when empty. Additive only. */}
+          <ConsumerAlertBanner screeningId={id} zh={zh} className="mt-8" />
+          <CorrectionsNotice screeningId={id} zh={zh} className="mt-4" />
 
           {/* Score Card */}
           <div className="mt-8 rounded-2xl border border-line-divider bg-white p-7 shadow-sm sm:p-10">

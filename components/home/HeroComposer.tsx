@@ -24,7 +24,7 @@
 // change sends the example the visitor was reading; only changes the visitor makes are announced to
 // screen readers; phones (where the placeholder cannot fit) get a short placeholder and the example as
 // a tappable caption on the photo; only the current and next photos load.
-import { useCallback, useEffect, useRef, useState, type FocusEvent, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type FocusEvent, type FormEvent, type ReactNode, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ASK_MAX, ASSISTANT_ROLES, assistantPromptHref, isAssistantRole, type AssistantRole } from '@/lib/homeDeepLink'
@@ -100,6 +100,10 @@ export default function HeroComposer({ zh, className = '', homeHref, defaultRole
   const changed = useRef({ at: 0, prev: 0 })
   const n = HERO_EXAMPLES.length
   const ex = HERO_EXAMPLES[i]
+  // The rotation only shows the chip's own examples (2026-10-17: a landlord saw「试试（租客）…」—
+  // the examples must match the role on the chip). `i` stays a global index so the photo
+  // cross-fade is unchanged; `pool` is the indices that belong to the chip's role.
+  const pool = useMemo(() => HERO_EXAMPLES.map((x, k) => (x.role === role ? k : -1)).filter((k) => k >= 0), [role])
 
   // After mount only (the first render matches the server): reduced motion, phone width, the chosen role.
   useEffect(() => {
@@ -133,13 +137,24 @@ export default function HeroComposer({ zh, className = '', homeHref, defaultRole
     setSeen((s) => (s.has(next) && s.has((next + 1) % n) ? s : new Set([...s, next, (next + 1) % n])))
   }, [n])
 
+  /** The pool index after `delta` steps from the example on show (the shown one is always in the pool). */
+  const step = useCallback((delta: number) => {
+    const at = Math.max(0, pool.indexOf(i))
+    return pool[(at + delta + pool.length) % pool.length]
+  }, [pool, i])
+
+  // A role change jumps to that role's first example when the one on show is somebody else's.
+  useEffect(() => {
+    if (pool.length && !pool.includes(i)) show(pool[0])
+  }, [pool, i, show])
+
   // Auto-advance only while nobody is reading or typing in the box.
   const idle = playing && visible && !inside.hover && !inside.focus && !text
   useEffect(() => {
     if (!idle) return
-    const t = setTimeout(() => show((i + 1) % n), ROTATE_MS)
+    const t = setTimeout(() => show(step(1)), ROTATE_MS)
     return () => clearTimeout(t)
-  }, [idle, i, n, show])
+  }, [idle, i, show, step])
 
   // Back from the AI Agent page may restore this page from the bfcache: let the button work again.
   useEffect(() => {
@@ -151,10 +166,11 @@ export default function HeroComposer({ zh, className = '', homeHref, defaultRole
 
   // Visitor-driven changes are announced; automatic rotation is not.
   const go = (delta: number) => {
-    const next = (i + delta + n) % n
+    const next = step(delta)
     show(next)
     const x = HERO_EXAMPLES[next]
-    setSaid(zh ? `例子 ${next + 1} / ${n}（${ROLE_LABEL[x.role].zh}）：${x.ask.zh}` : `Example ${next + 1} of ${n} (${ROLE_LABEL[x.role].en.toLowerCase()}): ${x.ask.en}`)
+    const k = pool.indexOf(next) + 1
+    setSaid(zh ? `例子 ${k} / ${pool.length}（${ROLE_LABEL[x.role].zh}）：${x.ask.zh}` : `Example ${k} of ${pool.length} (${ROLE_LABEL[x.role].en.toLowerCase()}): ${x.ask.en}`)
   }
 
   const pickRole = (r: AssistantRole) => {
