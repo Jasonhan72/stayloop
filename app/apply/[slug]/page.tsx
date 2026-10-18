@@ -2,6 +2,7 @@
 
 export const runtime = 'edge'
 
+import { useDocTitle } from '@/components/DocTitle'
 import { isTestListing, TEST_LISTING_LABEL } from '@/lib/listingVisibility'
 import { useState, useRef, useEffect } from 'react'
 import { prepareUploads } from '@/lib/screening/prepareUpload'
@@ -223,10 +224,8 @@ export default function ApplyPage() {
   // listing that could not be read keeps the Ontario form, as before (the submit-time check still guards).
   const province: ProvinceCode = summary ? listingProvince(summary) : 'ON'
   // The tab title names the listing and follows the language (D-S3-1); set in an effect so the first paint matches the server.
-  useEffect(() => {
-    const where = summary ? listingTitle(summary.address, summary.unit) : ''
-    document.title = zh ? `申请${where ? ` · ${where}` : ''} · Stayloop` : `Apply${where ? ` · ${where}` : ''} · Stayloop`
-  }, [summary, zh])
+  const titleWhere = summary ? listingTitle(summary.address, summary.unit) : ''
+  useDocTitle(zh ? `申请${titleWhere ? ` · ${titleWhere}` : ''} · Stayloop` : `Apply${titleWhere ? ` · ${titleWhere}` : ''} · Stayloop`)
   const provinceKnown = !!summary || listingCheck !== 'checking'
   const isOntario = province === 'ON'
   const quebec = province === 'QC'

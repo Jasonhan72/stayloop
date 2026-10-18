@@ -49,12 +49,12 @@ describe('O-D1 / O-D2 · privacy contact and consumer-rights footer link', () =>
 
 describe('C-S3-3 / D-S3-1 · tab titles follow the language', () => {
   it('/listings, /tenant/* and /apply set the title in an effect', () => {
-    expect(read('components/DocTitle.tsx')).toContain('document.title = title')
+    expect(read('components/DocTitle.tsx')).toContain('mo.observe(document.head')
     expect(read('app/listings/page.tsx')).toContain('<DocTitle zh="房源 · Stayloop" en="Listings · Stayloop" />')
     expect(read('app/tenant/layout.tsx')).toContain('<DocTitle')
     const apply = read('app/apply/[slug]/page.tsx')
-    expect(apply).toContain('document.title = zh ?')
-    expect(apply).toContain('Apply${where')
+    expect(apply).toContain('useDocTitle(zh ?')
+    expect(apply).toContain('Apply${titleWhere')
   })
 })
 
