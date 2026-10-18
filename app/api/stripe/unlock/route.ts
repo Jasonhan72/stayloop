@@ -61,14 +61,10 @@ export async function POST(req: NextRequest) {
       .select('id, auth_id, email, stripe_customer_id')
       .or(`id.eq.${user.id},auth_id.eq.${user.id}`)
     let landlord = pickLandlordRow(rows, user.id)
+    // Site test 2026-10-17 (T6-D1): no claim_landlord() self-heal — a billing call must never
+    // open the landlord hat. Accounts without one are sent to /landlord/become.
     if (!landlord) {
-      // Same self-heal as /api/stripe/checkout: the row is created lazily.
-      const { data: claimed } = await supabase.rpc('claim_landlord')
-      const row = Array.isArray(claimed) ? claimed[0] : claimed
-      if (row && typeof row === 'object' && 'id' in row) landlord = row as any
-    }
-    if (!landlord) {
-      return NextResponse.json({ error: 'landlord not found' }, { status: 404 })
+      return NextResponse.json({ error: 'landlord_required' }, { status: 403 })
     }
 
     // The screening must belong to the caller (RLS scopes the read) and

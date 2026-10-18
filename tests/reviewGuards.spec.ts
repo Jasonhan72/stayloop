@@ -108,7 +108,7 @@ describe('review 2026-09-17', () => {
     // send_lease executor); the route hands it the service-role client.
     const s = src('app/api/lease/send/route.ts')
     expect(s).toMatch(/adminSb\s*=\s*createClient\(process\.env\.NEXT_PUBLIC_SUPABASE_URL!,\s*process\.env\.SUPABASE_SERVICE_ROLE_KEY!/)
-    expect(s).toMatch(/sendLeaseInvitation\(adminSb, lease as LeaseForSend, ud\.user\.id\)/)
+    expect(s).toMatch(/sendLeaseInvitation\(adminSb, full as LeaseForSend, ud\.user\.id\)/)
     const lib = src('lib/lease/sendLease.ts')
     expect(lib).toMatch(/\.from\('lease_documents'\)\s*\.update\(\{ sign_token: token/)
   })

@@ -32,7 +32,6 @@ type DbLease = {
   tenant_name: string | null
   tenant_email: string | null
   unit_label: string | null
-  sign_token: string | null
   sent_at: string | null
   landlord_signature: LeaseSignature | null
   tenant_signature: LeaseSignature | null
@@ -64,7 +63,7 @@ function RealLeaseDetail({ id }: { id: string }) {
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from('lease_documents')
-      .select('id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, sent_at, landlord_signature, tenant_signature, signed_at, pdf_path, application_id, listing_id')
+      .select('id, form_type, status, terms, tenant_name, tenant_email, unit_label, sent_at, landlord_signature, tenant_signature, signed_at, pdf_path, application_id, listing_id')
       .eq('id', id)
       .maybeSingle<DbLease>()
     if (error || !data) { setLease('missing'); return }
@@ -188,7 +187,6 @@ function RealLeaseDetail({ id }: { id: string }) {
 
   const l = lease
   const fullySigned = !!l.landlord_signature && !!l.tenant_signature
-  const tenantLink = l.sign_token ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.stayloop.ai'}/lease/sign/${l.sign_token}` : null
   // A document only when the form's renderer can draw it: every nested block it reads must be
   // there (site test 2026-10-02 — a row without `contact` crashed the page). Anything less falls
   // back to the record-only view below, never to the renderer.
@@ -316,12 +314,13 @@ function RealLeaseDetail({ id }: { id: string }) {
             </div>
           )}
 
-          {tenantLink && (
+          {l.sent_at && !fullySigned && (
             <div className="mt-4 rounded-lg bg-surface-chip px-4 py-3 text-[12px] text-body-2">
-              <span className="font-mono font-bold uppercase tracking-eyebrow text-body-3">{zh ? '租客永久链接' : 'Tenant permanent link'}</span>
-              <div className="mt-1 break-all font-mono text-[11.5px]">{tenantLink}</div>
+              <span className="font-mono font-bold uppercase tracking-eyebrow text-body-3">{zh ? '租客签署链接' : 'Tenant signing link'}</span>
               <div className="mt-1 text-body-3">
-                {zh ? '签署前用于签字；签署后长期有效，租客可随时查看与下载。' : 'Used for signing before execution; stays valid forever for viewing and downloads after.'}
+                {zh
+                  ? '签署链接只发到租客的邮箱（见上方「重发签署邀请」）；房东端不显示，签署人身份以收件邮箱为准。'
+                  : 'The signing link is delivered only to the tenant’s email (use “Resend signing invite” above); it is not shown here, so the signer is whoever holds that inbox.'}
               </div>
             </div>
           )}

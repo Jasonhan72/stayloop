@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   // the lease's landlord (review 2026-09-19).
   const { data: lease, error: le } = await sb
     .from('lease_documents')
-    .select('id, landlord_id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, sent_at, landlord_signature, tenant_signature')
+    .select('id, landlord_id, status, terms, tenant_email')
     .eq('id', body.lease_id)
     .maybeSingle()
   if (le || !lease) return NextResponse.json({ error: 'lease not found' }, { status: 404 })
@@ -51,8 +51,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'hourly send limit reached' }, { status: 429, headers: { 'Retry-After': '3600' } })
   }
 
+  // sign_token is not client-readable (site test 2026-10-17, T6-D2): the full row comes from service role.
   const adminSb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
-  const sent = await sendLeaseInvitation(adminSb, lease as LeaseForSend, ud.user.id)
+  const { data: full } = await adminSb
+    .from('lease_documents')
+    .select('id, landlord_id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, sent_at, landlord_signature, tenant_signature')
+    .eq('id', lease.id)
+    .maybeSingle()
+  if (!full) return NextResponse.json({ error: 'lease not found' }, { status: 404 })
+  const sent = await sendLeaseInvitation(adminSb, full as LeaseForSend, ud.user.id)
   if (!sent.ok) return NextResponse.json({ error: sent.error }, { status: sent.status })
   return NextResponse.json({ ok: true, sent_to: lease.tenant_email })
 }

@@ -1780,6 +1780,8 @@ export default function ScreenPage() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       const data = await res.json()
+      // Site test 2026-10-17 (T6-D1): billing never opens the landlord hat; send the caller to /landlord/become.
+      if (res.status === 403 && data.error === 'landlord_required') { window.location.href = `/landlord/become?next=${encodeURIComponent(window.location.pathname)}`; return }
       if (!res.ok || !data.url) throw new Error(data.error || 'checkout failed')
       window.location.href = data.url
     } catch (err: any) {
@@ -3772,6 +3774,7 @@ export default function ScreenPage() {
                       }),
                     })
                     const data = await res.json()
+                    if (res.status === 403 && data.error === 'landlord_required') { window.location.href = `/landlord/become?next=${encodeURIComponent(window.location.pathname)}`; return }
                     if (!res.ok || !data.url) throw new Error(data.error || 'unlock failed')
                     if (payer === 'landlord') { window.location.href = data.url; return }
                     setTenantPayLink(data.url)

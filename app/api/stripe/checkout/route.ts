@@ -46,22 +46,12 @@ export async function POST(req: NextRequest) {
 
     let landlord: BillingRow | null = found
 
-    // Self-heal a missing profile instead of dead-ending the purchase.
-    //
-    // The landlords row is created lazily by useLandlord() → claim_landlord(),
-    // which only runs on workspace pages. A user who signs up and goes straight
-    // to /screening never has one, so clicking Upgrade returned
-    // "landlord not found" and there was no way forward from the UI. That was
-    // 45 of 96 accounts. claim_landlord() is SECURITY DEFINER and idempotent
-    // (returns the existing row, claims one matching the email, or inserts a
-    // free/landlord row), so calling it here is safe and is exactly what the
-    // workspace would have done.
+    // Site test 2026-10-17 (T6-D1): no self-heal here. Calling claim_landlord() from a billing
+    // route let ANY signed-in account (a tenant probing the API) become a landlord with a 30-day
+    // Pro trial just by POSTing. The landlord hat is opened only by explicit actions
+    // (/landlord/become, onboarding, publishing a listing); a caller without one gets 403.
     if (!landlordErr && !landlord) {
-      const { data: claimed } = await supabase.rpc('claim_landlord')
-      const row = Array.isArray(claimed) ? claimed[0] : claimed
-      if (row && typeof row === 'object' && 'id' in row) {
-        landlord = row as BillingRow
-      }
+      return NextResponse.json({ error: 'landlord_required' }, { status: 403 })
     }
 
     if (landlordErr || !landlord) {

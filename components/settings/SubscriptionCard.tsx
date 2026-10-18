@@ -63,8 +63,12 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
       body: body ? JSON.stringify(body) : undefined,
     })
     const data = await res.json().catch(() => ({}))
+    if (res.status === 403 && data.error === 'landlord_required') {
+      window.location.href = `/landlord/become?next=${encodeURIComponent(window.location.pathname)}`
+      return { redirected: true }
+    }
     if (!res.ok) throw new Error(data.error || `${path} failed`)
-    return data as { url?: string; ok?: boolean }
+    return data as { url?: string; ok?: boolean; redirected?: boolean }
   }
 
   async function go(kind: Exclude<Busy, null>) {
@@ -72,7 +76,8 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
     setErr(null)
     try {
       if (kind === 'checkout') {
-        const { url } = await authedPost('/api/stripe/checkout')
+        const { url, redirected } = await authedPost('/api/stripe/checkout')
+        if (redirected) return
         if (!url) throw new Error('checkout failed')
         window.location.href = url
         return
