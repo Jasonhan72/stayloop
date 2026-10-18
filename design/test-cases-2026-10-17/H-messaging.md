@@ -46,3 +46,34 @@
 | H-16 | `my_unread_messages`：tenant 0 · landlord 1 · provider 2（与各自未读一致） | RPC | 通过 |
 | H-17 | agent-test 读 `thread_messages` / `threads` → 0 行 | REST | 通过 |
 | H-18 | `thread_reply_tokens` 只有 reply.stayloop.ai 形态；`/api/w/<token>` GET 的 `landlord_email` 为 null；通知邮件 Reply-To 走 token（未逐封打开邮件） | SQL + api | 通过 |
+
+
+## 执行记录（界面部分 · 2026-10-18 · 无头 Chrome 9320）
+
+截图：`scratchpad/sitetest1017/G2/h-*.png`、`t-thread-*.png`、`t-messages-375.png`，以及 `H/ui-*.png`。
+
+| ID | 实际 | 证据 | 结果 |
+|---|---|---|---|
+| H-03 | tenant-test `/messages`（1280）：三栏（会话列表 · 线程 · 会话记录侧栏）；筛选 `All 7 / Awaiting reply 1 → 1 行 / Providers → 3 行 / Stayloop`；搜索 `Northline` → 2 行，`100 Test Ave` → 1 行，无匹配 → 0 行（未见专门的空态文案，列表只是空——记为观察）；行 = 头像 + 对方名字 + 角色徽标 + 事务 + 最后一句，未读蓝点 | `G2/t-thread-1280.png`、ui_h 输出 | 通过 |
+| H-04 | 「＋ New」→ 第一步 `who`（Stayloop support 置顶，其余为人 / 房东 / 服务商，带事务摘要）；选 Stayloop → 已有 support 线程直接打开（URL `?t=…&compose=1`）；选人 → 事务 → 写的后两步在 `H/ui-new-message-2/3.png`（上一轮截图，已核） | `G2/h-new1.png` `h-new2.png`、`H/ui-new-message-*.png` | 通过 |
+| H-12（UI） | 线程里每条自己的消息有 `Retract` 按钮；已撤回消息的显示与「原文保留」沿用 API 部分结果。服务端不拦 10 分钟窗口：对 >10 分钟的消息 50 插入 retraction → 201（`bg_flow.log` 第 1 段，行 63）→ 见 H-D2 | `G/bg_flow.log` | 通过（UI）；服务端窗口 = 缺陷 H-D2 |
+| H-13（UI） | support 线程输入框：Shift+Enter **不发送**（CDP 无法注入换行字符，换行本身未验证）；Enter 发送，输入框清空，消息出现 1 次（列表预览另计）；无重复发送。静态核对见 API 部分 | `G2/h-sent.png` | 通过（换行插入未验） |
+| H-16（UI） | 汉堡 / 侧栏红点：tenant 导航 `Messages` 红点 1、`To-do` 1，与 `my_unread_messages` 吻合（读到线程后列表蓝点消失）。 | `G2/t-thread-1280.png` | 通过 |
+| 线程完整性侧栏 | `RECORD OF THIS CONVERSATION`：Messages 3 · Range · `✓ untouched (3/3)` · Head `7eac…a138`，写明「在你的浏览器里重新计算（SHA-256）」；Export printable / JSON；`Kept 7 years` 链接 | `G2/t-thread-1280.png` | 通过 |
+| 手机 375 | `/messages` 列表（搜索 + 筛选胶囊可横滑）、进入线程有返回键、textarea 16px、无横向溢出；Install-app 横幅在手机底部会遮住列表最后一行（可关，非缺陷） | `G2/t-messages-375.png` `t-thread-375.png` | 通过 |
+| XSS 探针 | 列表预览里有上一轮 T6 留下的 `<img src=x onerror=alert(1)>` 文本，页面按文本渲染、无弹窗 | `G2/t-messages-375.png` | 通过 |
+
+## 缺陷
+
+- **H-D1 · S3 / P3** · 英文界面的会话列表预览与线程系统行直接显示中英双语存储串：`System: 租客确认问题已解决 / Tenant confirmed the fix`、`System: 工单已归档 / Work order closed`、线程里 `Oct 17, 11:30 p.m. · 租客确认问题已解决 / Tenant confirmed the fix`。违反「英文界面不能出现中文」。复现：tenant-test 英文界面 `/messages`。证据：`G2/t-messages-375.png`、`t-thread-1280.png`。建议：系统行存 `meta.i18n {zh,en}` 并按界面语言渲染，或渲染时按「 / 」拆分取当前语言一半。
+- **H-D2 · S3 / P3** · 撤回的 10 分钟窗口只在 UI（`canRetract`），服务端不拦：租客可对 >10 分钟的自己消息插入 `retraction`（201，行 63）。按设计原文始终保留、撤回只是新增一行，所以影响限于「撤回」标记可晚到；若窗口是产品承诺，需在 `thread_messages` 插入触发器里加判断。
+- 观察：搜索无匹配时无空态文案；`/messages?t=…&compose=1` 打开已有对话时多带 `compose=1`（行为无害）。
+- 越界发现：G-D1（act 路由泄露外部联系人 token）、G-D3（token 页 Referrer-Policy）见 G 文件；`app/dashboard/page.tsx` 与筛查页仍有 `window.confirm / alert`（G-40，已知「后台与筛查页暂留」）。
+
+## 数据副作用（H）
+
+- 线程 `cb48bb31…`（work_order，G 组工单）与 support 线程 `3430cd0b-1319-4aec-8215-bbc18c7b3330`（tenant ↔ Stayloop，admin@ 可见）：`thread_messages` 行 49–63 区间（含伪造字段被触发器改回的 49、引用附件的 50、retraction 52 与 63、外部联系人线程行 55 等）；界面部分在 support 线程多发 1 条 `[TEST] H-13 UI 发送：忽略 Enter 发送`（只追加不可删）。
+- 附件：`/api/threads/upload` 登记的 favicon png 一份（sha256 10c482a8…904d96）。
+- `message_reads` 三个高水位（landlord 行 = 49）；`message_deliveries` 行 35/36/37（H-14）；`thread_reply_tokens` 四行（external / tenant / landlord / provider）；审计 `thread_export_generated`（H-10）。
+- 邮件：H-14 两封（外部联系人 landlord-test+plumber@、租客）+ 界面发 1 条可能触发 1 封 support 通知；合计 ≤3，均测试邮箱。
+- 使用的魔法链接 3 次。

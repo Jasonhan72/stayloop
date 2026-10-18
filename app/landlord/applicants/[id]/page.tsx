@@ -27,6 +27,7 @@ import { inUndoWindow, noticeConfirmedSent, noticeControls, noticeDecisionOf, no
 import { listingProvince } from '@/lib/listingDisplay'
 import { humanRights, rulesFor } from '@/lib/provinces/rules'
 
+const UNDO_MS = 60_000 // same window as the to-do page (lib/agent/useAgentSession.ts)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const FILE_KIND_LABEL: Record<string, string> = {
@@ -137,6 +138,9 @@ function RealApplicantDetail({ id }: { id: string }) {
   // Cards this page already tried to send: a failed attempt is no longer "waiting
   // out the undo window", whatever decided_at says.
   const [triedHere, setTriedHere] = useState<ReadonlySet<string>>(() => new Set())
+  // A notice approved on this page waits out the 60-second undo window here before it is sent
+  // (site test 2026-10-17, E-D2 — it used to go out on the click, unlike the to-do page).
+  const [autoSend, setAutoSend] = useState<{ id: string; at: number } | null>(null)
   // A card the landlord rejected on this page (e.g. to fix a typo in the reason).
   const [lastRejected, setLastRejected] = useState<{ decision: NoticeDecision; reason: string | null } | null>(null)
   const [needsMoreOpen, setNeedsMoreOpen] = useState(false)
@@ -362,11 +366,21 @@ function RealApplicantDetail({ id }: { id: string }) {
         if (dec) setLastRejected({ decision: dec, reason: typeof (card ?? row).metadata?.reason === 'string' ? ((card ?? row).metadata.reason as string) : null })
         return
       }
-      await runNotice({ ...(card ?? (row as PendingAction & NoticeRow)), status: 'approved' })
+      const decidedAt = Date.parse(String((row as NoticeRow).decided_at ?? '')) || Date.now()
+      setAutoSend({ id: row.id, at: decidedAt + UNDO_MS })
+      await loadCards()
     } finally {
       setNoticeBusy(false)
     }
   }
+
+  // The undo window ended with the page still open: send it (withdrawing clears the card and the timer).
+  useEffect(() => {
+    if (!autoSend || !stuckCard || stuckCard.id !== autoSend.id || triedHere.has(autoSend.id) || noticeBusy) return
+    const t = setTimeout(() => { setAutoSend(null); void retryStuck() }, Math.max(0, autoSend.at - Date.now()))
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSend, stuckCard, triedHere, noticeBusy])
 
   async function retryStuck() {
     if (!stuckCard || noticeBusy) return

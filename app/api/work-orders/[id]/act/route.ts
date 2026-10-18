@@ -5,7 +5,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { actOnWorkOrder } from '@/lib/marketplace/server'
-import type { ActorKind, WoAction } from '@/lib/marketplace/workOrders'
+import { WORK_ORDER_COLUMNS, type ActorKind, type WoAction } from '@/lib/marketplace/workOrders'
 import { underHourlyLimit } from '@/lib/rateLimit'
 
 export const runtime = 'edge'
@@ -55,5 +55,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
   const r = await actOnWorkOrder(admin, { woId: id, action, by, actorId: userId, payload: body.payload || {} })
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })
-  return NextResponse.json({ ok: true, status: r.wo.status, work_order: r.wo })
+  // Only the client-readable columns go back: r.wo is the full row, and its token / external_email
+  // are the external contact's credential (site test 2026-10-17, G-D1 — a tenant got the token here).
+  const row = r.wo as unknown as Record<string, unknown>
+  const work_order = Object.fromEntries(WORK_ORDER_COLUMNS.split(', ').map((k) => [k, row[k] ?? null]))
+  return NextResponse.json({ ok: true, status: r.wo.status, work_order })
 }

@@ -132,8 +132,10 @@ export default function HeroComposer({ zh, className = '', homeHref, defaultRole
     return () => { io.disconnect(); document.removeEventListener('visibilitychange', sync) }
   }, [])
 
-  const show = useCallback((next: number) => {
-    setI((cur) => { changed.current = { at: Date.now(), prev: cur }; return next })
+  // Only the automatic rotation opens the grace window; a change the visitor made (a role pick,
+  // the ‹ › buttons) means they are looking at the new example (site test 2026-10-17, B-D1).
+  const show = useCallback((next: number, auto = false) => {
+    setI((cur) => { changed.current = { at: auto ? Date.now() : 0, prev: cur }; return next })
     setSeen((s) => (s.has(next) && s.has((next + 1) % n) ? s : new Set([...s, next, (next + 1) % n])))
   }, [n])
 
@@ -152,7 +154,7 @@ export default function HeroComposer({ zh, className = '', homeHref, defaultRole
   const idle = playing && visible && !inside.hover && !inside.focus && !text
   useEffect(() => {
     if (!idle) return
-    const t = setTimeout(() => show(step(1)), ROTATE_MS)
+    const t = setTimeout(() => show(step(1), true), ROTATE_MS)
     return () => clearTimeout(t)
   }, [idle, i, show, step])
 

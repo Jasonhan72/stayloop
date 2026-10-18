@@ -2755,7 +2755,7 @@ export default function ScreenPage() {
           </div>
           <div style={{ marginTop: 8, fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>
             {lang === 'zh'
-              ? '注册后即可开始筛查，免费档每月 5 单；历史记录云端保留。'
+              ? '注册后即可开始筛查，免费档每月 3 单；历史记录云端保留。'
               : 'Register to start screening — the free tier includes 3 screenings per month, with your history saved to your account.'}
           </div>
           <div style={{ marginTop: 14, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>

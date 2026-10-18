@@ -44,7 +44,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
   - **锁函数一律写 `revoke execute … from public, anon, authenticated`** 再显式 grant（只撤 anon 在 ACL 含 PUBLIC 时是空操作）。触发器函数撤销全部 API 角色。
   - **守卫触发器用 SECURITY INVOKER + `is_direct_client_write()`**（看 `current_user`）；definer 触发器里 current_user 永远是 owner，判断失效。守卫要挂 `BEFORE INSERT OR UPDATE`，只挂 UPDATE = INSERT 敞开。
   - **FOR ALL 策略没有 WITH CHECK = 双方都能改写**；策略只约束行不约束列，需要列级保护就加守卫或列级授权。
-  - **表级 grant 会让列级 revoke 变空操作**：先 revoke 表，再 grant 列。做了列级授权的表，客户端一律显式列名（`select('*')` 会 42501）。现有列级保护：`work_orders.token / external_email`、`delegations.confirm_token`、`household_invites.invited_email / token`、`consumer_requests` 全表。
+  - **表级 grant 会让列级 revoke 变空操作**：先 revoke 表，再 grant 列。做了列级授权的表，客户端一律显式列名（`select('*')` 会 42501）。现有列级保护：`work_orders.token / external_email`、`delegations.confirm_token`、`household_invites.invited_email / token`、`lease_documents.sign_token`（签署链接只经邮件，服务端用 service role 读）、`consumer_requests` 全表。
   - **definer 视图（`security_invoker=false`）要撤销写权限**：新项目默认权限给三个角色 ALL，单表视图会变成可写的后门。公开目录一律走视图，不给 anon 表级 select。
   - **策略里不能查自己的表**（无限递归）；查别的表要考虑调用者对那张表有没有 SELECT（anon 已无 `listings` SELECT），需要时包成 SECURITY DEFINER 助手。permissive 策略 OR 在一起求值，绑 `{public}` 的策略对 anon 也会执行。
   - **`INSERT … RETURNING` 也套 SELECT 策略**：匿名插入不要 `.select()`，客户端自己生成 uuid。

@@ -18,6 +18,7 @@ import { useSearchParams } from 'next/navigation'
 import { SectionCard, StatusPill } from '@/components/workspace'
 import { writeAuditEvent } from '@/lib/agent/audit'
 import { isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
+import { torontoDate } from '@/lib/household/ledger'
 import { ledgerStart, rentLedger, type LedgerRow } from '@/lib/household/ledger'
 import { rentSchedule } from '@/lib/household/schedule'
 import { useT } from '@/lib/i18n'
@@ -139,7 +140,8 @@ export default function NoticeToolbox() {
   const [recording, setRecording] = useState(false)
   const [recordMsg, setRecordMsg] = useState<string | null>(null)
 
-  const today = isoDate(todayUtc())
+  // Toronto calendar day, not UTC: after 8 pm the UTC date is already tomorrow (site test 2026-10-17, D-F-01).
+  const today = torontoDate()
 
   // ── Reads (caller's RLS client) ───────────────────────────────────────
   useEffect(() => {
@@ -210,11 +212,11 @@ export default function NoticeToolbox() {
   const unpaid = useMemo(() => {
     if (!lease) return [] as { due: string; amount: number }[]
     const start = ledgerStart(household?.start_date, lease.start_date)
-    const schedule = rentSchedule(start, dueDay, todayUtc(), 0)
+    const schedule = rentSchedule(start, dueDay, parseDateOnly(today)!, 0)
     const ledger = rentLedger(schedule, rents as LedgerRow[])
     const amountOf = new Map(rents.map((r) => [r.due_date.slice(0, 10), num(r.amount)]))
     return ledger.missed.map((due) => ({ due, amount: amountOf.get(due) || monthlyRent }))
-  }, [lease, household, rents, dueDay, monthlyRent])
+  }, [lease, household, rents, dueDay, monthlyRent, today])
 
   const result: ComputeResult | null = useMemo(() => {
     if (!lease || !form) return null

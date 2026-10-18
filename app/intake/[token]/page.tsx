@@ -128,7 +128,7 @@ export default function AgentIntakePage() {
   const input = 'rounded-md border border-line-divider bg-white px-3 py-2 text-[14px] w-full'
   return (
     <Shell>
-      <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '租赁申请材料 · 经经纪收件' : 'RENTAL APPLICATION DOCUMENTS · VIA YOUR AGENT'}</div>
+      <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '租赁申请材料 · 经纪代收' : 'RENTAL APPLICATION DOCUMENTS · VIA YOUR AGENT'}</div>
       <h1 className="mt-1 text-[22px] font-extrabold tracking-tight">{zh ? '把申请材料交给经纪' : 'Hand your application documents to the agent'}</h1>
       <div className="mt-4 rounded-2xl border border-line-divider bg-white p-5 text-[13.5px]" data-testid="intake-agent">
         {agent ? (

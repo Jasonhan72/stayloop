@@ -77,3 +77,44 @@
 | G-33 | 回滚事务：把测试工单临时置 accepted，以租客身份插入评价但 `provider_id` = Maple（工单服务商是 Northline）→ **插入成功**；`by_kind: landlord` 冒充 → 42501；超过 14 天窗口 → 42501；同人第二条 → 23505；表上无触发器 | SQL 回滚探针 | **失败 → G-D2** |
 | G-32（重复 / 窗口） | 见 G-33 探针：23505 与 42501 均生效 | — | 通过 |
 | G-40 | 维修 / 消息模块组件无 `window.confirm / alert`；残留在 `app/dashboard/page.tsx`（删除 / 归档房源 alert）与筛查页（越界，见 §越界） | grep | 通过（本模块） |
+
+
+## 执行记录（界面部分 · 2026-10-18 · 无头 Chrome 端口 9320，魔法链接登录）
+
+脚本与截图：`scratchpad/sitetest1017/G2/`（`ui_t.mjs ui_t2.mjs ui_p.mjs ui_m.mjs ui_m2.mjs`，截图 `*.png`）与 `G/ui-*.png`。界面语言为英文（新 profile 默认）；宽度 1280 与 375 各抽查，横向溢出一律用 `scrollWidth - clientWidth`。
+
+| ID | 实际 | 证据 | 结果 |
+|---|---|---|---|
+| G-01 | `/tenant/maintenance`「New request」弹窗：眉标 `100 TEST AVE #1 · MAINTENANCE · TO THE LANDLORD`；`input[type=file]` accept=`image/*,.heic,.heif` multiple；照片格 5 个；描述为空时提交禁用 | `G/ui-tenant-modal.png`、ui_m 输出 | 通过 |
+| G-02 | 一次选 6 张 → 5 个缩略图，提示 `Up to 5 photos; 1 extra skipped`（中文串见 `NewTicketModal.tsx:104`） | `G2/t-modal-skipped.png` | 通过 |
+| G-03 | 类别 Heating/AC + 描述 `No heat at all…` → 红字 `This sounds like an emergency (RTA s.20)…`，Urgency 自动选 Urgent · 24 hrs | `G/ui-tenant-emergency.png` | 通过 |
+| G-04 | agent-test（无在管租约）的 `/tenant/maintenance` 是空态：`No maintenance yet. Join your managed tenancy… / Import a signed lease →`，**页面没有「New request」按钮**，弹窗根本打不开 | ui_m 输出 | 通过（用例过期：入口前移到空态，等效拦截；用例改写为「空态文案 + 导入租约链接」） |
+| G-06 | 房东 `/h/1c9abb72…?tab=maintenance` 点 Dispatch：弹窗含 Trade / Entry(RTA s.27) / 紧急勾选 / Curated network · My own contact 切换；精选网络列 Maple、Northline、Muse（verified，城市 / 时薪 / 出勤费）；「My own contact」只要邮箱；Esc 关闭 | `G/ui-landlord-dispatch-modal.png` `-own.png` | 通过 |
+| G-35/36（页面） | 外部联系人 `/w/<token>`（工单 fcbcfcf1，paid）：1280 与 375 都无横向溢出；显示 `WORK ORDER · VIA STAYLOOP`、状态 Paid、完整地址（已接受后）、你的报价 / 时间线 ✓、工单对话 3 条、「Reach the landlord in the conversation」（无房东邮箱）；乱 token → `This link is invalid or expired`。G-36 decline 流程未跑（见 G-D1 的原则：不再用 token 写入） | `G2/w-1280.png` `w-375.png` | 通过（页面）；G-36 未执行 |
+| G-38（页面） | `/landlord/providers` 有 `Dispatch policy` 卡；375 无溢出；`/landlord/maintenance` 375 无溢出。策略条文案随值变化未重测（API 部分已证 `dispatch_policies` 写入 / 恢复） | `G2/l-providers-375.png` | 通过（部分） |
+| G-39 | provider-test `/provider/jobs`：Verified · eligible for dispatch；六格（New invitations 0 · Quoted 0 · In progress 1 · Awaiting acceptance 0 · Awaiting payment 0 · Paid this year $0 · ★4.5 (2)）；四个覆盖标签（Plumbing / Electrical / Handyman-cleaning / Locks-safety 均 Covered）；无资质到期横幅；375 无溢出；`/provider/history` 375 无溢出。「Paid this year $0」与库一致：本轮工单是 accepted→closed（跳过 mark_paid，`paid_at` null）（fcbcfcf1 是外部联系人单，不属于 Northline） | `G2/p-jobs-1280.png` `p-jobs-375.png` | 通过 |
+| 手机 375 抽查 | `/tenant/maintenance` · 报修弹窗（textarea 16px）· `/messages` · 线程（textarea 16px，有返回键）· `/h/<id>` 租客与房东两侧 · 派单弹窗（输入 16px，弹窗宽 375 无溢出）· `/landlord/providers` · `/landlord/maintenance` · `/w/<token>` · `/provider/jobs` · `/provider/history`：横向溢出全 0；控制台无报错 | `G2/*-375.png` | 通过 |
+
+注（G-39）：「Paid this year」按 `paid_at` 年份 + status paid/closed 汇总（`lib/marketplace/providerView.ts`），Northline 本轮单子 `paid_at` 为空，$0 正确。
+
+补充：G-25（rework）、G-26（只带 note 完工）、G-30（mark_paid）、G-36（外部联系人 decline）**未执行**——API 流程为守邮件预算跳过 mark_paid、直接 accepted → close（`close` 允许 from accepted，按设计，`TABLE.close`），rework 路径改走 dispute；G-22 的「租客进入通知邮件 + compliance_events」只确认了卡 expired 与状态，未核通知（查询列名写错，不影响结论）。这四条留给下一轮。
+
+## 缺陷
+
+- **G-D1 · S2 / P1** · `POST /api/work-orders/[id]/act` 响应带整行工单：`{ok, status, work_order: r.wo}` 含 `token`（外部联系人的凭证）与 `external_email`，**任何当事人（含租客）都能拿到**。有了 token 就可以走 `/w/<token>` 冒充外部联系人（接受 / 报价 / 完工 / 写账单 / 在工单对话里以「外部」身份发言），租客还看到承包商私人邮箱。
+  - 复现：tenant-test JWT `POST https://www.stayloop.ai/api/work-orders/fcbcfcf1-58ff-4e26-8300-1e66ea5dff0e/act` body `{"action":"tenant_confirm"}` → 200，响应 `work_order.token`（64 字符）与 `external_email`（landlord-test+… 测试邮箱）；用该 token `GET /api/w/<token>` → 200（线程 / 地址 / 报价）。landlord / admin 调任一 act 同样拿到；服务商账号工单 token 为 null 不受影响。
+  - 证据：`scratchpad/sitetest1017/G/gd1.out`（本地，token 值未写入文档）；`lib/marketplace/server.ts` 的 act 路由 `app/api/work-orders/[id]/act/route.ts:58` 返回 `r.wo`；`peekByToken` / act 内部用 `select('*')`（service role）。
+  - 核对「列级保护是否生效」：直连 REST（landlord / tenant / provider / agent 四个 JWT）读 `work_orders?select=token`、`external_email`、`*` → 全 42501（`information_schema.column_privileges` 里 `work_orders` 对 anon/authenticated 没有 token / external_email 列权限）；公开视图与 RPC 无一返回工单 token（唯一含 `token` 的 definer RPC 是 `my_pending_invites` / `my_households_for_import`，是家庭邀请 token，属 F 组）；全库把所有非空工单 token 当子串扫描每张公开表 / 视图，**零命中**（thread_messages / work_order_events / agent_pending_actions / message_deliveries 都没有）；`/api/work-orders/dispatch`、`receipt`（用 `WORK_ORDER_COLUMNS`）、`matters/export`（显式字段映射）均不带 token。即**库层保护有效，泄露只在 act 路由响应**。
+  - 建议：act 路由响应只返回 `WORK_ORDER_COLUMNS` 白名单字段（或 delete token / external_email），并加一条守卫测试「act 响应不含 token」。
+- **G-D2 · S2 / P2** · 租客评价可写成非本工单服务商的 `provider_id`（`provider_reviews` 无触发器，RLS 只校验 work_order 当事人 + by_kind + 14 天窗口）。复现：G-33 回滚探针（tenant 身份把测试工单置 accepted 后插入 provider_id=Maple、工单服务商为 Northline → 插入成功）。证据：SQL 回滚探针输出；CLAUDE.md 称 provider_id 必须等于工单服务商。建议：BEFORE INSERT 守卫（SECURITY INVOKER）强制 `provider_id = work_orders.provider_id`，或触发器直接覆盖。
+- **G-D3 · S3 / P3** · token 页 `/w/[token]`、`/lease/sign/[token]`、`/p/[token]`（及 `/join` `/delegate` 同理，未逐个测）响应头是 `strict-origin-when-cross-origin`，不是 CLAUDE.md「路由速查」写的 `no-referrer`；`middleware.ts` 的 `withReferrerPolicy` 只列了 `/verify/` `/intake/` `/my-file/`。复现：`curl -sI https://www.stayloop.ai/w/<64个a>` 看 `referrer-policy`（`/verify/…` 则是 no-referrer）。影响小（跨站只发 origin，同源本来就是自己的页面；`/api/w/*` 已是 no-referrer），按文档对齐即可。建议：补齐前缀。
+- 观察（不记缺陷）：G-04 用例过期（见表）；`/messages` 列表与工单线程里的系统行是「中文 / English」双语串直接显示（见 H-D1）。
+
+## 数据副作用（G）
+
+生产库，全部 `[TEST]`，未删任何行：
+- ticket `b3115595-0a92-4196-8f47-ce1c80e88250`「[TEST] 1017 厨房水龙头滴水」→ work order `550ca87d-607e-4888-86bf-32bba2903dc3`（Northline，最终 closed，token 已置空）+ 其 `work_order_events` 约 15 条、线程 `cb48bb31-66b8-4aaa-8442-5d834628ab8e`（哈希链 17 条，verify ok）、`provider_reviews` 两条（landlord `f1625581…`、tenant `21e6eb18…`，by_kind 各一）、若干 `agent_pending_actions`（dispatch / approve_quote / accept_completion 卡，均已 expired 或 approved）、`compliance_events`（G-22 进入通知）、`agent_audit_events`。
+- landlord-test 的 `dispatch_policies` 行：测试时改过又写回默认（suggest · false · 500 · 48），行保留。
+- G-35 页面核对用的 `fcbcfcf1…`（9-23 旧测试单，paid）：本轮对它调过一次 `tenant_confirm`（G-D1 复现，状态不变，可能刷新 `tenant_confirmed_at` / 多一条事件）。
+- 邮件：dispatch / approve / 评价流程约 3 封（均发往 *@stayloop.ai 测试邮箱，Resend suppression 见 N-D1）；本段界面部分 0 封。
+- 约 7 次魔法链接铸造（会话失效属正常）。

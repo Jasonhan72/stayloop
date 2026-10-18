@@ -29,8 +29,11 @@ function withSecurityHeaders(res: NextResponse): NextResponse {
 // client intake link is the credential. /my-file/<token> (V0.8, Consumer
 // Reporting Act s.12): the applicant's one-time file-access link, same rule.
 // Everything else: origin only across sites.
+const TOKEN_PAGE_PREFIXES = ['/verify/', '/intake/', '/my-file/', '/w/', '/lease/sign/', '/p/', '/join/', '/delegate/']
+
 function withReferrerPolicy(res: NextResponse, pathname: string): NextResponse {
-  const tokenPage = pathname.startsWith('/verify/') || pathname.startsWith('/intake/') || pathname.startsWith('/my-file/')
+  // Every token page in the route table (site test 2026-10-17, G-D3: /w /lease/sign /p /join /delegate were missing).
+  const tokenPage = TOKEN_PAGE_PREFIXES.some((p) => pathname.startsWith(p))
   res.headers.set('Referrer-Policy', tokenPage ? 'no-referrer' : 'strict-origin-when-cross-origin')
   return res
 }
