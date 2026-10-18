@@ -4,6 +4,7 @@
 // checks tokens, finds admins, writes audit rows.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { addBusinessDays } from './businessDays'
+import { sendEmail } from '@/lib/email'
 import { activeAlertFor } from './alerts'
 import { classify, dobMatches, findCandidateScreenings, nameMatches, type CandidateCheck } from './match'
 import { PACK_SCREENING_COLUMNS, type BuildPackInput, type PackApplicationRow, type PackScreeningRow } from './pack'
@@ -96,6 +97,13 @@ export async function adminEmails(admin: SupabaseClient): Promise<string[]> {
     if (data?.user?.email) out.push(data.user.email)
   }
   return out
+}
+
+/** One email per admin (site test 2026-10-17, N-D1): Resend suppresses a whole message when any
+ *  recipient is on its suppression list, so a shared To: line let one bounced inbox silence the alert
+ *  that starts a s.12 / s.13 clock for everyone. */
+export async function sendAdminAlert(to: string[], mail: { subject: string; html: string; text: string }): Promise<void> {
+  await Promise.all(Array.from(new Set(to)).map((addr) => sendEmail({ to: addr, subject: mail.subject, html: mail.html, text: mail.text, fromName: 'Stayloop' }).catch(() => undefined)))
 }
 
 // ── matching ──────────────────────────────────────────────────────────────────

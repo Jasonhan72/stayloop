@@ -4,11 +4,10 @@
 // item kind is the pack's vocabulary. Creates consumer_disputes (open), emails
 // the admins, returns {id}. 10 per token per hour, fail-closed.
 import { NextResponse } from 'next/server'
-import { sendEmail } from '@/lib/email'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { adminDisputeEmail } from '@/lib/consumer/emails'
 import { DISPUTE_ITEM_KINDS, type DisputeItemKind } from '@/lib/consumer/types'
-import { NO_STORE, adminClient, adminEmails, audit, loadRequestByToken, maskEmail, siteUrl } from '@/lib/consumer/server'
+import { NO_STORE, adminClient, adminEmails, sendAdminAlert, audit, loadRequestByToken, maskEmail, siteUrl } from '@/lib/consumer/server'
 
 export const runtime = 'edge'
 
@@ -39,7 +38,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   const to = await adminEmails(admin)
   if (to.length) {
     const mail = adminDisputeEmail({ disputeId: id, requestId: request.id, emailMasked: maskEmail(request.email), itemLabel, statement, queueUrl: `${siteUrl()}/admin/consumer-requests` })
-    await sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text, fromName: 'Stayloop' })
+    await sendAdminAlert(to, mail)
   }
   return NextResponse.json({ id, status: 'open' }, { status: 201, headers: NO_STORE })
 }

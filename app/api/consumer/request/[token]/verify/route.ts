@@ -8,10 +8,9 @@
 // Returns the same shape as GET. Re-running (the applicant corrected a typo)
 // is allowed while the request is not fulfilled / closed.
 import { NextResponse } from 'next/server'
-import { sendEmail } from '@/lib/email'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { adminReviewEmail } from '@/lib/consumer/emails'
-import { NO_STORE, adminClient, adminEmails, audit, dueAtFor, loadRequestByToken, maskEmail, requestView, runMatch, siteUrl } from '@/lib/consumer/server'
+import { NO_STORE, adminClient, adminEmails, sendAdminAlert, audit, dueAtFor, loadRequestByToken, maskEmail, requestView, runMatch, siteUrl } from '@/lib/consumer/server'
 import type { ConsumerDelivery } from '@/lib/consumer/types'
 
 export const runtime = 'edge'
@@ -61,7 +60,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     const to = await adminEmails(admin)
     if (to.length) {
       const mail = adminReviewEmail({ requestId: request.id, emailMasked: maskEmail(request.email), reason: status === 'needs_review' ? 'needs_review' : delivery === 'mail' ? 'mail' : 'phone', dueAt, candidates: m.candidates.length, queueUrl: `${siteUrl()}/admin/consumer-requests` })
-      await sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text, fromName: 'Stayloop' })
+      await sendAdminAlert(to, mail)
     }
   }
   return NextResponse.json(await requestView(admin, request), { headers: NO_STORE })

@@ -324,16 +324,21 @@ export function applyGuardrail(
  *  landlord's "no pets" stays, and nothing is said where no fact covers it; the
  *  protected-ground exclusions are still removed, and the note names that
  *  province's human-rights law. */
-export function sanitizeDraftListing<T extends { title?: string; description?: string; pet_policy?: string; pets_allowed?: string; smoking_policy?: string; utilities_included?: string[]; furnished?: boolean }>(
+export function sanitizeDraftListing<T extends { title?: string; description?: string; pet_policy?: string; pets_allowed?: string; smoking_policy?: string; utilities_included?: string[]; furnished?: boolean; amenities?: string[] }>(
   draft: T,
   lang: 'zh' | 'en' = 'zh',
   /** The listing's province (effectiveProvince of its address / owned row); unknown = Ontario. */
   province?: string | null,
+  /** Everything the user said in this conversation (messages, fetched pages). When given, selling points
+   *  with no structured field (light, age / renovation, location, views) stay only if the user raised them. */
+  userSaid?: string,
 ): { draft: T; flags: string[]; note: string | null } {
   const zh = lang === 'zh'
   const other = nonOntarioProvince(province)
   const flags: string[] = []
   const out = { ...draft }
+  // Sentences, keeping the line breaks between them (a cut sentence must not glue its neighbours).
+  const SENTENCE_ALL = /[^.!?。！？\n]+[.!?。！？]?\n*/g
   // Unconfirmed facts never reach the copy (external fix list 2026-09-22,
   // SL-LL-001: "cats allowed" appeared in generated copy the landlord had
   // never given a pet policy for). When the structured field is empty, any
@@ -344,6 +349,30 @@ export function sanitizeDraftListing<T extends { title?: string; description?: s
     { field: 'utilities', empty: !out.utilities_included?.length, re: /(包|含)(水|电|暖|气|网|水电)|(all[\s-]?inclusive|utilities?|hydro|heat|water|internet)\s+(is\s+|are\s+)?included|included\s+utilities|all\s+utilities/i },
     { field: 'furnished', empty: out.furnished == null, re: /(全|带|配)家具|fully\s+furnished|\bfurnished\b(?!\s*:)/i },
   ]
+  // Site test 2026-10-17 (I-D1): a draft from "28 Avondale Ave #1203, 1+1, $2450" said 「北约克核心便利地段…
+  // 采光充沛。2024…」. Selling points without a structured field are kept only when the user mentioned
+  // them (or the photos showed them, via amenities); otherwise the sentence is cut like the four above.
+  if (typeof userSaid === 'string') {
+    const said = userSaid
+    const am = new Set((out.amenities ?? []).map((a) => String(a).toLowerCase()))
+    const CLAIMS: Array<{ field: string; re: RegExp; user: RegExp; amenity?: string[] }> = [
+      { field: 'light', re: /采光|光线(充足|充沛|好)|阳光(充足|充沛|明媚)|朝[南北东西]|[南北东西]向|\bbright\b|sun[\s-]?(filled|drenched|lit|ny)|natural\s+light|(south|north|east|west)[\s-]?facing/i, user: /采光|光线|阳光|朝|[南北东西]向|bright|sun|light|facing/i, amenity: ['large_windows', 'floor_to_ceiling_windows'] },
+      { field: 'age', re: /(19|20)\d{2}\s*年?\s*(建成|落成|竣工|新建|装修|翻新|入伙)|(全新|崭新|新)(装修|翻新)|精装|(newly|recently|fully)\s+renovated|built\s+in\s+(19|20)\d{2}|brand[\s-]?new/i, user: /装修|翻新|新建|建成|楼龄|房龄|renovat|built|brand[\s-]?new|(19|20)\d{2}\s*年?\s*(建|装|翻|落成)/i },
+      { field: 'location', re: /(核心|黄金|绝佳|优越|便利|便捷|优质)的?(地段|位置|区位)|交通(便利|便捷|方便)|prime\s+location|conveniently\s+located|steps\s+(to|from|away)/i, user: /地段|位置|交通|方便|便利|地铁|location|steps|close\s+to|near|walk/i },
+      { field: 'view', re: /湖景|城景|江景|景观|景色|视野(开阔|极佳)|(lake|city|skyline|unobstructed|panoramic)\s+views?/i, user: /景|视野|view/i, amenity: ['view', 'lake_view', 'city_view'] },
+    ]
+    for (const field of ['title', 'description'] as const) {
+      const v = out[field]
+      if (typeof v !== 'string' || !v) continue
+      let text = v
+      for (const c of CLAIMS) {
+        if (c.user.test(said) || c.amenity?.some((a) => am.has(a)) || !c.re.test(text)) continue
+        flags.push(`draft_listing_unconfirmed_${c.field}_${field}`)
+        text = field === 'title' ? '' : (text.match(SENTENCE_ALL) || []).filter((sen) => !c.re.test(sen)).join('').replace(/\s{2,}/g, ' ').trim()
+      }
+      if (text !== v) { if (text) (out as Record<string, unknown>)[field] = text; else delete (out as Record<string, unknown>)[field] }
+    }
+  }
   const SENTENCE = /[^.!?。！？\n]+[.!?。！？]?/g
   for (const field of ['title', 'description'] as const) {
     const v = out[field]
@@ -399,8 +428,8 @@ export function sanitizeDraftListing<T extends { title?: string; description?: s
           ? '注：草稿中涉及 OHRC 受保护特征或 RTA 无效条款（如"禁止养宠"/排除家庭）的内容已被移除——这些不能出现在房源信息里。'
           : 'Note: content in the draft touching OHRC protected grounds or RTA-void clauses (e.g. "no pets" / excluding families) has been removed — these cannot appear in listing information.') : '',
         unconfirmed.length ? (zh
-          ? `注：文案里关于${Array.from(new Set(unconfirmed.map(f => ({ pets: '宠物', smoking: '吸烟', utilities: '水电网', furnished: '家具' } as Record<string, string>)[f.split('_')[3]] || f))).join('、')}的说法已删除——你还没提供这项信息，我不能替你写。告诉我实际情况，我再补进去。`
-          : `Note: statements about ${Array.from(new Set(unconfirmed.map(f => f.split('_')[3]))).join(', ')} were removed from the copy — you have not provided that information, so I cannot write it for you. Tell me the facts and I will add them.`) : '',
+          ? `注：文案里关于${Array.from(new Set(unconfirmed.map(f => ({ pets: '宠物', smoking: '吸烟', utilities: '水电网', furnished: '家具', light: '采光朝向', age: '楼龄或装修', location: '地段', view: '景观' } as Record<string, string>)[f.split('_')[3]] || f))).join('、')}的说法已删除——你还没提供这项信息，我不能替你写。告诉我实际情况，我再补进去。`
+          : `Note: statements about ${Array.from(new Set(unconfirmed.map(f => ({ light: 'light / orientation', age: 'building age / renovation', view: 'views' } as Record<string, string>)[f.split('_')[3]] || f.split('_')[3]))).join(', ')} were removed from the copy — you have not provided that information, so I cannot write it for you. Tell me the facts and I will add them.`) : '',
       ].filter(Boolean).join(' ')
     : null
   return { draft: out, flags, note }

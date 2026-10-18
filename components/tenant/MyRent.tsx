@@ -8,6 +8,9 @@
 // Since G9 (2026-10-16) each row also says whether the period is evidenced
 // (the other side's confirmation, a receipt) — the marks ride on the same
 // `rent_all` rows; recording, confirming and attaching happen on /h/<id>?tab=rent.
+// Site test 2026-10-17 (D-F-04): periods nobody has recorded yet (an overdue month, the next one)
+// are listed too, from the same schedule as the landlord ledger and the hub (scheduledPlaceholders),
+// with the schedule inputs carried on the facts households.
 import Link from 'next/link'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
@@ -16,6 +19,9 @@ import { useFacts } from '@/lib/facts/useFacts'
 import { RENT_STATE_LABEL } from '@/lib/matters/states'
 import { evidenceBadge, EVIDENCE_BADGE_LABEL, type EvidenceRow } from '@/lib/household/rentEvidence'
 import MessageButton from '@/components/messages/MessageButton'
+import { scheduledPlaceholders, type LedgerHousehold, type LedgerRent } from '@/components/landlord/RentLedger'
+import { parseDateOnly } from '@/lib/dates'
+import { torontoDate } from '@/lib/household/ledger'
 
 export default function MyRent() {
   const { lang } = useT()
@@ -23,13 +29,21 @@ export default function MyRent() {
   const { user } = useAuth()
   const { facts } = useFacts('tenant')
   const houses = facts ? facts.households.filter((h) => h.current_lease_id && facts.member_roles.some((m) => m.household_id === h.id && m.role === 'tenant')) : []
+  // The schedule inputs (start date, due day, renewal) ride on the facts households (RPC 20261018e).
+  const schedHouses: LedgerHousehold[] = houses.map((h) => ({ ...h, address: h.address ?? null, unit: h.unit ?? null, previous_lease_id: h.previous_lease_id ?? null }))
+  const today = torontoDate()
+  const scheduled = facts && schedHouses.length
+    ? scheduledPlaceholders(schedHouses, facts.leases, facts.rent_all.map((p) => ({ ...p, id: p.id ?? `${p.lease_id}:${p.due_date}` })) as LedgerRent[], parseDateOnly(today)!)
+    : []
   const rows = facts
-    ? facts.rent_all
+    ? [...facts.rent_all, ...scheduled]
+        .sort((a, b) => (a.due_date < b.due_date ? 1 : a.due_date > b.due_date ? -1 : 0))
         .map((p) => {
           const h = houses.find((x) => x.current_lease_id === p.lease_id)
           // The evidence marks come with the facts row (RPC 20261016); older payloads simply have none.
           const marks = p as EvidenceRow
-          return h ? { id: p.id ?? `${p.lease_id}:${p.due_date}`, household_id: h.id, address: h.address ?? '', unit: h.unit ?? null, due_date: p.due_date, amount: p.amount ?? null, status: p.status ?? 'due', paid_at: p.paid_at ?? null, method: p.method ?? null, badge: evidenceBadge({ ...marks, status: p.status }, user?.id ?? null) } : null
+          const unrecorded = typeof p.id === 'string' && p.id.startsWith('sched:')
+          return h ? { id: p.id ?? `${p.lease_id}:${p.due_date}`, unrecorded, overdue: unrecorded && p.due_date.slice(0, 10) < today, household_id: h.id, address: h.address ?? '', unit: h.unit ?? null, due_date: p.due_date, amount: p.amount ?? null, status: p.status ?? 'due', paid_at: p.paid_at ?? null, method: p.method ?? null, badge: evidenceBadge({ ...marks, status: p.status }, user?.id ?? null) } : null
         })
         .filter((r): r is NonNullable<typeof r> => !!r)
     : null
@@ -52,7 +66,9 @@ export default function MyRent() {
             </div>
             <div className="flex flex-none flex-wrap items-center gap-2">
               {r.amount != null && <span className="font-semibold">${Number(r.amount).toLocaleString()}</span>}
-              <span className={`rounded-full px-2 py-[2px] text-[11px] font-bold ${r.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : r.status === 'late' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}>{label(r.status)}</span>
+              {r.unrecorded
+                ? <span data-testid="rent-unrecorded" className={`rounded-full px-2 py-[2px] text-[11px] font-bold ${r.overdue ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}>{r.overdue ? (zh ? '逾期 · 还没有记录' : 'Overdue · not recorded') : (zh ? '待付 · 还没有记录' : 'Due · not recorded')}</span>
+                : <span className={`rounded-full px-2 py-[2px] text-[11px] font-bold ${r.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : r.status === 'late' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}>{label(r.status)}</span>}
               {/* 凭证: the other side's confirmation + a receipt, both done on the tenancy page. */}
               <Link href={`/h/${r.household_id}?tab=rent`} data-testid="rent-evidence-badge" data-badge={r.badge}
                 className={`rounded-full px-2 py-[2px] text-[11px] font-semibold ${r.badge === 'none' ? 'text-body-3' : r.badge === 'awaiting_me' || r.badge === 'awaiting_other' ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'}`}>

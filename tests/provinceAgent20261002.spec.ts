@@ -234,7 +234,7 @@ describe('the turn route passes the province through', () => {
   it('hands the turn’s province to the guardrail and the draft’s to the sanitizer', () => {
     expect(r).toContain('const { out, flags } = applyGuardrail(role, normalized, uiLang, turnProvince)')
     expect(r).toContain('draftProvince = effectiveProvince(hit as ProvinceRow)')
-    expect(r).toContain('const sanitized = sanitizeDraftListing(draftListing, uiLang, draftProvince)')
+    expect(r).toContain('const sanitized = sanitizeDraftListing(draftListing, uiLang, draftProvince, userSaid)')
     expect(r.indexOf('provinceOfDraft(')).toBeLessThan(r.indexOf('applyGuardrail(role, normalized, uiLang, turnProvince)'))
   })
   it('skips the RTA renewal pack for a turn about a listing in another province', () => {

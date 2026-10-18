@@ -623,6 +623,8 @@ export async function POST(req: Request) {
       '\n\n[当前消息]\n'
     : ''
   const userText = histText + (message.trim() || '（用户上传了文件,请查看并回应）').slice(0, 4000) + note + docContext + urlContext
+  // Only what the user supplied (their own turns, files, fetched pages) — the draft-listing check (I-D1).
+  const userSaid = [...hist.filter((h) => h.role === 'user').map((h) => String(h.text || '')), message, docContext, urlContext].join('\n')
   const userContent: ChatMessage['content'] = imgs.length
     ? [
         { type: 'text', text: userText },
@@ -1110,7 +1112,7 @@ export async function POST(req: Request) {
     // same OHRC/RTA compliance filters as the reply text.
     // Runs on the merged draft, so an owned listing's stored terms (pets, utilities …) count as confirmed.
     if (draftListing) {
-      const sanitized = sanitizeDraftListing(draftListing, uiLang, draftProvince)
+      const sanitized = sanitizeDraftListing(draftListing, uiLang, draftProvince, userSaid)
       draftListing = sanitized.draft
       if (sanitized.flags.length) {
         flags.push(...sanitized.flags)

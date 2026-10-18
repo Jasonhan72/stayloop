@@ -1,6 +1,7 @@
 // Site test 2026-10-17 · S2 fixes from the defect ledger (B-D1, D-F-01, D-K1, D-K2).
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { sanitizeDraftListing } from '../lib/agent/guardrail'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 
@@ -67,5 +68,72 @@ describe('G-D2 · a review names the work order’s own provider', () => {
     const mig = read('supabase/migrations/20261018b_provider_reviews_policy.sql')
     expect(mig).toContain('w.provider_id is not distinct from provider_reviews.provider_id')
     expect(mig).not.toContain('w.provider_id IS DISTINCT FROM w.provider_id')
+  })
+})
+
+describe('I-D1 · draft listing copy only states what the user said', () => {
+  const said = '帮我发一个房源：28 Avondale Ave #1203，1+1，$2450，11 月 1 日'
+  const draft = { title: '28 Avondale 1+1', description: '位于北约克核心便利地段，空间方正实用。采光充沛。2024年新装修。1+1 户型，月租 $2,450，11 月 1 日起租。' }
+  it('cuts location, light and renovation claims the user never made, and says so', () => {
+    const r = sanitizeDraftListing(draft, 'zh', null, said)
+    expect(r.draft.description).toBe('1+1 户型，月租 $2,450，11 月 1 日起租。')
+    expect(r.flags).toEqual(expect.arrayContaining(['draft_listing_unconfirmed_location_description', 'draft_listing_unconfirmed_light_description', 'draft_listing_unconfirmed_age_description']))
+    expect(r.note).toContain('采光朝向')
+  })
+  it('keeps them when the user said so, or the photos showed big windows', () => {
+    const r = sanitizeDraftListing(draft, 'zh', null, said + '，朝南采光好，2024 年翻新，离地铁近')
+    expect(r.draft.description).toBe(draft.description)
+    const p = sanitizeDraftListing({ description: '采光充沛。' , amenities: ['large_windows'] }, 'zh', null, said)
+    expect(p.draft.description).toBe('采光充沛。')
+  })
+  it('a move-in date with 年 is not a renovation year', () => {
+    const r = sanitizeDraftListing({ description: '2024年新装修。' }, 'zh', null, '2026年11月1日入住，租期一年')
+    expect(r.draft.description).toBeUndefined()
+  })
+  it('the turn route passes only the user\'s own words', () => {
+    const route = read('app/api/agent/turn/route.ts')
+    expect(route).toContain("hist.filter((h) => h.role === 'user')")
+    expect(route).toContain('sanitizeDraftListing(draftListing, uiLang, draftProvince, userSaid)')
+  })
+})
+
+describe('N-D1 · admin alerts go out one recipient at a time', () => {
+  it('both consumer-file alerts use sendAdminAlert, which sends one email per address', () => {
+    const lib = read('lib/consumer/server.ts')
+    expect(lib).toMatch(/export async function sendAdminAlert[\s\S]*?Array\.from\(new Set\(to\)\)\.map\(\(addr\) => sendEmail\(\{ to: addr,/)
+    for (const p of ['app/api/consumer/request/[token]/verify/route.ts', 'app/api/consumer/request/[token]/dispute/route.ts']) {
+      const src = read(p)
+      expect(src, p).toContain('await sendAdminAlert(to, mail)')
+      expect(src, p).not.toContain('sendEmail({ to,')
+    }
+  })
+})
+
+describe('E-D1 · LTB coverage comes from a cache refreshed by the ingest', () => {
+  it('ltb_coverage reads the materialized view, refreshed when a run ends ok; the search retries a miss once', () => {
+    const mig = read('supabase/migrations/20261018c_ltb_coverage_cache.sql')
+    expect(mig).toContain('from public.ltb_coverage_mv m')
+    expect(mig).toContain('refresh materialized view public.ltb_coverage_mv;')
+    expect(mig).toContain('after insert or update of status on public.ltb_ingest_runs')
+    expect(read('lib/ltb/search.ts')).toContain("console.warn('[ltb] coverage missing on first try'")
+  })
+})
+
+describe('D-F-04 · the tenant rent list shows periods nobody recorded yet', () => {
+  it('MyRent adds scheduledPlaceholders from the tenant’s own tenancies and labels them', () => {
+    const src = read('components/tenant/MyRent.tsx')
+    expect(src).toContain('scheduledPlaceholders(schedHouses, facts.leases,')
+    expect(src).toContain('data-testid="rent-unrecorded"')
+    expect(src).toContain("'逾期 · 还没有记录'")
+    expect(read('supabase/migrations/20261018e_tenant_facts_schedule.sql')).toContain('hh as (select id, current_lease_id, previous_lease_id, next_lease_id, start_date, rent_due_day,')
+  })
+})
+
+describe('C-S3-5 / C-S3-7 · is_test is not a client-writable flag', () => {
+  it('the feed-field guard derives it from a [TEST] tag on insert and never clears it on update', () => {
+    const mig = read('supabase/migrations/20261018d_listing_is_test_guard.sql')
+    expect(mig).toContain("new.is_test := tagged;")
+    expect(mig).toContain('new.is_test := coalesce(old.is_test, false) or tagged;')
+    expect(mig).toMatch(/revoke execute on function public\.guard_listing_feed_fields\(\) from public, anon, authenticated, service_role;/)
   })
 })

@@ -213,7 +213,16 @@ export async function searchLtbOrders(
     Promise.resolve(rpc('ltb_coverage', {})).catch(() => ({ data: null, error: null })),
   ])
 
-  const covRow = (Array.isArray(coverageRes?.data) ? coverageRes.data[0] : null) as
+  // Site test 2026-10-17 (E-D1): coverage came back null now and then — the call ran in parallel
+  // with the search and its error was swallowed. A miss is retried once on its own and logged.
+  let covData: unknown = coverageRes?.data
+  if (!Array.isArray(covData) || !covData.length) {
+    console.warn('[ltb] coverage missing on first try', (coverageRes as { error?: { message?: string } } | null)?.error?.message ?? 'no row')
+    const retry = await Promise.resolve(rpc('ltb_coverage', {})).catch((e: unknown) => ({ data: null, error: { message: String(e) } }))
+    covData = (retry as { data?: unknown })?.data
+    if (!Array.isArray(covData) || !covData.length) console.warn('[ltb] coverage missing after retry', (retry as { error?: { message?: string } } | null)?.error?.message ?? 'no row')
+  }
+  const covRow = (Array.isArray(covData) ? covData[0] : null) as
     | { coverage_from?: string; coverage_to?: string; order_count?: number }
     | null
   const coverage = {

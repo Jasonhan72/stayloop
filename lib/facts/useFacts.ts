@@ -25,6 +25,8 @@ export type LeaseRow = {
 export type HouseholdRow = {
   id: string; current_lease_id: string | null; verified: boolean | null; status: string | null; end_date: string | null
   address?: string | null; unit?: string | null; city?: string | null; monthly_rent?: number | null; created_by?: string | null
+  /** Schedule inputs (tenant RPC 20261018e) — the tenant rent list builds its unrecorded periods from them. */
+  previous_lease_id?: string | null; next_lease_id?: string | null; start_date?: string | null; rent_due_day?: number | null
 }
 export type RentRow = { id?: string; lease_id: string | null; due_date: string; status: string | null; amount?: number | null; paid_at?: string | null; method?: string | null; recorded_by?: string | null; confirmed_by?: string | null; confirmed_at?: string | null; evidence_path?: string | null; evidence_name?: string | null; evidence_at?: string | null; note?: string | null }
 export type TicketRow = { household_id: string | null; status: string | null }
