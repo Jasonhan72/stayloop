@@ -108,3 +108,11 @@ E-D3 / E-D5 / E-D6（筛查模块，只能做加法）、B-D2 / B-D3 / B-D4、O-
 
 退出准则逐条：R1 100% 执行、S0 / S1 = 0 ✔；R2 ≥ 70% 执行、S1 = 0、S2 有计划 ✔；R3 ≥ 40% ✔；路由审计全过 ✔；advisors 无新增 ERROR ✔；定时任务 6 / 7 有成功记录，第 7 条 10-19 首跑 △；逃逸缺陷已逐条复核 ✔。
 **建议 Go**，由用户拍板。
+
+## 9. S3 收尾（2026-10-18，用户批准 Go 之后）
+
+S3 与复测新发现 N-1 / N-2 按文件分三组修复，数据库层由主线程写迁移（f 条款确认去重、g 撤回窗口 / 待批卡插入限制 / is_email_unsubscribed、h 企业注册 RPC 收紧 / 交回自动清空、m 用量看板按多伦多切日），每条迁移都先在回滚事务里用目标角色试跑。新守卫 `tests/siteTest20261018_s3_{a,b,c,db}.spec.ts`；全量 210 文件 / 2945 测试通过；部署后冒烟 9 / 9、路由审计 108 / 108。
+
+生产抽查：页面 `Access-Control-Allow-Origin` 为本站域名、`/api/v1/*` 与 `/.well-known/*` 仍为 `*`；搜索接口每条 1 张图（5 条 153 KB → 91 KB）；`/privacy` 列出 privacy@stayloop.ai、页脚有「消费者权利」；匿名 `/agent/verify` 只提示登录；英文界面 `/tenant`、`/listings`、`/platform` 正文零中文。抽查时发现英文页 `<title>` 被 Next 的 metadata 改回中文，`DocTitle` 改为监听 `<head>` 后重设（部署 5）。
+
+不修及原因：E-D3 / E-D4 / J-D1 / B-D3 前半（筛查模块 DO NOT TOUCH，只能做加法）；T4-05（`service_providers.auth_id` 非空，删用户时级联还是禁止需先定设计，目前无孤儿行）；J-D5（RECO 号属公开信息）；`agent_directory.auth_id`（委托与房源页按它关联）。

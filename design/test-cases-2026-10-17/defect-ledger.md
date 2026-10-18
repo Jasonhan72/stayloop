@@ -98,3 +98,7 @@
 - H-D2 S3/P3 撤回 10 分钟窗口只在界面拦，服务端可对旧消息插 retraction。
 - 未执行：G-25 / G-26 / G-30（mark_paid、rework 路径，省邮件预算）、G-36（不再用 token 写）。
 - 观察：消息搜索无匹配无空态。
+
+## S3 收尾（10-18，部署 4 / 5 + 迁移 f / g / h / m）
+- 已修：B-D2 · C-S3-2（= B-D3 后半）· B-D4 · O-D1 · O-D2 · C-S3-1（搜索每条只回一张图，153 KB → 91 KB）· C-S3-3 / D-S3-1（DocTitle 监听 head，防 Next 重写）· C-S3-4（只能加 noindex，客户端壳改不了状态码）· C-S3-6 · D-S3-2 · D-A3 · D-A4 · D-A5 · D-A6 · D-A8（terms_confirm_claims 认领）· D-F-02 · D-F-03 · E-D5 · E-D6 · T6-D5 · T6-D7（服务端路径过 stripNul；REST 直插仍回原话，可接受）· T6-D8 · T6-D9（页面 ACAO 锁本站，/api/v1、/api/mcp、/.well-known 保留 *）· T6-D10（企业注册两个 RPC 只给 service role）· H-D1 · H-D2（数据库也拦 10 分钟外撤回）· I-D3（交回自动清空原文 + 立即反思）· I-D4 · J-D2 · J-D4 · J-D6（新增规则 RTA-108-post-dated-cheques）· M-D1（迁移 m）· T4-06 · 越界：PrivateMemorySnapshot 两步确认、待批卡客户端只能插 pending · N-1 · N-2。
+- 不修（原因）：E-D3 / E-D4 / J-D1 / B-D3 前半（筛查模块 DO NOT TOUCH）；T4-05（auth_id NOT NULL，删用户时级联还是禁止需先定，现无孤儿行）；J-D5（RECO 号本属公开信息）；越界 agent_directory.auth_id（委托与房源页按它关联，属功能需要）。
