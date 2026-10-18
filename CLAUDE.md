@@ -114,7 +114,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 测试账号（密码 `Test1234`，`user_metadata.test_account=true`）：`tenant-test@stayloop.ai`（纯租客）、`landlord-test@stayloop.ai`（房东）、`agent-test@stayloop.ai`（已核验经纪 + 服务商 `[TEST] Maple Plumbing`）、`provider-test@stayloop.ai`（纯服务商 `[TEST] Northline`）、`admin@stayloop.ai`（管理员）。Muse 外部测试用的 `muse-*@stayloop.ai` 四个号密码只在本机 `.forensics-tmp/`。**测试数据带 `[TEST]` 前缀，正式发布前不删。**
 - **Claude 不输入密码。** 登录测试号用 service role 调 Auth Admin `generate_link`（type=magiclink），`redirect_to` 必须放 URL 查询参数；链接约 10 分钟失效，铸完即用。service role key 只走 header 文件，不进命令行与报告。
 - 内置浏览器面板隐藏时页面 JS 不跑、截图是旧画面；批量核对用无头 Chrome + CDP，**每个测试员用私有调试端口，别 pkill 别人的实例**。同一测试号在一处退出会全局作废会话。
-- 测试规范：`design/test-strategy-2026-10-17.md`（ISTQB 流程、风险分级、追溯矩阵、退出准则）+ `design/test-cases-2026-10-17/`。
+- 测试规范：`design/test-strategy-2026-10-17.md`（ISTQB 流程、风险分级、追溯矩阵、退出准则）+ `design/test-cases-2026-10-17/`。10-17 轮报告 `design/test-report-2026-10-17.md`（S0/S1 清零、建议 Go）；用例文件与 `scripts/e2e/db-matrix.sh` 是每次发布的回归基线。
 - Resend 会把发往不可达地址的收件人加入 suppression 列表；保留域名（example.com）直接 422。
 
 ## 主要模块位置

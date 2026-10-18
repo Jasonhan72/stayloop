@@ -118,7 +118,7 @@ insert into probe(who, tbl, action, expected, sql) values
 ('landlord','lease_documents','update LEASE status back to draft (frozen after signing)','ok:signed_both|ERR.*', $$with u as (update lease_documents set status='draft' where id='46b558d0-0028-42dd-9964-0f1b88829c20' returning status) select status from u$$),
 ('landlord','lease_documents','update LEASE landlord_id (frozen)','ok:80646b6a-9c7b-4a17-a850-4ff774ea6d64|ERR.*', $$with u as (update lease_documents set landlord_id='fd48f17f-07e5-4f63-8462-cecdae5101e3' where id='46b558d0-0028-42dd-9964-0f1b88829c20' returning landlord_id::text) select landlord_id from u$$),
 ('landlord','lease_documents','delete signed LEASE','ok:0', $$with d as (delete from lease_documents where id='46b558d0-0028-42dd-9964-0f1b88829c20' returning 1) select count(*)::text from d$$),
-('landlord','lease_documents','insert pre-signed (guard clears)','ok:(draft|active)/null/null', $$with i as (insert into lease_documents(landlord_id,status,tenant_email,landlord_signature,tenant_signature,sign_token) values ('80646b6a-9c7b-4a17-a850-4ff774ea6d64','signed_both','probe@example.com','{"a":1}','{"b":1}','tok') returning status||'/'||coalesce(sign_token,'null')||'/'||coalesce(landlord_signature::text,'null')) select * from i$$),
+('landlord','lease_documents','insert pre-signed (guard clears)','ok:(draft|active)/null/null', $$with i as (insert into lease_documents(landlord_id,status,tenant_email,landlord_signature,tenant_signature,sign_token) values ('80646b6a-9c7b-4a17-a850-4ff774ea6d64','signed_both','probe@example.com','{"a":1}','{"b":1}','tok') returning status||'/'||coalesce(landlord_signature::text,'null')||'/'||coalesce(tenant_signature::text,'null')) select * from i$$),  -- sign_token is not client-readable since T6-D2 (2026-10-18)
 ('tenant','lease_documents','insert with landlord_id = L','ERR 42501', $$with i as (insert into lease_documents(landlord_id,status,tenant_email) values ('80646b6a-9c7b-4a17-a850-4ff774ea6d64','draft','probe@example.com') returning 1) select count(*)::text from i$$),
 -- households / members / invites -----------------------------------------
 ('anon','households','select all','ok:0', $$select count(*)::text from households$$),
@@ -386,7 +386,7 @@ begin
     insert into result values (1000, 'anon', 'audit:anon_exec_function', f.proname,
       'allowlisted', case when f.proname in (
         'agent_intake_upload_allowed','application_file_readable','application_upload_allowed',  -- storage policy helpers (/intake, /apply)
-        'attach_application_files','recent_application_count',                                    -- anonymous application flow
+        'attach_application_files','recent_application_count','listing_accepts_applications',                                    -- anonymous application flow
         'decline_household_invite','peek_household_invite',                                       -- /join/<token>
         'is_household_member','is_stayloop_admin','is_stayloop_superadmin','is_direct_client_write', -- policy / trigger helpers
         'is_email_unsubscribed') then 'allowlisted' else 'NOT allowlisted' end, '', null);
