@@ -19,6 +19,7 @@
 // will re-hydrate the cache on the next successful sign-in/token-refresh.
 'use client'
 
+import { clearLocalSessionState } from '@/lib/auth/clearLocalSession'
 import { supabase } from './supabase'
 import { clearCachedAiNames } from '@/lib/aiName'
 import { useRouter } from 'next/navigation'
@@ -348,6 +349,7 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
   }, [redirectIfMissing, allowAnonymous, redirectPath, router])
 
   const signOut = async () => {
+    clearLocalSessionState()
     clearCachedAiNames()
     cachedUser = null
     // §9 P1: forget every per-user claim flag on explicit signOut() too.

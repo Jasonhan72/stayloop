@@ -227,7 +227,7 @@ describe('#45 · the profile photo is per account and has its own key', () => {
       expect(read(f), f).toContain('readCachedProfilePhoto(uid)')
     }
     const auth = read('lib/useAuth.ts')
-    expect(auth).toContain('clearStoredAvatar()\n    clearCachedProfilePhotos()')
+    expect(auth).toMatch(/clearStoredAvatar\(\)\n    (clearLocalSessionState\(\)\n    )?clearCachedProfilePhotos\(\)/)
     expect(auth).toContain("if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') clearCachedProfilePhotos(s?.user?.id ?? null)")
   })
 })

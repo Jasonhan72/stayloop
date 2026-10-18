@@ -196,6 +196,8 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
 function InstallHint({ zh }: { zh: boolean }) {
   const [show, setShow] = useState(false)
   const [ios, setIos] = useState(false)
+  // The assistant page keeps its input bar at the bottom; the nudge would sit on top of it (I-D4).
+  const onAgentPage = /\/agent(\/|$)/.test(usePathname() || '')
   useEffect(() => {
     try {
       if (localStorage.getItem('sl-install-hint') === '1') return
@@ -206,7 +208,7 @@ function InstallHint({ zh }: { zh: boolean }) {
       return () => clearTimeout(t)
     } catch { /* no-op */ }
   }, [])
-  if (!show) return null
+  if (!show || onAgentPage) return null
   const dismiss = () => { try { localStorage.setItem('sl-install-hint', '1') } catch {}; setShow(false) }
   return (
     <div className="fixed inset-x-3 bottom-[76px] z-[44] flex items-start gap-3 rounded-xl border border-line-divider bg-white p-3 text-[12.5px] leading-snug text-body-2 shadow-[0_10px_30px_rgba(27,27,60,.18)] md:hidden">

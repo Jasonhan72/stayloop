@@ -28,6 +28,16 @@ export function isRecordedPayment(r: { status?: string | null }): boolean {
 
 const TORONTO_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' })
 
+const TORONTO_MINUTE = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+
+/** Toronto wall-clock time of a timestamptz as `YYYY-MM-DD HH:MM` ('' when unparseable). */
+export function torontoDateTime(at: Date | string): string {
+  const d = typeof at === 'string' ? new Date(at) : at
+  if (isNaN(d.getTime())) return ''
+  const p = Object.fromEntries(TORONTO_MINUTE.formatToParts(d).map((x) => [x.type, x.value]))
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`
+}
+
 /** Calendar date in Toronto (YYYY-MM-DD) — the day a payment was made, the day a tenant sees. */
 export function torontoDate(at: Date | string = new Date()): string {
   const d = typeof at === 'string' ? new Date(at) : at

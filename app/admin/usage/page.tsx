@@ -107,7 +107,7 @@ export default function AdminUsagePage() {
                 <h2 className="text-[16px] font-extrabold tracking-tight">{zh ? '按模型' : 'By model'}</h2>
                 <Table head={[zh ? '模型' : 'Model', zh ? '调用' : 'Calls', zh ? '成本' : 'Cost', zh ? 'Token 入/出/缓存' : 'Tokens in/out/cached', zh ? '均延迟' : 'Avg ms']}
                   rows={stats.by_model.map((m) => [
-                    <span key="m"><span className="font-mono text-[11.5px]">{m.model}</span>{m.unpriced > 0 && <span className="ml-1 text-[10px]" style={{ color: '#B45309' }}>{zh ? `未定价 ${m.unpriced}` : `${m.unpriced} unpriced`}</span>}</span>,
+                    <span key="m"><span className="font-mono text-[11.5px]">{m.model}</span>{m.unpriced > 0 && <span className="ml-2 inline-block text-[10px]" style={{ color: '#B45309' }}>{zh ? `未定价 ${m.unpriced}` : `${m.unpriced} unpriced`}</span>}</span>,
                     fmt(m.calls), usd(m.cost_usd), `${fmt(m.input_tokens)} / ${fmt(m.output_tokens)} / ${fmt(m.cache_read_tokens)}`, fmt(m.avg_latency_ms)])} />
               </div>
               <div className="min-w-0">

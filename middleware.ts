@@ -108,7 +108,17 @@ export function middleware(request: NextRequest) {
     const ask = homeAskRedirect(url)
     if (ask) return withSecurityHeaders(NextResponse.redirect(ask, 308))
   }
-  return withReferrerPolicy(withSecurityHeaders(NextResponse.next()), new URL(request.url).pathname)
+  return withCorsScope(withReferrerPolicy(withSecurityHeaders(NextResponse.next()), new URL(request.url).pathname), new URL(request.url).pathname)
+}
+
+// Cross-origin reads (site test 2026-10-17, T6-D9): HTML pages came back with
+// `Access-Control-Allow-Origin: *` (the Pages asset server's default). Only the open API
+// (/api/v1/*, the remote MCP endpoint) and /.well-known discovery files need it; every other
+// response is pinned to the site's own origin. Those paths keep what their handler sets.
+const CORS_OPEN_PATH = /^\/(?:api\/v1(?:\/|$)|api\/mcp(?:\/|$)|\.well-known\/)/
+function withCorsScope(res: NextResponse, pathname: string): NextResponse {
+  if (!CORS_OPEN_PATH.test(pathname)) res.headers.set('Access-Control-Allow-Origin', 'https://www.stayloop.ai')
+  return res
 }
 
 export const config = {

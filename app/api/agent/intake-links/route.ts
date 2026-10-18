@@ -89,5 +89,6 @@ export async function POST(req: Request) {
     .select('id, client_id, token, label, expires_at, revoked_at, used_count, created_at').maybeSingle()
   if (error || !row) return NextResponse.json({ error: error?.message || 'insert failed' }, { status: 500 })
   await a.from('agent_audit_events').insert({ actor_id: c.uid, actor_type: 'user', action: 'agent_intake_link_created', target_type: 'agent_intake_link', target_id: (row as { id: string }).id, acting_role: 'agent', metadata: { client_id: clientId, expires_at: expiresAt } }).then(() => undefined, () => undefined)
-  return NextResponse.json({ link: { ...(row as object), url: intakeLinkUrl(SITE(), token) } })
+  // Created → 201 (site test J-D4); the client only checks res.ok.
+  return NextResponse.json({ link: { ...(row as object), url: intakeLinkUrl(SITE(), token) } }, { status: 201 })
 }

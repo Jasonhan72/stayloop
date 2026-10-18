@@ -3,3 +3,7 @@
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(self), geolocation=(self)
   X-Content-Type-Options: nosniff
+  ! Access-Control-Allow-Origin
+
+/.well-known/*
+  Access-Control-Allow-Origin: *

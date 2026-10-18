@@ -459,6 +459,26 @@ export function proposeMatches(
     i++
   }
 
+  // Pass 2b — a 2 × rent deposit where only ONE of the two adjacent periods is still unrecorded
+  // (the other is already paid / late): the unrecorded period gets a 'likely' double match, paired
+  // with the recorded neighbour. Only the unrecorded period is ever written (D-F-03).
+  const recorded = periods.filter((p) => !isEligiblePeriod(p, today) && (p.record?.status === 'paid' || p.record?.status === 'late')).map((p) => p.due)
+  for (const a of eligible) {
+    if (assigned.has(a)) continue
+    const neighbour = recorded.find((r) => Math.abs(dayDiff(r, a)) <= 35)
+    if (!neighbour) continue
+    const first = neighbour < a ? neighbour : a, last = neighbour < a ? a : neighbour
+    const lo = addDays(first, -MATCH_WINDOW_BEFORE_DAYS)
+    const hi = addDays(last, MATCH_WINDOW_AFTER_DAYS)
+    const cands = rows
+      .filter((r) => !used.has(r) && r.date >= lo && r.date <= hi && within(r.amount, rent * 2, tol))
+      .map((tx) => ({ tx, kw: keywordScore(tx.description, opts.tenantName), dist: Math.min(Math.abs(dayDiff(tx.date, a)), Math.abs(dayDiff(tx.date, neighbour))) }))
+      .sort((x, y) => y.kw - x.kw || x.dist - y.dist)
+    if (!cands.length) continue
+    used.add(cands[0].tx)
+    assigned.set(a, { due: a, tx: cands[0].tx, confidence: 'likely', reason: 'double', pairedWith: neighbour })
+  }
+
   const matches: PeriodMatch[] = eligible.map((due) => assigned.get(due) ?? { due, confidence: 'none', reason: 'no_candidate' })
   const unmatched = rentLike(rows.filter((r) => !used.has(r)), rent, tol)
   return { matches, unmatched, eligible: eligible.length }

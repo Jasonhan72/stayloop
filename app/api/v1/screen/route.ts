@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { personalRecordLookupsAllowed } from '@/lib/compliance/craMode'
 import { partnerScreeningEnabled, PARTNER_SCREENING_CLOSED } from '@/lib/api/partnerScreening'
+import { fetchPublicHttps, isPublicHttpsUrl } from '@/lib/net/publicUrl'
 
 export const runtime = 'edge'
 
@@ -59,11 +60,15 @@ export async function POST(req: Request) {
   if (c.version !== CONSENT_VERSION || !c.accepted_at || !c.typed_name) {
     return NextResponse.json({ error: `consent required: { version: "${CONSENT_VERSION}", accepted_at, typed_name } — the applicant must accept Stayloop's screening consent text` }, { status: 422 })
   }
-  const files = Array.isArray(body.files) ? body.files.filter((f) => typeof f?.url === 'string' && /^https:\/\//i.test(f.url)).slice(0, MAX_FILES) : []
+  const files = Array.isArray(body.files) ? body.files.filter((f) => typeof f?.url === 'string' && isPublicHttpsUrl(f.url)).slice(0, MAX_FILES) : []
   if (!files.length) return NextResponse.json({ error: 'files[] with https urls required' }, { status: 422 })
   const name = String(body.applicant_name || '').trim().slice(0, 120)
   const rent = Number.isFinite(Number(body.monthly_rent)) ? Number(body.monthly_rent) : null
-  const webhook = typeof body.webhook_url === 'string' && /^https:\/\//i.test(body.webhook_url) ? body.webhook_url.slice(0, 500) : null
+  // Public https only — no loopback / private / link-local hosts (T6-D8); a refused webhook is an error, not silently dropped.
+  if (typeof body.webhook_url === 'string' && body.webhook_url && !(body.webhook_url.length <= 500 && isPublicHttpsUrl(body.webhook_url))) {
+    return NextResponse.json({ error: 'webhook_url must be a public https URL' }, { status: 422 })
+  }
+  const webhook = typeof body.webhook_url === 'string' && body.webhook_url ? body.webhook_url : null
 
   const landlordId = partner.landlord_auth_id as string
   const { data: row, error: rErr } = await admin.from('screenings').insert({
@@ -78,7 +83,8 @@ export async function POST(req: Request) {
   for (let i = 0; i < files.length; i++) {
     const f = files[i]
     try {
-      const res = await fetch(f.url, { redirect: 'follow' })
+      // Each redirect hop is re-checked; a hop to a private / internal host is refused (T6-D8).
+      const res = await fetchPublicHttps(f.url)
       if (!res.ok) continue
       const buf = await res.arrayBuffer()
       if (buf.byteLength === 0 || buf.byteLength > MAX_FILE) continue
@@ -112,7 +118,7 @@ export async function POST(req: Request) {
       const payload = status === 'scored'
         ? { screening_id: row.id, external_ref: body.external_ref ?? null, status, overall: result.overall, tier: result.tier ?? null, hard_gates: result.hard_gates ?? [], report_url: `${origin}/screening/${row.id}/report`, notice_letter_url: `${origin}/screening/${row.id}/notice`, boundary: 'Score and tier are information for the landlord\'s own decision — never grounds to decline (OHRC).' }
         : { screening_id: row.id, external_ref: body.external_ref ?? null, status, error: result.error ?? 'scoring failed' }
-      try { await fetch(webhook, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Stayloop-Event': 'screening.completed' }, body: JSON.stringify(payload) }) } catch { /* partner endpoint down */ }
+      try { await fetchPublicHttps(webhook, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Stayloop-Event': 'screening.completed' }, body: JSON.stringify(payload) }, 0) } catch { /* partner endpoint down */ }
     }
   })()
   try { getRequestContext().ctx.waitUntil(run) } catch { void run }

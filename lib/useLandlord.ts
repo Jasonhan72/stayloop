@@ -1,5 +1,6 @@
 'use client'
 
+import { clearLocalSessionState } from '@/lib/auth/clearLocalSession'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from './supabase'
@@ -106,6 +107,7 @@ export function useLandlord(): UseLandlordReturn {
   }, [loading, landlord, signedIn, router])
 
   const signOut = useCallback(async () => {
+    clearLocalSessionState()
     await supabase.auth.signOut()
     setLandlord(null)
     router.replace('/')

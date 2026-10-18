@@ -73,6 +73,19 @@ export default function AgentVerifyPage() {
   const input = 'w-full rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]'
   const label = 'block text-[12.5px] font-semibold text-body-2'
 
+  if (!auth.loading && !auth.user) {
+    return (
+      <WorkspaceShell role="agent" hideAside>
+        <div className="mx-auto max-w-[720px]" data-testid="agent-verify-signin">
+          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '经纪认证' : 'Agent verification'}</div>
+          <h1 className="mt-1 text-[24px] font-extrabold tracking-tight">{zh ? '提交你的 RECO 注册信息' : 'Submit your RECO registration'}</h1>
+          <p className="mt-3 text-[14px] leading-relaxed text-body-2">{zh ? '请先登录，再提交 RECO 注册信息。' : 'Sign in first, then submit your RECO registration.'}</p>
+          <Link href={`/login?redirect=${encodeURIComponent('/agent/verify')}`} className="sl-btn-primary mt-6 inline-block">{zh ? '登录' : 'Sign in'}</Link>
+        </div>
+      </WorkspaceShell>
+    )
+  }
+
   return (
     <WorkspaceShell role="agent" hideAside>
       <div className="mx-auto max-w-[720px]">

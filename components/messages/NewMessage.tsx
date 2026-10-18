@@ -12,6 +12,7 @@
 // A deep link (?new=<kind>:<ref>) starts at step 3 for that matter.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { stripNul } from '@/lib/screening/jsonSafe'
 import { useAuth } from '@/lib/useAuth'
 import {
   audienceLine, counterpartGroup, counterpartLine, COUNTERPART_GROUP_LABEL, fmtSize, initialOf, KIND_TAG, PERSON_ROLE, ROLE_ACCENT, roleLabel,
@@ -177,7 +178,7 @@ export default function NewMessage({ zh, hat, initial, onClose, onSent, onOpenTh
   const sendingRef = useRef(false)
   async function send() {
     if (sendingRef.current) return
-    const body = draft.trim()
+    const body = stripNul(draft).trim()
     if (!auth.user || (!body && !files.length) || nobodyElse) return
     sendingRef.current = true
     setBusy(true); setErr(null)

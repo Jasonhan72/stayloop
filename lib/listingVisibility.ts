@@ -32,3 +32,13 @@ export const TEST_LISTING_LABEL = { zh: '测试房源 · 非实际房源', en: '
 export function hasUsablePhotos(images: unknown): boolean {
   return Array.isArray(images) && images.some((u) => typeof u === 'string' && /^(https?:\/\/|data:image\/)/i.test(u))
 }
+
+/** Search cards need only one photo (a few inline data URLs made a 5-row response 153 KB): the first
+ *  https photo, else the first data URL — quick-published listings store theirs inline, and a card
+ *  without its photo would be worse than the bytes. */
+export function cardImages(images: unknown): string[] {
+  if (!Array.isArray(images)) return []
+  const ok = images.filter((u): u is string => typeof u === 'string')
+  const first = ok.find((u) => /^https?:\/\//i.test(u)) ?? ok.find((u) => /^data:image\//i.test(u))
+  return first ? [first] : []
+}

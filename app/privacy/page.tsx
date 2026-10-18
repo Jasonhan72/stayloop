@@ -58,9 +58,9 @@ export default function PrivacyPage() {
           </Section>
           <Section title={zh ? '5 · 联系' : '5 · Contact'}>
             <p>{zh ? (
-              <>请通过 <Link href="/contact" className="font-semibold text-brand hover:underline">联系页面</Link> 或 in-app 聊天联系我们。我们 30 天内回复。</>
+              <>请通过 <Link href="/contact" className="font-semibold text-brand hover:underline">联系页面</Link> 或 in-app 聊天联系我们；查阅、更正、删除个人信息的请求也可以发邮件到 <a href="mailto:privacy@stayloop.ai" className="font-semibold text-brand hover:underline">privacy@stayloop.ai</a>。我们 30 天内回复。</>
             ) : (
-              <>Reach us through our <Link href="/contact" className="font-semibold text-brand hover:underline">contact page</Link> or in-app chat. We respond within 30 days.</>
+              <>Reach us through our <Link href="/contact" className="font-semibold text-brand hover:underline">contact page</Link> or in-app chat; requests to access, correct or delete your personal information can also go to <a href="mailto:privacy@stayloop.ai" className="font-semibold text-brand hover:underline">privacy@stayloop.ai</a>. We respond within 30 days.</>
             )}</p>
           </Section>
         </article>

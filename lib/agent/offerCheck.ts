@@ -326,7 +326,7 @@ export function checkOfferText(text: string, opts: OfferCheckOptions = {}): Offe
   if (POST_DATED_RE.test(t)) {
     const required = REQUIRED_RE.test(t)
     findings.push({
-      id: 'post-dated-cheques', severity: required ? 'block' : 'warn', statute: 'RTA s.108', href: '/rules',
+      id: 'post-dated-cheques', severity: required ? 'block' : 'warn', rule: 'RTA-108-post-dated-cheques', statute: 'RTA s.108', href: href('RTA-108-post-dated-cheques'),
       zh: required
         ? '要求租客提供预开支票或自动扣款。房东或替房东行事的人不得把预开支票 / 自动扣款作为签约或续租的条件（RTA s.108）；可以请租客自愿选择，不能要求。'
         : '提到预开支票或自动扣款。它只能是租客自愿选择的付款方式，不能作为签约或续租的条件（RTA s.108）——请确认要约里没有「须 / 必须提供」的措辞。',

@@ -225,3 +225,15 @@ export function audienceLine(people: Person[], zh: boolean): string {
   const list = others.map((p) => `${personName(p.name, p.role, zh)}${p.name ? (zh ? `（${roleLabel(p.role, zh)}）` : ` (${roleLabel(p.role, zh)})`) : ''}${p.pending ? (zh ? '·邀请中' : ' · invited') : ''}`)
   return zh ? `这段对话里的每个人都能看到：${list.join('、')}、你` : `Everyone here can read it: ${list.join(', ')}, you`
 }
+
+/** System rows are stored as "中文 / English". Show the half in the UI language
+ *  (H-D1); text that is not a clean Chinese + English pair is returned as is. */
+export function systemBodyFor(body: string, zh: boolean): string {
+  const parts = body.split(' / ')
+  if (parts.length < 2) return body
+  const cjk = (s: string) => /[㐀-鿿]/.test(s)
+  const zhParts = parts.filter(cjk)
+  const enParts = parts.filter((p) => !cjk(p))
+  if (!zhParts.length || !enParts.length) return body
+  return (zh ? zhParts : enParts).join(' / ')
+}

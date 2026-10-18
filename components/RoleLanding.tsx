@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import { eyebrowFor } from '@/lib/ui/eyebrow'
 import { useT } from '@/lib/i18n'
 import { displayAiName } from '@/lib/agent/assistantName'
 import { useOnboarded } from '@/lib/useOnboarding'
@@ -171,7 +172,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
         <div className="relative mx-auto grid max-w-[1180px] items-center gap-12 px-5 pb-20 pt-14 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:pt-16">
           <div className="min-w-0">
             <div className="v8-tag" style={{ color: c }}>
-              {cfg.eyebrow}
+              {eyebrowFor(cfg.eyebrow, lang)}
             </div>
             <h1 className="mt-[18px] text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">{cfg.h1[lang]}</h1>
             <p className="mt-[20px] max-w-[560px] text-[19px] leading-[1.6] text-body-2">{cfg.sub[lang]}</p>

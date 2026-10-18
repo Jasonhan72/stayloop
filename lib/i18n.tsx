@@ -98,6 +98,7 @@ export const DICT = {
   'foot.about': { en: 'About', zh: '关于' },
   'foot.privacy': { en: 'Privacy', zh: '隐私' },
   'foot.terms': { en: 'Terms', zh: '使用条款' },
+  'foot.consumerRights': { en: 'Consumer rights', zh: '消费者权利' },
   'foot.contact': { en: 'Contact', zh: '联系' },
   'foot.admin': { en: 'Admin', zh: '后台管理' },
 

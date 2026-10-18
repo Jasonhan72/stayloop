@@ -2,6 +2,7 @@
 
 export const runtime = 'edge'
 
+import { torontoDate } from '@/lib/household/ledger'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
@@ -326,7 +327,7 @@ function RealLeaseDetail({ id }: { id: string }) {
           )}
           {fullySigned && (
             <div className="mt-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-[13px] text-green-800">
-              {zh ? `✓ 双方已签署（${l.signed_at?.slice(0, 10)}）· 文档已永久在线保存` : `✓ Fully executed (${l.signed_at?.slice(0, 10)}) · document retained online permanently`}
+              {zh ? `✓ 双方已签署（${(l.signed_at ? torontoDate(l.signed_at) : '')}）· 文档已永久在线保存` : `✓ Fully executed (${(l.signed_at ? torontoDate(l.signed_at) : '')}) · document retained online permanently`}
             </div>
           )}
         </div>

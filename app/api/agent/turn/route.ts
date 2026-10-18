@@ -13,7 +13,7 @@ import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } 
 import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback, landlordRenewalFacts, landlordListingsBlock, OUT_OF_PROVINCE_FACTS_HEADING } from '@/lib/agent/prompts'
 import { parseTurnDocuments, extractAttachmentTexts, renderDocumentBlocks, detectDocumentProvince, type TurnDocument } from '@/lib/agent/attachmentText'
 import { ANON_TURNS_PER_HOUR, ANON_TURNS_SITE_PER_HOUR } from '@/lib/agent/anonLimits'
-import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, nonOntarioProvince, provinceOfDraft, provinceOfOwnedListingInMessage, type TurnOutput } from '@/lib/agent/guardrail'
+import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, dropUnsaidDraftFacts, nonOntarioProvince, provinceOfDraft, provinceOfOwnedListingInMessage, type TurnOutput } from '@/lib/agent/guardrail'
 import { aiFactsBlock, effectiveProvince, provinceName, type ProvinceCode, type ProvinceRow } from '@/lib/provinces'
 import { matchOwnedListing, mergeWithExisting, type OwnedListingRow } from '@/lib/agent/draftExisting'
 import { flattenMarkdown, isProviderCapacityError } from '@/lib/agent/turnHelpers'
@@ -1111,6 +1111,12 @@ export async function POST(req: Request) {
     // The draft card renders with an edit/publish CTA — it must pass the
     // same OHRC/RTA compliance filters as the reply text.
     // Runs on the merged draft, so an owned listing's stored terms (pets, utilities …) count as confirmed.
+    // A new card keeps only the bathrooms / neighbourhood the user gave (or the photos show) — N-2.
+    if (!ownedMatch && draftListing) {
+      const unsaid = dropUnsaidDraftFacts(draftListing, userSaid, imgs.length > 0 || urlImages.length > 0)
+      draftListing = unsaid.draft
+      flags.push(...unsaid.flags)
+    }
     if (draftListing) {
       const sanitized = sanitizeDraftListing(draftListing, uiLang, draftProvince, userSaid)
       draftListing = sanitized.draft

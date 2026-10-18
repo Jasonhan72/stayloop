@@ -201,6 +201,20 @@ function provinceRefusalNote(code: NonOntarioCode, zh: boolean, kind: 'card' | '
     : `\n\n⚠️ The wording above may touch a protected ground. ${under('an applicant')} cannot be refused or treated differently on a protected ground${eg} — use only specific reasons tied to the tenancy that do not involve a protected ground, and do not send this passage to the applicant.`
 }
 
+/** 「实时」类说法（2026-10-18 全站测试 N-1）：模型在发房源对话里自己写「我会实时更新草稿 / 卡片」，
+ *  卡片并不实时同步，属不实说法。确定性改成平实说法（中英都处理），只动「实时 + 更新类动词」与
+ *  英文 real-time / live update 这几种固定搭配，不改别的句子。 */
+export function plainLiveWording(text: string): string {
+  if (!text) return text
+  return text
+    .replace(/实时(?:地)?(?=(?:更新|同步|修改|调整|刷新|反映|保存))/g, '')
+    .replace(/(?:实时|即时)(?:地)?(?:为你|帮你|给你)?(?=(?:更新|同步))/g, '')
+    .replace(/\s+in real[- ]time\b/gi, '')
+    .replace(/\breal[- ]time\s+(?=(?:update|updating|sync|syncing|refresh)\b)/gi, '')
+    .replace(/\blive[- ](?=(?:update|updating|updates|sync|syncing)\b)/gi, '')
+    .replace(/\breal[- ]time\b\s*/gi, '')
+}
+
 export function applyGuardrail(
   role: AgentRole,
   out: TurnOutput,
@@ -311,7 +325,42 @@ export function applyGuardrail(
     flags.push('action_missing_scope')
   }
 
+  // 6) 不实的「实时」说法（N-1）——确定性改写，不追加注释；只是措辞，不记作合规拦截（不进 flags）。
+  reply = plainLiveWording(reply)
+
   return { out: { ...out, reply, proposedAction: action, memoryWrites: cleanedMemories }, flags }
+}
+
+/** Structured facts on a NEW draft card the user never gave (site test 2026-10-18 N-2): the card showed
+ *  「1 浴」 and 「Willowdale · North York」 when the landlord had said neither. Bathrooms may come from the
+ *  user's words (or fetched page) or from attached photos; a neighbourhood stays only when the user (or the
+ *  fetched page) named it — the model infers it from the address, which can be wrong, and the card shows it
+ *  as a fact. An owned listing's stored values are the landlord's own record: callers skip this for them. */
+export const USER_SAID_BATHROOMS = /卫|浴|厕|洗手间|bath|washroom|\bba\b|\d\s*b(?:r|d|ed)?\s*[\/,+]?\s*\d(?:\.5)?\s*b(?:a|th)?\b/i
+export function dropUnsaidDraftFacts<T extends { bathrooms?: number; bathrooms_half?: number; neighborhood?: string }>(
+  draft: T,
+  userSaid: string,
+  hasPhotos: boolean,
+): { draft: T; flags: string[] } {
+  const out = { ...draft }
+  const flags: string[] = []
+  const said = String(userSaid || '')
+  if (!hasPhotos && !USER_SAID_BATHROOMS.test(said) && (out.bathrooms != null || out.bathrooms_half != null)) {
+    delete out.bathrooms
+    delete out.bathrooms_half
+    flags.push('draft_listing_unsaid_bathrooms')
+  }
+  if (typeof out.neighborhood === 'string' && out.neighborhood.trim()) {
+    const low = said.toLowerCase()
+    const parts = out.neighborhood.split(/\s*[·,，、/|]\s*/).map((x) => x.trim()).filter(Boolean)
+    const kept = parts.filter((x) => low.includes(x.toLowerCase()))
+    if (kept.length !== parts.length) {
+      flags.push('draft_listing_unsaid_neighborhood')
+      if (kept.length) out.neighborhood = kept.join(' · ')
+      else delete out.neighborhood
+    }
+  }
+  return { draft: out, flags }
 }
 
 /** Draft-listing compliance — the draft card renders with an edit/publish CTA,

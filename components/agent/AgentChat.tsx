@@ -250,7 +250,7 @@ export default function AgentChat({
           type="button"
           onClick={() => onOpenAssistant?.()}
           disabled={!canOpenSheet}
-          aria-label={canOpenSheet ? (zh ? `打开 AI 助理 ${agentName}` : `Open your AI Agent ${agentName}`) : undefined}
+          aria-label={canOpenSheet ? (zh ? `打开 AI 助理 ${agentName}` : `Open your AI Agent ${agentName}`) : agentName}
           className={`flex-none rounded-full h-11 w-11 ${device ? '' : 'md:h-14 md:w-14'} ${sessionChat ? 'shadow-[0_4px_14px_rgba(27,27,60,.16)]' : ''} ${canOpenSheet ? '' : 'cursor-default'}`}
         >
           <AssistantAvatar avatar={avatar} role={role} className="h-full w-full" fallback={avatarFallback} />

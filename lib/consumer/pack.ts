@@ -10,7 +10,7 @@
 //      the applicant's own name, or that appear on an identity document inside
 //      the file (the co-applicant), survive. Scores: ai_score and the tier
 //      label only — no dimension numbers.
-import { signalLabel } from '@/lib/screening/signalLabels'
+import { packSignalLabel } from './signalText'
 import { summaryFor } from '@/lib/screening/summaryText'
 import { courtNoteZh, courtSourceZh } from '@/lib/screening/localize'
 import { nameMatches, nameTokens } from './match'
@@ -183,14 +183,14 @@ export function buildScreeningSection(row: PackScreeningRow, input: Pick<BuildPa
   }
 
   // ── screening signals (codes → plain labels) ──
-  for (const g of row.hard_gates_triggered ?? []) items.push({ kind: 'forensic_flag', ref: `gate:${g}`, label: signalLabel(g, zh), detail: zh ? '硬门槛：这一项直接影响了结论' : 'Hard gate: this item set the ceiling of the conclusion', unverified: false, severity: 'critical' })
-  for (const f of row.red_flags ?? []) items.push({ kind: 'forensic_flag', ref: `flag:${f}`, label: signalLabel(f, zh), detail: zh ? '风险标记' : 'Risk flag', unverified: false, severity: 'high' })
+  for (const g of row.hard_gates_triggered ?? []) items.push({ kind: 'forensic_flag', ref: `gate:${g}`, label: packSignalLabel(g, zh), detail: zh ? '硬门槛：这一项直接影响了结论' : 'Hard gate: this item set the ceiling of the conclusion', unverified: false, severity: 'critical' })
+  for (const f of row.red_flags ?? []) items.push({ kind: 'forensic_flag', ref: `flag:${f}`, label: packSignalLabel(f, zh), detail: zh ? '风险标记' : 'Risk flag', unverified: false, severity: 'high' })
   const fd = row.forensics_detail
   const allFlags = fd && Array.isArray((fd as { all_flags?: unknown }).all_flags) ? ((fd as { all_flags: Array<{ code?: string; severity?: string; file?: string; evidence_en?: string; evidence_zh?: string }> }).all_flags) : []
   for (const f of allFlags) {
     if (!f || typeof f.code !== 'string') continue
     if (f.severity === 'info') continue
-    items.push({ kind: 'forensic_flag', ref: `forensic:${f.code}${f.file ? `:${f.file}` : ''}`, label: signalLabel(f.code, zh), detail: [zh ? f.evidence_zh || f.evidence_en : f.evidence_en || f.evidence_zh, f.file].filter(Boolean).join(' · ') || null, unverified: false, severity: f.severity ?? null })
+    items.push({ kind: 'forensic_flag', ref: `forensic:${f.code}${f.file ? `:${f.file}` : ''}`, label: packSignalLabel(f.code, zh), detail: [zh ? f.evidence_zh || f.evidence_en : f.evidence_en || f.evidence_zh, f.file].filter(Boolean).join(' · ') || null, unverified: false, severity: f.severity ?? null })
   }
 
   // ── public records: every hit, marked unverified unless corroborated (s.9(3)(b)) ──
@@ -256,7 +256,8 @@ export function buildScreeningSection(row: PackScreeningRow, input: Pick<BuildPa
     items,
     sources: Array.from(new Set(sources)),
     documents,
-    corrections: input.corrections.filter((c) => c.screening_id === row.id),
+    // Who made a correction is Stayloop, not a staff member's account id (site test E-D5).
+    corrections: input.corrections.filter((c) => c.screening_id === row.id).map(({ created_by: _by, ...c }) => { void _by; return { ...c, by: zh ? 'Stayloop 工作人员' : 'Stayloop staff' } }),
     notice_confirmed_how: row.notice_confirmed_how ?? null,
   }
 }
@@ -275,8 +276,10 @@ export function buildDisclosurePack(input: BuildPackInput): DisclosurePack {
     generated_at: (input.now ?? new Date()).toISOString(),
     lang: input.lang,
     screenings: rows.map((r) => buildScreeningSection(r, input)),
-    viewers: input.viewers.slice().sort((a, b) => b.when.localeCompare(a.when)),
-    recipients: input.recipients.filter((r) => ids.has(r.screening_id)),
+    // s.12 asks for the names of those who looked / received — not their login email or phone
+    // (site test T6-D5: the landlord's sign-in email reached the applicant's pack).
+    viewers: input.viewers.slice().sort((a, b) => b.when.localeCompare(a.when)).map((v) => ({ ...v, phone: null, email: null })),
+    recipients: input.recipients.filter((r) => ids.has(r.screening_id)).map((r) => ({ ...r, phone: null, email: null })),
     alert,
   }
 }

@@ -409,7 +409,7 @@ export default function HouseholdHub() {
                   {currentIntents.slice(0, 3).map((i) => (
                     <div key={i.id} className="flex flex-wrap items-center gap-2">
                       <span className="rounded-md bg-success/10 px-2 py-0.5 font-mono text-[10.5px] font-bold text-success">{zh ? INTENT_LABEL[i.intent]?.zh ?? i.intent : INTENT_LABEL[i.intent]?.en ?? i.intent}</span>
-                      <span className="text-[11.5px] text-body-3">{i.created_at.slice(0, 10)}{i.tenant_user_id === user?.id ? (zh ? ' · 我' : ' · me') : ''}</span>
+                      <span className="text-[11.5px] text-body-3">{torontoDate(i.created_at)}{i.tenant_user_id === user?.id ? (zh ? ' · 我' : ' · me') : ''}</span>
                       {i.note && <span className="text-body-2">{i.note}</span>}
                     </div>
                   ))}
@@ -421,7 +421,7 @@ export default function HouseholdHub() {
                   {pastIntents.slice(0, 3).map((i) => (
                     <div key={i.id} className="flex flex-wrap items-center gap-2">
                       <span className="rounded-md bg-surface-chip px-2 py-0.5 font-mono text-[10.5px] font-bold">{zh ? INTENT_LABEL[i.intent]?.zh ?? i.intent : INTENT_LABEL[i.intent]?.en ?? i.intent}</span>
-                      <span>{i.created_at.slice(0, 10)}</span>
+                      <span>{torontoDate(i.created_at)}</span>
                       {i.note && <span>{i.note}</span>}
                     </div>
                   ))}

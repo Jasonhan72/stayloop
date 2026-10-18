@@ -19,7 +19,7 @@ import { useT } from '@/lib/i18n'
 import ThreadPanel, { type ThreadViewer } from '@/components/threads/ThreadPanel'
 import NewMessage, { PersonAvatar } from './NewMessage'
 import {
-  CHANNEL_LABEL, counterpartGroup, counterpartLine, COUNTERPART_GROUP_LABEL, KIND_TAG, PARTY_LABEL, roleLabel, threadHref,
+  CHANNEL_LABEL, counterpartGroup, counterpartLine, COUNTERPART_GROUP_LABEL, KIND_TAG, PARTY_LABEL, roleLabel, systemBodyFor, threadHref,
   type Person, type ThreadKind, type ThreadMessage,
 } from '@/lib/threads/shared'
 import { shortHash, verifyChain, type ChainReport } from '@/lib/threads/hashChain'
@@ -301,7 +301,7 @@ export default function MessageCenter({ hat }: { hat: 'tenant' | 'landlord' | 'a
                 </span>
                 <span className="block truncate text-[11.5px] text-body-3">{matterOf(r)}</span>
                 <span className="flex items-center gap-1.5">
-                  <span className="min-w-0 flex-1 truncate text-[12.5px] text-body-2">{who(r)}{zh ? '：' : ': '}{r.last_body}</span>
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] text-body-2">{who(r)}{zh ? '：' : ': '}{r.last_kind === 'system' ? systemBodyFor(r.last_body, zh) : r.last_body}</span>
                   {r.unread > 0 && <span className="flex-none rounded-full bg-brand px-1.5 font-mono text-[10px] font-bold text-white">{r.unread}</span>}
                 </span>
               </span>

@@ -125,7 +125,8 @@ export type PackScreening = {
   items: PackItem[]
   sources: string[]
   documents: Array<{ kind: string; name: string }>
-  corrections: ScreeningCorrection[]
+  /** Corrections without the staff account id; `by` is always Stayloop. */
+  corrections: Array<Omit<ScreeningCorrection, 'created_by'> & { by: string }>
   /** s.11(3) record — how the landlord confirmed the applicant was told. */
   notice_confirmed_how: string | null
 }

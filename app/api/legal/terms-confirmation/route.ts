@@ -24,6 +24,13 @@ export async function POST(req: Request) {
   if (meta.terms_confirm_sent_version === TERMS_VERSION) return NextResponse.json({ ok: true, already: true })
   if (!(await underHourlyLimit(`terms-confirm:${user.id}`, 3, false))) return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '3600' } })
 
+  // Claim before sending: the primary key on (user_id, terms_version) lets exactly one of two
+  // racing requests through (D-A8). Other DB errors (e.g. table not yet migrated) fall through.
+  const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
+  const { error: claimErr } = await admin.from('terms_confirm_claims').insert({ user_id: user.id, terms_version: TERMS_VERSION })
+  if (claimErr?.code === '23505') return NextResponse.json({ ok: true, already: true })
+  const claimed = !claimErr
+
   const zh = (req.headers.get('accept-language') || '').toLowerCase().startsWith('zh')
   const name = accountName(user)
   const site = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai'
@@ -42,9 +49,11 @@ export async function POST(req: Request) {
 </div>`
   const text = zh ? `${esc(user.email)} 已于 ${acceptedAt} 同意 Stayloop 服务条款（${TERMS_VERSION} 版）与隐私政策。全文：${site}/terms` : `${user.email} accepted the Stayloop Terms of Service (version ${TERMS_VERSION}) and Privacy Policy on ${acceptedAt}. Full text: ${site}/terms`
   const sent = await sendEmail({ to: user.email, subject, html, text })
-  if (!sent.ok) return NextResponse.json({ error: 'send_failed' }, { status: 502 })
+  if (!sent.ok) {
+    if (claimed) await admin.from('terms_confirm_claims').delete().eq('user_id', user.id).eq('terms_version', TERMS_VERSION)
+    return NextResponse.json({ error: 'send_failed' }, { status: 502 })
+  }
 
-  const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
   await admin.auth.admin.updateUserById(user.id, { user_metadata: { ...meta, terms_confirm_sent_version: TERMS_VERSION, terms_confirm_sent_at: new Date().toISOString() } })
   const { error: auditErr } = await admin.from('agent_audit_events').insert({ actor_id: user.id, actor_type: 'system', action: 'terms_confirmation_emailed', target_type: 'account', target_id: user.id, metadata: { terms_version: TERMS_VERSION, email_id: sent.id ?? null } })
   if (auditErr) console.error('terms-confirmation audit failed', auditErr.message)

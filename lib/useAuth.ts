@@ -1,5 +1,6 @@
 'use client'
 
+import { clearLocalSessionState } from '@/lib/auth/clearLocalSession'
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { clearCachedAiNames } from '@/lib/aiName'
@@ -170,6 +171,7 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
   const signOut = async () => {
     clearCachedAiNames()
     clearStoredAvatar()
+    clearLocalSessionState()
     clearCachedProfilePhotos()
     const supabase = getSupabaseBrowser()
     await supabase.auth.signOut()

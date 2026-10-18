@@ -7,7 +7,7 @@
 // Signed-in callers pass their JWT so the budget is per account (and their searches are audited client-side).
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { LISTING_VISIBILITY_OR, hasUsablePhotos } from '@/lib/listingVisibility'
+import { LISTING_VISIBILITY_OR, hasUsablePhotos, cardImages } from '@/lib/listingVisibility'
 import { underHourlyLimit } from '@/lib/rateLimit'
 
 export const runtime = 'edge'
@@ -93,7 +93,10 @@ export async function GET(req: Request) {
   let rows = ((data || []) as Row[]).filter((l) => hasUsablePhotos(l.images))
   if (pets) rows = rows.filter((l) => !!l.pet_policy && !NEGATIVE_PETS.test(l.pet_policy))
   // 8.14: a withheld address never leaves the server.
-  const items = rows.slice(0, PAGE_SIZE).map((l) => (l.display_address ? l : { ...l, address: '', unit: null, lat: null, lng: null }))
+  const items = rows.slice(0, PAGE_SIZE).map((r) => {
+    const l = { ...r, images: cardImages(r.images) }
+    return l.display_address ? l : { ...l, address: '', unit: null, lat: null, lng: null }
+  })
   const total = count ?? items.length
   return NextResponse.json(
     { items, total, page, pages: Math.max(1, Math.ceil(total / PAGE_SIZE)), page_size: PAGE_SIZE },

@@ -78,6 +78,7 @@ export default function PrivateMemorySnapshot({
   const [editFields, setEditFields] = useState<MemoryEditField[]>([])
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<string | null>(null)
+  const [confirmForget, setConfirmForget] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const canEdit = editable && !!role
   const gone = zh ? '这条记忆已经变了（可能刚被更新或删除），已重新读取，请再试一次。' : 'This memory changed (just updated or removed); reloaded — please try again.'
@@ -93,7 +94,7 @@ export default function PrivateMemorySnapshot({
 
   async function forget(m: MemoryItem) {
     if (!role) return
-    if (!confirm(zh ? `让 ${agentName} 忘掉「${m.label}」？` : `Tell ${agentName} to forget "${m.label}"?`)) return
+    setConfirmForget(null)
     setBusy(rowId(m, role))
     try {
       const { data: u } = await supabase.auth.getUser()
@@ -230,7 +231,15 @@ export default function PrivateMemorySnapshot({
               {canEdit && editing !== rowId(m, role) && (
                 <span className="flex flex-none gap-1 text-[11px]">
                   {memoryEditFields(m.value) && <button type="button" onClick={() => startEdit(m)} className="rounded px-1.5 py-[2px] text-body-3 hover:bg-surface-chip hover:text-body">{zh ? '改' : 'Edit'}</button>}
-                  <button type="button" disabled={busy === rowId(m, role)} onClick={() => forget(m)} className="rounded px-1.5 py-[2px] text-body-3 hover:bg-danger/10 hover:text-danger">{zh ? '忘掉' : 'Forget'}</button>
+                  {confirmForget === rowId(m, role) ? (
+                    <span className="inline-flex items-center gap-1" data-testid="memory-forget-confirm">
+                      <span className="text-[12px] text-body-2">{zh ? `让 ${agentName} 忘掉？` : `Forget this?`}</span>
+                      <button type="button" disabled={busy === rowId(m, role)} onClick={() => forget(m)} className="rounded px-1.5 py-[2px] font-bold text-danger hover:bg-danger/10" data-testid="memory-forget-confirm-yes">{zh ? '确认忘掉' : 'Yes, forget'}</button>
+                      <button type="button" onClick={() => setConfirmForget(null)} className="rounded px-1.5 py-[2px] text-body-3 hover:bg-surface">{zh ? '取消' : 'Cancel'}</button>
+                    </span>
+                  ) : (
+                    <button type="button" disabled={busy === rowId(m, role)} onClick={() => setConfirmForget(rowId(m, role))} className="rounded px-1.5 py-[2px] text-body-3 hover:bg-danger/10 hover:text-danger">{zh ? '忘掉' : 'Forget'}</button>
+                  )}
                 </span>
               )}
             </div>

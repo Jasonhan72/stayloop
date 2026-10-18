@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js'
 import { actOnWorkOrder, peekByToken } from '@/lib/marketplace/server'
 import type { WoAction } from '@/lib/marketplace/workOrders'
 import { underHourlyLimit } from '@/lib/rateLimit'
+import { stripNul } from '@/lib/screening/jsonSafe'
 import { ensureThread, notifyThreadParties } from '@/lib/threads/server'
 
 export const runtime = 'edge'
@@ -47,7 +48,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   if (!v) return NextResponse.json({ error: 'not found' }, { status: 404 })
   // 节点 4: a message from the external contractor into the work-order thread (no account: sender_kind 'external').
   if (body.action === 'message') {
-    const text = String((body.payload || {}).body || '').trim().slice(0, 4000)
+    const text = stripNul(String((body.payload || {}).body || '')).trim().slice(0, 4000)
     if (text.length < 1) return NextResponse.json({ error: 'body required' }, { status: 400 })
     if (['declined', 'cancelled', 'expired', 'closed'].includes(v.wo.status)) return NextResponse.json({ error: 'thread_closed' }, { status: 409 })
     const th = await ensureThread(a, 'work_order', v.wo.id, { householdId: v.wo.household_id, title: v.ticket.title, createdBy: v.wo.landlord_auth_id })

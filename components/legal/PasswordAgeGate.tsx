@@ -61,8 +61,8 @@ export default function PasswordAgeGate() {
         <h2 id="pw-gate-title" className="mt-2 text-[22px] font-bold leading-tight tracking-tight text-ink">{zh ? '请设置一个新密码' : 'Please set a new password'}</h2>
         <p className="mt-2 text-[14px] leading-relaxed text-body-2">
           {zh
-            ? `你的密码已使用超过 ${PASSWORD_MAX_AGE_DAYS} 天。按房源数据提供方的规则，登录密码每 ${PASSWORD_MAX_AGE_DAYS} 天需要更新一次；设置新密码后即可继续。`
-            : `Your password is more than ${PASSWORD_MAX_AGE_DAYS} days old. Under the listing-data providers’ rules, sign-in passwords must be renewed every ${PASSWORD_MAX_AGE_DAYS} days; set a new one to continue.`}
+            ? `你的密码已使用超过 ${PASSWORD_MAX_AGE_DAYS} 天。为了账号安全，登录密码每 ${PASSWORD_MAX_AGE_DAYS} 天需要更新一次；设置新密码后即可继续。`
+            : `Your password is more than ${PASSWORD_MAX_AGE_DAYS} days old. For account security, sign-in passwords must be renewed every ${PASSWORD_MAX_AGE_DAYS} days; set a new one to continue.`}
         </p>
         <form onSubmit={(e) => { e.preventDefault(); void save() }} className="mt-4 space-y-3">
           <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" placeholder={zh ? '新密码，至少 8 位' : 'New password, 8+ characters'} aria-label={zh ? '新密码' : 'New password'} className="sl-input w-full" data-testid="pw-gate-new" />

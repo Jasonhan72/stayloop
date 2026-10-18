@@ -16,6 +16,7 @@ import { notifyUser } from '@/lib/push/notify'
 import { FORMAL_COPY_NOTE, KIND_TAG, PARTY_LABEL, messageCenterHref, type MessageKind, type SenderKind, type ThreadKind } from './shared'
 import { REPLY_MARKER, bareAddress, newReplyToken, replyAddress, stripQuotedReply, tokenFromAddress, htmlToText } from './emailReply'
 import { ensureMatter, matterKindOfThread } from '@/lib/matters/server'
+import { stripNul } from '@/lib/screening/jsonSafe'
 
 type Admin = SupabaseClient
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')
@@ -80,10 +81,11 @@ export type SystemMessageInput = {
 export async function postSystemMessage(admin: Admin, threadId: string, m: SystemMessageInput): Promise<number | null> {
   try {
     const kind = m.kind ?? 'system'
-    const body = (kind === 'formal_copy' ? `${m.body}\n\n— ${FORMAL_COPY_NOTE.zh} / ${FORMAL_COPY_NOTE.en}` : m.body).slice(0, 4000)
+    // U+0000 is rejected by Postgres (22P05) — strip it before the write (site test T6-D7).
+    const body = stripNul(kind === 'formal_copy' ? `${m.body}\n\n— ${FORMAL_COPY_NOTE.zh} / ${FORMAL_COPY_NOTE.en}` : m.body).slice(0, 4000)
     const { data } = await admin.from('thread_messages').insert({
       thread_id: threadId, sender_id: m.senderId ?? null, sender_kind: m.senderKind ?? 'system', acting_role: m.actingRole ?? null, sender_label: m.senderLabel ?? null,
-      kind, body, meta: m.meta ?? {}, channel: m.channel ?? (kind === 'message' ? 'app' : 'system'), attachments: m.attachments ?? [],
+      kind, body, meta: stripNul(m.meta ?? {}), channel: m.channel ?? (kind === 'message' ? 'app' : 'system'), attachments: m.attachments ?? [],
     }).select('id').maybeSingle()
     return (data as { id: number } | null)?.id ?? null
   } catch (e) {

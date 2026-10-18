@@ -231,7 +231,7 @@ export async function loadPackInputs(admin: SupabaseClient, request: ConsumerReq
     for (const d of (dels ?? []) as Array<{ id: string; principal_name: string | null; principal_email: string; confirmed_at: string | null; status: string }>) {
       for (const s of screenings.filter((x) => x.delegation_id === d.id)) {
         const at = s.scored_at ?? s.created_at
-        if (new Date(at).getTime() >= since1y) recipients.push({ name: d.principal_name || d.principal_email, role: 'principal', phone: null, email: d.principal_email, received_at: at, screening_id: s.id })
+        if (new Date(at).getTime() >= since1y) recipients.push({ name: d.principal_name || (lang === 'zh' ? '委托客户' : 'Client of the agent'), role: 'principal', phone: null, email: d.principal_email, received_at: at, screening_id: s.id })
       }
     }
   }

@@ -39,6 +39,7 @@ const GROUPS: Group[] = [
       { key: 'foot.about', href: '/about' },
       { key: 'foot.privacy', href: '/privacy' },
       { key: 'foot.terms', href: '/terms' },
+      { key: 'foot.consumerRights', href: '/consumer-rights' },
       { key: 'foot.contact', href: '/contact' },
       { key: 'foot.admin', href: '/admin' },
     ],

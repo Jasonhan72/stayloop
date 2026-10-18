@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react'
 import Header from '@/components/Header'
+import DocTitle from '@/components/DocTitle'
 import FavHeart from '@/components/FavHeart'
 import { VerificationBadge } from '@/components/ListingBadges'
 import ListingsMap from '@/components/ListingsMap'
@@ -12,6 +13,7 @@ import { favKey, useFavorites, type FavListing } from '@/lib/favorites'
 import { supabase } from '@/lib/supabase'
 import { renderNote } from '@/lib/safeNote'
 import { useT } from '@/lib/i18n'
+import { resolveList } from '@/lib/listingLang'
 import { useAuth } from '@/lib/useAuth'
 import { writeAuditEvent } from '@/lib/agent/audit'
 import { useAIName } from '@/lib/aiName'
@@ -307,6 +309,7 @@ export default function ListingsPage() {
     // viewport, the card list scrolls on its own and the map (with its peek card at the bottom) is always fully on screen.
     // Phones and tablets keep the normal page scroll.
     <div className="bg-white lg:flex lg:h-[100dvh] lg:flex-col lg:overflow-hidden" style={{ minHeight: '100vh' }}>
+      <DocTitle zh="房源 · Stayloop" en="Listings · Stayloop" />
       <Header />
       {/* The "demo stage · TRREB not connected" bar was removed 2026-10-03 (user: drop the sample-data bars
           for space) — every listing shown here is real (verified landlord listings; the Realtor.ca imports were archived
@@ -1012,9 +1015,9 @@ function ListingCard({
             ? <>{zh ? '挂牌 · ' : 'Listed by '}<b style={{ fontWeight: 600, color: '#171717' }}>{l.brokerage || (zh ? '房东直租' : 'Direct from landlord')}</b></>
             : <>{zh ? '房东直租 · ' : 'Direct from landlord · '}<b style={{ fontWeight: 600, color: '#171717' }}>Stayloop</b></>}
         </div>
-        {l.amenities && l.amenities.length > 0 && (
+        {(l.amenities?.length ?? 0) > 0 && (
           <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap' }}>
-            {l.amenities.slice(0, 3).map((a) => (
+            {resolveList('amenities', l.amenities, zh ? 'zh' : 'en').slice(0, 3).map((a) => (
               <span
                 key={a}
                 style={{

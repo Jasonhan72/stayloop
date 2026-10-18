@@ -12,7 +12,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import { notifyFactsChanged } from '@/lib/facts/useFacts'
 import { acceptEvidenceFile, evidenceErrorText, periodEvidenceState, shortSha, type EvidenceRow } from '@/lib/household/rentEvidence'
-import type { PeriodState } from '@/lib/household/ledger'
+import { torontoDate, type PeriodState } from '@/lib/household/ledger'
 
 export type RentPeriodRecord = EvidenceRow & { id?: string; paid_at?: string | null; amount?: number | string | null; evidence_mime?: string | null }
 
@@ -153,7 +153,7 @@ export default function RentPeriodRow(p: Props) {
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-body-3" data-testid="rent-period-marks">
           <span>
             {zh ? `${p.whoLabel(ev.recordedBy)} 记录` : `Recorded by ${p.whoLabel(ev.recordedBy)}`}
-            {record?.paid_at ? (zh ? ` · 付于 ${record.paid_at.slice(0, 10)}` : ` · paid ${record.paid_at.slice(0, 10)}`) : ''}
+            {record?.paid_at ? (zh ? ` · 付于 ${torontoDate(record.paid_at)}` : ` · paid ${torontoDate(record.paid_at)}`) : ''}
           </span>
           <span aria-hidden>·</span>
           {ev.confirmed ? (
@@ -161,7 +161,7 @@ export default function RentPeriodRow(p: Props) {
               {ev.confirmedByMe
                 ? (zh ? '我已确认' : 'Confirmed by me')
                 : (zh ? `${p.whoLabel(record?.confirmed_by)} 已确认` : `Confirmed by ${p.whoLabel(record?.confirmed_by)}`)}
-              {record?.confirmed_at ? ` · ${record.confirmed_at.slice(0, 10)}` : ''}
+              {record?.confirmed_at ? ` · ${torontoDate(record.confirmed_at)}` : ''}
             </span>
           ) : ev.canConfirm ? (
             <button type="button" onClick={() => void confirm()} disabled={p.busy || confirming}
@@ -181,7 +181,7 @@ export default function RentPeriodRow(p: Props) {
                   {preview ? (zh ? '收起' : 'Hide') : (zh ? '查看' : 'View')}
                 </button>
                 {record?.evidence_sha256 && <span className="font-mono text-[10px]" title={record.evidence_sha256}>sha256 {shortSha(record.evidence_sha256)}</span>}
-                {record?.evidence_at && <span>{record.evidence_at.slice(0, 10)}</span>}
+                {record?.evidence_at && <span>{torontoDate(record.evidence_at)}</span>}
               </span>
             </>
           ) : null}

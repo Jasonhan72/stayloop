@@ -12,6 +12,7 @@
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import { eyebrowFor } from '@/lib/ui/eyebrow'
 import { useT, type Lang } from '@/lib/i18n'
 
 type Bi = { zh: string; en: string }
@@ -128,7 +129,7 @@ export default function PlatformPage() {
               <div key={st.key} className="relative">
                 <div className="flex items-center gap-3">
                   <span className="relative z-10 flex h-9 w-9 flex-none items-center justify-center rounded-full font-mono text-[13px] font-bold text-white" style={{ background: '#00ACE4' }}>{i + 1}</span>
-                  <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{st.eyebrow}</span>
+                  <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{eyebrowFor(st.eyebrow, lang)}</span>
                 </div>
                 <div className="mt-4 rounded-2xl border border-line-divider bg-white p-5">
                   <div className="text-[20px] font-extrabold tracking-tight">{pick(st.title, lang)}</div>

@@ -207,7 +207,8 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
         if (release) delete overrides[f]
         else overrides[f] = val
         const now = new Date().toISOString()
-        const value = release ? { ...prev, user_overrides: overrides } : { ...prev, [f]: val, user_overrides: overrides, updated_at: now.slice(0, 10) }
+        // 交回自动 also drops the person's own wording from the field (I-D3), not only the override marker.
+        const value = release ? { ...prev, [f]: isList(f) ? [] : '', user_overrides: overrides } : { ...prev, [f]: val, user_overrides: overrides, updated_at: now.slice(0, 10) }
         const { data: up, error: upErr } = await supabase.from('user_memories').upsert({ user_id: uid, role: 'self', memory_type: 'system', key: USER_MODEL_KEY, label: '用户画像', value, confidence: 1, source: 'user_edit', updated_at: now }, { onConflict: 'user_id,role,memory_type,key' }).select('value, updated_at').maybeSingle()
         if (upErr) { setFieldErr(upErr.message); return }
         saved = (up as SavedRow | null)
@@ -219,9 +220,21 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
       setFieldEditing(null)
       notifyMemoriesChanged()
       void writeAuditEvent(supabase, { actorId: uid, action: 'memory_edited', targetType: 'user_memory', metadata: { key: USER_MODEL_KEY, memory_type: 'system', role: 'self', field: f, cleared: release } })
+      // 交回自动 (site test I-D3): the field still held the person's text until the next daily reflection.
+      // Re-learn right away (own rate-limited bucket); the tab re-reads when it lands.
+      if (release) void relearnProfile()
     } finally {
       setFieldBusy(false)
     }
+  }
+  /** Run one reflection for this account now (POST /api/agent/reflect, self mode) and re-read the profile. */
+  async function relearnProfile() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const res = await fetch('/api/agent/reflect', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: '{}' })
+      if (res.ok) notifyMemoriesChanged()
+    } catch { /* the daily reflection still runs */ }
   }
   /** Save the person's own wording for a field — it outranks reflection from now on (user_overrides). */
   async function saveField(f: Field) {

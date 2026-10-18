@@ -161,6 +161,12 @@ export const ONTARIO_RULES: Rule[] = [
     enforcement: { zh: 'Stripe 解锁对 payer=tenant 返回 400；定价页与 AI 助理提示词无「让申请人付」。', en: 'Stripe unlock rejects payer=tenant; pricing and prompts carry no applicant-pays path.' },
   },
   {
+    id: 'RTA-108-post-dated-cheques', area: 'lease', statute: 'RTA s.108', severity: 'warn', since: '2007-01-31',
+    title: { zh: '不得要求预开支票或自动扣款作为条件', en: 'Post-dated cheques or automatic debit cannot be required' },
+    summary: { zh: '房东或替房东行事的人不得把预开支票或自动扣款作为签约、续租的条件；租客可以自愿选择，但不能被要求。', en: 'A landlord, or anyone acting for the landlord, may not make post-dated cheques or automatic debit a condition of a tenancy; a tenant may offer them but cannot be required to.' },
+    enforcement: { zh: '要约核对（经纪「检查要约」页）发现此类措辞即提示。', en: 'The offer check flags this wording.' },
+  },
+  {
     id: 'RTA-14-no-pet-clause', area: 'listing', statute: 'RTA s.14', severity: 'block', since: '2007-01-31',
     title: { zh: '「禁止养宠物」条款无效', en: '"No pets" clauses are void' },
     summary: { zh: '租约中禁止宠物的条款无效；房东只能在宠物造成实质干扰时申请 LTB。', en: 'A tenancy agreement term prohibiting pets is void; landlords may only act through the LTB on actual interference.' },
@@ -414,6 +420,6 @@ export function checkLeaseTerms(input: LeaseTermsInput): { passed: boolean; find
 /** The s.10(7) + OHRC paragraph every adverse-decision notice must carry. */
 export function decisionNoticeFooter(lang: 'zh' | 'en'): string {
   return lang === 'zh'
-    ? '依据安省《消费者报告法》s.10(7)，你可在 60 天内要求房东说明本次决定所依据信息的性质与来源。本决定由房东本人作出，AI 只做资料整理；不考虑《人权法典》受保护的任何特征（种族、国籍、公民身份、家庭状况、收入来源、年龄、残障、性取向等）。如需查阅或更正资料：privacy@stayloop.ai。'
-    : 'Under Ontario’s Consumer Reporting Act s.10(7) you may, within 60 days, ask the landlord for the nature and source of the information this decision relied on. The decision was made by the landlord personally; AI only organised the material. No ground protected by the Human Rights Code (race, nationality, citizenship, family status, receipt of public assistance, age, disability, sexual orientation and others) was considered. To access or correct your information: privacy@stayloop.ai.'
+    ? '依据安省《消费者报告法》s.10(7)，你可在 60 天内要求房东说明本次决定所依据信息的性质与来源。本决定由房东本人作出，AI 只做资料整理；不考虑《人权法典》受保护的任何特征（种族、国籍、公民身份、家庭状况、收入来源、年龄、残障、性取向等）。如需查阅或更正资料：privacy@stayloop.ai。你也可以用申请时的邮箱，在 www.stayloop.ai/my-file 免费索取自己的筛查档案、对任何一条提出争议、设置身份警示；这几项权利的说明见 www.stayloop.ai/consumer-rights。'
+    : 'Under Ontario’s Consumer Reporting Act s.10(7) you may, within 60 days, ask the landlord for the nature and source of the information this decision relied on. The decision was made by the landlord personally; AI only organised the material. No ground protected by the Human Rights Code (race, nationality, citizenship, family status, receipt of public assistance, age, disability, sexual orientation and others) was considered. To access or correct your information: privacy@stayloop.ai. You can also use the email you applied with at www.stayloop.ai/my-file to get your own screening file free of charge, dispute any item and set an identity alert; these rights are explained at www.stayloop.ai/consumer-rights.'
 }

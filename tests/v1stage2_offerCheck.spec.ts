@@ -68,10 +68,9 @@ describe('checkOfferText — one finding per problem, deterministic', () => {
     // a percentage with no increase word nearby is not an increase
     expect(ids('Rent $2,000 per month. Tenant pays 50% of the hydro bill.').some((x) => x.includes('increase'))).toBe(false)
   })
-  it('post-dated cheques: required = block, merely mentioned = warn (s.108), no numbered rule → /rules', () => {
+  it('post-dated cheques: required = block, merely mentioned = warn (s.108), links to its rule (J-D6, site test 2026-10-17)', () => {
     const req = checkOfferText('月租 $2,000。租客必须提供 12 张预开支票。').findings.find((f) => f.id === 'post-dated-cheques')
-    expect(req).toMatchObject({ severity: 'block', statute: 'RTA s.108', href: '/rules' })
-    expect(req!.rule).toBeUndefined()
+    expect(req).toMatchObject({ severity: 'block', statute: 'RTA s.108', rule: 'RTA-108-post-dated-cheques', href: '/rules#RTA-108-post-dated-cheques' })
     const opt = checkOfferText('Rent $2,000/month. Tenant may pay by post-dated cheques if they prefer.').findings.find((f) => f.id === 'post-dated-cheques')
     // "may" is not a requirement word on its own, but "pay" is not either — the sentence has none
     expect(opt?.severity).toBe('warn')

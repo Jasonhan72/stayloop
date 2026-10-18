@@ -403,6 +403,8 @@ export default function ListingDetailPage() {
   if (!listing) {
     return (
       <>
+        {/* Client shell cannot set a 404 status; keep the soft-404 out of the index (C-S3-4). */}
+        <meta name="robots" content="noindex" />
         <Header />
         <main className="bg-surface">
           <div className="mx-auto max-w-[1320px] px-6 py-32 text-center">

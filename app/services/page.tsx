@@ -10,6 +10,7 @@
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import { eyebrowFor } from '@/lib/ui/eyebrow'
 import { useT, type Lang } from '@/lib/i18n'
 import { CREDENTIAL_LABEL, TRADES } from '@/lib/marketplace/trades'
 
@@ -119,7 +120,7 @@ export default function ServicesPage() {
           <div className="mt-6 grid gap-5 md:grid-cols-3">
             {AUDIENCES.map((a) => (
               <div key={a.href} className="flex flex-col rounded-2xl border border-line-divider bg-white p-5">
-                <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{a.eyebrow}</div>
+                <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{eyebrowFor(a.eyebrow, lang)}</div>
                 <div className="mt-2 text-[17px] font-bold">{pick(a.title, lang)}</div>
                 <ul className="mt-3 flex-1 space-y-2 text-[13.5px] leading-relaxed text-body-2">
                   {a.steps.map((s) => <li key={s.en} className="flex gap-2"><span className="mt-[9px] h-1.5 w-1.5 flex-none rounded-full bg-brand" /><span>{pick(s, lang)}</span></li>)}

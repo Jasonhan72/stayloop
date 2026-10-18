@@ -143,7 +143,7 @@ describe('apply page wiring', () => {
   const apply = read('app/apply/[slug]/page.tsx')
   const pack = read('components/apply/UseMyPack.tsx')
   it('renders UseMyPack above the first section for signed-in applicants only', () => {
-    expect(apply).toMatch(/\{signedIn && auth\.user && \(\s*<UseMyPack/)
+    expect(apply).toMatch(/\{signedIn && auth\.user && (!\(existingApp && !createdAppId\) && )?\(\s*<UseMyPack/)
     expect(apply.indexOf('<UseMyPack')).toBeLessThan(apply.indexOf('<Section tag="01"'))
     expect(apply).toMatch(/allowedKinds=\{fileKinds\.map\(\(k\) => k\.kind\)\}/)
     expect(apply).toMatch(/onLoaded=\{setPack\}/)

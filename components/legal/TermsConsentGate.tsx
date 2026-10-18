@@ -81,12 +81,12 @@ export default function TermsConsentGate() {
       <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[20px] bg-white p-6 shadow-2xl sm:max-w-[560px] sm:rounded-[20px] sm:p-8">
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">{zh ? '服务条款更新' : 'Terms update'}</div>
         <h2 id="terms-gate-title" className="mt-2 text-[22px] font-bold leading-tight tracking-tight text-ink">
-          {zh ? '继续之前，请确认房源信息的使用规则' : 'Before you continue, please confirm the listing-data rules'}
+          {zh ? '继续之前，请确认更新后的服务条款' : 'Before you continue, please confirm the updated Terms'}
         </h2>
         <p className="mt-2 text-[14px] leading-relaxed text-body-2">
           {zh
-            ? '服务条款里有下面这些关于房源信息使用的规则。它们只约束房源信息的使用，不收取任何费用，也不建立任何代理关系。'
-            : 'The Terms include the rules below on how listing information may be used. They only govern listing information; nothing here charges a fee or creates representation.'}
+            ? '我们更新了服务条款，你需要确认后才能继续使用。下面是其中关于房源信息的使用规则，它们只约束房源信息的使用，不收取任何费用，也不建立任何代理关系。'
+            : 'We updated the Terms and need your confirmation before you continue. Below are the rules on how listing information may be used; they only govern listing information, charge no fee and create no representation.'}
         </p>
         <ol className="mt-4 max-h-[36dvh] list-decimal space-y-2 overflow-y-auto rounded-[12px] bg-surface px-4 py-3 pl-8 text-[13px] leading-relaxed text-body-2 sm:max-h-[260px]">
           {LISTING_DATA_CLAUSES.map((c, i) => <li key={i}>{zh ? c.zh : c.en}</li>)}
@@ -98,7 +98,7 @@ export default function TermsConsentGate() {
         </p>
         {needsName && (
           <label className="mt-4 block text-[13px] text-body-2">
-            {zh ? '你的姓名（数据规则要求我们记录每位用户的姓名）' : 'Your name (the data rules require us to hold each user’s name)'}
+            {zh ? '你的姓名（我们需要记录每位用户的姓名）' : 'Your name (we keep each user’s name on record)'}
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className="sl-input mt-1 w-full" placeholder={zh ? '姓名' : 'Name'} data-testid="terms-gate-name" />
           </label>
         )}

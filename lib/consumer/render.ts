@@ -99,10 +99,10 @@ export function renderDisclosurePack(pack: DisclosurePack, lang: ConsumerLang = 
   const title = T(lang, '我的筛查档案', 'My screening file')
   const rights = rightsParagraph(lang).map((p) => `<li>${esc(p)}</li>`).join('')
   const viewers = pack.viewers.length
-    ? `<table><thead><tr><th>${T(lang, '时间', 'When')}</th><th>${T(lang, '谁', 'Who')}</th><th>${T(lang, '看了什么', 'What')}</th><th>${T(lang, '电话 / 邮箱', 'Phone / email')}</th></tr></thead><tbody>${pack.viewers.map((v) => `<tr><td>${when(v.when, lang)}</td><td>${esc(v.name)} <span class="meta">${esc(v.role)}</span></td><td>${esc(v.what)}</td><td>${esc([v.phone, v.email].filter(Boolean).join(' · ') || '—')}</td></tr>`).join('')}</tbody></table>`
+    ? `<table><thead><tr><th>${T(lang, '时间', 'When')}</th><th>${T(lang, '谁', 'Who')}</th><th>${T(lang, '看了什么', 'What')}</th></tr></thead><tbody>${pack.viewers.map((v) => `<tr><td>${when(v.when, lang)}</td><td>${esc(v.name)} <span class="meta">${esc(v.role)}</span></td><td>${esc(v.what)}</td></tr>`).join('')}</tbody></table>`
     : `<p class="meta">${T(lang, '3 年内没有记录到查阅。', 'No access recorded in the last 3 years.')}</p>`
   const recipients = pack.recipients.length
-    ? `<table><thead><tr><th>${T(lang, '收到时间', 'Received')}</th><th>${T(lang, '谁', 'Who')}</th><th>${T(lang, '电话 / 邮箱', 'Phone / email')}</th></tr></thead><tbody>${pack.recipients.map((r) => `<tr><td>${when(r.received_at, lang)}</td><td>${esc(r.name)} <span class="meta">${esc(r.role)}</span></td><td>${esc([r.phone, r.email].filter(Boolean).join(' · ') || '—')}</td></tr>`).join('')}</tbody></table>`
+    ? `<table><thead><tr><th>${T(lang, '收到时间', 'Received')}</th><th>${T(lang, '谁', 'Who')}</th></tr></thead><tbody>${pack.recipients.map((r) => `<tr><td>${when(r.received_at, lang)}</td><td>${esc(r.name)} <span class="meta">${esc(r.role)}</span></td></tr>`).join('')}</tbody></table>`
     : `<p class="meta">${T(lang, '1 年内没有记录到报告收件人。', 'No report recipient recorded in the last year.')}</p>`
   return `<!doctype html>
 <html lang="${lang === 'zh' ? 'zh-CN' : 'en-CA'}">

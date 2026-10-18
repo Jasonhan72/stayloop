@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import DocTitle from '@/components/DocTitle'
 
 export const metadata: Metadata = {
   title: '租客的 AI 助理 · Stayloop',
@@ -6,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return children
+  return <><DocTitle zh="租客的 AI 助理 · Stayloop" en="AI Agent for tenants · Stayloop" />{children}</>
 }

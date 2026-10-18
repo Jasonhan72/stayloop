@@ -72,6 +72,16 @@ export default function QuickListingPage() {
   useEffect(() => { if (!provincePicked) setProvince(detectListingProvince(address, cityFromAddress(address))) }, [address, provincePicked])
   const city = useMemo(() => cityFromAddress(address) || 'Toronto', [address])
 
+  // C-S3-6: look for a listing at the same address + unit as soon as they are filled in (debounced),
+  // so a duplicate is flagged before the landlord spends a photo-reading call.
+  useEffect(() => {
+    if (!landlord || stage !== 'input' || address.trim().length < 6) { return }
+    const timer = setTimeout(() => {
+      findExistingListing(supabase, landlord.landlordId, address, unit).then((e) => setExisting(e)).catch(() => { /* checked again at publish */ })
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [landlord, stage, address, unit])
+
   async function addPhotos(files: FileList | File[]) {
     const list = Array.from(files).slice(0, QUICK_PHOTO_MAX - photos.length)
     const out: { store: string; vision: string }[] = []
@@ -221,6 +231,11 @@ export default function QuickListingPage() {
               </div>
               <p className="mt-1 text-[12px] text-body-3">{zh ? '拖进来或点 +。AI 只读前 8 张；照片存 1600px。' : 'Drop here or click +. The AI reads the first 8; photos are stored at 1600px.'}</p>
             </div>
+            {existing && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-[13px] text-amber-900" data-testid="quick-existing-early">
+                {existingListingMessage(existing, zh, unit)}
+              </div>
+            )}
             {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>}
             <button onClick={readPhotos} disabled={reading} className="sl-btn-primary w-full !py-[12px]" data-testid="quick-read">
               {reading ? (zh ? `${aiName} 正在看照片…` : `${aiName} is reading the photos…`) : (zh ? `让 ${aiName} 看照片填其余 →` : `Let ${aiName} fill in the rest →`)}

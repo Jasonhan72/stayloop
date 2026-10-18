@@ -11,8 +11,9 @@
 // the SHA-256) and open through /api/threads/attachment-url (access audited).
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { stripNul } from '@/lib/screening/jsonSafe'
 import { useAuth } from '@/lib/useAuth'
-import { applyRetractions, canRetract, CHANNEL_LABEL, fmtSize, FORMAL_COPY_NOTE, KIND_LABEL, PARTY_LABEL, READ_LABEL, readStateFor, type Attachment, type ReadMark, type ThreadKind, type ThreadMessage } from '@/lib/threads/shared'
+import { applyRetractions, systemBodyFor, canRetract, CHANNEL_LABEL, fmtSize, FORMAL_COPY_NOTE, KIND_LABEL, PARTY_LABEL, READ_LABEL, readStateFor, type Attachment, type ReadMark, type ThreadKind, type ThreadMessage } from '@/lib/threads/shared'
 import { notifyMessagesChanged } from '@/lib/messages/unread'
 import { takeDraft } from '@/lib/messages/openThread'
 import { roleLabel, type Person } from '@/lib/threads/shared'
@@ -178,7 +179,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   const sendingRef = useRef(false)
   async function send() {
     if (sendingRef.current) return
-    const body = draft.trim()
+    const body = stripNul(draft).trim()
     const atts = pending
     if (!me || (!body && atts.length === 0)) return
     sendingRef.current = true
@@ -274,7 +275,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
               const party = PARTY_LABEL[m.sender_kind] ?? PARTY_LABEL.system
               const sys = m.kind === 'system'
               const formal = m.kind === 'formal_copy'
-              if (sys) return <div key={m.id} className={'my-2 text-center text-[11.5px] text-body-3 ' + (onSelectMessage ? 'cursor-pointer' : '') + (selectedId === m.id ? ' underline' : '')} onClick={onSelectMessage ? () => onSelectMessage(m.id) : undefined} data-testid="thread-message" data-kind="system"><span className="font-mono">{when(m.created_at)}</span> · {m.body}</div>
+              if (sys) return <div key={m.id} className={'my-2 text-center text-[11.5px] text-body-3 ' + (onSelectMessage ? 'cursor-pointer' : '') + (selectedId === m.id ? ' underline' : '')} onClick={onSelectMessage ? () => onSelectMessage(m.id) : undefined} data-testid="thread-message" data-kind="system"><span className="font-mono">{when(m.created_at)}</span> · {systemBodyFor(m.body, zh)}</div>
               return (
                 <div key={m.id} className={`mb-3 flex ${isMine ? 'justify-end' : 'justify-start'}`} data-testid="thread-message" data-kind={m.kind}>
                   <div onClick={onSelectMessage ? () => onSelectMessage(m.id) : undefined} className={'max-w-[80%] rounded-xl px-3.5 py-2 text-[13px] leading-relaxed ' + (formal ? 'border border-amber-200 bg-amber-50 text-amber-950' : isMine ? 'bg-brand text-white' : 'bg-surface-chip text-body') + (onSelectMessage ? ' cursor-pointer' : '') + (selectedId === m.id ? ' ring-2 ring-brand/40 ring-offset-1' : '')}>

@@ -18,7 +18,7 @@ import { useSearchParams } from 'next/navigation'
 import { SectionCard, StatusPill } from '@/components/workspace'
 import { writeAuditEvent } from '@/lib/agent/audit'
 import { isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
-import { torontoDate } from '@/lib/household/ledger'
+import { torontoDate, torontoDateTime } from '@/lib/household/ledger'
 import { ledgerStart, rentLedger, type LedgerRow } from '@/lib/household/ledger'
 import { rentSchedule } from '@/lib/household/schedule'
 import { useT } from '@/lib/i18n'
@@ -501,7 +501,7 @@ export default function NoticeToolbox() {
                     <span className="font-mono text-[11px] font-bold text-landlord">{r.form}</span>
                     <span>{zh ? '送达' : 'served'} {r.served_on} · {serviceMethodLabel(r.method as ServiceMethod, lang)} · {zh ? '视为送达' : 'deemed'} {r.deemed_served_on}</span>
                     {r.key_date && <span className="text-body-2">{r.form === 'N1' ? (zh ? '生效' : 'effective') : r.form === 'L1' ? (zh ? '最早提交' : 'earliest filing') : (zh ? '终止' : 'termination')} {r.key_date}</span>}
-                    <span className="ml-auto text-[11px] text-body-3">{r.created_at.slice(0, 16).replace('T', ' ')}</span>
+                    <span className="ml-auto text-[11px] text-body-3">{torontoDateTime(r.created_at)}</span>
                   </li>
                 ))}
               </ul>
