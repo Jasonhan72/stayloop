@@ -7,6 +7,28 @@ import type { PackThread } from './evidencePack'
 
 const COLS = 'id, thread_id, created_at, sender_id, sender_kind, acting_role, sender_label, kind, channel, body, ref_message_id, attachments, meta, prev_hash, hash'
 
+/**
+ * One row of the JSON export's `chain_rows`: exactly the fields hashChain.ts's canonicalMessage
+ * reads, for EVERY row (retractions included), so `verifyChain(chain_rows)` reproduces the
+ * server's verification from the file alone. `messages` is the readable view (retractions
+ * folded onto their target, labels, receipts) and cannot be re-hashed (regression 2026-10-19, S2).
+ * sender_id is the account uuid, never an email address.
+ */
+export type ChainRow = Required<Pick<ChainMessage, 'id' | 'thread_id' | 'created_at' | 'sender_id' | 'sender_kind' | 'acting_role' | 'kind' | 'channel' | 'ref_message_id' | 'body'>> & {
+  attachments: { path: string; sha256: string }[]
+  prev_hash: string | null
+  hash: string | null
+}
+
+export function chainRowsOf(list: ChainMessage[]): ChainRow[] {
+  return [...list].sort((a, b) => a.id - b.id).map((x) => ({
+    id: x.id, thread_id: x.thread_id, created_at: x.created_at, sender_id: x.sender_id ?? null, sender_kind: x.sender_kind,
+    acting_role: x.acting_role ?? null, kind: x.kind, channel: x.channel ?? null, ref_message_id: x.ref_message_id ?? null,
+    attachments: (x.attachments || []).map((a) => ({ path: a.path, sha256: a.sha256 })), body: x.body,
+    prev_hash: x.prev_hash ?? null, hash: x.hash ?? null,
+  }))
+}
+
 export async function loadPackThread(admin: SupabaseClient, t: { id: string; kind: string; title: string | null; created_at: string }): Promise<{ pack: PackThread; raw: ChainMessage[] }> {
   const [{ data: msgs }, { data: dels }] = await Promise.all([
     admin.from('thread_messages').select(COLS).eq('thread_id', t.id).order('id').limit(2000),
