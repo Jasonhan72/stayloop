@@ -9,8 +9,8 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 
 ## 技术栈
 
-- Next.js 15.5 App Router + TypeScript + Tailwind；页面多为客户端组件，API 路由全部 edge runtime
-- Cloudflare Pages（`@cloudflare/next-on-pages` 1.13.16）；Workers Paid
+- Next.js 15.5 App Router + TypeScript + Tailwind；页面多为客户端组件；路由跑 Node 运行时（workerd + `nodejs_compat`），**不写 `export const runtime = 'edge'`**（OpenNext 构建拒绝，守卫 `node2Clarity20260926`）
+- Cloudflare Workers：Worker `stayloop-web`（OpenNext `@opennextjs/cloudflare` 1.20.8，配置 `wrangler.jsonc`）；Workers Paid。2026-10-19 起从 Pages + next-on-pages 迁来，Pages 项目 `stayloop` 原样保留作回滚。`waitUntil` 用 `getCloudflareContext()`
 - Supabase：项目 `uotcczsfeiptnabamzcd`（AWS ca-central-1 蒙特利尔，Pro + Micro，磁盘 16 GB），对外地址 **`https://auth.stayloop.ai`**（自定义域名；`*.supabase.co` 仍可用）。Auth 隐式流（`lib/supabase.ts`、`lib/useAuth.ts`）
 - 模型：全部调用经 `lib/llmChat.ts`（`llmChat` / `llmChatStream`，记账写 `ai_usage`）。槽位默认值在 `app_config.models`（2026-10：turn = gemini-3.7-flash、screening = gpt-5.4、classify = claude-sonnet-4-6、forensics = claude-haiku-4-5），管理员在 `/admin/models` 改，用户在 `/settings/models` 自选覆盖。目录 `model_catalog` 每周一自动发现新模型（pg_cron）
 - 邮件：Resend（应用通知 + Supabase Auth SMTP）。回复邮件经 `reply.stayloop.ai` → Email Worker `workers/reply-email` → `/api/threads/inbound`
@@ -22,8 +22,10 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 
 - GitHub `Jasonhan72/stayloop`（**public**，库里不能有真实密钥）；唯一活跃分支 `v5.3-launch`（也是默认分支）。其余分支都在 `archive/` 前缀下。
 - **不要 push 到 git `main`**（该名字已不存在；旧 main 上的 workflow 会把 2026-06 的旧代码部署到生产）。
-- CF Pages 生产分支标签是 `main`（wrangler `--branch main`，与 git 无关）。
-- **部署只走 `ship2-v53.command`**：tsc + 全量 vitest → commit + push → 清缓存 → next-on-pages 构建 → `_worker.js` 入口检查 → `wrangler pages deploy`（**全局 wrangler，不用 npx**）→ 冒烟（失败自动重试一次，两次都红 = 回滚信号）→ 路由审计 `scripts/route-audit.mjs`。
+- 流量经 zone 路由 `www.stayloop.ai/*` `stayloop.ai/*` `screening.stayloop.ai/*` 进 Worker（DNS 不动），由 `scripts/worker-routes.sh status|on|off` 管理；`wrangler deploy` 不改路由。
+- **部署只走 `ship2-v53.command`**：tsc + 全量 vitest → commit + push → 清缓存 → `opennextjs-cloudflare build` → 入口检查（`.open-next/worker.js` + `server-functions/default/handler.mjs`）→ env 守卫 `scripts/opennext-env-guard.mjs`（OpenNext 会把所有 `.env*` 值打进包，守卫裁到只剩 `NEXT_PUBLIC_*`，有私密值即失败）→ `wrangler deploy`（**全局 wrangler 4.147.0，不用 npx**）→ 冒烟（失败自动重试一次，两次都红 = 回滚信号）→ 路由审计 `scripts/route-audit.mjs`。改了 package.json 先在主检出 `npm ci`。
+- **回滚**：坏版本 `wrangler rollback --name stayloop-web -y`；整体退回 Pages `bash scripts/worker-routes.sh off`（几秒生效）。
+- Worker 服务端密钥由用户在终端跑 `scripts/worker-secrets-sync.sh`（从 `.env.local` 同步；自动模式不让 Claude 写密钥）。wrangler 认证靠 `.env.local` 的 `CLOUDFLARE_API_TOKEN`，只在仓库目录下生效。
 - 这台机器（M1 mini，8 GB）构建慢：一律 `nohup bash ./ship2-v53.command > <scratchpad>/shipNN.log 2>&1 &`，再用 until-loop 等结束标记；工具单次超时 600 秒不够。
 - **默认 `node` 必须是 node@22**（node 26 让 JS 慢 10–100 倍）。`brew upgrade` 会弄坏它（已发生三次：simdutf、simdjson 升级后 node@22 链接库缺失）。修法：`brew reinstall node@22` → `brew unlink node && brew link --overwrite node@22`。node 26 keg 留给用户的 openclaw，别卸。构建 / 测试卡住先看 `node --version` 与 `top -o mem`（swap 满时进程 0% CPU 假死）。
 - 构建会清掉正在跑的 `next dev` 的 `.next`，部署后本地预览要重启 dev server。
