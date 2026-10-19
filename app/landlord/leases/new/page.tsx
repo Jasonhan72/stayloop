@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // Draft a lease on one of two form systems keyed by form_type:
 // the Ontario Standard Form of Lease ('ontario_standard') or the offer-to-lease

@@ -12,7 +12,6 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { isRegistrationLive } from '@/lib/agentProfile'
 import { INTAKE_LINK_DAYS, intakeLinkExpiry, intakeLinkUrl, makeIntakeToken } from '@/lib/agent/intakeLinks'
 
-export const runtime = 'edge'
 
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

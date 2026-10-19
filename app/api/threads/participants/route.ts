@@ -8,7 +8,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { ThreadKind } from '@/lib/threads/shared'
 
-export const runtime = 'edge'
 const UUID = /^[0-9a-f-]{36}$/i
 const KINDS: ThreadKind[] = ['work_order', 'application', 'tenancy', 'dispute', 'listing_inquiry', 'agent_client', 'support']
 

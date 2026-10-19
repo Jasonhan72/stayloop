@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
 
-export const runtime = 'edge'
 
 /**
  * POST /api/stripe/connect/onboard

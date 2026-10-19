@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { normalizeLookupEmail, toEmailStatus } from '@/lib/auth/emailStatus'
 
-export const runtime = 'edge'
 
 /**
  * POST /api/auth/email-status  { email } → { exists, password, google }

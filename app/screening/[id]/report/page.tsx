@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // V5.3 · Full Comprehensive Report — loads real data from Supabase.
 // Route: /screening/[id]/report

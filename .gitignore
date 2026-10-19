@@ -63,3 +63,7 @@ ship2.log
 
 # local forensic case files — real applicant PII, never commit
 .forensics-tmp/
+
+# OpenNext
+/.open-next/
+/.wrangler/

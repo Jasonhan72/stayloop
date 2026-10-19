@@ -10,7 +10,6 @@ import { sendEmail } from '@/lib/email'
 import { confirmRequestEmail } from '@/lib/consumer/emails'
 import { NO_STORE, TOKEN_HOURS, adminClient, audit, clientIp, hashIp, langOf, makeToken, normalizeEmail, sha256Hex, siteUrl } from '@/lib/consumer/server'
 
-export const runtime = 'edge'
 
 const OK = () => NextResponse.json({ ok: true }, { headers: NO_STORE })
 

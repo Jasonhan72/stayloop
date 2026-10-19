@@ -9,7 +9,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { recordEmailReply } from '@/lib/threads/server'
 
-export const runtime = 'edge'
 const MAX_RAW = 25 * 1024 * 1024
 
 function safeEqual(a: string, b: string): boolean {

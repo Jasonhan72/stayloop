@@ -21,7 +21,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-export const runtime = 'edge'
 
 type AppFile = { path?: string; name?: string; size?: number; mime?: string; kind?: string; type?: string }
 type Manifest = { path: string; name: string; size: number; mime: string; kind: string }

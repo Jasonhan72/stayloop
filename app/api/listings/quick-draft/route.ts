@@ -10,7 +10,6 @@ import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/m
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { parsePhotoDataUrl, parseQuickDraftGuess, quickDraftSystemPrompt, quickDraftUserText, QUICK_VISION_PHOTOS } from '@/lib/listings/quickDraft'
 
-export const runtime = 'edge'
 
 const PER_USER_PER_HOUR = 10
 const SITE_PER_HOUR = 200

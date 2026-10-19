@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js'
 import type Stripe from 'stripe'
 import { getStripe, stripeCryptoProvider } from '@/lib/stripe'
 
-export const runtime = 'edge'
 
 /**
  * POST /api/stripe/webhook

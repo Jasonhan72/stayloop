@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js'
 import { captureException } from '@/lib/observability/sentry'
 import { describeCodes, searchLtbOrders, summarizeLtb } from '@/lib/ltb/search'
 
-export const runtime = 'edge'
 
 interface CanLIICase {
   databaseId: string

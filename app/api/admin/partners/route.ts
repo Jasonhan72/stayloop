@@ -7,7 +7,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-export const runtime = 'edge'
 
 async function requireAdmin(req: Request) {
   const rawAuth = req.headers.get('authorization') || ''

@@ -4,7 +4,6 @@ import type Stripe from 'stripe'
 import { getStripe } from '@/lib/stripe'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 
-export const runtime = 'edge'
 
 /**
  * POST /api/stripe/portal

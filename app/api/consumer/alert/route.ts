@@ -10,7 +10,6 @@ import { createClient } from '@supabase/supabase-js'
 import { activeAlertFor, alertPublic } from '@/lib/consumer/alerts'
 import { NO_STORE, adminClient } from '@/lib/consumer/server'
 
-export const runtime = 'edge'
 
 /** Emails this screening was addressed to, from the application / verification / intake rows. */
 async function applicantEmailsFor(screeningId: string, applicationId: string | null): Promise<string[]> {

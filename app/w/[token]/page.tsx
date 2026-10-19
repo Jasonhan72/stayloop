@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // /w/[token] — the external contractor's job page (Phase 0 "派给自己的联系人").
 // No account: the emailed token is the credential. Mobile-first, four big

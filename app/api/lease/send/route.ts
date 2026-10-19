@@ -8,7 +8,6 @@ import { createClient } from '@supabase/supabase-js'
 import { sendLeaseInvitation, type LeaseForSend } from '@/lib/lease/sendLease'
 import { leaseHasTerms } from '@/lib/lease/leaseState'
 
-export const runtime = 'edge'
 
 export async function POST(req: Request) {
   const rawAuth = req.headers.get('authorization') || ''

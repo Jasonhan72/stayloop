@@ -13,7 +13,6 @@ import { adminReviewEmail } from '@/lib/consumer/emails'
 import { NO_STORE, adminClient, adminEmails, sendAdminAlert, audit, dueAtFor, loadRequestByToken, maskEmail, requestView, runMatch, siteUrl } from '@/lib/consumer/server'
 import type { ConsumerDelivery } from '@/lib/consumer/types'
 
-export const runtime = 'edge'
 
 const DELIVERIES: ConsumerDelivery[] = ['electronic', 'mail', 'phone']
 

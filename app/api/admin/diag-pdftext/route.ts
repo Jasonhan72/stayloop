@@ -1,4 +1,3 @@
-export const runtime = 'edge'
 
 // Admin-only diagnostic: does PDF text extraction (unpdf / pdf.js) actually
 // run on the edge? Production data says it has NOT — 0 of 275 files in 45

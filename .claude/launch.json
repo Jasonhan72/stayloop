@@ -35,6 +35,19 @@
         "3210"
       ],
       "port": 3210
+    },
+    {
+      "name": "stayloop-opennext-preview",
+      "runtimeExecutable": "/opt/homebrew/opt/node@22/bin/npx",
+      "runtimeArgs": [
+        "wrangler",
+        "dev",
+        "--port",
+        "8799",
+        "--ip",
+        "127.0.0.1"
+      ],
+      "port": 8799
     }
   ]
 }

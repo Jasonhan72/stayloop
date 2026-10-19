@@ -28,7 +28,7 @@
 // separate per-IP keys. Geocoding and the primer's place line use the listing's
 // province from lib/provinces (postal code / address first), not the raw column.
 import { NextResponse } from 'next/server'
-import { getRequestContext } from '@cloudflare/next-on-pages'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
@@ -40,7 +40,6 @@ import { stripNul } from '@/lib/screening/jsonSafe'
 import { acceptTranslation, budgetSources, collectTranslatables, type ListingLang, type TranslatableListing } from '@/lib/listingLang'
 import { effectiveProvince, provinceName } from '@/lib/provinces'
 
-export const runtime = 'edge'
 
 const UA = 'Stayloop/0.6 (https://www.stayloop.ai; privacy@stayloop.ai)'
 const FRESH_MS = 30 * 86_400_000
@@ -162,8 +161,8 @@ async function generateProfile(svc: SupabaseClient, city: string, province: stri
 /** Run after the response is sent when the platform allows it (Cloudflare), else as a floating promise (dev). */
 function background(p: Promise<unknown>): void {
   // Cloudflare cancels post-response work unless it rides waitUntil; in `next dev`
-  // getRequestContext throws and the floating promise is fine (same as the turn route).
-  try { getRequestContext().ctx.waitUntil(p) } catch { void p }
+  // getCloudflareContext throws and the floating promise is fine (same as the turn route).
+  try { getCloudflareContext().ctx.waitUntil(p) } catch { void p }
 }
 
 async function nearbyTransit(lat: number, lng: number): Promise<ListingTransit | null> {

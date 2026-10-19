@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // V5.3 · Relationship Graph / Dimension Visualization — loads real data from Supabase.
 // Route: /screening/[id]/graph

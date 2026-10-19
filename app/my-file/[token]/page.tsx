@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // /my-file/[token] — the applicant's one-time link from the confirmation email
 // (Consumer Reporting Act s.12 / s.13 / s.12.1; V0.8 first item, 2026-10-17).

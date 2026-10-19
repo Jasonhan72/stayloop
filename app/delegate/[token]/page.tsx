@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // /delegate/[token] — the client confirms an agent's delegation (节点 5,
 // 2026-09-27). Public page: it shows what is being asked (who, scope,

@@ -10,7 +10,6 @@ import { createClient } from '@supabase/supabase-js'
 import { LISTING_VISIBILITY_OR, hasUsablePhotos, cardImages } from '@/lib/listingVisibility'
 import { underHourlyLimit } from '@/lib/rateLimit'
 
-export const runtime = 'edge'
 
 export const PAGE_SIZE = 100
 export const ANON_SEARCHES_PER_HOUR = 240

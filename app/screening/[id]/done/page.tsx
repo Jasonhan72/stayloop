@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // V5.3 · Scan Complete / Stayloop Score — loads real data from Supabase.
 // Route: /screening/[id]/done

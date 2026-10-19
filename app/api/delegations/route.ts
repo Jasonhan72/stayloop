@@ -13,7 +13,6 @@ import { BASIS_VERSION, validateProposal, type DelegationAction, type Delegation
 import { isUndeliverableEmailDomain } from '@/lib/email'
 import { sendDelegationLink } from './confirmEmail'
 
-export const runtime = 'edge'
 
 export async function POST(req: Request) {
   const authHeader = (req.headers.get('authorization') || '').replace(/[^\x20-\x7E]/g, '').trim()

@@ -5,7 +5,6 @@ import { notifyUser } from '@/lib/push/notify'
 import { ensureThread, replyTokenFor } from '@/lib/threads/server'
 import { replyAddress } from '@/lib/threads/emailReply'
 
-export const runtime = 'edge'
 
 /**
  * POST /api/notify-landlord

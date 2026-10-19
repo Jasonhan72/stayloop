@@ -17,7 +17,6 @@ import { applicantDisputeResultEmail, correctionNoticeEmail } from '@/lib/consum
 import { CORRECTION_ACTIONS, type ConsumerDispute, type ConsumerRequest, type CorrectionAction } from '@/lib/consumer/types'
 import { NO_STORE, adminClient, audit, dueAtFor, maskEmail, screeningSummaries, siteUrl } from '@/lib/consumer/server'
 
-export const runtime = 'edge'
 
 const SIXTY_DAYS_MS = 60 * 86_400_000
 

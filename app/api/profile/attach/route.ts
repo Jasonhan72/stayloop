@@ -18,7 +18,6 @@ import { writeAuditEvent } from '@/lib/agent/audit'
 import { presentedMetadata } from '@/lib/profile/consent'
 import { attachedFilePath, toApplicationFile, type ProfileFile } from '@/lib/profile/types'
 
-export const runtime = 'edge'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const BUCKET = 'tenant-files'
 const MAX_IDS = 20

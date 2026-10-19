@@ -13,7 +13,6 @@ import { leaseHasTerms, leaseIsSignable } from '@/lib/lease/leaseState'
 import { hasUsableInvite, householdAddressMayMatch, leaseAttachSlot, normalizeEmail, pickHouseholdForLease, sameTenancyAddress, type HouseholdCandidate, type InviteRow } from '@/lib/lease/householdMatch'
 import { firstDueDate, rentDueDay, torontoDate } from '@/lib/household/ledger'
 
-export const runtime = 'edge'
 
 type LeaseRow = {
   id: string

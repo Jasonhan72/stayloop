@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 import { summaryFor } from '@/lib/screening/summaryText'
 import { signalLabel } from '@/lib/screening/signalLabels'

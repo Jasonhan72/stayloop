@@ -5,7 +5,6 @@ import { createClient } from '@supabase/supabase-js'
 import { secretMatches } from '@/lib/cron/secret'
 import { emailAdminsSummary, runAutoDiscovery } from '@/lib/models/autoDiscover'
 
-export const runtime = 'edge'
 
 async function authorized(req: Request): Promise<{ ok: boolean; userId: string | null }> {
   const secret = process.env.CRON_SECRET

@@ -23,7 +23,6 @@ import {
   type IntakeManifestFile,
 } from '@/lib/agent/intakeLinks'
 
-export const runtime = 'edge'
 
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')
 const NO_STORE = { 'Cache-Control': 'no-store' }

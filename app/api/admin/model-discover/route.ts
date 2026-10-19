@@ -7,7 +7,6 @@ import { createClient } from '@supabase/supabase-js'
 import { PROVIDER_KEY_ENVS, getCatalog } from '@/lib/modelConfig'
 import { discoverProvider, type ProviderDiff } from '@/lib/modelDiscovery'
 
-export const runtime = 'edge'
 
 export async function GET(req: Request) {
   const rawAuth = req.headers.get('authorization') || ''

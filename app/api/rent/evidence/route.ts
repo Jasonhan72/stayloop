@@ -17,7 +17,6 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { writeAuditEvent } from '@/lib/agent/audit'
 import { acceptEvidenceFile, evidencePath } from '@/lib/household/rentEvidence'
 
-export const runtime = 'edge'
 const UUID = /^[0-9a-f-]{36}$/i
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 

@@ -10,7 +10,6 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { stripNul } from '@/lib/screening/jsonSafe'
 import { ensureThread, notifyThreadParties } from '@/lib/threads/server'
 
-export const runtime = 'edge'
 
 const EXTERNAL_ACTIONS: WoAction[] = ['accept', 'quote', 'decline', 'arrive', 'complete', 'cancel', 'dispute']
 

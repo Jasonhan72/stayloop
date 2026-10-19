@@ -27,7 +27,6 @@ import {
 import { secretMatches } from '@/lib/cron/secret'
 import { REALTOR_LIVE_READS } from '@/lib/listings/externalSources'
 
-export const runtime = 'edge'
 
 
 async function authorized(req: Request): Promise<boolean> {

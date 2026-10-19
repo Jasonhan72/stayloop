@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
 import { CONTACT_TO, makeThrottle, renderContactEmail, validateContact } from '@/lib/contact'
 
-export const runtime = 'edge'
 
 /**
  * POST /api/contact

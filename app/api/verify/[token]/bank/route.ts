@@ -3,7 +3,6 @@ import { isVerifyToken } from '@/lib/verify/token'
 import { adminClient, isExpired, loadRequest, toPublicView, writeStep } from '@/lib/verify/store'
 import { flinksAccountsDetail, flinksAuthorize, flinksConfig, flinksToBankResult } from '@/lib/verify/providers/flinks'
 
-export const runtime = 'edge'
 
 // POST /api/verify/<token>/bank — { login_id } from Flinks Connect's REDIRECT
 // event. Exchanges it server-side for 90 days of transactions and stores only

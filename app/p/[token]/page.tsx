@@ -9,7 +9,6 @@ import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import PublicPassportView, { type PassportSnapshot } from './view'
 
-export const runtime = 'edge'
 
 export const metadata: Metadata = {
   title: 'Stayloop · 租客护照快照 / Passport snapshot',

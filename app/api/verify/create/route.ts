@@ -7,7 +7,6 @@ import { adminClient } from '@/lib/verify/store'
 import { escapeHtml, sendEmail } from '@/lib/email'
 import { callerHats, mayScreen, SCREENING_ROLE_CODE, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
 
-export const runtime = 'edge'
 
 /**
  * POST /api/verify/create — landlord creates an applicant-verification link

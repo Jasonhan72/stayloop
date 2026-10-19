@@ -5,7 +5,6 @@ import { veriffCreateSession } from '@/lib/verify/providers/veriff'
 import { flinksConfig, flinksConnectUrl, flinksGenerateAuthorizeToken } from '@/lib/verify/providers/flinks'
 import type { VerifyStepKey } from '@/lib/verify/types'
 
-export const runtime = 'edge'
 
 // POST /api/verify/<token>/start — { step: 'id' | 'bank' | 'credit' }
 // Creates the provider session for one step. Requires recorded consent.

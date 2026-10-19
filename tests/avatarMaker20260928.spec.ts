@@ -37,7 +37,7 @@ describe('custom avatar keys resolve only to our own bucket', () => {
 describe('the generation route', () => {
   const r = read('app/api/assistant/avatar/route.ts')
   it('edge, signed-in only, six an hour per user under a site ceiling, both fail-closed', () => {
-    expect(r).toContain("export const runtime = 'edge'")
+    expect(r).not.toContain("export const runtime = 'edge'")
     // never import the 'use client' avatars module into the route: inside a Route Handler its
     // exports become client-reference stubs (first live run: "Bucket name invalid")
     expect(r).not.toContain("from '@/lib/agent/avatars'")

@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // Court / LTB records detail page — route: /screening/[id]/ltb
 //

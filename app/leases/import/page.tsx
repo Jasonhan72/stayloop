@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // /leases/import — bring an already-signed lease into Stayloop as a managed
 // household. Any role uploads; counterparties get invited afterwards.

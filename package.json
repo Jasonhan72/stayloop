@@ -7,10 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "pages:build": "npx @cloudflare/next-on-pages",
-    "pages:preview": "npx wrangler pages dev .vercel/output/static",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare preview"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.0",
@@ -23,7 +23,7 @@
     "unpdf": "^1.6.2"
   },
   "devDependencies": {
-    "@cloudflare/next-on-pages": "^1.13.0",
+    "@opennextjs/cloudflare": "1.20.8",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -37,11 +37,7 @@
     "tsx": "^4.23.4",
     "typescript": "^5",
     "vitest": "^4.1.10",
-    "web-push": "^3.6.7"
-  },
-  "overrides": {
-    "@cloudflare/next-on-pages": {
-      "next": "$next"
-    }
+    "web-push": "^3.6.7",
+    "wrangler": "4.147.0"
   }
 }

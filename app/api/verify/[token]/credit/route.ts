@@ -4,7 +4,6 @@ import { adminClient, isExpired, loadRequest, providerAvailability, toPublicView
 import { creditProvider, creditProviderIsSandbox, pullCredit } from '@/lib/verify/providers/equifax'
 import { checkCreditPullIdentity, type VerifiedIdentity } from '@/lib/verify/identityMatch'
 
-export const runtime = 'edge'
 
 // POST /api/verify/<token>/credit — the applicant's own credit pull.
 // Body: { first_name, last_name, date_of_birth, address:{line1,city,province,postal_code} }

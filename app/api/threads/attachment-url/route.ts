@@ -10,7 +10,6 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { threadMatter } from '@/lib/threads/server'
 import type { ThreadKind } from '@/lib/threads/shared'
 
-export const runtime = 'edge'
 const UUID = /^[0-9a-f-]{36}$/i
 const HATS = new Set(['tenant', 'landlord', 'agent', 'provider', 'admin'])
 

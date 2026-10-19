@@ -9,9 +9,8 @@
 // homepage visit reached the database.
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getRequestContext } from '@cloudflare/next-on-pages'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 
-export const runtime = 'edge'
 
 const CACHE_SECONDS = 3600
 const HEADERS = { 'Cache-Control': `public, max-age=1800, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=86400` }
@@ -67,7 +66,7 @@ export async function GET() {
   if (cache) {
     const copy = new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${CACHE_SECONDS}` } })
     const put = cache.put(CACHE_KEY, copy).catch(() => {})
-    try { getRequestContext().ctx.waitUntil(put) } catch { void put }
+    try { getCloudflareContext().ctx.waitUntil(put) } catch { void put }
   }
   return res
 }

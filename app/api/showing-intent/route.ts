@@ -24,7 +24,6 @@ import { notifyUser } from '@/lib/push/notify'
 import { ensureListingThread, postSystemMessage } from '@/lib/threads/server'
 import { messageCenterHref } from '@/lib/threads/shared'
 
-export const runtime = 'edge'
 
 const UUID = /^[0-9a-f-]{36}$/i
 

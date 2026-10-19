@@ -18,7 +18,6 @@ import { llmChat, type ChatContentBlock } from '@/lib/llmChat'
 import { LEASE_IMPORT_PROMPT, sanitizeLeaseImportExtraction } from '@/lib/household/importExtract'
 import { safeParseJson } from '@/lib/agent/turnHelpers'
 
-export const runtime = 'edge'
 
 const MAX_FILES = 3
 const MAX_BYTES = 10 * 1024 * 1024

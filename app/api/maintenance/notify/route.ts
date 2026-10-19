@@ -13,7 +13,6 @@ import { notifyUser } from '@/lib/push/notify'
 import { isEmergencyMaintenance } from '@/lib/agent/maintenanceTriage'
 import { suggestDispatch, ticketContext, SITE } from '@/lib/marketplace/server'
 
-export const runtime = 'edge'
 
 const UUID = /^[0-9a-f-]{36}$/i
 

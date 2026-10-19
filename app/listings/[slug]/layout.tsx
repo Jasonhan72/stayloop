@@ -15,7 +15,6 @@ import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 import { listingTitle } from '@/lib/listingDisplay'
 import { descriptionParts } from '@/lib/listingLang'
 
-export const runtime = 'edge'
 
 interface ListingMeta {
   address: string | null

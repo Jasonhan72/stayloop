@@ -46,7 +46,6 @@ import { replyAddress } from '@/lib/threads/emailReply'
 import { matterOfRef } from '@/lib/matters/server'
 import { SUCCESSOR_STATUSES, latestIntentFor, renewalSkipReason, type LeaseSlot, type RenewalIntent } from '@/lib/agent/renewalStages'
 
-export const runtime = 'edge'
 
 type ActionRow = {
   id: string

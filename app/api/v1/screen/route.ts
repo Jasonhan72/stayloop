@@ -7,12 +7,11 @@
 // identical to a landlord clicking the button.
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getRequestContext } from '@cloudflare/next-on-pages'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { personalRecordLookupsAllowed } from '@/lib/compliance/craMode'
 import { partnerScreeningEnabled, PARTNER_SCREENING_CLOSED } from '@/lib/api/partnerScreening'
 import { fetchPublicHttps, isPublicHttpsUrl } from '@/lib/net/publicUrl'
 
-export const runtime = 'edge'
 
 const MAX_FILE = 25 * 1024 * 1024
 const MAX_FILES = 14
@@ -121,7 +120,7 @@ export async function POST(req: Request) {
       try { await fetchPublicHttps(webhook, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Stayloop-Event': 'screening.completed' }, body: JSON.stringify(payload) }, 0) } catch { /* partner endpoint down */ }
     }
   })()
-  try { getRequestContext().ctx.waitUntil(run) } catch { void run }
+  try { getCloudflareContext().ctx.waitUntil(run) } catch { void run }
 
   return NextResponse.json({ ok: true, screening_id: row.id, status: 'queued', files: manifest.length, webhook: !!webhook, report_url: `${origin}/screening/${row.id}/report` }, { status: 202 })
 }

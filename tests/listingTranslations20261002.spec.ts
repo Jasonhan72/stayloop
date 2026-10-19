@@ -29,7 +29,7 @@ vi.mock('@/lib/modelConfig', () => ({
   getModelDefAsync: async () => ({ id: 'claude-sonnet-4-6', provider: 'anthropic' }),
   getModelDef: () => ({ id: 'claude-sonnet-4-6', provider: 'anthropic' }),
 }))
-vi.mock('@cloudflare/next-on-pages', () => ({ getRequestContext: () => ({ ctx: { waitUntil: (p: Promise<unknown>) => h.waitUntil(p) } }) }))
+vi.mock('@opennextjs/cloudflare', () => ({ getCloudflareContext: () => ({ ctx: { waitUntil: (p: Promise<unknown>) => h.waitUntil(p) } }) }))
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
     from: (table: string) => {

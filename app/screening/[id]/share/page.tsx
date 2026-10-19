@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // /screening/[id]/share — share links are NOT live. This route used to render
 // a full English share-configuration form (recipients, expiry, password…)

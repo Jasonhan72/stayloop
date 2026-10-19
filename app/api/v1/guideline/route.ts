@@ -4,7 +4,6 @@
 import { handleV1, methodNotAllowed, optionsResponse, queryObject } from '@/lib/api/v1Http'
 import { coreGuideline } from '@/lib/api/v1Core'
 
-export const runtime = 'edge'
 
 export async function OPTIONS() { return optionsResponse() }
 export const POST = methodNotAllowed

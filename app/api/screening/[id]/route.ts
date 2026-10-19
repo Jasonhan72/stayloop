@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { captureException } from '@/lib/observability/sentry'
 
-export const runtime = 'edge'
 
 /**
  * DELETE /api/screening/<id> — the landlord removes one screening and

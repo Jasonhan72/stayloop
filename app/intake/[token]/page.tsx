@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // /intake/[token] — an applicant hands their documents to a RECO agent for a
 // landlord client's unit (V1.0 阶段 2 · 丙 #13, 2026-10-16). Public page, no

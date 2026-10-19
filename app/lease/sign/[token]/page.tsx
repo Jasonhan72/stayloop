@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // Public token-capability page: the tenant reviews and signs the Ontario
 // Standard Lease here — no account needed. After signing, the SAME link

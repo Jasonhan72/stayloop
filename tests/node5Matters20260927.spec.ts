@@ -114,6 +114,6 @@ describe('surfaces and routes', () => {
     expect(read('components/matters/MattersPanel.tsx')).toContain("supabase.rpc('my_matters')")
     expect(read('components/matters/MattersPanel.tsx')).not.toMatch(/ai_score|v3_tier|\/100/)
     expect(existsSync('app/delegate/[token]/page.tsx')).toBe(true)
-    expect(read('app/delegate/[token]/page.tsx')).toContain("export const runtime = 'edge'")
+    expect(read('app/delegate/[token]/page.tsx')).not.toContain("export const runtime = 'edge'")
   })
 })

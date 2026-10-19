@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // Redirect to /screening — the main page now handles uploads directly.
 

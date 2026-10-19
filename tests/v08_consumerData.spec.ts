@@ -326,7 +326,7 @@ describe('applicant-side routes (anonymous + token)', () => {
     expect(r).not.toMatch(/NextResponse\.json\(\{[^}]*token/)
     expect(r).toContain('/my-file/${token}')
     expect(r).toContain("audit(admin, 'consumer_request_created'")
-    expect(r).toContain("export const runtime = 'edge'")
+    expect(r).not.toContain("export const runtime = 'edge'")
   })
   it('token lookup: format → indexed lookup → constant-time compare → expiry; invalid → 404 invalid_token', () => {
     const s = read('lib/consumer/server.ts')
@@ -337,7 +337,7 @@ describe('applicant-side routes (anonymous + token)', () => {
       const r = read(p)
       expect(r).toContain('loadRequestByToken(admin, token)')
       expect(r).toContain("{ error: 'invalid_token' }, { status: 404")
-      expect(r).toContain("export const runtime = 'edge'")
+      expect(r).not.toContain("export const runtime = 'edge'")
       expect(r).not.toMatch(/auth\.getUser|Authorization/) // no login anywhere on the applicant side
     }
   })

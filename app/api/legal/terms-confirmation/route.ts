@@ -8,7 +8,6 @@ import { sendEmail } from '@/lib/email'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { API_CLAUSES, LISTING_DATA_CLAUSES, TERMS_VERSION, accountName } from '@/lib/legal/terms'
 
-export const runtime = 'edge'
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string)
 

@@ -26,11 +26,10 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { buildUserContext, parseLookup, runLookup } from '@/lib/agent/userContext'
 import { needsReflection, reflectUser, USER_MODEL_KEY, userModelToPromptBlock } from '@/lib/agent/reflection'
 import { sanitizePersona, sanitizeVibe } from '@/lib/agent/assistantProfile'
-import { getRequestContext } from '@cloudflare/next-on-pages'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { DEFAULT_MODELS, getModelForUser, getCatalog, findModel, type CatalogModel } from '@/lib/modelConfig'
 import { llmChat, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
 
-export const runtime = 'edge'
 
 // ── Auth + rate limiting ─────────────────────────────────────────────────────
 // This route spends real money (Claude call + up to 3 server-side URL
@@ -1203,9 +1202,9 @@ export async function POST(req: Request) {
             )
             try {
               // Cloudflare cancels post-response work unless it rides waitUntil;
-              // in `next dev` getRequestContext throws — the floating promise
+              // in `next dev` getCloudflareContext throws — the floating promise
               // is enough there (node keeps the event loop alive).
-              getRequestContext().ctx.waitUntil(p)
+              getCloudflareContext().ctx.waitUntil(p)
             } catch {
               void p
             }

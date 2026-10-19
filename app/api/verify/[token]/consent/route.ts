@@ -3,7 +3,6 @@ import { isVerifyToken } from '@/lib/verify/token'
 import { adminClient, isExpired, loadRequest, toPublicView } from '@/lib/verify/store'
 import { CONSENT_VERSION } from '@/lib/verify/consent'
 
-export const runtime = 'edge'
 
 // POST /api/verify/<token>/consent — { typed_name, version, accepted: true }
 // Records meaningful consent BEFORE any provider is launched. Stored with the

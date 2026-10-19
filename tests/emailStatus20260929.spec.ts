@@ -61,7 +61,7 @@ describe('the SQL function', () => {
 
 describe('the route', () => {
   it('is an edge POST handler with no GET', () => {
-    expect(route).toContain("export const runtime = 'edge'")
+    expect(route).not.toContain("export const runtime = 'edge'")
     expect(route).toContain('export async function POST(')
     expect(route).not.toMatch(/export (async )?function (GET|PUT|PATCH|DELETE)\b/)
   })

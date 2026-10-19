@@ -3,7 +3,6 @@ import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
 import { captureException } from '@/lib/observability/sentry'
 
-export const runtime = 'edge'
 
 export async function POST(req: NextRequest) {
   try {

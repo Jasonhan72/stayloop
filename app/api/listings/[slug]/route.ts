@@ -13,7 +13,6 @@ import { LISTING_VISIBILITY_OR, hasUsablePhotos } from '@/lib/listingVisibility'
 import { SIMILAR_LIMIT, rankSimilar, similarSearchBox } from '@/lib/listingSimilar'
 import { underHourlyLimit } from '@/lib/rateLimit'
 
-export const runtime = 'edge'
 
 export const ANON_DETAILS_PER_HOUR = 300
 export const USER_DETAILS_PER_HOUR = 1500

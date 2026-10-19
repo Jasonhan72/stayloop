@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 import { isTestListing, TEST_LISTING_LABEL } from '@/lib/listingVisibility'
 import Link from 'next/link'

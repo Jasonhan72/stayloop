@@ -14,7 +14,6 @@ import { isRegistrationLive } from '@/lib/agentProfile'
 import type { DelegationAction, DelegationScope } from '@/lib/delegations/shared'
 import { sendDelegationLink } from '../confirmEmail'
 
-export const runtime = 'edge'
 const UUID = /^[0-9a-f-]{36}$/i
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {

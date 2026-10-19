@@ -9,7 +9,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { USER_SLOTS, getCatalog, getModels, modelUsableForSlot, type ModelSlot } from '@/lib/modelConfig'
 
-export const runtime = 'edge'
 
 export async function GET(req: Request) {
   const rawAuth = req.headers.get('authorization') || ''

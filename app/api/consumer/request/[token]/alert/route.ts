@@ -9,7 +9,6 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { ALERT_MAX_CHARS, activeAlertFor, alertPublic } from '@/lib/consumer/alerts'
 import { NO_STORE, adminClient, audit, loadRequestByToken } from '@/lib/consumer/server'
 
-export const runtime = 'edge'
 
 export async function POST(req: Request, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params

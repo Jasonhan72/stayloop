@@ -187,7 +187,7 @@ describe('listing detail: failures are not facts, client writes cannot forge his
     expect(route).toContain("export const SAFE_PLACE = /^[\\p{L}\\p{N} .,'&()\\/-]{2,60}$/u")
     expect(route).toContain('<place>${name}</place>')
     expect(route).toContain('const PROFILE_RETRY_MS = 24 * 60 * 60_000')
-    expect(route).toContain('getRequestContext().ctx.waitUntil(p)')
+    expect(route).toContain('getCloudflareContext().ctx.waitUntil(p)')
     expect(route).toContain("if (error) console.warn('[listings/enrich] profile write failed', error.message)")
     expect(route).toContain('LISTING_VISIBILITY_OR')
     expect(route).not.toContain('Cache-Control') // POST responses are never cached

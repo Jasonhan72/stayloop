@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 
-export const runtime = 'edge'
 
 /**
  * POST /api/stripe/resume

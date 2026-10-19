@@ -14,7 +14,6 @@ import { createClient } from '@supabase/supabase-js'
 import { notifyUser } from '@/lib/push/notify'
 import { activeAlertFor, alertPublic } from '@/lib/consumer/alerts'
 
-export const runtime = 'edge'
 
 const SCOPES = ['identity', 'bank', 'credit', 'tenancy'] as const
 type Scope = (typeof SCOPES)[number]

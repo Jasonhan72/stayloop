@@ -6,7 +6,6 @@ import { createClient } from '@supabase/supabase-js'
 import { notifyUser } from '@/lib/push/notify'
 import { underHourlyLimit } from '@/lib/rateLimit'
 
-export const runtime = 'edge'
 
 export async function POST(req: Request) {
   const rawAuth = req.headers.get('authorization') || ''

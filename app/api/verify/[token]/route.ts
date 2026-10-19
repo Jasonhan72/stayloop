@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isVerifyToken } from '@/lib/verify/token'
 import { adminClient, loadRequest, toPublicView } from '@/lib/verify/store'
 
-export const runtime = 'edge'
 
 // GET /api/verify/<token> — sanitized state for the public page. The token is
 // the credential; nothing here identifies the landlord account or screening.

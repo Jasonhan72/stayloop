@@ -6,7 +6,6 @@ import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { notifyUser } from '@/lib/push/notify'
 
-export const runtime = 'edge'
 const TOKEN = /^[0-9a-f]{32,80}$/i
 const admin = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
 const ip = (req: Request) => (req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim()

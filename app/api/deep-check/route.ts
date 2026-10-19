@@ -30,7 +30,6 @@
 // POST body (legacy fallback):
 //   { screening_id: string }
 
-export const runtime = 'edge'
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { stripNul } from '@/lib/screening/jsonSafe'

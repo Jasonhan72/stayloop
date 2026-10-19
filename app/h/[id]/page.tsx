@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // /h/[id] — the household hub: one shared surface where landlord, tenant and
 // agent see the same facts. Four tabs: overview (lease + members + invites),

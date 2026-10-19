@@ -12,7 +12,6 @@ import { loadPackThread } from '@/lib/export/threadRecord'
 import { partyDisplay, threadParties, type ThreadRow } from '@/lib/threads/server'
 import { CHAIN_VERSION, GENESIS } from '@/lib/threads/hashChain'
 
-export const runtime = 'edge'
 const UUID = /^[0-9a-f-]{36}$/i
 const HATS = new Set(['tenant', 'landlord', 'agent', 'provider', 'admin'])
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')

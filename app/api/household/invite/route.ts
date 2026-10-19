@@ -11,7 +11,6 @@ import { createClient } from '@supabase/supabase-js'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { renderHouseholdInviteEmail, sendEmail } from '@/lib/email'
 
-export const runtime = 'edge'
 
 const MAX_PER_REQUEST = 5
 const MAX_PER_HOUSEHOLD = 20

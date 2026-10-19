@@ -9,7 +9,6 @@ import { createClient } from '@supabase/supabase-js'
 import { getCatalog, findModel, providerAvailable } from '@/lib/modelConfig'
 import { llmChat } from '@/lib/llmChat'
 
-export const runtime = 'edge'
 
 export async function POST(req: Request) {
   const rawAuth = req.headers.get('authorization') || ''

@@ -46,7 +46,6 @@ import { craMode, craToolSkipQuery, personalRecordLookupsAllowed, CRA_TOOL_SKIP_
 import { callerHats, mayScreen, SCREENING_ROLE_CODE, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
 import { V3_WEIGHTS } from '@/lib/screening-types'
 
-export const runtime = 'edge'
 
 // Applicant-authorised verification facts, rendered for the model as facts
 // (not inference) with the rules that keep them from being double-counted.

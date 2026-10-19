@@ -9,7 +9,6 @@ import { adminDisputeEmail } from '@/lib/consumer/emails'
 import { DISPUTE_ITEM_KINDS, type DisputeItemKind } from '@/lib/consumer/types'
 import { NO_STORE, adminClient, adminEmails, sendAdminAlert, audit, loadRequestByToken, maskEmail, siteUrl } from '@/lib/consumer/server'
 
-export const runtime = 'edge'
 
 export async function POST(req: Request, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params

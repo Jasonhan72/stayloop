@@ -8,7 +8,6 @@
 import { NextResponse } from 'next/server'
 import { NO_STORE, adminClient, audit, loadRequestByToken, requestView } from '@/lib/consumer/server'
 
-export const runtime = 'edge'
 
 export async function GET(_req: Request, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params

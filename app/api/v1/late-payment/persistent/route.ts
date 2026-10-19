@@ -4,7 +4,6 @@
 import { handleV1, methodNotAllowed, optionsResponse, readJsonObject } from '@/lib/api/v1Http'
 import { corePersistentLatePayment } from '@/lib/api/v1Core'
 
-export const runtime = 'edge'
 
 export async function OPTIONS() { return optionsResponse() }
 export const GET = methodNotAllowed

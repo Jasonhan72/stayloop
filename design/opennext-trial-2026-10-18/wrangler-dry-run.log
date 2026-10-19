@@ -1,0 +1,9 @@
+ ⛅️ wrangler 4.147.0
+────────────────────
+✨ Read 642 files from the assets directory /Users/neos/Documents/Claude/Projects/stayloop/.claude/worktrees/infallible-swartz-6e35d5/.open-next/assets
+Total Upload: 28445.43 KiB / gzip: 5264.57 KiB
+Your Worker has access to the following bindings:
+Binding                                                  Resource      
+env.WORKER_SELF_REFERENCE (stayloop-opennext-trial)      Worker        
+env.ASSETS                                               Assets        
+--dry-run: exiting now.

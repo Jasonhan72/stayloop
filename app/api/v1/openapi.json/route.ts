@@ -3,7 +3,6 @@
 import { OPENAPI } from '@/lib/api/openapi'
 import { API_VERSION, CORS_HEADERS, methodNotAllowed } from '@/lib/api/v1Http'
 
-export const runtime = 'edge'
 
 const HEADERS = { ...CORS_HEADERS, 'x-api-version': API_VERSION, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'public, max-age=3600' }
 

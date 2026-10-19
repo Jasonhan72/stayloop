@@ -304,7 +304,7 @@ describe('migration 20261016_applicant_profiles.sql', () => {
 // ── routes (source) ────────────────────────────────────────────────────────────
 describe('POST / DELETE /api/profile/files', () => {
   it('signed-in only, per-user fail-closed limiter, whitelist types, server SHA-256, service role is the only writer', () => {
-    expect(FILES_ROUTE).toMatch(/export const runtime = 'edge'/)
+    expect(FILES_ROUTE).not.toMatch(/export const runtime = 'edge'/)
     expect(FILES_ROUTE).toMatch(/sign_in_required/)
     expect(FILES_ROUTE).toMatch(/underHourlyLimit\(`profile-files:\$\{uid\}`, 30, false\)/)
     expect(FILES_ROUTE).toMatch(/acceptProfileFile\(/)
@@ -333,7 +333,7 @@ describe('POST / DELETE /api/profile/files', () => {
 
 describe('POST /api/profile/attach', () => {
   it('checks email / 1 hour / empty files, copies with the service role, never calls attach_application_files', () => {
-    expect(ATTACH_ROUTE).toMatch(/export const runtime = 'edge'/)
+    expect(ATTACH_ROUTE).not.toMatch(/export const runtime = 'edge'/)
     expect(ATTACH_ROUTE).toMatch(/underHourlyLimit\(`profile-attach:\$\{uid\}`, 30, false\)/)
     expect(ATTACH_ROUTE).toMatch(/\.toLowerCase\(\) !== jwtEmail/)
     expect(ATTACH_ROUTE).toMatch(/not_your_application/)

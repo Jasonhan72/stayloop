@@ -9,7 +9,6 @@ import { renderDisclosurePack } from '@/lib/consumer/render'
 import { activeAlertFor } from '@/lib/consumer/alerts'
 import { NO_STORE, adminClient, audit, langOf, loadPackInputs, loadRequestByToken } from '@/lib/consumer/server'
 
-export const runtime = 'edge'
 
 export async function GET(req: Request, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params

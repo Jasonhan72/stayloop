@@ -9,7 +9,6 @@ import { createClient } from '@supabase/supabase-js'
 import { clampGraceDays, GRACE_ELIGIBLE_KINDS } from '@/lib/marketplace/trades'
 import { QUOTE_HOURS_DEFAULT, QUOTE_HOURS_MAX, QUOTE_HOURS_MIN } from '@/lib/marketplace/sla'
 
-export const runtime = 'edge'
 
 export async function GET() {
   const headers = { 'cache-control': 'public, max-age=300' }

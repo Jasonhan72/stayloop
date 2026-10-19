@@ -8,7 +8,6 @@ import { actOnWorkOrder } from '@/lib/marketplace/server'
 import { WORK_ORDER_COLUMNS, type ActorKind, type WoAction } from '@/lib/marketplace/workOrders'
 import { underHourlyLimit } from '@/lib/rateLimit'
 
-export const runtime = 'edge'
 
 const ACTIONS: WoAction[] = ['accept', 'decline', 'quote', 'approve_quote', 'reject_quote', 'arrive', 'complete', 'tenant_confirm', 'accept_completion', 'request_rework', 'dispute', 'resolve_dispute', 'mark_paid', 'close', 'cancel']
 

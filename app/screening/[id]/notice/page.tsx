@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // /screening/[id]/notice — a printable notice the landlord can hand to an
 // applicant who was not selected (competitor review P1-2). Ontario's

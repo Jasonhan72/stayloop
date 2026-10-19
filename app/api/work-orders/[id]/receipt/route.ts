@@ -10,7 +10,6 @@ import { canonicalJson, renderReceipt, type ReceiptData } from '@/lib/export/evi
 import { ensureMatter } from '@/lib/matters/server'
 import { displayNameFor } from '@/lib/threads/server'
 
-export const runtime = 'edge'
 const UUID = /^[0-9a-f-]{36}$/i
 const HATS = new Set(['tenant', 'landlord', 'agent', 'provider', 'admin'])
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')

@@ -7,7 +7,6 @@ import { createClient } from '@supabase/supabase-js'
 import { createWorkOrder } from '@/lib/marketplace/server'
 import { underHourlyLimit } from '@/lib/rateLimit'
 
-export const runtime = 'edge'
 
 export async function POST(req: Request) {
   const rawAuth = req.headers.get('authorization') || ''

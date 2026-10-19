@@ -5,7 +5,6 @@ import { pickLandlordRow, resolveSubscriptionState } from '@/lib/billing/subscri
 
 type BillingRow = { id: string; auth_id?: string | null; email?: string | null; plan: string | null; plan_status: string | null; plan_current_period_end: string | null; stripe_customer_id: string | null; stripe_subscription_id?: string | null; plan_cancel_at_period_end?: boolean | null }
 
-export const runtime = 'edge'
 
 /**
  * POST /api/stripe/checkout

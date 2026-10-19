@@ -1,0 +1,300 @@
+node v22.23.3 start Sun Oct 18 23:55:02 EDT 2026
+
+┌─────────────────────────────┐
+│ OpenNext — Cloudflare build │
+└─────────────────────────────┘
+
+App directory: /Users/neos/Documents/Claude/Projects/stayloop/.claude/worktrees/infallible-swartz-6e35d5
+Next.js version : 15.5.28
+@opennextjs/cloudflare version: 1.20.8
+@opennextjs/aws version: 4.1.7
+workerd compatibility_date: 2026-10-01
+
+┌─────────────────────────────────┐
+│ OpenNext — Building Next.js app │
+└─────────────────────────────────┘
+
+
+> stayloop@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.28
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 28.6s
+   Skipping linting
+   Checking validity of types ...
+   Collecting page data ...
+ ⚠ Using edge runtime on a page currently disables static generation for that page
+   Generating static pages (0/89) ...
+   Generating static pages (22/89) 
+   Generating static pages (44/89) 
+   Generating static pages (66/89) 
+ ✓ Generating static pages (89/89)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                   Size  First Load JS
+┌ ○ /                                      22.8 kB         240 kB
+├ ○ /_not-found                              397 B         103 kB
+├ ○ /about                                 3.11 kB         209 kB
+├ ○ /admin                                 4.03 kB         210 kB
+├ ○ /admin/agents                          3.06 kB         209 kB
+├ ○ /admin/consumer-requests               6.42 kB         212 kB
+├ ○ /admin/models                          14.6 kB         220 kB
+├ ○ /admin/partners                        2.65 kB         208 kB
+├ ○ /admin/providers                       4.55 kB         225 kB
+├ ○ /admin/usage                           4.38 kB         210 kB
+├ ○ /admin/users                           3.84 kB         209 kB
+├ ○ /admin/verify                          5.82 kB         211 kB
+├ ○ /agent                                 6.05 kB         219 kB
+├ ○ /agent/agent                             328 B         438 kB
+├ ○ /agent/audit                             289 B         235 kB
+├ ○ /agent/calendar                        7.16 kB         223 kB
+├ ○ /agent/checklist                       11.9 kB         244 kB
+├ ○ /agent/clients                         25.2 kB         241 kB
+├ ○ /agent/earnings                        8.81 kB         224 kB
+├ ○ /agent/ideas                             326 B         383 kB
+├ ○ /agent/onboarding                        379 B         103 kB
+├ ○ /agent/progress                          325 B         383 kB
+├ ƒ /agent/showings/[id]                      3 kB         219 kB
+├ ƒ /agent/showings/[id]/feedback          3.64 kB         219 kB
+├ ○ /agent/tasks                            7.2 kB         238 kB
+├ ○ /agent/todo                              327 B         383 kB
+├ ○ /agent/verify                          5.18 kB         221 kB
+├ ƒ /api/admin/consumer                      397 B         103 kB
+├ ƒ /api/admin/diag-pdftext                  397 B         103 kB
+├ ƒ /api/admin/model-discover                397 B         103 kB
+├ ƒ /api/admin/model-providers               397 B         103 kB
+├ ƒ /api/admin/model-test                    397 B         103 kB
+├ ƒ /api/admin/partners                      397 B         103 kB
+├ ƒ /api/agent-intake/[token]                397 B         103 kB
+├ ƒ /api/agent/execute                       397 B         103 kB
+├ ƒ /api/agent/intake-links                  397 B         103 kB
+├ ƒ /api/agent/proactive                     397 B         103 kB
+├ ƒ /api/agent/reflect                       397 B         103 kB
+├ ƒ /api/agent/turn                          397 B         103 kB
+├ ƒ /api/assistant/avatar                    397 B         103 kB
+├ ƒ /api/auth/email-status                   397 B         103 kB
+├ ƒ /api/classify-files                      397 B         103 kB
+├ ƒ /api/config/marketplace                  397 B         103 kB
+├ ƒ /api/config/tenant-insurance             397 B         103 kB
+├ ƒ /api/consumer/alert                      397 B         103 kB
+├ ƒ /api/consumer/request                    397 B         103 kB
+├ ƒ /api/consumer/request/[token]            397 B         103 kB
+├ ƒ /api/consumer/request/[token]/alert      397 B         103 kB
+├ ƒ /api/consumer/request/[token]/dispute    397 B         103 kB
+├ ƒ /api/consumer/request/[token]/pack       397 B         103 kB
+├ ƒ /api/consumer/request/[token]/verify     397 B         103 kB
+├ ƒ /api/contact                             397 B         103 kB
+├ ƒ /api/cron/model-discover                 397 B         103 kB
+├ ƒ /api/cron/realtor-freshness              397 B         103 kB
+├ ƒ /api/deep-check                          397 B         103 kB
+├ ƒ /api/delegations                         397 B         103 kB
+├ ƒ /api/delegations/[id]                    397 B         103 kB
+├ ƒ /api/delegations/confirm                 397 B         103 kB
+├ ƒ /api/file-url                            397 B         103 kB
+├ ƒ /api/household/extract                   397 B         103 kB
+├ ƒ /api/household/invite                    397 B         103 kB
+├ ƒ /api/lease/send                          397 B         103 kB
+├ ƒ /api/lease/sign                          397 B         103 kB
+├ ƒ /api/lease/view                          397 B         103 kB
+├ ƒ /api/legal/terms-confirmation            397 B         103 kB
+├ ƒ /api/listings/[slug]                     397 B         103 kB
+├ ƒ /api/listings/enrich                     397 B         103 kB
+├ ƒ /api/listings/quick-draft                397 B         103 kB
+├ ƒ /api/listings/search                     397 B         103 kB
+├ ƒ /api/ltb-search                          397 B         103 kB
+├ ƒ /api/maintenance/notify                  397 B         103 kB
+├ ƒ /api/matters/export                      397 B         103 kB
+├ ƒ /api/mcp                                 397 B         103 kB
+├ ƒ /api/models/catalog                      397 B         103 kB
+├ ƒ /api/notify-landlord                     397 B         103 kB
+├ ƒ /api/profile/attach                      397 B         103 kB
+├ ƒ /api/profile/files                       397 B         103 kB
+├ ƒ /api/public/stats                        397 B         103 kB
+├ ƒ /api/push/test                           397 B         103 kB
+├ ƒ /api/rent/evidence                       397 B         103 kB
+├ ƒ /api/screen-score                        397 B         103 kB
+├ ƒ /api/screening/[id]                      397 B         103 kB
+├ ƒ /api/screening/from-application          397 B         103 kB
+├ ƒ /api/showing-intent                      397 B         103 kB
+├ ƒ /api/stripe/checkout                     397 B         103 kB
+├ ƒ /api/stripe/connect/onboard              397 B         103 kB
+├ ƒ /api/stripe/connect/settle               397 B         103 kB
+├ ƒ /api/stripe/portal                       397 B         103 kB
+├ ƒ /api/stripe/resume                       397 B         103 kB
+├ ƒ /api/stripe/unlock                       397 B         103 kB
+├ ƒ /api/stripe/webhook                      397 B         103 kB
+├ ƒ /api/threads/attachment-url              397 B         103 kB
+├ ƒ /api/threads/export                      397 B         103 kB
+├ ƒ /api/threads/inbound                     397 B         103 kB
+├ ƒ /api/threads/notify                      397 B         103 kB
+├ ƒ /api/threads/participants                397 B         103 kB
+├ ƒ /api/threads/upload                      397 B         103 kB
+├ ƒ /api/v1/guideline                        397 B         103 kB
+├ ƒ /api/v1/late-payment/persistent          397 B         103 kB
+├ ƒ /api/v1/lease/terms-check                397 B         103 kB
+├ ƒ /api/v1/listings/compliance              397 B         103 kB
+├ ƒ /api/v1/n4/earliest-termination          397 B         103 kB
+├ ƒ /api/v1/openapi.json                     397 B         103 kB
+├ ƒ /api/v1/passport/verify                  397 B         103 kB
+├ ƒ /api/v1/rent-benchmark                   397 B         103 kB
+├ ƒ /api/v1/rules                            397 B         103 kB
+├ ƒ /api/v1/screen                           397 B         103 kB
+├ ƒ /api/verify/[token]                      397 B         103 kB
+├ ƒ /api/verify/[token]/bank                 397 B         103 kB
+├ ƒ /api/verify/[token]/consent              397 B         103 kB
+├ ƒ /api/verify/[token]/credit               397 B         103 kB
+├ ƒ /api/verify/[token]/start                397 B         103 kB
+├ ƒ /api/verify/create                       397 B         103 kB
+├ ƒ /api/verify/webhook/veriff               397 B         103 kB
+├ ƒ /api/w/[token]                           397 B         103 kB
+├ ƒ /api/work-orders/[id]/act                397 B         103 kB
+├ ƒ /api/work-orders/[id]/receipt            397 B         103 kB
+├ ƒ /api/work-orders/dispatch                397 B         103 kB
+├ ƒ /apply/[slug]                          16.7 kB         300 kB
+├ ○ /auth/callback                         1.94 kB         188 kB
+├ ○ /auth/reset-password                   6.71 kB         190 kB
+├ ○ /consumer-rights                       4.72 kB         210 kB
+├ ○ /contact                               3.49 kB         209 kB
+├ ○ /dashboard                             11.6 kB         227 kB
+├ ƒ /dashboard/listings/[id]/edit          8.86 kB         291 kB
+├ ƒ /dashboard/listings/edit               6.24 kB         289 kB
+├ ○ /dashboard/listings/new                16.4 kB         299 kB
+├ ○ /dashboard/listings/quick              10.9 kB         293 kB
+├ ƒ /delegate/[token]                      5.42 kB         211 kB
+├ ○ /disputes                              10.1 kB         216 kB
+├ ƒ /h/[id]                                26.7 kB         328 kB
+├ ƒ /intake/[token]                        9.25 kB         215 kB
+├ ƒ /join/[token]                          3.44 kB         209 kB
+├ ○ /landlord                              6.66 kB         219 kB
+├ ○ /landlord/agent                          330 B         438 kB
+├ ○ /landlord/applicants                   15.4 kB         231 kB
+├ ƒ /landlord/applicants/[id]              22.5 kB         346 kB
+├ ○ /landlord/audit                          290 B         235 kB
+├ ○ /landlord/become                       2.68 kB         208 kB
+├ ○ /landlord/finance                      9.49 kB         236 kB
+├ ○ /landlord/ideas                          327 B         383 kB
+├ ○ /landlord/leases                         14 kB         321 kB
+├ ƒ /landlord/leases/[id]                  11.2 kB         247 kB
+├ ƒ /landlord/leases/[id]/edit               397 B         103 kB
+├ ƒ /landlord/leases/new                     14 kB         304 kB
+├ ○ /landlord/maintenance                  10.5 kB         257 kB
+├ ○ /landlord/notices                      18.4 kB         296 kB
+├ ○ /landlord/progress                       330 B         383 kB
+├ ○ /landlord/providers                    7.21 kB         229 kB
+├ ○ /landlord/todo                           328 B         383 kB
+├ ƒ /lease/sign/[token]                    4.06 kB         131 kB
+├ ƒ /leases/import                         8.02 kB         224 kB
+├ ○ /listings                              10.8 kB         233 kB
+├ ƒ /listings/[slug]                       27.7 kB         314 kB
+├ ○ /login                                 2.46 kB         219 kB
+├ ○ /messages                              13.9 kB         238 kB
+├ ○ /my-file                               3.21 kB         209 kB
+├ ƒ /my-file/[token]                       9.91 kB         215 kB
+├ ○ /notifications                         1.51 kB         187 kB
+├ ○ /onboarding/meet                       3.03 kB         192 kB
+├ ○ /onboarding/name                       7.93 kB         208 kB
+├ ○ /onboarding/tier1                      5.39 kB         211 kB
+├ ○ /onboarding/welcome                    2.86 kB         192 kB
+├ ƒ /p/[token]                             3.73 kB         127 kB
+├ ○ /partners                              7.23 kB         213 kB
+├ ○ /platform                              6.27 kB         212 kB
+├ ○ /pricing                               8.76 kB         214 kB
+├ ○ /privacy                               5.79 kB         211 kB
+├ ○ /provider/history                       5.7 kB         234 kB
+├ ○ /provider/jobs                         7.45 kB         236 kB
+├ ○ /provider/onboard                      7.38 kB         217 kB
+├ ○ /register                              2.46 kB         219 kB
+├ ○ /robots.txt                              397 B         103 kB
+├ ○ /rules                                 2.81 kB         220 kB
+├ ○ /screening                             10.2 kB         216 kB
+├ ƒ /screening/[id]/done                   7.84 kB         218 kB
+├ ƒ /screening/[id]/graph                  4.91 kB         210 kB
+├ ƒ /screening/[id]/ltb                    5.82 kB         213 kB
+├ ƒ /screening/[id]/notice                 5.04 kB         194 kB
+├ ƒ /screening/[id]/report                 29.3 kB         280 kB
+├ ƒ /screening/[id]/share                  2.52 kB         208 kB
+├ ○ /screening/app                         48.3 kB         303 kB
+├ ƒ /screening/new                           602 B         103 kB
+├ ○ /services                              8.99 kB         215 kB
+├ ○ /settings                              16.2 kB         236 kB
+├ ○ /settings/models                       3.22 kB         219 kB
+├ ○ /sitemap.xml                             397 B         103 kB
+├ ○ /stayloop-api                          7.68 kB         213 kB
+├ ○ /stayloop-api/docs                     17.9 kB         283 kB
+├ ○ /tenant                                7.13 kB         220 kB
+├ ○ /tenant/agent                            329 B         438 kB
+├ ○ /tenant/applications                   10.4 kB         226 kB
+├ ƒ /tenant/applications/[id]              7.27 kB         290 kB
+├ ○ /tenant/audit                            289 B         235 kB
+├ ○ /tenant/ideas                            325 B         383 kB
+├ ○ /tenant/lease                          15.8 kB         249 kB
+├ ○ /tenant/maintenance                    13.4 kB         259 kB
+├ ○ /tenant/move-in                        6.66 kB         285 kB
+├ ○ /tenant/passport                       23.4 kB         243 kB
+├ ○ /tenant/passport/sharing               2.66 kB         218 kB
+├ ○ /tenant/payments                       6.52 kB         233 kB
+├ ○ /tenant/progress                         329 B         383 kB
+├ ○ /tenant/todo                             326 B         383 kB
+├ ○ /terms                                 7.24 kB         213 kB
+├ ƒ /verify/[token]                        7.71 kB         213 kB
+└ ƒ /w/[token]                             8.56 kB         229 kB
++ First Load JS shared by all               103 kB
+  ├ chunks/1255-60d8dc7c8c9309a1.js        46.3 kB
+  ├ chunks/4bd1b696-100b9d70ed4e49c1.js    54.2 kB
+  └ other shared chunks (total)            2.32 kB
+
+
+ƒ Middleware                                 35 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+┌──────────────────────────────┐
+│ OpenNext — Generating bundle │
+└──────────────────────────────┘
+
+Bundling middleware function...
+Bundling static assets...
+Bundling cache assets...
+Building server function: default...
+file:///Users/neos/Documents/Claude/Projects/stayloop/.claude/worktrees/infallible-swartz-6e35d5/node_modules/@opennextjs/aws/dist/build/copyTracedFiles.js:128
+                throw new Error(`
+                      ^
+
+Error: 
+--------------------------------------------------------------------------------
+app/agent/showings/[id]/feedback/page cannot use the edge runtime.
+OpenNext requires edge runtime function to be defined in a separate function.
+See the docs for more information on how to bundle edge runtime functions.
+--------------------------------------------------------------------------------
+        
+    at computeCopyFilesForPage (file:///Users/neos/Documents/Claude/Projects/stayloop/.claude/worktrees/infallible-swartz-6e35d5/node_modules/@opennextjs/aws/dist/build/copyTracedFiles.js:128:23)
+    at file:///Users/neos/Documents/Claude/Projects/stayloop/.claude/worktrees/infallible-swartz-6e35d5/node_modules/@opennextjs/aws/dist/build/copyTracedFiles.js:202:9
+    at Array.forEach (<anonymous>)
+    at copyTracedFiles (file:///Users/neos/Documents/Claude/Projects/stayloop/.claude/worktrees/infallible-swartz-6e35d5/node_modules/@opennextjs/aws/dist/build/copyTracedFiles.js:201:12)
+    at generateBundle (file:///Users/neos/Documents/Claude/Projects/stayloop/.claude/worktrees/infallible-swartz-6e35d5/node_modules/@opennextjs/cloudflare/dist/cli/build/open-next/createServerBundle.js:121:60)
+    at createServerBundle (file:///Users/neos/Documents/Claude/Projects/stayloop/.claude/worktrees/infallible-swartz-6e35d5/node_modules/@opennextjs/cloudflare/dist/cli/build/open-next/createServerBundle.js:75:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async build (file:///Users/neos/Documents/Claude/Projects/stayloop/.claude/worktrees/infallible-swartz-6e35d5/node_modules/@opennextjs/cloudflare/dist/cli/build/build.js:90:5)
+    at async buildCommand (file:///Users/neos/Documents/Claude/Projects/stayloop/.claude/worktrees/infallible-swartz-6e35d5/node_modules/@opennextjs/cloudflare/dist/cli/commands/build.js:40:5)
+
+Node.js v22.23.3
+BUILD_RC=1 elapsed=177s
+total 0
+drwxr-xr-x@  9 neos  staff   288 Oct 18 23:57 .
+drwxr-xr-x@ 47 neos  staff  1504 Oct 18 23:55 ..
+drwxr-xr-x@  6 neos  staff   192 Oct 18 23:57 .build
+drwxr-xr-x@ 18 neos  staff   576 Oct 18 23:57 assets
+drwxr-xr-x@  3 neos  staff    96 Oct 18 23:57 cache
+drwxr-xr-x@  7 neos  staff   224 Oct 18 23:57 cloudflare
+drwxr-xr-x@  4 neos  staff   128 Oct 18 23:57 dynamodb-provider
+drwxr-xr-x@  6 neos  staff   192 Oct 18 23:57 middleware
+drwxr-xr-x@  3 neos  staff    96 Oct 18 23:57 server-functions
+ 44K	.open-next/server-functions
+ 10M	.open-next/assets
+===== BUILD END Sun Oct 18 23:57:59 EDT 2026 =====

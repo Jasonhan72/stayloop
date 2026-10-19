@@ -175,22 +175,22 @@ describe('copy and access', () => {
   })
 })
 
-// ship40 (2026-09-26) failed at the next-on-pages step: the new
-// /tenant/applications/[id] page had no `export const runtime = 'edge'`, and
-// only dynamic segments need it, so tsc and vitest were both green. Every
-// dynamic page and every API route must declare the edge runtime.
-describe('every dynamic page and API route runs on the edge', () => {
+// ship40 (2026-09-26) failed at the next-on-pages step because a dynamic page
+// lacked `export const runtime = 'edge'`. Under OpenNext (trial 2026-10-18) the
+// rule is reversed: OpenNext's server bundle rejects any App Router page or
+// route that declares the edge runtime ("cannot use the edge runtime"), and
+// the Node runtime is what runs on workerd with nodejs_compat.
+describe('no page or route declares the edge runtime (OpenNext)', () => {
   const walk = (dir: string, out: string[] = []): string[] => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       const p = join(dir, e.name)
       if (e.isDirectory()) walk(p, out)
-      else if (e.name === 'page.tsx' || e.name === 'route.ts') out.push(p)
+      else if (/^(page|layout|route)\.tsx?$/.test(e.name)) out.push(p)
     }
     return out
   }
-  it('no dynamic segment page or route.ts is missing the export', () => {
-    const files = walk('app').filter((p) => p.endsWith('route.ts') || /\[[^/]+\]\/page\.tsx$/.test(p))
-    const missing = files.filter((p) => !read(p).includes("export const runtime = 'edge'"))
-    expect(missing).toEqual([])
+  it('no page, layout or route.ts carries the edge export', () => {
+    const offenders = walk('app').filter((p) => /export const runtime = ['"]edge['"]/.test(read(p)))
+    expect(offenders).toEqual([])
   })
 })

@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 import { torontoDate } from '@/lib/household/ledger'
 import { useParams, useRouter } from 'next/navigation'

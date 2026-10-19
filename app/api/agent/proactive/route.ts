@@ -39,7 +39,6 @@ import { RENT_DUE_PUSH_ACTION, RENT_OVERDUE_ACTION_TYPE, planRentReminders, tena
 import { leaseProvince, unitTermsOf } from '@/lib/provinces/lease'
 import type { ProvinceCode, ProvinceRow } from '@/lib/provinces/detect'
 
-export const runtime = 'edge'
 
 // Renewal touchpoints (90 / 60 / 30 days) are planned by
 // lib/agent/renewalStages.ts — see its header. The route only loads leases,

@@ -45,7 +45,6 @@ import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/m
 //       data (e.g. an earlier version of a Form 400 that was overwritten
 //       to a new rent — the text stream may still contain the old number).
 
-export const runtime = 'edge'
 
 const VALID_KINDS = [
   'lease',                // NEW — Form 400 / Agreement to Lease / Residential Tenancy Agreement / Standard Form

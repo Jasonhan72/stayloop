@@ -9,7 +9,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 
-export const runtime = 'edge'
 const UUID = /^[0-9a-f-]{36}$/i
 const MAX_BYTES = 25 * 1024 * 1024
 const ALLOWED = /^(image\/(jpeg|png|webp|heic|heif|gif)|application\/pdf|text\/plain|application\/(msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document))$/

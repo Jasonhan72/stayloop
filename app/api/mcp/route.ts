@@ -19,7 +19,6 @@ import { handleMcpBody } from '@/lib/mcp/jsonrpc'
 import type { McpToolContext } from '@/lib/mcp/tools'
 import type { BenchmarkClient } from '@/lib/api/v1Core'
 
-export const runtime = 'edge'
 
 const ALLOW_HEADERS = 'content-type,accept,x-client-id,mcp-protocol-version,mcp-session-id'
 const MAX_BODY_BYTES = 256 * 1024

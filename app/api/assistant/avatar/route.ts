@@ -17,7 +17,6 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { AVATAR_PROMPT_MAX, AVATAR_STYLES, type AvatarStyle } from '@/lib/agent/avatarImage'
 import { CUSTOM_AVATAR_BUCKET, isCustomAvatarKey } from '@/lib/agent/avatarKeys'
 
-export const runtime = 'edge'
 
 const MODEL = 'gpt-image-1'
 const PER_USER_PER_HOUR = 6

@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // /verify/[token] — the applicant's page (design/verification-flow-plan.md).
 // Public route; the token is the credential. Consent first, then three

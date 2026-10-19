@@ -3,7 +3,6 @@
 // (guard_lease_document_fields) and the form says so instead of saving.
 import { redirect } from 'next/navigation'
 
-export const runtime = 'edge'
 
 export default async function EditLeaseDraft({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

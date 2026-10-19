@@ -1,6 +1,5 @@
 'use client'
 
-export const runtime = 'edge'
 
 // /join/[token] — the invite landing page. Public route; the token is the
 // credential (same posture as the passport share page). Pre-login it shows

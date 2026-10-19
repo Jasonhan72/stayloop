@@ -11,7 +11,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { reflectUser, runReflectionSweep } from '@/lib/agent/reflection'
 
-export const runtime = 'edge'
 
 function timingSafeEqual(a: string, b: string): boolean {
   const ab = new TextEncoder().encode(a)

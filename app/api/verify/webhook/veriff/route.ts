@@ -3,7 +3,6 @@ import { veriffParseDecision, veriffVerifySignature } from '@/lib/verify/provide
 import { adminClient, isExpired, loadRequest, writeStep } from '@/lib/verify/store'
 import { isVerifyToken } from '@/lib/verify/token'
 
-export const runtime = 'edge'
 
 // POST /api/verify/webhook/veriff — decision webhook. Authenticated by
 // X-HMAC-SIGNATURE (HMAC-SHA256 of the raw body with the shared secret).

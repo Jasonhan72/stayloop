@@ -14,7 +14,6 @@ import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { displayNameFor, notifyThreadParties, type ThreadRow } from '@/lib/threads/server'
 
-export const runtime = 'edge'
 const UUID = /^[0-9a-f-]{36}$/i
 
 export async function POST(req: Request) {

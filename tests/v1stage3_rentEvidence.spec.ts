@@ -143,7 +143,7 @@ describe('migration 20261016_rent_evidence.sql', () => {
 describe('route app/api/rent/evidence', () => {
   const src = read('app/api/rent/evidence/route.ts')
   it('edge, JWT, per-user hourly limit that fails closed, no DELETE', () => {
-    expect(src).toContain("export const runtime = 'edge'")
+    expect(src).not.toContain("export const runtime = 'edge'")
     expect(src).toContain("underHourlyLimit(`rent-evidence:${uid}`, 30, false)")
     expect(src).toContain('export async function POST(')
     expect(src).not.toMatch(/export async function (DELETE|GET|PUT|PATCH)/)
