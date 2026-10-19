@@ -1,6 +1,9 @@
 name = "stayloop-reply-email"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
+# Route the fetch to www.stayloop.ai through the public edge so it reaches the
+# stayloop-web Worker route (same-zone fetches otherwise go straight to origin = old Pages).
+compatibility_flags = ["global_fetch_strictly_public"]
 
 [vars]
 INBOUND_URL = "https://www.stayloop.ai/api/threads/inbound"

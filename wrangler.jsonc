@@ -1,19 +1,25 @@
 {
-	// OpenNext trial (2026-10-18) — NOT deployed. Worker name deliberately differs
-	// from the Pages project "stayloop" so a stray `wrangler deploy` cannot touch prod.
+	// Production Worker (OpenNext). Built by ship2-v53.command:
+	// `opennextjs-cloudflare build` → scripts/opennext-env-guard.mjs → `wrangler deploy`.
+	// Traffic reaches it through the zone routes below; the old Pages project
+	// "stayloop" stays untouched as the rollback target.
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"main": ".open-next/worker.js",
-	"name": "stayloop-opennext-trial",
+	"name": "stayloop-web",
 	"compatibility_date": "2026-10-01",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"workers_dev": true,
+	"preview_urls": false,
 	"assets": {
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
 	},
 	"services": [
 		{
+			// Self-reference service binding; must match "name".
 			"binding": "WORKER_SELF_REFERENCE",
-			"service": "stayloop-opennext-trial"
+			"service": "stayloop-web"
 		}
-	]
+	],
+	"observability": { "enabled": true }
 }
