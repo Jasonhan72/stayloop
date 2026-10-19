@@ -102,3 +102,7 @@
 ## S3 收尾（10-18，部署 4 / 5 + 迁移 f / g / h / m）
 - 已修：B-D2 · C-S3-2（= B-D3 后半）· B-D4 · O-D1 · O-D2 · C-S3-1（搜索每条只回一张图，153 KB → 91 KB）· C-S3-3 / D-S3-1（DocTitle 监听 head，防 Next 重写）· C-S3-4（只能加 noindex，客户端壳改不了状态码）· C-S3-6 · D-S3-2 · D-A3 · D-A4 · D-A5 · D-A6 · D-A8（terms_confirm_claims 认领）· D-F-02 · D-F-03 · E-D5 · E-D6 · T6-D5 · T6-D7（服务端路径过 stripNul；REST 直插仍回原话，可接受）· T6-D8 · T6-D9（页面 ACAO 锁本站，/api/v1、/api/mcp、/.well-known 保留 *）· T6-D10（企业注册两个 RPC 只给 service role）· H-D1 · H-D2（数据库也拦 10 分钟外撤回）· I-D3（交回自动清空原文 + 立即反思）· I-D4 · J-D2 · J-D4 · J-D6（新增规则 RTA-108-post-dated-cheques）· M-D1（迁移 m）· T4-06 · 越界：PrivateMemorySnapshot 两步确认、待批卡客户端只能插 pending · N-1 · N-2。
 - 不修（原因）：E-D3 / E-D4 / J-D1 / B-D3 前半（筛查模块 DO NOT TOUCH）；T4-05（auth_id NOT NULL，删用户时级联还是禁止需先定，现无孤儿行）；J-D5（RECO 号本属公开信息）；越界 agent_directory.auth_id（委托与房源页按它关联，属功能需要）。
+
+## 逃逸回归（10-19 OpenNext 回归会话发现）
+- T6-D2 修复的回归 S1：房东会签 `/api/lease/sign` 房东分支用房东 JWT 读含 sign_token 的整行 → 42501 → 404（10-18 守卫只扫页面与组件，漏了 API 路由）。已修：用户身份只做可见性核对，整行改 service role 读；守卫改为扫描 app/api 下所有选 sign_token 的查询必须走 admin / adminSb。10-19 部署后生产复测：房东 200 `already`、租客 403。
+- S2（旧问题）：线程导出 JSON 不足以让第三方重算哈希链——待修。
