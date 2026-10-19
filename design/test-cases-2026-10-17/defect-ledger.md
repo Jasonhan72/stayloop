@@ -104,5 +104,5 @@
 - 不修（原因）：E-D3 / E-D4 / J-D1 / B-D3 前半（筛查模块 DO NOT TOUCH）；T4-05（auth_id NOT NULL，删用户时级联还是禁止需先定，现无孤儿行）；J-D5（RECO 号本属公开信息）；越界 agent_directory.auth_id（委托与房源页按它关联，属功能需要）。
 
 ## 逃逸回归（10-19 OpenNext 回归会话发现）
-- T6-D2 修复的回归 S1：房东会签 `/api/lease/sign` 房东分支用房东 JWT 读含 sign_token 的整行 → 42501 → 404（10-18 守卫只扫页面与组件，漏了 API 路由）。已修：用户身份只做可见性核对，整行改 service role 读；守卫改为扫描 app/api 下所有选 sign_token 的查询必须走 admin / adminSb。10-19 部署后生产复测：房东 200 `already`、租客 403。
-- S2（旧问题）：线程导出 JSON 不足以让第三方重算哈希链——待修。
+- T6-D2 修复的回归 S1：房东会签 `/api/lease/sign` 房东分支用房东 JWT 读含 sign_token 的整行 → 42501 → 404（10-18 守卫只扫页面与组件，漏了 API 路由）。已修：用户身份只做可见性核对，整行改 service role 读；守卫改为扫描 app/api 下所有选 sign_token 的查询必须走 admin / adminSb。10-19 部署后生产复测：房东 200 `already`、租客 403。10-19 晚补测完整会签：`[TEST]` 租约 `ce40e58a`（停在 signed_tenant）房东会签 → 200 `signed_both`，household（esign、已核验）+ 租客邀请 + 首期租金都建好；租客拿 lease_id 冒充会签 → 403。守卫推广（`tests/regression20261019.spec.ts`）：所有列级保护列（work_orders.token / external_email、delegations.confirm_token、household_invites.invited_email / token、lease_documents.sign_token、consumer_requests 全表）在 app / components / lib 里只许 admin / adminSb 读，现有代码零违规。
+- S2（旧问题）：线程导出 JSON 不足以让第三方重算哈希链。已修（436a3f2，版本 b996f9a7）：JSON 加 `chain_rows`（全部行含撤回行，字段与 canonicalMessage 一致，sender_id 为 uuid、无邮箱）与 `chain.recompute_from`；`messages` 可读视图不变。生产复测：tenant-test 线程 `6eca91f3` 发一条 `[TEST]` 消息（95）并撤回（96）后导出，仅用 `chain_rows` 重算 → ok、6 行、head 与服务器一致；用 `messages` 重算仍 hash_mismatch（旧方式确实不可重算）。
