@@ -75,3 +75,22 @@ describe('T4 · database fixes in the migration', () => {
     expect(mig).toContain("if tg_op = 'DELETE' and pg_trigger_depth() > 1 then")
   })
 })
+
+describe('T6-D2 follow-up (2026-10-19) · server routes read sign_token only with service role', () => {
+  it('every lease_documents select that names sign_token goes through admin / adminSb', () => {
+    const offenders: string[] = []
+    for (const p of walk('app/api')) {
+      const src = read(p)
+      const re = /(\w+)\s*\.from\('lease_documents'\)\s*\.select\('([^']*)'\)/g
+      for (let m = re.exec(src); m; m = re.exec(src)) {
+        if (m[2].includes('sign_token') && !['admin', 'adminSb'].includes(m[1])) offenders.push(`${p}: ${m[1]}`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+  it('the landlord countersign checks visibility without the token, then reads the row with service role', () => {
+    const src = read('app/api/lease/sign/route.ts')
+    expect(src).toMatch(/await sb\s*\.from\('lease_documents'\)\s*\.select\('id'\)/)
+    expect(src).toMatch(/await admin\s*\.from\('lease_documents'\)\s*\.select\('[^']*sign_token[^']*'\)\s*\.eq\('id', visible\.id\)/)
+  })
+})

@@ -72,12 +72,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
     actorId = ud.user.id
-    const { data } = await sb
+    // RLS proves the caller can see the lease. sign_token is not client-readable since 2026-10-18
+    // (T6-D2), so naming it here made every countersign 42501 → 404 (regression found 2026-10-19);
+    // the visibility check reads without it and the full row comes from service role.
+    const { data: visible } = await sb
       .from('lease_documents')
-      .select('id, status, terms, tenant_name, tenant_email, unit_label, sign_token, landlord_signature, tenant_signature, landlord_id')
+      .select('id')
       .eq('id', body.lease_id)
-      .maybeSingle<LeaseRow>()
-    lease = data
+      .maybeSingle<{ id: string }>()
+    if (visible) {
+      const { data } = await admin
+        .from('lease_documents')
+        .select('id, status, terms, tenant_name, tenant_email, unit_label, sign_token, landlord_signature, tenant_signature, landlord_id')
+        .eq('id', visible.id)
+        .maybeSingle<LeaseRow>()
+      lease = data
+    }
     // An RLS read is NOT an ownership check here: the `leases_parties` policy
     // grants BOTH parties access to the row, so a tenant passing `lease_id`
     // would otherwise land a landlord_signature and fully execute the lease.
