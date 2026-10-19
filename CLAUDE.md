@@ -32,9 +32,9 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 
 ## 环境变量
 
-`.env.local`（不入库）+ CF Pages 后台同名 secrets。**`NEXT_PUBLIC_*` 在本机构建时内联**，CF 后台那份对它们不生效；`.env.local` 放生产值，`.env.development.local` 放 localhost 值。
+`.env.local`（不入库）+ Worker `stayloop-web` 同名 secrets（`scripts/worker-secrets-sync.sh`）。**`NEXT_PUBLIC_*` 在本机构建时内联**，Worker 上不用设；`.env.local` 放生产值，`.env.development.local` 放 localhost 值。
 
-必需：`NEXT_PUBLIC_SUPABASE_URL` `NEXT_PUBLIC_SUPABASE_ANON_KEY` `SUPABASE_SERVICE_ROLE_KEY` `ANTHROPIC_API_KEY` `RESEND_API_KEY` `RESEND_FROM` `STRIPE_SECRET_KEY` `STRIPE_WEBHOOK_SECRET` `NEXT_PUBLIC_STRIPE_PRICE_ID` `NEXT_PUBLIC_STRIPE_UNLOCK_PRICE_ID` `NEXT_PUBLIC_SITE_URL` `NEXT_PUBLIC_GOOGLE_MAPS_KEY` `NEXT_PUBLIC_VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY` `CRON_SECRET`（同值存 Vault `cron_secret`）`INBOUND_EMAIL_SECRET`（Pages + Worker 同值）。
+必需：`NEXT_PUBLIC_SUPABASE_URL` `NEXT_PUBLIC_SUPABASE_ANON_KEY` `SUPABASE_SERVICE_ROLE_KEY` `ANTHROPIC_API_KEY` `RESEND_API_KEY` `RESEND_FROM` `STRIPE_SECRET_KEY` `STRIPE_WEBHOOK_SECRET` `NEXT_PUBLIC_STRIPE_PRICE_ID` `NEXT_PUBLIC_STRIPE_UNLOCK_PRICE_ID` `NEXT_PUBLIC_SITE_URL` `NEXT_PUBLIC_GOOGLE_MAPS_KEY` `NEXT_PUBLIC_VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY` `CRON_SECRET`（同值存 Vault `cron_secret`）`INBOUND_EMAIL_SECRET`（网站 Worker 与邮件 Worker 同值）。
 
 可选（缺了功能降级、不报错）：`OPENAI_API_KEY` `GEMINI_API_KEY` `DEEPSEEK_API_KEY` `MOONSHOT_API_KEY` `DASHSCOPE_API_KEY`（扫描件 OCR 回退走阿里云中国大陆端点，用户 09-21 决定保留，隐私页已披露）`ZHIPU_API_KEY` `JINA_API_KEY`（预付余额；用完时 CanLII 索引、雇主网页核验、商业检索、房东贴链接读页全部静默降级——症状先查余额）`OPENCORPORATES_API_TOKEN` `CANLII_API_KEY` `VERIFF_*` `FLINKS_*` `CREDIT_PULL_PROVIDER` / `EQUIFAX_*`（生产凭证未到位）`CRA_MODE`（`registered` 默认 / `tool`）`PARTNER_SCREENING_API`。管理 PAT `SUPABASE_ACCESS_TOKEN`（scoped，权限留默认会 401）。
 
@@ -85,7 +85,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 给思考型模型的结构化输出调用留足 `max_tokens`（推理会先吃掉预算导致 JSON 截断）。
 - 发信类限流 fail-closed、成本类 fail-open（`lib/rateLimit.ts underHourlyLimit`）；匿名面都要有全站总闸。
 - 外部失败（429 / 超时）不能当成「没有结果」缓存；Overpass 查站点用 `nwr` + `out center`。
-- Cloudflare 对 Pages Function 的 JSON 不按 `s-maxage` 缓存，要缓存用 Workers Cache API。
+- Worker 的响应不经过 zone 的 CDN 缓存（`s-maxage` 无效），要缓存用 Workers Cache API（`caches.default`）。
 - 页面里不能从 `page.tsx` 导出多余符号（Next 构建拒绝）；Route Handler 不能从带 `'use client'` 的模块取常量（会变成 client-reference 存根）。
 - 演示产品的动画 / 示例用产品真实组件按脚本驱动，不手画仿制界面。
 - 示范数据必须标「示例数据」小标签（`SampleBanner` / `SampleTag`）；工作台样例页走 `WorkspaceShell` 的 `DEMO_GATE` / `SAMPLE_NOTE`。不编造数字、评分、客户数、百分比收益。
