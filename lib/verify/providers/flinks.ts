@@ -28,6 +28,23 @@ export function flinksConfigured(): boolean {
   return !!(process.env.FLINKS_AUTH_KEY && process.env.FLINKS_API_SECRET)
 }
 
+/**
+ * A Flinks API failure with its Flinks code (`FlinksCode` in the body, e.g. CARD_IN_USE,
+ * SESSION_EXPIRED, RETRY_LATER — https://docs.flinks.com/api/authorize/error-codes) so the
+ * routes can tell the applicant something they can act on (lib/verify/bankErrors.ts).
+ */
+export class FlinksError extends Error {
+  constructor(message: string, public readonly code: string | null, public readonly httpStatus: number) {
+    super(message)
+    this.name = 'FlinksError'
+  }
+}
+
+function flinksCodeOf(data: { FlinksCode?: unknown; flinksCode?: unknown } | null | undefined): string | null {
+  const c = data?.FlinksCode ?? data?.flinksCode
+  return typeof c === 'string' && /^[A-Z_]{3,40}$/.test(c) ? c : null
+}
+
 // Short-lived token that must ride in the Connect URL (`authorizeToken`).
 export async function flinksGenerateAuthorizeToken(): Promise<string> {
   const { apiBase, customerId } = flinksConfig()
@@ -36,9 +53,9 @@ export async function flinksGenerateAuthorizeToken(): Promise<string> {
     headers: { 'Content-Type': 'application/json', 'flinks-auth-key': process.env.FLINKS_AUTH_KEY || '' },
     body: '{}',
   })
-  const data = await res.json().catch(() => ({})) as { Token?: string; token?: string; HttpStatusCode?: number; Message?: string }
+  const data = await res.json().catch(() => ({})) as { Token?: string; token?: string; HttpStatusCode?: number; Message?: string; FlinksCode?: string }
   const token = data.Token || data.token
-  if (!res.ok || !token) throw new Error(`flinks authorize-token ${res.status} ${data.HttpStatusCode ?? ''}: ${data.Message || ''}`.trim())
+  if (!res.ok || !token) throw new FlinksError(`flinks authorize-token ${res.status} ${data.HttpStatusCode ?? ''}: ${data.Message || ''}`.trim(), flinksCodeOf(data), res.status)
   return token
 }
 
@@ -76,7 +93,7 @@ type FlinksAccount = {
   Balance?: { Available?: number | null; Current?: number | null }
   Transactions?: Array<{ Date?: string; Description?: string; Credit?: number | null; Debit?: number | null; Balance?: number | null }>
 }
-type DetailResponse = { HttpStatusCode?: number; RequestId?: string; Institution?: string; Accounts?: FlinksAccount[]; Message?: string }
+export type DetailResponse = { HttpStatusCode?: number; RequestId?: string; Institution?: string; Accounts?: FlinksAccount[]; Message?: string; FlinksCode?: string }
 
 export async function flinksAuthorize(loginId: string): Promise<string> {
   const { apiBase, customerId } = flinksConfig()
@@ -84,36 +101,72 @@ export async function flinksAuthorize(loginId: string): Promise<string> {
     method: 'POST', headers: headers(), signal: AbortSignal.timeout(20000),
     body: JSON.stringify({ LoginId: loginId, MostRecentCached: true }),
   })
-  const data = await res.json().catch(() => ({})) as { RequestId?: string; HttpStatusCode?: number; Message?: string }
-  if (!data.RequestId) throw new Error(`flinks authorize ${res.status} ${data.HttpStatusCode ?? ''}: ${data.Message || ''}`.trim())
+  const data = await res.json().catch(() => ({})) as { RequestId?: string; HttpStatusCode?: number; Message?: string; FlinksCode?: string }
+  if (!data.RequestId) throw new FlinksError(`flinks authorize ${res.status} ${data.HttpStatusCode ?? ''}: ${data.Message || ''}`.trim(), flinksCodeOf(data), res.status)
   return data.RequestId
 }
 
-// GetAccountsDetail may answer 202 while the bank is still being read; poll
-// the async endpoint a bounded number of times (edge request budget).
-export async function flinksAccountsDetail(requestId: string, opts: { maxPolls?: number; pollMs?: number } = {}): Promise<DetailResponse> {
+/** One step of reading the accounts: the data, or "the bank is still being read" (202). */
+export type DetailStep = { ready: true; detail: DetailResponse } | { ready: false }
+
+function detailStep(res: Response, data: DetailResponse): DetailStep {
+  if (res.status === 202 || data.HttpStatusCode === 202) return { ready: false }
+  if (res.ok && Array.isArray(data.Accounts)) return { ready: true, detail: data }
+  throw new FlinksError(`flinks detail ${res.status} ${data.HttpStatusCode ?? ''}: ${data.Message || ''}`.trim(), flinksCodeOf(data), res.status)
+}
+
+// First GetAccountsDetail call. A large bank often answers 202; the read then
+// continues on GetAccountsDetailAsync, driven by the page (/bank/poll) and the
+// hourly sweep (/api/cron/verify-sweep) — never by a loop inside one request,
+// which failed slow banks and died with the tab (B6, 2026-10-19).
+export async function flinksAccountsDetailStart(requestId: string): Promise<DetailStep> {
   const { apiBase, customerId } = flinksConfig()
-  const first = await fetch(`${apiBase}/v3/${customerId}/BankingServices/GetAccountsDetail`, {
+  const res = await fetch(`${apiBase}/v3/${customerId}/BankingServices/GetAccountsDetail`, {
     method: 'POST', headers: headers(), signal: AbortSignal.timeout(25000),
     body: JSON.stringify({ RequestId: requestId, WithTransactions: true, WithBalance: true, DaysOfTransactions: 'Days90', WithAccountIdentity: true }),
   })
-  let data = await first.json().catch(() => ({})) as DetailResponse
-  const maxPolls = opts.maxPolls ?? 6
-  const pollMs = opts.pollMs ?? 3000
-  let polls = 0
-  while ((first.status === 202 || data.HttpStatusCode === 202) && polls < maxPolls) {
-    await new Promise((r) => setTimeout(r, pollMs))
-    const res = await fetch(`${apiBase}/v3/${customerId}/BankingServices/GetAccountsDetailAsync/${requestId}`, {
-      method: 'GET', headers: headers(), signal: AbortSignal.timeout(20000),
-    })
-    data = await res.json().catch(() => ({})) as DetailResponse
-    if (res.status === 200 && data.HttpStatusCode !== 202) break
-    polls++
-  }
-  if (!Array.isArray(data.Accounts)) {
-    throw new Error(`flinks detail not ready (${data.HttpStatusCode ?? 'n/a'}): ${data.Message || ''}`.trim())
-  }
-  return data
+  return detailStep(res, await res.json().catch(() => ({})) as DetailResponse)
+}
+
+export async function flinksAccountsDetailPoll(requestId: string): Promise<DetailStep> {
+  const { apiBase, customerId } = flinksConfig()
+  const res = await fetch(`${apiBase}/v3/${customerId}/BankingServices/GetAccountsDetailAsync/${encodeURIComponent(requestId)}`, {
+    method: 'GET', headers: headers(), signal: AbortSignal.timeout(20000),
+  })
+  return detailStep(res, await res.json().catch(() => ({})) as DetailResponse)
+}
+
+/**
+ * End Flinks' access to this connection once the summary is stored. A loginId never
+ * expires and can pull the account again (docs.flinks.com/guides/connect/retrieve-account-data),
+ * so keeping it is standing access to someone's bank. CARD_IN_USE right after Authorize is
+ * expected; the caller keeps the id and the sweep retries.
+ */
+export async function flinksDeleteCard(loginId: string): Promise<void> {
+  const { apiBase, customerId } = flinksConfig()
+  const res = await fetch(`${apiBase}/v3/${customerId}/BankingServices/DeleteCard/${encodeURIComponent(loginId)}`, {
+    method: 'DELETE', headers: headers(), signal: AbortSignal.timeout(15000),
+  })
+  if (res.ok) return
+  const data = await res.json().catch(() => ({})) as { HttpStatusCode?: number; Message?: string; FlinksCode?: string }
+  const code = flinksCodeOf(data)
+  // Already gone counts as deleted.
+  if (res.status === 404 || code === 'INVALID_LOGIN') return
+  throw new FlinksError(`flinks delete-card ${res.status}: ${data.Message || ''}`.trim(), code, res.status)
+}
+
+/** The Flinks calls the bank flow uses — injectable so the flow is testable without the network. */
+export type FlinksApi = {
+  authorize: (loginId: string) => Promise<string>
+  detailStart: (requestId: string) => Promise<DetailStep>
+  detailPoll: (requestId: string) => Promise<DetailStep>
+  deleteCard: (loginId: string) => Promise<void>
+}
+export const flinksApi: FlinksApi = {
+  authorize: flinksAuthorize,
+  detailStart: flinksAccountsDetailStart,
+  detailPoll: flinksAccountsDetailPoll,
+  deleteCard: flinksDeleteCard,
 }
 
 export function flinksToBankResult(detail: DetailResponse): BankResult {

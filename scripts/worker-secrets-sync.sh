@@ -7,6 +7,8 @@
 #
 # Key set = the Pages project's production env (names checked 2026-10-19) minus
 # NEXT_PUBLIC_* (inlined at build) and two Cloudflare keys the code never reads.
+# OPTIONAL keys are synced only when .env.local has them (Flinks: added when the
+# production credentials arrive — design/flinks-production-plan-2026-10-19.md).
 # Values go through a 0600 temp file straight into `wrangler secret bulk`; only
 # key names are ever printed.
 set -euo pipefail
@@ -16,12 +18,13 @@ cd "$(dirname "$0")/.." || exit 1
 export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
 ENV_FILE="${ENV_FILE:-/Users/neos/Documents/Claude/Projects/stayloop/.env.local}"
 WORKER=stayloop-web
+OPTIONAL="FLINKS_INSTANCE FLINKS_CUSTOMER_ID FLINKS_AUTH_KEY FLINKS_API_SECRET FLINKS_API_BASE FLINKS_BEARER"
 KEYS="ANTHROPIC_API_KEY CANLII_API_KEY DASHSCOPE_API_KEY DEEPSEEK_API_KEY GEMINI_API_KEY INBOUND_EMAIL_SECRET JINA_API_KEY MOONSHOT_API_KEY OPENAI_API_KEY RESEND_API_KEY RESEND_FROM STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET SUPABASE_SERVICE_ROLE_KEY VAPID_PRIVATE_KEY VERIFF_API_KEY VERIFF_SECRET_KEY ZHIPU_API_KEY"
 
 umask 077
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 
-KEYS="$KEYS" ENV_FILE="$ENV_FILE" WANT_CRON="${1:-}" OUT="$TMP/secrets.json" HDR="$TMP/hdr" node -e '
+KEYS="$KEYS" OPTIONAL="$OPTIONAL" ENV_FILE="$ENV_FILE" WANT_CRON="${1:-}" OUT="$TMP/secrets.json" HDR="$TMP/hdr" node -e '
 const fs = require("fs")
 const env = {}
 for (const l of fs.readFileSync(process.env.ENV_FILE, "utf8").split(/\r?\n/)) {
@@ -33,11 +36,13 @@ for (const l of fs.readFileSync(process.env.ENV_FILE, "utf8").split(/\r?\n/)) {
 }
 const out = {}, missing = []
 for (const k of process.env.KEYS.split(" ")) env[k] ? (out[k] = env[k]) : missing.push(k)
+const optional = process.env.OPTIONAL.split(" ").filter((k) => env[k])
+for (const k of optional) out[k] = env[k]
 fs.writeFileSync(process.env.OUT, JSON.stringify(out))
 // Supabase header file for the optional Vault read.
 fs.writeFileSync(process.env.HDR, `apikey: ${env.SUPABASE_SERVICE_ROLE_KEY}\nAuthorization: Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}\n`)
 fs.writeFileSync(process.env.OUT + ".url", (env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, ""))
-console.log(`from .env.local: ${Object.keys(out).length} keys` + (missing.length ? `; MISSING: ${missing.join(", ")}` : ""))
+console.log(`from .env.local: ${Object.keys(out).length} keys` + (optional.length ? ` (optional: ${optional.join(", ")})` : "") + (missing.length ? `; MISSING: ${missing.join(", ")}` : ""))
 '
 
 if [ "${1:-}" = "--cron" ]; then

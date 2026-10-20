@@ -54,7 +54,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
   - 外部文本（PDF 抽取、OCR、模型输出）写 jsonb / text 前过 `stripNul`（`lib/screening/jsonSafe.ts`），否则 22P05。
   - 新表靠事件触发器 `ensure_rls` 自动开 RLS；仍要显式写策略。
 - **Auth 配置改动必须整块 PATCH**，改完 GET 回来逐键 diff（只 PATCH 一个 SMTP 键会清空其他键）；GET 回来的 `smtp_pass` / `external_google_secret` 是掩码，不能照抄。自动模式分类器不让 Claude 改生产 Auth 配置时，由用户在终端跑。
-- 7 个 pg_cron：agent-proactive-daily 13:00、delegation-expiry-sweep 13:15、agent-registration-sweep 13:20、screening-stuck-sweep 13:25、anon-rate-limit-cleanup 13:30（UTC 每日）、household-lease-promote 05:05、model-discover-weekly 周一 13:40。cron 路由用 `x-cron-secret`；需要手动触发时用 SQL `net.http_post` 从 Vault 取密钥，**不要把密钥打印出来**。
+- 8 个 pg_cron：agent-proactive-daily 13:00、delegation-expiry-sweep 13:15、agent-registration-sweep 13:20、screening-stuck-sweep 13:25、anon-rate-limit-cleanup 13:30（UTC 每日）、household-lease-promote 05:05、model-discover-weekly 周一 13:40、verify-sweep 每小时 :50（银行读取续跑、补删 Flinks 连接、核验明细 90 天后只留状态）。cron 路由用 `x-cron-secret`；需要手动触发时用 SQL `net.http_post` 从 Vault 取密钥，**不要把密钥打印出来**。
 - GitHub Actions（只有 schedule + workflow_dispatch，不加 `pull_request`）：`ltb-refresh.yml`（每月 3 日）、`refresh-ca-corp-registry.yml`（每月 5 日）、`rent-benchmarks-refresh.yml`（每月 15 日）。唯一 secret `SUPABASE_SERVICE_ROLE_KEY`。改 package.json 后用 `npx npm@10 install --package-lock-only` 重生成 lockfile（runner 是 npm 10）。
 
 ## 关键不变量

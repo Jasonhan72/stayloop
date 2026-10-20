@@ -35,6 +35,9 @@ export default function PrivacyPage() {
             <p>{zh
               ? '每个字段都可以随时撤销共享。账户删除后,加密原文 30 天内擦除,衍生 hash (用于 fraud 检测) 保留 12 个月。'
               : 'You can revoke sharing of any field at any time. After you delete your account, the encrypted originals are erased within 30 days, while derived hashes (used for fraud detection) are retained for 12 months.'}</p>
+            <p className="mt-2">{zh
+              ? '银行直连（Flinks）：读完近 90 天的流水、算出摘要后，我们马上请 Flinks 删除这次银行连接，不保留能再次读取你账户的凭据。核验链接里的明细（持有人、余额、入账）保留 90 天，之后只留「已核验 / 未完成」这样的状态；交给房东的筛查报告里的摘要随这份筛查保留，筛查删除时一并删除。'
+              : 'Bank connection (Flinks): once the last 90 days of transactions are read and summarised, we ask Flinks to delete that bank connection right away and keep nothing that could read your account again. The details on the verification link (account holder, balances, deposits) are kept for 90 days, after which only a status such as "verified" or "not completed" remains; the summary in the screening report given to the landlord stays with that screening and is deleted with it.'}</p>
             <p className="mt-2">{zh ? (
               <>被房东或经纪筛查过的申请人，可以按安省《消费者报告法》免费索取自己的筛查档案、对任何一条提出争议并要求更正、在档案上设置身份警示：说明见 <Link href="/consumer-rights" className="font-semibold text-brand hover:underline">你的权利</Link>，入口在 <Link href="/my-file" className="font-semibold text-brand hover:underline">我的筛查档案</Link>（用申请时的邮箱）。</>
             ) : (

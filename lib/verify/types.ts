@@ -79,10 +79,15 @@ export type CreditResult = {
 export type VerifyStep<R = unknown> = {
   status: VerifyStepStatus
   provider: string | null
+  /** Provider session reference (Veriff session id). Never the Flinks loginId (B2, 2026-10-19). */
   session_id?: string | null
+  /** Bank: first 16 hex of sha256(loginId) — ties audit rows together without keeping the id. */
+  login_ref?: string | null
   result?: R | null
   sandbox?: boolean
   error?: string | null
+  /** Bank: a code from lib/verify/bankErrors.ts the page turns into a message. */
+  error_code?: string | null
   updated_at: string
 }
 
@@ -127,7 +132,7 @@ export type VerifyPublicView = {
   consent_version: string
   consented: boolean
   expires_at: string
-  steps: Record<VerifyStepKey, { status: VerifyStepStatus; provider: string | null; sandbox: boolean; summary: string | null }>
+  steps: Record<VerifyStepKey, { status: VerifyStepStatus; provider: string | null; sandbox: boolean; summary: string | null; error_code?: string | null }>
 }
 
 // Snapshot written to screenings.verification when a request completes (or

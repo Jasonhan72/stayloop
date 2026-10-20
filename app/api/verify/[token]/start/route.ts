@@ -4,6 +4,8 @@ import { adminClient, isExpired, loadRequest, providerAvailability, writeStep } 
 import { veriffCreateSession } from '@/lib/verify/providers/veriff'
 import { flinksConfig, flinksConnectUrl, flinksGenerateAuthorizeToken } from '@/lib/verify/providers/flinks'
 import type { VerifyStepKey } from '@/lib/verify/types'
+import { underVerifyLimits } from '@/lib/verify/limits'
+import { FlinksError } from '@/lib/verify/providers/flinks'
 
 
 // POST /api/verify/<token>/start — { step: 'id' | 'bank' | 'credit' }
@@ -14,6 +16,8 @@ import type { VerifyStepKey } from '@/lib/verify/types'
 export async function POST(req: NextRequest, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params
   if (!isVerifyToken(token)) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 })
+  // Every start opens a paid provider session (Veriff / Flinks) — per token, per IP, site-wide (B3).
+  if (!(await underVerifyLimits('start', token, req.headers))) return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '3600' } })
   try {
     const admin = adminClient()
     const row = await loadRequest(admin, token)
@@ -56,6 +60,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     return NextResponse.json({ ok: true, form: 'credit', sandbox: avail.sandbox })
   } catch (err: any) {
     console.error('verify/start error', err?.message || err)
-    return NextResponse.json({ ok: false, error: 'provider_error', detail: String(err?.message || '').slice(0, 160) }, { status: 502 })
+    // Flinks refused to open Connect (authorize token): the page shows a plain message for the code.
+    const error_code = err instanceof FlinksError ? (err.code || 'UNAVAILABLE') : undefined
+    return NextResponse.json({ ok: false, error: 'provider_error', ...(error_code ? { error_code } : {}), detail: String(err?.message || '').slice(0, 160) }, { status: 502 })
   }
 }

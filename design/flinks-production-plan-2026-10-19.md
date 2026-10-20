@@ -5,7 +5,7 @@
 ## 现状
 
 - 链路代码已完整：申请人在 `/verify/<token>` 同意后，页面嵌 Flinks Connect（iframe），拿到 `loginId` 由服务端换 90 天流水，只存确定性摘要（机构、末四位、持有人、余额、循环入账、月收入估算、NSF 次数），原始交易不落库。结果进评分时，银行核验收入优先于工资单推算的收入。
-- 生产没开：Worker 上没有任何 `FLINKS_*`，银行这一步显示「未开通」。不配置时代码默认走 Flinks 公共沙箱（`toolbox`），结果打「沙箱数据 · 不计分」。
+- 生产没开：Worker 上没有任何 `FLINKS_*`，银行这一步显示「未开通」。不配实例名时代码默认走 Flinks 公共沙箱（`toolbox`），结果打「沙箱数据 · 不计分」；但**沙箱也要 Flinks 发的 `FLINKS_AUTH_KEY` / `FLINKS_API_SECRET`**（帮助页上的公开 token 已失效），所以没有凭证时连沙箱也跑不起来。
 - 生产上 `verification_requests` 只有 09-12 的 1 行，银行这一步从没真实跑过。
 
 ## 一、要你去办的外部事项（按顺序）
@@ -21,28 +21,32 @@
 6. **问清 Flinks 自己的数据保留**：调用 DeleteCard 后删哪些数据、备份保留多久（官方 FAQ 和安全页的说法不一致），答复要写进隐私页。
 7. **（可选）登记 webhook**：Flinks 可以在数据读完后推送 `GetAccountsDetail` 结果，要开支持工单并指明生产实例；沙箱里测不了。可以先不做，沿用现在的轮询。
 8. **准备一个真实银行账户做首次生产验证**：需要你本人在 `/verify/<token>` 走一遍（我不能替你登录网银）。
+9. **顺带要一套沙箱凭证**：有了它，上线前可以先在沙箱实例走一遍真实往返（见下文 C.1）。
 
 ## 二、拿到凭证后代码侧要做的
 
 ### A. 配置（拿到凭证当天）
 
-- 密钥：`FLINKS_INSTANCE`、`FLINKS_CUSTOMER_ID`、`FLINKS_AUTH_KEY`、`FLINKS_API_SECRET`；API 域名不是 `<instance>-api.private.fin.ag` 时加 `FLINKS_API_BASE`。先写进 `.env.local`，再把这几个键加进 `scripts/worker-secrets-sync.sh` 的清单，由你在终端跑同步脚本。
+- 密钥：`FLINKS_INSTANCE`、`FLINKS_CUSTOMER_ID`、`FLINKS_AUTH_KEY`、`FLINKS_API_SECRET`；API 域名不是 `<instance>-api.private.fin.ag` 时加 `FLINKS_API_BASE`。写进 `.env.local` 后由你在终端跑 `bash scripts/worker-secrets-sync.sh`——这几个键已列在脚本的可选清单里（10-19），`.env.local` 有就同步。
 - iframe 域名不是 `<instance>-iframe.private.fin.ag` 时设 `NEXT_PUBLIC_FLINKS_CONNECT_URL`。它是 `NEXT_PUBLIC_*`，要写进 `.env.local`、在本机构建时内联，Worker 上设了不生效。
 - 配好后实例名不再是 `toolbox`，`sandbox` 自动变成 false，结果开始计分；完成判定会自动把银行这一步算进去。
 
-### B. 上线前必须补的（09-12 审计提出，10-19 复核仍未做；用沙箱就能先做）
+### B. 上线前必须补的（09-12 审计提出）——**10-19 已全部完成并上线**
 
-1. **postMessage 校验来源**：页面收到 `REDIRECT` 事件时没检查 `e.origin`。要只接受 Connect iframe 域名发来的消息，防止伪造 `loginId`。
-2. **读完就删连接**：摘要算完后调用 Flinks `DeleteCard`。按 Flinks 的说法，`loginId` 不会过期、凭它可以再次拉数据，留着就等于长期访问权。库里不再明文存 `loginId`（现在写在 `steps.bank.session_id`），改存哈希或不存。
-3. **公共 token 路由限流**：`/start`、`/bank` 现在没有限流，按 token、按 IP 都要加，防止有人刷 Flinks 的计费调用。按项目规则，成本类限流 fail-open，但要有全站总闸。
-4. **保留期限**：银行摘要、持有人、余额目前无限期保留（`verification_requests.steps` 和 `screenings.verification` 各存一份）。要定期限、加清理 job，并和隐私页、`/my-file` 消费者档案对齐。
-5. **审计事件**：授权、读取成功、读取失败、DeleteCard 都写进 `agent_audit_events`。
-6. **长耗时读取**：现在在一次请求里最多轮询 6 次 × 3 秒，大银行可能读不完就失败，用户关页面也会中断。改成先存 RequestId，由页面轮询一个状态接口（或接第 7 项的 webhook）。
-7. **Flinks 错误码的提示**：例如 `CARD_IN_USE`，以及银行要求补充验证、读取超时等情况，给申请人看得懂的提示，不要只显示 502。
+实现：`lib/verify/bankFlow.ts`（读取 / 续跑 / DeleteCard / 清理）、`lib/verify/bankErrors.ts`、`lib/verify/bankMessage.ts`、`lib/verify/limits.ts`、`app/api/verify/[token]/bank/poll`、`app/api/cron/verify-sweep`（pg_cron `verify-sweep` 每小时 :50）、迁移 `20261019_verify_bank_hardening.sql`；测试 `tests/verifyBankHardening20261019.spec.ts`（模拟 Flinks 响应，没有真实往返——见 C.1）。逐项：
+
+
+1. ✅ **postMessage 校验来源**：只接受 Connect iframe 自己的 origin、`REDIRECT` 事件、格式正确的 loginId（`connectRedirectLoginId`）。
+2. ✅ **读完就删连接**：摘要存好就调 `DeleteCard`；刚授权完 Flinks 常回 `CARD_IN_USE`，请求内重试一次，仍失败就记进只有 service role 能读的 `verification_bank_reads`（phase `delete`），由每小时的清理任务补删。`verification_requests`（房东可读）里不再有 loginId，只留 `login_ref`（sha256 前 16 位）；迁移已清掉旧行里的 `session_id`。
+3. ✅ **公共 token 路由限流**：`/start`、`/bank`、`/bank/poll` 各自按 token、按 IP、全站三档计数（`VERIFY_LIMITS`），fail-open。
+4. ✅ **保留期限**：`verification_requests` 的明细 90 天后只留状态（`purgeVerificationDetails`，默认 90 天，**天数待你确认**）。`screenings.verification` 那份是筛查自己的记录（筛查模块，未动），随筛查删除。隐私页已写明。副作用：护照接口 `/api/v1/passport/verify` 90 天后仍会答「银行已核验」，但收入估算、NSF 次数变成空。
+5. ✅ **审计事件**：`verify_bank_authorized / verify_bank_read / verify_bank_failed / verify_bank_connection_deleted / verify_bank_delete_deferred`，元数据只有 `login_ref`、沙箱标记、账户数、错误码。
+6. ✅ **长耗时读取**：首次读取回 202 就把 RequestId 存起来，页面每 5 秒调 `/bank/poll`（约 10 分钟），关掉页面由每小时的清理任务续跑，2 小时还没读完判超时（`READ_TIMEOUT`）。
+7. ✅ **Flinks 错误码的提示**：按 Flinks 官方错误码表给中英文提示（`bankErrorInfo`），未知错误给通用提示；页面不再显示原始报错。
 
 ### C. 上线验证
 
-1. 沙箱回归：B 项改完后在 `toolbox` 实例走完整流程，确认 origin 校验、DeleteCard、限流、审计都生效。
+1. 沙箱回归（**等拿到沙箱凭证**）：在 `toolbox` 实例走完整流程，确认 Connect 的 origin、DeleteCard 的真实返回、202 续跑、审计都生效。特别要核对两处我按文档推断、没实测过的细节：错误响应里错误码字段叫 `FlinksCode`；DeleteCard 是 `DELETE …/BankingServices/DeleteCard/{loginId}`。
 2. 配生产凭证 → 部署 → 你用本人账户走一次：确认结果 `sandbox:false`、进评分、报告里显示「银行 ✓」，库里没有原始流水和明文 `loginId`，Flinks 那边连接已删除。
 3. 更新 CLAUDE.md 的「待外部」一行和隐私页的保留说明。
 

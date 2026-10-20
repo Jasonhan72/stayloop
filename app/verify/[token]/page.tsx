@@ -15,6 +15,8 @@ import Footer from '@/components/Footer'
 import { useT } from '@/lib/i18n'
 import { CONSENT_TEXT, CONSENT_VERSION } from '@/lib/verify/consent'
 import type { VerifyPublicView, VerifyStepKey } from '@/lib/verify/types'
+import { bankErrorMessage } from '@/lib/verify/bankErrors'
+import { BANK_POLL_MAX, BANK_POLL_MS, connectRedirectLoginId, isFlinksLoginId } from '@/lib/verify/bankMessage'
 
 type View = VerifyPublicView
 
@@ -52,6 +54,21 @@ export default function VerifyPage() {
     if (data?.ok) setView(data as View)
   }, [api])
 
+  // Plain-language message for a bank failure code (lib/verify/bankErrors.ts), never the raw provider string.
+  const bankFail = useCallback((data: { error?: string; error_code?: string | null } | null | undefined) => {
+    if (data?.error === 'rate_limited') return zh ? '操作太频繁了，请过一会儿再试。' : 'Too many attempts. Please try again a little later.'
+    return bankErrorMessage(data?.error_code ?? null, zh ? 'zh' : 'en')
+  }, [zh])
+
+  // loginId → /bank. A slow bank comes back 'reading' (steps.bank = submitted) and the poll effect takes over.
+  const exchangeBank = useCallback(async (loginId: string) => {
+    setBusy('bank'); setErr(null)
+    const { data } = await api('/bank', { login_id: loginId })
+    if (data?.ok) setView(data as View)
+    if (data?.bank_state === 'failed' || !data?.ok) setErr(bankFail(data))
+    setBusy(null)
+  }, [api, bankFail])
+
   useEffect(() => { if (token) reload() }, [token, reload])
 
   // Returning from a provider (?returned=1):
@@ -63,42 +80,51 @@ export default function VerifyPage() {
     if (qs.get('returned') !== '1') return
     const loginId = qs.get('loginId')
     stripUrlParams('all') // deferred: a replaceState in a mount effect wipes Next's history state (Back stops working)
-    if (loginId && /^[0-9a-f-]{20,64}$/i.test(loginId) && !bankHandled.current) {
+    if (isFlinksLoginId(loginId) && !bankHandled.current) {
       bankHandled.current = true
-      setBusy('bank')
-      api('/bank', { login_id: loginId }).then(({ res, data }) => {
-        if (!res.ok) setErr(zh ? `银行数据读取失败：${data?.detail || data?.error || res.status}` : `Bank read failed: ${data?.detail || data?.error || res.status}`)
-        if (data?.ok) setView(data as View)
-        setBusy(null)
-      })
+      void exchangeBank(loginId)
       return
     }
     let n = 0
     const t = setInterval(() => { n++; reload(); if (n >= 10) clearInterval(t) }, 4000)
     return () => clearInterval(t)
-  }, [reload, api, zh])
+  }, [reload, exchangeBank])
 
   // Flinks Connect posts its lifecycle events to the parent window; REDIRECT
-  // carries the loginId we exchange server-side.
+  // carries the loginId we exchange server-side. Only messages from the Connect
+  // iframe's own origin count (B1, 2026-10-19).
   useEffect(() => {
     if (!bankFrame) return
     bankHandled.current = false
-    const onMsg = async (e: MessageEvent) => {
-      const d = e.data as { step?: string; loginId?: string; institution?: string } | undefined
-      if (!d || typeof d !== 'object') return
-      if (d.step === 'REDIRECT' && d.loginId && !bankHandled.current) {
-        bankHandled.current = true
-        setBusy('bank')
-        setBankFrame(null)
-        const { res, data } = await api('/bank', { login_id: d.loginId })
-        if (!res.ok) setErr(zh ? `银行数据读取失败：${data?.detail || data?.error || res.status}` : `Bank read failed: ${data?.detail || data?.error || res.status}`)
-        if (data?.ok) setView(data as View)
-        setBusy(null)
-      }
+    const onMsg = (e: MessageEvent) => {
+      const loginId = connectRedirectLoginId(e.origin, bankFrame, e.data)
+      if (!loginId || bankHandled.current) return
+      bankHandled.current = true
+      setBankFrame(null)
+      void exchangeBank(loginId)
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
-  }, [bankFrame, api, zh])
+  }, [bankFrame, exchangeBank])
+
+  // A bank read still running (steps.bank = submitted) — after a slow /bank, or on
+  // reopening the page — advances through /bank/poll every 5 s for up to ~10 min (B6).
+  const bankStatus = view && view !== 'missing' ? view.steps.bank.status : null
+  useEffect(() => {
+    if (bankStatus !== 'submitted') return
+    let n = 0
+    let stopped = false
+    const t = setInterval(async () => {
+      if (stopped) return
+      n++
+      const { data } = await api('/bank/poll', {})
+      if (stopped) return
+      if (data?.ok) setView(data as View)
+      if (data?.bank_state === 'failed') { setErr(bankFail(data)); stopped = true; clearInterval(t) }
+      else if (data?.bank_state === 'verified' || n >= BANK_POLL_MAX) { stopped = true; clearInterval(t) }
+    }, BANK_POLL_MS)
+    return () => { stopped = true; clearInterval(t) }
+  }, [bankStatus, api, bankFail])
 
   async function consent() {
     setBusy('consent'); setErr(null)
@@ -114,7 +140,9 @@ export default function VerifyPage() {
     if (!res.ok) {
       setErr(data?.error === 'not_configured'
         ? (zh ? '这一项尚未开通。' : 'This step is not available yet.')
-        : (zh ? `无法启动：${data?.detail || data?.error || res.status}` : `Could not start: ${data?.detail || data?.error || res.status}`))
+        : step === 'bank' || data?.error === 'rate_limited'
+          ? bankFail(data)
+          : (zh ? `无法启动：${data?.detail || data?.error || res.status}` : `Could not start: ${data?.detail || data?.error || res.status}`))
       setBusy(null); return
     }
     if (step === 'id' && data.url) { window.location.href = data.url; return }
@@ -232,6 +260,8 @@ export default function VerifyPage() {
                           </div>
                           <div className="mt-1 text-[12.5px] leading-relaxed text-body-3">{L.steps[k].d}</div>
                           {st.summary && <div className="mt-1.5 font-mono text-[11.5px] text-body-2">{st.summary}</div>}
+                          {k === 'bank' && st.status === 'failed' && <div className="mt-1.5 text-[12.5px] leading-relaxed text-body-2">{bankErrorMessage(st.error_code ?? null, zh ? 'zh' : 'en')}</div>}
+                          {k === 'bank' && st.status === 'submitted' && <div className="mt-1.5 text-[12.5px] leading-relaxed text-body-2">{zh ? '正在读取银行数据，大银行可能要几分钟。可以留在这页等；关掉也没关系，系统会接着读，稍后再打开这个链接看结果。' : 'Reading your bank data. A large bank can take a few minutes. You can wait here, or close the page — we keep reading, and you can open this link again later to see the result.'}</div>}
                         </div>
                         {canStart && (
                           <button onClick={() => start(k)} disabled={busy !== null} className="sl-btn-primary !px-4 !py-[9px] !text-[13px] disabled:opacity-50">

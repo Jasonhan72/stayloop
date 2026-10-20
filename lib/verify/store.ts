@@ -75,6 +75,7 @@ export function toPublicView(row: VerificationRequestRow): VerifyPublicView {
       provider: st?.provider ?? a.provider,
       sandbox: st?.sandbox ?? a.sandbox,
       summary: stepSummary(key, st),
+      ...(key === 'bank' && st?.status === 'failed' ? { error_code: st.error_code ?? null } : {}),
     }
   }
   return {
