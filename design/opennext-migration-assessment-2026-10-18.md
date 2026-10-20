@@ -1,5 +1,7 @@
 # 迁移评估：@cloudflare/next-on-pages → OpenNext（@opennextjs/cloudflare）
 
+> **状态（2026-10-19）**：已按本文方案执行完毕，生产跑在 Worker `stayloop-web` 上。实际做法与本文的差异（zone 路由而非搬自定义域名、密钥由用户终端同步、邮件 Worker 加 `global_fetch_strictly_public`）见 `design/history/2026-10.md`「生产从 Pages + next-on-pages 迁到 OpenNext Worker」。下文是迁移前的评估原文。
+
 日期：2026-10-18 · 试验分支 `claude/opennext-trial`（未部署、未推 v5.3-launch、未改任何生产配置）
 构建日志：`design/opennext-trial-2026-10-18/`
 

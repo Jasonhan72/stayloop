@@ -37,7 +37,8 @@ list() { api "$ROUTES_URL" | node -e 'let s="";process.stdin.on("data",d=>s+=d).
 case "${1:-status}" in
   status) list ;;
   off)
-    list | awk -F'\t' -v s="$SCRIPT" '$3==s{print $1"\t"$2}' | while IFS=$'\t' read -r id pat; do
+    # With ONLY set, just that one pattern (rollback drill on the screening canary).
+    list | awk -F'\t' -v s="$SCRIPT" -v only="${ONLY:-}" '$3==s && (only=="" || $2==only){print $1"\t"$2}' | while IFS=$'\t' read -r id pat; do
       api -X DELETE "$ROUTES_URL/$id" >/dev/null && echo "deleted $pat"
     done
     echo "remaining:"; list ;;
