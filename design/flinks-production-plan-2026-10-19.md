@@ -39,7 +39,7 @@
 1. ✅ **postMessage 校验来源**：只接受 Connect iframe 自己的 origin、`REDIRECT` 事件、格式正确的 loginId（`connectRedirectLoginId`）。
 2. ✅ **读完就删连接**：摘要存好就调 `DeleteCard`；刚授权完 Flinks 常回 `CARD_IN_USE`，请求内重试一次，仍失败就记进只有 service role 能读的 `verification_bank_reads`（phase `delete`），由每小时的清理任务补删。`verification_requests`（房东可读）里不再有 loginId，只留 `login_ref`（sha256 前 16 位）；迁移已清掉旧行里的 `session_id`。
 3. ✅ **公共 token 路由限流**：`/start`、`/bank`、`/bank/poll` 各自按 token、按 IP、全站三档计数（`VERIFY_LIMITS`），fail-open。
-4. ✅ **保留期限**：`verification_requests` 的明细 90 天后只留状态（`purgeVerificationDetails`，默认 90 天，**天数待你确认**）。`screenings.verification` 那份是筛查自己的记录（筛查模块，未动），随筛查删除。隐私页已写明。副作用：护照接口 `/api/v1/passport/verify` 90 天后仍会答「银行已核验」，但收入估算、NSF 次数变成空。
+4. ✅ **保留期限**：`verification_requests` 的明细 90 天后只留状态（`purgeVerificationDetails`，90 天，用户 10-19 确认）。`screenings.verification` 那份是筛查自己的记录（筛查模块，未动），随筛查删除。隐私页已写明。副作用：护照接口 `/api/v1/passport/verify` 90 天后仍会答「银行已核验」，但收入估算、NSF 次数变成空。
 5. ✅ **审计事件**：`verify_bank_authorized / verify_bank_read / verify_bank_failed / verify_bank_connection_deleted / verify_bank_delete_deferred`，元数据只有 `login_ref`、沙箱标记、账户数、错误码。
 6. ✅ **长耗时读取**：首次读取回 202 就把 RequestId 存起来，页面每 5 秒调 `/bank/poll`（约 10 分钟），关掉页面由每小时的清理任务续跑，2 小时还没读完判超时（`READ_TIMEOUT`）。
 7. ✅ **Flinks 错误码的提示**：按 Flinks 官方错误码表给中英文提示（`bankErrorInfo`），未知错误给通用提示；页面不再显示原始报错。
