@@ -44,6 +44,8 @@ describe('slugs, bio rules and list cleaning', () => {
     expect(cleanAreas(Array.from({ length: 20 }, (_, i) => `Area ${i}`))).toHaveLength(12)
     expect(initials('Sheng Chu')).toBe('SC')
     expect(initials('褚胜')).toBe('褚')
+    expect(initials('[TEST] Agent Person')).toBe('AP')
+    expect(initials('  ')).toBe('?')
   })
 })
 

@@ -194,7 +194,8 @@ export const CONTACT_MIN = 10
 export const CONTACT_MAX = 1500
 
 export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
+  // Letters only: "[TEST] Agent Person" → "AP", not "[P".
+  const parts = name.replace(/\[[^\]]*\]/g, ' ').split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}]/gu, '')).filter(Boolean)
   if (!parts.length) return '?'
   if (/[一-鿿]/.test(parts[0])) return parts[0].slice(0, 1)
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
