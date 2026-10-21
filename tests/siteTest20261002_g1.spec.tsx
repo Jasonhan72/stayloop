@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Site test 2026-10-02 (design/test-plan-2026-09-22.md against a1fab56), group G1 · hats.
 //  · L6-authed D1 (P1): a signed-in account without the landlord hat on /landlord/* or
 //    /dashboard fired thousands of /landlord/become requests and never left the "…" —
@@ -11,7 +12,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, render } from '@testing-library/react'
+import { all } from './helpers/dom'
 
 const nav = vi.hoisted(() => ({ path: '/landlord/agent', replace: vi.fn(), push: vi.fn() }))
 const router = vi.hoisted(() => ({ replace: (...a: unknown[]) => nav.replace(...a), push: (...a: unknown[]) => nav.push(...a), refresh: () => {}, prefetch: () => {} }))
@@ -75,46 +77,50 @@ import { homeForHats, landingAfterSignIn } from '../lib/landlordHat'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 
-// Minimal browser globals (vitest runs in node): storage, rAF, a document whose h1 list we control.
-let otherH1: { hasAttribute: (n: string) => boolean; getClientRects: () => unknown[] }[] = []
-const storage = new Map<string, string>()
+// The spec renders in jsdom: real window, storage and document, all reset per test; no query
+// string on the URL; rAF runs its callback at once. A page's own h1 is a real element in the
+// document outside the shell — jsdom does no layout, so the test sets whether it is visible.
+const storage = { get: (k: string) => window.localStorage.getItem(k) }
+let otherH1: HTMLElement[] = []
+function addPageH1(visible: boolean) {
+  const h = document.createElement('h1')
+  h.textContent = 'page title'
+  h.getClientRects = () => (visible ? [{}] : []) as unknown as DOMRectList
+  document.body.appendChild(h)
+  otherH1.push(h)
+}
 beforeEach(() => {
-  storage.clear()
+  window.localStorage.clear()
+  window.sessionStorage.clear()
+  window.history.replaceState(null, '', '/')
   otherH1 = []
   nav.replace.mockClear()
   st.setRole.mockClear()
   st.sessionCalls = []
-  const g = globalThis as unknown as Record<string, unknown>
-  g.window = Object.assign(globalThis, {
-    location: { search: '', pathname: nav.path },
-    localStorage: { getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string, v: string) => { storage.set(k, v) }, removeItem: (k: string) => { storage.delete(k) } },
-    sessionStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
-    requestAnimationFrame: (cb: () => void) => { cb(); return 1 },
-    cancelAnimationFrame: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => true,
-  })
-  g.document = { querySelectorAll: (sel: string) => (sel === 'h1' ? otherH1 : []), body: {}, documentElement: {} }
-  g.MutationObserver = class { observe() {} disconnect() {} }
+  vi.stubGlobal('requestAnimationFrame', (cb: () => void) => { cb(); return 1 })
+  vi.stubGlobal('cancelAnimationFrame', () => {})
 })
-afterEach(() => { st.realAuth = false; st.user = null; st.authLoading = false; st.hats = { ...st.hats, loading: false, landlord: false, agent: null, provider: null } })
+afterEach(() => {
+  cleanup()
+  for (const h of otherH1) h.remove()
+  vi.unstubAllGlobals()
+  st.realAuth = false; st.user = null; st.authLoading = false; st.hats = { ...st.hats, loading: false, landlord: false, agent: null, provider: null }
+})
 
 const kid = () => <p data-testid="landlord-tool">landlord tool</p>
 function renderShell(role: 'tenant' | 'landlord' | 'agent' = 'landlord') {
-  let r!: TestRenderer.ReactTestRenderer
-  act(() => { r = TestRenderer.create(<WorkspaceShell role={role}>{kid()}</WorkspaceShell>) })
-  return r
+  return render(<WorkspaceShell role={role}>{kid()}</WorkspaceShell>)
 }
-const hasTool = (r: TestRenderer.ReactTestRenderer) => r.root.findAll((n) => n.props['data-testid'] === 'landlord-tool').length > 0
-const shellH1 = (r: TestRenderer.ReactTestRenderer) => r.root.findAll((n) => n.type === 'h1')
+type Rendered = ReturnType<typeof render>
+const hasTool = (r: Rendered) => all(r.container, '[data-testid="landlord-tool"]').length > 0
+const shellH1 = (r: Rendered) => all(r.container, 'h1')
 
 describe('L6 D1 · the landlord-hat guard redirects exactly once', () => {
   it('a signed-in tenant on /landlord/agent: one router.replace, no setRole event, nothing rendered — even across many re-renders', () => {
     nav.path = '/landlord/agent'
     st.user = { id: 'u-tenant' }
     const r = renderShell()
-    for (let i = 0; i < 8; i++) act(() => { r.update(<WorkspaceShell role="landlord">{kid()}</WorkspaceShell>) })
+    for (let i = 0; i < 8; i++) r.rerender(<WorkspaceShell role="landlord">{kid()}</WorkspaceShell>)
     expect(nav.replace).toHaveBeenCalledTimes(1)
     expect(nav.replace).toHaveBeenCalledWith('/landlord/become?next=%2Flandlord%2Fagent')
     expect(st.setRole).not.toHaveBeenCalled() // its sl-role-changed event re-armed useAuth's route effect
@@ -126,12 +132,12 @@ describe('L6 D1 · the landlord-hat guard redirects exactly once', () => {
     st.user = { id: 'u-agent' }
     st.hats = { ...st.hats, agent: 'verified' }
     const r = renderShell()
-    act(() => { r.update(<WorkspaceShell role="landlord">{kid()}</WorkspaceShell>) })
+    r.rerender(<WorkspaceShell role="landlord">{kid()}</WorkspaceShell>)
     expect(nav.replace).toHaveBeenCalledTimes(1)
     expect(storage.get('sl-active-role:u-agent')).toBe('agent')
     nav.path = '/landlord/finance'
-    act(() => { r.update(<WorkspaceShell role="landlord">{kid()}</WorkspaceShell>) })
-    act(() => { r.update(<WorkspaceShell role="landlord">{kid()}</WorkspaceShell>) })
+    r.rerender(<WorkspaceShell role="landlord">{kid()}</WorkspaceShell>)
+    r.rerender(<WorkspaceShell role="landlord">{kid()}</WorkspaceShell>)
     expect(nav.replace).toHaveBeenCalledTimes(2)
   })
   it('with the real useAuth (route effect remembers "landlord"): still one redirect, and once the page is left the account is remembered as tenant', async () => {
@@ -140,10 +146,10 @@ describe('L6 D1 · the landlord-hat guard redirects exactly once', () => {
     st.user = { id: 'u-real' }
     const r = renderShell()
     await act(async () => { await new Promise((res) => setTimeout(res, 0)) })
-    for (let i = 0; i < 5; i++) act(() => { r.update(<WorkspaceShell role="landlord">{kid()}</WorkspaceShell>) })
+    for (let i = 0; i < 5; i++) r.rerender(<WorkspaceShell role="landlord">{kid()}</WorkspaceShell>)
     expect(nav.replace).toHaveBeenCalledTimes(1)
     expect(hasTool(r)).toBe(false)
-    act(() => { r.unmount() }) // the redirect leaves the page
+    r.unmount() // the redirect leaves the page
     expect(storage.get('sl-active-role:u-real')).toBe('tenant')
   })
   it('hats still loading: nothing renders and nothing redirects yet', () => {
@@ -162,15 +168,14 @@ describe('L6 D1 · the landlord-hat guard redirects exactly once', () => {
     st.authLoading = true
     st.user = null
     st.hats = { ...st.hats, loading: true, landlord: false }
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(el) })
+    const r = render(el)
     expect(mounts).toBe(0) // auth unresolved: the server HTML and the first client render both show the placeholder
     st.authLoading = false
     st.user = { id: 'u-ll2' }
-    act(() => { r.update(<WorkspaceShell role="landlord"><Tool /></WorkspaceShell>) })
+    r.rerender(<WorkspaceShell role="landlord"><Tool /></WorkspaceShell>)
     expect(mounts).toBe(0) // signed in, hats loading
     st.hats = { ...st.hats, loading: false, landlord: true }
-    act(() => { r.update(<WorkspaceShell role="landlord"><Tool /></WorkspaceShell>) })
+    r.rerender(<WorkspaceShell role="landlord"><Tool /></WorkspaceShell>)
     expect(mounts).toBe(1)
     expect(nav.replace).not.toHaveBeenCalled()
   })
@@ -195,7 +200,7 @@ describe('L6 D1 · the landlord-hat guard redirects exactly once', () => {
 })
 
 describe('L6 D5 · hat-less /landlord visits never start a landlord agent session', () => {
-  const renderPage = (role: 'tenant' | 'landlord' | 'agent') => { act(() => { TestRenderer.create(<AgentWorkspacePage role={role} />) }) }
+  const renderPage = (role: 'tenant' | 'landlord' | 'agent') => { render(<AgentWorkspacePage role={role} />) }
   it('signed in without the hat, or hats unknown, or auth still loading → useAgentSession is not mounted', () => {
     nav.path = '/landlord/agent'
     st.user = { id: 'u-p' }
@@ -281,17 +286,17 @@ describe('L6 D7 / D8 · every workspace page has exactly one h1', () => {
     const r = renderShell('tenant')
     const h1 = shellH1(r)
     expect(h1).toHaveLength(1)
-    expect(h1[0].props.className).toBe('sr-only')
-    expect(h1[0].props['data-shell-h1']).toBe('')
+    expect(h1[0].className).toBe('sr-only')
+    expect(h1[0].getAttribute('data-shell-h1')).toBe('')
   })
   it('never adds a second one when the page shows its own (visible) h1', () => {
     nav.path = '/tenant/todo'
-    otherH1 = [{ hasAttribute: () => false, getClientRects: () => [{}] }]
+    addPageH1(true)
     expect(shellH1(renderShell('tenant'))).toHaveLength(0)
   })
   it('an h1 hidden at this width (display:none) does not count', () => {
     nav.path = '/messages'
-    otherH1 = [{ hasAttribute: () => false, getClientRects: () => [] }]
+    addPageH1(false)
     expect(shellH1(renderShell('tenant'))).toHaveLength(1)
   })
 })

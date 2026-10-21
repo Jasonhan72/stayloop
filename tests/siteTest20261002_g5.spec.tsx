@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Site test 2026-10-02 (design/test-plan-2026-09-22.md against deploy a1fab56) · group G5.
 //  L6-authed D4 — ThreadPanel scrolled the whole page to the thread on load (scrollIntoView
 //                 scrolls every scrollable ancestor; the landlord applicant page opened 933px down).
@@ -5,10 +6,11 @@
 //                 and was clipped off-screen at 390px.
 //  L6-authed D7 — icon-only buttons on the AI draft-listing card had no accessible name.
 //  L7-signed-in D5 — the tenant new-ticket modal did not close on Escape.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { cleanup, fireEvent, render } from '@testing-library/react'
+import { all, textOf } from './helpers/dom'
 
 const lang = vi.hoisted(() => ({ value: 'zh' as 'zh' | 'en' }))
 
@@ -27,28 +29,21 @@ import ListingChatCard from '../components/agent/ListingChatCard'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 
-// The test runs in node: give the components a window/document that can carry listeners.
-let win: EventTarget & { localStorage?: unknown }
-beforeEach(() => {
-  win = new EventTarget()
-  vi.stubGlobal('window', win)
-  vi.stubGlobal('document', Object.assign(new EventTarget(), { visibilityState: 'visible' }))
-})
-afterEach(() => { vi.unstubAllGlobals(); lang.value = 'zh' })
+// The test renders in jsdom: the components get a real window/document to carry listeners.
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); lang.value = 'zh' })
 
-const key = (k: string) => Object.assign(new Event('keydown'), { key: k })
+const key = (k: string) => fireEvent.keyDown(window, { key: k })
 
 describe('L7 D5 · tenant new-ticket modal closes on Escape', () => {
   it('Escape calls onClose; other keys do not; the listener goes away on unmount', () => {
     const onClose = vi.fn()
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(<NewTicketModal onClose={onClose} />) })
-    act(() => { win.dispatchEvent(key('Enter')) })
+    const r = render(<NewTicketModal onClose={onClose} />)
+    key('Enter')
     expect(onClose).not.toHaveBeenCalled()
-    act(() => { win.dispatchEvent(key('Escape')) })
+    key('Escape')
     expect(onClose).toHaveBeenCalledTimes(1)
-    act(() => { r.unmount() })
-    act(() => { win.dispatchEvent(key('Escape')) })
+    r.unmount()
+    key('Escape')
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
@@ -60,41 +55,38 @@ describe('L7 D5 · tenant new-ticket modal closes on Escape', () => {
 
 describe('L6 D7 · icon-only buttons on the agent listing cards have names in both languages', () => {
   const draft = { address: '100 King St W', monthly_rent: 2800, bedrooms: 1, images: ['https://cdn.example/a.jpg', 'https://cdn.example/b.jpg'] }
-  const flat = (n: TestRenderer.ReactTestInstance): string => n.children.map((c) => (typeof c === 'string' ? c : flat(c))).join('')
   // No aria-label and no words → only an icon or a glyph like ‹ ›.
-  const unnamed = (r: TestRenderer.ReactTestRenderer) =>
-    r.root.findAllByType('button').filter((b) => !b.props['aria-label'] && !/[\p{L}\p{N}]/u.test(flat(b)))
+  const unnamed = (r: ReturnType<typeof render>) =>
+    all(r.container, 'button').filter((b) => !b.getAttribute('aria-label') && !/[\p{L}\p{N}]/u.test(textOf(b)))
+  const ariaLabels = (r: ReturnType<typeof render>) => all(r.container, 'button').map((b) => b.getAttribute('aria-label'))
 
   for (const l of ['zh', 'en'] as const) {
     it(`DraftListingChatCard (${l})`, () => {
       lang.value = l
-      let r!: TestRenderer.ReactTestRenderer
-      act(() => { r = TestRenderer.create(<DraftListingChatCard draft={draft} />) })
+      const r = render(<DraftListingChatCard draft={draft} />)
       expect(unnamed(r)).toEqual([])
-      const labels = r.root.findAllByType('button').map((b) => b.props['aria-label']).filter(Boolean)
+      const labels = ariaLabels(r).filter(Boolean)
       expect(labels).toContain(l === 'zh' ? '再添加照片' : 'Add more photos')
       expect(labels).toContain(l === 'zh' ? '上一张照片' : 'Previous photo')
       expect(labels).toContain(l === 'zh' ? '下一张照片' : 'Next photo')
-      act(() => { r.unmount() })
+      r.unmount()
     })
 
     it(`DraftListingChatCard without photos (${l})`, () => {
       lang.value = l
-      let r!: TestRenderer.ReactTestRenderer
-      act(() => { r = TestRenderer.create(<DraftListingChatCard draft={{ ...draft, images: [] }} />) })
+      const r = render(<DraftListingChatCard draft={{ ...draft, images: [] }} />)
       expect(unnamed(r)).toEqual([])
-      expect(r.root.findAllByType('button').map((b) => b.props['aria-label'])).toContain(l === 'zh' ? '添加照片' : 'Add photos')
-      act(() => { r.unmount() })
+      expect(ariaLabels(r)).toContain(l === 'zh' ? '添加照片' : 'Add photos')
+      r.unmount()
     })
 
     it(`ListingChatCard favourite heart (${l})`, () => {
       lang.value = l
       const card = { id: 'x', source: 'stayloop' as const, title: 'Unit 1207', address: '100 King St W', price: 2800, beds: 1 }
-      let r!: TestRenderer.ReactTestRenderer
-      act(() => { r = TestRenderer.create(<ListingChatCard l={card} />) })
+      const r = render(<ListingChatCard l={card} />)
       expect(unnamed(r)).toEqual([])
-      expect(r.root.findAllByType('button').map((b) => b.props['aria-label'])).toContain(l === 'zh' ? '收藏' : 'Save to favorites')
-      act(() => { r.unmount() })
+      expect(ariaLabels(r)).toContain(l === 'zh' ? '收藏' : 'Save to favorites')
+      r.unmount()
     })
   }
 })

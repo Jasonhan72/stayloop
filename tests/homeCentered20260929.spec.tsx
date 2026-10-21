@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // 2026-09-29 · 「首页这里的登录模块要尽可能的简化，参考 muse 的，另外，要把首页的标题都放到居中。」
 //
 // The hero is now one centered column — headline, lead, the sign-in block, the
@@ -8,11 +9,12 @@
 // password → the password step; a new email → create-account; an account
 // without a password → Google (or an email to set one). A failed lookup opens
 // the password step with「第一次来？创建账户」 as before. Same methods as before,
-// all from useLoginForm.
+// all from useLoginForm. The card renders for real in jsdom.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, fireEvent, render, type RenderResult } from '@testing-library/react'
+import { all, only, textOf } from './helpers/dom'
 
 vi.mock('next/link', () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => React.createElement('a', { href, ...rest }, children) }))
 vi.mock('@/lib/supabase', () => ({ getSupabaseBrowser: () => ({ auth: {} }), supabase: { auth: {} } }))
@@ -23,8 +25,10 @@ const read = (p: string) => readFileSync(p, 'utf8')
 const home = read('components/home/HomeNext.tsx')
 const card = read('components/home/LoginCard.tsx')
 
-const textOf = (n: TestRenderer.ReactTestInstance): string =>
-  n.children.map((c) => (typeof c === 'string' ? c : textOf(c))).join('')
+// Text fields only (the sign-up step also has the terms checkbox).
+const fields = (r: RenderResult) => all<HTMLInputElement>(r.container, 'input').filter((n) => n.type !== 'checkbox')
+
+afterEach(cleanup)
 
 describe('the homepage is centered', () => {
   it('the hero is one centered column; the two-column layouts are gone', () => {
@@ -56,38 +60,37 @@ describe('the sign-in block is Muse-simple', () => {
 
   it('when the lookup cannot answer: email first, then the password; a first-timer switches to create-account', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(<LoginCard />) })
-    const inputs = () => r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')
+    const r = render(<LoginCard />)
+    const inputs = () => fields(r)
     // step 1: one field and 继续, Google below
     expect(inputs()).toHaveLength(1)
-    expect(inputs()[0].props.type).toBe('email')
-    expect(textOf(r.root)).toContain('登录或创建账户')
-    expect(textOf(r.root)).toContain('使用 Google 继续')
+    expect(inputs()[0].type).toBe('email')
+    expect(textOf(r.container)).toContain('登录或创建账户')
+    expect(textOf(r.container)).toContain('使用 Google 继续')
     // an invalid address stays on step 1
-    act(() => { inputs()[0].props.onChange({ target: { value: 'not-an-email' } }) })
-    act(() => { r.root.findByType('form').props.onSubmit({ preventDefault() {} }) })
-    expect(textOf(r.root)).toContain('请输入有效的邮箱')
-    expect(inputs()[0].props.type).toBe('email')
+    fireEvent.change(inputs()[0], { target: { value: 'not-an-email' } })
+    fireEvent.submit(only(r.container, 'form'))
+    expect(textOf(r.container)).toContain('请输入有效的邮箱')
+    expect(inputs()[0].type).toBe('email')
     // a valid address moves on to the password
-    act(() => { inputs()[0].props.onChange({ target: { value: ' mia@example.com ' } }) })
-    await act(async () => { r.root.findByType('form').props.onSubmit({ preventDefault() {} }) })
+    fireEvent.change(inputs()[0], { target: { value: ' mia@example.com ' } })
+    await act(async () => { fireEvent.submit(only(r.container, 'form')) })
     expect(inputs()).toHaveLength(1)
-    expect(inputs()[0].props.type).toBe('password')
-    expect(inputs()[0].props.autoComplete).toBe('current-password')
-    expect(textOf(r.root)).toContain('mia@example.com')
-    expect(textOf(r.root)).toContain('忘记密码？')
+    expect(inputs()[0].type).toBe('password')
+    expect(inputs()[0].getAttribute('autocomplete')).toBe('current-password')
+    expect(textOf(r.container)).toContain('mia@example.com')
+    expect(textOf(r.container)).toContain('忘记密码？')
     // first time here → the same step asks for a new password twice
-    const create = r.root.findAll((n) => n.type === 'button' && textOf(n) === '第一次来？创建账户')[0]
-    act(() => { create.props.onClick() })
+    const create = all(r.container, 'button').filter((n) => textOf(n) === '第一次来？创建账户')[0]
+    fireEvent.click(create)
     expect(inputs()).toHaveLength(3) // name + password + confirm (2026-10-11: PropTx 8.05(b) needs the name)
-    expect(inputs().map((i) => i.props.autoComplete)).toEqual(['name', 'new-password', 'new-password'])
-    expect(textOf(r.root)).toContain('创建账户 · 免费')
+    expect(inputs().map((i) => i.getAttribute('autocomplete'))).toEqual(['name', 'new-password', 'new-password'])
+    expect(textOf(r.container)).toContain('创建账户 · 免费')
     // and back to change the email
-    const change = r.root.findAll((n) => n.type === 'button' && textOf(n) === '更改')[0]
-    act(() => { change.props.onClick() })
+    const change = all(r.container, 'button').filter((n) => textOf(n) === '更改')[0]
+    fireEvent.click(change)
     expect(inputs()).toHaveLength(1)
-    expect(inputs()[0].props.type).toBe('email')
+    expect(inputs()[0].type).toBe('email')
     vi.unstubAllGlobals()
   })
 })
@@ -99,13 +102,12 @@ function answer(status: { exists: boolean; password: boolean; google: boolean })
   return fetchMock
 }
 async function continueWith(email: string) {
-  let r!: TestRenderer.ReactTestRenderer
-  act(() => { r = TestRenderer.create(<LoginCard />) })
-  act(() => { r.root.findByType('input').props.onChange({ target: { value: email } }) })
-  await act(async () => { r.root.findByType('form').props.onSubmit({ preventDefault() {} }) })
+  const r = render(<LoginCard />)
+  fireEvent.change(only(r.container, 'input'), { target: { value: email } })
+  await act(async () => { fireEvent.submit(only(r.container, 'form')) })
   return r
 }
-const buttons = (r: TestRenderer.ReactTestRenderer) => r.root.findAll((n) => n.type === 'button').map(textOf)
+const buttons = (r: RenderResult) => all(r.container, 'button').map(textOf)
 
 describe('继续 looks the email up and routes (2026-09-29「当然要加上这个判断」)', () => {
   afterEach(() => { vi.unstubAllGlobals() })
@@ -123,9 +125,9 @@ describe('继续 looks the email up and routes (2026-09-29「当然要加上这�
   it('an account with a password → the password step, without「第一次来？创建账户」', async () => {
     answer({ exists: true, password: true, google: false })
     const r = await continueWith('mia@example.com')
-    const inputs = r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')
+    const inputs = fields(r)
     expect(inputs).toHaveLength(1)
-    expect(inputs[0].props.autoComplete).toBe('current-password')
+    expect(inputs[0].getAttribute('autocomplete')).toBe('current-password')
     expect(buttons(r)).toContain('忘记密码？')
     expect(buttons(r)).not.toContain('第一次来？创建账户')
     expect(buttons(r)).not.toContain('改用 Google 登录')
@@ -134,25 +136,25 @@ describe('继续 looks the email up and routes (2026-09-29「当然要加上这�
   it('an account with a password and Google → the password step also offers Google', async () => {
     answer({ exists: true, password: true, google: true })
     const r = await continueWith('mia@example.com')
-    expect(r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')[0].props.autoComplete).toBe('current-password')
+    expect(fields(r)[0].getAttribute('autocomplete')).toBe('current-password')
     expect(buttons(r)).toContain('改用 Google 登录')
   })
 
   it('a new email → create-account straight away, without「已有账户？」', async () => {
     answer({ exists: false, password: false, google: false })
     const r = await continueWith('new@example.com')
-    const inputs = r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')
+    const inputs = fields(r)
     expect(inputs).toHaveLength(3)
-    expect(inputs.map((i) => i.props.autoComplete)).toEqual(['name', 'new-password', 'new-password'])
-    expect(textOf(r.root)).toContain('这个邮箱还没有注册 · 免费创建账户')
+    expect(inputs.map((i) => i.getAttribute('autocomplete'))).toEqual(['name', 'new-password', 'new-password'])
+    expect(textOf(r.container)).toContain('这个邮箱还没有注册 · 免费创建账户')
     expect(buttons(r)).not.toContain('已有账户？输入密码登录')
   })
 
   it('a Google-only account → Google, with a way to set a password; no password field', async () => {
     answer({ exists: true, password: false, google: true })
     const r = await continueWith('g@example.com')
-    expect(r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')).toHaveLength(0)
-    expect(textOf(r.root)).toContain('这个邮箱是用 Google 注册的')
+    expect(fields(r)).toHaveLength(0)
+    expect(textOf(r.container)).toContain('这个邮箱是用 Google 注册的')
     expect(buttons(r)).toContain('使用 Google 继续')
     expect(buttons(r)).toContain('想用密码登录？发一封设置密码的邮件')
   })
@@ -160,8 +162,8 @@ describe('继续 looks the email up and routes (2026-09-29「当然要加上这�
   it('an account with neither → an email to set a password', async () => {
     answer({ exists: true, password: false, google: false })
     const r = await continueWith('old@example.com')
-    expect(r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')).toHaveLength(0)
-    expect(textOf(r.root)).toContain('这个账户还没有设置密码')
+    expect(fields(r)).toHaveLength(0)
+    expect(textOf(r.container)).toContain('这个账户还没有设置密码')
     expect(buttons(r)).toContain('发送设置密码的邮件')
     expect(buttons(r)).not.toContain('使用 Google 继续')
   })
@@ -169,16 +171,16 @@ describe('继续 looks the email up and routes (2026-09-29「当然要加上这�
   it('a rate-limited or failed lookup falls back to the manual path', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'rate_limited' }), { status: 429 })))
     const r = await continueWith('mia@example.com')
-    expect(r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')[0].props.autoComplete).toBe('current-password')
+    expect(fields(r)[0].getAttribute('autocomplete')).toBe('current-password')
     expect(buttons(r)).toContain('第一次来？创建账户')
   })
 
   it('「更改」 goes back to the email and forgets the answer', async () => {
     answer({ exists: true, password: true, google: false })
     const r = await continueWith('mia@example.com')
-    act(() => { r.root.findAll((n) => n.type === 'button' && textOf(n) === '更改')[0].props.onClick() })
-    const inputs = r.root.findAll((n) => n.type === 'input' && n.props.type !== 'checkbox')
+    fireEvent.click(all(r.container, 'button').filter((n) => textOf(n) === '更改')[0])
+    const inputs = fields(r)
     expect(inputs).toHaveLength(1)
-    expect(inputs[0].props.type).toBe('email')
+    expect(inputs[0].type).toBe('email')
   })
 })

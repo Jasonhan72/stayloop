@@ -1,9 +1,11 @@
+// @vitest-environment jsdom
 // 2026-10-10 · TRREB / PropTx readiness (MLS Rules Art. 8): the ten items the user asked to fix
 // before the data-agreement email. Each assertion names the rule it serves.
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { only, textOf } from './helpers/dom'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 const listPage = read('app/listings/page.tsx')
@@ -151,7 +153,7 @@ describe('8.12 sponsoring member slot removed (2026-10-13) · 8.13 view audit tr
   })
 })
 
-// ── Consent gate behaviour (react-test-renderer) ───────────────────────────────
+// ── Consent gate behaviour (renders in jsdom) ──────────────────────────────────
 const updateUser = vi.fn(async () => ({ error: null }))
 const insert = vi.fn(async () => ({ error: null }))
 let authState: { loading: boolean; user: { id: string; user_metadata: Record<string, unknown> } | null } = { loading: false, user: null }
@@ -164,47 +166,41 @@ vi.mock('@/lib/supabase', () => ({ getSupabaseBrowser: () => ({ auth: { updateUs
 import TermsConsentGate from '../components/legal/TermsConsentGate'
 import { TERMS_VERSION } from '../lib/legal/terms'
 
-const textOf = (n: TestRenderer.ReactTestInstance | TestRenderer.ReactTestRenderer): string => {
-  const root = 'root' in n ? n.root : n
-  const walk = (x: TestRenderer.ReactTestInstance | string): string => typeof x === 'string' ? x : x.children.map(walk).join('')
-  return walk(root)
-}
+const byTestId = <E extends HTMLElement = HTMLElement>(root: HTMLElement, id: string) => only<E>(root, `[data-testid="${id}"]`)
 
 describe('TermsConsentGate', () => {
-  afterEach(() => { updateUser.mockClear(); insert.mockClear(); path = '/listings' })
+  afterEach(() => { cleanup(); updateUser.mockClear(); insert.mockClear(); path = '/listings' })
   it('renders nothing for anonymous visitors and for accounts on the current version', () => {
     authState = { loading: false, user: null }
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(<TermsConsentGate />) })
-    expect(r.toJSON()).toBeNull()
+    let r = render(<TermsConsentGate />)
+    expect(r.container.innerHTML).toBe('')
     authState = { loading: false, user: { id: 'u1', user_metadata: { terms_version: TERMS_VERSION } } }
-    act(() => { r = TestRenderer.create(<TermsConsentGate />) })
-    expect(r.toJSON()).toBeNull()
+    r = render(<TermsConsentGate />)
+    expect(r.container.innerHTML).toBe('')
   })
   it('blocks an account without the current version, stays hidden on /terms, and accepts only after the checkbox', async () => {
     authState = { loading: false, user: { id: 'u1', user_metadata: {} } }
     path = '/terms'
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(<TermsConsentGate />) })
-    expect(r.toJSON()).toBeNull()
+    let r = render(<TermsConsentGate />)
+    expect(r.container.innerHTML).toBe('')
     path = '/listings'
-    act(() => { r = TestRenderer.create(<TermsConsentGate />) })
-    expect(textOf(r)).toContain('房源信息的使用规则')
-    const accept = r.root.findByProps({ 'data-testid': 'terms-gate-accept' })
-    expect(accept.props.disabled).toBe(true)
+    r = render(<TermsConsentGate />)
+    expect(textOf(r.container)).toContain('房源信息的使用规则')
+    const accept = byTestId<HTMLButtonElement>(r.container, 'terms-gate-accept')
+    expect(accept.disabled).toBe(true)
     // 8.05(b): an account without a name on record is asked for one here
-    const nameInput = r.root.findByProps({ 'data-testid': 'terms-gate-name' })
-    act(() => { nameInput.props.onChange({ target: { value: 'Mia Chen' } }) })
-    const box = r.root.findByProps({ 'data-testid': 'terms-gate-checkbox' })
-    act(() => { box.props.onChange({ target: { checked: true } }) })
-    expect(r.root.findByProps({ 'data-testid': 'terms-gate-accept' }).props.disabled).toBe(false)
-    await act(async () => { await r.root.findByProps({ 'data-testid': 'terms-gate-accept' }).props.onClick() })
+    const nameInput = byTestId(r.container, 'terms-gate-name')
+    fireEvent.change(nameInput, { target: { value: 'Mia Chen' } })
+    const box = byTestId(r.container, 'terms-gate-checkbox')
+    fireEvent.click(box)
+    expect(byTestId<HTMLButtonElement>(r.container, 'terms-gate-accept').disabled).toBe(false)
+    await act(async () => { fireEvent.click(byTestId(r.container, 'terms-gate-accept')) })
     expect(updateUser).toHaveBeenCalledTimes(1)
     const arg = (updateUser.mock.calls as unknown as Array<[{ data: { terms_version: string; terms_accepted_at: string } }]>)[0][0]
     expect(arg.data.terms_version).toBe(TERMS_VERSION)
     expect((arg.data as unknown as { full_name: string }).full_name).toBe('Mia Chen')
     expect(insert).toHaveBeenCalledTimes(1)
-    expect(r.toJSON()).toBeNull()
+    expect(r.container.innerHTML).toBe('')
   })
 })
 

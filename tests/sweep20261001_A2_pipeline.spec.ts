@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Sweep 2026-10-01 · group A2 (agent pipeline): approval cards, execution
 // outcomes, proposable action types, memories in session, hard constraints.
 //   #1  approved-but-unexecuted cards are never orphaned (resume / 现在执行 / 放弃)
@@ -6,9 +7,9 @@
 //   #13 the owned-listing match never reads archived listings
 //   #36/#41 panel memory writes reach the next turn; merges keyed by role · type · key
 //   #39 hard constraints use only this hat's memories
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, render, type RenderResult } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 
 const h = vi.hoisted(() => {
@@ -103,22 +104,11 @@ import type { MemoryItem } from '@/lib/agent/types'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 
-// ---- minimal browser globals (window events, location, history, localStorage, fetch)
-class MemStorage {
-  m = new Map<string, string>()
-  getItem(k: string) { return this.m.has(k) ? this.m.get(k)! : null }
-  setItem(k: string, v: string) { this.m.set(k, String(v)) }
-  removeItem(k: string) { this.m.delete(k) }
-  clear() { this.m.clear() }
-  key(i: number) { return [...this.m.keys()][i] ?? null }
-  get length() { return this.m.size }
-}
-const win = new EventTarget() as EventTarget & Record<string, unknown>
-win.location = { search: '', pathname: '/tenant/agent', hash: '' }
-win.history = { replaceState: () => {} }
-win.localStorage = new MemStorage()
-;(globalThis as Record<string, unknown>).window = win
-;(globalThis as Record<string, unknown>).localStorage = win.localStorage
+// ---- browser globals: the spec renders in jsdom, which supplies window events, location,
+// history and localStorage; the page sits at /tenant/agent with no query; fetch is the mock.
+const win = window
+const atAgentPage = () => window.history.replaceState(null, '', '/tenant/agent')
+atAgentPage()
 ;(globalThis as Record<string, unknown>).fetch = h.fetchMock
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -134,8 +124,8 @@ const card = (id: string, extra: Record<string, unknown> = {}) => ({
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString()
 const texts = () => latest!.messages.map((m) => m.text)
 async function mount() {
-  let r!: TestRenderer.ReactTestRenderer
-  await act(async () => { r = TestRenderer.create(React.createElement(Probe)) })
+  let r!: RenderResult
+  await act(async () => { r = render(React.createElement(Probe)) })
   await act(async () => { await sleep(60) })
   return r
 }
@@ -145,8 +135,13 @@ beforeEach(() => {
   h.fetchMock.mockReset()
   h.turn.mockClear()
   Object.assign(h.state, { approved: [], pending: [], loaderMemories: [], memRows: [], decideRow: null, turnWrites: [], updateMode: 'ok', rowState: null, readFail: false, rpcError: null })
-  ;(win.localStorage as MemStorage).clear()
+  win.localStorage.clear()
+  atAgentPage()
   latest = null
+})
+afterEach(() => {
+  cleanup()
+  win.localStorage.clear()
 })
 
 describe('#1 approved cards that never ran are not orphaned (hook behaviour)', () => {
@@ -435,7 +430,7 @@ describe('review 2026-10-01: undo, 放弃 and refresh never misreport; resume on
     expect(held.execution_result?.reason).toBe('undo_failed')
     expect(texts().at(-1)).toContain('撤销没有成功')
     expect(texts().at(-1)).toContain('不会再自动执行')
-    expect(JSON.parse((win.localStorage as MemStorage).getItem(UNDO_FAILED_KEY)!)).toHaveProperty('u1')
+    expect(JSON.parse(win.localStorage.getItem(UNDO_FAILED_KEY)!)).toHaveProperty('u1')
     expect(h.calls.some((c) => c.table === 'agent_pending_actions' && c.op === 'update' && (c.payload as { execution_result?: { reason?: string } }).execution_result?.reason === 'undo_failed')).toBe(true)
     expect(executionReasonText('undo_failed', true)).toContain('撤销没有成功')
     await act(async () => { r.unmount() })
@@ -457,7 +452,7 @@ describe('review 2026-10-01: undo, 放弃 and refresh never misreport; resume on
     await act(async () => { await latest!.undo('u2'); await done() })
     expect(texts().at(-1)).toContain('撤回没有生效')
     expect(latest!.data!.pendingActions.find((a) => a.id === 'u2')).toBeUndefined()
-    expect((win.localStorage as MemStorage).getItem(UNDO_FAILED_KEY)).toBeNull()
+    expect(win.localStorage.getItem(UNDO_FAILED_KEY)).toBeNull()
     await act(async () => { r.unmount() })
   })
 
@@ -517,8 +512,8 @@ describe('review 2026-10-01: undo, 放弃 and refresh never misreport; resume on
 
   it('pages that cannot show a countdown never resume one', async () => {
     h.state.approved = [card('n1', { decided_at: ago(61_000) })]
-    let r!: TestRenderer.ReactTestRenderer
-    await act(async () => { r = TestRenderer.create(React.createElement(ProbeNoResume)) })
+    let r!: RenderResult
+    await act(async () => { r = render(React.createElement(ProbeNoResume)) })
     await act(async () => { await sleep(80) })
     expect(h.fetchMock).not.toHaveBeenCalled()
     expect(latest!.scheduled).toEqual({})

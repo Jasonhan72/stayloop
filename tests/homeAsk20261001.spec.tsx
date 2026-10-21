@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // 2026-10-01 · 「是否这个登录的改为 America.gov 这样的对话框 + 底图，样式和大小就按照这个 america 来做，
 // 对话框先就一行，输入了以后就掉到全屏的这个助手页面，继续可以对话」 → 「按照你的建议来修改」.
 //
@@ -8,7 +9,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { cleanup, fireEvent, render } from '@testing-library/react'
+import { only } from './helpers/dom'
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }))
@@ -24,9 +26,10 @@ const read = (p: string) => readFileSync(p, 'utf8')
 const home = read('components/home/HomeNext.tsx')
 const box = read('components/home/HeroComposer.tsx')
 
-afterEach(() => { push.mockReset(); vi.useRealTimers() })
+// The component renders in jsdom: the role chip is remembered in sessionStorage, so clear it between tests.
+afterEach(() => { cleanup(); push.mockReset(); vi.useRealTimers(); window.sessionStorage.clear() })
 
-const byTestId = (r: TestRenderer.ReactTestRenderer, id: string) => r.root.find((n) => n.props['data-testid'] === id)
+const byTestId = <E extends HTMLElement = HTMLElement>(root: HTMLElement, id: string) => only<E>(root, `[data-testid="${id}"]`)
 
 describe('the homepage hero is an ask box', () => {
   it('replaces the sign-in block; sign-in / sign-up are one line under it', () => {
@@ -64,40 +67,37 @@ describe('submitting', () => {
     expect(heroSubmit('   ', 'tenant', ex, false)).toBe(assistantPromptHref(ex.role, ex.ask.en))
   })
   it('renders, types, picks a role and submits', () => {
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(React.createElement(HeroComposer, { zh: true })) })
+    const { container: r } = render(React.createElement(HeroComposer, { zh: true }))
     const input = byTestId(r, 'home-ask-input')
-    expect(String(input.props.placeholder)).toBe(`试试「${HERO_EXAMPLES[0].ask.zh}」`)
-    act(() => { byTestId(r, 'home-ask-role').props.onChange({ target: { value: 'agent' } }) })
-    act(() => { input.props.onChange({ target: { value: '押金最多收多少' } }) })
-    act(() => { r.root.findByType('form').props.onSubmit({ preventDefault() {} }) })
+    expect(String(input.getAttribute('placeholder'))).toBe(`试试「${HERO_EXAMPLES[0].ask.zh}」`)
+    fireEvent.change(byTestId(r, 'home-ask-role'), { target: { value: 'agent' } })
+    fireEvent.change(input, { target: { value: '押金最多收多少' } })
+    fireEvent.submit(only(r, 'form'))
     expect(push).toHaveBeenCalledWith(assistantPromptHref('agent', '押金最多收多少'))
   })
   it('rotating examples never change the role chip, and only the chip’s own examples rotate (2026-10-17: a landlord saw「试试（租客）…」)', () => {
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(React.createElement(HeroComposer, { zh: false })) })
-    const next = r.root.find((n) => n.type === 'button' && n.props['aria-label'] === 'Next example')
-    expect(byTestId(r, 'home-ask-role').props.value).toBe('tenant')
-    act(() => { next.props.onClick() })
+    const { container: r } = render(React.createElement(HeroComposer, { zh: false }))
+    const next = only(r, 'button[aria-label="Next example"]')
+    expect(byTestId<HTMLSelectElement>(r, 'home-ask-role').value).toBe('tenant')
+    fireEvent.click(next)
     expect(HERO_EXAMPLES[1].role).toBe('landlord')
-    expect(byTestId(r, 'home-ask-role').props.value).toBe('tenant')
+    expect(byTestId<HTMLSelectElement>(r, 'home-ask-role').value).toBe('tenant')
     const tenantAsks = HERO_EXAMPLES.filter((x) => x.role === 'tenant').map((x) => `Try ‘${x.ask.en}’`)
-    expect(tenantAsks).toContain(String(byTestId(r, 'home-ask-input').props.placeholder))
-    expect(String(byTestId(r, 'home-ask-input').props.placeholder)).not.toMatch(/\(landlord\)|\(agent\)/)
-    act(() => { byTestId(r, 'home-ask-input').props.onChange({ target: { value: 'One bedroom near U of T' } }) })
-    act(() => { r.root.findByType('form').props.onSubmit({ preventDefault() {} }) })
+    expect(tenantAsks).toContain(String(byTestId(r, 'home-ask-input').getAttribute('placeholder')))
+    expect(String(byTestId(r, 'home-ask-input').getAttribute('placeholder'))).not.toMatch(/\(landlord\)|\(agent\)/)
+    fireEvent.change(byTestId(r, 'home-ask-input'), { target: { value: 'One bedroom near U of T' } })
+    fireEvent.submit(only(r, 'form'))
     expect(push).toHaveBeenCalledWith(assistantPromptHref('tenant', 'One bedroom near U of T'))
   })
   it('switching the chip jumps to that role’s first example and keeps rotating inside it', () => {
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(React.createElement(HeroComposer, { zh: true })) })
-    act(() => { byTestId(r, 'home-ask-role').props.onChange({ target: { value: 'landlord' } }) })
+    const { container: r } = render(React.createElement(HeroComposer, { zh: true }))
+    fireEvent.change(byTestId(r, 'home-ask-role'), { target: { value: 'landlord' } })
     const landlordAsks = HERO_EXAMPLES.filter((x) => x.role === 'landlord').map((x) => `试试「${x.ask.zh}」`)
-    expect(String(byTestId(r, 'home-ask-input').props.placeholder)).toBe(landlordAsks[0])
-    const next = r.root.find((n) => n.type === 'button' && n.props['aria-label'] === '下一个例子')
+    expect(String(byTestId(r, 'home-ask-input').getAttribute('placeholder'))).toBe(landlordAsks[0])
+    const next = only(r, 'button[aria-label="下一个例子"]')
     for (let k = 0; k < landlordAsks.length + 1; k++) {
-      act(() => { next.props.onClick() })
-      expect(landlordAsks).toContain(String(byTestId(r, 'home-ask-input').props.placeholder))
+      fireEvent.click(next)
+      expect(landlordAsks).toContain(String(byTestId(r, 'home-ask-input').getAttribute('placeholder')))
     }
   })
   it('the placeholder names the example’s role only when it differs from the chip', () => {

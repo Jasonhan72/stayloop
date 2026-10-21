@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // V1.0 stage 5 · G18 (2026-10-16): the open API's documentation, marketing page,
 // Terms clauses and pricing page (design/open-api-contract-2026-10.md「文档与条款」,
 // design/research/v1/open-api-2026-10.md D4-6).
@@ -12,10 +13,11 @@
 // - /pricing: the landlord Business tier has no feature list; an API section
 //   lists tier 1 (free, keyless → docs) and an institutional tier (contact us);
 //   the agent paid tiers stay "coming soon".
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, render } from '@testing-library/react'
+import { all, only, textOf } from './helpers/dom'
 import { API_CLAUSES, LISTING_DATA_CLAUSES, TERMS_VERSION } from '../lib/legal/terms'
 
 vi.mock('next/link', () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => React.createElement('a', { href, ...rest }, children) }))
@@ -25,8 +27,8 @@ vi.mock('@/lib/i18n', () => ({ useT: () => ({ lang: 'zh', t: (_k: string, fb?: s
 
 const read = (p: string) => readFileSync(p, 'utf8')
 const code = (p: string) => read(p).split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
-const textOf = (n: TestRenderer.ReactTestInstance): string =>
-  n.children.map((c) => (typeof c === 'string' ? c : textOf(c))).join('')
+
+afterEach(cleanup)
 
 describe('API_CLAUSES — the seven D4-6 clauses', () => {
   it('seven bilingual clauses, in D4-6 order', () => {
@@ -71,16 +73,16 @@ describe('API_CLAUSES — the seven D4-6 clauses', () => {
 describe('/terms renders the API usage rules', () => {
   it('has a numbered section after the existing ones, listing all seven clauses from API_CLAUSES', async () => {
     const { default: TermsPage } = await import('../app/terms/page')
-    let r!: TestRenderer.ReactTestRenderer
-    await act(async () => { r = TestRenderer.create(React.createElement(TermsPage)) })
-    const list = r.root.findByProps({ 'data-testid': 'terms-api-rules' })
-    const items = list.findAllByType('li')
+    let r!: ReturnType<typeof render>
+    await act(async () => { r = render(React.createElement(TermsPage)) })
+    const list = only(r.container, '[data-testid="terms-api-rules"]')
+    const items = all(list, 'li')
     expect(items).toHaveLength(7)
     items.forEach((li, i) => expect(textOf(li)).toBe(API_CLAUSES[i].zh))
-    const heads = r.root.findAllByType('h2').map(textOf)
+    const heads = all(r.container, 'h2').map(textOf)
     expect(heads).toContain('7 · API 使用规则')
     expect(heads.indexOf('7 · API 使用规则')).toBe(heads.length - 1)
-    expect(textOf(r.root)).toContain(`${TERMS_VERSION} 版`)
+    expect(textOf(r.container)).toContain(`${TERMS_VERSION} 版`)
     r.unmount()
   })
   it('the consent gate keeps reading TERMS_VERSION from the module (a bump re-asks every account) and still lists the listing-data rules', () => {
@@ -197,12 +199,12 @@ describe('/pricing', () => {
   })
   it('the pricing page renders the Business note instead of a list', async () => {
     const { default: PricingPage } = await import('../app/pricing/page')
-    let r!: TestRenderer.ReactTestRenderer
-    await act(async () => { r = TestRenderer.create(React.createElement(PricingPage)) })
-    const notes = r.root.findAllByProps({ 'data-testid': 'tier-note' })
+    let r!: ReturnType<typeof render>
+    await act(async () => { r = render(React.createElement(PricingPage)) })
+    const notes = all(r.container, '[data-testid="tier-note"]')
     expect(notes).toHaveLength(1)
     expect(textOf(notes[0])).toContain('功能清单待定')
-    expect(r.root.findAllByProps({ 'data-testid': 'pricing-api-tier1' })).toHaveLength(1)
+    expect(all(r.container, '[data-testid="pricing-api-tier1"]')).toHaveLength(1)
     r.unmount()
   })
 })

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // V1.0 阶段 4 · 乙 #7 申请包 · G15: "fill from my application pack" on /apply/[slug]
 // (design/applicant-pack-contract-2026-10.md). Guards:
 //  · UseMyPack renders a link when the account has no pack; with a pack the button fills
@@ -9,10 +10,11 @@
 //    writes the profile + a history row and never the consent columns.
 //  · the tenant's fifth quick-start card is "build my application pack" (no more
 //    passport-badge card); no window.confirm / alert, no badge wording anywhere here.
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, fireEvent, render as rtlRender } from '@testing-library/react'
+import { all, textOf } from './helpers/dom'
 
 const db = vi.hoisted(() => ({ tables: {} as Record<string, unknown[]> }))
 vi.mock('next/link', () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => React.createElement('a', { href, ...rest }, children) }))
@@ -33,9 +35,10 @@ import { INTAKES } from '../lib/agent/intake'
 import type { ApplicantProfile, ProfileFile, ProfileHistoryEntry } from '../lib/profile/types'
 
 const read = (p: string) => readFileSync(p, 'utf8')
-type Inst = TestRenderer.ReactTestInstance
-const byId = (root: Inst, id: string) => root.findAllByProps({ 'data-testid': id }).filter((n) => typeof n.type === 'string')
+const byId = (root: ParentNode, id: string) => all(root, `[data-testid="${id}"]`)
 const flush = async () => { await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve() }) }
+
+afterEach(cleanup)
 
 const UID = '11111111-1111-4111-8111-111111111111'
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString()
@@ -64,12 +67,12 @@ const FORM = { first_name: 'Already', last_name: '', email: 'mia@example.com', p
 
 async function render(props: Partial<React.ComponentProps<typeof UseMyPack>> = {}) {
   const onFill = vi.fn(); const onSelect = vi.fn(); const onLoaded = vi.fn()
-  let r!: TestRenderer.ReactTestRenderer
+  let r!: ReturnType<typeof rtlRender>
   await act(async () => {
-    r = TestRenderer.create(React.createElement(UseMyPack, { zh: false, uid: UID, form: FORM, onFill, allowedKinds: ALLOWED, selected: [], onSelect, ownCount: 1, maxFiles: 20, onLoaded, ...props }))
+    r = rtlRender(React.createElement(UseMyPack, { zh: false, uid: UID, form: FORM, onFill, allowedKinds: ALLOWED, selected: [], onSelect, ownCount: 1, maxFiles: 20, onLoaded, ...props }))
   })
   await flush()
-  return { root: r.root, onFill, onSelect, onLoaded }
+  return { root: r.container, onFill, onSelect, onLoaded }
 }
 
 describe('UseMyPack', () => {
@@ -77,7 +80,7 @@ describe('UseMyPack', () => {
     db.tables = { applicant_profiles: [], applicant_profile_history: [], applicant_profile_files: [] }
     const { root, onLoaded } = await render()
     expect(byId(root, 'use-my-pack-none').length).toBe(1)
-    expect(root.findAllByType('a').some((a) => a.props.href === '/tenant/passport')).toBe(true)
+    expect(all(root, 'a').some((a) => a.getAttribute('href') === '/tenant/passport')).toBe(true)
     expect(byId(root, 'use-my-pack').length).toBe(0)
     expect(onLoaded).toHaveBeenCalledWith({ hasProfile: false, consented: false })
   })
@@ -92,13 +95,13 @@ describe('UseMyPack', () => {
     expect([...onSelect.mock.calls[0][0]].sort()).toEqual(['f-fresh', 'f-id'])
     const rows = byId(root, 'use-my-pack-file')
     // grouped by the pack's kind order (id → paystub → bank_statement); credit_report is not offered
-    expect(rows.map((n) => n.props['data-state'])).toEqual(['fresh', 'fresh', 'stale', 'aging'])
-    const txt = JSON.stringify(rows.map((n) => n.findAllByType('span').map((x) => String(x.props.children)).concat(n.findAllByType('div').map((x) => String(x.props.children)))))
+    expect(rows.map((n) => n.getAttribute('data-state'))).toEqual(['fresh', 'fresh', 'stale', 'aging'])
+    const txt = JSON.stringify(rows.map((n) => all(n, 'span').map(textOf).concat(all(n, 'div').map(textOf))))
     expect(txt).toContain('days old')
     expect(txt).not.toContain('credit_report')
     // count line: own 1 + 0 selected (the parent owns `selected`)
-    expect(String(byId(root, 'use-my-pack-count')[0].props.children)).toContain('1 / 20')
-    await act(async () => { byId(root, 'use-my-pack-fill')[0].props.onClick() })
+    expect(textOf(byId(root, 'use-my-pack-count')[0])).toContain('1 / 20')
+    await act(async () => { fireEvent.click(byId(root, 'use-my-pack-fill')[0]) })
     expect(onFill).toHaveBeenCalledTimes(1)
     const patch = onFill.mock.calls[0][0] as Record<string, string>
     expect(patch.first_name).toBeUndefined() // already typed
@@ -119,16 +122,16 @@ describe('UseMyPack', () => {
     const { root, onSelect } = await render()
     expect(byId(root, 'use-my-pack-no-consent').length).toBe(1)
     expect(onSelect).not.toHaveBeenCalled()
-    const boxes = root.findAllByType('input').filter((n) => n.props.type === 'checkbox')
+    const boxes = all<HTMLInputElement>(root, 'input').filter((n) => n.type === 'checkbox')
     expect(boxes.length).toBe(4)
-    for (const b of boxes) expect(b.props.disabled).toBe(true)
+    for (const b of boxes) expect(b.disabled).toBe(true)
   })
 
   it('the application row already exists → the fill button is disabled, files can still be ticked', async () => {
     db.tables = { applicant_profiles: [profile()], applicant_profile_history: [], applicant_profile_files: FILES }
     const { root } = await render({ locked: true, selected: ['f-fresh'] })
-    expect(byId(root, 'use-my-pack-fill')[0].props.disabled).toBe(true)
-    expect(String(byId(root, 'use-my-pack-count')[0].props.children)).toContain('2 / 20')
+    expect((byId(root, 'use-my-pack-fill')[0] as HTMLButtonElement).disabled).toBe(true)
+    expect(textOf(byId(root, 'use-my-pack-count')[0])).toContain('2 / 20')
   })
 
   it('pure helpers: fillOnlyEmpty skips filled keys and unknown keys; defaultPackSelection takes fresh files of allowed kinds only', () => {

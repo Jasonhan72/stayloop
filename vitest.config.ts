@@ -1,6 +1,8 @@
-// Minimal Vitest setup — pure-function/module tests only (no server, no DOM).
-// The app targets Next 15 edge runtime; anything needing a browser/edge
-// context is out of scope here and covered by scripts/smoke.sh instead.
+// Minimal Vitest setup — mostly pure-function/module tests in node. Component
+// specs opt into a DOM per file (`// @vitest-environment jsdom`, rendered with
+// @testing-library/react; react-test-renderer is deprecated in React 19 —
+// upgrade 2026-10-21). Anything needing the Worker runtime is covered by
+// scripts/smoke.sh instead.
 import { defineConfig } from 'vitest/config'
 import path from 'node:path'
 
@@ -8,8 +10,8 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname) },
   },
-  // lib/i18n.tsx contains JSX and the app tsconfig sets jsx:'preserve' (Next
-  // handles it there) — tell the test transformer to compile it instead.
+  // lib/i18n.tsx and the component specs contain JSX — compile it with the
+  // automatic runtime (what tsconfig's jsx:'react-jsx' means since Next 16).
   oxc: {
     jsx: { runtime: 'automatic' },
   },

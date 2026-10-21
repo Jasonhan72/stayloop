@@ -1,16 +1,20 @@
+// @vitest-environment jsdom
 // Make-your-own assistant avatar (2026-09-28): a photo or a description →
 // OpenAI image model → a transparent WebP in our own public bucket → the
 // profile stores a short key. Guards: the key format and the URL it resolves
 // to (own bucket only), the renderer, the route's limits / prompt frame /
 // storage discipline (the photo is never stored), the migration, the picker
 // entry and the maker's two modes.
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import TestRenderer from 'react-test-renderer'
+import { cleanup, render } from '@testing-library/react'
+import { only } from './helpers/dom'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 const UID = '11111111-2222-4333-8444-555555555555'
+
+afterEach(cleanup)
 
 describe('custom avatar keys resolve only to our own bucket', () => {
   it('isCustomAvatarKey / customAvatarUrl / resolveAvatarKey', async () => {
@@ -26,11 +30,11 @@ describe('custom avatar keys resolve only to our own bucket', () => {
       expect(customAvatarUrl(bad), bad).toBeNull()
     }
     // renders as an <img> on a neutral disc, tagged custom; presets and orbs are untouched
-    const r = TestRenderer.create(React.createElement(AssistantAvatar, { avatar: good, role: 'tenant' }))
-    expect(r.root.findByType('span').props['data-avatar']).toBe('custom')
-    expect(r.root.findByType('img').props.src).toContain('/assistant-avatars/')
-    const pet = TestRenderer.create(React.createElement(AssistantAvatar, { avatar: 'panda', role: 'tenant' }))
-    expect(pet.root.findByType('span').props['data-avatar']).toBe('panda')
+    const r = render(React.createElement(AssistantAvatar, { avatar: good, role: 'tenant' }))
+    expect(only(r.container, 'span').getAttribute('data-avatar')).toBe('custom')
+    expect(only(r.container, 'img').getAttribute('src')).toContain('/assistant-avatars/')
+    const pet = render(React.createElement(AssistantAvatar, { avatar: 'panda', role: 'tenant' }))
+    expect(only(pet.container, 'span').getAttribute('data-avatar')).toBe('panda')
   })
 })
 

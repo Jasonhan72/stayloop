@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // V0.8 · 消费者索取档案 — applicant-side pages (G20, 2026-10-17).
 // design/consumer-file-access-plan-2026-10.md · design/consumer-file-access-contract-2026-10.md
 //
@@ -12,7 +13,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, fireEvent, render, type RenderResult } from '@testing-library/react'
+import { all, only, textOf } from './helpers/dom'
 
 const nav = vi.hoisted(() => ({ params: { token: '' } as Record<string, string> }))
 vi.mock('next/navigation', () => ({ useParams: () => nav.params, useRouter: () => ({ push: vi.fn(), replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }))
@@ -25,9 +27,10 @@ import MyFileTokenPage from '../app/my-file/[token]/page'
 import MyFilePage from '../app/my-file/page'
 
 const read = (p: string) => readFileSync(p, 'utf8')
-const textOf = (n: TestRenderer.ReactTestInstance): string =>
-  n.children.map((c) => (typeof c === 'string' ? c : textOf(c))).join('')
-const byId = (r: TestRenderer.ReactTestRenderer, id: string) => r.root.findAll((n) => n.props['data-testid'] === id)
+const byId = (r: RenderResult, id: string) => all(r.container, `[data-testid="${id}"]`)
+const buttonsNamed = (n: Element, label: string) => all<HTMLButtonElement>(n, 'button').filter((b) => textOf(b) === label)
+
+afterEach(cleanup)
 
 const TOKEN = 'a'.repeat(64)
 const SID = 'd1a7f9c0-2222-4333-8444-955555555555'
@@ -60,8 +63,8 @@ function installFetch(getView: () => unknown, pack?: { html: string; json: unkno
 
 async function renderToken(token: string) {
   nav.params = { token }
-  let r!: TestRenderer.ReactTestRenderer
-  await act(async () => { r = TestRenderer.create(<MyFileTokenPage />) })
+  let r!: RenderResult
+  await act(async () => { r = render(<MyFileTokenPage />) })
   await act(async () => { await Promise.resolve() })
   await act(async () => { await Promise.resolve() })
   return r
@@ -88,8 +91,8 @@ describe('/my-file/[token] — five states', () => {
     installFetch(() => null)
     const r = await renderToken('not-a-token')
     expect(byId(r, 'my-file-invalid')).toHaveLength(1)
-    expect(textOf(r.root)).toContain('链接无效')
-    expect(textOf(r.root)).toContain('重新发送')
+    expect(textOf(r.container)).toContain('链接无效')
+    expect(textOf(r.container)).toContain('重新发送')
     expect(calls).toHaveLength(0)
   })
 
@@ -105,12 +108,12 @@ describe('/my-file/[token] — five states', () => {
     const r = await renderToken(TOKEN)
     const form = byId(r, 'my-file-verify')
     expect(form).toHaveLength(1)
-    const text = textOf(r.root)
+    const text = textOf(r.container)
     expect(text).toContain('只用于与档案比对')
     expect(text).toContain('m***@example.com')
-    const name = r.root.findByProps({ id: 'cf-name' })
-    act(() => { name.props.onChange({ target: { value: 'Mia Chen' } }) })
-    await act(async () => { form[0].props.onSubmit({ preventDefault() {} }) })
+    const name = only(r.container, '#cf-name')
+    act(() => { fireEvent.change(name, { target: { value: 'Mia Chen' } }) })
+    await act(async () => { fireEvent.submit(form[0]) })
     const post = calls.find((c) => c.url === `${BASE}/verify`)
     expect(post?.method).toBe('POST')
     expect(post?.body).toMatchObject({ name: 'Mia Chen', delivery: 'electronic' })
@@ -122,7 +125,7 @@ describe('/my-file/[token] — five states', () => {
     installFetch(() => ({ ...base, status: 'needs_review' }))
     const r = await renderToken(TOKEN)
     expect(byId(r, 'my-file-needs-review')).toHaveLength(1)
-    const text = textOf(r.root)
+    const text = textOf(r.container)
     expect(text).toContain('专人')
     expect(text).toContain('2 个工作日')
     expect(text).toContain('m***@example.com')
@@ -135,15 +138,15 @@ describe('/my-file/[token] — five states', () => {
     expect(calls.map((c) => c.url)).toEqual(expect.arrayContaining([`${BASE}/pack?format=html`, `${BASE}/pack?format=json`]))
     const frame = byId(r, 'pack-frame')
     expect(frame).toHaveLength(1)
-    expect(frame[0].props.srcDoc).toContain('PACK')
-    expect(frame[0].props.sandbox).toBe('')
+    expect(frame[0].getAttribute('srcdoc')).toContain('PACK')
+    expect(frame[0].getAttribute('sandbox')).toBe('')
     expect(byId(r, 'pack-print')).toHaveLength(1)
     expect(byId(r, 'pack-json')).toHaveLength(1)
     expect(byId(r, 'pack-item')).toHaveLength(2)
     expect(byId(r, 'my-disputes')).toHaveLength(1)
     expect(byId(r, 'identity-alert')).toHaveLength(1)
     expect(byId(r, 'my-file-queued')).toHaveLength(0)
-    const text = textOf(r.root)
+    const text = textOf(r.container)
     expect(text).toContain('未佐证')
     expect(text).toContain('这条不对')
     expect(text).not.toMatch(/\d+\s*\/\s*100/) // no score on the applicant's own page
@@ -173,12 +176,12 @@ describe('/my-file/[token] — dispute and identity alert', () => {
     const r = await renderToken(TOKEN)
     const open = byId(r, 'dispute-open')
     expect(open).toHaveLength(2)
-    act(() => { open[0].props.onClick() })
+    act(() => { fireEvent.click(open[0]) })
     const form = byId(r, 'dispute-form')
     expect(form).toHaveLength(1)
-    const ta = r.root.findByProps({ id: 'dispute-portal:CV-26-0001' })
-    act(() => { ta.props.onChange({ target: { value: '这条法庭记录里的人不是我，我从没住过那个地址。' } }) })
-    await act(async () => { byId(r, 'dispute-submit')[0].props.onClick() })
+    const ta = only(r.container, '[id="dispute-portal:CV-26-0001"]')
+    act(() => { fireEvent.change(ta, { target: { value: '这条法庭记录里的人不是我，我从没住过那个地址。' } }) })
+    await act(async () => { fireEvent.click(byId(r, 'dispute-submit')[0]) })
     const post = calls.find((c) => c.url === `${BASE}/dispute`)
     expect(post?.method).toBe('POST')
     expect(post?.body).toEqual({
@@ -192,23 +195,23 @@ describe('/my-file/[token] — dispute and identity alert', () => {
     const list = textOf(byId(r, 'my-disputes')[0])
     expect(list).toContain('正在核实')
     expect(list).toContain('CV-26-0001')
-    expect(textOf(r.root)).toContain('已提出争议')
+    expect(textOf(r.container)).toContain('已提出争议')
   })
 
   it('identity alert: set posts …/alert, withdraw asks in-page (no window.confirm) then DELETEs', async () => {
     installFetch(() => ({ ...base, status: 'fulfilled', matched: [{ screening_id: SID, created_at: '2026-10-01' }] }), { html: '<html></html>', json: PACK_JSON })
     const r = await renderToken(TOKEN)
-    const ta = r.root.findByProps({ id: 'cf-alert' })
-    act(() => { ta.props.onChange({ target: { value: '我的证件曾遗失，请先电话核实。' } }) })
-    const setBtn = byId(r, 'identity-alert')[0].findAll((n) => n.type === 'button' && textOf(n) === '设置警示')[0]
-    await act(async () => { setBtn.props.onClick() })
+    const ta = only(r.container, '#cf-alert')
+    act(() => { fireEvent.change(ta, { target: { value: '我的证件曾遗失，请先电话核实。' } }) })
+    const setBtn = buttonsNamed(byId(r, 'identity-alert')[0], '设置警示')[0]
+    await act(async () => { fireEvent.click(setBtn) })
     expect(calls.find((c) => c.url === `${BASE}/alert` && c.method === 'POST')?.body).toEqual({ statement: '我的证件曾遗失，请先电话核实。' })
     expect(byId(r, 'identity-alert-current')).toHaveLength(1)
-    const withdraw = byId(r, 'identity-alert')[0].findAll((n) => n.type === 'button' && textOf(n) === '撤销')[0]
-    act(() => { withdraw.props.onClick() })
+    const withdraw = buttonsNamed(byId(r, 'identity-alert')[0], '撤销')[0]
+    act(() => { fireEvent.click(withdraw) })
     expect(byId(r, 'identity-alert-revoke-confirm')).toHaveLength(1)
-    const yes = byId(r, 'identity-alert-revoke-confirm')[0].findAll((n) => n.type === 'button' && textOf(n) === '确认撤销')[0]
-    await act(async () => { yes.props.onClick() })
+    const yes = buttonsNamed(byId(r, 'identity-alert-revoke-confirm')[0], '确认撤销')[0]
+    await act(async () => { fireEvent.click(yes) })
     expect(calls.some((c) => c.url === `${BASE}/alert` && c.method === 'DELETE')).toBe(true)
     expect(byId(r, 'identity-alert-current')).toHaveLength(0)
     for (const f of ['components/consumer/MyFileToken.tsx', 'components/consumer/AlertCard.tsx', 'components/consumer/PackView.tsx']) {
@@ -223,23 +226,23 @@ describe('/my-file — the request form never reveals whether an email exists', 
 
   it('posts to /api/consumer/request and shows the fixed sentence', async () => {
     installFetch(() => null)
-    let r!: TestRenderer.ReactTestRenderer
-    await act(async () => { r = TestRenderer.create(<MyFilePage />) })
-    const text0 = textOf(r.root)
+    let r!: RenderResult
+    await act(async () => { r = render(<MyFilePage />) })
+    const text0 = textOf(r.container)
     expect(text0).toContain('我的筛查档案')
     expect(text0).toContain('申请时的邮箱')
     expect(text0).toContain('2 个工作日')
-    const input = r.root.findByProps({ id: 'my-file-email' })
-    act(() => { input.props.onChange({ target: { value: 'Nobody@Example.com' } }) })
-    await act(async () => { byId(r, 'my-file-form')[0].props.onSubmit({ preventDefault() {} }) })
+    const input = only(r.container, '#my-file-email')
+    act(() => { fireEvent.change(input, { target: { value: 'Nobody@Example.com' } }) })
+    await act(async () => { fireEvent.submit(byId(r, 'my-file-form')[0]) })
     const post = calls.find((c) => c.url === '/api/consumer/request')
     expect(post?.method).toBe('POST')
     expect(post?.body).toMatchObject({ email: 'nobody@example.com' })
     expect(byId(r, 'my-file-sent')).toHaveLength(1)
-    const text = textOf(r.root)
+    const text = textOf(r.container)
     expect(text).toContain('如果这个邮箱申请过房源，你会收到一封邮件')
     expect(text).not.toMatch(/没有找到|未找到|不存在|not found|no file/i)
-    expect(r.root.findAll((n) => n.type === 'a' && n.props.href === '/consumer-rights').length).toBeGreaterThan(0)
+    expect(all(r.container, 'a').filter((n) => n.getAttribute('href') === '/consumer-rights').length).toBeGreaterThan(0)
   })
 })
 

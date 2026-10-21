@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // First sign-in asks which identity (V0.7 homepage, step 2 · 2026-09-27).
 //
 // The homepage's「三步开始」says「选身份，给 AI 助理起个名字」. An account created from
@@ -6,16 +7,19 @@
 // identities of the homepage (tenant / landlord / agent / provider), the
 // role pages' ?role= still skips the question, the provider goes to its
 // onboarding form, and the naming copy only promises what ships.
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { cleanup, fireEvent, render } from '@testing-library/react'
+import { all, textOf } from './helpers/dom'
 import { ROLE_CHOICES, PROVIDER_ONBOARD, isAgentRole, isOnboardingRole } from '../lib/onboarding/roleChoices'
 import RoleChooser from '../components/onboarding/RoleChooser'
 import { isBrandNewAccount, landingForAccount } from '../lib/landlordHat'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 const page = read('app/onboarding/name/page.tsx')
+
+afterEach(cleanup)
 
 describe('the identity choice matches the homepage promise', () => {
   it('four identities, same order as the homepage steps and tiles', () => {
@@ -69,22 +73,20 @@ describe('/onboarding/name asks only when nothing chose for the visitor', () => 
   })
 })
 
-describe('RoleChooser (react-test-renderer)', () => {
+describe('RoleChooser (renders in jsdom)', () => {
   it('renders the four tiles in order and reports the clicked identity', () => {
     const onPick = vi.fn()
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(React.createElement(RoleChooser, { zh: true, onPick })) })
-    const tiles = r.root.findAll((n) => n.type === 'button' && typeof n.props['data-role'] === 'string')
-    expect(tiles.map((t) => t.props['data-role'])).toEqual(['tenant', 'landlord', 'agent', 'provider'])
-    for (const t of tiles) act(() => { t.props.onClick() })
+    const r = render(React.createElement(RoleChooser, { zh: true, onPick }))
+    const tiles = all(r.container, 'button[data-role]')
+    expect(tiles.map((t) => t.getAttribute('data-role'))).toEqual(['tenant', 'landlord', 'agent', 'provider'])
+    for (const t of tiles) fireEvent.click(t)
     expect(onPick.mock.calls.map((c) => c[0])).toEqual(['tenant', 'landlord', 'agent', 'provider'])
-    const text = JSON.stringify(r.toJSON())
+    const text = textOf(r.container)
     for (const w of ['租客', '房东', '经纪', '服务商', '试点']) expect(text).toContain(w)
   })
   it('english copy renders too', () => {
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(React.createElement(RoleChooser, { zh: false, onPick: () => {} })) })
-    const text = JSON.stringify(r.toJSON())
+    const r = render(React.createElement(RoleChooser, { zh: false, onPick: () => {} }))
+    const text = textOf(r.container)
     for (const w of ['Tenant', 'Landlord', 'Agent', 'Provider', 'PILOT']) expect(text).toContain(w)
   })
 })

@@ -1,0 +1,290 @@
+
+┌─────────────────────────────┐
+│ OpenNext — Cloudflare build │
+└─────────────────────────────┘
+
+App directory: <worktree>
+Next.js version : 16.4.2
+@opennextjs/cloudflare version: 1.20.12
+@opennextjs/aws version: 4.1.11
+workerd compatibility_date: 2026-10-01
+
+┌─────────────────────────────────┐
+│ OpenNext — Building Next.js app │
+└─────────────────────────────────┘
+
+
+> stayloop@0.1.0 build
+> next build
+
+▲ Next.js 16.4.2 (Turbopack)
+- Environments: .env.production.local
+✓ Running next.config.js took 8ms
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.
+
+  To migrate automatically, run:
+  npx @next/codemod@canary middleware-to-proxy .
+
+  Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 11.2s
+  Running TypeScript ...
+
+  We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
+  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+  	- include was updated to add '.next/dev/types/**/*.ts'
+
+  The following mandatory changes were made to your tsconfig.json:
+
+  	- jsx was set to react-jsx (next.js uses the React automatic runtime)
+
+  Finished TypeScript in 24.6s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/169) ...
+  Generating static pages using 7 workers (42/169) 
+  Generating static pages using 7 workers (84/169) 
+  Generating static pages using 7 workers (126/169) 
+✓ Generating static pages using 7 workers (169/169) in 729ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /about
+├ ○ /admin
+├ ○ /admin/agents
+├ ○ /admin/consumer-requests
+├ ○ /admin/models
+├ ○ /admin/partners
+├ ○ /admin/providers
+├ ○ /admin/usage
+├ ○ /admin/users
+├ ○ /admin/verify
+├ ○ /agent
+├ ○ /agent/agent
+├ ○ /agent/audit
+├ ○ /agent/calendar
+├ ○ /agent/checklist
+├ ○ /agent/clients
+├ ○ /agent/earnings
+├ ○ /agent/ideas
+├ ○ /agent/onboarding
+├ ○ /agent/progress
+├ ƒ /agent/showings/[id]
+├ ƒ /agent/showings/[id]/feedback
+├ ○ /agent/tasks
+├ ○ /agent/todo
+├ ○ /agent/verify
+├ ○ /agents
+├ ƒ /agents/[slug]
+├ ƒ /api/admin/consumer
+├ ƒ /api/admin/diag-pdftext
+├ ƒ /api/admin/model-discover
+├ ƒ /api/admin/model-providers
+├ ƒ /api/admin/model-test
+├ ƒ /api/admin/partners
+├ ƒ /api/agent-intake/[token]
+├ ƒ /api/agent/execute
+├ ƒ /api/agent/intake-links
+├ ƒ /api/agent/proactive
+├ ƒ /api/agent/reflect
+├ ƒ /api/agent/turn
+├ ƒ /api/agents
+├ ƒ /api/agents/[slug]
+├ ƒ /api/agents/[slug]/contact
+├ ƒ /api/assistant/avatar
+├ ƒ /api/auth/email-status
+├ ƒ /api/classify-files
+├ ƒ /api/config/marketplace
+├ ƒ /api/config/tenant-insurance
+├ ƒ /api/consumer/alert
+├ ƒ /api/consumer/request
+├ ƒ /api/consumer/request/[token]
+├ ƒ /api/consumer/request/[token]/alert
+├ ƒ /api/consumer/request/[token]/dispute
+├ ƒ /api/consumer/request/[token]/pack
+├ ƒ /api/consumer/request/[token]/verify
+├ ƒ /api/contact
+├ ƒ /api/cron/model-discover
+├ ƒ /api/cron/realtor-freshness
+├ ƒ /api/cron/verify-sweep
+├ ƒ /api/deep-check
+├ ƒ /api/delegations
+├ ƒ /api/delegations/[id]
+├ ƒ /api/delegations/confirm
+├ ƒ /api/file-url
+├ ƒ /api/household/extract
+├ ƒ /api/household/invite
+├ ƒ /api/lease/send
+├ ƒ /api/lease/sign
+├ ƒ /api/lease/view
+├ ƒ /api/legal/terms-confirmation
+├ ƒ /api/listings/[slug]
+├ ƒ /api/listings/enrich
+├ ƒ /api/listings/quick-draft
+├ ƒ /api/listings/search
+├ ƒ /api/ltb-search
+├ ƒ /api/maintenance/notify
+├ ƒ /api/matters/export
+├ ƒ /api/mcp
+├ ƒ /api/models/catalog
+├ ƒ /api/notify-landlord
+├ ƒ /api/profile/attach
+├ ƒ /api/profile/files
+├ ƒ /api/public/stats
+├ ƒ /api/push/test
+├ ƒ /api/rent/evidence
+├ ƒ /api/screen-score
+├ ƒ /api/screening/[id]
+├ ƒ /api/screening/from-application
+├ ƒ /api/showing-intent
+├ ƒ /api/stripe/checkout
+├ ƒ /api/stripe/connect/onboard
+├ ƒ /api/stripe/connect/settle
+├ ƒ /api/stripe/portal
+├ ƒ /api/stripe/resume
+├ ƒ /api/stripe/unlock
+├ ƒ /api/stripe/webhook
+├ ƒ /api/threads/attachment-url
+├ ƒ /api/threads/export
+├ ƒ /api/threads/inbound
+├ ƒ /api/threads/notify
+├ ƒ /api/threads/participants
+├ ƒ /api/threads/upload
+├ ƒ /api/v1/guideline
+├ ƒ /api/v1/late-payment/persistent
+├ ƒ /api/v1/lease/terms-check
+├ ƒ /api/v1/listings/compliance
+├ ƒ /api/v1/n4/earliest-termination
+├ ƒ /api/v1/openapi.json
+├ ƒ /api/v1/passport/verify
+├ ƒ /api/v1/rent-benchmark
+├ ƒ /api/v1/rules
+├ ƒ /api/v1/screen
+├ ƒ /api/verify/[token]
+├ ƒ /api/verify/[token]/bank
+├ ƒ /api/verify/[token]/bank/poll
+├ ƒ /api/verify/[token]/consent
+├ ƒ /api/verify/[token]/credit
+├ ƒ /api/verify/[token]/start
+├ ƒ /api/verify/create
+├ ƒ /api/verify/webhook/veriff
+├ ƒ /api/w/[token]
+├ ƒ /api/work-orders/[id]/act
+├ ƒ /api/work-orders/[id]/receipt
+├ ƒ /api/work-orders/dispatch
+├ ƒ /apply/[slug]
+├ ○ /auth/callback
+├ ○ /auth/reset-password
+├ ○ /consumer-rights
+├ ○ /contact
+├ ○ /dashboard
+├ ƒ /dashboard/listings/[id]/edit
+├ ○ /dashboard/listings/edit
+├ ○ /dashboard/listings/new
+├ ○ /dashboard/listings/quick
+├ ƒ /delegate/[token]
+├ ○ /disputes
+├ ƒ /h/[id]
+├ ƒ /intake/[token]
+├ ƒ /join/[token]
+├ ○ /landlord
+├ ○ /landlord/agent
+├ ○ /landlord/applicants
+├ ƒ /landlord/applicants/[id]
+├ ○ /landlord/audit
+├ ○ /landlord/become
+├ ○ /landlord/finance
+├ ○ /landlord/ideas
+├ ○ /landlord/leases
+├ ƒ /landlord/leases/[id]
+├ ƒ /landlord/leases/[id]/edit
+├ ○ /landlord/leases/new
+├ ○ /landlord/maintenance
+├ ○ /landlord/notices
+├ ○ /landlord/progress
+├ ○ /landlord/providers
+├ ○ /landlord/todo
+├ ƒ /lease/sign/[token]
+├ ○ /leases/import
+├ ○ /listings
+├ ƒ /listings/[slug]
+├ ○ /login
+├ ○ /messages
+├ ○ /my-file
+├ ƒ /my-file/[token]
+├ ○ /notifications
+├ ○ /onboarding/meet
+├ ○ /onboarding/name
+├ ○ /onboarding/tier1
+├ ○ /onboarding/welcome
+├ ƒ /p/[token]
+├ ○ /partners
+├ ○ /platform
+├ ○ /pricing
+├ ○ /privacy
+├ ○ /provider/history
+├ ○ /provider/jobs
+├ ○ /provider/onboard
+├ ○ /register
+├ ○ /robots.txt
+├ ○ /rules
+├ ○ /screening
+├ ƒ /screening/[id]/done
+├ ƒ /screening/[id]/graph
+├ ƒ /screening/[id]/ltb
+├ ƒ /screening/[id]/notice
+├ ƒ /screening/[id]/report
+├ ƒ /screening/[id]/share
+├ ○ /screening/app
+├ ○ /screening/new
+├ ○ /services
+├ ○ /settings
+├ ○ /settings/models
+├ ○ /sitemap.xml
+├ ○ /stayloop-api
+├ ○ /stayloop-api/docs
+├ ○ /tenant
+├ ○ /tenant/agent
+├ ○ /tenant/applications
+├ ƒ /tenant/applications/[id]
+├ ○ /tenant/audit
+├ ○ /tenant/ideas
+├ ○ /tenant/lease
+├ ○ /tenant/maintenance
+├ ○ /tenant/move-in
+├ ○ /tenant/passport
+├ ○ /tenant/passport/sharing
+├ ○ /tenant/payments
+├ ○ /tenant/progress
+├ ○ /tenant/todo
+├ ○ /terms
+├ ƒ /verify/[token]
+└ ƒ /w/[token]
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+┌──────────────────────────────┐
+│ OpenNext — Generating bundle │
+└──────────────────────────────┘
+
+Bundling middleware function...
+Bundling static assets...
+Bundling cache assets...
+Building server function: default...
+Applying code patches: 2.632s
+# copyPackageTemplateFiles
+[35m⚙️ Bundling the OpenNext server...
+[0m
+[35mWorker saved in `.open-next/worker.js` 🚀
+[0m
+OpenNext build complete.
+npx opennextjs-cloudflare build  82.32s user 12.17s system 190% cpu 49.613 total
+BUILD EXIT 0

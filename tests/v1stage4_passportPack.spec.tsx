@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // V1.0 阶段 4 · 乙 #7 · G14 (2026-10-16): /tenant/passport is the real applicant pack.
 //
 // The page used to be four sample stamps + a sample view log + a sample
@@ -7,11 +8,12 @@
 // unlocks presenting, a preview and a printable export (lib/profile/
 // exportPack.ts), the share link, the API read scopes and the waitlist. No
 // credit / court placeholder, no SIN, nothing「解锁」anything.
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { cleanup, fireEvent, render } from '@testing-library/react'
+import { all } from './helpers/dom'
 
 vi.mock('next/link', () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => React.createElement('a', { href, ...rest }, children) }))
 
@@ -162,37 +164,35 @@ describe('renderApplicantPack', () => {
   })
 })
 
-describe('ProfileConsent (real render)', () => {
-  const find = (r: TestRenderer.ReactTestRenderer, id: string) => r.root.findAll((n) => n.props['data-testid'] === id && typeof n.type === 'string')[0]
+describe('ProfileConsent (real render, jsdom)', () => {
+  afterEach(cleanup)
+  const find = <E extends HTMLElement = HTMLElement>(r: ReturnType<typeof render>, id: string) => all<E>(r.container, `[data-testid="${id}"]`)[0]
 
   it('before the box is ticked, preview and export are disabled and the apply link is a disabled stand-in', () => {
     const onToggle = vi.fn()
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(<ProfileConsent zh signedIn consented={false} onToggle={onToggle} onPreview={() => {}} onExport={() => {}} />) })
-    expect(find(r, 'pack-export').props.disabled).toBe(true)
-    expect(find(r, 'pack-preview').props.disabled).toBe(true)
+    const r = render(<ProfileConsent zh signedIn consented={false} onToggle={onToggle} onPreview={() => {}} onExport={() => {}} />)
+    expect(find<HTMLButtonElement>(r, 'pack-export').disabled).toBe(true)
+    expect(find<HTMLButtonElement>(r, 'pack-preview').disabled).toBe(true)
     expect(find(r, 'pack-apply-disabled')).toBeTruthy()
     expect(find(r, 'pack-locked-why')).toBeTruthy()
     expect(find(r, 'profile-consent-text')).toBeTruthy()
-    act(() => { find(r, 'profile-consent-checkbox').props.onChange({ target: { checked: true } }) })
+    fireEvent.click(find(r, 'profile-consent-checkbox'))
     expect(onToggle).toHaveBeenCalledWith(true)
   })
 
   it('once consented, export and preview work and the apply link points at the listings', () => {
     const onExport = vi.fn()
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(<ProfileConsent zh signedIn consented consentAt="2026-10-16T10:00:00Z" onToggle={() => {}} onPreview={() => {}} onExport={onExport} />) })
-    expect(find(r, 'pack-export').props.disabled).toBe(false)
-    act(() => { find(r, 'pack-export').props.onClick() })
+    const r = render(<ProfileConsent zh signedIn consented consentAt="2026-10-16T10:00:00Z" onToggle={() => {}} onPreview={() => {}} onExport={onExport} />)
+    expect(find<HTMLButtonElement>(r, 'pack-export').disabled).toBe(false)
+    fireEvent.click(find(r, 'pack-export'))
     expect(onExport).toHaveBeenCalledTimes(1)
-    expect(find(r, 'pack-apply').props.href).toBe('/listings')
-    expect(r.root.findAll((n) => n.props['data-testid'] === 'pack-locked-why')).toHaveLength(0)
+    expect(find(r, 'pack-apply').getAttribute('href')).toBe('/listings')
+    expect(all(r.container, '[data-testid="pack-locked-why"]')).toHaveLength(0)
   })
 
   it('an anonymous visitor sees the text but cannot tick or present', () => {
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(<ProfileConsent zh={false} signedIn={false} consented={false} onToggle={() => {}} onPreview={() => {}} onExport={() => {}} />) })
-    expect(find(r, 'profile-consent-checkbox').props.disabled).toBe(true)
-    expect(find(r, 'pack-export').props.disabled).toBe(true)
+    const r = render(<ProfileConsent zh={false} signedIn={false} consented={false} onToggle={() => {}} onPreview={() => {}} onExport={() => {}} />)
+    expect(find<HTMLInputElement>(r, 'profile-consent-checkbox').disabled).toBe(true)
+    expect(find<HTMLButtonElement>(r, 'pack-export').disabled).toBe(true)
   })
 })

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Sweep 2026-10-01 · integration pass B2. The fix pass made the executor, the
 // marketplace and the card sweeps refuse more honestly — each refusal carries a
 // reason code. These guards make sure every code reaches people as words:
@@ -6,7 +7,8 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { all, only, textOf } from './helpers/dom'
 
 let mockLang: 'zh' | 'en' = 'zh'
 vi.mock('next/link', () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => React.createElement('a', { href, ...rest }, children) }))
@@ -23,8 +25,14 @@ import { noticeReasonText } from '../app/landlord/applicants/noticeState'
 import type { PendingAction } from '../lib/agent/types'
 
 const read = (p: string) => readFileSync(p, 'utf8')
-const textOf = (n: TestRenderer.ReactTestInstance): string => n.children.map((c) => (typeof c === 'string' ? c : textOf(c))).join('')
 const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+/** Exactly one element, like the old renderer's find(predicate) (which threw on 0 or 2+). */
+const onlyOne = <E extends Element>(list: E[]): E => {
+  if (list.length !== 1) throw new Error(`expected exactly one match, found ${list.length}`)
+  return list[0]
+}
+
+afterEach(cleanup)
 
 const isFallback = (code: string) => {
   const zh = executionReasonText(code, true)
@@ -90,52 +98,52 @@ describe('2a · past the N1 deadline only option B is blocked', () => {
       return new Response(JSON.stringify({ preview: { subject: 'Lease renewal offer', body: 'Hi', to: 'Mia' } }), { status: 200 })
     }))
     const onDecide = vi.fn()
-    let r!: TestRenderer.ReactTestRenderer
-    await act(async () => { r = TestRenderer.create(React.createElement(ApprovalActionCard, { action: LEASE_CARD, onDecide })) })
-    const previewB = r.root.findAll((n) => n.type === 'button' && textOf(n).includes('预览正文（+2.1%）'))[0]
-    await act(async () => { previewB.props.onClick() })
+    let r!: ReturnType<typeof render>
+    await act(async () => { r = render(React.createElement(ApprovalActionCard, { action: LEASE_CARD, onDecide })) })
+    const previewB = all(r.container, 'button').filter((n) => textOf(n).includes('预览正文（+2.1%）'))[0]
+    await act(async () => { fireEvent.click(previewB) })
     await flush()
-    const approveA = () => r.root.find((n) => n.type === 'button' && n.props['data-option'] === 'A')
-    const approveB = () => r.root.find((n) => n.type === 'button' && n.props['data-option'] === 'B')
-    expect(approveA().props.disabled).toBe(false)
-    expect(approveB().props.disabled).toBe(true)
-    const block = r.root.find((n) => n.props['data-testid'] === 'card-option-blocked')
+    const approveA = () => only<HTMLButtonElement>(r.container, 'button[data-option="A"]')
+    const approveB = () => only<HTMLButtonElement>(r.container, 'button[data-option="B"]')
+    expect(approveA().disabled).toBe(false)
+    expect(approveB().disabled).toBe(true)
+    const block = only(r.container, '[data-testid="card-option-blocked"]')
     expect(textOf(block)).toContain('2026-09-02')
     expect(textOf(block)).toContain('方案 A（不涨续约）仍可以批准')
-    expect(r.root.findAll((n) => n.props['data-testid'] === 'card-preview-error')).toHaveLength(0)
+    expect(all(r.container, '[data-testid="card-preview-error"]')).toHaveLength(0)
     // The B preview button is gone; A can still be previewed.
-    expect(r.root.findAll((n) => n.type === 'button' && textOf(n).includes('预览正文（+2.1%）'))).toHaveLength(0)
-    const previewA = r.root.find((n) => n.type === 'button' && textOf(n).includes('预览正文（不涨）'))
-    await act(async () => { previewA.props.onClick() })
+    expect(all(r.container, 'button').filter((n) => textOf(n).includes('预览正文（+2.1%）'))).toHaveLength(0)
+    const previewA = onlyOne(all(r.container, 'button').filter((n) => textOf(n).includes('预览正文（不涨）')))
+    await act(async () => { fireEvent.click(previewA) })
     await flush()
     expect(calls.map((c) => c.option)).toEqual(['B', 'A'])
-    expect(approveB().props.disabled).toBe(true)
-    expect(approveA().props.disabled).toBe(false)
-    await act(async () => { approveA().props.onClick() })
+    expect(approveB().disabled).toBe(true)
+    expect(approveA().disabled).toBe(false)
+    await act(async () => { fireEvent.click(approveA()) })
     expect(onDecide).toHaveBeenCalledWith(LEASE_CARD.id, 'approved', 'A')
   })
 
   it('any other blocking preview error still blocks the whole card', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ preview: null, reason: 'lease has no tenant email on file' }), { status: 422 })))
-    let r!: TestRenderer.ReactTestRenderer
-    await act(async () => { r = TestRenderer.create(React.createElement(ApprovalActionCard, { action: LEASE_CARD, onDecide: () => undefined })) })
-    const previewA = r.root.find((n) => n.type === 'button' && textOf(n).includes('预览正文（不涨）'))
-    await act(async () => { previewA.props.onClick() })
+    let r!: ReturnType<typeof render>
+    await act(async () => { r = render(React.createElement(ApprovalActionCard, { action: LEASE_CARD, onDecide: () => undefined })) })
+    const previewA = onlyOne(all(r.container, 'button').filter((n) => textOf(n).includes('预览正文（不涨）')))
+    await act(async () => { fireEvent.click(previewA) })
     await flush()
-    expect(r.root.find((n) => n.props['data-option'] === 'A' && n.type === 'button').props.disabled).toBe(true)
-    expect(r.root.find((n) => n.props['data-option'] === 'B' && n.type === 'button').props.disabled).toBe(true)
-    expect(r.root.findAll((n) => n.props['data-testid'] === 'card-option-blocked')).toHaveLength(0)
+    expect(only<HTMLButtonElement>(r.container, 'button[data-option="A"]').disabled).toBe(true)
+    expect(only<HTMLButtonElement>(r.container, 'button[data-option="B"]').disabled).toBe(true)
+    expect(all(r.container, '[data-testid="card-option-blocked"]')).toHaveLength(0)
   })
 
   it('a stalled letter refused for past_n1_deadline offers only option A — never re-runs B', async () => {
     const stalled = { ...LEASE_CARD, status: 'approved', approved_option: 'B', execution_result: { ok: false, reason: 'past_n1_deadline' } } as unknown as PendingAction
     const onDecide = vi.fn()
-    let r!: TestRenderer.ReactTestRenderer
-    await act(async () => { r = TestRenderer.create(React.createElement(StalledActionRow, { action: stalled, onDecide })) })
-    const runs = r.root.findAll((n) => n.type === 'button' && n.props['data-run-now'] !== undefined)
-    expect(runs.map((b) => b.props['data-run-now'])).toEqual(['A'])
-    expect(textOf(r.root.find((n) => n.props['data-stalled-card'] !== undefined))).toContain('N1')
-    await act(async () => { runs[0].props.onClick() })
+    let r!: ReturnType<typeof render>
+    await act(async () => { r = render(React.createElement(StalledActionRow, { action: stalled, onDecide })) })
+    const runs = all(r.container, 'button[data-run-now]')
+    expect(runs.map((b) => b.getAttribute('data-run-now'))).toEqual(['A'])
+    expect(textOf(only(r.container, '[data-stalled-card]'))).toContain('N1')
+    await act(async () => { fireEvent.click(runs[0]) })
     expect(onDecide).toHaveBeenCalledWith(stalled.id, 'approved', 'A')
   })
 })
@@ -155,13 +163,13 @@ describe('2b · re-list prompts link to the listing — same-origin paths only',
   } as unknown as PendingAction)
   it('renders 「打开这套房源」 for a listing path, 「去房源管理」 for the bare dashboard, nothing for a foreign href', async () => {
     const linkOf = async (href: unknown) => {
-      let r!: TestRenderer.ReactTestRenderer
-      await act(async () => { r = TestRenderer.create(React.createElement(ApprovalActionCard, { action: relist(href), onDecide: () => undefined })) })
-      return r.root.findAll((n) => n.type === 'a' && n.props['data-testid'] === 'card-relist-link')
+      let r!: ReturnType<typeof render>
+      await act(async () => { r = render(React.createElement(ApprovalActionCard, { action: relist(href), onDecide: () => undefined })) })
+      return all(r.container, 'a[data-testid="card-relist-link"]')
     }
     const a = await linkOf('/dashboard/listings/L1/edit?relist=1')
     expect(a).toHaveLength(1)
-    expect(a[0].props.href).toBe('/dashboard/listings/L1/edit?relist=1')
+    expect(a[0].getAttribute('href')).toBe('/dashboard/listings/L1/edit?relist=1')
     expect(textOf(a[0])).toContain('打开这套房源')
     const d = await linkOf('/dashboard')
     expect(textOf(d[0])).toContain('去房源管理')

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Behavioural regression test for lib/agent/useAgentSession.ts thread handling
 // (review 2026-09-25). The reviewer reproduced four timing bugs by rendering the
 // hook for real; this file keeps those scenarios and asserts the FIXED behaviour:
@@ -8,10 +9,10 @@
 //   D. a reply that arrives after the user opened another conversation is
 //      written to the thread it was asked in, not the one on screen.
 // Supabase / auth / the session loader / the model turn are mocked — nothing
-// touches the network. react-test-renderer drives the hook.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+// touches the network. The hook renders for real in jsdom (@testing-library/react).
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, render, type RenderResult } from '@testing-library/react'
 
 const h = vi.hoisted(() => {
   type Call = { table: string; op: string; payload: unknown; filters: unknown[] }
@@ -68,22 +69,8 @@ vi.mock('@/lib/agent/orchestrator', async (orig) => {
 
 import { useAgentSession, type UseAgentSession } from '@/lib/agent/useAgentSession'
 
-// ---- minimal browser globals (the hook only needs window events, location, history, localStorage)
-class MemStorage {
-  m = new Map<string, string>()
-  getItem(k: string) { return this.m.has(k) ? this.m.get(k)! : null }
-  setItem(k: string, v: string) { this.m.set(k, String(v)) }
-  removeItem(k: string) { this.m.delete(k) }
-  clear() { this.m.clear() }
-  key(i: number) { return [...this.m.keys()][i] ?? null }
-  get length() { return this.m.size }
-}
-const win = new EventTarget() as EventTarget & Record<string, unknown>
-win.location = { search: '', pathname: '/tenant/agent', hash: '' }
-win.history = { replaceState: () => {} }
-win.localStorage = new MemStorage()
-;(globalThis as Record<string, unknown>).window = win
-;(globalThis as Record<string, unknown>).localStorage = win.localStorage
+// ---- browser globals: jsdom supplies the window events, location, history and localStorage the
+// hook uses. Each test starts on /tenant/agent (no ?thread= / ?new=) with an empty localStorage.
 
 // Real ids: loadThread / appendToThread only accept UUIDs (as every agent_threads row has).
 const ID1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -101,14 +88,16 @@ const texts = () => latest!.messages.map((m) => m.text)
 
 beforeEach(() => {
   h.calls.length = 0; h.gate.select = null; h.gate.turn = null; h.turn.mockClear(); latest = null
-  ;(win.localStorage as MemStorage).clear()
+  window.history.replaceState(null, '', '/tenant/agent')
+  localStorage.clear()
   h.setThreadRow(T1)
 })
+afterEach(() => { cleanup(); localStorage.clear() })
 
 describe('useAgentSession — conversation threads (fixed behaviour, review 2026-09-25)', () => {
   it('A. opening the page loads the thread without rewriting its row; a real message still persists', async () => {
-    let r: TestRenderer.ReactTestRenderer
-    await act(async () => { r = TestRenderer.create(<Probe />) })
+    let r: RenderResult
+    await act(async () => { r = render(<Probe />) })
     await act(async () => { await sleep(50) })   // settle + resolveThread
     expect(latest!.threadId).toBe(ID1)
     expect(texts()).toEqual(['hi', '找房', '好的'])
@@ -130,13 +119,16 @@ describe('useAgentSession — conversation threads (fixed behaviour, review 2026
     h.gate.select = new Promise<void>((res) => { release = res })
     let releaseTurn!: () => void
     h.gate.turn = new Promise<void>((res) => { releaseTurn = res })
-    let r: TestRenderer.ReactTestRenderer
-    await act(async () => { r = TestRenderer.create(<Probe />) })
+    let r: RenderResult
+    await act(async () => { r = render(<Probe />) })
     await act(async () => { await sleep(30) })
     expect(latest!.threadLoading).toBe(true)
     expect(latest!.threadId).toBeNull()
-    // usePromptDeepLink fires here in the real page (loading is already false)
-    const p = act(async () => { await latest!.sendMessage('hello from deep link') })
+    // usePromptDeepLink fires here in the real page (loading is already false).
+    // The send stays in flight: start it inside an awaited act and keep its promise (React 19 does
+    // not flush an inner act while an outer, un-awaited one is still open).
+    let p!: Promise<void>
+    await act(async () => { p = latest!.sendMessage('hello from deep link') })
     await act(async () => { await sleep(30) })
     expect(inserts()).toHaveLength(0)            // nothing created for a thread we do not know yet
     expect(h.turn).not.toHaveBeenCalled()        // the turn waits for the thread
@@ -157,8 +149,8 @@ describe('useAgentSession — conversation threads (fixed behaviour, review 2026
   it('C. "+" while the initial resolve is in flight starts a new conversation and the late resolve is discarded', async () => {
     let release!: () => void
     h.gate.select = new Promise<void>((res) => { release = res })
-    let r: TestRenderer.ReactTestRenderer
-    await act(async () => { r = TestRenderer.create(<Probe />) })
+    let r: RenderResult
+    await act(async () => { r = render(<Probe />) })
     await act(async () => { await sleep(30) })
     await act(async () => { latest!.newThread() })
     expect(latest!.threadId).toBeNull()
@@ -172,11 +164,12 @@ describe('useAgentSession — conversation threads (fixed behaviour, review 2026
   it('D. openThread while a turn is in flight: the reply goes to the thread it was asked in, not the one on screen', async () => {
     let releaseTurn!: () => void
     h.gate.turn = new Promise<void>((res) => { releaseTurn = res })
-    let r: TestRenderer.ReactTestRenderer
-    await act(async () => { r = TestRenderer.create(<Probe />) })
+    let r: RenderResult
+    await act(async () => { r = render(<Probe />) })
     await act(async () => { await sleep(50) })
     expect(latest!.threadId).toBe(ID1)
-    const p = act(async () => { await latest!.sendMessage('question in T1') })
+    let p!: Promise<void>  // in flight, as in B
+    await act(async () => { p = latest!.sendMessage('question in T1') })
     await act(async () => { await sleep(20) })
     expect(latest!.status).toBe('working')
     // the user clicks another conversation in the activity panel

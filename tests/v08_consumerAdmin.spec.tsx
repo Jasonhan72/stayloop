@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // V0.8 · 消费者索取档案与争议更正 — G21 guard (2026-10-17):
 //  · /admin/consumer-requests: one queue (requests + disputes), due_at countdown (overdue red, ≤8 h amber),
 //    every action an inline two-step confirm, resolve_dispute call shape and the "已通知 N 位收件人" result.
@@ -5,9 +6,10 @@
 //    with notice_confirmed_how='landlord_attested'; the existing insert / delegation_id lines are untouched.
 //  · /settings mounts LandlordPhoneCard for the landlord hat; /admin shows the queue block.
 import { readFileSync } from 'node:fs'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, fireEvent, render, type RenderResult } from '@testing-library/react'
+import { all, hexToRgb, only, textOf } from './helpers/dom'
 
 const calls = vi.hoisted(() => ({ posts: [] as unknown[] }))
 vi.mock('next/link', () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => React.createElement('a', { href, ...rest }, children) }))
@@ -45,16 +47,20 @@ function mockFetch() {
     return { ok: true, json: async () => data() }
   })
 }
-const text = (n: TestRenderer.ReactTestInstance | string): string => typeof n === 'string' ? n : n.children.map(text).join('')
-const byId = (r: TestRenderer.ReactTestRenderer, id: string) => r.root.findByProps({ 'data-testid': id })
-const allById = (r: TestRenderer.ReactTestRenderer, id: string) => r.root.findAllByProps({ 'data-testid': id })
-const click = async (n: TestRenderer.ReactTestInstance) => { await act(async () => { n.props.onClick() }) }
+const text = (n: Element): string => textOf(n)
+const byId = (r: RenderResult, id: string) => only(r.container, `[data-testid="${id}"]`)
+const allById = (r: RenderResult, id: string) => all(r.container, `[data-testid="${id}"]`)
+const within = (n: Element, id: string) => only(n, `[data-testid="${id}"]`)
+const buttonsNamed = (n: Element, label: string) => all<HTMLButtonElement>(n, 'button').filter((b) => text(b) === label)
+const click = async (n: Element) => { await act(async () => { fireEvent.click(n) }) }
+
+afterEach(cleanup)
 
 describe('/admin/consumer-requests queue', () => {
-  let r!: TestRenderer.ReactTestRenderer
+  let r!: RenderResult
   beforeEach(async () => {
     mockFetch()
-    await act(async () => { r = TestRenderer.create(<AdminConsumerRequestsPage />) })
+    await act(async () => { r = render(<AdminConsumerRequestsPage />) })
   })
 
   it('loads with the admin JWT, shows the statutory facts line, masks emails and counts open items', () => {
@@ -73,12 +79,12 @@ describe('/admin/consumer-requests queue', () => {
 
   it('countdown: overdue is red, within 8 hours is amber; candidate screenings show date · landlord · property', () => {
     const dues = allById(r, 'request-due')
-    expect(dues[0].props['data-tone']).toBe('overdue')
+    expect(dues[0].getAttribute('data-tone')).toBe('overdue')
     expect(text(dues[0])).toMatch(/已逾期 \d+ 小时/)
-    expect(dues[0].props.style.color).toBe('#B91C1C')
-    expect(dues[1].props['data-tone']).toBe('soon')
+    expect(dues[0].style.color).toBe(hexToRgb('#B91C1C'))
+    expect(dues[1].getAttribute('data-tone')).toBe('soon')
     expect(text(dues[1])).toMatch(/还剩 \d+ 小时/)
-    expect(dues[1].props.style.color).toBe('#B45309')
+    expect(dues[1].style.color).toBe(hexToRgb('#B45309'))
     const row = allById(r, 'consumer-request')[0]
     expect(text(row)).toContain('2026-10-01 · Sarah Wang · Unit 1207 · 100 King St W')
     expect(text(row)).toContain('交付方式: 电子')
@@ -86,37 +92,37 @@ describe('/admin/consumer-requests queue', () => {
 
   it('confirm match is a two-step inline confirm over the ticked candidates (no window.confirm)', async () => {
     const row = allById(r, 'consumer-request')[0]
-    const btn = () => row.findByProps({ 'data-testid': 'confirm-match' })
-    expect(btn().props.disabled).toBe(true)
-    const picks = row.findAllByProps({ 'data-testid': 'candidate-pick' })
-    await act(async () => { picks[0].props.onChange({ target: { checked: true } }) })
-    expect(btn().props.disabled).toBe(false)
+    const btn = () => within(row, 'confirm-match') as HTMLButtonElement
+    expect(btn().disabled).toBe(true)
+    const picks = all(row, '[data-testid="candidate-pick"]')
+    await act(async () => { fireEvent.click(picks[0]) })
+    expect(btn().disabled).toBe(false)
     await click(btn())
     expect(calls.posts).toHaveLength(0)
     const confirm = byId(r, 'confirm-match-confirm')
     expect(text(confirm)).toContain('把这 1 条筛查记为本人的档案？')
-    await click(confirm.findAll((n) => n.type === 'button' && text(n) === '取消')[0])
+    await click(buttonsNamed(confirm, '取消')[0])
     expect(allById(r, 'confirm-match-confirm')).toHaveLength(0)
     await click(btn())
-    await click(byId(r, 'confirm-match-confirm').findAll((n) => n.type === 'button' && text(n) === '确认匹配')[0])
+    await click(buttonsNamed(byId(r, 'confirm-match-confirm'), '确认匹配')[0])
     expect(calls.posts).toEqual([{ action: 'confirm_match', request_id: 'r1', screening_ids: ['s1'] }])
   })
 
   it('close needs a reason, then a second click; mail delivery has an 已寄出 two-step confirm', async () => {
     const row = allById(r, 'consumer-request')[0]
-    expect(row.findByProps({ 'data-testid': 'close-request' }).props.disabled).toBe(true)
-    await act(async () => { row.findByProps({ 'aria-label': '备注' }).props.onChange({ target: { value: '邮箱链上没有筛查' } }) })
-    await click(row.findByProps({ 'data-testid': 'close-request' }))
+    expect((within(row, 'close-request') as HTMLButtonElement).disabled).toBe(true)
+    await act(async () => { fireEvent.change(only(row, '[aria-label="备注"]'), { target: { value: '邮箱链上没有筛查' } }) })
+    await click(within(row, 'close-request'))
     expect(text(byId(r, 'close-confirm'))).toContain('关闭这条请求？')
-    await click(byId(r, 'close-confirm').findAll((n) => n.type === 'button' && text(n) === '确认关闭')[0])
+    await click(buttonsNamed(byId(r, 'close-confirm'), '确认关闭')[0])
     expect(calls.posts).toEqual([{ action: 'close', request_id: 'r1', note: '邮箱链上没有筛查' }])
 
     const mail = allById(r, 'consumer-request')[1]
-    const deliver = mail.findByProps({ 'data-testid': 'mark-delivered' })
+    const deliver = within(mail, 'mark-delivered')
     expect(text(deliver)).toBe('已寄出')
     await click(deliver)
     expect(text(byId(r, 'mark-delivered-confirm'))).toContain('确认披露包已寄出？')
-    await click(byId(r, 'mark-delivered-confirm').findAll((n) => n.type === 'button' && text(n) === '确认')[0])
+    await click(buttonsNamed(byId(r, 'mark-delivered-confirm'), '确认')[0])
     expect(calls.posts[1]).toEqual({ action: 'mark_delivered', request_id: 'r2', note: '' })
   })
 
@@ -124,18 +130,18 @@ describe('/admin/consumer-requests queue', () => {
     const d = byId(r, 'consumer-dispute')
     expect(text(byId(r, 'dispute-statement'))).toContain('那不是我')
     expect(text(d)).toContain('LTB 判令 · 同名命中')
-    for (const k of ['corrected', 'supplemented', 'deleted', 'maintained']) expect(d.findAllByProps({ 'data-testid': `resolution-${k}` })).toHaveLength(1)
-    const submit = () => d.findByProps({ 'data-testid': 'resolve-dispute' })
-    expect(submit().props.disabled).toBe(true)
-    await click(d.findByProps({ 'data-testid': 'resolution-corrected' }))
-    expect(submit().props.disabled).toBe(true)
-    await act(async () => { d.findByType('textarea').props.onChange({ target: { value: '核对法院门户：当事人地址与申请人不符，已删除该命中。' } }) })
-    expect(submit().props.disabled).toBe(false)
+    for (const k of ['corrected', 'supplemented', 'deleted', 'maintained']) expect(all(d, `[data-testid="resolution-${k}"]`)).toHaveLength(1)
+    const submit = () => within(d, 'resolve-dispute') as HTMLButtonElement
+    expect(submit().disabled).toBe(true)
+    await click(within(d, 'resolution-corrected'))
+    expect(submit().disabled).toBe(true)
+    await act(async () => { fireEvent.change(only(d, 'textarea'), { target: { value: '核对法院门户：当事人地址与申请人不符，已删除该命中。' } }) })
+    expect(submit().disabled).toBe(false)
     await click(submit())
     expect(calls.posts).toHaveLength(0)
     const confirm = byId(r, 'resolve-confirm')
     expect(text(confirm)).toContain('按「更正」处理这条争议？')
-    await click(confirm.findAll((n) => n.type === 'button' && text(n) === '确认：更正')[0])
+    await click(buttonsNamed(confirm, '确认：更正')[0])
     expect(calls.posts).toEqual([{ action: 'resolve_dispute', dispute_id: 'd1', resolution: 'corrected', note: '核对法院门户：当事人地址与申请人不符，已删除该命中。' }])
     expect(text(byId(r, 'resolve-flash'))).toBe('已处理 · 已通知 2 位收件人')
   })

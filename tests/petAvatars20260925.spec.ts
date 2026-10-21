@@ -1,17 +1,21 @@
+// @vitest-environment jsdom
 // Twenty plush-toy pets replace the glossy shapes as the assistant's face (user
 // 2026-09-25, after Muse's fluffy creature: "3D 的头像，毛绒玩具的样子"), joined the
 // same evening by twenty young people in different 3D styles ("再做 10 个男，10
 // 个女的卡通头像"); the name under the avatar is set like Muse's: plain, medium
 // weight, larger. Each preset is a generated render shipped under
-// public/avatars/{pets,people} and rendered for real with react-test-renderer:
-// an <img> on a pastel disc.
-import { describe, expect, it } from 'vitest'
+// public/avatars/{pets,people} and rendered for real (jsdom since the React 19
+// upgrade): an <img> on a pastel disc.
+import { afterEach, describe, expect, it } from 'vitest'
 import React from 'react'
-import TestRenderer from 'react-test-renderer'
+import { cleanup, render } from '@testing-library/react'
+import { all, hexToRgb, only } from './helpers/dom'
 import { readFileSync, statSync } from 'node:fs'
 import { AVATAR_PRESETS, AssistantAvatar, DEFAULT_ASSISTANT_AVATAR, LEGACY_AVATARS, avatarImageSrc, isAvatarPreset, resolveAvatarKey } from '@/lib/agent/avatars'
 
 const read = (p: string) => readFileSync(p, 'utf8')
+
+afterEach(cleanup)
 
 describe('pet avatars', () => {
   it('twenty pets + twenty young people (ten men, ten women), each with a bilingual name and a disc colour; the default is a pet', () => {
@@ -43,11 +47,11 @@ describe('pet avatars', () => {
       const size = statSync(file).size
       expect(size, file).toBeGreaterThan(5_000)
       expect(size, file).toBeLessThanOrEqual(160_000)
-      const r = TestRenderer.create(React.createElement(AssistantAvatar, { avatar: p.key, role: 'tenant' }))
-      const disc = r.root.findByType('span')
-      expect(disc.props['data-avatar'], p.key).toBe(p.key)
-      expect(disc.props.style.background).toBe(p.disc)
-      expect(r.root.findByType('img').props.src).toBe(avatarImageSrc(p.key))
+      const r = render(React.createElement(AssistantAvatar, { avatar: p.key, role: 'tenant' }))
+      const disc = only(r.container, 'span')
+      expect(disc.getAttribute('data-avatar'), p.key).toBe(p.key)
+      expect(disc.style.background).toBe(hexToRgb(p.disc))
+      expect(only(r.container, 'img').getAttribute('src')).toBe(avatarImageSrc(p.key))
       r.unmount()
     }
   })
@@ -59,12 +63,12 @@ describe('pet avatars', () => {
     }
     expect(resolveAvatarKey('nope')).toBeNull()
     expect(resolveAvatarKey(null)).toBeNull()
-    const orb = TestRenderer.create(React.createElement(AssistantAvatar, { avatar: 'nope', role: 'landlord' }))
-    expect(orb.root.findAllByType('img')).toHaveLength(0)
-    const brand = TestRenderer.create(React.createElement(AssistantAvatar, { avatar: 'nope', role: 'landlord', fallback: 'brand' }))
-    expect(brand.root.findByType('span').props['data-avatar']).toBe(DEFAULT_ASSISTANT_AVATAR)
-    const legacy = TestRenderer.create(React.createElement(AssistantAvatar, { avatar: 'ring', role: 'landlord' }))
-    expect(legacy.root.findByType('span').props['data-avatar']).toBe('panda')
+    const orb = render(React.createElement(AssistantAvatar, { avatar: 'nope', role: 'landlord' }))
+    expect(all(orb.container, 'img')).toHaveLength(0)
+    const brand = render(React.createElement(AssistantAvatar, { avatar: 'nope', role: 'landlord', fallback: 'brand' }))
+    expect(only(brand.container, 'span').getAttribute('data-avatar')).toBe(DEFAULT_ASSISTANT_AVATAR)
+    const legacy = render(React.createElement(AssistantAvatar, { avatar: 'ring', role: 'landlord' }))
+    expect(only(legacy.container, 'span').getAttribute('data-avatar')).toBe('panda')
     const sql = read('supabase/migrations/20260925_avatar_pets.sql')
     for (const k of old) expect(sql, k).toContain(`when '${k}' then '${LEGACY_AVATARS[k]}'`)
   })

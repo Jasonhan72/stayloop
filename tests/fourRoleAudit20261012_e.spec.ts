@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Four-role audit 2026-10-12 · group E (design/4role-audit-fix-plan-2026-10-12.md
 // P2-1, P2-2 and the「文案 minor」items).
 //
@@ -9,10 +10,11 @@
 //       can never move the card after the user has already moved on.
 // minor auditActionLabel covers every action the routes / triggers write;
 //       the composer's aria-label follows the UI language.
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { all, textOf } from './helpers/dom'
 import { INTAKES, withStepCount, type IntakeSpec } from '../lib/agent/intake'
 import { auditActionLabel } from '../lib/agent/ideas'
 import IntakeCard from '../components/agent/IntakeCard'
@@ -70,23 +72,23 @@ describe('P2-2 · intake outline counts come from steps.length', () => {
   })
 })
 
-describe('P2-2 · the pricing card never skips「卖点」(react-test-renderer)', () => {
-  type Inst = ReturnType<TestRenderer.ReactTestRenderer['root']['findAllByProps']>[number]
-  const byId = (root: TestRenderer.ReactTestInstance, id: string) => root.findAllByProps({ 'data-testid': id }).filter((n) => typeof n.type === 'string')
-  const chip = (root: TestRenderer.ReactTestInstance, label: string) => byId(root, 'intake-chip').find((n) => String(n.props.children).includes(label))!
-  const click = (n: Inst) => act(() => { n.props.onClick() })
+describe('P2-2 · the pricing card never skips「卖点」(rendered in jsdom)', () => {
+  afterEach(cleanup)
+  const byId = (root: ParentNode, id: string) => all(root, `[data-testid="${id}"]`)
+  const chip = (root: ParentNode, label: string) => byId(root, 'intake-chip').find((n) => textOf(n).includes(label))!
+  const click = (n: HTMLElement) => fireEvent.click(n)
   const mount = () => {
     const onSend = vi.fn(async () => {}); const onDraft = vi.fn(); const onClose = vi.fn()
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(React.createElement(IntakeCard, { spec: INTAKES.pricing, lang: 'zh', accent: '#2563EB', icon: '📈', onSend, onDraft, onClose })) })
-    const root = r.root
-    const progress = () => String(byId(root, 'intake-progress')[0].props.children)
-    const page = () => JSON.stringify(r.toJSON())
+    const r = render(React.createElement(IntakeCard, { spec: INTAKES.pricing, lang: 'zh', accent: '#2563EB', icon: '📈', onSend, onDraft, onClose }))
+    const root = r.container
+    const progress = () => textOf(byId(root, 'intake-progress')[0])
+    const page = () => r.container.innerHTML
     return { r, root, progress, page, onSend }
   }
   /** what a browser does on Enter over a focused <button>: keydown bubbles to the card, then the default click */
-  const enterOnChip = (root: TestRenderer.ReactTestInstance, n: Inst) => {
-    act(() => { byId(root, 'intake-card')[0].props.onKeyDown({ key: 'Enter', stopPropagation() {}, preventDefault() {} }) })
+  const enterOnChip = (root: ParentNode, n: HTMLElement) => {
+    expect(byId(root, 'intake-card')[0].contains(n)).toBe(true)
+    fireEvent.keyDown(n, { key: 'Enter' })
     click(n)
   }
 
@@ -95,8 +97,8 @@ describe('P2-2 · the pricing card never skips「卖点」(react-test-renderer)'
     const { root, progress, page } = mount()
     expect(progress()).toContain('第 1 步'); expect(progress()).toContain('共 5 步')
     // 1 area: chips + a text input → typing and Enter moves on (chips never auto-advance here)
-    act(() => { byId(root, 'intake-input')[0].props.onChange({ target: { value: 'Yonge & Eglinton' } }) })
-    act(() => { byId(root, 'intake-input')[0].props.onKeyDown({ key: 'Enter', shiftKey: false, preventDefault() {} }) })
+    fireEvent.change(byId(root, 'intake-input')[0], { target: { value: 'Yonge & Eglinton' } })
+    fireEvent.keyDown(byId(root, 'intake-input')[0], { key: 'Enter', shiftKey: false })
     expect(progress()).toContain('第 2 步')
     // 2 type: single choice, nothing else asked → auto-advance after 140 ms, exactly one step
     click(chip(root, '公寓'))
@@ -122,7 +124,7 @@ describe('P2-2 · the pricing card never skips「卖点」(react-test-renderer)'
   it('keyboard Enter on a focused chip advances exactly once (keydown + default click, then the timer)', () => {
     vi.useFakeTimers()
     const { root, progress, page } = mount()
-    act(() => { byId(root, 'intake-input')[0].props.onChange({ target: { value: 'Liberty Village' } }) })
+    fireEvent.change(byId(root, 'intake-input')[0], { target: { value: 'Liberty Village' } })
     click(byId(root, 'intake-next')[0])
     expect(progress()).toContain('第 2 步')
     enterOnChip(root, chip(root, '联排'))
@@ -138,7 +140,7 @@ describe('P2-2 · the pricing card never skips「卖点」(react-test-renderer)'
   it('a chip tap followed by Next / Enter inside the 140 ms window still moves one step, and Back inside the window is not overridden by the stale timer', () => {
     vi.useFakeTimers()
     const { root, progress } = mount()
-    act(() => { byId(root, 'intake-input')[0].props.onChange({ target: { value: 'Liberty Village' } }) })
+    fireEvent.change(byId(root, 'intake-input')[0], { target: { value: 'Liberty Village' } })
     click(byId(root, 'intake-next')[0])
     expect(progress()).toContain('第 2 步')
     // tap the chip, then hit Next before the auto-advance fires → one step, not two

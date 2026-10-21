@@ -1,0 +1,64 @@
+── pages
+PASS  home / (0.043116s, 69973 B)
+PASS  home-zh-title / (0.040288s, 69973 B)
+PASS  page /pricing (0.040576s, 34537 B)
+PASS  page /listings (0.039916s, 21584 B)
+PASS  page /tenant (0.046481s, 52859 B)
+PASS  page /landlord (0.040956s, 51085 B)
+PASS  page /agent (0.045482s, 49785 B)
+PASS  page /screening (0.044383s, 47337 B)
+PASS  page /rules (0.043883s, 52150 B)
+PASS  page /platform (0.045122s, 35506 B)
+PASS  page /services (0.045812s, 36019 B)
+PASS  page /about (0.040012s, 23338 B)
+PASS  page /partners (0.040652s, 36652 B)
+PASS  page /contact (0.040071s, 23130 B)
+PASS  page /disputes (0.042496s, 51176 B)
+PASS  page /login (0.040440s, 22155 B)
+PASS  page /register (0.041174s, 22251 B)
+PASS  page /privacy (0.042812s, 26623 B)
+PASS  page /terms (0.043667s, 26852 B)
+PASS  page /consumer-rights (0.061329s, 26022 B)
+PASS  page /my-file (0.049835s, 23524 B)
+PASS  page /stayloop-api (0.058073s, 31508 B)
+PASS  page /stayloop-api/docs (0.065494s, 50689 B)
+PASS  page /agents (0.045113s, 23756 B)
+PASS  page /onboarding/name (0.074177s, 13005 B)
+PASS  page /settings (0.066072s, 13126 B)
+PASS  page /messages (0.075947s, 13143 B)
+PASS  page /tenant/agent (0.051116s, 29261 B)
+PASS  page /landlord/agent (0.053425s, 29927 B)
+PASS  page /dashboard (0.064440s, 27968 B)
+PASS  page /provider/jobs (0.065143s, 22401 B)
+PASS  page /landlord/applicants (0.052017s, 32528 B)
+PASS  page /tenant/applications (0.055817s, 27449 B)
+PASS  token-dead-link /p/smoke-invalid-token-000000000000000000 (0.044149s, 13986 B)
+PASS  sitemap /sitemap.xml (0.009189s, 2627 B)
+PASS  robots /robots.txt (0.008752s, 374 B)
+PASS  manifest /manifest.json (0.004500s, 567 B)
+PASS  not-found /no-such-page-xyz (404)
+── static chunk from home
+PASS  chunk /_next/static/chunks/1x6obpmlu1_c2.js (0.008392s, 5361 B)
+── open API (no secrets needed)
+PASS  api-rules /api/v1/rules (0.006114s, 18865 B)
+PASS  api-guideline /api/v1/guideline?effective=2027-03-01 (0.017642s, 501 B)
+PASS  api-openapi /api/v1/openapi.json (0.005820s, 39482 B)
+PASS  api-n4 /api/v1/n4/earliest-termination?served=2026-11-03&rent_period=monthly (0.006880s, 521 B)
+PASS  api-cors-open /api/v1/rules
+── middleware
+PASS  apex / → http://www.stayloop.ai/
+PASS  screening-sub /abc → http://www.stayloop.ai/screening
+PASS  settings /landlord/settings → /settings
+PASS  messages /tenant/messages → /messages
+PASS  applications /landlord/applications/abc → /landlord/applicants/abc
+PASS  trust-api /trust-api/docs → /stayloop-api/docs
+PASS  home-ask /?role=tenant&ask=hi → /tenant/agent?prompt=hi&send=1
+PASS  hsts /
+PASS  xfo /
+PASS  nosniff /
+PASS  perm /
+PASS  refpol-normal /
+PASS  refpol-token /verify/abc
+PASS  cors-pinned /
+PASS  no x-powered-by
+SUMMARY: 59 passed, 0 failed

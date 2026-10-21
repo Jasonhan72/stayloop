@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Guided intake for the quick-start cards (2026-09-27; design/guided-intake-2026-09.md).
 // A card opens a step-by-step dialogue in the thread instead of dropping a
 // 【…】 template into the composer. Guards: every card has an intake; every
@@ -5,10 +6,11 @@
 // deterministic layers downstream (budget / bedrooms / pets parsers, the
 // emergency detector); the card component behaves (auto-advance rules, the
 // emergency note, the review + send).
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import TestRenderer, { act } from 'react-test-renderer'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { all, only, textOf } from './helpers/dom'
 import { INTAKES, composeIntake, fmtDate, fmtMoney, isAnswered, queryFor, type IntakeAnswers, type IntakeSpec } from '../lib/agent/intake'
 import { hasUnfilledTemplate } from '../lib/agent/guardrail'
 import { applyHardConstraints, bedsFromText, budgetFromText, petsFromText } from '../lib/agent/hardConstraints'
@@ -145,20 +147,18 @@ describe('the sentences feed the deterministic layers downstream', () => {
   })
 })
 
-describe('IntakeCard behaviour (react-test-renderer)', () => {
-  type Inst = ReturnType<TestRenderer.ReactTestRenderer['root']['findAllByProps']>[number]
-  const byId = (root: TestRenderer.ReactTestInstance, id: string) => root.findAllByProps({ 'data-testid': id }).filter((n) => typeof n.type === 'string')
-  const chip = (root: TestRenderer.ReactTestInstance, label: string) => byId(root, 'intake-chip').find((n) => String(n.props.children).includes(label))!
-  const click = (n: Inst) => act(() => { n.props.onClick() })
+describe('IntakeCard behaviour (renders in jsdom)', () => {
+  afterEach(cleanup)
+  const byId = (root: HTMLElement, id: string) => all(root, `[data-testid="${id}"]`)
+  const chip = (root: HTMLElement, label: string) => byId(root, 'intake-chip').find((n) => textOf(n).includes(label))!
+  const click = (n: HTMLElement) => { fireEvent.click(n) }
 
   it('walks the repair intake: chips advance where nothing else is asked, the emergency note holds the step, the review shows the composed sentence and sends it', async () => {
     vi.useFakeTimers()
     const onSend = vi.fn(async (_m: string, _a?: unknown) => {})
     const onDraft = vi.fn(); const onClose = vi.fn()
-    let r!: TestRenderer.ReactTestRenderer
-    act(() => { r = TestRenderer.create(React.createElement(IntakeCard, { spec: INTAKES.repair, lang: 'zh', accent: '#00ACE4', icon: '🔧', onSend, onDraft, onClose })) })
-    const root = r.root
-    const progress = () => String(byId(root, 'intake-progress')[0].props.children)
+    const root = render(React.createElement(IntakeCard, { spec: INTAKES.repair, lang: 'zh', accent: '#00ACE4', icon: '🔧', onSend, onDraft, onClose })).container
+    const progress = () => textOf(byId(root, 'intake-progress')[0])
     expect(progress()).toContain('第 1 步')
     expect(progress()).toContain('共 8 步')
     // 1 where: has a text input → the chip does not auto-advance; Next does
@@ -166,14 +166,14 @@ describe('IntakeCard behaviour (react-test-renderer)', () => {
     click(byId(root, 'intake-next')[0]); expect(progress()).toContain('第 2 步')
     // 2 what: chip + detail
     click(chip(root, '漏水'))
-    act(() => { byId(root, 'intake-input')[0].props.onChange({ target: { value: '水槽下方滴水' } }) })
+    fireEvent.change(byId(root, 'intake-input')[0], { target: { value: '水槽下方滴水' } })
     click(byId(root, 'intake-next')[0]); expect(progress()).toContain('第 3 步')
     // 3 since
     click(chip(root, '昨天')); click(byId(root, 'intake-next')[0]); expect(progress()).toContain('第 4 步')
     // 4 urgency: the emergency chip shows its note and stays; a plain chip auto-advances
     click(chip(root, '紧急'))
     expect(byId(root, 'intake-danger-note').length).toBe(1)
-    expect(String(byId(root, 'intake-danger-note')[0].props.children)).toContain('关总阀')
+    expect(textOf(byId(root, 'intake-danger-note')[0])).toContain('关总阀')
     expect(progress()).toContain('第 4 步')
     click(chip(root, '尽快'))
     act(() => { vi.advanceTimersByTime(200) })
@@ -192,11 +192,11 @@ describe('IntakeCard behaviour (react-test-renderer)', () => {
     // summary chips of every answered step, clickable
     expect(byId(root, 'intake-summary').length).toBe(1)
     const review = byId(root, 'intake-review')[0]
-    const ta = review.findByType('textarea')
-    const sentence = String(ta.props.value)
+    const ta = only<HTMLTextAreaElement>(review, 'textarea')
+    const sentence = String(ta.value)
     for (const s of ['厨房', '漏水 · 渗水', '水槽下方滴水', '从昨天开始', '希望尽快处理', '先打电话约时间', '家里有猫', '请整理成报修工单发给房东']) expect(sentence).toContain(s)
     expect(hasUnfilledTemplate(sentence)).toBe(false)
-    await act(async () => { await byId(root, 'intake-send')[0].props.onClick() })
+    await act(async () => { fireEvent.click(byId(root, 'intake-send')[0]) })
     expect(onSend).toHaveBeenCalledTimes(1)
     expect(onSend.mock.calls[0][0]).toBe(sentence)
     expect(onSend.mock.calls[0][1]).toBeUndefined()
@@ -205,12 +205,10 @@ describe('IntakeCard behaviour (react-test-renderer)', () => {
   it('a required step disables Next until answered; Back returns; "edit in the composer" hands the sentence to onDraft; Escape closes', () => {
     vi.useFakeTimers()
     const onSend = vi.fn(); const onDraft = vi.fn(); const onClose = vi.fn()
-    let r!: TestRenderer.ReactTestRenderer
     // 乙 #7 (2026-10-16): the tenant's fifth card is "build my application pack" (3 steps).
-    act(() => { r = TestRenderer.create(React.createElement(IntakeCard, { spec: INTAKES.applicant_pack, lang: 'en', accent: '#00ACE4', onSend, onDraft, onClose })) })
-    const root = r.root
-    const progress = () => String(byId(root, 'intake-progress')[0].props.children)
-    expect(byId(root, 'intake-next')[0].props.disabled).toBe(true)
+    const root = render(React.createElement(IntakeCard, { spec: INTAKES.applicant_pack, lang: 'en', accent: '#00ACE4', onSend, onDraft, onClose })).container
+    const progress = () => textOf(byId(root, 'intake-progress')[0])
+    expect((byId(root, 'intake-next')[0] as HTMLButtonElement).disabled).toBe(true)
     expect(byId(root, 'intake-skip').length).toBe(0) // required step: no skip
     click(chip(root, 'Employment and income'))
     act(() => { vi.advanceTimersByTime(200) }) // chips-only step auto-advances
@@ -231,7 +229,7 @@ describe('IntakeCard behaviour (react-test-renderer)', () => {
     expect(onDraft).toHaveBeenCalledTimes(1)
     expect(onDraft.mock.calls[0][0]).toContain('employment and income')
     expect(onDraft.mock.calls[0][0]).toContain('recent pay stubs')
-    act(() => { byId(root, 'intake-card')[0].props.onKeyDown({ key: 'Escape', stopPropagation() {} }) })
+    fireEvent.keyDown(byId(root, 'intake-card')[0], { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(onSend).not.toHaveBeenCalled()
     vi.useRealTimers()
