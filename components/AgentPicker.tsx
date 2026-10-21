@@ -14,7 +14,7 @@ import { RECO_REGISTER_URL, categoryLabel, type AgentProfile } from '@/lib/agent
 import { useAuth } from '@/lib/useAuth'
 import { isTestViewer, visibleAgents } from '@/components/listing/testAccounts'
 
-type Row = Pick<AgentProfile, 'auth_id' | 'legal_name' | 'reco_number' | 'category' | 'brokerage_name' | 'business_email' | 'business_phone' | 'crea_member' | 'verified_at' | 'status'>
+type Row = Pick<AgentProfile, 'auth_id' | 'legal_name' | 'reco_number' | 'category' | 'brokerage_name' | 'business_email' | 'business_phone' | 'crea_member' | 'verified_at' | 'status'> & { profile_slug?: string | null }
 
 export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [] }: { zh: boolean; listingAddress: string; onClose: () => void; excludeAuthIds?: Array<string | null | undefined> }) {
   const lang: 'zh' | 'en' = zh ? 'zh' : 'en'
@@ -34,7 +34,7 @@ export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [] }
     // base table stays self/admin (review 2026-09-14: the table-wide grant
     // exposed admin review notes and trade names to anon).
     supabase.from('agent_directory')
-      .select('auth_id, legal_name, reco_number, category, brokerage_name, business_email, business_phone, crea_member, verified_at, status')
+      .select('auth_id, legal_name, reco_number, category, brokerage_name, business_email, business_phone, crea_member, verified_at, status, profile_slug')
       .order('verified_at', { ascending: false })
       .limit(50)
       .then(({ data }) => {
@@ -80,6 +80,7 @@ export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [] }
               <div className="mt-2 flex flex-wrap gap-2">
                 {a.business_email && /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(a.business_email) && <a href={`mailto:${encodeURIComponent(a.business_email)}?subject=${subject}&body=${body}`} className="sl-btn-primary !px-4 !py-2 text-[13px]">{zh ? '发邮件' : 'Email'}</a>}
                 {a.business_phone && <a href={`tel:${a.business_phone.replace(/[^\d+]/g, '')}`} className="rounded-full border border-line-strong px-4 py-2 text-[13px] font-semibold">{zh ? '打电话' : 'Call'}</a>}
+                {a.profile_slug && <Link href={`/agents/${a.profile_slug}`} className="rounded-full border border-line-strong px-4 py-2 text-[13px] font-semibold">{zh ? '看主页' : 'Profile'}</Link>}
                 {!a.business_email && !a.business_phone && <span className="text-[12px] text-body-3">{zh ? '未留联系方式' : 'No contact details given'}</span>}
               </div>
             </div>

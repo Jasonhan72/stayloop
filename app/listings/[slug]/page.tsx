@@ -289,6 +289,8 @@ export default function ListingDetailPage() {
   const [ownIds, setOwnIds] = useState<string[]>([])
   const [landlordIsRegistrant, setLandlordIsRegistrant] = useState(false)
   const [landlordAuthId, setLandlordAuthId] = useState<string | null>(null)
+  // The registrant landlord's public agent profile, when they published one (2026-10-21).
+  const [landlordProfileSlug, setLandlordProfileSlug] = useState<string | null>(null)
   useEffect(() => {
     if (auth.loading || !auth.user) { setOwnIds([]); return }
     const uid = auth.user.id
@@ -310,14 +312,15 @@ export default function ListingDetailPage() {
     }).catch(() => {})
   }, [auth.loading, auth.user, listing?.id, listing?.slug, listing?.source, listing?.brokerage])
   useEffect(() => {
-    if (!listing?.landlord_id) { setLandlordIsRegistrant(false); setLandlordAuthId(null); return }
+    if (!listing?.landlord_id) { setLandlordIsRegistrant(false); setLandlordAuthId(null); setLandlordProfileSlug(null); return }
     // listings.landlord_id is landlords.id for every row published through
     // claim_landlord (review 2026-09-14) — resolve the auth id through the
     // public directory view, which carries both.
     ;(async () => {
-      const { data } = await supabase.from('agent_directory').select('auth_id').or(`auth_id.eq.${listing.landlord_id},landlord_id.eq.${listing.landlord_id}`).maybeSingle()
+      const { data } = await supabase.from('agent_directory').select('auth_id, profile_slug').or(`auth_id.eq.${listing.landlord_id},landlord_id.eq.${listing.landlord_id}`).maybeSingle()
       setLandlordIsRegistrant(!!data)
       setLandlordAuthId((data as { auth_id?: string } | null)?.auth_id ?? null)
+      setLandlordProfileSlug((data as { profile_slug?: string | null } | null)?.profile_slug ?? null)
     })()
   }, [listing?.landlord_id])
   const isOwnListing = !!listing?.landlord_id && ownIds.includes(listing.landlord_id)
@@ -1124,6 +1127,9 @@ export default function ListingDetailPage() {
                         ? (zh ? '房东直租 · 房东为持牌经纪' : 'Direct from landlord · landlord is a registered agent')
                         : (zh ? '房东直租' : 'Direct from landlord')}
                     </div>
+                    {landlordIsRegistrant && province === 'ON' && landlordProfileSlug && (
+                      <Link href={`/agents/${landlordProfileSlug}`} className="text-[12px] font-semibold text-brand underline" data-testid="listing-agent-profile-link">{zh ? '查看经纪主页' : 'View agent profile'}</Link>
+                    )}
                   </div>
                 </div>
               )}

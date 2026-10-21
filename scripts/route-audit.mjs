@@ -28,7 +28,7 @@ async function probe(name, url, opts = {}, expect = {}) {
 // nosniff on worker-rendered pages and APIs, and the microphone allowed for the
 // site itself (the voice-input button) — site test 2026-10-02, L4:D1 / L4:D5.
 const HDR = { 'strict-transport-security': /max-age=\d+/, 'x-frame-options': /DENY/i, 'referrer-policy': /strict-origin-when-cross-origin/, 'x-content-type-options': /^nosniff$/i, 'permissions-policy': /microphone=\(self\)/ }
-const PUBLIC = ['/', '/pricing', '/tenant', '/landlord', '/agent', '/platform', '/stayloop-api', '/stayloop-api/docs', '/services', '/screening', '/about', '/partners', '/contact', '/disputes', '/listings', '/privacy', '/terms', '/login', '/register', '/onboarding/name?role=landlord', '/onboarding/tier1', '/leases/import', '/screening/app', '/dashboard', '/settings', '/landlord/agent', '/landlord/notices', '/tenant/agent', '/agent/agent', '/agent/verify', '/notifications', '/provider/jobs', '/provider/history', '/my-file', '/consumer-rights']
+const PUBLIC = ['/', '/pricing', '/tenant', '/landlord', '/agent', '/platform', '/stayloop-api', '/stayloop-api/docs', '/services', '/screening', '/about', '/partners', '/contact', '/disputes', '/listings', '/privacy', '/terms', '/login', '/register', '/onboarding/name?role=landlord', '/onboarding/tier1', '/leases/import', '/screening/app', '/dashboard', '/settings', '/landlord/agent', '/landlord/notices', '/tenant/agent', '/agent/agent', '/agent/verify', '/notifications', '/provider/jobs', '/provider/history', '/my-file', '/consumer-rights', '/agents']
 for (const p of PUBLIC) await probe(`GET ${p}`, `${BASE}${p}${p.includes('?') ? '&' : '?'}${bust()}`, {}, { status: 200, headers: HDR })
 // Cloudflare Email Obfuscation must find no address in a text run here, or the
 // rewritten DOM breaks hydration (React #418) — L6-public:D1.
@@ -49,6 +49,10 @@ await probe('verify page no-referrer', `${BASE}/verify/not-a-real-token?${bust()
 for (const p of ['/delegate', '/w', '/lease/sign', '/p', '/join']) await probe(`${p} token page no-referrer`, `${BASE}${p}/not-a-real-token?${bust()}`, {}, { status: 200, headers: { ...HDR, 'referrer-policy': /no-referrer$/ } })
 await probe('public share invalid token', `${BASE}/p/invalid-token-xyz?${bust()}`, {}, { status: 200 })
 await probe('listing detail 404 on unknown slug renders', `${BASE}/listings/no-such-slug-xyz?${bust()}`, {}, { status: [200, 404] })
+// Public agent profiles (2026-10-21): directory JSON, unknown slug 404, contact needs sign-in.
+await probe('agents directory JSON', `${BASE}/api/agents?${bust()}`, {}, { status: 200, json: j => Array.isArray(j.items) })
+await probe('agent profile unknown slug → 404', `${BASE}/api/agents/no-such-agent-xyz`, {}, { status: 404 })
+await probe('agent contact anon → 401', `${BASE}/api/agents/no-such-agent-xyz/contact`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }, { status: 401 })
 // APIs — anonymous
 const J = { headers: { 'content-type': 'application/json' } }
 await probe('public stats', `${BASE}/api/public/stats?${bust()}`, {}, { status: 200, headers: { 'x-content-type-options': /^nosniff$/i }, json: j => (['screenings', 'ltbOrders', 'listings', 'trrebQuarters'].every(k => typeof j[k] === 'number' && j[k] >= 0)) || `keys: ${Object.keys(j)}` })

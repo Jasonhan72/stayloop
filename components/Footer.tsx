@@ -22,6 +22,7 @@ const GROUPS: Group[] = [
       { key: 'foot.screening', href: '/screening' },
       { key: 'foot.passport', href: '/tenant/passport' },
       { key: 'foot.disputes', href: '/disputes' },
+      { key: 'foot.findAgent', href: '/agents' },
     ],
   },
   {

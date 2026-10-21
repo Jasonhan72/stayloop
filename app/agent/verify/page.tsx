@@ -12,6 +12,7 @@ import { AgentBadge } from '@/components/AgentBadge'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
+import PublicProfileEditor from '@/components/agent/PublicProfileEditor'
 import { RECO_REGISTER_URL, categoryLabel, isRecoNumber, statusLabel, type AgentCategory, type AgentProfile } from '@/lib/agentProfile'
 
 export default function AgentVerifyPage() {
@@ -135,6 +136,10 @@ export default function AgentVerifyPage() {
             <Link href="/agent/agent" className="rounded-xl border border-line-divider px-4 py-[10px] text-[13px] text-body-3">{zh ? '稍后再说' : 'Later'}</Link>
           </div>
         </div>
+
+        {row && row !== 'loading' && auth.user && (
+          <PublicProfileEditor authId={auth.user.id} legalName={row.legal_name} status={row.status} lang={lang as 'zh' | 'en'} />
+        )}
 
         <p className="mt-4 text-[11.5px] leading-relaxed text-body-3">
           {zh
