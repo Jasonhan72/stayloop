@@ -3193,6 +3193,8 @@ export default function ScreenPage() {
                       // through. WebkitTextFillColor pins iOS Safari which sometimes overrides
                       // color via autofill.
                       style={{
+                        // Fill the grid cell: the old global .input rule that set the width is gone (2026-10-21).
+                        width: '100%',
                         padding: '11px 14px', fontSize: 14, borderRadius: 10, height: 44,
                         color: '#0B1736', WebkitTextFillColor: '#0B1736',
                         background: '#FFFFFF', caretColor: '#0B1736',
@@ -3212,6 +3214,8 @@ export default function ScreenPage() {
                       value={targetRent}
                       onChange={e => setTargetRent(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
                       style={{
+                        // Fill the grid cell: the old global .input rule that set the width is gone (2026-10-21).
+                        width: '100%',
                         padding: '11px 14px', fontSize: 14, borderRadius: 10, height: 44,
                         color: '#0B1736', WebkitTextFillColor: '#0B1736',
                         background: '#FFFFFF', caretColor: '#0B1736',

@@ -54,30 +54,37 @@ const DEMO_APPS: Applicant[] = [
   { id: '2', name: 'David Park',   initial: 'D', avc: 'agent',    match: 87, tier: 3, income: 9800,  qual: { zh: '收入 ✓ 信用 ✓ 上家 5⭐', en: 'Income ✓ Credit ✓ Prior landlord 5⭐' }, decision: 'approve', unitLabel: null },
   { id: '3', name: 'Karen Liu',    initial: 'K', avc: 'landlord', match: 84, tier: 3, income: 12300, qual: { zh: '收入 ✓ 信用 ✓ 自雇', en: 'Income ✓ Credit ✓ Self-employed' }, decision: 'approve', unitLabel: null },
   { id: '4', name: 'Lina Chen',    initial: 'L', avc: 'orange',   match: 81, tier: 2, income: 8900,  qual: { zh: '材料齐 · 短租意向 · 可议', en: 'Docs complete · short-term intent · negotiable' }, decision: 'review', unitLabel: null },
-  { id: '5', name: 'Tom Zhao',     initial: 'T', avc: 'tenant',   match: 64, tier: 2, income: 7200,  qual: { zh: '近 1 年 LTB 1 起 (已结案)', en: '1 LTB case in past year (closed)' }, decision: 'review', unitLabel: null },
+  { id: '5', name: 'Tom Zhao',     initial: 'T', avc: 'tenant',   match: 64, tier: 2, income: 7200,  qual: { zh: '近 1 年有 1 份 LTB 判令（房东发起）', en: '1 LTB order in the past year (landlord application)' }, decision: 'review', unitLabel: null },
   { id: '6', name: 'Anna Brooks',  initial: 'A', avc: 'agent',    match: 41, tier: 1, income: 5400,  qual: { zh: '未盖 收入章 · 仅身份章', en: 'No income stamp yet · identity stamp only' }, decision: 'decline', unitLabel: null },
 ]
 
 const SECTIONS: { decision: Decision; label: { zh: string; en: string }; tone: PillTone }[] = [
   { decision: 'approve', label: { zh: '推荐审批', en: 'Recommended' }, tone: 'ok' },
   { decision: 'review',  label: { zh: '需面谈', en: 'Needs interview' }, tone: 'warn' },
-  { decision: 'decline', label: { zh: '不达标', en: 'Below threshold' }, tone: 'danger' },
+  { decision: 'decline', label: { zh: '暂不推荐', en: 'Not recommended for now' }, tone: 'danger' },
 ]
 
 const AVC_CYCLE = ['tenant', 'agent', 'landlord', 'orange'] as const
 
-// The landlord's own screening policy, as the applicants above were sorted by.
-// Every rule here is about ability to perform the tenancy (documented income,
-// credit, debt load, term) — never a personal characteristic. The OHRC notice
-// under the list is the same wording the decision screen carries.
+// The landlord's own screening preferences, as the sample applicants above were grouped by.
+// Each line is about whether the tenancy can work (verifiable income, credit record, rental
+// history, term) — never a personal characteristic — and none is a hard cut-off: the product
+// uses no minimum income multiple, debt ratio or credit score (OHRC; CLAUDE.md 关键不变量).
+// The 2026-09-28 cleanup missed this sample, which still showed credit ≥ 720 / DTI ≤ 35%.
 const POLICY: { rule: { zh: string; en: string }; hit?: { zh: string; en: string } }[] = [
   {
-    rule: { zh: '需银行章起申（Unit 1207 提至银行章）', en: 'Bank stamp required to apply (Unit 1207 raised to bank stamp)' },
-    hit: { zh: '命中 3 / 未达 3', en: '3 meet / 3 below' },
+    rule: { zh: '收入要能核实（工资单 + 银行流水），不设收入倍数线', en: 'Income must be verifiable (pay stubs + bank statements); no income-multiple cut-off' },
+    hit: { zh: '已核实 5 / 待补 1', en: '5 verified / 1 to follow' },
   },
-  { rule: { zh: '信用 ≥ 720', en: 'Credit ≥ 720' }, hit: { zh: '命中 4', en: '4 meet' } },
-  { rule: { zh: 'DTI ≤ 35%', en: 'DTI ≤ 35%' }, hit: { zh: '命中 5', en: '5 meet' } },
-  { rule: { zh: '12 个月起租，拒绝 < 6 个月', en: 'Minimum 12-month term; under 6 months declined' } },
+  {
+    rule: { zh: '信用看整体记录和近期逾期，不设分数线；没有加拿大信用记录的，可以用其他材料说明', en: 'Credit: the overall record and recent missed payments, no score cut-off; applicants without Canadian credit history can show other documents' },
+    hit: { zh: '无近期逾期 4', en: '4 with no recent missed payments' },
+  },
+  {
+    rule: { zh: '租务记录只看与租房有关的 LTB 判令，同名未经地址佐证不算', en: 'Rental history: only tenancy-related LTB orders; a same-name match without an address is not counted' },
+    hit: { zh: '1 位有判令记录', en: '1 with an order on record' },
+  },
+  { rule: { zh: '12 个月起租，短于 6 个月不考虑', en: 'Minimum 12-month term; under 6 months not considered' } },
   { rule: { zh: '猫 ✓ · 小型犬 ✓（安省禁止收宠物押金，禁养条款无效）', en: 'Cats ✓ · small dogs ✓ (Ontario bans pet deposits; no-pet clauses are void)' } },
 ]
 
@@ -102,7 +109,7 @@ const DECIDED: {
   {
     name: 'Anna Brooks',
     unit: 'Unit 1207',
-    decision: { zh: '已通知不符合', en: 'Notified — below threshold' },
+    decision: { zh: '已通知未录取', en: 'Notified — not selected' },
     tone: 'neutral',
     date: '5/12',
   },
@@ -112,7 +119,7 @@ const DECIDED: {
 const FUNNEL: { stage: { zh: string; en: string }; n: number }[] = [
   { stage: { zh: '询盘', en: 'Inquiries' }, n: 8 },
   { stage: { zh: '完整申请', en: 'Complete applications' }, n: 6 },
-  { stage: { zh: '达标', en: 'Meet threshold' }, n: 3 },
+  { stage: { zh: '推荐', en: 'Recommended' }, n: 3 },
   { stage: { zh: '面谈', en: 'Interviewed' }, n: 2 },
   { stage: { zh: '发租约', en: 'Lease sent' }, n: 1 },
 ]
@@ -345,8 +352,8 @@ export default function LandlordApplicantsPage() {
     : [
         {
           text: {
-            zh: 'Mia Chen 收入 4.2× 租金、8 维尽调无红旗，已等待 26 小时——好的申请人常在 48 小时内接受别处的房源。',
-            en: 'Mia Chen earns 4.2× rent with zero red flags across 8 axes, waiting 26 hours — strong applicants typically accept another offer within 48.',
+            zh: 'Mia Chen 收入可核实、四项计分都在参考区间、没有红旗，已等待 26 小时——好的申请人常在 48 小时内接受别处的房源。',
+            en: 'Mia Chen has verifiable income, all four scored items in the reference range and no red flags, and has waited 26 hours — strong applicants typically accept another offer within 48.',
           },
           action: {
             label: { zh: '让 {ai} 给决策包', en: 'Get the decision pack' },
@@ -390,8 +397,8 @@ export default function LandlordApplicantsPage() {
                 ? '按阶段分组：待筛查 → 待决定 → 已决定。评分仅供参考，录取由你决定。'
                 : 'Grouped by stage: to screen → scored, your decision → decided. The score is information only; you decide. Open any application for the documents and the full report.'
               : lang === 'zh'
-                ? '按你的 需银行章 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整评分报告与文件。'
-                : 'Sorted into 3 groups by your policy (bank stamp required / credit ≥ 720 / DTI ≤ 35%). Open any application to see the full screening report and documents.'}
+                ? '按你的筛查偏好（收入可核实、信用记录、租期）分入 3 组，没有用收入倍数或信用分做硬性截止。点开任一申请查看完整评分报告与文件。'
+                : 'Sorted into 3 groups by your preferences (verifiable income, credit record, term) — no income-multiple or credit-score cut-off. Open any application to see the full screening report and documents.'}
             {!liveMode && rows !== null && (
               <span className="ml-2 font-mono text-[11px] uppercase tracking-wider text-body-3">
                 {lang === 'zh' ? '样本数据 · 收到真实申请后自动替换' : 'Sample data · replaced when real applications arrive'}
@@ -594,7 +601,7 @@ function PolicyCard({
   return (
     <SectionCard
       className="mb-3"
-      title={showHits ? (zh ? '我的筛查政策' : 'Your screening policy') : zh ? '推荐筛查门槛' : 'Suggested screening thresholds'}
+      title={showHits ? (zh ? '我的筛查偏好' : 'Your screening preferences') : zh ? '筛查做法建议' : 'Suggested screening approach'}
       meta={
         showHits
           ? zh
@@ -606,10 +613,10 @@ function PolicyCard({
       }
       action={
         <Link
-          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我复核【房源】的筛查做法（收入 / 信用 / 租期），并指出哪些条件违反 OHRC 租房政策' : 'Review my screening thresholds for Unit 1207 (income / credit / DTI / term) and flag any that are screening out qualified applicants')}`}
+          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我复核【房源】的筛查做法（收入 / 信用 / 租期），并指出哪些条件违反 OHRC 租房政策' : 'Review my screening approach for Unit 1207 (income / credit / term) and flag anything that conflicts with the Ontario Human Rights Code')}`}
           className="text-[12px] font-semibold text-brand hover:underline"
         >
-          {zh ? '复核门槛 →' : 'Review thresholds →'}
+          {zh ? '复核筛查做法 →' : 'Review my screening →'}
         </Link>
       }
     >
@@ -627,10 +634,10 @@ function PolicyCard({
         ))}
       </ul>
       <p className="mt-3 rounded-lg bg-danger/[0.06] px-3 py-2.5 text-[11.5px] leading-relaxed text-body-2">
-        <b className="text-danger">⚠️ {zh ? 'RTA 提示：' : 'RTA notice: '}</b>
+        <b className="text-danger">⚠️ {zh ? '《人权法》提示：' : 'Human Rights Code notice: '}</b>
         {zh
-          ? `「不合适」理由不能是种族 / 国籍 / 来源国 / 家庭情况 / 性取向。${aiName} 会过滤这些，但你拒绝时仍需具体理由 — 写入 audit log。`
-          : `A "not a fit" reason cannot be race / nationality / country of origin / family status / sexual orientation. ${aiName} filters these out, but you still need a specific reason when declining — it is written to the audit log.`}
+          ? `拒绝理由不能涉及《安省人权法》保护的情形：种族、国籍、来源国、宗教、性别、性取向、年龄、婚姻与家庭状况、残疾、领取公共援助等。${aiName} 会过滤这些，但你拒绝时仍需具体理由，会写入审计记录。`
+          : `A reason for declining cannot touch a ground protected by Ontario's Human Rights Code: race, citizenship, place of origin, creed, sex, sexual orientation, age, marital and family status, disability, receipt of public assistance and more. ${aiName} filters these out, but you still need a specific reason when declining — it is written to the audit log.`}
       </p>
     </SectionCard>
   )
@@ -716,8 +723,8 @@ function RailAside({
           </ul>
           <p className="mt-3 border-t border-line-divider pt-2.5 text-[11.5px] leading-relaxed text-body-3">
             {zh
-              ? `达标率 ${qualifiedRate}% · 若连续两批 < 30%，${aiName} 会提示复核门槛或定价。`
-              : `${qualifiedRate}% meet threshold · if two consecutive batches fall under 30%, ${aiName} will flag your thresholds or pricing for review.`}
+              ? `推荐率 ${qualifiedRate}% · 若连续两批 < 30%，${aiName} 会提示你复核筛查偏好或定价。`
+              : `${qualifiedRate}% recommended · if two consecutive batches fall under 30%, ${aiName} will suggest reviewing your screening preferences or pricing.`}
           </p>
         </div>
       </AsideBlock>

@@ -32,8 +32,8 @@ const STEPS: { n: string; title: Bi; desc: Bi; cta: Bi; href: string }[] = [
     n: '03',
     title: { zh: '看排序报告，一键决定', en: 'Review the ranked report, decide in one click' },
     desc: {
-      zh: '申请自动分成 推荐 / 面谈 / 不达标 三组，打开详情页批准或婉拒。',
-      en: 'Applications auto-group into Recommended / Interview / Below threshold — open one to approve or decline.',
+      zh: '申请自动分成 推荐 / 面谈 / 暂不推荐 三组，打开详情页批准或婉拒。',
+      en: 'Applications auto-group into Recommended / Interview / Not recommended for now — open one to approve or decline.',
     },
     cta: { zh: '看样例报告 →', en: 'See a sample report →' },
     href: '/landlord/applicants/1',

@@ -15,6 +15,7 @@ import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCou
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { useHats } from '@/lib/useHats'
+import { INSTALL_HINT_DELAY_MS, INSTALL_HINT_DISMISSED_KEY, INSTALL_HINT_SHOWS_KEY, INSTALL_HINT_VISIBLE_MS, installHintBlockedOn, installHintMayShow, isTypingTarget } from '@/lib/ui/installHint'
 
 export type WorkspaceRole = 'tenant' | 'landlord' | 'agent'
 
@@ -196,20 +197,42 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
 function InstallHint({ zh }: { zh: boolean }) {
   const [show, setShow] = useState(false)
   const [ios, setIos] = useState(false)
+  const [typing, setTyping] = useState(false)
   // The assistant page keeps its input bar at the bottom; the nudge would sit on top of it (I-D4).
   const onAgentPage = /\/agent(\/|$)/.test(usePathname() || '')
+  // So do message threads and the tenancy hub (2026-10-21): no nudge there either.
+  const onComposerPage = installHintBlockedOn(usePathname() || '')
+  const blocked = onAgentPage || onComposerPage
   useEffect(() => {
+    if (blocked) return
     try {
-      if (localStorage.getItem('sl-install-hint') === '1') return
+      if (localStorage.getItem(INSTALL_HINT_DISMISSED_KEY) === '1') return
       const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
       if (standalone || window.innerWidth >= 768) return
+      // A few appearances, each leaving on its own, then never again — even if never dismissed.
+      const stored = localStorage.getItem(INSTALL_HINT_SHOWS_KEY)
+      if (!installHintMayShow(stored)) return
       setIos(/iphone|ipad|ipod/i.test(navigator.userAgent))
-      const t = setTimeout(() => setShow(true), 4000)
-      return () => clearTimeout(t)
+      let hide: ReturnType<typeof setTimeout> | undefined
+      const t = setTimeout(() => {
+        setShow(true)
+        try { localStorage.setItem(INSTALL_HINT_SHOWS_KEY, String((Number(stored) || 0) + 1)) } catch { /* no-op */ }
+        hide = setTimeout(() => setShow(false), INSTALL_HINT_VISIBLE_MS)
+      }, INSTALL_HINT_DELAY_MS)
+      return () => { clearTimeout(t); if (hide) clearTimeout(hide) }
     } catch { /* no-op */ }
+  }, [blocked])
+  // Never over a field the person is typing into.
+  useEffect(() => {
+    const update = () => setTyping(isTypingTarget(document.activeElement))
+    const later = () => setTimeout(update, 0)
+    document.addEventListener('focusin', update)
+    document.addEventListener('focusout', later)
+    return () => { document.removeEventListener('focusin', update); document.removeEventListener('focusout', later) }
   }, [])
   if (!show || onAgentPage) return null
-  const dismiss = () => { try { localStorage.setItem('sl-install-hint', '1') } catch {}; setShow(false) }
+  if (onComposerPage || typing) return null
+  const dismiss = () => { try { localStorage.setItem(INSTALL_HINT_DISMISSED_KEY, '1') } catch {}; setShow(false) }
   return (
     <div className="fixed inset-x-3 bottom-[76px] z-[44] flex items-start gap-3 rounded-xl border border-line-divider bg-white p-3 text-[12.5px] leading-snug text-body-2 shadow-[0_10px_30px_rgba(27,27,60,.18)] md:hidden">
       <img src="/icons/icon-192.png" alt="" className="h-9 w-9 flex-none rounded-lg" />

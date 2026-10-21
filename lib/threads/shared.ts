@@ -172,11 +172,17 @@ export function roleLabel(role: string, zh: boolean): string {
 export function personName(name: string | null | undefined, role: string, zh: boolean): string {
   return name && name.trim() ? name.trim() : roleLabel(role, zh)
 }
-/** First visible character for an initial avatar (Han characters stay whole; Latin uppercased). */
+/**
+ * First visible character for an initial avatar (Han characters stay whole; Latin uppercased).
+ * A leading tag like "[TEST]" and any punctuation / emoji before the first letter or digit are
+ * skipped, so "[TEST] Agent Person" shows "A", not "[" (2026-10-21 review).
+ */
 export function initialOf(name: string | null | undefined, role: string, zh: boolean): string {
   if (role === 'admin') return 'S'
   const s = personName(name, role, zh)
-  const ch = Array.from(s)[0] ?? '?'
+  const body = s.replace(/^\s*(\[[^\]]*\]\s*)+/, '')
+  const alnum = (c: string) => /[\p{L}\p{N}]/u.test(c)
+  const ch = Array.from(body).find(alnum) ?? Array.from(s).find(alnum) ?? Array.from(s)[0] ?? '?'
   return /[a-z]/i.test(ch) ? ch.toUpperCase() : ch
 }
 /**
