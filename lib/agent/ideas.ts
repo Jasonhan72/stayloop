@@ -280,6 +280,11 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     consumer_request_close: { zh: '管理员关闭了一条档案请求', en: 'An administrator closed a file request' },
     consumer_request_mark_delivered: { zh: '管理员记录了邮寄 / 电话方式的披露', en: 'An administrator recorded a mail / phone disclosure' },
     consumer_alert_revoked: { zh: '申请人撤销了身份警示', en: 'The applicant removed the alert from their file' },
+    agent_profile_contact: { zh: '经公开主页联系了经纪', en: 'Contacted an agent from their public profile' },
+    mls_handoff_requested: { zh: '请认证经纪把房源挂到 MLS®', en: 'Asked a verified agent to list the unit on MLS®' },
+    mls_handoff_posted: { zh: '经纪回填了 MLS® 挂牌号与链接', en: 'The agent recorded the MLS® number and link' },
+    mls_handoff_declined: { zh: '经纪未承接 MLS® 挂牌', en: 'The agent declined the MLS® listing' },
+    mls_handoff_removed: { zh: 'MLS® 挂牌记录已撤下', en: 'MLS® listing record taken down' },
     // V1.0 stage 4 (2026-10-16): applicant pack.
     applicant_pack_file_added: { zh: '你往申请包里添加了一份文件', en: 'You added a file to your application pack' },
     applicant_pack_file_removed: { zh: '你从申请包里删除了一份文件', en: 'You removed a file from your application pack' },

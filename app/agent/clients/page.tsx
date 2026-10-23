@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import ClientBook from '@/components/agent/ClientBook'
+import MlsHandoffBoard from '@/components/agent/MlsHandoffBoard'
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import StampBadge from '@/components/StampBadge'
@@ -75,7 +76,7 @@ export default function AgentClientsPage() {
   const quietest = [...all].sort((a, b) => b.silent - a.silent)[0]
 
   return (
-    <WorkspaceShell role="agent" aside={<Aside lang={lang} quietest={quietest} />} liveSlot={<ClientBook zh={zh} onRows={onRows} />}>
+    <WorkspaceShell role="agent" aside={<Aside lang={lang} quietest={quietest} />} liveSlot={<><ClientBook zh={zh} onRows={onRows} /><MlsHandoffBoard zh={zh} /></>}>
       <PageHeader
         title={zh ? '客户管理' : 'Client management'}
         sub={
@@ -90,6 +91,7 @@ export default function AgentClientsPage() {
       />
 
       <ClientBook zh={zh} onRows={onRows} />
+      <MlsHandoffBoard zh={zh} />
 
       {liveMode ? null : (<>
 

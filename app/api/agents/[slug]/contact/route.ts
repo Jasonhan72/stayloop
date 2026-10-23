@@ -10,13 +10,10 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { stripNul } from '@/lib/screening/jsonSafe'
 import { CONTACT_MAX, CONTACT_MIN } from '@/lib/agentPublic'
 import { loadPublicAgent } from '@/lib/agentPublicServer'
-import { displayNameFor, ensureThread, notifyThreadParties, postSystemMessage } from '@/lib/threads/server'
+import { ensureThread, notifyThreadParties, postSystemMessage } from '@/lib/threads/server'
+import { connectAgentClient } from '@/lib/agent/connectClient'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
-
-function ilikeExact(v: string): string {
-  return v.replace(/[\\%_]/g, (c) => `\\${c}`)
-}
 
 export async function POST(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params
@@ -49,26 +46,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
   ])
   if (!mine || !theirs) return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: NO_STORE })
 
-  const email = user.email.trim().toLowerCase()
-  const name = ((await displayNameFor(admin, user.id)) || email.split('@')[0]).slice(0, 120)
-  const find = async () => {
-    const { data } = await admin.from('agent_clients').select('id').eq('agent_auth_id', agentId).ilike('email', ilikeExact(email)).limit(1)
-    return ((data ?? []) as { id: string }[])[0]?.id ?? null
-  }
-  let clientId: string | null = await find()
-  let created = false
-  if (!clientId) {
-    const { data, error } = await admin.from('agent_clients').insert({
-      agent_auth_id: agentId, name, client_role: role, email, area, budget, stage: 'searching',
-      notes: '经公开主页联系 / Contacted via public profile', last_contact_at: new Date().toISOString(),
-    }).select('id').maybeSingle()
-    // 23505 client_email_taken = a parallel request created it first.
-    clientId = (data as { id: string } | null)?.id ?? (error ? await find() : null)
-    created = !!data
-  } else {
-    await admin.from('agent_clients').update({ last_contact_at: new Date().toISOString() }).eq('id', clientId as string)
-  }
-  if (!clientId) return NextResponse.json({ error: 'could_not_create' }, { status: 502, headers: NO_STORE })
+  const connected = await connectAgentClient(admin, { agentId, user: { id: user.id, email: user.email }, role, area, budget, note: '经公开主页联系 / Contacted via public profile' })
+  if (!connected) return NextResponse.json({ error: 'could_not_create' }, { status: 502, headers: NO_STORE })
+  const { clientId, created, name, email } = connected
 
   const thread = await ensureThread(admin, 'agent_client', clientId, { title: name, createdBy: user.id })
   if (!thread) return NextResponse.json({ error: 'could_not_create' }, { status: 502, headers: NO_STORE })

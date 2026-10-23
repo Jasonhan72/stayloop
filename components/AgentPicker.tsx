@@ -16,7 +16,11 @@ import { isTestViewer, visibleAgents } from '@/components/listing/testAccounts'
 
 type Row = Pick<AgentProfile, 'auth_id' | 'legal_name' | 'reco_number' | 'category' | 'brokerage_name' | 'business_email' | 'business_phone' | 'crea_member' | 'verified_at' | 'status'> & { profile_slug?: string | null }
 
-export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [] }: { zh: boolean; listingAddress: string; onClose: () => void; excludeAuthIds?: Array<string | null | undefined> }) {
+/** Pick mode (MLS® hand-off, 2026-10-22): each card offers one action instead of email / phone, and the heading explains it. */
+export type AgentPick = { auth_id: string; legal_name: string; brokerage_name: string }
+export type PickMode = { eyebrow: string; title: string; intro: string; label: string; busyId?: string | null; onPick: (a: AgentPick) => void }
+
+export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [], pick }: { zh: boolean; listingAddress: string; onClose: () => void; excludeAuthIds?: Array<string | null | undefined>; pick?: PickMode }) {
   const lang: 'zh' | 'en' = zh ? 'zh' : 'en'
   const [allRows, setRows] = useState<Row[] | null>(null)
   // Seeded "[TEST]" agents are listed only to test accounts (2026-10-02: the
@@ -52,13 +56,13 @@ export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [] }
       <div className="max-h-full w-full max-w-[560px] overflow-y-auto rounded-2xl bg-white p-5" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '找经纪帮我完成' : 'Find an agent to help'}</div>
-            <h3 className="mt-1 text-[18px] font-bold tracking-tight">{zh ? '在 Stayloop 上认证的经纪' : 'Agents verified on Stayloop'}</h3>
+            <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{pick ? pick.eyebrow : zh ? '找经纪帮我完成' : 'Find an agent to help'}</div>
+            <h3 className="mt-1 text-[18px] font-bold tracking-tight">{pick ? pick.title : zh ? '在 Stayloop 上认证的经纪' : 'Agents verified on Stayloop'}</h3>
           </div>
           <button onClick={onClose} className="-mr-2 min-h-[44px] px-3 text-body-3">{zh ? '关闭' : 'Close'}</button>
         </div>
         <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
-          {zh
+          {pick ? pick.intro : zh
             ? '你直接联系经纪，由你们双方约定服务与代表关系。Stayloop 不是经纪公司，不参与交易，不向你或经纪收取任何费用。经纪在提供服务前应给你 RECO Information Guide 并签订书面代表协议。'
             : 'You contact the agent directly and agree the services and representation between you. Stayloop is not a brokerage, takes no part in the trade and charges neither you nor the agent. Before any service the agent should give you the RECO Information Guide and a written representation agreement.'}
         </p>
@@ -78,10 +82,15 @@ export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [] }
               </div>
               <div className="mt-0.5 text-[12.5px] text-body-2">{categoryLabel(a.category, lang)}{a.crea_member ? ' · REALTOR®' : ''} · <b>{a.brokerage_name}</b>{zh ? '（经纪公司）' : ' (brokerage)'}</div>
               <div className="mt-2 flex flex-wrap gap-2">
-                {a.business_email && /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(a.business_email) && <a href={`mailto:${encodeURIComponent(a.business_email)}?subject=${subject}&body=${body}`} className="sl-btn-primary !px-4 !py-2 text-[13px]">{zh ? '发邮件' : 'Email'}</a>}
-                {a.business_phone && <a href={`tel:${a.business_phone.replace(/[^\d+]/g, '')}`} className="rounded-full border border-line-strong px-4 py-2 text-[13px] font-semibold">{zh ? '打电话' : 'Call'}</a>}
+                {pick && (
+                  <button type="button" data-testid="agent-pick" disabled={!!pick.busyId} onClick={() => pick.onPick({ auth_id: a.auth_id, legal_name: a.legal_name, brokerage_name: a.brokerage_name })} className="sl-btn-primary !px-4 !py-2 text-[13px] disabled:opacity-60">
+                    {pick.busyId === a.auth_id ? '…' : pick.label}
+                  </button>
+                )}
+                {!pick && a.business_email && /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(a.business_email) && <a href={`mailto:${encodeURIComponent(a.business_email)}?subject=${subject}&body=${body}`} className="sl-btn-primary !px-4 !py-2 text-[13px]">{zh ? '发邮件' : 'Email'}</a>}
+                {!pick && a.business_phone && <a href={`tel:${a.business_phone.replace(/[^\d+]/g, '')}`} className="rounded-full border border-line-strong px-4 py-2 text-[13px] font-semibold">{zh ? '打电话' : 'Call'}</a>}
                 {a.profile_slug && <Link href={`/agents/${a.profile_slug}`} className="rounded-full border border-line-strong px-4 py-2 text-[13px] font-semibold">{zh ? '看主页' : 'Profile'}</Link>}
-                {!a.business_email && !a.business_phone && <span className="text-[12px] text-body-3">{zh ? '未留联系方式' : 'No contact details given'}</span>}
+                {!pick && !a.business_email && !a.business_phone && <span className="text-[12px] text-body-3">{zh ? '未留联系方式' : 'No contact details given'}</span>}
               </div>
             </div>
           ))}

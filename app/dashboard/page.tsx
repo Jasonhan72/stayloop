@@ -6,6 +6,9 @@ import { proTrialActive, trialUntilLabel } from '@/lib/billing/entitlement'
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import { VerificationBadge } from '@/components/ListingBadges'
+import MlsHandoff from '@/components/listings/MlsHandoff'
+import SharePostPanel from '@/components/listings/SharePostPanel'
+import { latestMls, type HandoffItem } from '@/lib/listings/syndication'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
@@ -17,6 +20,17 @@ export default function Dashboard() {
   const { landlord, loading: authLoading } = useLandlord()
   const [applications, setApplications] = useState<Application[]>([])
   const [listings, setListings] = useState<Listing[]>([])
+  // MLS® hand-offs + the manual share line (V0.8 第二项 · 第 3 / 4 步, 2026-10-22).
+  const [handoffs, setHandoffs] = useState<HandoffItem[]>([])
+  const [sharing, setSharing] = useState<Listing | null>(null)
+  const loadHandoffs = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return
+    const r = await fetch('/api/listings/mls-handoff', { headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null)
+    if (!r?.ok) return
+    const j = (await r.json().catch(() => ({}))) as { items?: HandoffItem[] }
+    setHandoffs((j.items ?? []).filter((i) => i.channel === 'mls'))
+  }
   const [plan, setPlan] = useState<Plan>('free')
   // A Pro granted directly (no Stripe customer) has nothing to manage in the billing portal — the button used to
   // open it anyway and alert「Billing portal error」(external audit 2026-10-12 on the comped founder account).
@@ -152,6 +166,7 @@ export default function Dashboard() {
       supabase.from('landlords').select('plan, stripe_customer_id, pro_trial_until').or(`id.eq.${landlord!.landlordId},auth_id.eq.${landlord!.landlordId}`).maybeSingle(),
       supabase.from('listings').select('id, slug, address, unit, city, monthly_rent, status, is_active').eq('landlord_id', landlord!.landlordId).eq('status', 'archived').order('created_at', { ascending: false }).limit(50),
     ])
+    void loadHandoffs()
     if (appsRes.data) setApplications(appsRes.data as Application[])
     if (listingsRes.data) setListings(listingsRes.data as Listing[])
     if (archivedRes.data) setArchivedListings(archivedRes.data as unknown as Listing[])
@@ -240,6 +255,15 @@ export default function Dashboard() {
 
   return (
     <WorkspaceShell role="landlord" hideAside>
+      {sharing && (
+        <SharePostPanel
+          zh={lang === 'zh'}
+          listing={sharing as never}
+          images={Array.isArray(sharing.images) ? (sharing.images as string[]) : []}
+          url={`${origin || 'https://www.stayloop.ai'}/listings/${sharing.slug}`}
+          onClose={() => setSharing(null)}
+        />
+      )}
       <div className="mx-auto max-w-[1320px]">
           {/* Heading */}
           <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
@@ -417,6 +441,12 @@ export default function Dashboard() {
                         </div>
                         <div className="truncate text-[13px] font-semibold">{l.address}{l.unit ? ` · ${l.unit}` : ''}</div>
                         <div className="truncate text-[11.5px] text-body-3">{[l.neighborhood, l.city].filter(Boolean).join(' · ') || 'Toronto'}</div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                          <MlsHandoff zh={lang === 'zh'} compact listing={{ id: l.id, address: l.address, unit: l.unit }} item={latestMls(handoffs, l.id) as HandoffItem | null} onChanged={loadHandoffs} />
+                          <button type="button" data-testid="share-post-open" onClick={() => setSharing(l)} className="rounded-full border border-line-divider px-2.5 py-[3px] text-[12px] font-semibold text-body-2 hover:border-brand hover:text-brand">
+                            {lang === 'zh' ? '复制文案 · 照片' : 'Copy post · photos'}
+                          </button>
+                        </div>
                       </div>
                       <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5">
                         <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase text-white" style={{ background: l.is_active !== false ? '#047857' : '#6B7280' }}>
@@ -510,6 +540,13 @@ export default function Dashboard() {
                         )}
                       </div>
 
+                      {/* MLS® hand-off + share elsewhere */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-divider px-4 py-2.5">
+                        <MlsHandoff zh={lang === 'zh'} compact listing={{ id: l.id, address: l.address, unit: l.unit }} item={latestMls(handoffs, l.id) as HandoffItem | null} onChanged={loadHandoffs} />
+                        <button type="button" data-testid="share-post-open" onClick={() => setSharing(l)} className="rounded-full border border-line-divider px-2.5 py-[3px] text-[12px] font-semibold text-body-2 hover:border-brand hover:text-brand">
+                          {lang === 'zh' ? '复制文案 · 照片' : 'Copy post · photos'}
+                        </button>
+                      </div>
                       {/* Action bar */}
                       <div className="flex border-t border-line-divider">
                         <Link

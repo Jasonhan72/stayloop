@@ -26,6 +26,8 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { VerificationBadge } from '@/components/ListingBadges'
 import { AgentPicker } from '@/components/AgentPicker'
+import MlsHandoff from '@/components/listings/MlsHandoff'
+import type { HandoffItem, PublicMlsListing } from '@/lib/listings/syndication'
 import { ShowingRequestModal, type ShowingKind } from '@/components/ShowingRequestModal'
 import { supabase } from '@/lib/supabase'
 import { useT, type Lang } from '@/lib/i18n'
@@ -271,6 +273,11 @@ export default function ListingDetailPage() {
   // Similar homes nearby (2026-10-02 · user: location first, then layout, then rent):
   // null = no section (still loading, or no location to compare), [] = the "nothing within 6 km" line.
   const [similar, setSimilar] = useState<SimilarMatch<DBListing>[] | null>(null)
+  // A posted MLS® hand-off (V0.8 第二项 · 第 3 步): number + link the agent wrote back, from the same route.
+  const [mls, setMls] = useState<PublicMlsListing | null>(null)
+  // The owner's own hand-off rows for this listing (any status), loaded only for the owner.
+  const [ownHandoffs, setOwnHandoffs] = useState<HandoffItem[] | null>(null)
+  const [handoffTick, setHandoffTick] = useState(0)
   const [loading, setLoading] = useState(true)
   const [fieldAgentOpen, setFieldAgentOpen] = useState(false)
   // Showing request / question to the landlord → /api/showing-intent →
@@ -324,6 +331,15 @@ export default function ListingDetailPage() {
     })()
   }, [listing?.landlord_id])
   const isOwnListing = !!listing?.landlord_id && ownIds.includes(listing.landlord_id)
+  useEffect(() => {
+    if (!isOwnListing || !listing?.id || !auth.session?.access_token) { setOwnHandoffs(null); return }
+    let on = true
+    fetch('/api/listings/mls-handoff', { headers: { Authorization: `Bearer ${auth.session.access_token}` } })
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((j: { items?: HandoffItem[] }) => { if (on) setOwnHandoffs((j.items ?? []).filter((i) => i.listing_id === listing.id && i.channel === 'mls')) })
+      .catch(() => { if (on) setOwnHandoffs([]) })
+    return () => { on = false }
+  }, [isOwnListing, listing?.id, auth.session?.access_token, handoffTick])
   // The prospect's own conversation with this listing's landlord (找得到人
   // 2026-09-30). One lookup, only once we know the viewer is signed in and not
   // the owner (ownIds always holds the uid once resolved); re-checked after the
@@ -375,10 +391,11 @@ export default function ListingDetailPage() {
         const r = await fetch(`/api/listings/${encodeURIComponent(slug)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
         if (cancelled) return
         if (!r.ok) { setListing(null); setSimilar(null); setLoading(false); return }
-        const j = (await r.json()) as { listing: DBListing; similar: SimilarMatch<DBListing>[] | null }
+        const j = (await r.json()) as { listing: DBListing; similar: SimilarMatch<DBListing>[] | null; mls?: PublicMlsListing | null }
         if (cancelled) return
         setListing(j.listing || null)
         setSimilar(j.similar ?? null)
+        setMls(j.mls ?? null)
       } catch {
         if (!cancelled) { setListing(null); setSimilar(null) }
       }
@@ -791,6 +808,18 @@ export default function ListingDetailPage() {
                       <BuildingFact label={zh ? '十字路口' : 'Cross streets'} value={listing.cross_streets} />
                     )}
                     {listing.mls_number && <BuildingFact label="MLS®" value={listing.mls_number} />}
+                    {mls && !listing.mls_number && (
+                      <div data-testid="listing-mls-posted">
+                        <div className="font-mono text-[10px] uppercase tracking-eyebrowLg text-body-3">MLS®</div>
+                        <div className="mt-0.5 text-[14px] font-semibold text-body">
+                          {mls.external_id || (zh ? '已挂牌' : 'Listed')}
+                          {mls.external_url && <> · <a href={mls.external_url} target="_blank" rel="noopener noreferrer" className="text-brand underline-offset-2 hover:underline">{zh ? '查看挂牌 ↗' : 'View ↗'}</a></>}
+                        </div>
+                        <div className="mt-0.5 text-[11.5px] leading-snug text-body-3">
+                          {zh ? '经纪 ' : 'Listed by '}{mls.agent.slug ? <Link href={`/agents/${mls.agent.slug}`} className="underline-offset-2 hover:underline">{mls.agent.name}</Link> : mls.agent.name} · {mls.agent.brokerage}
+                        </div>
+                      </div>
+                    )}
                     {insight && insight.building.other_active > 0 && (
                       <BuildingFact label={zh ? '同楼在租' : 'Also for rent here'} value={zh ? `${insight.building.other_active} 套` : `${insight.building.other_active} unit${insight.building.other_active === 1 ? '' : 's'}`} />
                     )}
@@ -1015,6 +1044,11 @@ export default function ListingDetailPage() {
                 <div className="mt-4 rounded-[10px] border border-line-divider bg-surface-chip px-4 py-3 text-[12.5px] leading-relaxed text-body-2">
                   {zh ? '这是你自己发布的房源：不能向自己的房源提交看房意向或申请。' : 'This is your own listing: you cannot request a showing of or apply to your own unit.'}{' '}
                   <Link href="/dashboard" className="font-semibold underline">{zh ? '去房东工作台' : 'Open the landlord workspace'}</Link>
+                  {listing.source !== 'realtor' && (
+                    <div className="mt-3 border-t border-line-divider pt-3">
+                      <MlsHandoff zh={zh} listing={{ id: listing.id, address: listing.address, unit: listing.unit }} item={ownHandoffs?.[0] ?? null} onChanged={() => setHandoffTick((n) => n + 1)} excludeAuthIds={[auth.user?.id]} />
+                    </div>
+                  )}
                 </div>
               ) : (<>
               {/* The tenant chooses a RECO-verified agent from Stayloop's

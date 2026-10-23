@@ -12,6 +12,7 @@ import { createClient } from '@supabase/supabase-js'
 import { LISTING_VISIBILITY_OR, hasUsablePhotos } from '@/lib/listingVisibility'
 import { SIMILAR_LIMIT, rankSimilar, similarSearchBox } from '@/lib/listingSimilar'
 import { underHourlyLimit } from '@/lib/rateLimit'
+import type { PublicMlsListing } from '@/lib/listings/syndication'
 
 
 export const ANON_DETAILS_PER_HOUR = 300
@@ -91,5 +92,17 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
         .map((m) => ({ ...m, listing: publicShape(m.listing as Record<string, unknown>, false) }))
     } else similar = []
   }
-  return NextResponse.json({ listing: publicShape(l, owner), owner, similar }, { headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } })
+  // A posted MLS® hand-off (V0.8 第二项 · 第 3 步): the number and public link the agent wrote back,
+  // plus the agent's registered name and brokerage (O. Reg. 567/05 s.12.1). Nothing is read from MLS.
+  let mls: PublicMlsListing | null = null
+  {
+    const { data: s } = await svc.from('listing_syndications').select('external_id, external_url, agent_auth_id').eq('listing_id', l.id).eq('channel', 'mls').eq('status', 'posted').limit(1).maybeSingle()
+    const row = s as { external_id: string | null; external_url: string | null; agent_auth_id: string | null } | null
+    if (row?.agent_auth_id) {
+      const { data: a } = await svc.from('agent_profiles').select('legal_name, brokerage_name, public_profile, profile_slug').eq('auth_id', row.agent_auth_id).maybeSingle()
+      const ag = a as { legal_name: string; brokerage_name: string; public_profile: boolean; profile_slug: string | null } | null
+      if (ag) mls = { external_id: row.external_id, external_url: row.external_url, agent: { name: ag.legal_name, brokerage: ag.brokerage_name, slug: ag.public_profile ? ag.profile_slug : null } }
+    }
+  }
+  return NextResponse.json({ listing: publicShape(l, owner), owner, similar, mls }, { headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } })
 }
