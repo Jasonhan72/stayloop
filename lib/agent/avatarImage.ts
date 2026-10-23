@@ -34,3 +34,28 @@ export const AVATAR_STYLE_LABEL: Record<AvatarStyle, { zh: string; en: string }>
   memoji: { zh: 'Memoji 风', en: 'Memoji-style' },
 }
 export const AVATAR_PROMPT_MAX = 300
+
+/**
+ * A centred square crop at `side` px, encoded as WebP (JPEG where the browser cannot
+ * encode WebP) — the agent profile photo (2026-10-23). Nothing else leaves the device.
+ */
+export async function squarePhoto(file: File | Blob, side = 512): Promise<Blob> {
+  if (file.size > AVATAR_PHOTO_MAX_BYTES) throw new Error('photo_too_large')
+  const bitmap = await createImageBitmap(file).catch(() => null)
+  if (!bitmap) throw new Error('photo_unreadable')
+  const s = Math.min(bitmap.width, bitmap.height)
+  const sx = Math.round((bitmap.width - s) / 2)
+  const sy = Math.round((bitmap.height - s) / 2)
+  const canvas = document.createElement('canvas')
+  canvas.width = side
+  canvas.height = side
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('photo_unreadable')
+  ctx.drawImage(bitmap, sx, sy, s, s, 0, 0, side, side)
+  bitmap.close?.()
+  const webp = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', 0.86))
+  if (webp && webp.type === 'image/webp') return webp
+  const jpg = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86))
+  if (!jpg) throw new Error('photo_unreadable')
+  return jpg
+}

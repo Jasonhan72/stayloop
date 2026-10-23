@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { isRegistrationLive, type AgentStatus } from '@/lib/agentProfile'
+import AgentPhotoControl from '@/components/agent/AgentPhotoControl'
+import { agentPhotoUrl } from '@/lib/agentPhotoKeys'
 import {
   AGENT_FOCUS, AGENT_LANGUAGES, BIO_MAX, bioProblem, cleanAreas, cleanFocus, cleanLanguages, isValidSlug, normalizeSlug, suggestSlug,
 } from '@/lib/agentPublic'
@@ -19,9 +21,10 @@ type Fields = {
   service_areas: string[] | null
   focus: string[] | null
   show_activity: boolean
+  photo_key: string | null
 }
 
-const COLS = 'public_profile, profile_slug, bio, languages, service_areas, focus, show_activity'
+const COLS = 'public_profile, profile_slug, bio, languages, service_areas, focus, show_activity, photo_key'
 
 export default function PublicProfileEditor({ authId, legalName, status, lang }: { authId: string; legalName: string; status: AgentStatus; lang: 'zh' | 'en' }) {
   const zh = lang === 'zh'
@@ -34,6 +37,7 @@ export default function PublicProfileEditor({ authId, legalName, status, lang }:
   const [focus, setFocus] = useState<string[]>([])
   const [areas, setAreas] = useState('')
   const [showActivity, setShowActivity] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [savedSlug, setSavedSlug] = useState<string | null>(null)
   const [savedPublic, setSavedPublic] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -52,6 +56,7 @@ export default function PublicProfileEditor({ authId, legalName, status, lang }:
       setFocus(cleanFocus(r?.focus ?? []))
       setAreas((r?.service_areas ?? []).join('、'))
       setShowActivity(!!r?.show_activity)
+      setPhotoUrl(agentPhotoUrl(r?.photo_key))
       setSavedSlug(r?.profile_slug ?? null)
       setSavedPublic(!!r?.public_profile)
       setLoaded(true)
@@ -113,6 +118,8 @@ export default function PublicProfileEditor({ authId, legalName, status, lang }:
         <div className="mt-4 text-[13px] text-body-3">…</div>
       ) : (
         <div className="mt-4 grid gap-4">
+          {/* The photo saves on its own (its own route); the rest of the form saves with the button below. */}
+          <AgentPhotoControl zh={zh} name={legalName} photoUrl={photoUrl} onChange={setPhotoUrl} />
           <label className="flex items-start gap-2 text-[13.5px]">
             <input type="checkbox" className="mt-[3px]" checked={pub} disabled={!live} onChange={(e) => setPub(e.target.checked)} data-testid="agent-public-profile-toggle" />
             <span className="font-semibold">{zh ? '公开我的主页' : 'Make my profile public'}</span>

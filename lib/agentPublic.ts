@@ -1,4 +1,5 @@
 // Public agent profiles (/agents, /agents/<slug>) — shared, pure (2026-10-21).
+import { agentPhotoUrl } from '@/lib/agentPhotoKeys'
 //
 // Modelled on HouseSigma's agent pages, but built only from Stayloop's own data: no MLS
 // sales history (that needs a VOW). Opt-in by the agent; only verified, live registrations.
@@ -130,10 +131,11 @@ export type AgentProfileRow = {
   service_areas: string[] | null
   focus: string[] | null
   show_activity: boolean
+  photo_key?: string | null
 }
 
 /** Columns the public routes read — never business email / phone, review notes or attestation. */
-export const PUBLIC_AGENT_COLUMNS = 'auth_id, legal_name, reco_number, category, brokerage_name, crea_member, status, verified_at, expires_at, created_at, public_profile, profile_slug, bio, languages, service_areas, focus, show_activity'
+export const PUBLIC_AGENT_COLUMNS = 'auth_id, legal_name, reco_number, category, brokerage_name, crea_member, status, verified_at, expires_at, created_at, public_profile, profile_slug, bio, languages, service_areas, focus, show_activity, photo_key'
 
 export function isPublishable(row: Pick<AgentProfileRow, 'status' | 'expires_at' | 'public_profile' | 'profile_slug'>, now: Date = new Date()): boolean {
   if (!row.public_profile || !row.profile_slug) return false
@@ -156,6 +158,8 @@ export type PublicAgent = {
   service_areas: string[]
   focus: string[]
   bio: string | null
+  /** Public URL of the agent's own photo under our storage, or null (initials). */
+  photo_url: string | null
 }
 
 export type AgentActivity = { clients: number; confirmed_delegations: number; listings: number }
@@ -176,6 +180,7 @@ export function toPublicAgent(row: AgentProfileRow): PublicAgent {
     service_areas: cleanAreas(row.service_areas ?? []),
     focus: cleanFocus(row.focus ?? []),
     bio: row.bio ? row.bio.slice(0, BIO_MAX) : null,
+    photo_url: agentPhotoUrl(row.photo_key),
   }
 }
 

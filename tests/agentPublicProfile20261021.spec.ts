@@ -62,7 +62,7 @@ describe('what is public', () => {
   })
   it('the public shape carries no auth id or contact details, and cleans the lists', () => {
     const p = toPublicAgent(row())
-    expect(Object.keys(p).sort()).toEqual(['bio', 'brokerage_name', 'category', 'crea_member', 'focus', 'joined', 'languages', 'name', 'reco_number', 'service_areas', 'slug', 'status', 'verified_at'])
+    expect(Object.keys(p).sort()).toEqual(['bio', 'brokerage_name', 'category', 'crea_member', 'focus', 'joined', 'languages', 'name', 'photo_url', 'reco_number', 'service_areas', 'slug', 'status', 'verified_at'])
     expect(p.languages).toEqual(['zh', 'en'])
     expect(p.service_areas).toEqual(['North York', 'Markham'])
     expect(p.joined).toBe('2026-09')

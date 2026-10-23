@@ -89,7 +89,7 @@ export default function AgentProfilePage() {
             <div className="min-w-0 space-y-6">
               <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-head">
                 <div className="flex flex-wrap items-start gap-4">
-                  <AgentAvatar name={agent.name} size={72} />
+                  <AgentAvatar name={agent.name} size={72} photoUrl={agent.photo_url} />
                   <div className="min-w-0 flex-1">
                     <h1 className="text-[26px] font-extrabold tracking-tight">{agent.name}</h1>
                     {/* O. Reg. 567/05 s.12.1: descriptor + brokerage name, clearly and prominently. */}

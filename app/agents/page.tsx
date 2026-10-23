@@ -90,7 +90,7 @@ export default function AgentsDirectoryPage() {
             {items.map((a) => (
               <Link key={a.slug} href={`/agents/${a.slug}`} className="flex flex-col rounded-2xl border border-line-divider bg-white p-5 transition hover:border-[#2563EB]" data-testid="agent-card">
                 <div className="flex items-start gap-3">
-                  <AgentAvatar name={a.name} size={48} />
+                  <AgentAvatar name={a.name} size={48} photoUrl={a.photo_url} />
                   <div className="min-w-0">
                     <div className="truncate text-[16px] font-bold">{a.name}</div>
                     <div className="text-[12.5px] text-body-2">{categoryLabel(a.category, L)}{a.crea_member ? ' · REALTOR®' : ''}</div>

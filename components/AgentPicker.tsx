@@ -10,11 +10,13 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { AgentBadge } from '@/components/AgentBadge'
+import AgentAvatar from '@/components/agent/AgentAvatar'
+import { agentPhotoUrl } from '@/lib/agentPhotoKeys'
 import { RECO_REGISTER_URL, categoryLabel, type AgentProfile } from '@/lib/agentProfile'
 import { useAuth } from '@/lib/useAuth'
 import { isTestViewer, visibleAgents } from '@/components/listing/testAccounts'
 
-type Row = Pick<AgentProfile, 'auth_id' | 'legal_name' | 'reco_number' | 'category' | 'brokerage_name' | 'business_email' | 'business_phone' | 'crea_member' | 'verified_at' | 'status'> & { profile_slug?: string | null }
+type Row = Pick<AgentProfile, 'auth_id' | 'legal_name' | 'reco_number' | 'category' | 'brokerage_name' | 'business_email' | 'business_phone' | 'crea_member' | 'verified_at' | 'status'> & { profile_slug?: string | null; photo_key?: string | null }
 
 /** Pick mode (MLS® hand-off, 2026-10-22): each card offers one action instead of email / phone, and the heading explains it. */
 export type AgentPick = { auth_id: string; legal_name: string; brokerage_name: string }
@@ -38,7 +40,7 @@ export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [], 
     // base table stays self/admin (review 2026-09-14: the table-wide grant
     // exposed admin review notes and trade names to anon).
     supabase.from('agent_directory')
-      .select('auth_id, legal_name, reco_number, category, brokerage_name, business_email, business_phone, crea_member, verified_at, status, profile_slug')
+      .select('auth_id, legal_name, reco_number, category, brokerage_name, business_email, business_phone, crea_member, verified_at, status, profile_slug, photo_key')
       .order('verified_at', { ascending: false })
       .limit(50)
       .then(({ data }) => {
@@ -77,6 +79,7 @@ export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [], 
           {rows?.map(a => (
             <div key={a.auth_id} className="rounded-xl border border-line-divider p-4">
               <div className="flex flex-wrap items-center gap-2">
+                <AgentAvatar name={a.legal_name} size={36} photoUrl={agentPhotoUrl(a.photo_key)} />
                 <div className="text-[15px] font-bold">{a.legal_name}</div>
                 <AgentBadge agent={a} lang={lang} compact />
               </div>

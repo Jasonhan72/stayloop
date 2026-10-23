@@ -55,6 +55,8 @@ await probe('agent profile unknown slug → 404', `${BASE}/api/agents/no-such-ag
 await probe('agent contact anon → 401', `${BASE}/api/agents/no-such-agent-xyz/contact`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }, { status: 401 })
 await probe('mls-handoff GET anon → 401', `${BASE}/api/listings/mls-handoff`, {}, { status: 401 })
 await probe('mls-handoff POST anon → 401', `${BASE}/api/listings/mls-handoff`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"action":"request"}' }, { status: 401 })
+await probe('agent photo POST anon → 401', `${BASE}/api/agents/photo`, { method: 'POST', body: '' }, { status: 401 })
+await probe('agent photo DELETE anon → 401', `${BASE}/api/agents/photo`, { method: 'DELETE' }, { status: 401 })
 // APIs — anonymous
 const J = { headers: { 'content-type': 'application/json' } }
 await probe('public stats', `${BASE}/api/public/stats?${bust()}`, {}, { status: 200, headers: { 'x-content-type-options': /^nosniff$/i }, json: j => (['screenings', 'ltbOrders', 'listings', 'trrebQuarters'].every(k => typeof j[k] === 'number' && j[k] >= 0)) || `keys: ${Object.keys(j)}` })
