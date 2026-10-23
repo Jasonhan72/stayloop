@@ -119,7 +119,7 @@ describe('legacy /?role=&ask= deep links', () => {
     expect(homeAskRedirect(new URL('https://www.stayloop.ai/?ask=%20%20'))).toBeNull()
     expect(homeAskRedirect(new URL('https://www.stayloop.ai/pricing?ask=hi'))).toBeNull()
     expect(homeAskRedirect(new URL(`https://www.stayloop.ai/?ask=${'a'.repeat(400)}`))?.searchParams.get('prompt')?.length).toBe(300)
-    const mw = read('middleware.ts')
+    const mw = read('proxy.ts')
     expect(mw).toContain("import { homeAskRedirect } from '@/lib/homeDeepLink'")
     expect(mw).toContain('const ask = homeAskRedirect(url)')
     expect(mw).toContain('if (ask) return withSecurityHeaders(NextResponse.redirect(ask, 308))')

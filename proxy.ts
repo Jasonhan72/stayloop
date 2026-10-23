@@ -1,3 +1,8 @@
+// proxy.ts (Next 16, 2026-10-23) — was middleware.ts. Same logic; `proxy` runs on the Node.js
+// runtime (Next 16 deprecates `middleware`; 17 drops it). On Cloudflare, OpenNext re-bundles the
+// Node middleware into `.open-next/middleware/handler.mjs` — its maintainers call that path
+// experimental, so every change here is verified on a no-traffic preview version first
+// (smoke + route audit), as the Next 16 upgrade was.
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { homeAskRedirect } from '@/lib/homeDeepLink'
@@ -43,7 +48,7 @@ function withReferrerPolicy(res: NextResponse, pathname: string): NextResponse {
 // second site. The session (implicit flow, localStorage) is origin-scoped, so
 // the subdomain must never HOST the app; it forwards to the one canonical
 // origin where login, billing and the passport all live.
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const host = request.headers.get('host') || ''
   if (host === 'stayloop.ai') {
     const url = new URL(request.url)

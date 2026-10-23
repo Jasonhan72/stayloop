@@ -9,7 +9,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { NextRequest } from 'next/server'
-import { middleware } from '@/middleware'
+import { proxy as middleware } from '@/proxy'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 
@@ -33,7 +33,7 @@ describe('security headers (L4:D1, L4:D5)', () => {
   })
 
   it('the middleware matcher still covers /api routes', async () => {
-    const { config } = await import('@/middleware')
+    const { config } = await import('@/proxy')
     const re = new RegExp(`^${config.matcher[0]}$`)
     expect(re.test('/api/public/stats')).toBe(true)
     expect(re.test('/h/abc')).toBe(true)

@@ -80,7 +80,7 @@ describe('P2 items', () => {
     for (const p of ['components/Header.tsx', 'components/WorkspaceShell.tsx']) expect(read(p)).toContain('window.addEventListener(PENDING_CHANGED_EVENT, load)')
   })
   it('SL-L-04 · /landlord/applications redirects', () => {
-    expect(read('middleware.ts')).toContain("url.pathname = '/landlord/applicants' + (apps[1] || '')")
+    expect(read('proxy.ts')).toContain("url.pathname = '/landlord/applicants' + (apps[1] || '')")
   })
   it('SL-L-08 · no US-style placeholder address', () => {
     expect(read('app/leases/import/page.tsx')).not.toContain('123 Main St')
@@ -150,7 +150,7 @@ describe('round 2 (user: 改成 V0.6，其余按建议全部修)', () => {
     // 消息系统 A 期 (2026-09-29): one message centre for every hat; the old per-role pages redirect there.
     expect(rail).not.toContain("href: '/tenant/messages'")
     expect((rail.match(/href: '\/messages'/g) || []).length).toBe(3)
-    expect(read('middleware.ts')).toContain('(landlord|tenant|agent|provider)\\/messages')
+    expect(read('proxy.ts')).toContain('(landlord|tenant|agent|provider)\\/messages')
     expect(read('components/messages/MessageCenter.tsx')).toContain("supabase.rpc('my_threads')")
     expect(read('app/h/[id]/page.tsx')).toContain('<ThreadPanel kind="tenancy"')
   })

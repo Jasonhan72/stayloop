@@ -17,7 +17,7 @@ describe('product structure: lifecycle + Stayloop API', () => {
       const src = readFileSync(f, 'utf8').replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
       expect(src, f).not.toMatch(/Trust API|TRUST API|\/trust-api/)
     }
-    expect(readFileSync('middleware.ts', 'utf8')).toMatch(/\/trust-api[\s\S]*\/stayloop-api/)
+    expect(readFileSync('proxy.ts', 'utf8')).toMatch(/\/trust-api[\s\S]*\/stayloop-api/)
     expect(readFileSync('app/sitemap.ts', 'utf8')).toContain("'/stayloop-api/docs'")
   })
   it('header, footer and homepage all lead to the product structure', () => {

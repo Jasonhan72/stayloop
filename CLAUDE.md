@@ -9,7 +9,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 
 ## 技术栈
 
-- Next.js 16.4 App Router（Turbopack 构建）+ React 19 + TypeScript + Tailwind；页面多为客户端组件；路由跑 Node 运行时（workerd + `nodejs_compat`），**不写 `export const runtime = 'edge'`**（OpenNext 构建拒绝，守卫 `node2Clarity20260926`）。`middleware.ts` 在 Next 16 已弃用但照常工作（仍是 edge 中间件）；改名 `proxy.ts` 会换成 Node 运行时，要单独做（`design/next16-upgrade-assessment-2026-10-21.md`）
+- Next.js 16.4 App Router（Turbopack 构建）+ React 19 + TypeScript + Tailwind；页面多为客户端组件；路由跑 Node 运行时（workerd + `nodejs_compat`），**不写 `export const runtime = 'edge'`**（OpenNext 构建拒绝，守卫 `node2Clarity20260926`）。中间件是 `proxy.ts`（2026-10-23 从 `middleware.ts` 改名，Node 运行时；OpenNext 把它打成 `.open-next/middleware/handler.mjs`，官方称实验性，改它先用预览版本跑冒烟 + 路由审计）
 - Cloudflare Workers：Worker `stayloop-web`（OpenNext `@opennextjs/cloudflare` 1.20.12，要求 wrangler ≥ 4.148；配置 `wrangler.jsonc`）；Workers Paid。2026-10-19 起从 Pages + next-on-pages 迁来，Pages 项目 `stayloop` 原样保留作回滚。`waitUntil` 用 `getCloudflareContext()`
 - Supabase：项目 `uotcczsfeiptnabamzcd`（AWS ca-central-1 蒙特利尔，Pro + Micro，磁盘 16 GB），对外地址 **`https://auth.stayloop.ai`**（自定义域名；`*.supabase.co` 仍可用）。Auth 隐式流（`lib/supabase.ts`、`lib/useAuth.ts`）
 - 模型：全部调用经 `lib/llmChat.ts`（`llmChat` / `llmChatStream`，记账写 `ai_usage`）。槽位默认值在 `app_config.models`（2026-10：turn = gemini-3.7-flash、screening = gpt-5.4、classify = claude-sonnet-4-6、forensics = claude-haiku-4-5），管理员在 `/admin/models` 改，用户在 `/settings/models` 自选覆盖。目录 `model_catalog` 每周一自动发现新模型（pg_cron）

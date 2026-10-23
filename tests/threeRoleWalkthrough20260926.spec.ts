@@ -18,7 +18,7 @@ describe('three-role walkthrough 2026-09-26', () => {
     expect(read('app/provider/jobs/page.tsx')).toContain("from('work_orders').select(WORK_ORDER_COLUMNS)")
   })
   it('/dashboard/listings (a page that never existed) redirects to /dashboard, and the assistant no longer sends landlords there', () => {
-    expect(read('middleware.ts')).toContain("if (/^\\/dashboard\\/listings\\/?$/.test(url.pathname)) {\n      url.pathname = '/dashboard'")
+    expect(read('proxy.ts')).toContain("if (/^\\/dashboard\\/listings\\/?$/.test(url.pathname)) {\n      url.pathname = '/dashboard'")
     expect(read('app/api/agent/turn/route.ts')).not.toContain('到 /dashboard/listings 补充')
   })
   it('signing out clears the cached avatar as well as the cached name', () => {

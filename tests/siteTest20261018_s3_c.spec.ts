@@ -17,7 +17,7 @@ import { buildDisclosurePack, type BuildPackInput, type PackScreeningRow } from 
 import { renderDisclosurePack } from '@/lib/consumer/render'
 import { decisionNoticeFooter } from '@/lib/ontario/rules'
 import { fetchPublicHttps, isPublicHttpsUrl } from '@/lib/net/publicUrl'
-import { middleware } from '@/middleware'
+import { proxy as middleware } from '@/proxy'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 

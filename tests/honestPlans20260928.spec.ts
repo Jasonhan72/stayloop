@@ -55,7 +55,7 @@ describe('1 · four scored items, not six', () => {
   })
   it('the V4 applicant page is gone; old links and emails land on /landlord/applicants/<id>', () => {
     expect(existsSync('app/dashboard/applications/[id]/page.tsx')).toBe(false)
-    expect(read('middleware.ts')).toMatch(/\\\/dashboard\\\/applications\(\\\/\[\^\/\]\+\)\?\\\/\?\$/)
+    expect(read('proxy.ts')).toMatch(/\\\/dashboard\\\/applications\(\\\/\[\^\/\]\+\)\?\\\/\?\$/)
     expect(read('app/api/notify-landlord/route.ts')).toContain('`${siteUrl}/landlord/applicants/${app.id}`')
     expect(read('app/dashboard/page.tsx')).toContain('window.location.href = `/landlord/applicants/${app.id}`')
   })

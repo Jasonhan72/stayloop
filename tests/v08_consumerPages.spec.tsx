@@ -305,7 +305,7 @@ describe('screening pages only gained things', () => {
 
 describe('middleware, /consumer-rights, route-audit', () => {
   it('middleware sends no-referrer on /my-file/<token>', () => {
-    const s = read('middleware.ts')
+    const s = read('proxy.ts')
     expect(s).toMatch(/const TOKEN_PAGE_PREFIXES = \[[^\]]*'\/my-file\/'/)
   })
   it('/consumer-rights names s.12 / s.13 / s.12.1 / s.9(3)(b), is free, and never disclaims agency status', () => {

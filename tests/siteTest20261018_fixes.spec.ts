@@ -58,7 +58,7 @@ describe('G-D1 · work-order act never returns the external contact credential',
 
 describe('G-D3 · every token page sends no-referrer', () => {
   it('middleware lists all eight token prefixes from the route table', () => {
-    const mw = read('middleware.ts')
+    const mw = read('proxy.ts')
     for (const p of ['/verify/', '/intake/', '/my-file/', '/w/', '/lease/sign/', '/p/', '/join/', '/delegate/']) expect(mw, p).toContain(`'${p}'`)
   })
 })

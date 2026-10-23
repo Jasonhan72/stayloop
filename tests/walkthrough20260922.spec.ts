@@ -60,7 +60,7 @@ describe('EliseAI benchmark 2026-09-22 (additive items)', () => {
     expect(t?.pathname).toBe('/landlord/agent')
     expect(t?.searchParams.get('prompt')).toBe('我的房源')
     expect(t?.searchParams.get('send')).toBe('1')
-    expect(readFileSync('middleware.ts', 'utf8')).toContain('const ask = homeAskRedirect(url)')
+    expect(readFileSync('proxy.ts', 'utf8')).toContain('const ask = homeAskRedirect(url)')
     expect(home).not.toMatch(/sp\.get\('ask'\)/)
   })
 
