@@ -207,6 +207,7 @@ export const BUILTIN_PRICING: Record<string, NonNullable<ModelDef['pricing']>> =
   'gemini-3.7-flash':       { input: 0.75, output: 3.75 },
   'gemini-3.1-pro-preview': { input: 2,    output: 12 },
   'gemini-3.5-flash-lite':  { input: 0.3,  output: 2.5 },
+  'deepseek-flash':         { input: 0.44, output: 1.32, cacheRead: 0.014 }, // provider's current id (2026-10); deepseek-v4-flash below is the retired alias
   'deepseek-v4-flash':      { input: 0.44, output: 1.32, cacheRead: 0.014 },
   'deepseek-v4-pro':        { input: 1.32, output: 3.96, cacheRead: 0.044 },
   'kimi-k3':                { input: 2.78, output: 13.9, cacheRead: 0.28 },

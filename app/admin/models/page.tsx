@@ -456,11 +456,11 @@ export default function AdminModelsPage() {
                       <div className="font-mono text-[10.5px] uppercase tracking-eyebrow" style={{ color: '#B91C1C' }}>{zh ? '厂商列表里已没有 —— 点该行的「测试」确认，失败就停用' : 'No longer in the provider listing — run that row\'s test; disable if it fails'}</div>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {p.retired.map((id) => (
-                          <span key={id} className="inline-flex items-center gap-1">
+                          <span key={id} className="inline-flex max-w-full flex-wrap items-center gap-1">
                             <span className="rounded-md px-2 py-1 font-mono text-[11px]" style={{ background: 'rgba(220,38,38,0.08)', color: '#B91C1C' }}>{id}</span>
                             <button type="button" className="text-[11px] text-brand hover:underline disabled:opacity-40" disabled={!!added[id]?.busy} onClick={() => testModel(id)}>{zh ? '测试' : 'Test'}</button>
                             <button type="button" className="text-[11px] hover:underline disabled:opacity-40" style={{ color: '#B91C1C' }} disabled={!!added[id]?.busy} onClick={() => disableRetired(id)}>{added[id]?.ok ? (zh ? '已停用' : 'Disabled') : (zh ? '停用' : 'Disable')}</button>
-                            {testing[id] && !testing[id].busy && <span className="text-[10.5px] text-body-3">{testing[id].text}</span>}
+                            {testing[id] && !testing[id].busy && <span className="min-w-0 basis-full break-all text-[10.5px] text-body-3">{testing[id].text}</span>}
                           </span>
                         ))}
                       </div>
@@ -593,7 +593,8 @@ export default function AdminModelsPage() {
                       <div className="font-semibold">{m.label}{m.builtin && <span className="ml-1.5 rounded px-1 py-px font-mono text-[9px] text-body-3" style={{ background: 'rgba(0,0,0,0.05)' }}>builtin</span>}</div>
                       <div className="break-all font-mono text-[11px] text-body-3">{m.id}</div>
                       {m.note && <div className="mt-0.5 break-words text-[11px] text-body-3">{m.note}</div>}
-                      {t && !t.busy && <div className="mt-1 text-[11px] font-semibold" style={{ color: t.ok ? '#047857' : '#DC2626' }}>{t.ok ? '✓ ' : '✕ '}{t.text}</div>}
+                      {/* Upstream errors are one long JSON string with no spaces: wrap at any character so the row never widens the table. */}
+                      {t && !t.busy && <div className="mt-1 break-all text-[11px] font-semibold" style={{ color: t.ok ? '#047857' : '#DC2626' }}>{t.ok ? '✓ ' : '✕ '}{t.text}</div>}
                     </td>
                     <td className="px-3 py-2.5">
                       <div>{PROVIDER_KEYS[m.apiKeyEnv]?.label || m.provider}</div>
