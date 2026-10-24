@@ -2,6 +2,7 @@
 
 import { useUnreadMessages } from '@/lib/messages/unread'
 import { isRegistrationLive } from '@/lib/agentProfile'
+import { screeningHrefFor } from '@/lib/screeningHref'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
@@ -70,6 +71,8 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   // 2026-10-12, P1-5). While the hats load the header commits to no identity: a grey「我是…」,
   // no「当前：…」chip, a placeholder where the identity rows go. Visitors are unaffected.
   const identityPending = home.signedIn && hats.loading
+  // Straight into the workspace for landlords / live agents — no landing-page flash (2026-10-23).
+  const screeningHref = screeningHrefFor(home.signedIn, hats)
 
   // The menu names hats, never assistants: 「当前：房东」「房东工作台」「租客 / 房东 / 经纪」
   // (user 2026-09-25: the assistant names — Atlas, Nova and the like — made it unclear who the
@@ -309,7 +312,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
           <NavLink i18nKey="nav.platform" href="/platform" active={isActive('/platform') || isActive('/stayloop-api')} />
           <NavLink i18nKey="nav.listings" href="/listings" active={isActive('/listings')} />
           <NavLink i18nKey="nav.pricing" href="/pricing" active={isActive('/pricing')} />
-          <NavLink i18nKey="nav.screening" href="/screening" active={isActive('/screening')} />
+          <NavLink i18nKey="nav.screening" href={screeningHref} active={isActive('/screening')} />
         </nav>
 
         {/* Right side — avatar + hamburger (messages live in the hamburger since 2026-09-30) */}
@@ -366,7 +369,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                   <Link href="/platform" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.platform')}</Link>
                   <Link href="/listings" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.listings')}</Link>
                   <Link href="/pricing" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.pricing')}</Link>
-                  <Link href="/screening" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.screening')}</Link>
+                  <Link href={screeningHref} onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.screening')}</Link>
                   <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
                 </div>
                 )}
@@ -503,7 +506,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                             { href: '/platform', label: t('nav.platform') },
                             { href: '/listings', label: t('nav.listings') },
                             { href: '/pricing', label: t('nav.pricing') },
-                            { href: '/screening', label: t('nav.screening') },
+                            { href: screeningHref, label: t('nav.screening') },
                             ...PRODUCT_ITEMS.map((item) => ({ href: item.href, label: `${t(item.key)} · ${item.tag[lang]}` })),
                           ].map((l) => (
                             <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)} className="block py-2 pl-[46px] pr-4 text-[13.5px] text-[#444] transition hover:bg-[#F7F7F7]">{l.label}</Link>
