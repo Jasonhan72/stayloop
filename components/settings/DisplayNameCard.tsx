@@ -5,6 +5,7 @@
 // like an address, a long number, or "Stayloop". Without one, others see the
 // role word (房东 / 租客).
 import { useEffect, useState } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -13,15 +14,16 @@ import { cleanDisplayName } from '@/lib/displayName'
 
 export default function DisplayNameCard({ zh }: { zh: boolean }) {
   const auth = useAuth()
-  const [value, setValue] = useState('')
-  const [saved, setSaved] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState<string | null>(null)
-  useEffect(() => {
+  const stored = () => {
     const md = (auth.user?.user_metadata ?? {}) as Record<string, unknown>
     const v = [md.display_name, md.full_name, md.name].find((x) => typeof x === 'string' && x.trim()) as string | undefined
-    setValue(v ?? ''); setSaved(v ?? '')
-  }, [auth.user])
+    return v ?? ''
+  }
+  const [value, setValue] = useState(stored)
+  const [saved, setSaved] = useState<string | null>(stored)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  useOnChange(auth.user, () => { const v = stored(); setValue(v); setSaved(v) })
   if (!auth.user) return null
   async function save() {
     const v = cleanDisplayName(value)

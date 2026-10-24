@@ -8,6 +8,7 @@
 // sentence — send it, or drop it into the composer to edit. No model call
 // until the send.
 import { useEffect, useRef, useState } from 'react'
+import { useSyncRef } from '@/lib/ui/useLatest'
 import type { ChatAttachment } from '@/lib/agent/types'
 import { ANSWER_EMPTY, composeIntake, isAnswered, queryFor, type IntakeAnswers, type IntakeSpec, type Lang, type StepAnswer } from '@/lib/agent/intake'
 import { ATTACH_ACCEPT, ATTACH_MAX_FILES, readFilesAsAttachments } from '@/lib/agent/attachments'
@@ -52,8 +53,8 @@ export default function IntakeCard({
   // it was scheduled on — a stale timer used to throw the user forward after
   // they had pressed Back (audit 2026-10-12 P2-2: one step skipped).
   const autoRef = useRef<{ t: ReturnType<typeof setTimeout>; at: number } | null>(null)
-  const idxRef = useRef(0)
-  idxRef.current = review ? -1 : idx
+  const idxRef = useRef(review ? -1 : idx)
+  useSyncRef(idxRef, review ? -1 : idx)
   const cancelAuto = () => { if (autoRef.current) { clearTimeout(autoRef.current.t); autoRef.current = null } }
   useEffect(() => cancelAuto, [])
 

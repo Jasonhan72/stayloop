@@ -9,6 +9,7 @@ import { cardThreadId } from '@/lib/agent/threadCards'
 import { ANON_TURNS_PER_HOUR } from './anonLimits'
 import { notifyPendingChanged } from '@/lib/agent/pendingCount'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSyncRef } from '@/lib/ui/useLatest'
 import { LISTINGS_PAGE } from '@/lib/agent/listingPaging'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -175,17 +176,17 @@ export type UseAgentSessionOptions = {
 export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = {}): UseAgentSession {
   const { loading: authLoading, user } = useAuth()
   const resumeOptRef = useRef(opts.resumeApproved !== false)
-  resumeOptRef.current = opts.resumeApproved !== false
+  useSyncRef(resumeOptRef, opts.resumeApproved !== false)
   const { lang } = useT()
   // Read through a ref inside stable callbacks so a language switch doesn't
   // recreate them (and re-trigger the load effects).
   const langRef = useRef<Lang>(lang)
-  langRef.current = lang
+  useSyncRef(langRef, lang)
   const [loading, setLoading] = useState(true)
   const [live, setLive] = useState(false)
   // Callbacks captured before the live re-render (a resumed countdown) read this, not the closure.
-  const liveRef = useRef(false)
-  liveRef.current = live
+  const liveRef = useRef(live)
+  useSyncRef(liveRef, live)
   const [data, setData] = useState<AgentSessionResponse | null>(null)
   const [status, setStatus] = useState<AgentStatus>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -206,14 +207,16 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
   // Cards whose execute call is in flight (a resume or refresh must not show them as stalled).
   const runningRef = useRef<Set<string>>(new Set())
   const resumedRef = useRef(false)
+  // Declared here (read by the load effect below), pointed at resumeApproved once that callback exists.
+  const resumeRef = useRef<(rows: DecidedAction[]) => void>(() => {})
   // Read inside stable callbacks: the cards on screen and the memories the next turn sends.
-  const actionsRef = useRef<PendingAction[]>([])
-  actionsRef.current = data?.pendingActions ?? []
-  const memoriesRef = useRef<MemoryItem[]>([])
-  memoriesRef.current = data?.memories ?? []
+  const actionsRef = useRef<PendingAction[]>(data?.pendingActions ?? [])
+  useSyncRef(actionsRef, data?.pendingActions ?? [])
+  const memoriesRef = useRef<MemoryItem[]>(data?.memories ?? [])
+  useSyncRef(memoriesRef, data?.memories ?? [])
   const memReloadRef = useRef<Promise<MemoryItem[]> | null>(null)
-  const messagesRef = useRef<ChatMessage[]>([])
-  messagesRef.current = messages
+  const messagesRef = useRef<ChatMessage[]>(messages)
+  useSyncRef(messagesRef, messages)
   const settled = useRef(false)
   const msgSeq = useRef(0)
   const nextId = () => `m${++msgSeq.current}`
@@ -390,7 +393,10 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
     if (id) notifyActivityChanged()
   }, [ensureThread])
   const persistRef = useRef(persistThread)
-  persistRef.current = persistThread
+  useSyncRef(persistRef, persistThread)
+  // `send` reads the latest ensureThread without listing it (its identity follows the thread id).
+  const ensureThreadRef = useRef(ensureThread)
+  useSyncRef(ensureThreadRef, ensureThread)
   const flushThread = useCallback(() => {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
     if (chatScopeRef.current !== 'anon' && threadIdRef.current && messagesRef.current.length > 1 && messagesRef.current !== lastAppliedRef.current) void saveThread(getSupabaseBrowser(), threadIdRef.current, messagesRef.current)
@@ -700,8 +706,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       setData((prev) => (prev ? { ...prev, pendingActions: [...prev.pendingActions.filter((a) => !ids.has(a.id)), ...stalled] } : prev))
     }
   }, [scheduleExecution])
-  const resumeRef = useRef(resumeApproved)
-  resumeRef.current = resumeApproved
+  useSyncRef(resumeRef, resumeApproved)
 
   // 现在执行 on a card that was approved but has not run — no second undo window (it already had one).
   const executeNow = useCallback(async (actionId: string, option?: 'A' | 'B'): Promise<DecideOutcome> => {
@@ -921,7 +926,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
           const stageLabel = WORKFLOW_STAGES[role].find((s) => s.key === data.workflow.current_stage)?.label[uiLang]
           // The thread row exists before the turn is audited, so the activity
           // log can point back at this conversation.
-          const tid = await ensureThread([...messagesRef.current.filter((m) => m.id !== userMsg.id), userMsg])
+          const tid = await ensureThreadRef.current([...messagesRef.current.filter((m) => m.id !== userMsg.id), userMsg])
           sentThread = tid
           const turn = await runAgentTurn({
             lang: uiLang,

@@ -188,7 +188,7 @@ export default function AgentEarningsPage() {
       })
       const json = await res.json()
       if (res.ok && json.url) {
-        window.location.href = json.url
+        window.location.assign(json.url)
         return
       }
       console.warn('connect onboard failed', json?.error)
@@ -215,7 +215,7 @@ export default function AgentEarningsPage() {
       })
       const json = await res.json()
       if (res.ok && json.url) {
-        window.location.href = json.url
+        window.location.assign(json.url)
         return
       }
       if (json?.paid) {

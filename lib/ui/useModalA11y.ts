@@ -3,12 +3,13 @@
 // What every sheet / drawer here needs (2026-10-04): Esc closes it, Tab stays inside it,
 // and focus goes back to whatever opened it when it closes.
 import { useEffect, useRef, type RefObject } from 'react'
+import { useSyncRef } from '@/lib/ui/useLatest'
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 export function useModalA11y(open: boolean, onClose: () => void, ref: RefObject<HTMLElement | null>): void {
   const closeRef = useRef(onClose)
-  closeRef.current = onClose
+  useSyncRef(closeRef, onClose)
   useEffect(() => {
     if (!open) return
     const opener = document.activeElement as HTMLElement | null

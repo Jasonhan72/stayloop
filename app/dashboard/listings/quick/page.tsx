@@ -46,8 +46,10 @@ export default function QuickListingPage() {
   const [address, setAddress] = useState('')
   const [unit, setUnit] = useState('')
   const [rent, setRent] = useState('')
-  const [province, setProvince] = useState<ProvinceCode>('ON')
-  const [provincePicked, setProvincePicked] = useState(false)
+  // Follows the address until the landlord picks one (derived, not synced in an effect).
+  const [pickedProvince, setPickedProvince] = useState<ProvinceCode | null>(null)
+  const province: ProvinceCode = pickedProvince ?? detectListingProvince(address, cityFromAddress(address))
+  const provincePicked = pickedProvince !== null
   // Stored photos (≤1600px) and the smaller copies the model reads (≤1024px).
   const [photos, setPhotos] = useState<{ store: string; vision: string }[]>([])
   const [reading, setReading] = useState(false)
@@ -69,7 +71,6 @@ export default function QuickListingPage() {
   const disclosedRef = useRef(false)
   const needsDisclosure = () => !!registrant.profile && province === 'ON' && !disclosedRef.current
 
-  useEffect(() => { if (!provincePicked) setProvince(detectListingProvince(address, cityFromAddress(address))) }, [address, provincePicked])
   const city = useMemo(() => cityFromAddress(address) || 'Toronto', [address])
 
   // C-S3-6: look for a listing at the same address + unit as soon as they are filled in (debounced),
@@ -138,11 +139,13 @@ export default function QuickListingPage() {
     amenities: AMENITY_VOCAB.filter((a) => form.amenities.includes(a.id)).map((a) => ({ zh: a.zh, en: a.en })),
     utilities: UTILITIES.filter((u) => form.utilities_included.includes(u.id)).map((u) => ({ zh: u.zh, en: u.en })),
   }), [address, unit, city, rent, form.property_type, form.bedrooms, form.bathrooms, form.sqft, form.lease_term, form.pets_allowed, form.smoking_policy, form.furnished, form.amenities, form.utilities_included])
-  useEffect(() => { if (!copyEdited) setForm((f) => ({ ...f, title: generatedCopy.title, description: generatedCopy.description })) }, [generatedCopy, copyEdited])
+  // Shown / published copy: the landlord's edit once they touched it, else the generated text.
+  const copy = copyEdited ? { title: form.title, description: form.description } : generatedCopy
+  const editCopy = (patch: { title?: string; description?: string }) => { setCopyEdited(true); setForm({ ...form, title: copy.title, description: copy.description, ...patch }) }
 
   const petGuide = petGuidanceFor(province, lang)
   const depositGuide = depositGuidanceFor(province, parseInt(rent) || null, parseInt(form.deposit) || null, lang)
-  const compliance = checkListingComplianceFor(province, { monthly_rent: parseInt(rent) || null, deposit: parseInt(form.deposit) || null, description: form.description, pets_allowed: form.pets_allowed || null })
+  const compliance = checkListingComplianceFor(province, { monthly_rent: parseInt(rent) || null, deposit: parseInt(form.deposit) || null, description: copy.description, pets_allowed: form.pets_allowed || null })
 
   function row(slug: string) {
     return buildListingRow({
@@ -151,7 +154,7 @@ export default function QuickListingPage() {
       sqft: parseInt(form.sqft) || null, deposit: parseInt(form.deposit) || null, amenities: form.amenities,
       lease_term: form.lease_term.trim() || undefined, pets_allowed: form.pets_allowed || undefined, smoking_policy: form.smoking_policy || undefined,
       furnished: form.furnished === '' ? undefined : form.furnished === 'yes', utilities_included: form.utilities_included,
-      available_date: form.available_date || undefined, title: form.title.trim() || undefined, description: form.description.trim() || undefined,
+      available_date: form.available_date || undefined, title: copy.title.trim() || undefined, description: copy.description.trim() || undefined,
     }, { landlordId: landlord!.landlordId, slug, slim: true, photos: photos.map((p) => p.store) })
   }
 
@@ -208,7 +211,7 @@ export default function QuickListingPage() {
               <label className="block"><span className="text-[13px] font-semibold">{zh ? '单元号' : 'Unit'}</span><input className="sl-input mt-1 w-full" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="605" /></label>
               <label className="block"><span className="text-[13px] font-semibold">{zh ? '月租（$）' : 'Rent ($/mo)'}</span><input className="sl-input mt-1 w-full" inputMode="numeric" value={rent} onChange={(e) => setRent(e.target.value.replace(/[^0-9]/g, ''))} placeholder="2800" data-testid="quick-rent" /></label>
               <label className="block"><span className="text-[13px] font-semibold">{zh ? '省份' : 'Province'}</span>
-                <select className="sl-input mt-1 w-full" value={province} onChange={(e) => { setProvince(e.target.value as ProvinceCode); setProvincePicked(true) }}>
+                <select className="sl-input mt-1 w-full" value={province} onChange={(e) => setPickedProvince(e.target.value as ProvinceCode)}>
                   {provinceOptions(lang).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </label>
@@ -324,8 +327,8 @@ export default function QuickListingPage() {
             <div className="sl-card p-6">
               <h2 className="text-[16px] font-bold">{zh ? '标题与描述' : 'Title and description'}</h2>
               <p className="mt-1 text-[12px] text-body-3">{zh ? '按你确认的字段生成，只写填过的事；随便改。' : 'Generated from the facts you confirmed, nothing else; edit freely.'}</p>
-              <input className="sl-input mt-3 w-full" value={form.title} onChange={(e) => { setCopyEdited(true); setForm({ ...form, title: e.target.value }) }} />
-              <textarea className="sl-input mt-2 w-full" rows={6} value={form.description} onChange={(e) => { setCopyEdited(true); setForm({ ...form, description: e.target.value }) }} />
+              <input className="sl-input mt-3 w-full" value={copy.title} onChange={(e) => editCopy({ title: e.target.value })} />
+              <textarea className="sl-input mt-2 w-full" rows={6} value={copy.description} onChange={(e) => editCopy({ description: e.target.value })} />
               {copyEdited && <button type="button" className="mt-1 text-[11.5px] text-brand underline" onClick={() => setCopyEdited(false)}>{zh ? '重新按字段生成' : 'Regenerate from the fields'}</button>}
             </div>
 

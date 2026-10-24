@@ -57,6 +57,16 @@ type MyHousehold = {
 /** The creator may correct an import until the other side joins (any other active member) and confirms it. */
 const correctable = (h: MyHousehold) => h.relation === 'member' && h.is_creator && !h.verified && h.source === 'imported' && h.status === 'active' && !h.others_joined
 
+function formFromHousehold(h: MyHousehold): FormState {
+  return {
+    address: h.address || '', unit: h.unit || '', city: h.city || '',
+    monthly_rent: h.monthly_rent != null ? String(h.monthly_rent) : '',
+    rent_due_day: h.rent_due_day != null ? String(h.rent_due_day) : '1',
+    start_date: h.start_date || '', end_date: h.end_date || '',
+    tenant_name: h.tenant_name || '', tenant_email: h.tenant_email || '',
+  }
+}
+
 export default function LeaseImportPage() {
   const { user, loading, role: rememberedRole } = useAuth()
   const hats = useHats()
@@ -104,19 +114,9 @@ export default function LeaseImportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
-  function formFromHousehold(h: MyHousehold): FormState {
-    return {
-      address: h.address || '', unit: h.unit || '', city: h.city || '',
-      monthly_rent: h.monthly_rent != null ? String(h.monthly_rent) : '',
-      rent_due_day: h.rent_due_day != null ? String(h.rent_due_day) : '1',
-      start_date: h.start_date || '', end_date: h.end_date || '',
-      tenant_name: h.tenant_name || '', tenant_email: h.tenant_email || '',
-    }
-  }
-
   async function uploadInto(id: string, attach: boolean) {
     // Unique names: an existing household's earlier file is never overwritten.
-    const stamp = Date.now().toString(36)
+    const stamp = crypto.randomUUID().slice(0, 8)
     for (let i = 0; i < files.length; i++) {
       const f = files[i]
       const ext = f.name.split('.').pop()?.toLowerCase() || 'pdf'

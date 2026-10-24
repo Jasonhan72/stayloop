@@ -32,7 +32,7 @@ import { displayAiName } from '@/lib/agent/assistantName'
 import type { AgentRole } from '@/lib/agent/types'
 
 function ScheduledLine({ id, title, executeAt, onUndo, zh }: { id: string; title: string; executeAt: number; onUndo: (id: string) => void | Promise<void>; zh: boolean }) {
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
   const left = Math.max(0, Math.ceil((executeAt - now) / 1000))
   return (

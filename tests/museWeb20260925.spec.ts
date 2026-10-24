@@ -75,8 +75,9 @@ describe('assistant panel', () => {
   })
   it('default open, remembered per browser, never decided on the server render', () => {
     const hook = read('lib/agent/useAssistantPanel.ts')
-    expect(hook).toContain('useState(true)')
-    expect(hook).toContain("localStorage.getItem(KEY) === 'closed'")
+    // Default open = the external store's fallback; nothing is decided in an effect any more (react-hooks 7 clean-up).
+    expect(hook).not.toContain('useEffect(')
+    expect(hook).toContain("useStoredChoice<'open' | 'closed'>(KEY, 'open', ['open', 'closed'])")
     expect(hook).toContain("const KEY = 'sl-assistant-panel'")
   })
   it('「最近替你办完」 lists only outcomes, labels every production action, and /agent/audit exists for the link', async () => {

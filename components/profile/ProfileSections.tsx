@@ -9,6 +9,7 @@
 // tenancy both sides confirmed on Stayloop (lib/profile/history.ts) earns
 //「已核验」. No SIN, no protected grounds, no credit / court placeholder.
 import { useEffect, useState } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import type { ApplicantProfile, ProfileHistoryEntry } from '@/lib/profile/types'
 import { EMPLOYMENT_STATUS_LABEL, stayloopRentLine, type PackVerified, type StayloopSegment } from '@/lib/profile/exportPack'
 import { supabase } from '@/lib/supabase'
@@ -101,8 +102,9 @@ export default function ProfileSections(p: ProfileSectionsProps) {
 }
 
 function IdentitySection({ zh, signedIn, profile, verified, onSave }: ProfileSectionsProps) {
-  const [d, setD] = useState({ first_name: '', last_name: '', phone: '', current_address: '', date_of_birth: '' })
-  useEffect(() => { setD({ first_name: str(profile?.first_name), last_name: str(profile?.last_name), phone: str(profile?.phone), current_address: str(profile?.current_address), date_of_birth: str(profile?.date_of_birth).slice(0, 10) }) }, [profile])
+  const fromProfile = () => ({ first_name: str(profile?.first_name), last_name: str(profile?.last_name), phone: str(profile?.phone), current_address: str(profile?.current_address), date_of_birth: str(profile?.date_of_birth).slice(0, 10) })
+  const [d, setD] = useState(fromProfile)
+  useOnChange(profile, () => setD(fromProfile()))
   const s = useSection(onSave)
   return (
     <SectionShell title={zh ? '① 身份' : '① Identity'} zh={zh} signedIn={signedIn} busy={s.busy} saved={s.saved} err={s.err} meta={zh ? '不收 SIN · 不问任何受保护特征' : 'No SIN · no protected grounds'}
@@ -121,14 +123,13 @@ function IdentitySection({ zh, signedIn, profile, verified, onSave }: ProfileSec
 }
 
 function EmploymentSection({ zh, signedIn, profile, verified, onSave }: ProfileSectionsProps) {
-  const [d, setD] = useState({ employment_status: '', employer_name: '', job_title: '', employment_start_date: '', monthly_income: '', employer_phone: '', employer_email: '' })
-  useEffect(() => {
-    setD({
+  const fromProfile = () => ({
       employment_status: str(profile?.employment_status), employer_name: str(profile?.employer_name), job_title: str(profile?.job_title),
       employment_start_date: str(profile?.employment_start_date).slice(0, 10), monthly_income: typeof profile?.monthly_income === 'number' ? String(profile.monthly_income) : '',
       employer_phone: str(profile?.employer_phone), employer_email: str(profile?.employer_email),
     })
-  }, [profile])
+  const [d, setD] = useState(fromProfile)
+  useOnChange(profile, () => setD(fromProfile()))
   const s = useSection(onSave)
   return (
     <SectionShell title={zh ? '② 雇佣与收入' : '② Employment & income'} zh={zh} signedIn={signedIn} busy={s.busy} saved={s.saved} err={s.err}
@@ -312,10 +313,9 @@ function HistoryForm({ zh, d, setD, busy, onSave, onCancel }: { zh: boolean; d: 
 }
 
 function OtherSection({ zh, signedIn, profile, onSave }: ProfileSectionsProps) {
-  const [d, setD] = useState({ num_occupants: '1', has_pets: false, pet_details: '', is_smoker: false, additional_notes: '' })
-  useEffect(() => {
-    setD({ num_occupants: typeof profile?.num_occupants === 'number' ? String(profile.num_occupants) : '1', has_pets: !!profile?.has_pets, pet_details: str(profile?.pet_details), is_smoker: !!profile?.is_smoker, additional_notes: str(profile?.additional_notes) })
-  }, [profile])
+  const fromProfile = () => ({ num_occupants: typeof profile?.num_occupants === 'number' ? String(profile.num_occupants) : '1', has_pets: !!profile?.has_pets, pet_details: str(profile?.pet_details), is_smoker: !!profile?.is_smoker, additional_notes: str(profile?.additional_notes) })
+  const [d, setD] = useState(fromProfile)
+  useOnChange(profile, () => setD(fromProfile()))
   const s = useSection(onSave)
   return (
     <SectionShell title={zh ? '④ 其他' : '④ Other'} zh={zh} signedIn={signedIn} busy={s.busy} saved={s.saved} err={s.err}

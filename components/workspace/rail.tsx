@@ -8,6 +8,7 @@
 // the shell itself stay in components/WorkspaceShell.tsx.
 import { useUnreadMessages } from '@/lib/messages/unread'
 import { ReactNode, useEffect, useRef, useState } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import { useModalA11y } from '@/lib/ui/useModalA11y'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -97,7 +98,7 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
     window.addEventListener(PENDING_CHANGED_EVENT, load)
     return () => { cancelled = true; window.removeEventListener(PENDING_CHANGED_EVENT, load) }
   }, [auth.loading, auth.user, role, path])
-  useEffect(() => { setMore(false) }, [path])
+  useOnChange(path, () => setMore(false))
   const sheetRef = useRef<HTMLDivElement>(null)
   useModalA11y(more, () => setMore(false), sheetRef)
   // Install hint + service-worker registration live here because every

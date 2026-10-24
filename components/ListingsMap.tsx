@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useSyncRef } from '@/lib/ui/useLatest'
 import { useT } from '@/lib/i18n'
 
 /**
@@ -158,11 +159,16 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Latest props for listeners registered once (map 'idle').
-  const listingsRef = useRef(listings); listingsRef.current = listings
-  const onOpenGroupRef = useRef(onOpenGroup); onOpenGroupRef.current = onOpenGroup
-  const onViewportRef = useRef(onViewport); onViewportRef.current = onViewport
-  const onBoundsRef = useRef(onBounds); onBoundsRef.current = onBounds
-  const autoFitRef = useRef(autoFit); autoFitRef.current = autoFit
+  const listingsRef = useRef(listings)
+  useSyncRef(listingsRef, listings)
+  const onOpenGroupRef = useRef(onOpenGroup)
+  useSyncRef(onOpenGroupRef, onOpenGroup)
+  const onViewportRef = useRef(onViewport)
+  useSyncRef(onViewportRef, onViewport)
+  const onBoundsRef = useRef(onBounds)
+  useSyncRef(onBoundsRef, onBounds)
+  const autoFitRef = useRef(autoFit)
+  useSyncRef(autoFitRef, autoFit)
   const fittedOnceRef = useRef(false)
   // Set by a pointer / wheel / key gesture inside the map; the map's own fitBounds never sets it, so the
   // page can tell a user pan from the initial fit (prod 2026-10-11: the fit alone made the list say "in map area").
@@ -174,9 +180,12 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
     for (const ev of ['mousedown', 'wheel', 'touchstart', 'keydown']) el.addEventListener(ev, mark, { passive: true })
     return () => { for (const ev of ['mousedown', 'wheel', 'touchstart', 'keydown']) el.removeEventListener(ev, mark) }
   }, [])
-  const onPickRef = useRef(onPick); onPickRef.current = onPick
-  const onOpenRef = useRef(onOpen); onOpenRef.current = onOpen
-  const bottomInsetRef = useRef(bottomInset); bottomInsetRef.current = bottomInset
+  const onPickRef = useRef(onPick)
+  useSyncRef(onPickRef, onPick)
+  const onOpenRef = useRef(onOpen)
+  useSyncRef(onOpenRef, onOpen)
+  const bottomInsetRef = useRef(bottomInset)
+  useSyncRef(bottomInsetRef, bottomInset)
   const clustersRef = useRef<any[]>([])
   // Cluster pass bookkeeping: which markers are on the map, and the last
   // cluster layout — so an idle that changes nothing touches nothing.

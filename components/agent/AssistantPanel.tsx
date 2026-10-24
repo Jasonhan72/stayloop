@@ -13,6 +13,7 @@
 // Nothing under the name: no status line, no hat marker (user 2026-09-25).
 // Approvals still happen only on the cards in the conversation.
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -95,7 +96,7 @@ export default function AssistantPanel({
   const [renaming, setRenaming] = useState(false)
   const [nameDraft, setNameDraft] = useState(agentName)
   const [name, setName] = useState(agentName)
-  useEffect(() => { setName(agentName); setNameDraft(agentName) }, [agentName])
+  useOnChange(agentName, () => { setName(agentName); setNameDraft(agentName) })
   async function saveName() {
     const next = nameDraft.trim().slice(0, 20)
     setRenaming(false)

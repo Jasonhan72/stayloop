@@ -7,6 +7,7 @@
 // Enter sends, Shift+Enter inserts a newline.
 import { CATALOG_CACHE_KEY, CATALOG_CACHE_MS } from '@/lib/agent/modelCatalog'
 import { useEffect, useRef, useState } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { getSupabaseBrowser } from '@/lib/supabase'
@@ -53,14 +54,13 @@ export default function AgentInputBar({
   const [models, setModels] = useState<TurnModelState | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recRef = useRef<any>(null)
 
   // Draft → composer: put the text in, focus, and select the first 【…】
   // placeholder so typing replaces it.
+  useOnChange(draft, () => { if (draft) setValue(draft.text) })
   useEffect(() => {
     if (!draft) return
-    setValue(draft.text)
     const place = () => {
       const ta = taRef.current
       if (!ta) return
@@ -79,7 +79,6 @@ export default function AgentInputBar({
   }, [draft])
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     setVoiceOk(!!SR)
   }, [])
@@ -164,7 +163,6 @@ export default function AgentInputBar({
   }
 
   const toggleVoice = () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SR) return
     if (recording) {
@@ -176,7 +174,6 @@ export default function AgentInputBar({
     rec.interimResults = true
     rec.continuous = false
     const base = value
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onresult = (e: any) => {
       let t = ''
       for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript

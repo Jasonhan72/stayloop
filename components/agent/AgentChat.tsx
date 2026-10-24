@@ -3,6 +3,7 @@
 // Claude-style conversation panel for a Personal Agent workspace: a scrolling
 // message thread (user ↔ agent bubbles) with the input pinned at the bottom.
 import { useEffect, useRef, useState } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import { useT } from '@/lib/i18n'
 import AgentInputBar, { type ComposerDraft } from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
@@ -224,19 +225,17 @@ export default function AgentChat({
   // Per-conversation UI state: the collapsed "decided" lines, listing page
   // offsets (message ids repeat across threads) and an unsent chip template
   // belong to the thread they were made in (review 2026-09-25).
-  useEffect(() => {
+  useOnChange(currentThreadId, () => {
     setIntake(null)
     setDecided([])
     setListingOffset({})
     setChipDraft(null)
-  }, [currentThreadId])
-  useEffect(() => {
-    if (messages.length > 1) setIntake(null)
-  }, [messages.length])
-
+  })
+  // A reply closes the guided card (own state, adjusted in the render where the count changes).
+  useOnChange(messages.length, () => { if (messages.length > 1) setIntake(null) })
+  useOnChange(`${messages.length}:${thinking}`, () => setShowJump(false))
   useEffect(() => {
     scrollToEnd()
-    setShowJump(false)
   }, [messages.length, thinking])
 
   return (
@@ -656,9 +655,10 @@ const THINKING_STAGES: { zh: string; en: string }[] = [
 ]
 
 function ThinkingIndicator({ status, lang }: { status: AgentStatus; lang: 'zh' | 'en' }) {
-  const [stage, setStage] = useState(0)
+  const baseStage = status === 'understanding' ? 0 : 1
+  const [stage, setStage] = useState(baseStage)
+  useOnChange(status, () => setStage(baseStage))
   useEffect(() => {
-    setStage(status === 'understanding' ? 0 : 1)
     if (status !== 'working') return
     // Advance 思考中 → 核对数据 → 整理建议, then hold on the last stage.
     const timers = [
@@ -700,7 +700,7 @@ function ThinkingIndicator({ status, lang }: { status: AgentStatus; lang: 'zh' |
 // send).
 type Decision = DecidedRowKind
 function ScheduledRow({ id, title, decision, scheduled, onUndo, zh }: { id: string; title: string; decision: Decision; scheduled?: { title: string; executeAt: number }; onUndo?: (id: string) => void | Promise<void>; zh: boolean }) {
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!scheduled) return
     const t = setInterval(() => setNow(Date.now()), 1000)

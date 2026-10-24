@@ -145,7 +145,7 @@ export default function VerifyPage() {
           : (zh ? `无法启动：${data?.detail || data?.error || res.status}` : `Could not start: ${data?.detail || data?.error || res.status}`))
       setBusy(null); return
     }
-    if (step === 'id' && data.url) { window.location.href = data.url; return }
+    if (step === 'id' && data.url) { window.location.assign(data.url); return }
     if (step === 'bank' && data.iframe_url) { setBankFrame(data.iframe_url) }
     if (step === 'credit' && data.form === 'credit') {
       const [first, ...rest] = (view && view !== 'missing' && view.tenant_name ? view.tenant_name : '').split(/\s+/).filter(Boolean)

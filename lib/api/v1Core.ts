@@ -368,7 +368,7 @@ export type RentBenchmarkOut = {
 }
 
 /** The slice of a supabase-js client the benchmark reader needs (service role or anon — the table is public-read). */
-export type BenchmarkClient = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+export type BenchmarkClient = { from: (table: string) => any }
 
 type Row = { source: string; kind: string; period: string; area: string; bedrooms: number; avg_rent: number | string; prev_avg: number | string | null; quality: string | null }
 

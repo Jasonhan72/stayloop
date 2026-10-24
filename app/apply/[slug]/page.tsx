@@ -4,6 +4,7 @@
 import { useDocTitle } from '@/components/DocTitle'
 import { isTestListing, TEST_LISTING_LABEL } from '@/lib/listingVisibility'
 import { useState, useRef, useEffect } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import { prepareUploads } from '@/lib/screening/prepareUpload'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -235,12 +236,12 @@ export default function ApplyPage() {
   // British Columbia and Alberta have their own private-sector laws).
   // Not before the listing is read, so a Quebec listing never flashes the federal label either.
   const showPipeda = provinceKnown && (isOntario || /^Personal Information Protection and Electronic Documents Act/.test(rulesFor(province)?.privacyLaw.cite ?? ''))
-  useEffect(() => {
+  useOnChange(quebec, () => {
     if (!quebec) return
     setFiles((prev) => (prev.id.length ? { ...prev, id: [] } : prev))
     // Employment is volunteered only in Quebec: the status starts unanswered instead of pre-filled.
     setForm((f) => (f.employment_status === 'Full-time employed' ? { ...f, employment_status: '' } : f))
-  }, [quebec])
+  })
 
   function addFiles(kind: FileKind, fileList: FileList | null) {
     if (!fileList) return

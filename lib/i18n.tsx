@@ -1,5 +1,6 @@
 'use client'
 import { createContext, useContext, useEffect, useState, ReactNode, useLayoutEffect } from 'react'
+import { useStoredString, writeStoredString } from '@/lib/ui/useStoredChoice'
 
 export type Lang = 'en' | 'zh'
 export type Currency = 'CAD' | 'USD' | 'CNY' | 'EUR' | 'GBP' | 'JPY' | 'KRW' | 'INR' | 'HKD' | 'AUD'
@@ -663,19 +664,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // hydration but BEFORE the browser paints, so EN visitors still never see
   // Chinese, and nothing mismatches. (2026-09-07)
   const [lang, setLangState] = useState<Lang>('zh')
-  const [currency, setCurrencyState] = useState<Currency>('CAD')
+  // The stored currency is read through useSyncExternalStore (server snapshot = CAD, so the HTML matches).
+  const storedCurrency = useStoredString('stayloop_currency')
+  const currency: Currency = storedCurrency && CURRENCIES.some(c => c.code === storedCurrency) ? (storedCurrency as Currency) : 'CAD'
 
   useIsomorphicLayoutEffect(() => {
     const resolved = resolveInitialLang()
     if (resolved !== 'zh') setLangState(resolved)
   }, [])
 
-  useEffect(() => {
-    const storedCurrency = typeof window !== 'undefined' ? (localStorage.getItem('stayloop_currency') as Currency | null) : null
-    if (storedCurrency && CURRENCIES.some(c => c.code === storedCurrency)) {
-      setCurrencyState(storedCurrency)
-    }
-  }, [])
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -690,8 +687,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }
 
   const setCurrency = (c: Currency) => {
-    setCurrencyState(c)
-    if (typeof window !== 'undefined') localStorage.setItem('stayloop_currency', c)
+    writeStoredString('stayloop_currency', c)
   }
 
   const t = (key: string, varsOrFallback?: Record<string, string | number> | string) => {

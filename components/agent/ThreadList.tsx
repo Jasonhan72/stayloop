@@ -13,6 +13,7 @@
 // they reopen on that hat's page (its tools and data). This list is the only
 // place conversations are listed; the panel's 活动 tab is gone.
 import { useEffect, useRef, useState } from 'react'
+import { useStoredChoice } from '@/lib/ui/useStoredChoice'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
@@ -54,9 +55,9 @@ export default function ThreadList({ role, live, currentThreadId, onOpenThread, 
     searchRef.current?.focus()
     onFocused?.()
   }, [focusSearch, onFocused])
-  const [othersOpen, setOthersOpen] = useState(false)
-  useEffect(() => { try { if (localStorage.getItem(OTHERS_KEY) === 'open') setOthersOpen(true) } catch { /* private mode */ } }, [])
-  const toggleOthers = () => setOthersOpen((v) => { const n = !v; try { localStorage.setItem(OTHERS_KEY, n ? 'open' : 'closed') } catch { /* private mode */ } return n })
+  const [othersStored, setOthersStored] = useStoredChoice<'open' | 'closed'>(OTHERS_KEY, 'closed', ['open', 'closed'])
+  const othersOpen = othersStored === 'open'
+  const toggleOthers = () => setOthersStored(othersOpen ? 'closed' : 'open')
 
   // Re-read after a turn saves a conversation, and when another one opens.
   useEffect(() => {

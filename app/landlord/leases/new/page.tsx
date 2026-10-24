@@ -11,6 +11,7 @@
 // 法规，不要用安省的法规和说法」) gets no drafting form — that province's lease-form
 // rules from lib/provinces and the import path instead (ProvinceLeaseCard).
 import { useState, useEffect, Suspense } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
@@ -206,7 +207,7 @@ function NewLeasePageInner() {
   const sourceKey = [applicationParam, editParam, fromLeaseParam].map((p) => (p && UUID_RE.test(p) ? p : '')).join('|')
   const [resolvedKey, setResolvedKey] = useState<string | null>(null)
   const resolving = sourceKey !== '||' && resolvedKey !== sourceKey
-  useEffect(() => { setOutside(null) }, [sourceKey])
+  useOnChange(sourceKey, () => setOutside(null))
 
   useEffect(() => {
     if (authLoading || !landlord) return

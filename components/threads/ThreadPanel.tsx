@@ -10,6 +10,7 @@
 // marks. Attachments upload through /api/threads/upload (the server computes
 // the SHA-256) and open through /api/threads/attachment-url (access audited).
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSyncRef } from '@/lib/ui/useLatest'
 import { supabase } from '@/lib/supabase'
 import { stripNul } from '@/lib/screening/jsonSafe'
 import { useAuth } from '@/lib/useAuth'
@@ -113,7 +114,8 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   }, [tid, kind, refId, zh])
 
   const onMessagesRef = useRef(onMessages)
-  onMessagesRef.current = onMessages
+
+  useSyncRef(onMessagesRef, onMessages)
   const load = useCallback(async () => {
     if (!tid) { setMsgs([]); return }
     const [{ data: m }, { data: r }] = await Promise.all([

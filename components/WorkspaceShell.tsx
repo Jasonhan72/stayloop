@@ -2,7 +2,9 @@
 
 import { isRegistrationLive } from '@/lib/agentProfile'
 import RepresentingStrip from '@/components/delegations/RepresentingStrip'
-import React, { ReactNode, useEffect, useRef, useState } from 'react'
+import React, { ReactNode, useEffect, useRef, useState, useCallback } from 'react'
+import { useStoredChoice } from '@/lib/ui/useStoredChoice'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -138,10 +140,9 @@ function useDemoGate() {
   const path = usePathname() || ''
   const gate = lookupGate(path)
   const sampleNote = SAMPLE_NOTE[path] ?? null
-  const [showDemo, setShowDemo] = useState(false)
-  useEffect(() => {
-    try { setShowDemo(sessionStorage.getItem('sl-show-demo') === '1') } catch {}
-  }, [])
+  const [showDemoStored, setShowDemoStored] = useStoredChoice<'0' | '1'>('sl-show-demo', '0', ['0', '1'], 'session')
+  const showDemo = showDemoStored === '1'
+  const setShowDemo = useCallback((v: boolean) => setShowDemoStored(v ? '1' : '0'), [setShowDemoStored])
   return { gate, sampleNote, showDemo, setShowDemo }
 }
 
@@ -162,7 +163,7 @@ function DemoGate({ children, gate, showDemo, setShowDemo, liveSlot, role }: {
         <SampleBanner
           zh={zh}
           note={gate.note}
-          onExit={() => { try { sessionStorage.removeItem('sl-show-demo') } catch {}; setShowDemo(false) }}
+          onExit={() => setShowDemo(false)}
         />
         {children}
       </>
@@ -194,7 +195,7 @@ function GateEmptyState({ gate, zh, setShowDemo, hasLive, role }: { gate: NonNul
         </Link>
         <button
           className="rounded-xl border border-line-divider px-5 py-3 text-[13px] font-semibold text-body-2"
-          onClick={() => { try { sessionStorage.setItem('sl-show-demo', '1') } catch {}; setShowDemo(true) }}
+          onClick={() => setShowDemo(true)}
         >
           {zh ? '查看产品演示' : 'View product demo'}
         </button>
@@ -443,7 +444,7 @@ function Rail({ role }: { role: WorkspaceRole }) {
     const railRight = el.closest('nav')?.getBoundingClientRect().right ?? r.right
     setTip({ label, desc, x: railRight + 6, y: r.top + r.height / 2 })
   }
-  useEffect(() => { setTip(null) }, [path])
+  useOnChange(path, () => setTip(null))
   const tipHandlers = (label: string, desc?: string) => ({
     onMouseEnter: (e: React.MouseEvent<HTMLElement>) => showTip(e.currentTarget, label, desc),
     onMouseLeave: () => setTip(null),

@@ -5,6 +5,7 @@
 // pending_* markers) are folded away behind a count so the rail never reads
 // like a database dump.
 import { useEffect, useState } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import { useT } from '@/lib/i18n'
 import type { AgentRole, MemoryItem } from '@/lib/agent/types'
 import { applyMemoryEdit, formatMemoryValue, memoryEditFields, notifyMemoriesChanged, type MemoryEditField } from '@/lib/agent/memory'
@@ -73,7 +74,7 @@ export default function PrivateMemorySnapshot({
   // (notifyMemoriesChanged): the session re-reads user_memories, so the next turn's
   // prompt and hard constraints see the change and this prop comes back fresh (C3).
   const [memories, setMemories] = useState(memoriesProp)
-  useEffect(() => { setMemories(memoriesProp) }, [memoriesProp])
+  useOnChange(memoriesProp, () => setMemories(memoriesProp))
   const [editing, setEditing] = useState<string | null>(null)
   const [editFields, setEditFields] = useState<MemoryEditField[]>([])
   const [drafts, setDrafts] = useState<Record<string, string>>({})

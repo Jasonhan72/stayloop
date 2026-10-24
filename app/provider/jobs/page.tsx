@@ -91,11 +91,6 @@ export default function ProviderJobsPage() {
   const bannerCls = tone === 'expired' || tone === 'critical' ? 'border-red-200 bg-red-50 text-red-900' : tone === 'warn' ? 'border-amber-200 bg-amber-50 text-amber-900' : tone === 'notice' ? 'border-amber-100 bg-amber-50/60 text-amber-900' : 'border-brand/20 bg-brand/5 text-body'
   const credName = (k: string) => (zh ? CREDENTIAL_LABEL[k as CredentialKind]?.zh : CREDENTIAL_LABEL[k as CredentialKind]?.en) ?? k
   const coverage = (prov.trades as Trade[]).map((t) => ({ t, def: TRADES.find((x) => x.key === t), ...coverageLabel(t, creds, zh, new Date(), graceDays) }))
-  const tileCls = 'rounded-xl border border-line-divider bg-white p-3 text-left hover:bg-surface-chip'
-  const TILE = ({ href, n, label, sub, warn }: { href: string; n: string | number; label: string; sub?: string | null; warn?: boolean }) => (
-    <a href={href} className={tileCls}><div className={'text-[22px] font-extrabold tracking-tight ' + (warn ? 'text-danger' : '')}>{n}</div><div className="text-[12px] font-semibold text-body-2">{label}</div>{sub ? <div className="mt-0.5 text-[11px] text-body-3">{sub}</div> : null}</a>
-  )
-
   return (
     <Shell>
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -173,5 +168,12 @@ export default function ProviderJobsPage() {
       })}
       <p className="mt-8 text-[11px] text-body-3">{zh ? '完整地址在接单后显示、归档后隐藏；进入方式以房东发出的通知为准。已付款 / 已归档 / 婉拒 / 取消的工单在' : 'The full address shows after you accept and is hidden once the job is closed; entry follows the landlord’s notice. Paid / closed / declined / cancelled jobs are on '}<Link href="/provider/history" className="underline">{zh ? '历史页' : 'the history page'}</Link>{zh ? '。' : '.'}</p>
     </Shell>
+  )
+}
+
+const tileCls = 'rounded-xl border border-line-divider bg-white p-3 text-left hover:bg-surface-chip'
+function TILE({ href, n, label, sub, warn }: { href: string; n: string | number; label: string; sub?: string | null; warn?: boolean }) {
+  return (
+    <a href={href} className={tileCls}><div className={'text-[22px] font-extrabold tracking-tight ' + (warn ? 'text-danger' : '')}>{n}</div><div className="text-[12px] font-semibold text-body-2">{label}</div>{sub ? <div className="mt-0.5 text-[11px] text-body-3">{sub}</div> : null}</a>
   )
 }

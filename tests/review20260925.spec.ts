@@ -118,7 +118,7 @@ describe('conversation threads: loading is not a change; a reply lands in the th
   it('the chat disables input while a thread loads and resets per-thread UI state on switch', () => {
     const chat = read('components/agent/AgentChat.tsx')
     expect(chat).toContain('disabled={thinking || threadLoading}')
-    expect(chat).toMatch(/setDecided\(\[\]\)\s+setListingOffset\(\{\}\)\s+setChipDraft\(null\)\s+\}, \[currentThreadId\]\)/)
+    expect(chat).toMatch(/useOnChange\(currentThreadId, \(\) => \{\s+setIntake\(null\)\s+setDecided\(\[\]\)\s+setListingOffset\(\{\}\)\s+setChipDraft\(null\)\s+\}\)/)
   })
   it('hidden panels do not fetch; the activity event name has one home', () => {
     // 2026-10-04: the page decides what is on screen (useMinWidth) and the panel fetches only while visible.

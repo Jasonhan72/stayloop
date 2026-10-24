@@ -11,6 +11,7 @@
 import { notifyTicket } from '@/lib/household/notifyTicket'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
+import { useSyncRef } from '@/lib/ui/useLatest'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useAIName } from '@/lib/aiName'
@@ -65,7 +66,7 @@ export default function NewTicketModal({ onClose, onCreated }: { onClose: () => 
   // Escape closes, like DispatchModal / FilePreviewModal (site test 2026-10-02 ·
   // L7 D5) — but not mid-submit: the Cancel button is disabled then too.
   const busyRef = useRef(busy)
-  busyRef.current = busy
+  useSyncRef(busyRef, busy)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !busyRef.current) onClose() }
     window.addEventListener('keydown', onKey)

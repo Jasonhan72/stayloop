@@ -166,16 +166,18 @@ export default function EditPublishedListingPage() {
   const [stored, setStored] = useState<{ province: string | null; postal_code: string | null }>({ province: null, postal_code: null })
   // Read (and clear) the AI's stash once, before loading — StrictMode runs the load effect twice.
   const agentStash = useRef<AgentStash | null | undefined>(undefined)
-  if (agentStash.current === undefined && typeof window !== 'undefined' && id) {
-    try {
-      const raw = localStorage.getItem(LISTING_EDIT_DRAFT_PREFIX + id)
-      localStorage.removeItem(LISTING_EDIT_DRAFT_PREFIX + id)
-      agentStash.current = raw ? JSON.parse(raw) : null
-    } catch { agentStash.current = null }
-  }
 
   useEffect(() => {
     if (!id) return
+    // Read (and clear) the stash once, in the effect rather than during render: the ref survives
+    // StrictMode's simulated remount, so the second run finds it already read.
+    if (agentStash.current === undefined) {
+      try {
+        const raw = localStorage.getItem(LISTING_EDIT_DRAFT_PREFIX + id)
+        localStorage.removeItem(LISTING_EDIT_DRAFT_PREFIX + id)
+        agentStash.current = raw ? JSON.parse(raw) : null
+      } catch { agentStash.current = null }
+    }
     let cancelled = false
     const client = getSupabaseBrowser()
     client

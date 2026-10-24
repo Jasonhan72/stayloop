@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import LandlordThreeSteps from '@/components/landlord/LandlordThreeSteps'
@@ -300,6 +301,8 @@ export default function LandlordApplicantsPage() {
 
   // Queue health. Derived from the real rows when they exist; the design-canon
   // numbers stand in while the page is showing sample data.
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useOnChange(rows, () => setNowMs(Date.now()))
   const undecided = liveMode ? rows!.filter((r) => r.status !== 'approved' && r.status !== 'declined') : []
   const pendingCount = liveMode ? undecided.length : 4
   const leasesSent = liveMode ? rows!.filter((r) => r.status === 'approved').length : 1
@@ -309,7 +312,7 @@ export default function LandlordApplicantsPage() {
       : Math.max(
           0,
           Math.round(
-            undecided.reduce((s, r) => s + (Date.now() - new Date(r.created_at).getTime()), 0) /
+            undecided.reduce((s, r) => s + (nowMs - new Date(r.created_at).getTime()), 0) /
               undecided.length /
               3_600_000,
           ),

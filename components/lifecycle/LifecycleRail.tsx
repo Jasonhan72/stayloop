@@ -6,6 +6,7 @@
 // either links to a real page or prefills the composer via `onPrompt`.
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import type { Lang } from '@/lib/i18n'
 import type { Lifecycle, Phase, PhaseKey } from '@/lib/lifecycle/stages'
 
@@ -74,7 +75,8 @@ export default function LifecycleRail({ lifecycle, lang, compact = false, onProm
   const zh = lang === 'zh'
   const [sel, setSel] = useState<PhaseKey>(lifecycle.current)
   // Re-sync when the derived phase moves (reload after an action).
-  useEffect(() => { setSel(lifecycle.current) }, [lifecycle.current])
+  const current = lifecycle.current
+  useOnChange(current, () => setSel(current))
   const shown = lifecycle.phases.find((p) => p.key === sel) ?? lifecycle.phases[0]
 
   if (compact) {

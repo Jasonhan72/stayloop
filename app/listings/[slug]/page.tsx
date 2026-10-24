@@ -19,6 +19,7 @@ import { TenantInsuranceCard } from '@/components/listing/TenantInsuranceCard'
 import { addressWithUnit, bedsText, cityOnly, cleanBrokerName, similarDistanceText, similarLayoutText, similarRentText } from '@/components/listing/labels'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSyncRef } from '@/lib/ui/useLatest'
 import { useAuth } from '@/lib/useAuth'
 import { writeAuditEvent } from '@/lib/agent/audit'
 import ListingDataNotice from '@/components/listings/ListingDataNotice'
@@ -233,7 +234,7 @@ export default function ListingDetailPage() {
   // Keyed `${listing id}:${lang}`, so another listing never reads this one's strings.
   const [translations, setTranslations] = useState<Record<string, Record<string, string>>>({})
   const translationsRef = useRef(translations)
-  translationsRef.current = translations
+  useSyncRef(translationsRef, translations)
   const trKey = listing ? `${listing.id}:${lang}` : ''
   const tr = translations[trKey] ?? null
   useEffect(() => {
@@ -402,7 +403,6 @@ export default function ListingDetailPage() {
       if (!cancelled) setLoading(false)
     })()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, auth.loading, auth.session?.access_token])
 
   if (loading) {

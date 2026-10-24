@@ -20,15 +20,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const auth = useAuth()
   const { lang } = useT()
   const zh = lang === 'zh'
-  const [mustChange, setMustChange] = useState(false)
+  // Derived from the account's metadata; `cleared` unlocks the admin area right after a successful change,
+  // before the refreshed user object arrives.
+  const [cleared, setCleared] = useState(false)
+  const mustChange = !cleared && Boolean((auth.user?.user_metadata as Record<string, unknown> | undefined)?.must_change_password)
   const [pw, setPw] = useState('')
   const [pw2, setPw2] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-
-  useEffect(() => {
-    setMustChange(Boolean((auth.user?.user_metadata as Record<string, unknown> | undefined)?.must_change_password))
-  }, [auth.user])
 
   async function changePassword() {
     setErr(null)
@@ -55,7 +54,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       // refuses un-rotated sessions, so without this ack the account
       // passes the client gate but every admin RPC stays forbidden.
       await supabase.rpc('admin_ack_password_changed')
-      setMustChange(false)
+      setCleared(true)
     } catch (e) {
       setErr(passwordErrorMessage(e as Parameters<typeof passwordErrorMessage>[0], zh) ?? (e instanceof Error ? e.message : 'failed'))
     } finally {

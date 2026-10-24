@@ -142,7 +142,7 @@ describe('signed-in homepage + identity menu', () => {
   })
   it('menu: the identity list folds behind one 切换身份 row, collapsed on every open (user 2026-09-26: the menu had grown too long)', () => {
     expect(header).toMatch(/const \[hatsOpen, setHatsOpen\] = useState\(false\)/)
-    expect(header).toMatch(/useEffect\(\(\) => \{ if \(!menuOpen\) setHatsOpen\(false\) \}, \[menuOpen\]\)/)
+    expect(header).toMatch(/useOnChange\(menuOpen, \(\) => \{ if \(!menuOpen\) setHatsOpen\(false\) \}\)/)
     expect(header).toContain('data-testid="identity-toggle"')
     expect(header).toContain("{lang === 'zh' ? '切换身份' : 'Switch identity'}")
     expect(header).toMatch(/\{hatsOpen && <div id="sl-identity-list"/)

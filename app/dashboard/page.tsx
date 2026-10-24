@@ -1,7 +1,9 @@
 'use client'
 
 import { LANDLORD_GO, LANDLORD_PRO, LANDLORD_PRO_PRICE } from '@/lib/billing/landlordPlans'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useStoredChoice } from '@/lib/ui/useStoredChoice'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import { proTrialActive, trialUntilLabel } from '@/lib/billing/entitlement'
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
@@ -22,15 +24,18 @@ export default function Dashboard() {
   const [listings, setListings] = useState<Listing[]>([])
   // MLS® hand-offs + the manual share line (V0.8 第二项 · 第 3 / 4 步, 2026-10-22).
   const [handoffs, setHandoffs] = useState<HandoffItem[]>([])
+  // "Now" for the insight cards: taken at mount and whenever the rows reload (no Date.now() in render).
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useOnChange(listings, () => setNowMs(Date.now()))
   const [sharing, setSharing] = useState<Listing | null>(null)
-  const loadHandoffs = async () => {
+  const loadHandoffs = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.access_token) return
     const r = await fetch('/api/listings/mls-handoff', { headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null)
     if (!r?.ok) return
     const j = (await r.json().catch(() => ({}))) as { items?: HandoffItem[] }
     setHandoffs((j.items ?? []).filter((i) => i.channel === 'mls'))
-  }
+  }, [])
   const [plan, setPlan] = useState<Plan>('free')
   // A Pro granted directly (no Stripe customer) has nothing to manage in the billing portal — the button used to
   // open it anyway and alert「Billing portal error」(external audit 2026-10-12 on the comped founder account).
@@ -48,18 +53,29 @@ export default function Dashboard() {
   const [origin, setOrigin] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
   // Listing display mode — persisted so the choice sticks across visits.
-  const [listingView, setListingView] = useState<'grid' | 'list'>('grid')
-  useEffect(() => {
-    const saved = typeof window !== 'undefined' ? localStorage.getItem('sl-listing-view') : null
-    if (saved === 'list' || saved === 'grid') setListingView(saved)
-  }, [])
-  const switchView = (v: 'grid' | 'list') => {
-    setListingView(v)
-    try { localStorage.setItem('sl-listing-view', v) } catch {}
-  }
+  const [listingView, switchView] = useStoredChoice<'grid' | 'list'>('sl-listing-view', 'grid', ['grid', 'list'])
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
   const [checkoutBanner, setCheckoutBanner] = useState<null | 'pending' | 'success' | 'cancel'>(null)
+
+  const fetchAll = useCallback(async () => {
+    if (!landlord) return
+    setLoading(true)
+    const [appsRes, listingsRes, planRes, archivedRes] = await Promise.all([
+      supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
+      supabase.from('listings').select('*').eq('landlord_id', landlord.landlordId).neq('status', 'archived').order('created_at', { ascending: false }),
+      supabase.from('landlords').select('plan, stripe_customer_id, pro_trial_until').or(`id.eq.${landlord.landlordId},auth_id.eq.${landlord.landlordId}`).maybeSingle(),
+      supabase.from('listings').select('id, slug, address, unit, city, monthly_rent, status, is_active').eq('landlord_id', landlord.landlordId).eq('status', 'archived').order('created_at', { ascending: false }).limit(50),
+    ])
+    void loadHandoffs()
+    if (appsRes.data) setApplications(appsRes.data as Application[])
+    if (listingsRes.data) setListings(listingsRes.data as Listing[])
+    if (archivedRes.data) setArchivedListings(archivedRes.data as unknown as Listing[])
+    if (planRes.data?.plan) setPlan(planRes.data.plan as Plan)
+    setHasStripeCustomer(!!(planRes.data as { stripe_customer_id?: string | null } | null)?.stripe_customer_id)
+    setTrialUntil((planRes.data as { pro_trial_until?: string | null } | null)?.pro_trial_until ?? null)
+    setLoading(false)
+  }, [landlord, loadHandoffs])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -71,7 +87,7 @@ export default function Dashboard() {
       if (checkout === 'cancel') setCheckoutBanner('cancel')
     }
     if (landlord) fetchAll()
-  }, [landlord])
+  }, [landlord, fetchAll])
 
   // Poll landlords.plan after returning from Stripe Checkout
   useEffect(() => {
@@ -158,23 +174,6 @@ export default function Dashboard() {
     }
   }
 
-  async function fetchAll() {
-    setLoading(true)
-    const [appsRes, listingsRes, planRes, archivedRes] = await Promise.all([
-      supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
-      supabase.from('listings').select('*').eq('landlord_id', landlord!.landlordId).neq('status', 'archived').order('created_at', { ascending: false }),
-      supabase.from('landlords').select('plan, stripe_customer_id, pro_trial_until').or(`id.eq.${landlord!.landlordId},auth_id.eq.${landlord!.landlordId}`).maybeSingle(),
-      supabase.from('listings').select('id, slug, address, unit, city, monthly_rent, status, is_active').eq('landlord_id', landlord!.landlordId).eq('status', 'archived').order('created_at', { ascending: false }).limit(50),
-    ])
-    void loadHandoffs()
-    if (appsRes.data) setApplications(appsRes.data as Application[])
-    if (listingsRes.data) setListings(listingsRes.data as Listing[])
-    if (archivedRes.data) setArchivedListings(archivedRes.data as unknown as Listing[])
-    if (planRes.data?.plan) setPlan(planRes.data.plan as Plan)
-    setHasStripeCustomer(!!(planRes.data as { stripe_customer_id?: string | null } | null)?.stripe_customer_id)
-    setTrialUntil((planRes.data as { pro_trial_until?: string | null } | null)?.pro_trial_until ?? null)
-    setLoading(false)
-  }
 
   async function copyLink(slug: string) {
     const url = `${origin}/apply/${slug}`
@@ -323,14 +322,14 @@ export default function Dashboard() {
               // Real, not the design sample: the oldest live listing with no
               // application after a week (the card used to name another
               // landlord's Estelle Avenue listing with invented numbers — 2026-09-25).
-              const now = Date.now()
+              const now = nowMs
               // Only listings the public can actually see: a pending (unverified) one has
               // zero applications because nobody can find it, not because of its price.
               const stale = listings
                 .filter((l) => l.is_active && ((l as { verification_status?: string | null }).verification_status === 'verified' || (l as { source?: string | null }).source === 'realtor'))
                 .map((l) => ({
                   l,
-                  days: Math.floor((now - new Date((l as { published_at?: string | null }).published_at || l.created_at || Date.now()).getTime()) / 86_400_000),
+                  days: Math.floor((now - new Date((l as { published_at?: string | null }).published_at || l.created_at || nowMs).getTime()) / 86_400_000),
                   apps: applications.filter((a) => (a as { listing_id?: string | null }).listing_id === l.id || (a as { listing?: { id?: string } | null }).listing?.id === l.id).length,
                 }))
                 .filter((x) => x.days >= 7 && x.apps === 0)

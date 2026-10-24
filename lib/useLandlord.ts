@@ -79,7 +79,7 @@ export function useLandlord(): UseLandlordReturn {
     } finally {
       if (!cancelled?.current) setLoading(false)
     }
-  }, [])
+  }, [router])
 
   useEffect(() => {
     const cancelled = { current: false }

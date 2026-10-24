@@ -265,7 +265,6 @@ export default function ThreeRoleFilm() {
         return
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aim, later, light, patch, press, revealButton, showCardTop])
 
   /** Run every beat whose time has come. `instant` = a key frame: no typing, no pointer, no flights. */

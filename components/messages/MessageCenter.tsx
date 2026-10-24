@@ -11,6 +11,8 @@
 // The record panel (xl) and the ⋯ menu (every width) carry the chain check and
 // 导出聊天记录.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
+import { useSyncRef } from '@/lib/ui/useLatest'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -98,8 +100,8 @@ export default function MessageCenter({ hat }: { hat: 'tenant' | 'landlord' | 'a
   // conversation for a render and wiped a half-written first message (sweep 2026-10-01).
   // It only matters while `selected` is not in rows; `current` ignores a shell for another id.
   const [extra, setExtra] = useState<ThreadSummary | null>(null)
-  const extraIdRef = useRef<string | null>(null)
-  extraIdRef.current = extra?.id ?? null
+  const extraIdRef = useRef<string | null>(extra?.id ?? null)
+  useSyncRef(extraIdRef, extra?.id ?? null)
   useEffect(() => {
     if (!selected || !rows || rows.some((r) => r.id === selected)) return
     if (extraIdRef.current === selected) return
@@ -123,8 +125,8 @@ export default function MessageCenter({ hat }: { hat: 'tenant' | 'landlord' | 'a
   }, [selected, rows])
   const current = useMemo(() => rows?.find((r) => r.id === selected) ?? (extra && extra.id === selected ? extra : null), [rows, selected, extra])
 
+  useOnChange(selected, () => { setPeople(null); setPick(null); setDeliveries([]); setChain(null); setExportErr(null); setMenu(false); setRecordSheet(false) })
   useEffect(() => {
-    setPeople(null); setPick(null); setDeliveries([]); setChain(null); setExportErr(null); setMenu(false); setRecordSheet(false)
     if (!selected) return
     let on = true
     ;(async () => {

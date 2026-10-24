@@ -39,7 +39,7 @@ export default function UserModelsPage() {
   const [data, setData] = useState<CatalogResponse | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
-  const [savedAt, setSavedAt] = useState<Record<string, number>>({})
+  const [justSaved, setJustSaved] = useState<Record<string, boolean>>({})
 
   const load = useCallback(async () => {
     setErr(null)
@@ -75,7 +75,8 @@ export default function UserModelsPage() {
         if (error) throw new Error(error.message)
       }
       setData({ ...data, prefs: { ...data.prefs, [slot]: modelId || undefined } })
-      setSavedAt((s) => ({ ...s, [slot]: Date.now() }))
+      setJustSaved((s) => ({ ...s, [slot]: true }))
+      setTimeout(() => setJustSaved((s) => ({ ...s, [slot]: false })), 4000)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'failed')
     } finally {
@@ -121,7 +122,7 @@ export default function UserModelsPage() {
                       <h2 className="text-[17px] font-bold tracking-tight">{zh ? copy?.zh : copy?.en}</h2>
                       <div className="mt-0.5 text-[12.5px] text-body-3">{zh ? copy?.descZh : copy?.descEn}</div>
                     </div>
-                    {savedAt[slot] && Date.now() - savedAt[slot] < 4000 && <span className="text-[12px] font-semibold" style={{ color: '#047857' }}>✓ {zh ? '已保存' : 'Saved'}</span>}
+                    {justSaved[slot] && <span className="text-[12px] font-semibold" style={{ color: '#047857' }}>✓ {zh ? '已保存' : 'Saved'}</span>}
                   </div>
                   <div className="mt-4 grid gap-2">
                     <Option selected={!current} disabled={isSaving} color={color} onClick={() => choose(slot, null)}

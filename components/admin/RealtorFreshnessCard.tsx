@@ -74,13 +74,6 @@ export default function RealtorFreshnessCard({ zh }: { zh: boolean }) {
   const s: FreshnessSummary = summarize(active, autoDelisted.length)
   const attention = active.filter((r) => !r.source_url || (r.realtor_check && (r.realtor_check.gone_streak > 0 || r.realtor_check.miss_streak >= 3)))
 
-  const Stat = ({ n, label, tone }: { n: number; label: string; tone?: string }) => (
-    <div className="rounded-lg border border-line bg-white px-3 py-2">
-      <div className="sl-type-num text-[20px] font-semibold" style={tone ? { color: tone } : undefined}>{n}</div>
-      <div className="text-[11.5px] text-body-3">{label}</div>
-    </div>
-  )
-
   return (
     <section className="sl-card mt-6 p-5" data-testid="realtor-freshness">
       {!REALTOR_LIVE_READS && (
@@ -165,5 +158,14 @@ export default function RealtorFreshnessCard({ zh }: { zh: boolean }) {
         </div>
       )}
     </section>
+  )
+}
+
+function Stat({ n, label, tone }: { n: number; label: string; tone?: string }) {
+  return (
+    <div className="rounded-lg border border-line bg-white px-3 py-2">
+      <div className="sl-type-num text-[20px] font-semibold" style={tone ? { color: tone } : undefined}>{n}</div>
+      <div className="text-[11.5px] text-body-3">{label}</div>
+    </div>
   )
 }

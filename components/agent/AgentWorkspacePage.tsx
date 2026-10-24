@@ -14,6 +14,8 @@
 // header and the 64px tab bar. 今日 lives on /x/todo, the 租前·租中·租后 rail on
 // /x/progress — nothing sits above the conversation.
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useStoredChoice } from '@/lib/ui/useStoredChoice'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
@@ -73,14 +75,7 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
   const [panelOpen, setPanelOpen] = useAssistantPanel()
   // Conversation list (2026-10-04): an inline column from xl (remembered open /
   // closed per browser), a drawer over the chat below that.
-  const [listPref, setListPrefState] = useState<'open' | 'closed'>('open')
-  useEffect(() => {
-    try { if (localStorage.getItem('sl-thread-list') === 'closed') setListPrefState('closed') } catch { /* private mode */ }
-  }, [])
-  const setListPref = useCallback((v: 'open' | 'closed') => {
-    setListPrefState(v)
-    try { localStorage.setItem('sl-thread-list', v) } catch { /* private mode */ }
-  }, [])
+  const [listPref, setListPref] = useStoredChoice<'open' | 'closed'>('sl-thread-list', 'open', ['open', 'closed'])
   const [listDrawer, setListDrawer] = useState(false)
   // Hidden surfaces never mount or fetch (2026-10-04): the list column only from xl, the panel column only from lg.
   const xlUp = useMinWidth(1280)
@@ -102,7 +97,7 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
   useModalA11y(listDrawer, closeDrawer, drawerRef)
   // Below lg the chat head opens the same AI Agent panel as a sheet.
   const [sheetOpen, setSheetOpen] = useState(false)
-  useEffect(() => { if (lgUp) setSheetOpen(false) }, [lgUp])
+  useOnChange(lgUp, () => { if (lgUp) setSheetOpen(false) })
   // /x/agent?panel=todo|memory|settings (2026-10-05, the progress page's 「记忆」 line): open the AI Agent on
   // that tab — the column from lg, the sheet below — and drop the parameter. Read after mount only. The request
   // is one-shot: whichever surface shows it hands it back (clearTabRequest), so closing and reopening the panel

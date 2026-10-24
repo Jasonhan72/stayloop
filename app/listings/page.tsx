@@ -4,6 +4,7 @@ import { isTestListing, TEST_LISTING_LABEL } from '@/lib/listingVisibility'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import Header from '@/components/Header'
 import DocTitle from '@/components/DocTitle'
 import FavHeart from '@/components/FavHeart'
@@ -197,7 +198,6 @@ export default function ListingsPage() {
         .catch((e) => { if ((e as { name?: string })?.name !== 'AbortError') { setRows([]); setTotal(0); setPages(1); setLoading(false) } })
     }, 200)
     return () => { clearTimeout(t); ctrl.abort() }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, favs, sourceFilter, page, mapMoved, bbox, session?.access_token])
 
   // Already filtered, sorted and paged by the server.
@@ -223,7 +223,8 @@ export default function ListingsPage() {
   const pageItems = items
   const filtersActive = !!appliedQuery || priceMin != null || priceMax != null || minBeds != null || !!moveIn || pets || minBaths != null || minSqft != null
   // Any change to what is shown restarts at the first page.
-  useEffect(() => { setPage(0) }, [appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, sourceFilter, bbox])
+  const filterKey = JSON.stringify([appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, sourceFilter, bbox])
+  useOnChange(filterKey, () => setPage(0))
   // Audit trail of a signed-in user's searches (PropTx 8.13 / 8.08): one row per settled set of
   // filters (1.5 s after the last change), never for anonymous visitors, never the listings themselves.
   useEffect(() => {

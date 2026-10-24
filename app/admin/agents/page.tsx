@@ -63,13 +63,6 @@ export default function AdminAgentsPage() {
     setBusy(null)
   }
 
-  const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="min-h-screen bg-surface">
-      <Header />
-      <main className="mx-auto max-w-[1100px] px-5 py-8">{children}</main>
-    </div>
-  )
-
   if (auth.loading || adminRole === 'loading') return <Shell><div className="text-body-3">{zh ? '加载中…' : 'Loading…'}</div></Shell>
   if (!auth.user || !adminRole) return <Shell><div className="rounded-xl border border-line-divider bg-white p-6 text-[14px]">{zh ? '仅限后台管理员。' : 'Admins only.'} <Link href="/admin" className="underline">{zh ? '返回后台' : 'Back'}</Link></div></Shell>
 
@@ -127,5 +120,14 @@ export default function AdminAgentsPage() {
         ))}
       </div>
     </Shell>
+  )
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-surface">
+      <Header />
+      <main className="mx-auto max-w-[1100px] px-5 py-8">{children}</main>
+    </div>
   )
 }

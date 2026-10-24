@@ -13,6 +13,7 @@
 // date. Official PDFs are linked, never fetched or embedded. Outside Ontario
 // the page only points at that province's tribunal — no arithmetic.
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { SectionCard, StatusPill } from '@/components/workspace'
@@ -188,8 +189,8 @@ export default function NoticeToolbox() {
     setRents((rp ?? []) as DbRent[])
     setRecords((rec ?? []) as ServiceRecord[])
   }, [])
+  useOnChange(leaseId, () => { setRents([]); setRecords([]); setForm(null); setRecordMsg(null) })
   useEffect(() => {
-    setRents([]); setRecords([]); setForm(null); setRecordMsg(null)
     if (leaseId) void loadLeaseData(leaseId)
   }, [leaseId, loadLeaseData])
 
@@ -200,13 +201,13 @@ export default function NoticeToolbox() {
   const [n4, setN4] = useState<{ terminationOn: string; picked: Record<string, boolean>; amounts: Record<string, string> }>({ terminationOn: '', picked: {}, amounts: {} })
   const [n12, setN12] = useState<{ terminationOn: string; who: N12Who; compensation: N12Compensation }>({ terminationOn: '', who: 'landlord', compensation: 'one_month' })
   const [l1, setL1] = useState({ n4TerminationOn: '', totalOwing: '' })
-  useEffect(() => {
+  useOnChange(`${form ?? ''}|${leaseId ?? ''}|${today}`, () => {
     setServedOn(today); setMethod('hand')
     setN1({ newRent: '', effectiveOn: '', lastIncreaseOn: '', exempt: false })
     setN4({ terminationOn: '', picked: {}, amounts: {} })
     setN12({ terminationOn: '', who: 'landlord', compensation: 'one_month' })
     setL1({ n4TerminationOn: '', totalOwing: '' })
-  }, [form, leaseId, today])
+  })
 
   // N4: periods the ledger says are unrecorded, from the same schedule the hub uses.
   const unpaid = useMemo(() => {

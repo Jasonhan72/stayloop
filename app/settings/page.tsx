@@ -260,9 +260,10 @@ function AssistantNameEditor({ zh, user, color, current, onSaved }: { zh: boolea
   // Initialised from the account's resolved name (page-level), not only the browser cache.
   const currentName = isGenericAiName(current) ? '' : (current ?? '').trim()
   const placeholderName = genericAiName(zh ? 'zh' : 'en')
-  const [value, setValue] = useState(currentName)
+  const [typed, setValue] = useState(currentName)
   const [dirty, setDirty] = useState(false)
-  useEffect(() => { if (!dirty) setValue(currentName) }, [currentName, dirty])
+  // Until the person types, the field follows the resolved name (derived, not synced in an effect).
+  const value = dirty ? typed : currentName
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
 

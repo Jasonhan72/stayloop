@@ -5,6 +5,7 @@
 // pure rule the server uses) or types their own contact's email. Posts to
 // /api/work-orders/dispatch which proves the landlord relation server-side.
 import { useEffect, useMemo, useState } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import { supabase } from '@/lib/supabase'
 import { CREDENTIAL_LABEL, coverageFor, providerEligible, tradeForCategory, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
@@ -67,19 +68,19 @@ export default function DispatchModal({ ticketId, category, city, zh, onClose, o
     const cov = coverageFor(trade, pc, new Date(), graceDays)
     return { p, ok: e.ok, reason: e.reason, cov }
   }).sort((a, b) => Number(b.ok) - Number(a.ok)), [providers, creds, trade, city, graceDays])
-  useEffect(() => { if (!pick && candidates.some((c) => c.ok)) setPick(candidates.find((c) => c.ok)!.p.id) }, [candidates, pick])
+  // The first eligible provider is preselected until the landlord picks one (derived).
+  const effectivePick = pick ?? candidates.find((c) => c.ok)?.p.id ?? null
   // Only fall back to "own contact" once the directory has actually loaded —
   // on first paint there are no candidates yet (first production run 2026-09-23
   // opened the modal on the wrong tab).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (loaded && !candidates.some((c) => c.ok)) setMode('own') }, [loaded])
+  useOnChange(loaded, () => { if (loaded && !candidates.some((c) => c.ok)) setMode('own') })
   useEffect(() => { const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey) }, [onClose])
 
   async function submit() {
     setBusy(true); setErr(null)
     const { data: s } = await supabase.auth.getSession()
     const token = s.session?.access_token
-    const body = mode === 'network' ? { ticket_id: ticketId, provider_id: pick, entry_permission: entry, emergency, trade } : { ticket_id: ticketId, external_email: own.email.trim(), external_name: own.name.trim(), entry_permission: entry, emergency, trade }
+    const body = mode === 'network' ? { ticket_id: ticketId, provider_id: effectivePick, entry_permission: entry, emergency, trade } : { ticket_id: ticketId, external_email: own.email.trim(), external_name: own.name.trim(), entry_permission: entry, emergency, trade }
     const res = await fetch('/api/work-orders/dispatch', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
     const j = (await res.json().catch(() => ({}))) as { error?: string }
     if (!res.ok) { setErr(j.error === 'pro_required' ? (zh ? '已核验服务商网络是 Pro 功能。派给你自己的联系人在所有计划都可用。' : 'The verified provider network is a Pro feature. Dispatching to your own contact works on every plan.') : j.error === 'ticket_closed' ? (zh ? '这张报修已完成或已取消，不能再派单。' : 'This repair request is done or cancelled; it cannot be dispatched.') : (j.error || `HTTP ${res.status}`)); setBusy(false); return }
@@ -110,7 +111,7 @@ export default function DispatchModal({ ticketId, category, city, zh, onClose, o
             {candidates.length === 0 && <p className="text-[12.5px] text-body-3">{zh ? '还没有已核验的服务商。先派给你自己的联系人。' : 'No verified providers yet — dispatch to your own contact.'}</p>}
             {candidates.map(({ p, ok, reason, cov }) => (
               <label key={p.id} className={'flex items-start gap-3 rounded-xl border p-3 text-[12.5px] ' + (ok ? 'border-line-divider' : 'border-line-divider opacity-60')}>
-                <input type="radio" name="prov" disabled={!ok} checked={pick === p.id} onChange={() => setPick(p.id)} className="mt-1" />
+                <input type="radio" name="prov" disabled={!ok} checked={effectivePick === p.id} onChange={() => setPick(p.id)} className="mt-1" />
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold">{p.trade_name || p.legal_name} <span className="font-mono text-[10px] text-success">{zh ? '资质已核' : 'verified'}</span></div>
                   <div className="text-[11.5px] text-body-3">{p.service_cities.join(' · ') || '—'} · {p.pricing_mode === 'fixed' ? (zh ? '固定报价' : 'fixed quotes') : `${p.hourly_rate != null ? `$${p.hourly_rate}/h` : (zh ? '按工时' : 'hourly')}${p.call_out_fee != null ? ` · ${zh ? '上门费' : 'call-out'} $${p.call_out_fee}` : ''}`}</div>
@@ -129,7 +130,7 @@ export default function DispatchModal({ ticketId, category, city, zh, onClose, o
         {err && <p className="mt-2 text-[12px] text-danger">{err}</p>}
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-full border border-line-strong px-4 py-2 text-[12.5px] font-bold">{zh ? '取消' : 'Cancel'}</button>
-          <button disabled={busy || (mode === 'network' ? !pick : !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(own.email))} onClick={() => void submit()} className="rounded-full bg-brand px-4 py-2 text-[12.5px] font-bold text-white disabled:opacity-50">{busy ? '…' : (zh ? '发出派单' : 'Send the work order')}</button>
+          <button disabled={busy || (mode === 'network' ? !effectivePick : !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(own.email))} onClick={() => void submit()} className="rounded-full bg-brand px-4 py-2 text-[12.5px] font-bold text-white disabled:opacity-50">{busy ? '…' : (zh ? '发出派单' : 'Send the work order')}</button>
         </div>
       </div>
     </div>

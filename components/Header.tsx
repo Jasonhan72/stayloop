@@ -5,6 +5,7 @@ import { isRegistrationLive } from '@/lib/agentProfile'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
+import { useOnChange } from '@/lib/ui/useOnChange'
 import Logo from './Logo'
 import MobileBottomNav from './MobileBottomNav'
 import LanguageCurrencyModal from './LanguageCurrencyModal'
@@ -116,7 +117,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   // The identity list (four or five hats with doors) folds behind one row —
   // the menu had grown to a full screen (user 2026-09-26). Collapsed on every open.
   const [hatsOpen, setHatsOpen] = useState(false)
-  useEffect(() => { if (!menuOpen) setHatsOpen(false) }, [menuOpen])
+  useOnChange(menuOpen, () => { if (!menuOpen) setHatsOpen(false) })
   const menuRef = useRef<HTMLDivElement>(null)
   const productRef = useRef<HTMLDivElement>(null)
 
