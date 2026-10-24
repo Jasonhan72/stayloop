@@ -113,7 +113,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 
 ## 测试与账号
 
-- 测试账号（密码 `Test1234`，`user_metadata.test_account=true`）：`tenant-test@stayloop.ai`（纯租客）、`landlord-test@stayloop.ai`（房东）、`agent-test@stayloop.ai`（已核验经纪 + 服务商 `[TEST] Maple Plumbing`）、`provider-test@stayloop.ai`（纯服务商 `[TEST] Northline`）、`admin@stayloop.ai`（管理员）。Muse 外部测试用的 `muse-*@stayloop.ai` 四个号密码只在本机 `.forensics-tmp/`。**测试数据带 `[TEST]` 前缀，正式发布前不删。**
+- 测试账号（密码 `Test1234`，`user_metadata.test_account=true`）：`tenant-test@stayloop.ai`（纯租客）、`landlord-test@stayloop.ai`（房东）、`agent-test@stayloop.ai`（已核验经纪 + 服务商 `[TEST] Maple Plumbing`）、`provider-test@stayloop.ai`（纯服务商 `[TEST] Northline`）。**`admin@stayloop.ai` 不是测试账号**：它是 superadmin 最高管理账号（与创始人账号并列两个 superadmin），密码只在用户的密码管理器里（2026-10-23 起与创始人账号相同），测试不要用它登录；需要管理员视角的测试经 service role 铸 magic link。Muse 外部测试用的 `muse-*@stayloop.ai` 四个号密码只在本机 `.forensics-tmp/`。**测试数据带 `[TEST]` 前缀，正式发布前不删。**
 - **Claude 不输入密码。** 登录测试号用 service role 调 Auth Admin `generate_link`（type=magiclink），`redirect_to` 必须放 URL 查询参数；链接约 10 分钟失效，铸完即用。service role key 只走 header 文件，不进命令行与报告。
 - 组件测试在 jsdom 里用 `@testing-library/react` 渲染：spec 首行 `// @vitest-environment jsdom` + `afterEach(cleanup)`，助手 `tests/helpers/dom.ts`（`only` 保持「恰好一个」的严格度）。react-test-renderer 在 React 19 已弃用，已删除，不要再引入。jsdom 有真的 `localStorage` / `sessionStorage` / `location`，写过就在 `afterEach` 里清。
 - 内置浏览器面板隐藏时页面 JS 不跑、截图是旧画面；批量核对用无头 Chrome + CDP，**每个测试员用私有调试端口，别 pkill 别人的实例**。同一测试号在一处退出会全局作废会话。
