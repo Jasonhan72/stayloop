@@ -28,7 +28,7 @@ export function walkMinutes(meters: number): number {
   return Math.max(1, Math.ceil(meters / 80))
 }
 
-export function fmtDistance(meters: number, lang: Lang): string {
+export function fmtDistance(meters: number, _lang: Lang): string {
   if (meters < 950) return `${Math.round(meters / 10) * 10} m`
   return `${(meters / 1000).toFixed(1)} km`
 }

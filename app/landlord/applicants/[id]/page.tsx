@@ -8,6 +8,7 @@ import ThreadPanel from '@/components/threads/ThreadPanel'
 import MessageButton from '@/components/messages/MessageButton'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { SampleBanner } from '@/components/SampleNotice'
@@ -109,6 +110,7 @@ function provinceDecisionCopy(listing: AppDetail['listing']) {
 
 function RealApplicantDetail({ id }: { id: string }) {
   const { lang } = useT()
+  const router = useRouter()
   const zh = lang === 'zh'
   const aiName = useAIName()
   const { user, loading: authLoading } = useAuth()
@@ -190,7 +192,7 @@ function RealApplicantDetail({ id }: { id: string }) {
       }
       if (!res.ok || !j.screening_id) { setErr(j.error || `HTTP ${res.status}`); return }
       setScreeningId(j.screening_id)
-      window.location.href = `/screening/app?screening=${j.screening_id}${j.existing && j.status === 'scored' ? '' : '&run=1'}`
+      router.push(`/screening/app?screening=${j.screening_id}${j.existing && j.status === 'scored' ? '' : '&run=1'}`)
     } finally { setScreenBusy(false) }
   }
 

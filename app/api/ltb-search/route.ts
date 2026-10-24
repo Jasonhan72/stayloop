@@ -5,13 +5,6 @@ import { captureException } from '@/lib/observability/sentry'
 import { describeCodes, searchLtbOrders, summarizeLtb } from '@/lib/ltb/search'
 
 
-interface CanLIICase {
-  databaseId: string
-  caseId: { en: string }
-  title: string
-  citation: string
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await readJsonBody<{ application_id?: string }>(req)

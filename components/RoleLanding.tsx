@@ -399,6 +399,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
               {cfg.story.map((s, i) => (
                 <figure key={s.file} className={`v8-card rv overflow-hidden p-0 ${i > 0 ? `d${i}` : ''}`}>
                   <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- static persona photos, lazy; no optimizer on the Worker */}
                     <img
                       src={`/personas/${s.file}`}
                       alt={s.label[lang]}

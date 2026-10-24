@@ -4,7 +4,7 @@
 // read by person_name() in the database, which drops anything that looks
 // like an address, a long number, or "Stayloop". Without one, others see the
 // role word (房东 / 租客).
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useOnChange } from '@/lib/ui/useOnChange'
 import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase'

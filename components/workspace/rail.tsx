@@ -236,7 +236,8 @@ function InstallHint({ zh }: { zh: boolean }) {
   const dismiss = () => { try { localStorage.setItem(INSTALL_HINT_DISMISSED_KEY, '1') } catch {}; setShow(false) }
   return (
     <div className="fixed inset-x-3 bottom-[76px] z-[44] flex items-start gap-3 rounded-xl border border-line-divider bg-white p-3 text-[12.5px] leading-snug text-body-2 shadow-[0_10px_30px_rgba(27,27,60,.18)] md:hidden">
-      <img src="/icons/icon-192.png" alt="" className="h-9 w-9 flex-none rounded-lg" />
+      {/* eslint-disable-next-line @next/next/no-img-element -- our own 192px app icon */}
+              <img src="/icons/icon-192.png" alt="" className="h-9 w-9 flex-none rounded-lg" />
       <div className="min-w-0 flex-1">
         <b className="text-body">{zh ? '把 Stayloop 放到主屏' : 'Add Stayloop to your Home Screen'}</b>
         <div className="mt-0.5">

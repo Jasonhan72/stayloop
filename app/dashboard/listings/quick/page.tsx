@@ -49,7 +49,6 @@ export default function QuickListingPage() {
   // Follows the address until the landlord picks one (derived, not synced in an effect).
   const [pickedProvince, setPickedProvince] = useState<ProvinceCode | null>(null)
   const province: ProvinceCode = pickedProvince ?? detectListingProvince(address, cityFromAddress(address))
-  const provincePicked = pickedProvince !== null
   // Stored photos (≤1600px) and the smaller copies the model reads (≤1024px).
   const [photos, setPhotos] = useState<{ store: string; vision: string }[]>([])
   const [reading, setReading] = useState(false)

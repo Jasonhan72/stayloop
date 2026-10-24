@@ -462,7 +462,6 @@ function RenewalPack({ lang }: { lang: Lang }) {
   const [selected, setSelected] = useState<number | null>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [declined, setDeclined] = useState(false)
-  const router = useRouter()
   const zh = lang === 'zh'
 
   const DIMS = [
@@ -962,7 +961,6 @@ function LeaseSection({
 
 function RailAside({ lang, aiNotice, activity }: { lang: Lang; aiNotice?: ReactNode; activity: { time: string; text: string }[] | null }) {
   const zh = lang === 'zh'
-  const aiName = useAIName()
   return (
     <div>
       {aiNotice && <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>{aiNotice}</AsideBlock>}

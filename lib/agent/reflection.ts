@@ -250,7 +250,7 @@ export async function runReflectionSweep(admin: SupabaseClient): Promise<{ refle
   let skipped = 0
   for (const userId of Array.from(users).slice(0, MAX_USERS_PER_RUN)) {
     try {
-      ;(await reflectUser(admin, userId)) ? reflected++ : skipped++
+      if (await reflectUser(admin, userId)) reflected++; else skipped++
     } catch (e) {
       skipped++
       console.warn('[reflection] user failed', userId.slice(0, 8), (e as Error).message)

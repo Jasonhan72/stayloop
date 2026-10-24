@@ -6,7 +6,7 @@
 //     proposal the two sides agree on before the landlord fills the form.
 //   • The landlord cannot add interest, fees or "late charges" (s.134).
 //   • Nothing here is a notice of termination; an N4 is separate.
-import { isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
+import { isoDate, parseDateOnly } from '@/lib/dates'
 
 export type PaymentPlanInput = {
   arrears: number

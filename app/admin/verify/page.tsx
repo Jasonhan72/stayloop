@@ -114,7 +114,6 @@ export default function AdminVerifyPage() {
     )
   }
 
-  const pendingCount = rows.filter((r) => r.verification_status === 'pending').length
 
   return (
     <Shell>

@@ -4,7 +4,7 @@
 // typed, colored rows; machine-state memories (workflow flags, raw URLs,
 // pending_* markers) are folded away behind a count so the rail never reads
 // like a database dump.
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useOnChange } from '@/lib/ui/useOnChange'
 import { useT } from '@/lib/i18n'
 import type { AgentRole, MemoryItem } from '@/lib/agent/types'

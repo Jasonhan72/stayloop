@@ -180,7 +180,7 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
     // agent state) so the next account on this browser starts clean, and
     // no page is left rendering a user-null state it never designed for
     // (the screening app sat on its "authenticating" spinner forever).
-    if (typeof window !== 'undefined') window.location.assign('/')
+    if (typeof window !== 'undefined') window.location.replace('/')
   }
 
   // Active hat = route prefix first (design/multi-role-accounts-2026-09.md

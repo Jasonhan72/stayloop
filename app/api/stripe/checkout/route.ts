@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       .or(`id.eq.${user.id},auth_id.eq.${user.id}`)
     const found = pickLandlordRow((foundRows ?? []) as BillingRow[], user.id) ?? null
 
-    let landlord: BillingRow | null = found
+    const landlord: BillingRow | null = found
 
     // Site test 2026-10-17 (T6-D1): no self-heal here. Calling claim_landlord() from a billing
     // route let ANY signed-in account (a tenant probing the API) become a landlord with a 30-day

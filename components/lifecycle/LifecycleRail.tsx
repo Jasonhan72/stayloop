@@ -5,7 +5,7 @@
 // (`compact`): one row of chips + the selected phase's card. Every "next"
 // either links to a real page or prefills the composer via `onPrompt`.
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useOnChange } from '@/lib/ui/useOnChange'
 import type { Lang } from '@/lib/i18n'
 import type { Lifecycle, Phase, PhaseKey } from '@/lib/lifecycle/stages'

@@ -57,7 +57,7 @@ describe('1 · four scored items, not six', () => {
     expect(existsSync('app/dashboard/applications/[id]/page.tsx')).toBe(false)
     expect(read('proxy.ts')).toMatch(/\\\/dashboard\\\/applications\(\\\/\[\^\/\]\+\)\?\\\/\?\$/)
     expect(read('app/api/notify-landlord/route.ts')).toContain('`${siteUrl}/landlord/applicants/${app.id}`')
-    expect(read('app/dashboard/page.tsx')).toContain('window.location.href = `/landlord/applicants/${app.id}`')
+    expect(read('app/dashboard/page.tsx')).toContain('router.push(`/landlord/applicants/${app.id}`)')
   })
 })
 

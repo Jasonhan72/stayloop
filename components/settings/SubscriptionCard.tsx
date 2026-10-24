@@ -16,6 +16,7 @@
 // lib/billing/subscriptionState.ts (tested) — never re-derive it here.
 import { LANDLORD_PRO } from '@/lib/billing/landlordPlans'
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { trialUntilLabel } from '@/lib/billing/entitlement'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import {
@@ -32,6 +33,7 @@ const GREEN = '#047857'
 const GREEN_DEEP = '#065F46'
 
 export default function SubscriptionCard({ userId, zh }: { userId: string; zh: boolean }) {
+  const router = useRouter()
   const [row, setRow] = useState<LandlordBillingRow | null | 'loading'>('loading')
   const [busy, setBusy] = useState<Busy>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -64,7 +66,7 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
     })
     const data = await res.json().catch(() => ({}))
     if (res.status === 403 && data.error === 'landlord_required') {
-      window.location.href = `/landlord/become?next=${encodeURIComponent(window.location.pathname)}`
+      router.push(`/landlord/become?next=${encodeURIComponent(window.location.pathname)}`)
       return { redirected: true }
     }
     if (!res.ok) throw new Error(data.error || `${path} failed`)

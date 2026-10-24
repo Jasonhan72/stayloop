@@ -460,8 +460,6 @@ export function isExtraPhoneClaim(a: { claim_zh: string; claim_en: string; evide
 
 type Anom = { claim_zh: string; claim_en: string; evidence: string[]; category?: string; severity: 'critical' | 'high' | 'medium' | 'low'; files?: string[] }
 
-const wordSet = (s: string) => new Set(s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length >= 2))
-
 /** "Logistics Associate" vs "Warehouse Associate": the letter is written by
  *  HR, the stub by payroll — a job title is not a fact that can be
  *  contradicted. Never above low. */

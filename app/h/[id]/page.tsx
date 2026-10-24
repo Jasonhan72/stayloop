@@ -619,7 +619,7 @@ function markPaidError(message: string, zh: boolean): string {
   return zh ? `没有记录成功：${message}` : `Not recorded: ${message}`
 }
 
-function Shell({ zh, children }: { zh: boolean; children: React.ReactNode }) {
+function Shell({ children }: { zh: boolean; children: React.ReactNode }) {
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="transparent" />

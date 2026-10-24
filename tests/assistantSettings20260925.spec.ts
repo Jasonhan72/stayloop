@@ -142,7 +142,7 @@ describe('the assistant’s definition: stored, editable, and in every prompt', 
     // the tab edits each field in place, writes user_overrides, can hand a field back to learning, and creates the row when none exists
     const s = read('components/agent/AssistantSettings.tsx')
     expect(s).toContain("const LIST_FIELDS = ['goals', 'preferences', 'constraints', 'worked_well', 'avoid'] as const")
-    expect(s).toContain("const TEXT_FIELDS = ['current_focus', 'communication_style'] as const")
+    expect(s).toContain("type TextField = 'current_focus' | 'communication_style'")
     // sweep 2026-10-01: one field merged server-side (no stale whole-value write, no raw duplicate-key insert)
     expect(s).toContain("supabase.rpc('set_user_model_field', { p_field: f, p_value: release ? null : val, p_release: release })")
     expect(read('supabase/migrations/20261001_A8_profiles_settings.sql')).toContain("|| jsonb_build_object(p_field, p_value)),")

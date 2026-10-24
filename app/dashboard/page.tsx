@@ -1,11 +1,12 @@
 'use client'
 
 import { LANDLORD_GO, LANDLORD_PRO, LANDLORD_PRO_PRICE } from '@/lib/billing/landlordPlans'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useStoredChoice } from '@/lib/ui/useStoredChoice'
 import { useOnChange } from '@/lib/ui/useOnChange'
 import { proTrialActive, trialUntilLabel } from '@/lib/billing/entitlement'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import AIProactive from '@/components/AIProactive'
 import { VerificationBadge } from '@/components/ListingBadges'
 import MlsHandoff from '@/components/listings/MlsHandoff'
@@ -19,6 +20,7 @@ import { Application, Listing, Plan } from '@/types'
 
 export default function Dashboard() {
   const { lang } = useT()
+  const router = useRouter()
   const { landlord, loading: authLoading } = useLandlord()
   const [applications, setApplications] = useState<Application[]>([])
   const [listings, setListings] = useState<Listing[]>([])
@@ -138,7 +140,7 @@ export default function Dashboard() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       const data = await res.json()
-      if (res.status === 403 && data.error === 'landlord_required') { window.location.href = `/landlord/become?next=${encodeURIComponent(window.location.pathname)}`; return }
+      if (res.status === 403 && data.error === 'landlord_required') { router.push(`/landlord/become?next=${encodeURIComponent(window.location.pathname)}`); return }
       if (!res.ok || !data.url) throw new Error(data.error || 'checkout failed')
       window.location.href = data.url
     } catch (err: any) {
@@ -667,7 +669,7 @@ export default function Dashboard() {
                         key={app.id}
                         className="cursor-pointer border-t border-line-divider transition hover:bg-surface-chip"
                         onClick={() => {
-                          window.location.href = `/landlord/applicants/${app.id}`
+                          router.push(`/landlord/applicants/${app.id}`)
                         }}
                       >
                         <td className="px-6 py-4">

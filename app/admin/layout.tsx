@@ -9,7 +9,7 @@ import { passwordStampMetadata } from '@/lib/legal/terms'
 // future reset the same way. Page-level useAdmin gating stays where it is —
 // this layout adds the credential gate, it does not replace authorization.
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Header from '@/components/Header'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'

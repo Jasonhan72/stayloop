@@ -212,7 +212,8 @@ export default function IntakeCard({
               <div className="flex flex-wrap items-center gap-2">
                 {atts.map((a, i) => (
                   <span key={`${a.name}-${i}`} className="flex items-center gap-1.5 rounded-lg border border-line-divider bg-surface-chip px-2 py-1 text-[11.5px]">
-                    {a.isImage ? <img src={a.dataUrl} alt="" className="h-7 w-7 rounded object-cover" /> : <span>📄</span>}
+                    {/* eslint-disable-next-line @next/next/no-img-element -- in-memory data URL thumbnail */}
+                  {a.isImage ? <img src={a.dataUrl} alt="" className="h-7 w-7 rounded object-cover" /> : <span>📄</span>}
                     <span className="max-w-[140px] truncate">{a.name}</span>
                     <button type="button" onClick={() => setAtts((p) => p.filter((_, j) => j !== i))} aria-label={zh ? '移除' : 'Remove'} className="text-body-3 hover:text-body">×</button>
                   </span>

@@ -13,7 +13,6 @@ export interface FootprintEvent { date: string; kind: 'bureau_address' | 'accoun
 export interface TimelineFlag { code: string; severity: 'high' | 'medium' | 'low' | 'info'; evidence_en: string; evidence_zh: string }
 
 const CA_POSTAL = /\b[A-CEGHJ-NPR-TVXY]\d[A-CEGHJ-NPR-TV-Z]\s?\d[A-CEGHJ-NPR-TV-Z]\d\b/i
-const CA_PROVINCE = /\b(ON|QC|BC|AB|MB|SK|NS|NB|NL|PE|YT|NT|NU|Ontario|Quebec|Québec|British Columbia|Alberta|Manitoba|Saskatchewan|Nova Scotia|New Brunswick|Newfoundland|Prince Edward Island|Yukon|Nunavut|Canada)\b/i
 const CA_CITY = /\b(Toronto|Ottawa|Mississauga|Brampton|Hamilton|London|Markham|Vaughan|Kitchener|Windsor|Richmond Hill|Oakville|Burlington|Oshawa|Barrie|St\.? Catharines|Cambridge|Kingston|Guelph|Whitby|Ajax|Pickering|Milton|Niagara Falls|Waterloo|Thunder Bay|Sudbury|Newmarket|Aurora|Scarborough|Etobicoke|North York|Montreal|Montréal|Laval|Vancouver|Surrey|Burnaby|Calgary|Edmonton|Winnipeg|Halifax|Regina|Saskatoon|Victoria)\b/i
 export const RENTAL_SCREENING_CREDITORS = /\b(yardi|certn|singlekey|single key|naborly|rentcheck|rent check|openroom|frontlobby|front lobby|landlord credit bureau|lcb|rent ?panda|liv\.?rent|rentify|tenantverification|rentprep)\b/i
 

@@ -15,7 +15,6 @@ import { useAdmin } from '@/lib/useAdmin'
 import { activeHat, useHats } from '@/lib/useHats'
 import { useHomeHref } from '@/lib/useHomeHref'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
-import { supabase } from '@/lib/supabase'
 import { PROVIDER_ACCENT, ROLE_THEME, type RoleKey } from '@/lib/roleTheme'
 import { displayIdentity } from '@/lib/displayIdentity'
 
@@ -377,7 +376,8 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                     {/* Identity row — who you are and which hat is active */}
                     <div className="flex items-center gap-3 px-4 pb-3 pt-1">
                       <span className="flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded-full text-[14px] font-bold text-white" style={{ background: avatarUrl ? undefined : avatarBg }}>
-                        {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initial}
+                        {/* eslint-disable-next-line @next/next/no-img-element -- 28px avatar from our storage; no optimizer on the Worker */}
+                {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initial}
                       </span>
                       <div className="min-w-0">
                         <div className="truncate text-[14px] font-semibold text-[#222]">{auth.fullName || auth.email}</div>

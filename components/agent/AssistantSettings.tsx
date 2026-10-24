@@ -28,9 +28,8 @@ import type { AgentRole } from '@/lib/agent/types'
 /** The row lib/agent/reflection.ts writes (USER_MODEL_KEY there — that module is server-only, so the key and field lists are repeated here and pinned by a test). */
 const USER_MODEL_KEY = 'user_model'
 const LIST_FIELDS = ['goals', 'preferences', 'constraints', 'worked_well', 'avoid'] as const
-const TEXT_FIELDS = ['current_focus', 'communication_style'] as const
 type ListField = (typeof LIST_FIELDS)[number]
-type TextField = (typeof TEXT_FIELDS)[number]
+type TextField = 'current_focus' | 'communication_style'
 type Field = ListField | TextField
 const FIELD_ORDER: Field[] = ['current_focus', 'goals', 'preferences', 'constraints', 'communication_style', 'worked_well', 'avoid']
 const FIELD_LABEL: Record<Field, { zh: string; en: string; hint: { zh: string; en: string } }> = {

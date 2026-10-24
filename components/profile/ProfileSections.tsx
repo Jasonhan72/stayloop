@@ -8,7 +8,7 @@
 // verification (verification_requests, read best-effort by the page) or a
 // tenancy both sides confirmed on Stayloop (lib/profile/history.ts) earns
 //「已核验」. No SIN, no protected grounds, no credit / court placeholder.
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useOnChange } from '@/lib/ui/useOnChange'
 import type { ApplicantProfile, ProfileHistoryEntry } from '@/lib/profile/types'
 import { EMPLOYMENT_STATUS_LABEL, stayloopRentLine, type PackVerified, type StayloopSegment } from '@/lib/profile/exportPack'

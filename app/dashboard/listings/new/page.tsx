@@ -14,10 +14,10 @@ import { useLandlord } from '@/lib/useLandlord'
 import { invalidateHats } from '@/lib/useHats'
 import { RegistrantDisclosureModal, useRegistrantProfile } from '@/components/RegistrantDisclosure'
 import { useAIName } from '@/lib/aiName'
-import { useT, type Lang } from '@/lib/i18n'
+import { useT } from '@/lib/i18n'
 import { checkListingComplianceFor, normalizeProvince, petBanAllowed, provinceName, type ProvinceCode } from '@/lib/provinces'
 
-const STEPS = (aiName: string) => [
+const STEPS = (_aiName: string) => [
   { n: 1, nm: { zh: '基本信息', en: 'Basics' }, desc: { zh: '地址 + 户型 + 面积', en: 'Address + layout + size' } },
   { n: 2, nm: { zh: '照片', en: 'Photos' }, desc: { zh: '第一张是封面', en: 'First photo is the cover' } },
   { n: 3, nm: { zh: '价格 + 条件', en: 'Price + terms' }, desc: { zh: '租金 · 押金 · 租期 · 宠物 · 水电', en: 'Rent · deposit · term · pets · utilities' } },

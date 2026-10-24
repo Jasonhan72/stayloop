@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       .from('landlords')
       .select('id, auth_id, email, stripe_customer_id')
       .or(`id.eq.${user.id},auth_id.eq.${user.id}`)
-    let landlord = pickLandlordRow(rows, user.id)
+    const landlord = pickLandlordRow(rows, user.id)
     // Site test 2026-10-17 (T6-D1): no claim_landlord() self-heal — a billing call must never
     // open the landlord hat. Accounts without one are sent to /landlord/become.
     if (!landlord) {
