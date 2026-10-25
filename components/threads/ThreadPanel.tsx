@@ -256,6 +256,13 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   const mine = reads.find((r) => r.user_id === me)
   const unread = mine ? view.filter((m) => m.id > mine.last_opened_id && m.sender_id !== me).length : visible
   const when = (iso: string) => new Date(iso).toLocaleString(zh ? 'zh-CN' : 'en-CA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const dayOf = (iso: string) => new Date(iso).toDateString()
+  const timeOf = (iso: string, z: boolean) => new Date(iso).toLocaleTimeString(z ? 'zh-CN' : 'en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const stampOf = (iso: string, z: boolean) => {
+    const d = new Date(iso); const now = new Date()
+    const day = d.toDateString() === now.toDateString() ? (z ? '今天' : 'Today') : d.toDateString() === new Date(now.getTime() - 86_400_000).toDateString() ? (z ? '昨天' : 'Yesterday') : d.toLocaleDateString(z ? 'zh-CN' : 'en-CA', { month: 'short', day: 'numeric' })
+    return `${day} ${timeOf(iso, z)}`
+  }
   const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone } catch { return 'local' } })()
   const heading = title || (zh ? KIND_LABEL[kind].zh : KIND_LABEL[kind].en)
 
@@ -272,41 +279,60 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
         <div className={fill ? 'flex min-h-0 flex-1 flex-col' : 'border-t border-line-divider'}>
           <div ref={listRef} data-testid="thread-list" className={fill ? 'min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-6' : 'max-h-[420px] min-h-[120px] overflow-y-auto px-4 py-3'}>
             {visible === 0 && <p className="py-6 text-center text-[12.5px] text-body-3">{zh ? '还没有消息。这里的每一条都带服务器时间与发送身份，只能追加、不能改。' : 'No messages yet. Every line here carries server time and the sender’s hat; the record is append-only.'}</p>}
-            {view.map((m) => {
+            {view.map((m, i) => {
               const isMine = !!me && m.sender_id === me
               const party = PARTY_LABEL[m.sender_kind] ?? PARTY_LABEL.system
               const sys = m.kind === 'system'
               const formal = m.kind === 'formal_copy'
-              if (sys) return <div key={m.id} className={'my-2 text-center text-[11.5px] text-body-3 ' + (onSelectMessage ? 'cursor-pointer' : '') + (selectedId === m.id ? ' underline' : '')} onClick={onSelectMessage ? () => onSelectMessage(m.id) : undefined} data-testid="thread-message" data-kind="system"><span className="font-mono">{when(m.created_at)}</span> · {systemBodyFor(m.body, zh)}</div>
+              const prev = i > 0 ? view[i - 1] : null
+              const next = i + 1 < view.length ? view[i + 1] : null
+              // 简单直接 (user 2026-10-25, the Grok-bot look): a centred time stamp when the day changes or an hour
+              // passed; the sender's name once per run of their messages, outside the bubble; the bubble holds
+              // the words; the time of a run sits under its last bubble. No per-line mono header, no per-line ticks.
+              const breakBefore = !prev || dayOf(prev.created_at) !== dayOf(m.created_at) || Date.parse(m.created_at) - Date.parse(prev.created_at) > 3_600_000
+              const sameRunAsPrev = !!prev && !breakBefore && prev.kind !== 'system' && prev.sender_id === m.sender_id && prev.sender_kind === m.sender_kind
+              const lastOfRun = !next || next.kind === 'system' || next.sender_id !== m.sender_id || next.sender_kind !== m.sender_kind || dayOf(next.created_at) !== dayOf(m.created_at) || Date.parse(next.created_at) - Date.parse(m.created_at) > 3_600_000
+              const senderText = formal && m.sender_label ? m.sender_label : isMine ? (zh ? '你' : 'You') : nameOf(m) ? (m.sender_kind === 'admin' || nameOf(m) === roleLabel(m.sender_kind, zh) ? nameOf(m) : `${nameOf(m)} · ${roleLabel(m.sender_kind === 'external' ? 'external' : m.sender_kind, zh)}`) : (zh ? party.zh : party.en)
+              const actingText = m.acting_role && m.acting_role !== m.sender_kind ? ` · ${zh ? (PARTY_LABEL[m.acting_role as keyof typeof PARTY_LABEL]?.zh ?? m.acting_role) : (PARTY_LABEL[m.acting_role as keyof typeof PARTY_LABEL]?.en ?? m.acting_role)}` : ''
+              const stamp = breakBefore ? <div key={`t${m.id}`} className="my-3 text-center text-[11px] text-body-3" data-testid="thread-timestamp">{stampOf(m.created_at, zh)}</div> : null
+              if (sys) return (
+                <div key={m.id}>
+                  {stamp}
+                  <div className={'my-2 text-center text-[11.5px] text-body-3 ' + (onSelectMessage ? 'cursor-pointer' : '') + (selectedId === m.id ? ' underline' : '')} onClick={onSelectMessage ? () => onSelectMessage(m.id) : undefined} data-testid="thread-message" data-kind="system">{systemBodyFor(m.body, zh)}</div>
+                </div>
+              )
               return (
-                <div key={m.id} className={`mb-3 flex ${isMine ? 'justify-end' : 'justify-start'}`} data-testid="thread-message" data-kind={m.kind}>
-                  <div onClick={onSelectMessage ? () => onSelectMessage(m.id) : undefined} className={'max-w-[80%] rounded-xl px-3.5 py-2 text-[13px] leading-relaxed ' + (formal ? 'border border-amber-200 bg-amber-50 text-amber-950' : isMine ? 'bg-brand text-white' : 'bg-surface-chip text-body') + (onSelectMessage ? ' cursor-pointer' : '') + (selectedId === m.id ? ' ring-2 ring-brand/40 ring-offset-1' : '')}>
-                    <div className={'mb-0.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[10px] font-bold ' + (isMine && !formal ? 'text-white/80' : 'text-body-3')}>
-                      <span data-testid="bubble-sender">{formal && m.sender_label ? m.sender_label : isMine ? (zh ? '你' : 'You') : nameOf(m) ? (m.sender_kind === 'admin' || nameOf(m) === roleLabel(m.sender_kind, zh) ? nameOf(m) : `${nameOf(m)} · ${roleLabel(m.sender_kind === 'external' ? 'external' : m.sender_kind, zh)}`) : (zh ? party.zh : party.en)}{m.acting_role && m.acting_role !== m.sender_kind ? ` · ${zh ? (PARTY_LABEL[m.acting_role as keyof typeof PARTY_LABEL]?.zh ?? m.acting_role) : (PARTY_LABEL[m.acting_role as keyof typeof PARTY_LABEL]?.en ?? m.acting_role)}` : ''}</span>
-                      <time dateTime={m.created_at} title={m.created_at}>{when(m.created_at)}</time>
-                      {formal && <span className="rounded-full bg-amber-200/70 px-1.5 text-amber-900">{zh ? '正式通知副本' : 'FORMAL COPY'}</span>}
-                      {m.channel && m.channel !== 'app' && m.channel !== 'system' && <span className={'rounded px-1.5 ' + (isMine ? 'bg-white/20' : m.channel === 'email' ? 'bg-indigo-50 text-indigo-800' : 'bg-emerald-50 text-emerald-800')} data-testid="thread-channel">{zh ? CHANNEL_LABEL[m.channel].zh : CHANNEL_LABEL[m.channel].en}</span>}
+                <div key={m.id}>
+                  {stamp}
+                  {!sameRunAsPrev && !isMine && <div className="mb-0.5 mt-1 pl-1 text-[11px] text-body-3" data-testid="bubble-sender">{senderText}{actingText}</div>}
+                  <div className={`${lastOfRun ? 'mb-3' : 'mb-1'} flex ${isMine ? 'justify-end' : 'justify-start'}`} data-testid="thread-message" data-kind={m.kind}>
+                    <div onClick={onSelectMessage ? () => onSelectMessage(m.id) : undefined} title={when(m.created_at)} className={'max-w-[80%] rounded-2xl px-3.5 py-2 text-[14px] leading-relaxed ' + (formal ? 'border border-amber-200 bg-amber-50 text-amber-950' : isMine ? 'rounded-tr-sm bg-brand text-white' : 'rounded-tl-sm bg-surface-chip text-body') + (onSelectMessage ? ' cursor-pointer' : '') + (selectedId === m.id ? ' ring-2 ring-brand/40 ring-offset-1' : '')}>
+                      {formal && <div className="mb-0.5 text-[10px] font-bold uppercase tracking-eyebrow text-amber-900">{zh ? '正式通知副本' : 'FORMAL COPY'}{m.sender_label ? ` · ${m.sender_label}` : ''}</div>}
+                      {m.retracted ? (
+                        <div className="italic opacity-70" data-testid="thread-retracted">{zh ? '（已撤回 · 原文保留在记录中）' : '(retracted · the original stays in the record)'}</div>
+                      ) : (
+                        <div className="whitespace-pre-wrap break-words">{formal ? m.body.replace(`\n\n— ${FORMAL_COPY_NOTE.zh} / ${FORMAL_COPY_NOTE.en}`, '') : m.body}</div>
+                      )}
+                      {formal && <div className="mt-1 text-[10.5px] text-amber-800">{zh ? FORMAL_COPY_NOTE.zh : FORMAL_COPY_NOTE.en}</div>}
+                      {!m.retracted && m.attachments.length > 0 && (
+                        <ul className="mt-1.5 space-y-1" data-testid="thread-attachments">
+                          {m.attachments.map((a) => (
+                            <li key={a.path} className={'flex flex-wrap items-center gap-2 rounded-lg px-2 py-1 text-[12px] ' + (isMine && !formal ? 'bg-white/15' : 'bg-white')}>
+                              <button type="button" onClick={() => void openAttachment(a)} className="font-semibold underline underline-offset-2">{a.name}</button>
+                              <span className="opacity-70">{fmtSize(a.size)}</span>
+                              <span className="font-mono text-[10px] opacity-60" title={a.sha256}>sha256 {a.sha256.slice(0, 12)}…</span>
+                              <button type="button" onClick={() => void openAttachment(a, true)} className="text-[11px] underline underline-offset-2">{zh ? '下载' : 'Download'}</button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {m.channel && m.channel !== 'app' && m.channel !== 'system' && <div className={'mt-1 text-[10.5px] ' + (isMine && !formal ? 'text-white/70' : 'text-body-3')} data-testid="thread-channel">{zh ? CHANNEL_LABEL[m.channel].zh : CHANNEL_LABEL[m.channel].en}</div>}
                     </div>
-                    {m.retracted ? (
-                      <div className="italic opacity-70" data-testid="thread-retracted">{zh ? '（已撤回 · 原文保留在记录中）' : '(retracted · the original stays in the record)'}</div>
-                    ) : (
-                      <div className="whitespace-pre-wrap break-words">{formal ? m.body.replace(`\n\n— ${FORMAL_COPY_NOTE.zh} / ${FORMAL_COPY_NOTE.en}`, '') : m.body}</div>
-                    )}
-                    {formal && <div className="mt-1 text-[10.5px] text-amber-800">{zh ? FORMAL_COPY_NOTE.zh : FORMAL_COPY_NOTE.en}</div>}
-                    {!m.retracted && m.attachments.length > 0 && (
-                      <ul className="mt-1.5 space-y-1" data-testid="thread-attachments">
-                        {m.attachments.map((a) => (
-                          <li key={a.path} className={'flex flex-wrap items-center gap-2 rounded-lg px-2 py-1 text-[12px] ' + (isMine && !formal ? 'bg-white/15' : 'bg-white')}>
-                            <button type="button" onClick={() => void openAttachment(a)} className="font-semibold underline underline-offset-2">{a.name}</button>
-                            <span className="opacity-70">{fmtSize(a.size)}</span>
-                            <span className="font-mono text-[10px] opacity-60" title={a.sha256}>sha256 {a.sha256.slice(0, 12)}…</span>
-                            <button type="button" onClick={() => void openAttachment(a, true)} className="text-[11px] underline underline-offset-2">{zh ? '下载' : 'Download'}</button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className={'mt-1 flex flex-wrap items-center gap-2 text-[10px] ' + (isMine && !formal ? 'text-white/70' : 'text-body-3')}>
-                      {isMine && !m.retracted && <span data-testid="read-state">{zh ? READ_LABEL[readStateFor(m.id, reads, me)].zh : READ_LABEL[readStateFor(m.id, reads, me)].en}</span>}
+                  </div>
+                  {lastOfRun && (
+                    <div className={`-mt-2 mb-3 flex flex-wrap items-center gap-2 px-1 text-[10.5px] text-body-3 ${isMine ? 'justify-end' : 'justify-start'}`}>
+                      <time dateTime={m.created_at}>{timeOf(m.created_at, zh)}</time>
+                      {isMine && !m.retracted && <span data-testid="read-state">· {zh ? READ_LABEL[readStateFor(m.id, reads, me)].zh : READ_LABEL[readStateFor(m.id, reads, me)].en}</span>}
                       {isMine && !m.retracted && canRetract(m, me) && (confirmRetract === m.id ? (
                         <span className="inline-flex flex-wrap items-center gap-1.5" data-testid="thread-retract-confirm">
                           <span>{zh ? '撤回这条消息？原文会保留在记录中，对方会看到「已撤回」。' : 'Retract this message? The original stays in the record; others see "retracted".'}</span>
@@ -317,9 +343,8 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
                         <button type="button" onClick={() => setConfirmRetract(m.id)} data-testid="thread-retract" className="underline underline-offset-2">{zh ? '撤回' : 'Retract'}</button>
                       ))}
                       {!isMine && lastFromOther?.id === m.id && (mine?.last_acknowledged_id ?? 0) < m.id && <button type="button" onClick={() => void mark({ last_acknowledged_id: m.id })} className="rounded-full border border-line-strong px-2 py-[1px] text-[10.5px] font-semibold" data-testid="acknowledge">{zh ? '确认收到' : 'Acknowledge'}</button>}
-                      {!isMine && (mine?.last_acknowledged_id ?? 0) >= m.id && m.kind === 'message' && <span>✓ {zh ? '你已确认' : 'you acknowledged'}</span>}
                     </div>
-                  </div>
+                  )}
                 </div>
               )
             })}
@@ -343,7 +368,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
               <button type="button" onClick={() => void send()} disabled={busy || (!draft.trim() && pending.length === 0)} className="rounded-lg bg-brand px-4 text-[13px] font-bold text-white disabled:opacity-50">{zh ? '发送' : 'Send'}</button>
             </div>
             {err && <p className="mt-1.5 text-[12px] text-danger">{err}</p>}
-            <p className="mt-1.5 text-[10.5px] text-body-3">{zh ? `时间按你的时区显示（${tz}），服务器记录为准 · 记录只追加：撤回不会删除原文 · 附件由服务器计算 SHA-256，查看与下载写入审计` : `Times in your time zone (${tz}); the server record is authoritative · append-only: retracting never deletes · attachments are server-hashed (SHA-256); views and downloads are audited`}</p>
+            <p className="mt-1.5 text-[10.5px] text-body-3" title={zh ? `时间按 ${tz} 显示，服务器记录为准；附件由服务器计算 SHA-256，查看与下载写入审计` : `Times in ${tz}; the server record is authoritative; attachments are server-hashed, views and downloads audited`}>{zh ? '记录只追加：撤回不删原文 · 每条带服务器时间与哈希' : 'Append-only: retracting never deletes · every line carries server time and a hash'}</p>
           </div>
         </div>
       )}
