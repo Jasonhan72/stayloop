@@ -8,7 +8,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
-import { canonicalJson, renderEvidencePack, type EvidencePackData, type PackThread, type PackWorkOrder } from '@/lib/export/evidencePack'
+import { canonicalJson, renderEvidencePack, type EvidencePackData, type PackConditionPhoto, type PackThread, type PackWorkOrder } from '@/lib/export/evidencePack'
 import { loadPackThread } from '@/lib/export/threadRecord'
 import { displayNameFor } from '@/lib/threads/server'
 
@@ -84,6 +84,12 @@ export async function POST(req: Request) {
     })
   }
   const hh = ((hhs ?? []) as { id: string; verified: boolean | null; status: string | null; current_lease_id: string | null }[])[0] ?? null
+  // Condition photos (2026-10-27): hash + server time per photo; the files stay in the private bucket.
+  const { data: photoRows } = hh ? await admin.from('condition_photos').select('phase, item_key, created_at, taken_by, sha256, bytes, note').eq('household_id', hh.id).order('created_at') : { data: [] }
+  const conditionPhotos: PackConditionPhoto[] = []
+  for (const p of (photoRows ?? []) as { phase: string; item_key: string; created_at: string; taken_by: string; sha256: string; bytes: number; note: string | null }[]) {
+    conditionPhotos.push({ phase: p.phase, item_key: p.item_key, created_at: p.created_at, by: await nameOf(p.taken_by), sha256: p.sha256, bytes: p.bytes, note: p.note })
+  }
   const { data: rent } = hh?.current_lease_id ? await admin.from('rent_payments').select('due_date, status, paid_at, amount, confirmed_at, evidence_name, evidence_sha256, evidence_at, note').eq('lease_id', hh.current_lease_id).order('due_date') : { data: [] }
   const app = ((apps ?? []) as { id: string; first_name: string | null; last_name: string | null; email: string | null; status: string | null; created_at: string; decision_notified_at: string | null; decision_reason: string | null }[])[0] ?? null
   const lease = ((leases ?? []) as { id: string; status: string | null; start_date: string | null; end_date: string | null; monthly_rent: number | null; sent_at: string | null; signed_at: string | null }[])[0] ?? null
@@ -108,6 +114,7 @@ export async function POST(req: Request) {
     household: hh ? { id: hh.id, verified: hh.verified, status: hh.status, rent: ((rent ?? []) as { due_date: string; status: string | null; paid_at: string | null; amount: number | null }[]) } : null,
     work_orders: packWos,
     threads: packThreads,
+    condition_photos: conditionPhotos,
     audit: packAudit,
     delegations: delegRows.map((d) => ({ id: d.id, principal: d.principal_name || (lang === 'zh' ? '委托人' : 'principal'), delegate: agentName.get(d.delegate_auth_id) || d.delegate_auth_id.slice(0, 8), scope: d.scope, allowed_actions: d.allowed_actions, status: d.status, confirmed_at: d.confirmed_at, revoked_at: d.revoked_at, expires_at: d.expires_at, basis_version: d.basis_version })),
   }

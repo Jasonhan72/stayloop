@@ -102,6 +102,7 @@ function FlagList({ flags, zh }: { flags: Flag[]; zh: boolean }) {
           {f.rule && <span className="ml-1 font-mono text-[10.5px] opacity-75">{ruleById(f.rule)?.statute ?? f.rule}</span>}
         </li>
       ))}
+      <li className="text-[11.5px] text-body-3" data-testid="paralegal-referral">{zh ? '要人帮忙走 LTB 流程？' : 'Need someone to take this to the LTB? '}<Link href="/providers/professional?trade=paralegal" className="font-semibold text-brand underline-offset-2 hover:underline">{zh ? '找持牌 Paralegal →' : 'Find a licensed paralegal →'}</Link>{zh ? '（Stayloop 只整理材料，不给法律意见）' : ' (Stayloop prepares the record; it gives no legal advice)'}</li>
     </ul>
   )
 }

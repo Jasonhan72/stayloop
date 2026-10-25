@@ -27,8 +27,9 @@ const DATA: EvidencePackData = {
 
 describe('evidence pack renderer', () => {
   const html = renderEvidencePack(DATA, META)
-  it('has the eight sections, the fingerprint, server times in UTC beside Toronto, and the formal-copy disclaimer', () => {
-    for (const s of ['1 · 事务链', '2 · 正式通知副本', '3 · 维修工单', '4 · 对话记录', '5 · 附件清单', '6 · 委托', '7 · 审计记录', '8 · 内容指纹']) expect(html).toContain(s)
+  it('has the nine sections, the fingerprint, server times in UTC beside Toronto, and the formal-copy disclaimer', () => {
+    // 2026-10-27: section 5 is the move-in / move-out condition photos; the rest moved down one.
+    for (const s of ['1 · 事务链', '2 · 正式通知副本', '3 · 维修工单', '4 · 对话记录', '5 · 入住 / 退租状态照片', '6 · 附件清单', '7 · 委托', '8 · 审计记录', '9 · 内容指纹']) expect(html).toContain(s)
     expect(html).toContain('f'.repeat(64))
     expect(html).toContain('2026-09-10T00:05:00.000Z')
     expect(html).toContain('不构成《住宅租赁法》意义上的法定送达')

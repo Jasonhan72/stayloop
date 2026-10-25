@@ -4,6 +4,7 @@
 // ticks; the tick records who and when. Notes are free text (key counts,
 // insurer + expiry) and are visible to both sides. No photos are stored.
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { checklistWrite, moveInItemsFor, moveInProgress, normalizeChecklistNote, type ChecklistAction } from '@/lib/household/moveIn'
@@ -82,6 +83,7 @@ export default function MoveInChecklist({ householdId, zh, compact = false, prov
                           {r?.done_at && <span className="ml-2 font-mono text-[10.5px] text-body-3">{r.done_at.slice(0, 10)}{r.done_by === user?.id ? (zh ? ' · 我' : ' · me') : ''}</span>}
                         </div>
                         {it.note && !compact && <div className="mt-0.5 text-[11.5px] text-body-3">{zh ? it.note.zh : it.note.en}</div>}
+                        {it.key === 'insurance' && <Link href="/providers/professional?trade=insurance_broker" className="mt-0.5 inline-block text-[11.5px] font-semibold text-brand underline-offset-2 hover:underline" data-testid="insurance-referral">{zh ? '找持牌保险经纪（RIBO）→' : 'Find a licensed insurance broker (RIBO) →'}</Link>}
                         {it.needsNote && (
                           <input
                             value={noteDraft[it.key] ?? r?.note ?? ''}

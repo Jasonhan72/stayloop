@@ -11,7 +11,7 @@ import { PageHeader, SectionCard, StatusPill } from '@/components/workspace'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
-import { CITIES, coverageFor, TRADES, type Trade } from '@/lib/marketplace/trades'
+import { CITIES, coverageFor, isProfessionalTrade, TRADES, type Trade } from '@/lib/marketplace/trades'
 import { providerMetrics, type WoRow } from '@/lib/marketplace/workOrders'
 import DispatchPolicyCard, { type PolicyProvider } from '@/components/marketplace/DispatchPolicyCard'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
@@ -85,10 +85,10 @@ export default function LandlordProvidersPage() {
         <select value={trade} onChange={(e) => setTrade(e.target.value as Trade | 'all')} className="rounded-lg border border-line-divider bg-white px-2 py-1.5 text-[12.5px]"><option value="all">{zh ? '全部工种' : 'All trades'}</option>{TRADES.map((t) => <option key={t.key} value={t.key}>{zh ? t.zh : t.en}</option>)}</select>
         <select value={city} onChange={(e) => setCity(e.target.value)} className="rounded-lg border border-line-divider bg-white px-2 py-1.5 text-[12.5px]"><option value="all">{zh ? '全部城市' : 'All cities'}</option>{CITIES.map((c) => <option key={c} value={c}>{c}</option>)}</select>
       </div>
-      <SectionCard className="mb-4" title={zh ? '精选网络 · 已核验' : 'Curated network · verified'} meta={`${rows.length}`}>
-        {rows.length === 0 ? <p className="text-[13px] text-body-3">{zh ? '这个工种 / 城市还没有已核验的服务商。你仍可以在工单上派给自己的联系人。' : 'No verified provider for this trade / city yet. You can still dispatch to your own contact from a ticket.'}</p> : (
+      <SectionCard className="mb-4" title={zh ? '精选网络 · 已核验' : 'Curated network · verified'} meta={`${rows.filter((r) => !r.p.trades.every(isProfessionalTrade)).length}`}>
+        {rows.filter((r) => !r.p.trades.every(isProfessionalTrade)).length === 0 ? <p className="text-[13px] text-body-3">{zh ? '这个工种 / 城市还没有已核验的服务商。你仍可以在工单上派给自己的联系人。' : 'No verified provider for this trade / city yet. You can still dispatch to your own contact from a ticket.'}</p> : (
           <div className="divide-y divide-line-divider">
-            {rows.map(({ p, cov, avg, n, metrics }) => (
+            {rows.filter((r) => !r.p.trades.every(isProfessionalTrade)).map(({ p, cov, avg, n, metrics }) => (
               <div key={p.id} className="py-3 text-[13px]">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold">{p.trade_name || p.legal_name}</span>
@@ -102,6 +102,22 @@ export default function LandlordProvidersPage() {
             ))}
           </div>
         )}
+      </SectionCard>
+      {/* Professional services (2026-10-27): paralegal / lawyer / insurance broker / photography — shown and referred, never dispatched. */}
+      <SectionCard className="mb-4" title={zh ? '专业服务 · 只展示与转介' : 'Professional services · referral only'} meta={`${rows.filter((r) => r.p.trades.some(isProfessionalTrade)).length}`}>
+        <p className="mb-2 text-[12px] leading-relaxed text-body-3" data-testid="professional-note">{zh ? '持牌 Paralegal、律师、保险经纪、房源摄影。你直接联系、直接签约；Stayloop 不派单、不收佣金、不给法律意见、不卖保险，只核验牌照并把记录留在事务档案里。' : 'Licensed paralegals, lawyers, insurance brokers and listing photographers. You contact and contract with them directly; Stayloop dispatches nothing, takes no commission, gives no legal advice and sells no insurance — it verifies the licence and keeps the record.'}</p>
+        {rows.filter((r) => r.p.trades.some(isProfessionalTrade)).length === 0 ? <p className="text-[13px] text-body-3">{zh ? '还没有已核验的专业服务提供者。' : 'No verified professional-service provider yet.'}</p> : (
+          <div className="divide-y divide-line-divider">
+            {rows.filter((r) => r.p.trades.some(isProfessionalTrade)).map(({ p, cov }) => (
+              <div key={p.id} className="py-3 text-[13px]" data-testid="professional-row">
+                <div className="flex flex-wrap items-center gap-2"><span className="font-bold">{p.trade_name || p.legal_name}</span><StatusPill tone="ok">{zh ? '牌照已核' : 'licence verified'}</StatusPill></div>
+                <div className="mt-1 flex flex-wrap gap-1.5">{cov.filter((c) => isProfessionalTrade(c.t)).map((c) => { const d = TRADES.find((x) => x.key === c.t); return <span key={c.t} className={'rounded-full px-2 py-[2px] text-[11px] ' + (c.ok ? 'bg-success/10 text-success' : 'bg-amber-50 text-amber-800')}>{zh ? d?.zh : d?.en}</span> })}</div>
+                <div className="mt-1 text-[12px] text-body-3">{p.service_cities.join(' · ')}{p.contact_email ? ` · ${p.contact_email}` : ''}{p.contact_phone ? ` · ${p.contact_phone}` : ''}{p.website ? ` · ${p.website}` : ''}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="mt-2 text-[12px]"><Link href="/providers/professional" className="font-semibold text-brand underline-offset-2 hover:underline">{zh ? '专业服务目录 →' : 'Professional services directory →'}</Link></p>
       </SectionCard>
       <SectionCard title={zh ? '我自己的联系人' : 'My own contacts'} meta={`${contacts.length}`}>
         {contacts.length === 0 ? <p className="text-[13px] text-body-3">{zh ? '你派给自己联系人的工单会记在这里。' : 'Contacts you dispatch to appear here.'}</p> : (

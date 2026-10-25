@@ -25,7 +25,10 @@ export type EvidencePackData = {
   threads: PackThread[]
   audit: PackAudit[]
   delegations: PackDelegation[]
+  /** Move-in / move-out condition photos (2026-10-27): hashed on the member's device, server-timed, append-only. */
+  condition_photos?: PackConditionPhoto[]
 }
+export type PackConditionPhoto = { phase: string; item_key: string; created_at: string; by: string; sha256: string; bytes: number; note: string | null }
 export type PackMeta = { lang: 'zh' | 'en'; generatedAt: string; generatedBy: string; fingerprint: string; siteUrl: string }
 
 export function esc(s: unknown): string {
@@ -88,6 +91,8 @@ export function renderEvidencePack(d: EvidencePackData, m: PackMeta): string {
   const audit = d.audit.length ? `<table><thead><tr><th>${T(L, '时间', 'When')}</th><th>${T(L, '身份', 'Hat')}</th><th>${T(L, '谁', 'Who')}</th><th>${T(L, '动作', 'Action')}</th><th>${T(L, '委托', 'Delegation')}</th></tr></thead><tbody>${rows(d.audit.map((a) => `<td>${when(a.created_at, L)}</td><td>${esc(a.acting_role ? (PARTY[a.acting_role]?.[L] ?? a.acting_role) : '—')}</td><td>${esc(a.actor)}</td><td>${esc(a.action)}</td><td class="att">${a.delegation_id ? esc(a.delegation_id.slice(0, 8)) : '—'}</td>`))}</tbody></table>` : `<p class="meta">${T(L, '无审计记录。', 'No audit rows.')}</p>`
   const delegs = d.delegations.length ? `<table><thead><tr><th>${T(L, '委托人', 'Principal')}</th><th>${T(L, '受托经纪', 'Agent')}</th><th>${T(L, '范围 · 动作', 'Scope · actions')}</th><th>${T(L, '状态', 'Status')}</th><th>${T(L, '确认 / 撤销 / 到期', 'Confirmed / revoked / until')}</th></tr></thead><tbody>${rows(d.delegations.map((g) => `<td>${esc(g.principal)}</td><td>${esc(g.delegate)}</td><td>${esc(g.scope.join(', '))} · ${esc(g.allowed_actions.join(', '))}<br><span class="att">${esc(g.basis_version)}</span></td><td>${esc(g.status)}</td><td>${when(g.confirmed_at, L)}<br>${when(g.revoked_at, L)}<br>${esc(g.expires_at.slice(0, 10))}</td>`))}</tbody></table>` : `<p class="meta">${T(L, '无委托。', 'No delegations.')}</p>`
   const attachments = d.threads.flatMap((t) => t.messages.flatMap((x) => x.attachments))
+  const photos = d.condition_photos ?? []
+  const photosHtml = photos.length ? `<table><thead><tr><th>${T(L, '阶段', 'Phase')}</th><th>${T(L, '位置', 'Item')}</th><th>${T(L, '上传时间（服务器）', 'Uploaded (server time)')}</th><th>${T(L, '谁', 'Who')}</th><th>${T(L, '大小', 'Size')}</th><th>SHA-256</th></tr></thead><tbody>${rows(photos.map((p) => `<td>${p.phase === 'move_in' ? T(L, '入住', 'Move-in') : T(L, '退租', 'Move-out')}</td><td>${esc(p.item_key)}${p.note ? ` · ${esc(p.note)}` : ''}</td><td>${when(p.created_at, L)}</td><td>${esc(p.by)}</td><td>${p.bytes} B</td><td class="fp">${esc(p.sha256)}</td>`))}</tbody></table><p class="meta">${T(L, '照片本身存在租约的私有文件区，按需出示；这里是上传时在上传方设备上计算的 SHA-256 与服务器时间，记录只追加。', 'The photos themselves stay in the tenancy’s private files, shown on request; this is the SHA-256 computed on the uploader’s device and the server time, append-only.')}</p>` : `<p class="meta">${T(L, '没有入住 / 退租照片记录。', 'No condition photos recorded.')}</p>`
   return `<!doctype html><html lang="${L === 'zh' ? 'zh-CN' : 'en-CA'}"><head><meta charset="utf-8"><title>${esc(T(L, '聊天记录', 'Chat history'))} · ${esc(title)}</title><style>${CSS}</style></head><body>
 <div class="toolbar"><span>${T(L, '这是按平台记录生成的导出件；打印可存为 PDF。', 'Generated from the platform record; print to save as PDF.')}</span><button onclick="window.print()">${T(L, '打印 / 保存为 PDF', 'Print / Save as PDF')}</button></div>
 <div class="sheet">
@@ -100,10 +105,11 @@ export function renderEvidencePack(d: EvidencePackData, m: PackMeta): string {
   <h2>2 · ${T(L, '正式通知副本', 'Formal-notice copies')}</h2>${formalHtml}
   <h2>3 · ${T(L, '维修工单', 'Work orders')}</h2>${wos}
   <h2>4 · ${T(L, '对话记录', 'Threads')}</h2>${threads}
-  <h2>5 · ${T(L, '附件清单', 'Attachments')} <span class="meta">(${attachments.length})</span></h2>${attachments.length ? `<table><thead><tr><th>${T(L, '文件', 'File')}</th><th>${T(L, '大小', 'Size')}</th><th>SHA-256</th></tr></thead><tbody>${rows(attachments.map((a) => `<td>${esc(a.name)}</td><td>${a.size} B</td><td class="fp">${esc(a.sha256)}</td>`))}</tbody></table>` : `<p class="meta">${T(L, '无附件。', 'No attachments.')}</p>`}
-  <h2>6 · ${T(L, '委托', 'Delegations')}</h2>${delegs}
-  <h2>7 · ${T(L, '审计记录', 'Audit log')} <span class="meta">(${d.audit.length})</span></h2>${audit}
-  <h2>8 · ${T(L, '内容指纹', 'Content fingerprint')}</h2>
+  <h2>5 · ${T(L, '入住 / 退租状态照片', 'Move-in / move-out condition photos')} <span class="meta">(${photos.length})</span></h2>${photosHtml}
+  <h2>6 · ${T(L, '附件清单', 'Attachments')} <span class="meta">(${attachments.length})</span></h2>${attachments.length ? `<table><thead><tr><th>${T(L, '文件', 'File')}</th><th>${T(L, '大小', 'Size')}</th><th>SHA-256</th></tr></thead><tbody>${rows(attachments.map((a) => `<td>${esc(a.name)}</td><td>${a.size} B</td><td class="fp">${esc(a.sha256)}</td>`))}</tbody></table>` : `<p class="meta">${T(L, '无附件。', 'No attachments.')}</p>`}
+  <h2>7 · ${T(L, '委托', 'Delegations')}</h2>${delegs}
+  <h2>8 · ${T(L, '审计记录', 'Audit log')} <span class="meta">(${d.audit.length})</span></h2>${audit}
+  <h2>9 · ${T(L, '内容指纹', 'Content fingerprint')}</h2>
   <p class="meta">${T(L, '以下为本导出所依据的结构化记录（JSON，键排序后）的 SHA-256。两份导出若指纹相同，内容一致。', 'SHA-256 of the structured record (JSON, keys sorted) this export was rendered from. Two exports with the same fingerprint have identical content.')}</p>
   <p class="fp">${esc(m.fingerprint)}</p>
 </div></body></html>`

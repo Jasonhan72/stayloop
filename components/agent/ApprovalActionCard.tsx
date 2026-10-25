@@ -265,6 +265,7 @@ export default function ApprovalActionCard({
         <ScopeList tone="hold" title={zh ? '不会分享' : 'WILL NOT SHARE'} items={action.excluded_data} />
       </div>
       {isRenewal && <VacancyCostCard zh={zh} monthlyRent={m.current_rent} />}
+      {overdue && <p className="mt-2 text-[11.5px] text-body-3" data-testid="paralegal-referral">{zh ? '要人帮忙走 LTB 流程？' : 'Need someone to take this to the LTB? '}<a href="/providers/professional?trade=paralegal" className="font-semibold text-brand underline-offset-2 hover:underline">{zh ? '找持牌 Paralegal →' : 'Find a licensed paralegal →'}</a>{zh ? '（Stayloop 只整理材料，不给法律意见）' : ' (Stayloop prepares the record; it gives no legal advice)'}</p>}
 
       {preview && preview !== 'none' && (
         <div className="mt-4 rounded-xl border border-line-divider bg-white p-3 text-[12.5px]">

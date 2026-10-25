@@ -22,6 +22,7 @@ import { leaseEndFact } from '@/lib/provinces/renewal'
 import { tenancyClock } from '@/lib/household/clock'
 import { leaseDisplayState, leaseStateDetail } from '@/lib/matters/states'
 import MoveInChecklist from '@/components/household/MoveInChecklist'
+import ConditionPhotos from '@/components/household/ConditionPhotos'
 import MaintenancePanel from '@/components/household/MaintenancePanel'
 import PaymentPlanDraft from '@/components/household/PaymentPlanDraft'
 import CsvReconcile from '@/components/household/CsvReconcile'
@@ -449,6 +450,7 @@ export default function HouseholdHub() {
             </section>
           )}
           <MoveInChecklist householdId={id} zh={zh} compact province={province} />
+          <ConditionPhotos householdId={id} zh={zh} province={province} />
           <section className="rounded-xl border border-line-divider bg-white p-5">
             <h2 className="text-[14px] font-extrabold">{zh ? '租约文件' : 'Lease document'}</h2>
             <button onClick={() => void openLeaseFile()} className="mt-3 rounded-lg border border-line-divider px-4 py-2 text-[13px] font-semibold hover:border-[#00ACE4]">

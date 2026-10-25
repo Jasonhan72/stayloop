@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import MoveInChecklist from '@/components/household/MoveInChecklist'
+import ConditionPhotos from '@/components/household/ConditionPhotos'
 import { leaseProvince } from '@/lib/provinces/lease'
 import { guidelineFor } from '@/lib/ontario/rules'
 import { useReportLiveRows } from '@/lib/liveRows'
@@ -38,6 +39,7 @@ function LiveMoveIn({ zh }: { zh: boolean }) {
         <div key={h.id}>
           <div className="mb-2 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '我的在管租约 · 真实记录' : 'MY TENANCY · LIVE'} · {h.address}{h.unit ? ` #${h.unit}` : ''}{h.start_date ? ` · ${h.start_date}` : ''}</div>
           <MoveInChecklist householdId={h.id} zh={zh} province={leaseProvince({ household: h })} />
+          <div className="mt-4"><ConditionPhotos householdId={h.id} zh={zh} province={leaseProvince({ household: h })} /></div>
         </div>
       ))}
     </div>

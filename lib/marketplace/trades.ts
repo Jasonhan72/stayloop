@@ -10,8 +10,15 @@
 //     licence; business registration + liability insurance
 // WSIB clearance applies to construction-class work on a rental (the
 // owner-occupied home-renovation exemption does not apply).
-export type Trade = 'plumbing' | 'electrical' | 'heating_cooling' | 'appliance' | 'pest' | 'structural' | 'locks_safety' | 'handyman'
-export type CredentialKind = 'sto_coq' | 'esa_contractor' | 'tssa_gas' | 'wsib_clearance' | 'liability_insurance' | 'business_registration' | 'mecp_exterminator'
+//   • professional services (2026-10-27, report review batch 2 §8): paralegal /
+//     lawyer need an LSO licence (Law Society Act), an insurance broker a RIBO
+//     licence (Registered Insurance Brokers Act); photography / floor plans is
+//     a trade like handyman. These four are DIRECTORY-ONLY: no ticket category
+//     maps to them, so the dispatcher never offers them a work order; the
+//     landlord or tenant contacts and contracts with them directly. Stayloop
+//     takes no commission (Insurance Act s.403), gives no legal advice.
+export type Trade = 'plumbing' | 'electrical' | 'heating_cooling' | 'appliance' | 'pest' | 'structural' | 'locks_safety' | 'handyman' | 'photographer_floorplan' | 'insurance_broker' | 'paralegal' | 'lawyer'
+export type CredentialKind = 'sto_coq' | 'esa_contractor' | 'tssa_gas' | 'wsib_clearance' | 'liability_insurance' | 'business_registration' | 'mecp_exterminator' | 'lso_paralegal' | 'lso_lawyer' | 'ribo_licence'
 
 export const TRADES: { key: Trade; zh: string; en: string; required: CredentialKind[]; ticketCategories: string[] }[] = [
   { key: 'plumbing', zh: '水管', en: 'Plumbing', required: ['sto_coq', 'liability_insurance', 'wsib_clearance'], ticketCategories: ['plumbing'] },
@@ -22,7 +29,22 @@ export const TRADES: { key: Trade; zh: string; en: string; required: CredentialK
   { key: 'structural', zh: '门窗 / 结构', en: 'Doors, windows / structure', required: ['business_registration', 'liability_insurance', 'wsib_clearance'], ticketCategories: ['structural'] },
   { key: 'locks_safety', zh: '门锁 / 安全', en: 'Locks / safety', required: ['business_registration', 'liability_insurance'], ticketCategories: ['locks_safety'] },
   { key: 'handyman', zh: '杂工 / 清洁', en: 'Handyman / cleaning', required: ['business_registration', 'liability_insurance'], ticketCategories: ['other', 'repair'] },
+  // Professional services — directory and referral only (no ticket category → never dispatched).
+  { key: 'photographer_floorplan', zh: '房源摄影 / 户型图采集', en: 'Listing photography / floor plans', required: ['business_registration', 'liability_insurance'], ticketCategories: [] },
+  { key: 'insurance_broker', zh: '保险经纪（租客险 / 房东险）', en: 'Insurance broker (tenant / landlord policies)', required: ['ribo_licence'], ticketCategories: [] },
+  { key: 'paralegal', zh: '持牌 Paralegal（LTB 代理）', en: 'Licensed paralegal (LTB representation)', required: ['lso_paralegal'], ticketCategories: [] },
+  { key: 'lawyer', zh: '律师', en: 'Lawyer', required: ['lso_lawyer'], ticketCategories: [] },
 ]
+
+/** Directory-only trades: shown, verified and referred, never dispatched a work order. */
+export const PROFESSIONAL_TRADES: readonly Trade[] = ['photographer_floorplan', 'insurance_broker', 'paralegal', 'lawyer']
+export function isProfessionalTrade(t: string | null | undefined): t is Trade {
+  return !!t && (PROFESSIONAL_TRADES as readonly string[]).includes(t)
+}
+export const TRADE_GROUP_LABEL = {
+  home: { zh: '家居服务', en: 'Home services' },
+  professional: { zh: '专业服务 · 只展示与转介', en: 'Professional services · directory and referral only' },
+} as const
 
 export const CREDENTIAL_LABEL: Record<CredentialKind, { zh: string; en: string; register: string; url: string }> = {
   sto_coq: { zh: 'Skilled Trades Ontario 资格证（C of Q）', en: 'Skilled Trades Ontario Certificate of Qualification', register: 'STO Public Register', url: 'https://www.skilledtradesontario.ca/public-register/' },
@@ -32,6 +54,9 @@ export const CREDENTIAL_LABEL: Record<CredentialKind, { zh: string; en: string; 
   liability_insurance: { zh: '商业责任险（CGL）', en: 'Commercial general liability insurance', register: '保险证明 / certificate', url: '' },
   business_registration: { zh: '企业注册（ONBIS / 联邦）', en: 'Business registration (ONBIS / federal)', register: 'Ontario Business Registry', url: 'https://www.ontario.ca/page/ontario-business-registry' },
   mecp_exterminator: { zh: '安省环境部除虫许可', en: 'MECP exterminator licence', register: 'MECP', url: 'https://www.ontario.ca/page/pesticide-licences' },
+  lso_paralegal: { zh: 'LSO 持牌 Paralegal（P1）', en: 'LSO licensed paralegal (P1)', register: 'LSO Lawyer and Paralegal Directory', url: 'https://lso.ca/public-resources/finding-a-lawyer-or-paralegal/lawyer-and-paralegal-directory' },
+  lso_lawyer: { zh: 'LSO 持牌律师（L1）', en: 'LSO licensed lawyer (L1)', register: 'LSO Lawyer and Paralegal Directory', url: 'https://lso.ca/public-resources/finding-a-lawyer-or-paralegal/lawyer-and-paralegal-directory' },
+  ribo_licence: { zh: 'RIBO 保险经纪牌照', en: 'RIBO insurance broker licence', register: 'RIBO licensee lookup', url: 'https://www.ribo.com/' },
 }
 
 export const CITIES = ['Toronto', 'Scarborough', 'North York', 'Etobicoke', 'Mississauga', 'Brampton', 'Vaughan', 'Markham', 'Richmond Hill', 'Oakville', 'Burlington', 'Hamilton', 'Pickering', 'Ajax', 'Whitby', 'Oshawa', 'Newmarket', 'Aurora'] as const
