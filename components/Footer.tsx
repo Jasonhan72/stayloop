@@ -16,6 +16,7 @@ const GROUPS: Group[] = [
     titleKey: 'foot.product',
     links: [
       { key: 'foot.platform', href: '/platform' },
+      { key: 'foot.tools', href: '/tools' },
       { key: 'foot.stayloopApi', href: '/stayloop-api' },
       { key: 'foot.services', href: '/services' },
       { key: 'foot.pricing', href: '/pricing' },

@@ -85,6 +85,7 @@ export const DICT = {
   // Footer · product links
   'foot.pricing': { en: 'Pricing', zh: '定价' },
   'foot.platform': { en: 'Rental lifecycle', zh: '租房全流程' },
+  'foot.tools': { en: 'Free rental tools', zh: '租房小工具' },
   'foot.stayloopApi': { en: 'Stayloop API', zh: 'Stayloop API' },
   'foot.services': { en: 'Repairs & services network', zh: '维修与服务网络' },
   'foot.screening': { en: 'Screening', zh: '租客筛查' },

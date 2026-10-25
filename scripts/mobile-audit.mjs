@@ -30,7 +30,7 @@ const LANGS = ['zh', 'en']
 const PUBLIC_ROUTES = [
   '/', '/pricing', '/tenant', '/landlord', '/agent', '/platform', '/stayloop-api', '/about',
   '/partners', '/contact', '/disputes', '/listings', '/privacy', '/terms',
-  '/login', '/register', '/screening', '/services', '/rules', '/stayloop-api/docs',
+  '/login', '/register', '/screening', '/services', '/rules', '/tools', '/stayloop-api/docs',
 ]
 
 const AUTHED_ROUTES = [

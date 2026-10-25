@@ -423,3 +423,73 @@ export function decisionNoticeFooter(lang: 'zh' | 'en'): string {
     ? '依据安省《消费者报告法》s.10(7)，你可在 60 天内要求房东说明本次决定所依据信息的性质与来源。本决定由房东本人作出，AI 只做资料整理；不考虑《人权法典》受保护的任何特征（种族、国籍、公民身份、家庭状况、收入来源、年龄、残障、性取向等）。如需查阅或更正资料：privacy@stayloop.ai。你也可以用申请时的邮箱，在 www.stayloop.ai/my-file 免费索取自己的筛查档案、对任何一条提出争议、设置身份警示；这几项权利的说明见 www.stayloop.ai/consumer-rights。'
     : 'Under Ontario’s Consumer Reporting Act s.10(7) you may, within 60 days, ask the landlord for the nature and source of the information this decision relied on. The decision was made by the landlord personally; AI only organised the material. No ground protected by the Human Rights Code (race, nationality, citizenship, family status, receipt of public assistance, age, disability, sexual orientation and others) was considered. To access or correct your information: privacy@stayloop.ai. You can also use the email you applied with at www.stayloop.ai/my-file to get your own screening file free of charge, dispute any item and set an identity alert; these rights are explained at www.stayloop.ai/consumer-rights.'
 }
+
+// ── Public change log + official sources (2026-10-25 · report review batch 1) ──
+// /rules prints these so a landlord can cite "what changed when" and open the
+// text the rule rests on. One entry per in-force date; the rule ids point back
+// into ONTARIO_RULES. Dates with month precision ('YYYY-MM') are announcements
+// whose exact day this codebase does not track (the province publishes the
+// guideline each June).
+export type RuleChange = { date: string; title: { zh: string; en: string }; rules: string[]; source: { label: string; url: string } }
+
+const ELAWS = 'https://www.ontario.ca/laws'
+export const BILL_60_URL = `${ELAWS}/statute/s25014`
+export const GUIDELINE_URL = 'https://www.ontario.ca/page/rent-increase-guideline'
+export const LTB_FORMS_URL = 'https://tribunalsontario.ca/ltb/forms/'
+export const TORONTO_BYLAW_53_2025_URL = 'https://www.toronto.ca/legdocs/bylaws/2025/law0053.pdf'
+
+export const RULES_CHANGELOG: RuleChange[] = [
+  {
+    date: '2026-09-21',
+    title: {
+      zh: 'Bill 60 第二批生效：N4 终止日最少 7 天、「持续迟付」定义、L1 听证前先付一半欠租、N12 提前 120 天免补偿、N13 优先回迁、LTB 2026/09 版表格',
+      en: 'Bill 60, second tranche: N4 termination at least 7 days out, the persistent-late-payment definition, half the arrears before an L1 hearing, the 120-day N12 compensation waiver, N13 right of first refusal, LTB forms versioned 2026/09',
+    },
+    rules: ['RTA-59-n4-7-days', 'RTA-58-persistent-late', 'RTA-82-half-arrears', 'RTA-48-1-n12-120-days', 'RTA-53-n13-first-refusal', 'LTB-forms-2026-09'],
+    source: { label: 'S.O. 2025 c.14 (Bill 60) · O.I.C. 1114/2026, 1115/2026', url: BILL_60_URL },
+  },
+  {
+    date: '2026-07-01',
+    title: {
+      zh: 'Bill 60 / Bill 97 第一批生效：LTB 复审期 30 天改 15 天、还款计划必须用付款协议表、租客可自装空调、罚金上限翻倍',
+      en: 'Bill 60 / Bill 97, first tranche: the LTB review window drops from 30 to 15 days, repayment plans must use the Payment Agreement Form, tenants may install air conditioning, maximum fines doubled',
+    },
+    rules: ['RTA-209-review-15-days', 'RTA-206-payment-agreement-form', 'RTA-36-1-tenant-ac', 'RTA-238-fines-doubled'],
+    source: { label: 'S.O. 2025 c.14 (Bill 60) Sched. 12 · Bill 97 (2023)', url: BILL_60_URL },
+  },
+  {
+    date: '2026-06',
+    title: { zh: '省府公布 2027 年租金涨幅指导比例 1.9%（2027-01-01 起生效的涨租适用）', en: 'The province publishes the 2027 rent increase guideline, 1.9% (for increases taking effect from 2027-01-01)' },
+    rules: ['RTA-120-guideline', 'RTA-116-n1-90-days'],
+    source: { label: 'ontario.ca · Residential rent increases', url: GUIDELINE_URL },
+  },
+  {
+    date: '2025-07-31',
+    title: { zh: '多伦多装修许可证附例生效：以装修为由发 N13 的房东须 7 天内申请许可证', en: 'Toronto’s Rental Renovation Licence by-law takes effect: an N13 for renovations must be followed by a licence application within 7 days' },
+    rules: ['TOR-53-2025-renovation-licence'],
+    source: { label: 'City of Toronto By-law 53-2025 · Chapter 354', url: TORONTO_BYLAW_53_2025_URL },
+  },
+  {
+    date: '2025-06',
+    title: { zh: '省府公布 2026 年租金涨幅指导比例 2.1%', en: 'The province publishes the 2026 rent increase guideline, 2.1%' },
+    rules: ['RTA-120-guideline'],
+    source: { label: 'ontario.ca · Residential rent increases', url: GUIDELINE_URL },
+  },
+]
+
+/** The official text a rule rests on, by the statute it cites. Every rule in ONTARIO_RULES resolves (tests pin this). */
+export function officialLinkFor(rule: Pick<Rule, 'statute' | 'id'>): { label: { zh: string; en: string }; url: string } {
+  const s = rule.statute
+  const elaws = { zh: 'e-Laws 原文', en: 'e-Laws text' }
+  if (s.startsWith('RTA')) return { label: elaws, url: `${ELAWS}/statute/06r17` }
+  if (s.startsWith('O. Reg. 516/06')) return { label: elaws, url: `${ELAWS}/regulation/060516` }
+  if (s.startsWith('O. Reg. 9/18')) return { label: elaws, url: `${ELAWS}/regulation/180009` }
+  if (s.startsWith('OHRC')) return { label: { zh: 'OHRC 政策原文', en: 'OHRC policy' }, url: 'https://www.ohrc.on.ca/en/policy-human-rights-and-rental-housing' }
+  if (s.startsWith('Human Rights Code')) return { label: elaws, url: `${ELAWS}/statute/90h19` }
+  if (s.startsWith('Consumer Reporting Act')) return { label: elaws, url: `${ELAWS}/statute/90c33` }
+  if (s.startsWith('TRESA')) return { label: elaws, url: `${ELAWS}/statute/02r30` }
+  if (s.startsWith('Consumer Protection Act')) return { label: elaws, url: `${ELAWS}/statute/02c30` }
+  if (s.startsWith('City of Toronto')) return { label: { zh: '附例原文（PDF）', en: 'By-law text (PDF)' }, url: TORONTO_BYLAW_53_2025_URL }
+  if (s.startsWith('LTB')) return { label: { zh: 'LTB 表格页', en: 'LTB forms page' }, url: LTB_FORMS_URL }
+  return { label: { zh: '安省法律原文', en: 'Ontario laws' }, url: ELAWS }
+}

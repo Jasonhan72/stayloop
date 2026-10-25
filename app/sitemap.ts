@@ -10,6 +10,8 @@ const PUBLIC_ROUTES = [
   '/agent',
   '/screening',
   '/platform',
+  '/rules',
+  '/tools',
   '/stayloop-api',
   '/stayloop-api/docs',
   '/about',
