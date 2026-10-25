@@ -266,6 +266,8 @@ export type ChatMessage = {
   receipt?: { read: { kind: string; zh: string; en: string }[]; did: { kind: string; zh: string; en: string }[] }
   /** 「记住了：…」 lines for the memories this turn stored. */
   memoryNotes?: string[]
+  /** 「折进来的」 — things from elsewhere this turn read (unread messages, scan cards), each linked. */
+  sources?: { kind: 'message' | 'scan'; zh: string; en: string; href: string }[]
 }
 
 // Bilingual UI text: a plain string (legacy/demo content) or a per-language

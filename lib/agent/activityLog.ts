@@ -39,3 +39,25 @@ export function fmtRowTime(iso: string, lang: Lang, now = new Date()): string {
   if (day === now.toDateString() || day === new Date(now.getTime() - 86_400_000).toDateString()) return hm
   return `${d.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-CA', { month: 'short', day: 'numeric' })} ${hm}`
 }
+
+/** 「今天」时间线 (第二批 ④, 2026-10-25): outcome rows bucketed as 今天 / 昨天 / 本周 / 更早, in that
+ *  order, empty buckets dropped. Rows must already be newest first. */
+export type OutcomeGroupKey = 'today' | 'yesterday' | 'week' | 'earlier'
+export const OUTCOME_GROUP_LABEL: Record<OutcomeGroupKey, { zh: string; en: string }> = {
+  today: { zh: '今天', en: 'Today' }, yesterday: { zh: '昨天', en: 'Yesterday' }, week: { zh: '本周', en: 'This week' }, earlier: { zh: '更早', en: 'Earlier' },
+}
+export function groupOutcomesByDay<T extends { created_at: string }>(rows: T[], now = new Date()): { key: OutcomeGroupKey; rows: T[] }[] {
+  const today = now.toDateString()
+  const yesterday = new Date(now.getTime() - 86_400_000).toDateString()
+  const weekAgo = now.getTime() - 7 * 86_400_000
+  const buckets: Record<OutcomeGroupKey, T[]> = { today: [], yesterday: [], week: [], earlier: [] }
+  for (const r of rows) {
+    const d = new Date(r.created_at)
+    const ds = d.toDateString()
+    if (ds === today) buckets.today.push(r)
+    else if (ds === yesterday) buckets.yesterday.push(r)
+    else if (d.getTime() >= weekAgo) buckets.week.push(r)
+    else buckets.earlier.push(r)
+  }
+  return (['today', 'yesterday', 'week', 'earlier'] as OutcomeGroupKey[]).filter((k) => buckets[k].length).map((k) => ({ key: k, rows: buckets[k] }))
+}

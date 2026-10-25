@@ -13,6 +13,7 @@
 // Nothing under the name: no status line, no hat marker (user 2026-09-25).
 // Approvals still happen only on the cards in the conversation.
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
+import { OUTCOME_GROUP_LABEL, groupOutcomesByDay } from '@/lib/agent/activityLog'
 import { useOnChange } from '@/lib/ui/useOnChange'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -271,7 +272,7 @@ function TodoTab({ role, live, waiting, currentThreadId, onOpenThread, onScrollT
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const outcomes = useRecentOutcomes(live, role, visible)
+  const outcomes = useRecentOutcomes(live, role, visible, 12)
 
   // Titles of the other conversations the waiting cards came from (one small query, only when needed).
   const otherIds = Array.from(new Set(waiting.map(cardThreadId).filter((t): t is string => !!t && t !== currentThreadId)))
@@ -332,27 +333,37 @@ function TodoTab({ role, live, waiting, currentThreadId, onOpenThread, onScrollT
           ) : outcomes.length === 0 ? (
             <p className="py-2 text-[13px] text-body-3">{zh ? '最近 7 天还没有替你办完的事。' : 'Nothing done for you in the last 7 days.'}</p>
           ) : (
-            <ul className="space-y-0.5" data-testid="panel-outcomes">
-              {outcomes.map((o) => {
-                const tid = typeof o.metadata?.thread_id === 'string' ? (o.metadata.thread_id as string) : null
-                const body = (
-                  <>
-                    <span className="mt-px flex-none text-success">✓</span>
-                    <span className="min-w-0 flex-1 text-[13px] leading-snug text-body">{auditActionLabel(o.action, lang, o.metadata || undefined)}</span>
-                    <span className="flex-none font-mono text-[10.5px] text-body-3">{fmtRowTime(o.created_at, lang)}</span>
-                  </>
-                )
-                return (
-                  <li key={o.id}>
-                    {tid ? (
-                      <button type="button" onClick={() => { onClose?.(); void onOpenThread(tid) }} title={zh ? '回到这段对话' : 'Back to this chat'} className="-mx-2 flex w-[calc(100%+16px)] items-start gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-surface-chip">{body}</button>
-                    ) : (
-                      <div className="-mx-2 flex items-start gap-2 px-2 py-1.5">{body}</div>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
+            <div className="space-y-2" data-testid="panel-outcomes">
+              {groupOutcomesByDay(outcomes).map((g) => (
+                <div key={g.key} data-testid={`outcomes-${g.key}`}>
+                  <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? OUTCOME_GROUP_LABEL[g.key].zh : OUTCOME_GROUP_LABEL[g.key].en}</div>
+                  <ul className="space-y-0.5">
+                    {g.rows.map((o) => {
+                      const tid = typeof o.metadata?.thread_id === 'string' ? (o.metadata.thread_id as string) : null
+                      // A run the executor recorded as failed shows ✕ with its reason — a timeline that only ever ticks is not a record.
+                      const failed = o.metadata?.ok === false
+                      const reason = failed ? String(o.metadata?.reason ?? o.metadata?.error ?? '').slice(0, 60) : ''
+                      const body = (
+                        <>
+                          <span className={`mt-px flex-none ${failed ? 'text-danger' : 'text-success'}`}>{failed ? '✕' : '✓'}</span>
+                          <span className="min-w-0 flex-1 text-[13px] leading-snug text-body">{auditActionLabel(o.action, lang, o.metadata || undefined)}{reason && <span className="text-body-3"> · {reason}</span>}</span>
+                          <span className="flex-none font-mono text-[10.5px] text-body-3">{fmtRowTime(o.created_at, lang)}</span>
+                        </>
+                      )
+                      return (
+                        <li key={o.id}>
+                          {tid ? (
+                            <button type="button" onClick={() => { onClose?.(); void onOpenThread(tid) }} title={zh ? '回到这段对话' : 'Back to this chat'} className="-mx-2 flex w-[calc(100%+16px)] items-start gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-surface-chip">{body}</button>
+                          ) : (
+                            <div className="-mx-2 flex items-start gap-2 px-2 py-1.5">{body}</div>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
           )}
           <Link href={`/${role}/audit`} className="mt-1 inline-flex min-h-9 items-center text-[12.5px] font-semibold text-brand-strong">{zh ? '完整审计 →' : 'Full audit →'}</Link>
         </section>

@@ -2,6 +2,7 @@
 // labels, status derivation, and a rule-based message handler (MVP).
 // Real model calls slot in here later without changing the page.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { FoldedSource } from './foldedSources'
 import type { TurnReceipt } from './receipt'
 import type {
   AgentRole,
@@ -151,6 +152,8 @@ export type AgentTurn = {
   urlImages?: string[]
   /** What the turn read / did (lib/agent/receipt.ts). */
   receipt?: TurnReceipt
+  /** Where things came from (lib/agent/foldedSources.ts). */
+  sources?: FoldedSource[]
 }
 
 /** A PDF attachment with a base64 payload (by MIME type, or by extension when the browser gave none). */
@@ -263,6 +266,7 @@ export async function runAgentTurn(args: {
     followups?: FollowUp[]
     draft_listing?: DraftListing
     receipt?: TurnReceipt
+    sources?: FoldedSource[]
     url_images?: string[]
     guardrail?: { flagged: boolean; notes: string[] }
   }
@@ -374,6 +378,7 @@ export async function runAgentTurn(args: {
     followups: turn.followups,
     draftListing: turn.draft_listing,
     receipt: turn.receipt,
+    sources: turn.sources,
     urlImages: turn.url_images,
   }
 }

@@ -6,6 +6,7 @@
 // RLS-scoped Supabase client (same pattern as memory.ts / approval-engine.ts).
 // The Anthropic key stays server-side only.
 import { droppedProposalNote, gateProposedAction, sanitizeActionMetadata } from '@/lib/agent/maintenanceTriage'
+import { buildFoldedSources, type FoldedSource } from '@/lib/agent/foldedSources'
 import { tenantCardRecipient } from '@/lib/agent/chatCopy'
 import { NextResponse } from 'next/server'
 import { RECEIPT_MAX_LINES, type TurnReceipt } from '@/lib/agent/receipt'
@@ -523,12 +524,14 @@ export async function POST(req: Request) {
   let userModelRow: UserModelRow | null = null
   // Row counts of the snapshot, for the receipt (读了什么).
   let ctxRead: ContextRead = EMPTY_READ
+  // 折进来的来源 (第二批 ⑤): unread messages + scan cards, injected and echoed back as linked items.
+  let folded: { text: string; items: FoldedSource[] } = { text: '', items: [] }
   // The speaking style and persona the person set on their assistant (assistant_profiles, RLS self).
   let vibe: string | null = null
   let persona: string | null = null
   if (!anonymous && sbAuth && turnUserId) {
     try {
-      const [ctx, modelRow, profileRow] = await Promise.all([
+      const [ctx, modelRow, profileRow, foldedRes] = await Promise.all([
         buildUserContextDetailed(sbAuth, role, turnUserId),
         sbAuth
           .from('user_memories')
@@ -538,13 +541,15 @@ export async function POST(req: Request) {
           .eq('key', USER_MODEL_KEY)
           .maybeSingle(),
         sbAuth.from('assistant_profiles').select('vibe, persona').maybeSingle(),
+        buildFoldedSources(sbAuth, role, turnUserId).catch(() => ({ text: '', items: [] as FoldedSource[] })),
       ])
+      folded = foldedRes
       userModelRow = (modelRow?.data as UserModelRow | null) ?? null
       const prof = profileRow?.data as { vibe?: string | null; persona?: string | null } | null
       vibe = sanitizeVibe(prof?.vibe)
       persona = sanitizePersona(prof?.persona)
       ctxRead = ctx.read
-      userContextAddendum = ctx.text + userModelToPromptBlock(userModelRow?.value)
+      userContextAddendum = ctx.text + userModelToPromptBlock(userModelRow?.value) + folded.text
     } catch (e) {
       console.warn('[agent/turn] user context failed', (e as Error).message)
     }
@@ -1173,6 +1178,7 @@ export async function POST(req: Request) {
     if (renewalCtx && leaseArea) receipt.read.push({ kind: 'lease', zh: '在管租约（续约计算用）', en: 'your lease (for the renewal maths)' })
     if (docs.length) receipt.read.push({ kind: 'documents', zh: `附件 ${docs.length} 份`, en: `${docs.length} attached document${docs.length === 1 ? '' : 's'}` })
     if (urlPagesRead) receipt.read.push({ kind: 'links', zh: `链接页面 ${urlPagesRead} 个`, en: `${urlPagesRead} linked page${urlPagesRead === 1 ? '' : 's'}` })
+    if (folded.items.length) receipt.read.push({ kind: 'folded', zh: `折进来的 ${folded.items.length} 项`, en: `${folded.items.length} folded-in item${folded.items.length === 1 ? '' : 's'}` })
     if (lookupReq) receipt.read.push({ kind: 'lookup', zh: `查了库：${lookupReq.entity}${lookupReq.query ? `「${lookupReq.query}」` : ''}`, en: `Looked up: ${lookupReq.entity}${lookupReq.query ? ` “${lookupReq.query}”` : ''}` })
     if (listings && listings.length) receipt.did.push({ kind: 'listings', zh: `搜了 Stayloop 房源 ${listings.length} 套`, en: `Searched ${listings.length} Stayloop listing${listings.length === 1 ? '' : 's'}` })
     else if (search && typeof search === 'object' && listings) receipt.did.push({ kind: 'listings', zh: '搜了 Stayloop 房源：没有匹配', en: 'Searched Stayloop listings: no match' })
@@ -1207,6 +1213,7 @@ export async function POST(req: Request) {
     followups,
     draft_listing: draftListing,
     receipt,
+    sources: anonymous ? undefined : folded.items,
     url_images: urlImages.length ? urlImages : undefined,
     // Non-sensitive: the model id string that actually served this turn
     // (post vision-fallback) — for verification and back-office debugging.

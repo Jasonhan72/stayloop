@@ -67,7 +67,7 @@ describe('assistant panel', () => {
     expect(panel).toContain("{ key: 'memory', label: zh ? '记忆' : 'Memory', icon: <MemoryIcon />, badge: 0 }")
     expect(panel).toContain("{ key: 'settings', label: zh ? '设置' : 'Settings', icon: <SlidersIcon />, badge: 0 }")
     expect(panel).not.toContain("key: 'activity'")
-    expect(panel).toContain('useRecentOutcomes(live, role, visible)')
+    expect(panel).toContain('useRecentOutcomes(live, role, visible, 12)')
     expect(panel).toContain('await saveAssistantName(supabase, auth.user.id, next)')
     expect(panel).not.toContain("from('agent_configs')")
     expect(panel).toContain('onClick={onClose}')

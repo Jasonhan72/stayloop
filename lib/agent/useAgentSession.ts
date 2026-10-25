@@ -913,6 +913,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       let listingsSource: ChatMessage['listingsSource']
       let listingsNotice: ChatMessage['listingsNotice']
       let receipt: ChatMessage['receipt']
+      let sources: ChatMessage['sources']
       let listingsPage: ChatMessage['listingsPage']
       let links: ChatMessage['links']
       let market: ChatMessage['market']
@@ -961,6 +962,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
           followups = turn.followups
           draftListing = turn.draftListing
           receipt = turn.receipt
+          sources = turn.sources
           // Accumulate URL images across turns for cross-turn draft attachment.
           if (turn.urlImages?.length) urlImagesRef.current = turn.urlImages
           // If draft has no images, attach accumulated images from prior URL turns.
@@ -1062,6 +1064,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
           followups = turn.followups
           draftListing = turn.draftListing
           receipt = turn.receipt
+          sources = turn.sources
           if (turn.urlImages?.length) urlImagesRef.current = turn.urlImages
           // Only the page the user can see counts as shown; the held-back page is
           // added when 「换一批」 reveals it (markListingsShown).
@@ -1134,7 +1137,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       // was asked in. If the user opened another conversation meanwhile, the
       // reply is written to that row instead of the one on screen (review 2026-09-25).
       const memoryNotes = memoryNoteLines(memoryWrites, langRef.current === 'zh')
-      const reply: ChatMessage = { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, links, market, followups, draftListing, receipt, memoryNotes: memoryNotes.length ? memoryNotes : undefined }
+      const reply: ChatMessage = { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, links, market, followups, draftListing, receipt, sources: sources && sources.length ? sources : undefined, memoryNotes: memoryNotes.length ? memoryNotes : undefined }
       if (sentThread && threadIdRef.current !== sentThread) {
         void appendToThread(getSupabaseBrowser(), sentThread, [reply]).then(() => notifyActivityChanged())
         return

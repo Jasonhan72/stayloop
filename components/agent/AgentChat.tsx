@@ -289,6 +289,14 @@ export default function AgentChat({
                 }
                 style={m.role === 'user' ? { background: accent } : undefined}
               >
+                {m.role === 'agent' && m.sources && m.sources.length > 0 && (
+                  <div data-testid="folded-sources" className="mb-1.5 text-[11.5px] leading-snug text-body-3">
+                    {zh ? '折进来的：' : 'Folded in: '}
+                    {m.sources.map((src, k) => (
+                      <span key={`${src.href}-${k}`}>{k > 0 && ' · '}<Link href={src.href} className="text-brand underline-offset-2 hover:underline">{zh ? src.zh : src.en}</Link></span>
+                    ))}
+                  </div>
+                )}
                 {linkifyPaths(m.text)}
               </div>
               {m.role === 'user' && m.attachments && m.attachments.length > 0 && (
