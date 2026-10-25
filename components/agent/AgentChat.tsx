@@ -3,6 +3,7 @@
 // Claude-style conversation panel for a Personal Agent workspace: a scrolling
 // message thread (user ↔ agent bubbles) with the input pinned at the bottom.
 import { useEffect, useRef, useState } from 'react'
+import { receiptIsEmpty } from '@/lib/agent/receipt'
 import { useOnChange } from '@/lib/ui/useOnChange'
 import { useT } from '@/lib/i18n'
 import AgentInputBar, { type ComposerDraft } from './AgentInputBar'
@@ -447,6 +448,9 @@ export default function AgentChat({
                   )}
                 </div>
               )}
+              {m.role === 'agent' && ((m.receipt && !receiptIsEmpty(m.receipt)) || (m.memoryNotes && m.memoryNotes.length > 0)) && (
+                <TurnReceiptCard receipt={m.receipt} memoryNotes={m.memoryNotes} zh={zh} />
+              )}
               {/* Proactive clarifying questions — tap an answer to send it */}
               {m.role === 'agent' && m.followups && m.followups.length > 0 && (
                 <div className="w-full max-w-[480px] space-y-2.5">
@@ -739,5 +743,33 @@ function linkifyPaths(text: string) {
     i % 2 === 1
       ? <Link key={i} href={part} className="font-semibold underline underline-offset-2" style={{ color: '#00ACE4' }}>{part}</Link>
       : part,
+  )
+}
+
+// 回执卡 (第一批 ①③, 2026-10-25): what the turn read and did, one ✓ line each, then
+// 「记住了：…」 for the memories it stored. Plain lines, no numbers the server did not count.
+function TurnReceiptCard({ receipt, memoryNotes, zh }: { receipt?: ChatMessage['receipt']; memoryNotes?: string[]; zh: boolean }) {
+  const read = receipt?.read ?? []
+  const did = receipt?.did ?? []
+  return (
+    <div data-testid="turn-receipt" className="w-full max-w-[480px] rounded-xl border border-line-divider bg-white/70 px-3 py-2 text-[12px] leading-relaxed text-body-2">
+      {read.length > 0 && (
+        <div>
+          <span className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? '读了' : 'Read'}</span>
+          {read.map((i, k) => <div key={`r${k}`}><span className="text-success">✓</span> {zh ? i.zh : i.en}</div>)}
+        </div>
+      )}
+      {did.length > 0 && (
+        <div className={read.length ? 'mt-1' : ''}>
+          <span className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? '做了' : 'Did'}</span>
+          {did.map((i, k) => <div key={`d${k}`}><span className="text-success">✓</span> {zh ? i.zh : i.en}</div>)}
+        </div>
+      )}
+      {memoryNotes && memoryNotes.length > 0 && (
+        <div className={read.length || did.length ? 'mt-1 border-t border-line-divider pt-1' : ''}>
+          {memoryNotes.map((n, k) => <div key={`m${k}`} data-testid="memory-note">{n}</div>)}
+        </div>
+      )}
+    </div>
   )
 }

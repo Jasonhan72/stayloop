@@ -4,6 +4,7 @@
 // MAX_STORED kept). RLS = self; every call here runs under the user's client.
 // The "current thread" pointer is a per-browser convenience in localStorage.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { receiptSummary } from './receipt'
 import type { AgentRole, ChatMessage } from './types'
 
 export const MAX_STORED_MESSAGES = 300
@@ -33,7 +34,11 @@ export function threadTitle(messages: ChatMessage[]): string | null {
 export function threadSummary(messages: ChatMessage[]): string | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
-    if (m.role !== 'agent' || !m.text.trim()) continue
+    if (m.role !== 'agent') continue
+    // 第一批 ② (2026-10-25): the outcome line is what the turn did, not the first 40 characters of prose.
+    const fromReceipt = receiptSummary(m.receipt, m.memoryNotes, /[一-鿿]/.test(m.text) || !m.text.trim())
+    if (fromReceipt) return fromReceipt
+    if (!m.text.trim()) continue
     const flat = m.text
       .replace(/^\s*[#>*\-·•]+\s*/gm, '')
       .replace(/[*_`]+/g, '')

@@ -34,6 +34,11 @@ import { AvatarIcon, MemoryIcon, PencilIcon, SlidersIcon, TodoTabIcon } from './
 
 export type PanelTab = 'todo' | 'memory' | 'settings'
 const TAB_ORDER: PanelTab[] = ['todo', 'memory', 'settings']
+const STATUS_READS: Record<string, { zh: string; en: string }> = {
+  tenant: { zh: '你的记忆、待办与租约', en: 'your memory, to-dos and lease' },
+  landlord: { zh: '你的申请、租约与房源', en: 'your applications, leases and listings' },
+  agent: { zh: '你的客户与任务', en: 'your clients and tasks' },
+}
 const TAB_KEY = 'sl-assistant-panel-tab'
 
 export default function AssistantPanel({
@@ -91,6 +96,10 @@ export default function AssistantPanel({
   }, [variant])
 
   const waiting = waitingCards(pendingActions)
+  // 名片状态 (第一批 ③, 2026-10-25): connected and reading what, or preview.
+  const statusLine = live
+    ? (zh ? `已连接 · 读取${STATUS_READS[role].zh}` : `Connected · reads ${STATUS_READS[role].en}`)
+    : (zh ? '预览 · 未登录，只看不记' : 'Preview · not signed in, nothing is saved')
 
   // Rename in place: the name is the account's (assistant_profiles RLS = self).
   const [renaming, setRenaming] = useState(false)
@@ -184,6 +193,7 @@ export default function AssistantPanel({
           </div>
           <div className="min-w-0 flex-1">
             {renaming ? nameEditor : <div className="truncate text-[17px] font-medium tracking-tight text-ink">{name}</div>}
+            <div data-testid="assistant-status" className="truncate text-[11px] text-body-3">{statusLine}</div>
           </div>
           <button type="button" onClick={onClose} aria-label={zh ? '关闭' : 'Close'} className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-[22px] text-body-3 transition hover:bg-surface-chip hover:text-body">×</button>
         </div>
@@ -197,6 +207,7 @@ export default function AssistantPanel({
             {pencil}
           </div>
           {renaming ? nameEditor : <div className="mt-3 text-[26px] font-medium leading-tight tracking-tight text-ink">{name}</div>}
+          <div data-testid="assistant-status" className="mt-1 text-[11.5px] text-body-3">{statusLine}</div>
         </div>
       )}
       {picking && <AvatarPicker role={role} avatar={avatar} live={live} zh={zh} onPick={(k) => void chooseAvatar(k)} className={`mx-auto mt-3 max-w-[300px] flex-none ${sheet ? 'px-4' : ''}`} />}

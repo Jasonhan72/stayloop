@@ -262,6 +262,10 @@ export type ChatMessage = {
   market?: MarketInsight
   followups?: FollowUp[]
   draftListing?: DraftListing
+  /** What the turn read / did (lib/agent/receipt.ts); rendered as the receipt card under the reply. */
+  receipt?: { read: { kind: string; zh: string; en: string }[]; did: { kind: string; zh: string; en: string }[] }
+  /** 「记住了：…」 lines for the memories this turn stored. */
+  memoryNotes?: string[]
 }
 
 // Bilingual UI text: a plain string (legacy/demo content) or a per-language

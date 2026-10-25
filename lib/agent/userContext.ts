@@ -37,18 +37,31 @@ async function landlordIds(sb: SupabaseClient, uid: string): Promise<string[]> {
 }
 
 /** Compact zh snapshot of the user's own Stayloop data, per role. '' when nothing/anonymous. */
+/** How many rows of each kind the snapshot carried — the turn receipt's「读了什么」(2026-10-25). */
+export type ContextRead = { applications: number; screenings: number; leases: number; activeLeases: number; tickets: number; intents: number }
+export const EMPTY_READ: ContextRead = { applications: 0, screenings: 0, leases: 0, activeLeases: 0, tickets: 0, intents: 0 }
+
+export async function buildUserContextDetailed(sb: SupabaseClient, role: AgentRole, uid: string | null): Promise<{ text: string; read: ContextRead }> {
+  if (!uid) return { text: '', read: EMPTY_READ }
+  try {
+    if (role === 'landlord') return (await guard(landlordContext(sb, uid), 4500)) || { text: '', read: EMPTY_READ }
+    if (role === 'tenant') return (await guard(tenantContext(sb, uid), 4500)) || { text: '', read: EMPTY_READ }
+    return { text: '', read: EMPTY_READ }
+  } catch {
+    return { text: '', read: EMPTY_READ }
+  }
+}
+
 export async function buildUserContext(sb: SupabaseClient, role: AgentRole, uid: string | null): Promise<string> {
   if (!uid) return ''
   try {
-    if (role === 'landlord') return (await guard(landlordContext(sb, uid), 4500)) || ''
-    if (role === 'tenant') return (await guard(tenantContext(sb, uid), 4500)) || ''
-    return ''
+    return (await buildUserContextDetailed(sb, role, uid)).text
   } catch {
     return ''
   }
 }
 
-async function landlordContext(sb: SupabaseClient, uid: string): Promise<string> {
+async function landlordContext(sb: SupabaseClient, uid: string): Promise<{ text: string; read: ContextRead }> {
   const ids = await landlordIds(sb, uid)
   const [profile, apps, screenings, leases, tickets] = await Promise.all([
     guard(sb.from('landlords').select('full_name,email,plan,company_name').or(`id.eq.${uid},auth_id.eq.${uid}`).limit(1).maybeSingle()),
@@ -80,10 +93,10 @@ async function landlordContext(sb: SupabaseClient, uid: string): Promise<string>
   }
   const tk = (tickets?.data ?? []) as Array<{ title?: string; status?: string; priority?: string }>
   if (tk.length) lines.push(`- 未关闭报修 ${tk.length} 条: ${tk.map((t) => `${t.title || '?'}(${t.status}${t.priority ? `/${t.priority}` : ''})`).join('; ')}`)
-  return wrap(lines)
+  return { text: wrap(lines), read: { applications: appRows.length, screenings: scr.length, leases: leaseRows.length, activeLeases: activeLeases.length, tickets: tk.length, intents: 0 } }
 }
 
-async function tenantContext(sb: SupabaseClient, uid: string): Promise<string> {
+async function tenantContext(sb: SupabaseClient, uid: string): Promise<{ text: string; read: ContextRead }> {
   const [tenant, leases, memberships] = await Promise.all([
     guard(sb.from('tenants').select('id,full_name,email,tier').eq('auth_id', uid).maybeSingle()),
     // RLS ("leases_parties") scopes lease rows to this tenant.
@@ -114,7 +127,7 @@ async function tenantContext(sb: SupabaseClient, uid: string): Promise<string> {
   if (tk.length) {
     lines.push(`- 未关闭报修 ${tk.length} 条(同一个问题已有工单时:引用这张工单、建议在工单对话里补充,不要再提新的报修卡): ${tk.map((x) => `${x.title}(${[x.status, x.category, d(x.created_at) ? `提交于 ${d(x.created_at)}` : ''].filter(Boolean).join(' · ')})`).join('; ')}`)
   }
-  return wrap(lines)
+  return { text: wrap(lines), read: { applications: 0, screenings: 0, leases: leaseRows.length, activeLeases: leaseRows.filter((l) => l.status === 'active' || l.status === 'signed_both').length, tickets: tk.length, intents: it.length } }
 }
 
 // ── Open repair tickets: is this the same problem again? ─────────────────────

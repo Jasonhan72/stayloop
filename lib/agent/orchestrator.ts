@@ -2,6 +2,7 @@
 // labels, status derivation, and a rule-based message handler (MVP).
 // Real model calls slot in here later without changing the page.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { TurnReceipt } from './receipt'
 import type {
   AgentRole,
   AgentStatus,
@@ -148,6 +149,8 @@ export type AgentTurn = {
   followups?: FollowUp[]
   draftListing?: DraftListing
   urlImages?: string[]
+  /** What the turn read / did (lib/agent/receipt.ts). */
+  receipt?: TurnReceipt
 }
 
 /** A PDF attachment with a base64 payload (by MIME type, or by extension when the browser gave none). */
@@ -259,6 +262,7 @@ export async function runAgentTurn(args: {
     market?: MarketInsight
     followups?: FollowUp[]
     draft_listing?: DraftListing
+    receipt?: TurnReceipt
     url_images?: string[]
     guardrail?: { flagged: boolean; notes: string[] }
   }
@@ -369,6 +373,7 @@ export async function runAgentTurn(args: {
     market: turn.market,
     followups: turn.followups,
     draftListing: turn.draft_listing,
+    receipt: turn.receipt,
     urlImages: turn.url_images,
   }
 }

@@ -269,7 +269,7 @@ ${memLines}
 
 # 输出格式(【铁律】任何情况下都只输出下面这个 JSON 对象 —— 闲聊、事实问答、拒绝、报错都一样,把要说的话放进 reply 字段。输出任何 JSON 以外的文字都会导致整条回复丢失,用户只会看到系统兜底提示)
 {
-  "reply": "你对用户说的话(用户的语言,默认中文,温度合适、简洁)",
+  "reply": "你对用户说的话(用户的语言,默认中文,温度合适、简洁)。【收尾】最后单独一行用一句状态收尾,三选一、不超过 15 字:「办完了。」(本轮该做的都做了)/「等你点头。」(出了待批卡或要你确认)/「还缺：……」(缺信息,写缺什么);英文界面用 Done. / Waiting on you. / Still need: … ",
   "intent": "renewal" 或 null(租客在谈租约续约/涨租应对/与房东谈租金时填 "renewal" —— 该意图下系统只附行情卡、不附房源卡;找房及其他一切情况填 null),
   "memory_writes": [ { "key": "snake_case_key", "label": "中文短标签", "value": <任意JSON>, "memory_type": "preference|profile|constraint|semantic", "confidence": 0.0-1.0 } ],
   "proposed_action": ${role === 'tenant' ? `null 或 {

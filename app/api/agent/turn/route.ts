@@ -8,6 +8,7 @@
 import { droppedProposalNote, gateProposedAction, sanitizeActionMetadata } from '@/lib/agent/maintenanceTriage'
 import { tenantCardRecipient } from '@/lib/agent/chatCopy'
 import { NextResponse } from 'next/server'
+import { RECEIPT_MAX_LINES, type TurnReceipt } from '@/lib/agent/receipt'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
 import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback, landlordRenewalFacts, landlordListingsBlock, OUT_OF_PROVINCE_FACTS_HEADING } from '@/lib/agent/prompts'
@@ -23,7 +24,7 @@ import { searchListings } from '@/lib/agent/listingSearch'
 import { applyHardConstraints, constraintsNote } from '@/lib/agent/hardConstraints'
 import { commercialKind, summarizeCommercial } from '@/lib/agent/commercialSearch'
 import { underHourlyLimit } from '@/lib/rateLimit'
-import { buildUserContext, parseLookup, runLookup } from '@/lib/agent/userContext'
+import { buildUserContextDetailed, EMPTY_READ, type ContextRead, parseLookup, runLookup } from '@/lib/agent/userContext'
 import { needsReflection, reflectUser, USER_MODEL_KEY, userModelToPromptBlock } from '@/lib/agent/reflection'
 import { sanitizePersona, sanitizeVibe } from '@/lib/agent/assistantProfile'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
@@ -520,13 +521,15 @@ export async function POST(req: Request) {
   // injected on every authed turn so the agent starts out knowing the person.
   type UserModelRow = { value?: unknown; updated_at?: string | null }
   let userModelRow: UserModelRow | null = null
+  // Row counts of the snapshot, for the receipt (读了什么).
+  let ctxRead: ContextRead = EMPTY_READ
   // The speaking style and persona the person set on their assistant (assistant_profiles, RLS self).
   let vibe: string | null = null
   let persona: string | null = null
   if (!anonymous && sbAuth && turnUserId) {
     try {
       const [ctx, modelRow, profileRow] = await Promise.all([
-        buildUserContext(sbAuth, role, turnUserId),
+        buildUserContextDetailed(sbAuth, role, turnUserId),
         sbAuth
           .from('user_memories')
           .select('value,updated_at')
@@ -540,7 +543,8 @@ export async function POST(req: Request) {
       const prof = profileRow?.data as { vibe?: string | null; persona?: string | null } | null
       vibe = sanitizeVibe(prof?.vibe)
       persona = sanitizePersona(prof?.persona)
-      userContextAddendum = ctx + userModelToPromptBlock(userModelRow?.value)
+      ctxRead = ctx.read
+      userContextAddendum = ctx.text + userModelToPromptBlock(userModelRow?.value)
     } catch (e) {
       console.warn('[agent/turn] user context failed', (e as Error).message)
     }
@@ -570,10 +574,12 @@ export async function POST(req: Request) {
   let urlImages: string[] = []
   // Each pasted URL costs a server-side fetch (Jina render) — anonymous
   // preview turns get 1, authed turns keep 3.
+  let urlPagesRead = 0
   const urls = (message.match(URL_RE) || []).slice(0, anonymous ? 1 : 3)
   if (urls.length) {
     const results = await Promise.all(urls.map((u) => fetchUrlContent(u).then((r) => ({ url: u, ...r }))))
     const fetched = results.filter((r) => r.content)
+    urlPagesRead = fetched.length
     const failed = results.filter((r) => !r.content)
     urlImages = results.flatMap((r) => r.images)
     if (fetched.length) {
@@ -1149,6 +1155,34 @@ export async function POST(req: Request) {
     }
   }
 
+  // ── Turn receipt (第一批 ①, 2026-10-25): what this turn actually read and did, as short lines.
+  // Built from the real loads / calls above — never from the model's prose.
+  const receipt: TurnReceipt = { read: [], did: [] }
+  {
+    const r = ctxRead
+    const groups: string[] = []
+    const groupsEn: string[] = []
+    if (r.applications) { groups.push(`申请 ${r.applications}`); groupsEn.push(`${r.applications} applications`) }
+    if (r.screenings) { groups.push(`筛查 ${r.screenings}`); groupsEn.push(`${r.screenings} screenings`) }
+    if (r.leases) { groups.push(`租约 ${r.leases}${r.activeLeases ? `（生效 ${r.activeLeases}）` : ''}`); groupsEn.push(`${r.leases} leases${r.activeLeases ? ` (${r.activeLeases} in force)` : ''}`) }
+    if (r.intents) { groups.push(`看房意向 ${r.intents}`); groupsEn.push(`${r.intents} viewing requests`) }
+    if (r.tickets) { groups.push(`未关闭报修 ${r.tickets}`); groupsEn.push(`${r.tickets} open repairs`) }
+    if (groups.length) receipt.read.push({ kind: 'snapshot', zh: `读了你的数据：${groups.join(' · ')}`, en: `Read your data: ${groupsEn.join(' · ')}` })
+    if (memories.length) receipt.read.push({ kind: 'memories', zh: `记忆 ${memories.length} 条`, en: `${memories.length} memories` })
+    if (userModelRow?.value) receipt.read.push({ kind: 'user_model', zh: '学习画像', en: 'your profile' })
+    if (renewalCtx && leaseArea) receipt.read.push({ kind: 'lease', zh: '在管租约（续约计算用）', en: 'your lease (for the renewal maths)' })
+    if (docs.length) receipt.read.push({ kind: 'documents', zh: `附件 ${docs.length} 份`, en: `${docs.length} attached document${docs.length === 1 ? '' : 's'}` })
+    if (urlPagesRead) receipt.read.push({ kind: 'links', zh: `链接页面 ${urlPagesRead} 个`, en: `${urlPagesRead} linked page${urlPagesRead === 1 ? '' : 's'}` })
+    if (lookupReq) receipt.read.push({ kind: 'lookup', zh: `查了库：${lookupReq.entity}${lookupReq.query ? `「${lookupReq.query}」` : ''}`, en: `Looked up: ${lookupReq.entity}${lookupReq.query ? ` “${lookupReq.query}”` : ''}` })
+    if (listings && listings.length) receipt.did.push({ kind: 'listings', zh: `搜了 Stayloop 房源 ${listings.length} 套`, en: `Searched ${listings.length} Stayloop listing${listings.length === 1 ? '' : 's'}` })
+    else if (search && typeof search === 'object' && listings) receipt.did.push({ kind: 'listings', zh: '搜了 Stayloop 房源：没有匹配', en: 'Searched Stayloop listings: no match' })
+    if (externalLinks && externalLinks.length) receipt.did.push({ kind: 'links', zh: `附了外部找房链接 ${externalLinks.length} 个`, en: `Added ${externalLinks.length} external search link${externalLinks.length === 1 ? '' : 's'}` })
+    if (market) { const area = String((market as { area?: unknown }).area ?? '').trim(); receipt.did.push({ kind: 'market', zh: `查了 CMHC / 统计局租金基准${area ? `（${area}）` : ''}`, en: `Checked the CMHC / StatCan rent benchmark${area ? ` (${area})` : ''}` }) }
+    if (draftListing) receipt.did.push({ kind: 'draft', zh: '准备了房源草稿卡', en: 'Prepared a listing draft card' })
+    if (!anonymous && out.proposedAction) receipt.did.push({ kind: 'card', zh: `出了待批卡：${String(out.proposedAction.title || '').slice(0, 40)}`, en: `Proposed a card for your approval: ${String(out.proposedAction.title || '').slice(0, 40)}` })
+    receipt.read = receipt.read.slice(0, RECEIPT_MAX_LINES); receipt.did = receipt.did.slice(0, RECEIPT_MAX_LINES)
+  }
+
   return {
     // The chat renders plain text; the prompt says so, and the model still
     // writes "### 1. What the report checks" / "**Document forensics**" on
@@ -1172,6 +1206,7 @@ export async function POST(req: Request) {
     market,
     followups,
     draft_listing: draftListing,
+    receipt,
     url_images: urlImages.length ? urlImages : undefined,
     // Non-sensitive: the model id string that actually served this turn
     // (post vision-fallback) — for verification and back-office debugging.

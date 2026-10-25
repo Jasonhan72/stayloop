@@ -6,6 +6,7 @@
 // local demo session so the page ALWAYS renders. Guaranteed to leave the
 // loading state within a few seconds — it can never hang on a skeleton.
 import { cardThreadId } from '@/lib/agent/threadCards'
+import { memoryNoteLines } from './receipt'
 import { ANON_TURNS_PER_HOUR } from './anonLimits'
 import { notifyPendingChanged } from '@/lib/agent/pendingCount'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -911,6 +912,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       let listings: ChatMessage['listings']
       let listingsSource: ChatMessage['listingsSource']
       let listingsNotice: ChatMessage['listingsNotice']
+      let receipt: ChatMessage['receipt']
       let listingsPage: ChatMessage['listingsPage']
       let links: ChatMessage['links']
       let market: ChatMessage['market']
@@ -958,6 +960,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
           market = turn.market
           followups = turn.followups
           draftListing = turn.draftListing
+          receipt = turn.receipt
           // Accumulate URL images across turns for cross-turn draft attachment.
           if (turn.urlImages?.length) urlImagesRef.current = turn.urlImages
           // If draft has no images, attach accumulated images from prior URL turns.
@@ -1058,6 +1061,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
           market = turn.market
           followups = turn.followups
           draftListing = turn.draftListing
+          receipt = turn.receipt
           if (turn.urlImages?.length) urlImagesRef.current = turn.urlImages
           // Only the page the user can see counts as shown; the held-back page is
           // added when 「换一批」 reveals it (markListingsShown).
@@ -1129,7 +1133,8 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       // Append the agent's reply (with any listing/draft cards) to the thread it
       // was asked in. If the user opened another conversation meanwhile, the
       // reply is written to that row instead of the one on screen (review 2026-09-25).
-      const reply: ChatMessage = { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, links, market, followups, draftListing }
+      const memoryNotes = memoryNoteLines(memoryWrites, langRef.current === 'zh')
+      const reply: ChatMessage = { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, links, market, followups, draftListing, receipt, memoryNotes: memoryNotes.length ? memoryNotes : undefined }
       if (sentThread && threadIdRef.current !== sentThread) {
         void appendToThread(getSupabaseBrowser(), sentThread, [reply]).then(() => notifyActivityChanged())
         return
