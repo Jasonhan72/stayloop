@@ -13,6 +13,7 @@
 // Nothing under the name: no status line, no hat marker (user 2026-09-25).
 // Approvals still happen only on the cards in the conversation.
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
+import RoutinesSection from './RoutinesSection'
 import { OUTCOME_GROUP_LABEL, groupOutcomesByDay } from '@/lib/agent/activityLog'
 import { useOnChange } from '@/lib/ui/useOnChange'
 import Link from 'next/link'
@@ -324,6 +325,8 @@ function TodoTab({ role, live, waiting, currentThreadId, onOpenThread, onScrollT
         )}
         <Link href={`/${role}/todo`} className="mt-1 inline-flex min-h-9 items-center text-[12.5px] font-semibold text-brand-strong">{zh ? '全部待办 → 待办页' : 'All to-dos → To-do page'}</Link>
       </section>
+
+      <RoutinesSection role={role} live={live} />
 
       {live && (
         <section>

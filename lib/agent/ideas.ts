@@ -286,6 +286,7 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     mls_handoff_declined: { zh: '经纪未承接 MLS® 挂牌', en: 'The agent declined the MLS® listing' },
     mls_handoff_removed: { zh: 'MLS® 挂牌记录已撤下', en: 'MLS® listing record taken down' },
     agent_photo_set: { zh: '更新了主页照片', en: 'Profile photo updated' },
+    routine_ran: { zh: `例行任务跑了一次${typeof m.title === 'string' ? ` · ${m.title}` : ''}${typeof m.count === 'number' ? ` · ${m.count} 项` : ''}`, en: `Routine ran${typeof m.title === 'string' ? ` · ${m.title}` : ''}${typeof m.count === 'number' ? ` · ${m.count} item(s)` : ''}` },
     agent_photo_removed: { zh: '移除了主页照片', en: 'Profile photo removed' },
     // V1.0 stage 4 (2026-10-16): applicant pack.
     applicant_pack_file_added: { zh: '你往申请包里添加了一份文件', en: 'You added a file to your application pack' },
