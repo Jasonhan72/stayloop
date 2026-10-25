@@ -72,7 +72,7 @@ describe('one assistant per account', () => {
     expect(read('app/api/agent/reflect/route.ts')).toContain('reflectUser(sb, ud.user.id)')
   })
   it('the AI chats list holds every hat’s conversations — other hats folded, untagged — and reopens one on its own hat’s page', () => {
-    expect(read('lib/agent/threads.ts')).toContain("select('id, role, title, custom_title, summary, turn_count, message_count, created_at, updated_at, last_message_at')")
+    expect(read('lib/agent/threads.ts')).toContain("select('id, role, title, custom_title, summary, turn_count, message_count, created_at, updated_at, last_message_at, is_main')")
     const list = read('components/agent/ThreadList.tsx')
     expect(list).toContain("if (t.role && t.role !== role && HATS.has(t.role)) { router.push(`/${t.role}/agent?thread=${t.id}`); return }")
     expect(list).toContain('const { mine, others } = partitionByHat(shown, role)')
