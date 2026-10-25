@@ -8,7 +8,7 @@ import type { AgentRole } from './types'
 export type RoutineEvery = 'daily' | 'weekly' | 'monthly'
 export type RoutineSchedule = { every: RoutineEvery; weekday?: number; day?: number; hour: number }
 export type RoutineKind =
-  | 'rent_reminder_cards' | 'renewal_window_check' | 'applications_digest' | 'overdue_rent_check'
+  | 'rent_reminder_cards' | 'renewal_window_check' | 'applications_digest' | 'overdue_rent_check' | 'monthly_brief'
   | 'rent_due_reminder' | 'maintenance_followup'
   | 'client_followup_digest'
 export type RoutineDef = {
@@ -34,6 +34,7 @@ export const ROUTINE_KINDS: Record<AgentRole, RoutineDef[]> = {
     { kind: 'renewal_window_check', zh: '检查续约窗口', en: 'Check renewal windows', descZh: '把 120 天内到期的租约列给你（N1 / N2 要 90 天）。', descEn: 'Lists leases ending within 120 days (90 days’ notice for N1 / N2).', reach: 'self', defaultSchedule: { every: 'weekly', weekday: 1, hour: 9 }, params: {} },
     { kind: 'applications_digest', zh: '新申请汇总', en: 'New applications digest', descZh: '把上次以来收到的申请汇总给你。', descEn: 'Sums up the applications received since the last run.', reach: 'self', defaultSchedule: { every: 'weekly', weekday: 5, hour: 17 }, params: {} },
     { kind: 'overdue_rent_check', zh: '逾期租金汇总', en: 'Overdue rent digest', descZh: '列出账期已过、还没记收到的租金。', descEn: 'Lists rent periods past due with no payment recorded.', reach: 'self', defaultSchedule: { every: 'weekly', weekday: 1, hour: 9 }, params: {} },
+    { kind: 'monthly_brief', zh: '每月一页纸简报', en: 'Monthly one-page brief', descZh: '每月 1 号把上个月按房源列出来：收到 / 未记收的租金、维修支出、在市房源与申请，和一条建议。全部来自你的记录，没有的就说没有。', descEn: 'On the 1st, last month listed per unit: rent recorded or not, repair spend, listings on market and applications, plus one suggestion. All from your own records; what is not recorded is said so.', reach: 'self', defaultSchedule: { every: 'monthly', day: 1, hour: 9 }, params: {} },
   ],
   tenant: [
     { kind: 'rent_due_reminder', zh: '交租前提醒我', en: 'Remind me before rent is due', descZh: '到期前几天提醒你这个月的租金和金额。', descEn: 'A reminder a few days before each due date, with the amount.', reach: 'self', defaultSchedule: { every: 'daily', hour: 9 }, params: { days_before: 3, due_day: 1 } },

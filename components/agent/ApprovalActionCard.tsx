@@ -3,6 +3,7 @@
 // The control point. Shows exactly what would be shared (data_scope) and what
 // would NOT (excluded_data), the recipient, and risk — then approve / reject.
 // Nothing executes until the user clicks Approve.
+import VacancyCostCard from '@/components/landlord/VacancyCostCard'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useT } from '@/lib/i18n'
@@ -263,6 +264,7 @@ export default function ApprovalActionCard({
         <ScopeList tone="share" title={zh ? '将分享' : 'WILL SHARE'} items={action.data_scope} />
         <ScopeList tone="hold" title={zh ? '不会分享' : 'WILL NOT SHARE'} items={action.excluded_data} />
       </div>
+      {isRenewal && <VacancyCostCard zh={zh} monthlyRent={m.current_rent} />}
 
       {preview && preview !== 'none' && (
         <div className="mt-4 rounded-xl border border-line-divider bg-white p-3 text-[12.5px]">

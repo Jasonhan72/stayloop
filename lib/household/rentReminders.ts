@@ -33,9 +33,14 @@ export const RENT_DUE_PUSH_DAYS_BEFORE = 3
 /** The first day a still-unrecorded period is carded: past the s.58 grace. */
 export const RENT_OVERDUE_CARD_DAY = PERSISTENT_LATE_GRACE_DAYS + 1
 export const RENT_DUE_PUSH_ACTION = 'rent_due_pushed'
+/** The landlord's nudge the day after a period fell due with nothing recorded (2026-10-26): a push,
+ *  no card — the s.58 card above still comes after the grace period. */
+export const RENT_LATE_PUSH_ACTION = 'rent_late_pushed'
+export const RENT_LATE_PUSH_FROM_DAY = 1
 export const RENT_OVERDUE_ACTION_TYPE = 'rent_overdue'
 
 export const rentDueKey = (leaseId: string, due: string) => `rent_due:${leaseId}:${due.slice(0, 10)}`
+export const rentLateKey = (leaseId: string, due: string) => `rent_late:${leaseId}:${due.slice(0, 10)}`
 
 export type ReminderHousehold = {
   id: string
@@ -81,6 +86,17 @@ export type TenantDuePush = {
   unitLabel: string | null
 }
 
+export type LandlordLatePush = {
+  userId: string
+  householdId: string
+  leaseId: string
+  due: string
+  amount: number
+  daysLate: number
+  key: string
+  unitLabel: string | null
+}
+
 export type OverdueMetadata = {
   lease_id: string
   household_id: string
@@ -120,6 +136,8 @@ export type RentReminderSkip = 'not_active' | 'no_lease' | 'lease_ended' | 'no_s
 
 export type RentReminderPlan = {
   tenantDue: TenantDuePush[]
+  /** The day after a due date passes unrecorded: one push per landlord member (2026-10-26). */
+  landlordLate: LandlordLatePush[]
   landlordOverdue: OverdueProposal[]
   /** Pending rent_overdue cards whose period has since been recorded. */
   expire: { id: string; reason: 'period_paid' }[]
@@ -133,7 +151,7 @@ export type RentReminderInput = {
   members: ReminderMember[]
   /** Pending (and any other status) rent_overdue cards already written. */
   existingCards?: ExistingOverdueCard[]
-  /** `rent_due:<lease>:<due>` keys already pushed (agent_audit_events). */
+  /** `rent_due:<lease>:<due>` and `rent_late:<lease>:<due>` keys already pushed (agent_audit_events). */
   pushedKeys?: Iterable<string>
   today?: Date
 }
@@ -227,7 +245,7 @@ export function planRentReminders(input: RentReminderInput): RentReminderPlan {
   }
   const pushed = new Set(input.pushedKeys ?? [])
 
-  const plan: RentReminderPlan = { tenantDue: [], landlordOverdue: [], expire: [], skipped: { not_active: 0, no_lease: 0, lease_ended: 0, no_schedule: 0 } }
+  const plan: RentReminderPlan = { tenantDue: [], landlordLate: [], landlordOverdue: [], expire: [], skipped: { not_active: 0, no_lease: 0, lease_ended: 0, no_schedule: 0 } }
 
   for (const h of input.households) {
     if (h.verified === false || (h.status ?? 'active') !== 'active') { plan.skipped.not_active++; continue }
@@ -272,6 +290,19 @@ export function planRentReminders(input: RentReminderInput): RentReminderPlan {
       }
     }
 
+    // Landlord, the day after: the latest period that fell due 1..7 days ago with nothing
+    // recorded gets one push per landlord member (once per lease + due). Information only.
+    const fresh = ledger.missed
+      .map((due) => ({ due, daysLate: daysBetween(parseDateOnly(due)!, today) }))
+      .filter((x) => x.daysLate >= RENT_LATE_PUSH_FROM_DAY && x.daysLate < RENT_OVERDUE_CARD_DAY)
+      .sort((a, b) => (a.due < b.due ? 1 : -1))[0]
+    if (fresh && !pushed.has(rentLateKey(lease.id, fresh.due))) {
+      for (const m of members) {
+        if (m.role !== 'landlord') continue
+        plan.landlordLate.push({ userId: m.user_id, householdId: h.id, leaseId: lease.id, due: fresh.due, amount: amountOf(fresh.due), daysLate: fresh.daysLate, key: rentLateKey(lease.id, fresh.due), unitLabel })
+      }
+    }
+
     // Landlord: the latest scheduled period past the grace period with nothing recorded.
     const overdue = ledger.missed
       .map((due) => ({ due, daysLate: daysBetween(parseDateOnly(due)!, today) }))
@@ -307,6 +338,18 @@ export function planRentReminders(input: RentReminderInput): RentReminderPlan {
     for (const m of landlords) plan.landlordOverdue.push(buildOverdueProposal(m.user_id, base))
   }
   return plan
+}
+
+/** The push a landlord gets the day after rent fell due with nothing recorded. */
+export function landlordLatePush(p: LandlordLatePush): { title: string; body: string; url: string } {
+  const unit = p.unitLabel ? ` · ${p.unitLabel}` : ''
+  const when = p.daysLate === 1 ? '昨天' : `${p.daysLate} 天前`
+  const whenEn = p.daysLate === 1 ? 'yesterday' : `${p.daysLate} days ago`
+  return {
+    title: `租金${when}到期，还没记收 · $${fmtMoney(p.amount)}${unit} / Rent due ${whenEn}, nothing recorded`,
+    body: `${p.due} 到期。收到了就记一笔；没收到可以先发一句温和提醒 / Due ${p.due}. Record it if received; otherwise a friendly reminder first`,
+    url: `/h/${p.householdId}?tab=rent`,
+  }
 }
 
 /** The push a tenant gets a few days before rent is due. */

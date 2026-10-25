@@ -16,7 +16,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { IN_FORCE_STATUSES } from '@/lib/agent/renewalStages'
 import { ensureMainThread } from '@/lib/agent/mainThread'
 import { appendToThread } from '@/lib/agent/threads'
-import { daysUntilDueDay, dueDateIso, nextRunAt, routineDef, type RoutineRow } from '@/lib/agent/routines'
+import { daysUntilDueDay, dueDateIso, nextRunAt, routineDef, torontoParts, type RoutineRow } from '@/lib/agent/routines'
 import type { ChatMessage } from '@/lib/agent/types'
 import { notifyUser } from '@/lib/push/notify'
 
@@ -124,6 +124,75 @@ async function runOne(svc: SupabaseClient, r: Row, now: Date): Promise<RunResult
     const lines = rows.length ? rows.map((x) => { const l = lmap.get(x.lease_id); return `· ${l?.unit_label || '?'} · ${l?.tenant_name || '?'} · ${x.due_date} · ${money(x.amount)} · ${x.status || '未记收'}` }) : ['· 没有逾期未记收的租金。']
     await report(svc, r, [`逾期未记收的租金：${rows.length} 期`, ...lines, rows.length ? '在 /landlord/finance 记收，或在待办页看持续迟付提示。' : ''], { zh: `读了你的租金记录（${leaseIds.length} 份租约）`, en: `Read the rent ledger of ${leaseIds.length} lease(s)` }, { title: `逾期租金 · ${rows.length} 期 / Overdue rent`, body: rows.slice(0, 3).map((x) => `${lmap.get(x.lease_id)?.unit_label || '?'} ${x.due_date}`).join(' · ') || '无' })
     return { ok: true, count: rows.length, note: `${rows.length} overdue period(s)` }
+  }
+
+  if (r.kind === 'monthly_brief') {
+    // Last month, Toronto time, as the landlord lives it.
+    const t = torontoParts(now)
+    const y = t.m === 1 ? t.y - 1 : t.y
+    const mth = t.m === 1 ? 12 : t.m - 1
+    const mm = String(mth).padStart(2, '0')
+    const first = `${y}-${mm}-01`
+    const last = `${y}-${mm}-${String(new Date(Date.UTC(y, mth, 0)).getUTCDate()).padStart(2, '0')}`
+    const ids = await landlordIds(svc, r.user_id)
+    const { data: leases } = await svc.from('lease_documents').select('id, tenant_name, unit_label, monthly_rent, end_date').in('landlord_id', ids).in('status', [...IN_FORCE_STATUSES]).limit(100)
+    const ls = (leases ?? []) as { id: string; tenant_name: string | null; unit_label: string | null; monthly_rent: number | null; end_date: string | null }[]
+    const leaseIds = ls.map((l) => l.id)
+    const { data: pays } = leaseIds.length
+      ? await svc.from('rent_payments').select('lease_id, due_date, amount, status, paid_at').in('lease_id', leaseIds).gte('due_date', first).lte('due_date', last)
+      : { data: [] as unknown[] }
+    const payRows = (pays ?? []) as { lease_id: string; due_date: string; amount: number | null; status: string | null; paid_at: string | null }[]
+    const { data: wos } = await svc.from('work_orders').select('status, invoice_amount, approved_amount, quote_amount, completed_at').eq('landlord_auth_id', r.user_id).limit(500)
+    const woRows = (wos ?? []) as { status: string; invoice_amount: number | null; approved_amount: number | null; quote_amount: number | null; completed_at: string | null }[]
+    const done = woRows.filter((w) => w.completed_at && w.completed_at.slice(0, 10) >= first && w.completed_at.slice(0, 10) <= last)
+    const spend = done.reduce((s, w) => s + Number(w.invoice_amount ?? w.approved_amount ?? w.quote_amount ?? 0), 0)
+    const openWo = woRows.filter((w) => !['accepted', 'paid', 'closed', 'declined', 'cancelled'].includes(w.status)).length
+    const { data: lst } = await svc.from('listings').select('id, address, unit, published_at, created_at').in('landlord_id', ids).eq('is_active', true).neq('status', 'archived').limit(100)
+    const live = (lst ?? []) as { id: string; address: string; unit: string | null; published_at: string | null; created_at: string }[]
+    const { data: apps } = live.length
+      ? await svc.from('applications').select('listing_id').in('listing_id', live.map((l) => l.id)).gte('created_at', `${first}T00:00:00Z`).lte('created_at', `${last}T23:59:59Z`)
+      : { data: [] as unknown[] }
+    const appsBy = new Map<string, number>()
+    for (const a of (apps ?? []) as { listing_id: string }[]) appsBy.set(a.listing_id, (appsBy.get(a.listing_id) ?? 0) + 1)
+
+    let unpaid = 0
+    const rentLines = ls.map((l) => {
+      const rows = payRows.filter((p) => p.lease_id === l.id)
+      const recorded = rows.find((p) => (p.status === 'paid' || p.status === 'late') && p.paid_at)
+      let state: string
+      if (recorded) {
+        const lateDays = Math.max(0, Math.round((Date.parse(recorded.paid_at!) - Date.parse(`${recorded.due_date}T00:00:00Z`)) / 86_400_000))
+        state = lateDays > 7 ? `已记收（迟 ${lateDays} 天）` : '已记收'
+      } else { state = '未记收'; unpaid++ }
+      return `· ${l.unit_label || '?'} · ${l.tenant_name || '?'} · ${money(l.monthly_rent)} · ${state}`
+    })
+    const todayIso2 = now.toISOString().slice(0, 10)
+    const endingSoon = ls.filter((l) => l.end_date && l.end_date >= todayIso2 && (Date.parse(l.end_date) - now.getTime()) / 86_400_000 <= 120)
+    const listingLines = live.map((l) => {
+      const since = l.published_at || l.created_at
+      const days = Math.max(0, Math.floor((now.getTime() - Date.parse(since)) / 86_400_000))
+      return `· ${l.address}${l.unit ? ` #${l.unit}` : ''} · 在市 ${days} 天 · 上月申请 ${appsBy.get(l.id) ?? 0} 份`
+    })
+    const stale = live.find((l) => { const since = l.published_at || l.created_at; return (now.getTime() - Date.parse(since)) / 86_400_000 > 14 && !(appsBy.get(l.id) ?? 0) })
+    const suggestion = unpaid
+      ? `建议：有 ${unpaid} 份租约上月的租金还没记收——先到 /landlord/finance 记收，或看待办里的逾期提示。`
+      : endingSoon.length
+        ? `建议：${endingSoon.length} 份租约 120 天内到期，续约要提前 90 天（N1 / N2），去 /landlord/leases 看期限。`
+        : stale
+          ? `建议：${stale.address} 在市超过 14 天还没有申请，让我从定价、文案、照片三方面诊断一下。`
+          : '建议：上月没有需要动的地方。'
+    const lines = [
+      `${y} 年 ${mth} 月 · 一页纸`,
+      `租金（${ls.length} 份生效租约）：`,
+      ...(rentLines.length ? rentLines : ['· 没有生效中的租约记录。']),
+      `维修：上月完工 ${done.length} 张工单${spend ? `，有记录的支出 ${money(spend)}` : ''}；进行中 ${openWo} 张。`,
+      `在市房源 ${live.length} 套：`,
+      ...(listingLines.length ? listingLines : ['· 没有在市房源。']),
+      suggestion,
+      '没有记录的，这里不猜。',
+    ]
+    await report(svc, r, lines, { zh: `读了你 ${ls.length} 份租约、${woRows.length} 张工单、${live.length} 套在市房源的记录`, en: `Read ${ls.length} leases, ${woRows.length} work orders and ${live.length} live listings` }, { title: `${y} 年 ${mth} 月一页纸简报 / Monthly brief`, body: `${ls.length} 份租约 · ${unpaid} 份未记收 · 维修 ${done.length} 张 / ${ls.length} leases · ${unpaid} unrecorded · ${done.length} repairs` })
+    return { ok: true, count: ls.length, note: `${y}-${mm}: ${ls.length} lease(s), ${unpaid} unrecorded, ${done.length} work order(s), ${live.length} listing(s)` }
   }
 
   if (r.kind === 'rent_due_reminder') {

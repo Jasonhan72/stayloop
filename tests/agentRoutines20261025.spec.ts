@@ -12,9 +12,10 @@ const code = (p: string) => read(p).split('\n').filter((l) => !/^\s*(\/\/|\*|\/\
 
 describe('allow-list', () => {
   it('code and database agree on the kinds, per hat', () => {
-    const sql = read('supabase/migrations/20261025_agent_routines.sql')
+    // 2026-10-26: monthly_brief joined the landlord list in a follow-up migration; the latest allow-list wins.
+    const sql = read('supabase/migrations/20261026_agent_routines_monthly_brief.sql')
     for (const k of ALL_ROUTINE_KINDS) expect(sql, k).toContain(`'${k}'`)
-    expect(sql).toContain("(role = 'landlord' and kind in ('rent_reminder_cards','renewal_window_check','applications_digest','overdue_rent_check'))")
+    expect(sql).toContain("(role = 'landlord' and kind in ('rent_reminder_cards','renewal_window_check','applications_digest','overdue_rent_check','monthly_brief'))")
     expect(sql).toContain("(role = 'tenant' and kind in ('rent_due_reminder','maintenance_followup'))")
     expect(sql).toContain("(role = 'agent' and kind in ('client_followup_digest'))")
     // Only one kind reaches other people, and it goes through approval cards.
