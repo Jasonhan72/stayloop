@@ -22,7 +22,7 @@ export type DecidedAction = PendingAction & {
 export const EXECUTABLE_ACTION_TYPES = [
   'send_renewal_letter', 'send_message', 'maintenance_request', 'rent_reminder', 'renewal_checkpoint',
   'relist_prompt', 'dispatch_work_order', 'approve_quote', 'accept_completion', 'work_order_overdue',
-  'showing_request', 'listing_inquiry', 'send_decision', 'send_lease', 'rent_overdue',
+  'showing_request', 'listing_inquiry', 'send_decision', 'send_lease', 'rent_overdue', 'takedown_reminder',
 ] as const
 export function isExecutableAction(type: string | null | undefined): boolean {
   return (EXECUTABLE_ACTION_TYPES as readonly string[]).includes(String(type ?? ''))

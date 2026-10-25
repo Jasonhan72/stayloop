@@ -30,7 +30,7 @@ const TYPE: Record<string, { zh: string; en: string }> = {
 }
 
 /** Published titles are「中文 / English」(draftListingCopy); keep the half in the asked language. */
-function titleIn(title: string | null | undefined, lang: 'zh' | 'en'): string {
+export function titleIn(title: string | null | undefined, lang: 'zh' | 'en'): string {
   const t = (title || '').trim()
   if (!t) return ''
   const parts = t.split(/\s+\/\s+/)
@@ -39,7 +39,7 @@ function titleIn(title: string | null | undefined, lang: 'zh' | 'en'): string {
   return (parts.find((x) => (lang === 'zh' ? han(x) : !han(x))) ?? t).trim()
 }
 
-function first(desc: string | null | undefined, lang: 'zh' | 'en'): string {
+export function firstParagraph(desc: string | null | undefined, lang: 'zh' | 'en'): string {
   // Published descriptions are 中文 paragraph then English (draftListingCopy); take the paragraph in the asked language.
   const paras = (desc || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
   if (!paras.length) return ''
@@ -70,7 +70,7 @@ export function buildSharePost(f: ShareFacts, lang: 'zh' | 'en', url: string): s
   if (am.length) lines.push((zh ? '设施：' : 'Amenities: ') + am.join(zh ? '、' : ', '))
   const ut = (f.utilities_included ?? []).filter(Boolean)
   if (ut.length) lines.push((zh ? '租金包含：' : 'Included: ') + ut.join(zh ? '、' : ', '))
-  const d = first(f.description, lang)
+  const d = firstParagraph(f.description, lang)
   if (d) lines.push('', d)
   lines.push('', zh ? `看房、提问、申请都在这里：${url}` : `Viewings, questions and applications: ${url}`)
   return lines.join('\n')

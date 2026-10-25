@@ -8,7 +8,7 @@
 // Stayloop (PropTx 2026-10-13); Stayloop does not dispatch, charges nothing and
 // takes no part in the trade (2026-09-13).
 
-export type SyndicationChannel = 'mls' | 'facebook_page' | 'instagram' | 'kijiji' | 'rentsync' | 'wechat' | 'xiaohongshu' | 'facebook_group'
+export type SyndicationChannel = 'mls' | 'facebook_page' | 'instagram' | 'kijiji' | 'rentsync' | 'wechat' | 'xiaohongshu' | 'facebook_group' | 'facebook_marketplace' | 'other'
 export type SyndicationStatus = 'requested' | 'posted' | 'declined' | 'removed' | 'failed'
 
 export type SyndicationRow = {

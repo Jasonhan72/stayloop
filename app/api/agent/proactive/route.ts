@@ -27,6 +27,7 @@
 //     (supabase/migrations/20260708_pg_cron_proactive.sql).
 import { NextResponse } from 'next/server'
 import { attachMainThread } from '@/lib/agent/mainThread'
+import { runTakedownSweep } from '@/lib/listings/takedownSweep'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isoDate, todayUtc } from '@/lib/dates'
@@ -578,7 +579,10 @@ async function runCronSweep(): Promise<NextResponse> {
   const followups = await runLandlordFollowUps(admin).catch((e: Error) => ({ sent: 0, skipped: 0, error: e.message }))
   // Rent due / overdue touchpoints (G11): same rule, its own line in the response.
   const rent = await runRentReminderSweep(admin).catch((e: Error): RentSweepSummary => ({ tenant_pushed: 0, overdue_cards: 0, expired: 0, skipped: 0, error: e.message }))
-  return NextResponse.json({ ...body, marketplace, followups, rent }, { status: res.status })
+  // Take-down reminders for hand-posted ads (回流闭环 2026-10-26): same rule.
+  const takedown = await runTakedownSweep(admin).catch((e: Error) => ({ cards: 0, listings: 0, error: e.message }))
+  const summary = { ...body, marketplace, followups, rent }
+  return NextResponse.json({ ...summary, takedown }, { status: res.status })
 }
 
 // ---------------------------------------------------------------------------

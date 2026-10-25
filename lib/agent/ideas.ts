@@ -297,6 +297,7 @@ export function auditActionLabel(action: string, lang: Lang, metadata?: Record<s
     rent_confirmed: { zh: '你确认了对方记录的一期租金', en: 'You confirmed a rent period the other side recorded' },
     rent_due_pushed: { zh: 'AI 助理提醒了租客租金快到期', en: 'The AI Agent reminded the tenant that rent is due soon' },
     executed_rent_overdue: { zh: '你已知悉一期租金逾期（只是知悉，没有发出任何通知）', en: 'You acknowledged an overdue rent period (nothing was sent)' },
+    executed_takedown_reminder: { zh: '你确认外面的房源帖子都撤下了，记录已关掉', en: 'You confirmed the outside ads are down; the records are closed' },
     notice_served_recorded: { zh: '你记录了一份官方通知的送达', en: 'You recorded serving an official notice' },
     // V1.0 stage 2 (2026-10-16): agent intake links.
     agent_intake_link_created: { zh: '你生成了一条客户收件链接', en: 'You created a client intake link' },

@@ -26,6 +26,7 @@
 // executor's status.
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { ENTRY_PERMISSIONS, isEmergencyMaintenance, MAINTENANCE_CATEGORIES, triageLines } from '@/lib/agent/maintenanceTriage'
+import { PASTE_BACK_CHANNELS } from '@/lib/listings/shareChannels'
 import { NextResponse } from 'next/server'
 import { matterRef } from '@/lib/agent/audit'
 import { createClient } from '@supabase/supabase-js'
@@ -1271,6 +1272,32 @@ async function executeRentOverdue(admin: Admin, userId: string, action: ActionRo
 // them is a viewing; the questions are quoted), and all of them flip to
 // `accepted` (sweep 2026-10-01: only the first used to, the rest waited forever).
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Executor: takedown_reminder (回流闭环 2026-10-26)
+// metadata: { listing_id, channels[] }. Approval = the landlord says the ads
+// recorded on the manual channels (Kijiji / Marketplace / group / 小红书 /
+// Instagram / WeChat) are down: the posted rows become removed. Nothing is
+// sent. The listing must be the caller's; nothing left posted expires the card.
+// ---------------------------------------------------------------------------
+async function executeTakedownReminder(admin: Admin, userId: string, action: ActionRow, preview = false): Promise<NextResponse> {
+  const m = (action.metadata || {}) as Record<string, unknown>
+  const listingId = typeof m.listing_id === 'string' ? m.listing_id : ''
+  if (!/^[0-9a-f-]{36}$/i.test(listingId)) return NextResponse.json({ executed: false, reason: 'card has no listing' }, { status: 422 })
+  const { data: landlordRows } = await admin.from('landlords').select('id').or(`auth_id.eq.${userId},id.eq.${userId}`)
+  const landlordIds = [userId, ...(landlordRows ?? []).map((r: { id: string }) => r.id)]
+  const { data: listing } = await admin.from('listings').select('id, landlord_id').eq('id', listingId).maybeSingle()
+  if (!listing || !landlordIds.includes(listing.landlord_id as string)) return NextResponse.json({ executed: false, reason: 'listing not found or not yours' }, { status: 403 })
+  const { data: rows } = await admin.from('listing_syndications').select('id, channel').eq('listing_id', listingId).eq('status', 'posted').in('channel', [...PASTE_BACK_CHANNELS])
+  const posted = (rows ?? []) as { id: string; channel: string }[]
+  if (!posted.length) return expireCard(admin, action.id, { reason: 'nothing_posted', listing_id: listingId })
+  if (preview) return PREVIEW({ subject: action.title, body: action.summary || '', to: null })
+  if (!(await claimExecution(admin, action.id))) return afterLostClaim(admin, action.id)
+  const channels = posted.map((r) => r.channel)
+  const { error } = await admin.from('listing_syndications').update({ status: 'removed', removed_at: new Date().toISOString() }).in('id', posted.map((r) => r.id))
+  if (error) return finalizeExecution(admin, userId, action, 'executed_takedown_reminder', { ok: false, reason: error.message, listing_id: listingId }, { listing_id: listingId })
+  return finalizeExecution(admin, userId, action, 'executed_takedown_reminder', { ok: true, kind: 'acknowledged', listing_id: listingId, removed: posted.length, channels }, { listing_id: listingId, channels })
+}
+
 type IntentRow = { id: string; tenant_id: string; listing_id: string; kind: string | null; move_in_date: string | null; message: string | null; status: string | null; created_at: string | null }
 
 async function executeShowingRequest(admin: Admin, userId: string, action: ActionRow, callerEmail: string | null, preview = false): Promise<NextResponse> {
@@ -1659,6 +1686,8 @@ async function runAction(admin: Admin, userId: string, callerEmail: string | nul
       return executeWorkOrderDecision(admin, userId, action, 'accept_completion', preview)
     case 'work_order_overdue':
       return executeWorkOrderOverdue(admin, userId, action, preview)
+    case 'takedown_reminder':
+      return executeTakedownReminder(admin, userId, action, preview)
     case 'showing_request':
     case 'listing_inquiry':
       return executeShowingRequest(admin, userId, action, callerEmail, preview)

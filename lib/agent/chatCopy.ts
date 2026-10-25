@@ -88,7 +88,7 @@ export function cardSitePath(v: unknown): string | null {
 
 // Approval-only cards: approving them records that the person has seen them; nothing is sent.
 // rent_overdue (G11 2026-10-16): the overdue facts + N4 date arithmetic; approving only records that the landlord saw them.
-const ACKNOWLEDGE_TYPES = new Set(['renewal_checkpoint', 'relist_prompt', 'rent_overdue'])
+const ACKNOWLEDGE_TYPES = new Set(['renewal_checkpoint', 'relist_prompt', 'rent_overdue', 'takedown_reminder'])
 export function isAcknowledgeOnly(actionType: string | null | undefined): boolean {
   return ACKNOWLEDGE_TYPES.has(String(actionType ?? ''))
 }
@@ -182,6 +182,10 @@ const REASON_TEXT: Record<string, Bi> = {
   past_due_date: { zh: '这期租金的到期日已经过了', en: "this rent period's due date has passed" },
   period_paid: { zh: '这期租金已记录付款', en: 'this rent period is already recorded as paid' },
   'card has no due date': { zh: '这张卡片没有到期日，不能核对账期', en: 'this card has no due date, so the period cannot be checked' },
+  // 回流闭环 2026-10-26: the take-down card.
+  'card has no listing': { zh: '这张卡片没有对应的房源', en: 'the card is not linked to a listing' },
+  'listing not found or not yours': { zh: '找不到这套房源，或者它不是你的', en: 'the listing could not be found, or it is not yours' },
+  nothing_posted: { zh: '这套房源外面已经没有记录在案的帖子了，不用再撤', en: 'no outside ads are recorded for this listing any more — nothing left to pull' },
   listing_inactive: { zh: '房源已下架', en: 'the listing is no longer active' },
   ticket_closed: { zh: '这张报修单已经关闭', en: 'this repair ticket is already closed' },
   quote_changed: { zh: '报价在你批准之后变了，请先看新的报价', en: 'the quote changed after you approved it — review the new one first' },

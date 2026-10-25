@@ -11,7 +11,8 @@ import AIProactive from '@/components/AIProactive'
 import { VerificationBadge } from '@/components/ListingBadges'
 import MlsHandoff from '@/components/listings/MlsHandoff'
 import SharePostPanel from '@/components/listings/SharePostPanel'
-import { latestMls, type HandoffItem } from '@/lib/listings/syndication'
+import TakedownNotice from '@/components/listings/TakedownNotice'
+import { latestMls, type HandoffItem, type SyndicationRow } from '@/lib/listings/syndication'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
@@ -26,6 +27,8 @@ export default function Dashboard() {
   const [listings, setListings] = useState<Listing[]>([])
   // MLS® hand-offs + the manual share line (V0.8 第二项 · 第 3 / 4 步, 2026-10-22).
   const [handoffs, setHandoffs] = useState<HandoffItem[]>([])
+  // Hand-posted ads recorded from the share pack (回流闭环 2026-10-26): one read for every listing on the page.
+  const [manualAds, setManualAds] = useState<SyndicationRow[]>([])
   // "Now" for the insight cards: taken at mount and whenever the rows reload (no Date.now() in render).
   const [nowMs, setNowMs] = useState(() => Date.now())
   useOnChange(listings, () => setNowMs(Date.now()))
@@ -33,10 +36,19 @@ export default function Dashboard() {
   const loadHandoffs = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.access_token) return
-    const r = await fetch('/api/listings/mls-handoff', { headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null)
-    if (!r?.ok) return
-    const j = (await r.json().catch(() => ({}))) as { items?: HandoffItem[] }
-    setHandoffs((j.items ?? []).filter((i) => i.channel === 'mls'))
+    const h = { Authorization: `Bearer ${session.access_token}` }
+    const [r, m] = await Promise.all([
+      fetch('/api/listings/mls-handoff', { headers: h }).catch(() => null),
+      fetch('/api/listings/syndications', { headers: h }).catch(() => null),
+    ])
+    if (r?.ok) {
+      const j = (await r.json().catch(() => ({}))) as { items?: HandoffItem[] }
+      setHandoffs((j.items ?? []).filter((i) => i.channel === 'mls'))
+    }
+    if (m?.ok) {
+      const j = (await m.json().catch(() => ({}))) as { items?: SyndicationRow[] }
+      setManualAds(j.items ?? [])
+    }
   }, [])
   const [plan, setPlan] = useState<Plan>('free')
   // A Pro granted directly (no Stripe customer) has nothing to manage in the billing portal — the button used to
@@ -227,6 +239,7 @@ export default function Dashboard() {
     const { error } = await supabase.from('listings').update(patch).eq('id', id)
     if (error) { alert(error.message); return }
     setListings((prev) => prev.map((l) => l.id === id ? { ...l, ...patch } : l))
+    if (!next) void loadHandoffs()
   }
 
   const stats = {
@@ -260,6 +273,7 @@ export default function Dashboard() {
         <SharePostPanel
           zh={lang === 'zh'}
           listing={sharing as never}
+          listingId={sharing.id}
           images={Array.isArray(sharing.images) ? (sharing.images as string[]) : []}
           url={`${origin || 'https://www.stayloop.ai'}/listings/${sharing.slug}`}
           onClose={() => setSharing(null)}
@@ -445,8 +459,9 @@ export default function Dashboard() {
                         <div className="mt-1.5 flex flex-wrap items-center gap-2">
                           <MlsHandoff zh={lang === 'zh'} compact listing={{ id: l.id, address: l.address, unit: l.unit }} item={latestMls(handoffs, l.id) as HandoffItem | null} onChanged={loadHandoffs} />
                           <button type="button" data-testid="share-post-open" onClick={() => setSharing(l)} className="rounded-full border border-line-divider px-2.5 py-[3px] text-[12px] font-semibold text-body-2 hover:border-brand hover:text-brand">
-                            {lang === 'zh' ? '复制文案 · 照片' : 'Copy post · photos'}
+                            {lang === 'zh' ? '分享包 · 照片' : 'Share pack · photos'}
                           </button>
+                          <TakedownNotice zh={lang === 'zh'} listingId={l.id} active={l.is_active !== false} rows={manualAds} onChanged={loadHandoffs} />
                         </div>
                       </div>
                       <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5">
@@ -545,8 +560,9 @@ export default function Dashboard() {
                       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-divider px-4 py-2.5">
                         <MlsHandoff zh={lang === 'zh'} compact listing={{ id: l.id, address: l.address, unit: l.unit }} item={latestMls(handoffs, l.id) as HandoffItem | null} onChanged={loadHandoffs} />
                         <button type="button" data-testid="share-post-open" onClick={() => setSharing(l)} className="rounded-full border border-line-divider px-2.5 py-[3px] text-[12px] font-semibold text-body-2 hover:border-brand hover:text-brand">
-                          {lang === 'zh' ? '复制文案 · 照片' : 'Copy post · photos'}
+                          {lang === 'zh' ? '分享包 · 照片' : 'Share pack · photos'}
                         </button>
+                        <TakedownNotice zh={lang === 'zh'} listingId={l.id} active={l.is_active !== false} rows={manualAds} onChanged={loadHandoffs} />
                       </div>
                       {/* Action bar */}
                       <div className="flex border-t border-line-divider">
