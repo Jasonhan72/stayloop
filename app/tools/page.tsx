@@ -361,7 +361,7 @@ export default function ToolsPage() {
           </div>
           <div id="ask" className="mt-16 scroll-mt-24">
             <h2 className="text-[22px] font-semibold tracking-tight">{zh ? '这个能问吗' : 'May I ask this?'}</h2>
-            <p className="mt-2 max-w-[760px] text-[14.5px] leading-relaxed text-body-2">{zh ? '筛查申请人时常见的问题，按安省规定分成「可以问」「有限制」「不能问」「不需要」四类，每条带依据。' : 'Common screening questions sorted under Ontario’s rules into may ask, with limits, do not ask and not needed, each with its source.'}</p>
+            <p className="mt-2 max-w-[760px] text-[14.5px] leading-relaxed text-body-2">{zh ? '筛查申请人时常见的问题，按安省规定分成「可以问」「有限制」「不能问」「不需要」四类，每条带依据。' : 'Common screening questions sorted under Ontario’s rules into may ask, with limits, do not ask and not needed, each with its source.'} <Link href="/consumer-rights#method" className="font-semibold text-brand underline-offset-2 hover:underline">{zh ? '筛查报告怎么评 →' : 'How the screening report scores →'}</Link></p>
             <div className="mt-5"><AskTool zh={zh} /></div>
           </div>
           <p className="mt-14 max-w-[760px] text-[13px] leading-relaxed text-body-3">

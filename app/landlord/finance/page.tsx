@@ -5,6 +5,7 @@ import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import BenchmarkTrendChart from '@/components/agent/BenchmarkTrendChart'
 import RentLedger from '@/components/landlord/RentLedger'
+import T776Export from '@/components/landlord/T776Export'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import {
   AsideBlock,
@@ -84,6 +85,17 @@ const RECEIVABLES = [
   },
 ]
 
+// The year's T776 figures from the landlord's real records (2026-10-27): rendered beside the
+// real ledger in both live and demo mode, never inside the design sample.
+function LiveTaxBlock({ zh }: { zh: boolean }) {
+  return (
+    <section className="mb-6 rounded-xl border border-line-divider bg-white p-4" data-testid="live-tax-block">
+      <div className="text-[14px] font-bold">CRA T776 · {zh ? '按你的真实记录' : 'from your real records'}</div>
+      <T776Export zh={zh} />
+    </section>
+  )
+}
+
 export default function LandlordFinancePage() {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -121,8 +133,9 @@ export default function LandlordFinancePage() {
   return (
     // The real ledger renders above the honest empty state (liveSlot) and, in demo
     // mode, above the design sample — same as the maintenance board.
-    <WorkspaceShell role="landlord" aside={<Aside lang={lang} insights={insights} />} liveSlot={<RentLedger />}>
+    <WorkspaceShell role="landlord" aside={<Aside lang={lang} insights={insights} />} liveSlot={<><RentLedger /><LiveTaxBlock zh={zh} /></>}>
       <RentLedger />
+      <LiveTaxBlock zh={zh} />
       <PageHeader
         title={zh ? '财务 · 2026 YTD' : 'Finance · 2026 YTD'}
         sub={
@@ -391,15 +404,10 @@ function Aside({ lang, insights }: { lang: Lang; insights: AIInsight[] }) {
           <div className="text-[14px] font-bold">CRA Schedule 776</div>
           <div className="mt-1 text-[12.5px] text-body-2">
             {zh
-              ? `${aiName} 会把所有租金 / 支出按 776 表格归集，T1 报税季节一键导出。`
-              : `${aiName} groups all rent and expenses by the Schedule 776 form, ready for one-click export at T1 tax time.`}
+              ? '把这一年记收的租金和完工工单的金额按 T776 的行号列出来，可打印、可下 CSV；其余各行留空由你填。'
+              : 'The year’s recorded rent and completed work-order amounts laid out by T776 line, printable or as CSV; the other lines stay empty for you to fill.'}
           </div>
-          <Link
-            href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '预览我的 2025 报税包（CRA Schedule 776）' : 'Preview my 2025 tax package (CRA Schedule 776)')}`}
-            className="mt-3 block w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-center text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
-          >
-            {zh ? '预览 2025 报税包' : 'Preview 2025 tax package'}
-          </Link>
+          <T776Export zh={zh} />
         </div>
       </AsideBlock>
 

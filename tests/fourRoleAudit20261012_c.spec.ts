@@ -97,8 +97,8 @@ describe('rent ledger · wiring', () => {
 
   it('is mounted on /landlord/finance as the liveSlot AND inline (demo mode), like the maintenance board', () => {
     expect(page).toContain("import RentLedger from '@/components/landlord/RentLedger'")
-    expect(page).toContain('liveSlot={<RentLedger />}')
-    expect(page).toMatch(/liveSlot=\{<RentLedger \/>\}>\s*<RentLedger \/>/)
+    expect(page).toContain('liveSlot={<><RentLedger /><LiveTaxBlock zh={zh} /></>}' /* 2026-10-27: the T776 export rides beside the real ledger */)
+    expect(page).toMatch(/liveSlot=\{<><RentLedger \/><LiveTaxBlock zh=\{zh\} \/><\/>\}>\s*<RentLedger \/>/)
   })
 
   it('reads tenancies and leases from the one facts source, rent rows through the caller RLS client, and never writes', () => {

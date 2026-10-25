@@ -29,7 +29,30 @@ export type EvidencePackData = {
   condition_photos?: PackConditionPhoto[]
 }
 export type PackConditionPhoto = { phase: string; item_key: string; created_at: string; by: string; sha256: string; bytes: number; note: string | null }
-export type PackMeta = { lang: 'zh' | 'en'; generatedAt: string; generatedBy: string; fingerprint: string; siteUrl: string }
+export type PackMeta = { lang: 'zh' | 'en'; generatedAt: string; generatedBy: string; fingerprint: string; siteUrl: string; kind?: PackKind }
+
+// ── Section order by the kind of matter the pack is for (2026-10-27 · report review batch 2) ──
+// The same sections, the same content; only the reading order changes so the person it is
+// handed to (a licensed paralegal, the other side, a tribunal) finds what that kind of matter
+// turns on first. 'general' is the original order and keeps the original numbering.
+export type PackKind = 'general' | 'arrears' | 'maintenance' | 'move_out'
+export const PACK_KINDS: PackKind[] = ['general', 'arrears', 'maintenance', 'move_out']
+export const PACK_KIND_LABEL: Record<PackKind, { zh: string; en: string }> = {
+  general: { zh: '全部（按事务顺序）', en: 'Everything (matter order)' },
+  arrears: { zh: '欠租事务', en: 'Arrears' },
+  maintenance: { zh: '维修事务', en: 'Maintenance' },
+  move_out: { zh: '退租事务', en: 'Move-out' },
+}
+export const PACK_ORDER: Record<PackKind, string[]> = {
+  general: ['chain', 'formal', 'work_orders', 'threads', 'photos', 'attachments', 'delegations', 'audit'],
+  arrears: ['chain', 'formal', 'threads', 'audit', 'attachments', 'photos', 'work_orders', 'delegations'],
+  maintenance: ['chain', 'work_orders', 'threads', 'photos', 'formal', 'attachments', 'audit', 'delegations'],
+  move_out: ['chain', 'photos', 'work_orders', 'threads', 'formal', 'attachments', 'audit', 'delegations'],
+}
+export function isPackKind(v: unknown): v is PackKind { return typeof v === 'string' && (PACK_KINDS as string[]).includes(v) }
+function orderedSections(kind: PackKind, sections: { key: string; title: string; html: string }[]): string {
+  return PACK_ORDER[kind].map((k, i) => { const sct = sections.find((x) => x.key === k); return sct ? `\n  <h2>${i + 1} · ${sct.title}</h2>${sct.html}` : '' }).join('')
+}
 
 export function esc(s: unknown): string {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -98,17 +121,21 @@ export function renderEvidencePack(d: EvidencePackData, m: PackMeta): string {
 <div class="sheet">
   <div class="eyebrow">Stayloop · ${T(L, '租赁事务 · 聊天记录（含工单与通知）', 'Rental matter · chat history (with work orders & notices)')}</div>
   <h1>${esc(title)}</h1>
+  ${m.kind && m.kind !== 'general' ? `<div class="meta">${T(L, '整理顺序', 'Arranged for')}: ${esc(PACK_KIND_LABEL[m.kind][L])} · ${T(L, '内容与「全部」一样，只是先后不同', 'same content as the full pack, read in a different order')}</div>` : ''}
   <div class="meta">${T(L, '事务编号', 'Matter')} <span class="fp">${esc(d.matter.id)}</span> · ${T(L, '房东', 'landlord')} ${esc(d.parties.landlord)}${d.parties.tenant ? ` · ${T(L, '租客', 'tenant')} ${esc(d.parties.tenant)}` : ''}</div>
   <div class="meta">${T(L, '生成于', 'Generated')} ${when(m.generatedAt, L)} · ${T(L, '生成者', 'by')} ${esc(m.generatedBy)} · ${esc(m.siteUrl)}</div>
   <p class="note">${T(L, '记录只追加：每条消息带服务器时间、发送者在该事务中的身份与当时的帽子；撤回的消息仍在此显示并标注撤回时间；附件列出服务器计算的 SHA-256。正式通知（进入通知 / 决定通知 / 续约函）以邮件送达为准，这里是副本，不构成《住宅租赁法》意义上的法定送达。本文件不含任何筛查分数。', 'Append-only record: every message carries server time, the sender’s party in this matter and the hat worn; retracted messages remain here marked with the retraction time; attachments list the server-computed SHA-256. Formal notices (entry, decision, renewal) were served by email — these are copies, not statutory service under the RTA. No screening score appears in this file.')}</p>
-  <h2>1 · ${T(L, '事务链', 'The chain')}</h2>${chain}${rent}
-  <h2>2 · ${T(L, '正式通知副本', 'Formal-notice copies')}</h2>${formalHtml}
-  <h2>3 · ${T(L, '维修工单', 'Work orders')}</h2>${wos}
-  <h2>4 · ${T(L, '对话记录', 'Threads')}</h2>${threads}
-  <h2>5 · ${T(L, '入住 / 退租状态照片', 'Move-in / move-out condition photos')} <span class="meta">(${photos.length})</span></h2>${photosHtml}
-  <h2>6 · ${T(L, '附件清单', 'Attachments')} <span class="meta">(${attachments.length})</span></h2>${attachments.length ? `<table><thead><tr><th>${T(L, '文件', 'File')}</th><th>${T(L, '大小', 'Size')}</th><th>SHA-256</th></tr></thead><tbody>${rows(attachments.map((a) => `<td>${esc(a.name)}</td><td>${a.size} B</td><td class="fp">${esc(a.sha256)}</td>`))}</tbody></table>` : `<p class="meta">${T(L, '无附件。', 'No attachments.')}</p>`}
-  <h2>7 · ${T(L, '委托', 'Delegations')}</h2>${delegs}
-  <h2>8 · ${T(L, '审计记录', 'Audit log')} <span class="meta">(${d.audit.length})</span></h2>${audit}
+  ${orderedSections(m.kind ?? 'general', [
+    { key: 'chain', title: `${T(L, '事务链', 'The chain')}`, html: `${chain}${rent}` },
+    { key: 'formal', title: `${T(L, '正式通知副本', 'Formal-notice copies')}`, html: `${formalHtml}` },
+    { key: 'work_orders', title: `${T(L, '维修工单', 'Work orders')}`, html: `${wos}` },
+    { key: 'threads', title: `${T(L, '对话记录', 'Threads')}`, html: `${threads}` },
+    { key: 'photos', title: `${T(L, '入住 / 退租状态照片', 'Move-in / move-out condition photos')} <span class="meta">(${photos.length})</span>`, html: `${photosHtml}` },
+    { key: 'attachments', title: `${T(L, '附件清单', 'Attachments')} <span class="meta">(${attachments.length})</span>`, html: `${attachments.length ? `<table><thead><tr><th>${T(L, '文件', 'File')}</th><th>${T(L, '大小', 'Size')}</th><th>SHA-256</th></tr></thead><tbody>${rows(attachments.map((a) => `<td>${esc(a.name)}</td><td>${a.size} B</td><td class="fp">${esc(a.sha256)}</td>`))}</tbody></table>` : `<p class="meta">${T(L, '无附件。', 'No attachments.')}</p>`}` },
+    { key: 'delegations', title: `${T(L, '委托', 'Delegations')}`, html: `${delegs}` },
+    { key: 'audit', title: `${T(L, '审计记录', 'Audit log')} <span class="meta">(${d.audit.length})</span>`, html: `${audit}` },
+  ])}
+  <p class="note">${T(L, '要交给持牌 Paralegal 或律师？整包打印或存成 PDF 带去即可；Stayloop 只整理记录，不给法律意见、不代填表、不代理出庭。', 'Handing this to a licensed paralegal or lawyer? Print the whole pack or save it as a PDF; Stayloop prepares the record only — no legal advice, no form-filling, no representation.')} <a href="${esc(m.siteUrl)}/providers/professional?trade=paralegal">${T(L, '找持牌 Paralegal →', 'Find a licensed paralegal →')}</a></p>
   <h2>9 · ${T(L, '内容指纹', 'Content fingerprint')}</h2>
   <p class="meta">${T(L, '以下为本导出所依据的结构化记录（JSON，键排序后）的 SHA-256。两份导出若指纹相同，内容一致。', 'SHA-256 of the structured record (JSON, keys sorted) this export was rendered from. Two exports with the same fingerprint have identical content.')}</p>
   <p class="fp">${esc(m.fingerprint)}</p>

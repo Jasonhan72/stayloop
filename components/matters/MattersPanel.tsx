@@ -11,16 +11,19 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { matterLinks, matterStage, matterTitle, STAGE_LABEL, STAGE_ORDER, type MatterSummary } from '@/lib/matters/shared'
 import { openHtmlFromPost } from '@/lib/export/openHtml'
+import { PACK_KIND_LABEL, PACK_KINDS, type PackKind } from '@/lib/export/evidencePack'
 
 export default function MattersPanel({ role, zh }: { role: 'tenant' | 'landlord' | 'agent'; zh: boolean }) {
   const auth = useAuth()
   const [rows, setRows] = useState<MatterSummary[] | null>(null)
   const [exporting, setExporting] = useState<string | null>(null)
+  // 2026-10-27: the reading order of the pack (arrears / maintenance / move-out), same content.
+  const [packKind, setPackKind] = useState<PackKind>('general')
   const [err, setErr] = useState<string | null>(null)
   // 节点 6: the matter's full chat history (导出聊天记录 since 2026-09-30) — conversations, work orders, notices, audit; printable, fingerprinted, audited.
   async function exportPack(id: string) {
     setExporting(id); setErr(null)
-    const r = await openHtmlFromPost('/api/matters/export', { matter_id: id, lang: zh ? 'zh' : 'en', acting_role: role })
+    const r = await openHtmlFromPost('/api/matters/export', { matter_id: id, lang: zh ? 'zh' : 'en', acting_role: role, kind: packKind })
     if (!r.ok) setErr(r.error === 'not_a_party' ? (zh ? '你不是这件事的当事人。' : 'You are not a party to this matter.') : r.error || 'export failed')
     setExporting(null)
   }
@@ -33,7 +36,16 @@ export default function MattersPanel({ role, zh }: { role: 'tenant' | 'landlord'
   if (rows === null) return null
   return (
     <div data-testid="matters-panel">
-      <div className="mb-2 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '租赁事务' : 'RENTAL MATTERS'} <span className="ml-1 text-body-3">{rows.length}</span></div>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '租赁事务' : 'RENTAL MATTERS'} <span className="ml-1 text-body-3">{rows.length}</span></span>
+        {rows.length > 0 && (
+          <label className="ml-auto flex items-center gap-1.5 text-[11.5px] text-body-3">{zh ? '聊天记录顺序' : 'Chat history order'}
+            <select value={packKind} onChange={(e) => setPackKind(e.target.value as PackKind)} className="rounded-md border border-line-divider bg-white px-1.5 py-[2px] text-[11.5px]" data-testid="pack-kind">
+              {PACK_KINDS.map((k) => <option key={k} value={k}>{zh ? PACK_KIND_LABEL[k].zh : PACK_KIND_LABEL[k].en}</option>)}
+            </select>
+          </label>
+        )}
+      </div>
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-line-divider bg-white p-5 text-[13px] text-body-3">{zh ? (role === 'agent' ? '客户确认委托后，TA 的租赁事务会出现在这里。' : '申请、租约或在管租约出现后，每件事在这里有一张卡：从申请到退租，同一个编号。') : (role === 'agent' ? 'Once a client confirms a delegation, their matters appear here.' : 'Each application, lease or tenancy becomes one card here — one id from application to move-out.')}</div>
       ) : (

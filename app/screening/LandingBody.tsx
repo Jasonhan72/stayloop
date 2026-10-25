@@ -147,6 +147,7 @@ export default function LandingBody() {
         <section className="mx-auto max-w-[880px] px-5 py-14">
           <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '常见问题' : 'Frequently asked questions'}</h2>
           <p className="mt-1 text-[13px] text-body-3">{zh ? 'Tenant screening in Ontario — FAQ' : '安省租客筛查 · FAQ'}</p>
+          <p className="mt-2 text-[13px] text-body-2">{zh ? '我们怎么评、不评什么，写在' : 'How we score, and what we never score, is written up on '}<a href="/consumer-rights#method" className="font-semibold text-brand underline-offset-2 hover:underline" data-testid="method-link">{zh ? '消费者权利页 →' : 'the consumer-rights page →'}</a></p>
           <div className="mt-6 space-y-3">
             {FAQS.map((f) => {
               const item = zh ? f.zh : f.en

@@ -8,7 +8,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
-import { canonicalJson, renderEvidencePack, type EvidencePackData, type PackConditionPhoto, type PackThread, type PackWorkOrder } from '@/lib/export/evidencePack'
+import { canonicalJson, isPackKind, renderEvidencePack, type EvidencePackData, type PackConditionPhoto, type PackKind, type PackThread, type PackWorkOrder } from '@/lib/export/evidencePack'
 import { loadPackThread } from '@/lib/export/threadRecord'
 import { displayNameFor } from '@/lib/threads/server'
 
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   })
   const { data: ud } = await sb.auth.getUser()
   if (!ud?.user || ud.user.is_anonymous) return NextResponse.json({ error: 'sign_in_required' }, { status: 401 })
-  let body: { matter_id?: string; lang?: string; acting_role?: string }
+  let body: { matter_id?: string; lang?: string; acting_role?: string; kind?: string }
   try { body = (await req.json()) as typeof body } catch { return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 }) }
   const mid = String(body.matter_id || '')
   if (!UUID.test(mid)) return NextResponse.json({ error: 'matter_id required' }, { status: 400 })
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
   const { data: party } = await sb.rpc('matter_party', { p_matter: mid })
   if (!party) return NextResponse.json({ error: 'not_a_party' }, { status: 403 })
   const lang: 'zh' | 'en' = body.lang === 'en' ? 'en' : 'zh'
+  const kind: PackKind = isPackKind(body.kind) ? body.kind : 'general'
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
   const { data: matter } = await admin.from('rental_matters').select('id, address, unit, landlord_auth_id, tenant_auth_id, tenant_email, created_at').eq('id', mid).maybeSingle()
@@ -121,10 +122,10 @@ export async function POST(req: Request) {
   const fingerprint = await sha256Hex(canonicalJson(data))
   const generatedAt = new Date().toISOString()
   const actingRole = HATS.has(String(body.acting_role)) ? String(body.acting_role) : String(party)
-  const html = renderEvidencePack(data, { lang, generatedAt, generatedBy: `${(await displayNameFor(admin, ud.user.id)) ?? ud.user.id.slice(0, 8)} (${actingRole})`, fingerprint, siteUrl: SITE() })
+  const html = renderEvidencePack(data, { lang, generatedAt, generatedBy: `${(await displayNameFor(admin, ud.user.id)) ?? ud.user.id.slice(0, 8)} (${actingRole})`, fingerprint, siteUrl: SITE(), kind })
   await admin.from('agent_audit_events').insert({
     actor_id: ud.user.id, actor_type: 'user', action: 'matter_export_generated', target_type: 'rental_matter', target_id: mid, acting_role: actingRole, rental_matter_id: mid,
-    metadata: { fingerprint, threads: packThreads.length, messages: packThreads.reduce((n, t) => n + t.messages.length, 0), attachments: packThreads.reduce((n, t) => n + t.messages.reduce((k, x) => k + x.attachments.length, 0), 0), work_orders: packWos.length, audit_rows: packAudit.length, lang },
+    metadata: { fingerprint, kind, threads: packThreads.length, messages: packThreads.reduce((n, t) => n + t.messages.length, 0), attachments: packThreads.reduce((n, t) => n + t.messages.reduce((k, x) => k + x.attachments.length, 0), 0), work_orders: packWos.length, audit_rows: packAudit.length, lang },
   }).then(() => undefined, () => undefined)
   return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Fingerprint': fingerprint } })
 }

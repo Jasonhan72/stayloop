@@ -83,6 +83,21 @@ export default function ConsumerRightsPage() {
                 <Link href="/privacy" className="font-semibold text-brand hover:underline">{zh ? '隐私政策' : 'Privacy policy'}</Link>
               </p>
             </Section>
+
+            <div id="method" className="scroll-mt-24" data-testid="screening-method">
+              <Section title={zh ? '4 · 我们怎么评、不评什么' : '4 · How we score, and what we never score'}>
+                <p>{zh ? '筛查报告把四件事分开打分，再按比重合成一个参考分：付款能力（最重）、信用状况、租务与司法历史、核验程度（最轻）。申请材料齐不齐另列一行，不计分。' : 'The screening report scores four things separately and blends them into one reference score by weight: ability to pay (the heaviest), credit health, rental and court history, and verification (the lightest). How complete the application is gets its own line and no score.'}</p>
+                <p>{zh ? '没有硬性门槛：不设「租金不超过收入 30%」这类比例截止线，也不设信用分截止线（OHRC 政策、O. Reg. 290/98）。没有加拿大信用记录或租住历史，按「未知」记，不按「差」记。' : 'There are no hard cut-offs: no rent-to-income ratio such as “rent under 30% of income”, no credit-score floor (OHRC policy, O. Reg. 290/98). No Canadian credit file or rental history is scored as unknown, never as bad.'}</p>
+                <p>{zh ? '受保护特征不进评分，也不进理由：种族、国籍、公民身份、家庭状况、收入来源、年龄、残障、性取向等，模型不得推断，报告不写。' : 'Protected grounds never enter the score or the reasons: race, nationality, citizenship, family status, source of income, age, disability, sexual orientation and the rest; the model may not infer them and the report never states them.'}</p>
+                <p>{zh ? '只有量到的事实才动分数：同一份材料，每次算出来的分一样。公开记录（LTB 判令目录）里同名的很多，没有地址佐证一律当作同名，目录也没有判决结果，只会写「已出判令」。' : 'Only measured facts move a score: the same documents produce the same score every time. Public records (the LTB order index) are full of namesakes; without an address match a hit is treated as a namesake, and the index holds no outcomes, so the report only ever says “an order was issued”.'}</p>
+                <p>{zh ? '分数只是参考。决定由房东或经纪本人做，理由要写具体并记入审计；拒绝时你会收到通知，可以按上面的三项权利索取档案、提出争议。' : 'The score is information only. The landlord or agent makes the decision themselves, with a specific reason written into the audit log; on a decline you are notified and can use the three rights above to get the file and dispute it.'}</p>
+                <p className="text-[13px] text-body-3">
+                  <Link href="/rules" className="font-semibold text-brand hover:underline">{zh ? '我们执行的规则 →' : 'The rules we enforce →'}</Link>
+                  <span className="mx-2">·</span>
+                  <Link href="/tools#ask" className="font-semibold text-brand hover:underline">{zh ? '房东能问什么 →' : 'What a landlord may ask →'}</Link>
+                </p>
+              </Section>
+            </div>
           </article>
         </div>
       </main>
