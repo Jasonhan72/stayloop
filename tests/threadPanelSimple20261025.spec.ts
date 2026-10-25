@@ -17,7 +17,8 @@ describe('thread panel bubbles', () => {
     expect(p).toMatch(/const stampOf = \(iso: string, z: boolean\) => \{/)
   })
   it('no per-line mono header or per-line acknowledged tick; the record controls remain', () => {
-    expect(p).not.toMatch(/font-mono text-\[10px\] font-bold/)
+    // The old per-bubble header row (mono name · role · time inside every bubble) is gone; the unread badge in the header may keep its mono.
+    expect(p).not.toContain('mb-0.5 flex flex-wrap items-baseline gap-x-2 font-mono')
     expect(p).not.toContain('你已确认')
     for (const t of ['data-testid="read-state"', 'data-testid="acknowledge"', 'data-testid="thread-retracted"', 'data-testid="thread-retract"', 'data-testid="thread-channel"', 'data-testid="thread-attachments"']) expect(p).toContain(t)
     expect(p).toContain("'正式通知副本' : 'FORMAL COPY'")
