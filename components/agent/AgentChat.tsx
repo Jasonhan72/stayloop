@@ -3,6 +3,10 @@
 // Claude-style conversation panel for a Personal Agent workspace: a scrolling
 // message thread (user ↔ agent bubbles) with the input pinned at the bottom.
 import { useEffect, useRef, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { notifyActivityChanged } from '@/lib/agent/useActivityLog'
+import { isEmptyThread, threadLabel } from '@/lib/agent/threadList'
+import { appendToThread, listThreads, type ThreadListRow } from '@/lib/agent/threads'
 import { receiptIsEmpty } from '@/lib/agent/receipt'
 import { useOnChange } from '@/lib/ui/useOnChange'
 import { useT } from '@/lib/i18n'
@@ -271,7 +275,7 @@ export default function AgentChat({
       <div className="relative flex min-h-0 flex-1 flex-col">
       <div ref={threadRef} onScroll={onThreadScroll} data-chat-thread className={`flex-1 overflow-y-auto px-4 py-4 ${device ? '' : hero ? 'md:px-10 md:py-6' : 'md:px-5 md:py-5'}`}>
       <div className={hero ? 'mx-auto w-full max-w-[760px] space-y-4' : 'space-y-4'}>
-        {messages.map((m) => (
+        {messages.map((m, i) => (
           <div key={m.id} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
             {m.role === 'agent' && (
               <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero && !device ? 'md:hidden' : ''}`} fallback={avatarFallback} />
@@ -458,6 +462,9 @@ export default function AgentChat({
               )}
               {m.role === 'agent' && ((m.receipt && !receiptIsEmpty(m.receipt)) || (m.memoryNotes && m.memoryNotes.length > 0)) && (
                 <TurnReceiptCard receipt={m.receipt} memoryNotes={m.memoryNotes} zh={zh} />
+              )}
+              {m.role === 'agent' && live && currentThreadId && m.text.trim() && i > 0 && (
+                <SendToTopic message={m} role={role} currentThreadId={currentThreadId} zh={zh} />
               )}
               {/* Proactive clarifying questions — tap an answer to send it */}
               {m.role === 'agent' && m.followups && m.followups.length > 0 && (
@@ -776,6 +783,53 @@ function TurnReceiptCard({ receipt, memoryNotes, zh }: { receipt?: ChatMessage['
       {memoryNotes && memoryNotes.length > 0 && (
         <div className={read.length || did.length ? 'mt-1 border-t border-line-divider pt-1' : ''}>
           {memoryNotes.map((n, k) => <div key={`m${k}`} data-testid="memory-note">{n}</div>)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 「送到 … 话题」(第三批 ⑦, 2026-10-25, Muse's 「已送到 X 侧聊天」): copy this reply into another
+// conversation of the same hat as an assistant message, so a conclusion reached here is on
+// record there too. The copy is appended with appendToThread; nothing is moved or deleted.
+function SendToTopic({ message, role, currentThreadId, zh }: { message: ChatMessage; role: AgentRole; currentThreadId: string; zh: boolean }) {
+  const { lang } = useT()
+  const [open, setOpen] = useState(false)
+  const [rows, setRows] = useState<ThreadListRow[] | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [done, setDone] = useState<string | null>(null)
+  const load = async () => {
+    setOpen(true)
+    if (rows) return
+    const all = await listThreads(supabase, 100).catch(() => [] as ThreadListRow[])
+    setRows(all.filter((r) => r.role === role && r.id !== currentThreadId && !isEmptyThread(r, currentThreadId)))
+  }
+  const send = async (t: ThreadListRow) => {
+    setBusy(t.id)
+    const copy: ChatMessage = { id: `${message.id}-sent-${Date.now().toString(36)}`, role: 'agent', text: `${zh ? '（从另一段对话送来的结论）' : '(Sent over from another chat)'}\n${message.text}` }
+    await appendToThread(supabase, t.id, [copy])
+    setBusy(null); setOpen(false)
+    setDone(zh ? `已送到「${threadLabel(t, lang)}」` : `Sent to “${threadLabel(t, lang)}”`)
+    notifyActivityChanged()
+  }
+  return (
+    <div className="relative text-[11.5px]" data-testid="send-to-topic">
+      {done ? (
+        <span className="text-success">✓ {done}</span>
+      ) : (
+        <button type="button" onClick={() => (open ? setOpen(false) : void load())} className="text-body-3 underline-offset-2 hover:text-body hover:underline">{zh ? '送到话题…' : 'Send to a topic…'}</button>
+      )}
+      {open && !done && (
+        <div role="menu" className="absolute left-0 top-full z-30 mt-1 max-h-64 w-72 overflow-y-auto rounded-xl border border-line-divider bg-white py-1 text-[13px] shadow-lg">
+          {rows === null ? (
+            <div className="px-3 py-2 text-body-3">{zh ? '读取中…' : 'Loading…'}</div>
+          ) : rows.length === 0 ? (
+            <div className="px-3 py-2 text-body-3">{zh ? '这个身份下没有别的话题。' : 'No other topic in this role.'}</div>
+          ) : rows.map((t) => (
+            <button key={t.id} type="button" role="menuitem" disabled={!!busy} onClick={() => void send(t)} className="block w-full truncate px-3 py-2 text-left hover:bg-surface-chip disabled:opacity-50">
+              {busy === t.id ? '…' : threadLabel(t, lang)}
+            </button>
+          ))}
         </div>
       )}
     </div>

@@ -26,6 +26,7 @@
 //     coming month. Scheduled daily by pg_cron + pg_net
 //     (supabase/migrations/20260708_pg_cron_proactive.sql).
 import { NextResponse } from 'next/server'
+import { attachMainThread } from '@/lib/agent/mainThread'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isoDate, todayUtc } from '@/lib/dates'
@@ -427,7 +428,7 @@ async function runRenewalSweep(): Promise<NextResponse> {
   if (inserts.length === 0) {
     return NextResponse.json({ created: 0, expired, mode: 'cron' })
   }
-  const { error: insErr } = await admin.from('agent_pending_actions').insert(inserts)
+  const { error: insErr } = await admin.from('agent_pending_actions').insert(await attachMainThread(admin, inserts as { user_id: string; role: string; metadata?: Record<string, unknown> | null }[]))
   if (insErr) {
     console.error('proactive proposal insert failed:', insErr.message)
     return NextResponse.json({ error: 'proposal insert failed' }, { status: 500 })
@@ -540,7 +541,7 @@ async function runRentReminderSweep(admin: SupabaseClient, now = new Date()): Pr
   // Landlord cards + one approval push per landlord for this sweep.
   let overdueCards = 0
   if (plan.landlordOverdue.length) {
-    const { data: created, error: insErr } = await admin.from('agent_pending_actions').insert(plan.landlordOverdue).select('id, user_id, title')
+    const { data: created, error: insErr } = await admin.from('agent_pending_actions').insert(await attachMainThread(admin, plan.landlordOverdue as { user_id: string; role: string; metadata?: Record<string, unknown> | null }[])).select('id, user_id, title')
     if (insErr) throw new Error(`rent_overdue insert failed: ${insErr.message}`)
     overdueCards = created?.length ?? 0
     const perUser = new Map<string, { n: number; first: string }>()
@@ -674,7 +675,7 @@ export async function POST(req: Request) {
   }
   const { data: created, error: insErr } = await sb
     .from('agent_pending_actions')
-    .insert(inserts)
+    .insert(await attachMainThread(sb, inserts as { user_id: string; role: string; metadata?: Record<string, unknown> | null }[]))
     .select(CREATED_COLS)
   if (insErr) {
     console.error('proactive proposal insert failed:', insErr.message)

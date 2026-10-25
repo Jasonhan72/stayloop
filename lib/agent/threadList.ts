@@ -2,6 +2,7 @@
 // 参考你自己的界面设计"). Pure helpers for components/agent/ThreadList.tsx — the
 // claude.ai-style list of past conversations beside the chat.
 import type { ThreadListRow } from './threads'
+import { MAIN_THREAD_LABEL } from './mainThread'
 
 type Lang = 'zh' | 'en'
 export type ThreadGroupKey = 'today' | 'yesterday' | 'week' | 'month' | 'older'
@@ -66,7 +67,8 @@ function shortLine(text: string | null | undefined, max: number): string {
 
 /** What a conversation is called in the list: its (cleaned) title, else what the AI Agent last said,
  *  else the day it happened — never the literal 「新对话」 next to the 新对话 button (2026-10-04). */
-export function threadLabel(t: Pick<ThreadListRow, 'title'> & Partial<Pick<ThreadListRow, 'custom_title' | 'summary' | 'last_message_at' | 'updated_at' | 'created_at'>>, lang: Lang): string {
+export function threadLabel(t: Pick<ThreadListRow, 'title'> & Partial<Pick<ThreadListRow, 'custom_title' | 'summary' | 'last_message_at' | 'updated_at' | 'created_at' | 'is_main'>>, lang: Lang): string {
+  if (t.is_main && !(t.custom_title ?? '').trim()) return lang === 'zh' ? MAIN_THREAD_LABEL.zh : MAIN_THREAD_LABEL.en
   // A name the user typed is shown exactly as typed; only the automatic title is cleaned.
   const custom = (t.custom_title ?? '').replace(/\s+/g, ' ').trim()
   if (custom) return custom
@@ -88,7 +90,8 @@ export function threadNote(t: Pick<ThreadListRow, 'summary'>, max = 40): string 
 }
 
 /** A row nobody needs to see: no user turn, no title, and not the one on screen (greeting-only leftovers). Nothing is deleted. */
-export function isEmptyThread(t: Pick<ThreadListRow, 'id' | 'turn_count' | 'title'> & Partial<Pick<ThreadListRow, 'custom_title'>>, currentId: string | null): boolean {
+export function isEmptyThread(t: Pick<ThreadListRow, 'id' | 'turn_count' | 'title'> & Partial<Pick<ThreadListRow, 'custom_title' | 'is_main'>>, currentId: string | null): boolean {
+  if (t.is_main) return false
   return t.id !== currentId && (t.turn_count ?? 0) === 0 && !cleanTitle(t.title) && !(t.custom_title ?? '').trim()
 }
 

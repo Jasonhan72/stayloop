@@ -104,6 +104,7 @@ export default function ThreadList({ role, live, currentThreadId, onOpenThread, 
   async function remove(id: string) {
     setConfirmDelete(null)
     setMenu(null)
+    if (rows?.some((r) => r.id === id && r.is_main)) { setError(zh ? '主对话不能删除。' : 'The main chat cannot be deleted.'); return }
     const ok = await deleteThread(supabase, id)
     if (!ok) { setError(zh ? '没能删除，请再试一次。' : 'Could not delete — please try again.'); return }
     setError(null)
@@ -115,7 +116,9 @@ export default function ThreadList({ role, live, currentThreadId, onOpenThread, 
   const visibleRows = (rows ?? []).filter((t) => !isEmptyThread(t, currentThreadId))
   const shown = filterThreads(visibleRows, q)
   const { mine, others } = partitionByHat(shown, role)
-  const groups = groupThreads(mine, lang)
+  // 主对话 pinned above the topics (2026-10-25); it never joins the time groups.
+  const mainRow = mine.find((r) => r.is_main) ?? null
+  const groups = groupThreads(mine.filter((r) => !r.is_main), lang)
   const othersCount = others.reduce((n, g) => n + g.rows.length, 0)
   // Searching looks through every hat, so the folded section opens while a query is typed.
   const othersShown = othersOpen || !!q.trim()
@@ -177,7 +180,8 @@ export default function ThreadList({ role, live, currentThreadId, onOpenThread, 
             ) : (
               <>
                 <button type="button" role="menuitem" onClick={() => { setMenu(null); setRenaming({ id: t.id, value: threadLabel(t, lang) }) }} className="block w-full px-3 py-2 text-left hover:bg-surface-chip">{zh ? '重命名' : 'Rename'}</button>
-                <button type="button" role="menuitem" onClick={() => setConfirmDelete(t.id)} className="block w-full px-3 py-2 text-left text-[#DC2626] hover:bg-surface-chip">{zh ? '删除' : 'Delete'}</button>
+                {!t.is_main && <button type="button" role="menuitem" onClick={() => setConfirmDelete(t.id)} className="block w-full px-3 py-2 text-left text-[#DC2626] hover:bg-surface-chip">{zh ? '删除' : 'Delete'}</button>}
+                {t.is_main && <div className="px-3 py-2 text-[12px] text-body-3">{zh ? '主对话不能删除' : 'The main chat cannot be deleted'}</div>}
               </>
             )}
           </div>
@@ -210,7 +214,7 @@ export default function ThreadList({ role, live, currentThreadId, onOpenThread, 
             style={{ background: '#1B1B3C' }}
             data-testid="thread-list-new"
           >
-            <span className="text-[16px] leading-none">+</span> {zh ? '新对话' : 'New chat'}
+            <span className="text-[16px] leading-none">+</span> {zh ? '新话题' : 'New topic'}
           </button>
         )}
         <input
@@ -227,15 +231,22 @@ export default function ThreadList({ role, live, currentThreadId, onOpenThread, 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
         {rows === null ? (
           <div className="px-2 py-4 text-[12.5px] text-body-3">{zh ? '读取中…' : 'Loading…'}</div>
-        ) : groups.length === 0 && othersCount === 0 ? (
+        ) : !mainRow && groups.length === 0 && othersCount === 0 ? (
           <div className="px-2 py-4 text-[12.5px] leading-relaxed text-body-3">
             {q ? (zh ? '没有找到匹配的对话。' : 'No chats match.') : (zh ? '还没有对话。说一句话，这里就会出现第一段对话。' : 'No chats yet. Say something and your first one appears here.')}
           </div>
         ) : (
           <>
-            {groups.length === 0 && (
+            {mainRow && (
+              <div className="mb-2" data-testid="thread-main">
+                <div className="px-2 pb-1 pt-2 text-[11.5px] font-semibold text-body-3">{zh ? '主对话 · 扫描结果与送来的结论都在这里' : 'Main chat · scan results and hand-overs land here'}</div>
+                <ul className="space-y-0.5">{renderRow(mainRow)}</ul>
+              </div>
+            )}
+            {groups.length === 0 && !mainRow && (
               <div className="px-2 pb-1 pt-3 text-[12.5px] text-body-3">{q ? (zh ? '这个身份下没有匹配的对话。' : 'No matching chats in this role.') : (zh ? '这个身份下还没有对话。' : 'No chats in this role yet.')}</div>
             )}
+            {groups.length > 0 && mainRow && <div className="px-2 pb-0 pt-1 text-[11.5px] font-semibold text-body-3">{zh ? '话题' : 'Topics'}</div>}
             {groups.map((g) => (
               <div key={g.key} className="mb-2">
                 <div className="px-2 pb-1 pt-2 text-[11.5px] font-semibold text-body-3">{g.label}</div>

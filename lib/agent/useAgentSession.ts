@@ -6,6 +6,7 @@
 // local demo session so the page ALWAYS renders. Guaranteed to leave the
 // loading state within a few seconds — it can never hang on a skeleton.
 import { cardThreadId } from '@/lib/agent/threadCards'
+import { ensureMainThread } from './mainThread'
 import { memoryNoteLines } from './receipt'
 import { ANON_TURNS_PER_HOUR } from './anonLimits'
 import { notifyPendingChanged } from '@/lib/agent/pendingCount'
@@ -291,6 +292,8 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
     if (!wantNew) {
       const pointer = wantId || readPointer(role, scope)
       if (pointer) { const t = await loadThread(client, pointer); if (t) { id = t.id; msgs = t.messages } }
+      // Nothing remembered in this browser → the hat's 主对话 (created on first visit), not whichever topic moved last (2026-10-25).
+      if (!id) { const mainId = await ensureMainThread(client, uid, role).catch(() => null); if (mainId) { const t = await loadThread(client, mainId); if (t) { id = t.id; msgs = t.messages } } }
       if (!id) { const t = await latestThread(client, role); if (t) { id = t.id; msgs = t.messages } }
       if (!id) {
         const legacy = restoreMessages(role, scope)

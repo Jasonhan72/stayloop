@@ -12,7 +12,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export type ThreadRow = { id: string; title: string | null; messages: ChatMessage[]; created_at: string; updated_at: string }
 /** A conversation as the AI chats list shows it — no messages, just what it amounted to. */
-export type ThreadListRow = { id: string; role: string; title: string | null; /** The name the user gave it (the list's ⋯ → 重命名); shown as typed. */ custom_title?: string | null; summary: string | null; turn_count: number; message_count: number; created_at: string; updated_at: string; last_message_at: string | null }
+export type ThreadListRow = { id: string; role: string; title: string | null; /** The name the user gave it (the list's ⋯ → 重命名); shown as typed. */ custom_title?: string | null; summary: string | null; turn_count: number; message_count: number; created_at: string; updated_at: string; last_message_at: string | null; /** The pinned 主对话 of its hat (2026-10-25). */ is_main?: boolean }
 
 export function stripForStorage(messages: ChatMessage[]): ChatMessage[] {
   return messages.slice(-MAX_STORED_MESSAGES).map((m) => ({
@@ -108,7 +108,7 @@ export async function appendToThread(client: SupabaseClient, id: string, extra: 
 export async function listThreads(client: SupabaseClient, limit = 30): Promise<ThreadListRow[]> {
   const { data } = await client
     .from('agent_threads')
-    .select('id, role, title, custom_title, summary, turn_count, message_count, created_at, updated_at, last_message_at')
+    .select('id, role, title, custom_title, summary, turn_count, message_count, created_at, updated_at, last_message_at, is_main')
     // Same order the list shows (last message first), so the cut at `limit` drops the oldest.
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .order('updated_at', { ascending: false })
@@ -124,6 +124,7 @@ export async function listThreads(client: SupabaseClient, limit = 30): Promise<T
     created_at: String(r.created_at),
     updated_at: String(r.updated_at),
     last_message_at: (r.last_message_at as string | null) ?? null,
+    is_main: r.is_main === true,
   }))
 }
 
