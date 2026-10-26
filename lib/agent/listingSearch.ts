@@ -365,7 +365,13 @@ export function buildExternalLinks(c: SearchCriteria, kind: CommercialKind | nul
 // ---------- Stayloop's own listings ----------
 async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  // Server-side read (the turn route). anon lost SELECT on listings on 2026-10-11
+  // (PropTx readiness: the public pages read through /api/listings/*), and this
+  // query kept using the anon key — PostgREST answered 42501, the catch-all
+  // returned [], and every home search said「库里没有符合条件的房源」for two
+  // weeks (user report 2026-10-27). The service role reads exactly what the
+  // public listings page shows: active, shown, verified-or-Realtor, with photos.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) return []
   const p = new URLSearchParams()
   p.set(
@@ -373,6 +379,7 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
     'id,title,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,trust_tier,images,amenities,has_den,slug,source,verification_status,is_test'
   )
   p.set('is_active', 'eq.true')
+  p.set('display_internet', 'eq.true')
   const wantType = normalizeType(c)
   if (wantType) {
     // Strict: rows without a property_type are excluded from typed searches —
@@ -411,7 +418,11 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
       signal: AbortSignal.timeout(6000),
     })
-    if (!res.ok) return []
+    if (!res.ok) {
+      // A permission or shape error is not "no listings": say so in the server log instead of hiding it.
+      console.warn('[listingSearch] stayloop query failed', res.status, (await res.text().catch(() => '')).slice(0, 160))
+      return []
+    }
     const rows = ((await res.json()) as Record<string, unknown>[]).filter((r) => hasUsablePhotos(r.images))
     return rows.map((r) => {
       const imgs = r.images as unknown[] | null
