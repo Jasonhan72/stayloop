@@ -14,7 +14,7 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 export const PAGE_SIZE = 100
 export const ANON_SEARCHES_PER_HOUR = 240
 export const USER_SEARCHES_PER_HOUR = 1200
-export const CARD_COLUMNS = 'id,slug,address,unit,city,province,monthly_rent,bedrooms,bathrooms,sqft,neighborhood,pet_policy,amenities,lat,lng,thumb_a,thumb_b,photo_count,created_at,images,available_date,has_den,source,verification_status,brokerage,display_address,display_avm,is_test'
+export const CARD_COLUMNS = 'id,slug,address,unit,city,province,monthly_rent,bedrooms,bathrooms,sqft,neighborhood,pet_policy,property_type,amenities,lat,lng,thumb_a,thumb_b,photo_count,created_at,images,available_date,has_den,source,verification_status,brokerage,display_address,display_avm,is_test'
 
 const NEGATIVE_PETS = /\b(no|not|without)\b|不可|禁止|不允许|不接受/i
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

@@ -14,6 +14,7 @@ import { favKey, useFavorites, type FavListing } from '@/lib/favorites'
 import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { resolveList } from '@/lib/listingLang'
+import { cardAddress, cardFacts, cardKicker, sizeFacts } from '@/lib/listings/cardFacts'
 import { useAuth } from '@/lib/useAuth'
 import { writeAuditEvent } from '@/lib/agent/audit'
 import { useAIName } from '@/lib/aiName'
@@ -49,6 +50,7 @@ interface DBListing {
   trust_tier: number | null
   brokerage?: string | null
   pet_policy: string | null
+  property_type?: string | null
   amenities: string[] | null
   pin_x: number | null
   pin_y: number | null
@@ -888,6 +890,14 @@ function Chip({ label, on, open, onToggle, children }: {
   )
 }
 
+// Small line icons for the size row (bed · bath · area); decorative, the text carries the meaning.
+function SizeIcon({ kind }: { kind: 'bed' | 'bath' | 'sqft' }) {
+  const common = { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true, style: { color: '#6B7280', flex: 'none' } }
+  if (kind === 'bed') return <svg {...common}><path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7" /><path d="M3 15h18" /><path d="M6 9V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" /></svg>
+  if (kind === 'bath') return <svg {...common}><path d="M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3z" /><path d="M6 12V6a2 2 0 0 1 4 0" /><path d="M7 19l-1 2M17 19l1 2" /></svg>
+  return <svg {...common}><path d="M4 4h16v16H4z" /><path d="M4 9h5V4M15 20v-5h5" /></svg>
+}
+
 function ListingCard({
   l,
   zh,
@@ -950,7 +960,11 @@ function ListingCard({
             color: '#fff',
           }}
         />
-        {l.photo_count && (
+        {l.photo_count && l.photo_count > 1 && (l.photo_count <= 8 ? (
+          <span style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 4 }} aria-label={zh ? `${l.photo_count} 张照片` : `${l.photo_count} photos`} data-testid="card-photo-dots">
+            {Array.from({ length: l.photo_count }, (_, i) => <span key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: i === 0 ? '#fff' : 'rgba(255,255,255,0.55)' }} />)}
+          </span>
+        ) : (
           <span
             style={{
               position: 'absolute',
@@ -966,49 +980,37 @@ function ListingCard({
           >
             1 / {l.photo_count}
           </span>
-        )}
+        ))}
       </div>
-      <div style={{ padding: '14px 16px' }}>
-        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>
-          ${l.monthly_rent.toLocaleString()}
-          <small style={{ fontSize: 12, fontWeight: 500, color: '#71717A' }}>{zh ? '/月' : '/mo'}</small>
-        </div>
-        <div
-          style={{
-            fontSize: 13,
-            color: '#3F3F46',
-            margin: '4px 0 6px',
-            display: 'flex',
-            gap: 8,
-            alignItems: 'center',
-          }}
-        >
-          {l.bedrooms != null && (
-            <b style={{ color: '#171717' }}>
-              {l.bedrooms === 0 ? 'Studio' : `${l.bedrooms}B${l.has_den ? ' + den' : ''}`}
-            </b>
-          )}
-          <span style={{ width: 3, height: 3, background: '#9FBBD0', borderRadius: '50%' }} />
-          <b style={{ color: '#171717' }}>{l.bathrooms} {zh ? '浴' : 'ba'}</b>
-          {l.sqft && (
-            <>
-              <span style={{ width: 3, height: 3, background: '#9FBBD0', borderRadius: '50%' }} />
-              <b style={{ color: '#171717' }}>{l.sqft} sqft</b>
-            </>
-          )}
-        </div>
+      <div style={{ padding: '14px 16px' }} data-testid="card-body">
+        {/* Kicker: type · neighbourhood (StreetEasy "Condo in Midtown South") */}
+        {cardKicker({ property_type: l.property_type, neighborhood: l.neighborhood, city: l.city }, zh ? 'zh' : 'en') && (
+          <div style={{ fontSize: 12, color: '#71717A' }} data-testid="card-kicker">{cardKicker({ property_type: l.property_type, neighborhood: l.neighborhood, city: l.city }, zh ? 'zh' : 'en')}</div>
+        )}
+        {/* Title: the address, the unit once */}
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#1B1B3C', marginTop: 2, lineHeight: 1.3 }} data-testid="card-address">{cardAddress(l.address, l.unit)}</div>
         {isTestListing(l) && (
-          <div className="mb-1 inline-block rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800" data-testid="test-listing-badge">
+          <div className="mt-1 inline-block rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800" data-testid="test-listing-badge">
             {zh ? TEST_LISTING_LABEL.zh : TEST_LISTING_LABEL.en}
           </div>
         )}
-        <div style={{ fontSize: 13, fontWeight: 600 }}>
-          {l.address}
-          {l.unit && ` · Unit ${l.unit}`}
+        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', marginTop: 6 }}>
+          ${l.monthly_rent.toLocaleString()}
+          <small style={{ fontSize: 12, fontWeight: 500, color: '#71717A' }}>{zh ? '/月' : '/mo'}</small>
         </div>
-        <div style={{ fontSize: 12, color: '#71717A', marginTop: 1 }}>
-          {[l.neighborhood, l.city].filter(Boolean).join(' · ')}
+        {/* Size row, one language, with icons (bed · bath · ft²) */}
+        <div style={{ fontSize: 13, color: '#171717', margin: '6px 0 0', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }} data-testid="card-size">
+          {sizeFacts(l, zh ? 'zh' : 'en').map((f) => (
+            <span key={f.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600 }}>
+              <SizeIcon kind={f.key} />
+              {f.text}
+            </span>
+          ))}
         </div>
+        {/* Concrete facts only (availability, pets) — never generic chips */}
+        {cardFacts(l, zh ? 'zh' : 'en').length > 0 && (
+          <div style={{ fontSize: 12.5, color: '#3F3F46', marginTop: 4 }} data-testid="card-facts">{cardFacts(l, zh ? 'zh' : 'en').join(' · ')}</div>
+        )}
         {/* Listing brokerage / source, no smaller than the listing facts above (PropTx Rule 8.26). */}
         <div style={{ fontSize: 13, color: '#3F3F46', marginTop: 4 }} data-testid="card-brokerage">
           {sourceOf(l) === 'realtor'
@@ -1016,24 +1018,8 @@ function ListingCard({
             : <>{zh ? '房东直租 · ' : 'Direct from landlord · '}<b style={{ fontWeight: 600, color: '#171717' }}>Stayloop</b></>}
         </div>
         {(l.amenities?.length ?? 0) > 0 && (
-          <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap' }}>
-            {resolveList('amenities', l.amenities, zh ? 'zh' : 'en').slice(0, 3).map((a) => (
-              <span
-                key={a}
-                style={{
-                  fontFamily: 'JetBrains Mono, monospace',
-                  fontSize: 9.5,
-                  fontWeight: 700,
-                  padding: '2px 6px',
-                  borderRadius: 3,
-                  letterSpacing: '0.06em',
-                  background: 'rgba(4,120,87,0.10)',
-                  color: '#047857',
-                }}
-              >
-                {a}
-              </span>
-            ))}
+          <div style={{ display: 'flex', gap: 5, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: '#71717A' }} data-testid="card-amenities">{resolveList('amenities', l.amenities, zh ? 'zh' : 'en').slice(0, 3).join(' · ')}</span>
             {l.trust_tier != null && (
               <span
                 style={{
