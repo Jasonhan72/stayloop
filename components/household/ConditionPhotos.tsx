@@ -103,7 +103,33 @@ export default function ConditionPhotos({ householdId, zh, province = 'ON' }: { 
               <button key={p.key} type="button" onClick={() => setPhase(p.key)} aria-pressed={phase === p.key} className={`rounded-full px-3 py-1 ${phase === p.key ? 'bg-ink text-white' : 'border border-line-divider text-body-2'}`}>{zh ? p.label.zh : p.label.en}</button>
             ))}
           </div>
-          <div className="mt-3 overflow-x-auto">
+          {/* Phones: one block per item, move-in then move-out stacked (a 560px table would only scroll sideways). */}
+          <div className="mt-3 space-y-3 sm:hidden" data-testid="condition-stacked">
+            {pairs.map(({ item, move_in, move_out }) => (
+              <div key={item.key} className="rounded-lg border border-line-divider p-2.5">
+                <div className="text-[12.5px] font-semibold">{zh ? item.label.zh : item.label.en}</div>
+                {(['move_in', 'move_out'] as const).map((ph) => {
+                  const list = ph === 'move_in' ? move_in : move_out
+                  return (
+                    <div key={ph} className="mt-2">
+                      <div className="text-[11px] uppercase tracking-wide text-body-3">{ph === 'move_in' ? (zh ? '入住' : 'Move-in') : (zh ? '退租' : 'Move-out')}</div>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {list.map(thumb)}
+                        {ph === phase && user && roomFor(rows, ph, item.key) > 0 && (
+                          <label className={`flex h-[66px] w-[88px] cursor-pointer items-center justify-center rounded-md border border-dashed border-line-strong text-[11px] text-body-2 ${busy === item.key ? 'opacity-50' : ''}`}>
+                            {busy === item.key ? '…' : (zh ? '+ 照片' : '+ photo')}
+                            <input type="file" accept="image/*,.heic,.heif" multiple className="hidden" disabled={busy === item.key} onChange={(e) => { if (e.target.files) void add(item.key, e.target.files); e.target.value = '' }} />
+                          </label>
+                        )}
+                        {!list.length && ph !== phase && <span className="text-[11px] text-body-3">—</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[560px] text-[12.5px]">
               <thead><tr className="text-left text-[11px] uppercase tracking-wide text-body-3"><th className="py-1 pr-2">{zh ? '位置' : 'Item'}</th><th className="py-1 pr-2">{zh ? '入住' : 'Move-in'}</th><th className="py-1">{zh ? '退租' : 'Move-out'}</th></tr></thead>
               <tbody>

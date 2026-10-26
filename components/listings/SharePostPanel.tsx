@@ -125,7 +125,7 @@ export default function SharePostPanel({ zh, listing, listingId, images, url, on
             <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '发到别处' : 'Share elsewhere'}</div>
             <h3 className="mt-1 text-[18px] font-bold tracking-tight">{zh ? '分享包：每个平台一份文案，各带自己的链接' : 'Share pack: one post per platform, each with its own link'}</h3>
           </div>
-          <button type="button" onClick={onClose} className="-mr-2 min-h-[44px] px-3 text-body-3">{zh ? '关闭' : 'Close'}</button>
+          <button type="button" onClick={onClose} className="-mr-2 min-h-[44px] flex-none whitespace-nowrap px-3 text-body-3">{zh ? '关闭' : 'Close'}</button>
         </div>
         <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
           {zh

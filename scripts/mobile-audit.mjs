@@ -24,13 +24,14 @@ const { chromium } = require('playwright')
 
 const BASE = process.env.BASE || 'https://www.stayloop.ai'
 const AUTHED = process.argv.includes('--authed')
-const WIDTHS = [320, 390]
+// Phone widths by default; WIDTHS=320,390,768,1024 adds tablet / small laptop (2026-10-27).
+const WIDTHS = (process.env.WIDTHS || '320,390').split(',').map((w) => parseInt(w.trim(), 10)).filter((w) => w >= 280 && w <= 2000)
 const LANGS = ['zh', 'en']
 
 const PUBLIC_ROUTES = [
   '/', '/pricing', '/tenant', '/landlord', '/agent', '/platform', '/stayloop-api', '/about',
   '/partners', '/contact', '/disputes', '/listings', '/privacy', '/terms',
-  '/login', '/register', '/screening', '/services', '/rules', '/tools', '/stayloop-api/docs',
+  '/login', '/register', '/screening', '/services', '/rules', '/tools', '/consumer-rights', '/stayloop-api/docs',
 ]
 
 const AUTHED_ROUTES = [
@@ -41,6 +42,8 @@ const AUTHED_ROUTES = [
   '/landlord/maintenance', '/landlord/audit',
   '/agent/agent', '/agent/calendar', '/agent/clients', '/agent/earnings', '/agent/tasks',
   '/screening/app', '/leases/import',
+  // 2026-10-27: the professional-services directory (any signed-in hat)
+  '/providers/professional',
 ]
 
 // The script used to pin a version-numbered Playwright headless-shell cache path,

@@ -80,7 +80,7 @@ export default function MlsHandoff({ zh, listing, item, onChanged, excludeAuthId
         )}
         {live?.thread_id && <Link href={`/messages?t=${live.thread_id}`} className="text-brand underline-offset-2 hover:underline">{zh ? '对话' : 'Conversation'}</Link>}
         {!live && (
-          <button type="button" data-testid="mls-handoff-ask" onClick={() => { setPicking(true); setDone(null); setErr(null) }} className="rounded-full border border-line-strong px-2.5 py-[3px] font-semibold text-body hover:border-brand hover:text-brand">
+          <button type="button" data-testid="mls-handoff-ask" onClick={() => { setPicking(true); setDone(null); setErr(null) }} className="whitespace-nowrap rounded-full border border-line-strong px-2.5 py-[3px] font-semibold text-body hover:border-brand hover:text-brand">
             {item ? (zh ? '再找经纪挂牌' : 'Ask another agent') : (zh ? '让认证经纪帮我挂到 MLS®' : 'Have a verified agent list it on MLS®')}
           </button>
         )}
@@ -93,7 +93,7 @@ export default function MlsHandoff({ zh, listing, item, onChanged, excludeAuthId
       {confirming === 'removed' && live && (
         <div data-testid="mls-handoff-confirm" className="mt-1.5 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px]">
           <span>{live.status === 'requested' ? (zh ? '撤回这次挂牌请求？经纪会在对话里看到一条说明。' : 'Withdraw this request? The agent sees a note in the conversation.') : (zh ? '记录这套房源已从 MLS® 撤下？房源页将不再显示 MLS® 挂牌号。' : 'Record that this unit is off MLS®? The listing page stops showing the number.')}</span>
-          <button type="button" disabled={busy} onClick={remove} className="rounded-full bg-amber-600 px-3 py-1 font-semibold text-white disabled:opacity-60">{busy ? '…' : zh ? '确认' : 'Confirm'}</button>
+          <button type="button" disabled={busy} onClick={remove} className="whitespace-nowrap rounded-full bg-amber-600 px-3 py-1 font-semibold text-white disabled:opacity-60">{busy ? '…' : zh ? '确认' : 'Confirm'}</button>
           <button type="button" onClick={() => setConfirming(null)} className="underline-offset-2 hover:underline">{zh ? '取消' : 'Cancel'}</button>
         </div>
       )}

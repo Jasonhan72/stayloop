@@ -458,13 +458,14 @@ export default function Dashboard() {
                         <div className="truncate text-[11.5px] text-body-3">{[l.neighborhood, l.city].filter(Boolean).join(' · ') || 'Toronto'}</div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-2">
                           <MlsHandoff zh={lang === 'zh'} compact listing={{ id: l.id, address: l.address, unit: l.unit }} item={latestMls(handoffs, l.id) as HandoffItem | null} onChanged={loadHandoffs} />
-                          <button type="button" data-testid="share-post-open" onClick={() => setSharing(l)} className="rounded-full border border-line-divider px-2.5 py-[3px] text-[12px] font-semibold text-body-2 hover:border-brand hover:text-brand">
+                          <button type="button" data-testid="share-post-open" onClick={() => setSharing(l)} className="whitespace-nowrap rounded-full border border-line-divider px-2.5 py-[3px] text-[12px] font-semibold text-body-2 hover:border-brand hover:text-brand">
                             {lang === 'zh' ? '分享包 · 照片' : 'Share pack · photos'}
                           </button>
                           <TakedownNotice zh={lang === 'zh'} listingId={l.id} active={l.is_active !== false} rows={manualAds} onChanged={loadHandoffs} />
                         </div>
                       </div>
-                      <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5">
+                      {/* Phones: the status + actions row drops under the thumbnail / facts row instead of squeezing the address. */}
+                      <div className="flex w-full flex-shrink-0 flex-wrap items-center gap-1.5 sm:w-auto">
                         <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase text-white" style={{ background: l.is_active !== false ? '#047857' : '#6B7280' }}>
                           {l.is_active !== false ? (lang === 'zh' ? '上架中' : 'ACTIVE') : (lang === 'zh' ? '已下架' : 'OFF')}
                         </span>
@@ -559,7 +560,7 @@ export default function Dashboard() {
                       {/* MLS® hand-off + share elsewhere */}
                       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-divider px-4 py-2.5">
                         <MlsHandoff zh={lang === 'zh'} compact listing={{ id: l.id, address: l.address, unit: l.unit }} item={latestMls(handoffs, l.id) as HandoffItem | null} onChanged={loadHandoffs} />
-                        <button type="button" data-testid="share-post-open" onClick={() => setSharing(l)} className="rounded-full border border-line-divider px-2.5 py-[3px] text-[12px] font-semibold text-body-2 hover:border-brand hover:text-brand">
+                        <button type="button" data-testid="share-post-open" onClick={() => setSharing(l)} className="whitespace-nowrap rounded-full border border-line-divider px-2.5 py-[3px] text-[12px] font-semibold text-body-2 hover:border-brand hover:text-brand">
                           {lang === 'zh' ? '分享包 · 照片' : 'Share pack · photos'}
                         </button>
                         <TakedownNotice zh={lang === 'zh'} listingId={l.id} active={l.is_active !== false} rows={manualAds} onChanged={loadHandoffs} />
