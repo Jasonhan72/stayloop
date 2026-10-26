@@ -16,6 +16,16 @@ export type KbSource = {
 
 const OGL = 'Open Government Licence – Ontario'
 const CROWN = 'Crown copyright (Ontario); passages stored for retrieval and short quotation with a link'
+const OHRC_LIC = 'Ontario Human Rights Commission; cited with a link'
+const TORONTO_LIC = 'City of Toronto; cited with a link'
+const OHRC_SECTIONS: [string, string][] = [
+  ['i-introduction', 'I. Introduction'], ['ii-purpose-ohrcs-policies', 'II. Purpose of OHRC policies'],
+  ['iii-ontario-human-rights-code', 'III. The Ontario Human Rights Code'], ['iv-social-and-economic-status', 'IV. Social and economic status'],
+  ['v-identifying-discrimination-rental-housing', 'V. Identifying discrimination in rental housing'], ['vi-duty-accommodate', 'VI. The duty to accommodate'],
+  ['vii-social-housing', 'VII. Social housing'], ['viii-co-op-housing', 'VIII. Co-op housing'],
+  ['ix-organizational-responsibility', 'IX. Organizational responsibility'], ['x-preventing-and-responding-discrimination-rental-housing', 'X. Preventing and responding to discrimination'],
+  ['appendix-table-cases', 'Appendix: table of cases'],
+]
 const LTB_GUIDELINES: [string, string][] = [
   ['01', 'Adjourning and Rescheduling Hearings_dec2020'], ['02', 'Payment into the Board'], ['03', 'Costs'],
   ['04', 'Abandonment of a Rental Unit'], ['05', 'Breach of Maintenance Obligations'], ['06', 'Tenants Rights'],
@@ -39,6 +49,17 @@ export const KB_SOURCES: KbSource[] = [
   })),
   { key: 'on-standard-lease-guide', kind: 'html', title: 'Guide to Ontario’s standard lease', url: 'https://www.ontario.ca/page/guide-ontarios-standard-lease', authority: 3, licence: OGL, refreshDays: 30 },
   { key: 'on-rent-increase-guideline', kind: 'html', title: 'Rent increase guideline (Ontario)', url: 'https://www.ontario.ca/page/rent-increase-guideline', authority: 3, licence: OGL, refreshDays: 7 },
-  { key: 'ohrc-rental-housing-policy', kind: 'html', title: 'OHRC — Policy on human rights and rental housing', url: 'https://www.ohrc.on.ca/en/policy-human-rights-and-rental-housing', authority: 3, licence: 'Ontario Human Rights Commission; cited with a link', refreshDays: 90 },
-  { key: 'toronto-rentsafeto-tenants', kind: 'html', title: 'RentSafeTO for Tenants (City of Toronto)', url: 'https://www.toronto.ca/community-people/housing-shelter/rental-housing-tenant-information/rental-housing-standards/apartment-building-standards/rentsafeto-for-tenants/', authority: 4, licence: 'City of Toronto; cited with a link', refreshDays: 90 },
+  { key: 'ohrc-rental-housing-policy', kind: 'html', title: 'OHRC — Policy on human rights and rental housing', url: 'https://www.ohrc.on.ca/en/policy-human-rights-and-rental-housing', authority: 3, licence: OHRC_LIC, refreshDays: 90 },
+  // 2026-10-27 第 2 期 9.1: the policy's body lives in sub-pages (the overview is 4 chunks); each is its own document
+  ...OHRC_SECTIONS.map(([slug, name]): KbSource => ({
+    key: `ohrc-policy-${slug.split('-')[0]}`, kind: 'html', title: `OHRC — Policy on human rights and rental housing · ${name}`,
+    url: `https://www.ohrc.on.ca/en/policy-human-rights-and-rental-housing/${slug}`, authority: 3, licence: OHRC_LIC, refreshDays: 90,
+  })),
+  { key: 'toronto-rentsafeto-tenants', kind: 'html', title: 'RentSafeTO for Tenants (City of Toronto)', url: 'https://www.toronto.ca/community-people/housing-shelter/rental-housing-tenant-information/rental-housing-standards/apartment-building-standards/rentsafeto-for-tenants/', authority: 4, licence: TORONTO_LIC, refreshDays: 90 },
+  { key: 'toronto-rentsafeto-program', kind: 'html', title: 'RentSafeTO: Apartment Building Standards (City of Toronto)', url: 'https://www.toronto.ca/community-people/housing-shelter/rental-housing-tenant-information/rental-housing-standards/apartment-building-standards/', authority: 4, licence: TORONTO_LIC, refreshDays: 90 },
+  { key: 'toronto-rentsafeto-owners', kind: 'html', title: 'RentSafeTO for Building Owners (City of Toronto)', url: 'https://www.toronto.ca/community-people/housing-shelter/rental-housing-tenant-information/rental-housing-standards/apartment-building-standards/rentsafeto-for-building-owners/', authority: 4, licence: TORONTO_LIC, refreshDays: 90 },
+  { key: 'toronto-renovictions-bylaw', kind: 'html', title: 'Rental Renovation Licence By-law (City of Toronto)', url: 'https://www.toronto.ca/services-payments/permits-licences-bylaws/renovictions-bylaw-development/', authority: 4, licence: TORONTO_LIC, refreshDays: 30 },
+  { key: 'toronto-renter-rights', kind: 'html', title: 'Renter Rights & Landlord Information (City of Toronto)', url: 'https://www.toronto.ca/community-people/housing-shelter/rental-housing-rights-information/renter-rights-landlord-information/', authority: 4, licence: TORONTO_LIC, refreshDays: 90 },
+  { key: 'toronto-prevent-evictions', kind: 'html', title: 'Understand & Prevent Evictions (City of Toronto)', url: 'https://www.toronto.ca/community-people/housing-shelter/rental-housing-rights-information/understand-prevent-evictions/', authority: 4, licence: TORONTO_LIC, refreshDays: 90 },
+  { key: 'toronto-property-standards', kind: 'html', title: 'Housing & Property Standards (City of Toronto)', url: 'https://www.toronto.ca/community-people/housing-shelter/rental-housing-rights-information/housing-property-standards/', authority: 4, licence: TORONTO_LIC, refreshDays: 90 },
 ]

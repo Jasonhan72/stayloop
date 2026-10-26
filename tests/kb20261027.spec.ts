@@ -13,6 +13,7 @@ import { allowedSections, checkCitations, kbPromptBlock, kbReceiptLine, referenc
 import { KB_DEFAULTS, kbEnabledFor, parseKbConfig } from '@/lib/kb/config'
 import { EMBED_DIMS, EMBED_MODELS, embedModelDef, vectorLiteral } from '@/lib/llmEmbed'
 import type { KbHit } from '@/lib/kb/search'
+import { KB_SOURCES } from '../scripts/kb/sources'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 const code = (p: string) => read(p).split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
@@ -183,6 +184,11 @@ describe('config, embeddings, schema', () => {
     expect(s).toContain("update({ status: 'superseded', superseded_by: doc.id")
     expect(s).toContain("task: 'document'")
     expect(code('scripts/kb/sources.ts')).toContain("key: 'on-rta-2006'")
+    // 第 2 期 9.1 (2026-10-27): Ontario only — the OHRC policy's 11 sub-pages and the Toronto pages; no other province, no TRESA yet
+    expect(KB_SOURCES.filter((x) => x.key.startsWith('ohrc-policy-')).length).toBe(11)
+    expect(KB_SOURCES.filter((x) => x.key.startsWith('toronto-')).length).toBe(7)
+    expect(KB_SOURCES.every((x) => /^(on-|ltb-|ohrc-|toronto-)/.test(x.key))).toBe(true)
+    expect(new Set(KB_SOURCES.map((x) => x.key)).size).toBe(KB_SOURCES.length)
   })
 })
 
