@@ -21,7 +21,7 @@ describe('first occupied after 2018-11-15', () => {
     expect(ONTARIO_RULES.filter((x) => x.id === 'RTA-6-1-rent-control-status')).toHaveLength(1)
   })
   it('rides through both row builders as a tri-state (null = not stated) and is patchable', () => {
-    const base = { address: '1 Main St', unit: null, city: 'Toronto', province: 'ON' as const, monthly_rent: 2000, bedrooms: 1, bathrooms: 1, property_type: 'condo', has_den: false, sqft: null, deposit: null, amenities: [] as string[] }
+    const base = { address: '1 Main St', unit: undefined, city: 'Toronto', province: 'ON' as const, monthly_rent: 2000, bedrooms: 1, bathrooms: 1, property_type: 'condo', has_den: false, sqft: null, deposit: null, amenities: [] as string[] }
     const slim = buildListingRow({ ...base, first_occupied_after_2018: true }, { landlordId: 'x', slug: 's', slim: true, photos: [] }) as Record<string, unknown>
     expect(slim.first_occupied_after_2018).toBe(true)
     const full = buildListingRow({ ...base }, { landlordId: 'x', slug: 's', photos: [] }) as Record<string, unknown>
