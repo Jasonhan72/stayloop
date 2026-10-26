@@ -105,6 +105,25 @@ print("market keys=%s" % ",".join(sorted(d["market"].keys()))[:80])
 '
 turn_probe "anon renewal turn: no listings, market card present" "$TMP/p2.json" "$ASSERT_RENEWAL"
 
+cat > "$TMP/p3.json" <<EOF
+{"role":"tenant","agentName":"Luna","message":"帮我找北约克 North York、预算不限的 2 房，尽快入住。","memories":[],"workflow":$WORKFLOW,"history":[],"lang":"zh"}
+EOF
+# Home-search lane (2026-10-27 incident): the Stayloop read must actually reach
+# the listings table. For two weeks anon had no SELECT on it and the turn kept
+# saying「库里没有符合条件的房源」while /listings showed the rows — this probe
+# asserts at least one Stayloop-sourced card comes back for a query the test
+# data always satisfies (North York, 2 beds, no budget; [TEST] rows stay until launch).
+ASSERT_SEARCH='
+import json, sys
+d = json.loads(open(sys.argv[1]).read())
+assert "error" not in d, "turn error: %s" % d.get("error")
+ls = d.get("listings") or []
+own = [l for l in ls if l.get("source") == "stayloop"]
+assert own, "home search returned no Stayloop listing (%d cards) — is the listings read still reaching the table?" % len(ls)
+print("stayloop cards=%d first=%s" % (len(own), (own[0].get("address") or "")[:40]))
+'
+turn_probe "anon home search: finds Stayloop listings in the library" "$TMP/p3.json" "$ASSERT_SEARCH"
+
 echo "──────────────────────────────────────"
 echo "SUMMARY: $PASS passed, $FAIL failed, $SKIP skipped (base: $BASE)"
 [ "$FAIL" -eq 0 ] || exit 1
