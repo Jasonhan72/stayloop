@@ -152,6 +152,8 @@ export type AgentTurn = {
   urlImages?: string[]
   /** What the turn read / did (lib/agent/receipt.ts). */
   receipt?: TurnReceipt
+  /** Knowledge-base references the reply cited (lib/kb/cite.ts). */
+  knowledge?: ChatMessage['knowledge']
   /** Where things came from (lib/agent/foldedSources.ts). */
   sources?: FoldedSource[]
 }
@@ -266,6 +268,7 @@ export async function runAgentTurn(args: {
     followups?: FollowUp[]
     draft_listing?: DraftListing
     receipt?: TurnReceipt
+    knowledge?: ChatMessage['knowledge']
     sources?: FoldedSource[]
     url_images?: string[]
     guardrail?: { flagged: boolean; notes: string[] }
@@ -378,6 +381,7 @@ export async function runAgentTurn(args: {
     followups: turn.followups,
     draftListing: turn.draft_listing,
     receipt: turn.receipt,
+    knowledge: turn.knowledge,
     sources: turn.sources,
     urlImages: turn.url_images,
   }

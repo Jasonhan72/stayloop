@@ -461,7 +461,7 @@ export default function AgentChat({
                 </div>
               )}
               {m.role === 'agent' && ((m.receipt && !receiptIsEmpty(m.receipt)) || (m.memoryNotes && m.memoryNotes.length > 0)) && (
-                <TurnReceiptCard receipt={m.receipt} memoryNotes={m.memoryNotes} zh={zh} />
+                <TurnReceiptCard receipt={m.receipt} memoryNotes={m.memoryNotes} knowledge={m.knowledge} zh={zh} />
               )}
               {m.role === 'agent' && live && currentThreadId && m.text.trim() && i > 0 && (
                 <SendToTopic message={m} role={role} currentThreadId={currentThreadId} zh={zh} />
@@ -763,9 +763,10 @@ function linkifyPaths(text: string) {
 
 // 回执卡 (第一批 ①③, 2026-10-25): what the turn read and did, one ✓ line each, then
 // 「记住了：…」 for the memories it stored. Plain lines, no numbers the server did not count.
-function TurnReceiptCard({ receipt, memoryNotes, zh }: { receipt?: ChatMessage['receipt']; memoryNotes?: string[]; zh: boolean }) {
+function TurnReceiptCard({ receipt, memoryNotes, knowledge, zh }: { receipt?: ChatMessage['receipt']; memoryNotes?: string[]; knowledge?: ChatMessage['knowledge']; zh: boolean }) {
   const read = receipt?.read ?? []
   const did = receipt?.did ?? []
+  const refs = knowledge ?? []
   return (
     <div data-testid="turn-receipt" className="w-full max-w-[480px] rounded-xl border border-line-divider bg-white/70 px-3 py-2 text-[12px] leading-relaxed text-body-2">
       {read.length > 0 && (
@@ -783,6 +784,19 @@ function TurnReceiptCard({ receipt, memoryNotes, zh }: { receipt?: ChatMessage['
       {memoryNotes && memoryNotes.length > 0 && (
         <div className={read.length || did.length ? 'mt-1 border-t border-line-divider pt-1' : ''}>
           {memoryNotes.map((n, k) => <div key={`m${k}`} data-testid="memory-note">{n}</div>)}
+        </div>
+      )}
+      {refs.length > 0 && (
+        <div className={read.length || did.length || memoryNotes?.length ? 'mt-1 border-t border-line-divider pt-1' : ''} data-testid="kb-references">
+          <span className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? '参考原文' : 'Sources'}</span>
+          {refs.map((r) => (
+            <div key={r.n} className="min-w-0 truncate">
+              <span className="font-mono text-[10.5px] text-body-3">[{r.n}]</span>{' '}
+              <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-brand underline-offset-2 hover:underline">{r.title}{r.ref ? ` · ${r.ref}` : ''}</a>
+              {r.date && <span className="text-body-3"> · {zh ? '合并至' : 'as of'} {r.date}</span>}
+              {!r.inForce && <span className="text-amber-700"> · {zh ? '尚未生效' : 'not yet in force'}</span>}
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -30,6 +30,11 @@ import { needsReflection, reflectUser, USER_MODEL_KEY, userModelToPromptBlock } 
 import { sanitizePersona, sanitizeVibe } from '@/lib/agent/assistantProfile'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { DEFAULT_MODELS, getModelForUser, getCatalog, findModel, type CatalogModel } from '@/lib/modelConfig'
+// Knowledge base (RAG, 2026-10-27, design/rag-knowledge-base-plan-2026-10-27.md §8): the law text for law / procedure questions.
+import { loadKbConfig, kbEnabledFor } from '@/lib/kb/config'
+import { kbSearch, type KbHit } from '@/lib/kb/search'
+import { shouldRetrieve } from '@/lib/kb/trigger'
+import { kbPromptBlock, checkCitations, referenceList, kbReceiptLine, type KbReference } from '@/lib/kb/cite'
 import { llmChat, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
 
 
@@ -598,6 +603,23 @@ export async function POST(req: Request) {
     }
   }
 
+  // ── Knowledge base (RAG, 2026-10-27): law / procedure / rights questions get the official text ──
+  // Deterministic trigger (lib/kb/trigger.ts), hybrid search in Postgres (kb_search, service role),
+  // passages appended to the system prompt as numbered [K] blocks. A failed lookup is an empty list —
+  // the turn goes on with the rules table alone. Province = the owned-listing province the message named
+  // (unknown → Ontario); other provinces have no corpus yet, so they get nothing rather than RTA text.
+  let kbHits: KbHit[] = []
+  let kbMs = 0
+  if (shouldRetrieve(message)) {
+    const kbCfg = await loadKbConfig()
+    if (kbEnabledFor(kbCfg, { userId: anonymous ? null : turnUserId, anonymous })) {
+      const kr = await kbSearch(message, kbCfg, { province: messageProvince || 'ON', userId: anonymous ? null : turnUserId, signal: AbortSignal.timeout(8000) })
+      kbHits = kr.hits
+      kbMs = kr.ms
+      if (kbHits.length) system += kbPromptBlock(kbHits, uiLang, kbCfg.maxChars)
+    }
+  }
+
   // PDF attachments → text layer (乙 #9). Each file's block says plainly when it is a scan
   // (no text layer) so the model asks for screenshots instead of imagining the clauses.
   let docContext = ''
@@ -777,6 +799,16 @@ export async function POST(req: Request) {
 
   // Compliance Guardrail — the deterministic backstop on every AI output.
   const { out, flags } = applyGuardrail(role, normalized, uiLang, turnProvince)
+  // Knowledge base: a section / guideline number the reply cites must be in the passages it was given;
+  // an invented one is rewritten to「以官方页面为准」and flagged. [K3] markers become [3] + a source list.
+  let kbRefs: KbReference[] = []
+  if (kbHits.length) {
+    const cc = checkCitations(out.reply, kbHits, uiLang)
+    if (cc.invented.length) { flags.push('kb_uncited'); console.warn('[kb] invented citations rewritten', cc.invented.slice(0, 5)) }
+    const rl = referenceList(cc.reply, kbHits)
+    out.reply = rl.reply
+    kbRefs = rl.refs
+  }
   // Unfilled quick-action template: the assistant may only ask for the
   // missing details — never propose an action from example wording.
   if (hasUnfilledTemplate(message) && out.proposedAction) {
@@ -1179,6 +1211,7 @@ export async function POST(req: Request) {
     if (docs.length) receipt.read.push({ kind: 'documents', zh: `附件 ${docs.length} 份`, en: `${docs.length} attached document${docs.length === 1 ? '' : 's'}` })
     if (urlPagesRead) receipt.read.push({ kind: 'links', zh: `链接页面 ${urlPagesRead} 个`, en: `${urlPagesRead} linked page${urlPagesRead === 1 ? '' : 's'}` })
     if (folded.items.length) receipt.read.push({ kind: 'folded', zh: `折进来的 ${folded.items.length} 项`, en: `${folded.items.length} folded-in item${folded.items.length === 1 ? '' : 's'}` })
+    if (kbHits.length) receipt.read.push({ kind: 'knowledge', ...kbReceiptLine(kbHits, kbRefs, uiLang) })
     if (lookupReq) receipt.read.push({ kind: 'lookup', zh: `查了库：${lookupReq.entity}${lookupReq.query ? `「${lookupReq.query}」` : ''}`, en: `Looked up: ${lookupReq.entity}${lookupReq.query ? ` “${lookupReq.query}”` : ''}` })
     if (listings && listings.length) receipt.did.push({ kind: 'listings', zh: `搜了 Stayloop 房源 ${listings.length} 套`, en: `Searched ${listings.length} Stayloop listing${listings.length === 1 ? '' : 's'}` })
     else if (search && typeof search === 'object' && listings) receipt.did.push({ kind: 'listings', zh: '搜了 Stayloop 房源：没有匹配', en: 'Searched Stayloop listings: no match' })
@@ -1213,6 +1246,8 @@ export async function POST(req: Request) {
     followups,
     draft_listing: draftListing,
     receipt,
+    knowledge: kbRefs.length ? kbRefs : undefined,
+    kb_ms: kbHits.length ? kbMs : undefined,
     sources: anonymous ? undefined : folded.items,
     url_images: urlImages.length ? urlImages : undefined,
     // Non-sensitive: the model id string that actually served this turn

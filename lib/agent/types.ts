@@ -274,6 +274,8 @@ export type ChatMessage = {
   receipt?: { read: { kind: string; zh: string; en: string }[]; did: { kind: string; zh: string; en: string }[] }
   /** 「记住了：…」 lines for the memories this turn stored. */
   memoryNotes?: string[]
+  /** Knowledge-base passages the reply cited (2026-10-27): numbered [1]… in the text, listed under the receipt with links. */
+  knowledge?: { n: number; title: string; ref: string | null; url: string; date: string | null; inForce: boolean }[]
   /** 「折进来的」 — things from elsewhere this turn read (unread messages, scan cards), each linked. */
   sources?: { kind: 'message' | 'scan'; zh: string; en: string; href: string }[]
 }

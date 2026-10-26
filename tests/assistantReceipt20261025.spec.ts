@@ -74,7 +74,7 @@ describe('wiring', () => {
     const c = code('components/agent/AgentChat.tsx')
     expect(c).toContain('data-testid="turn-receipt"')
     expect(c).toContain('data-testid="memory-note"')
-    expect(c).toContain('<TurnReceiptCard receipt={m.receipt} memoryNotes={m.memoryNotes} zh={zh} />')
+    expect(c).toContain('<TurnReceiptCard receipt={m.receipt} memoryNotes={m.memoryNotes} knowledge={m.knowledge} zh={zh} />')
     const p = code('components/agent/AssistantPanel.tsx')
     expect(p.match(/data-testid="assistant-status"/g)?.length).toBe(2)
     expect(p).toContain("'预览 · 未登录，只看不记'")

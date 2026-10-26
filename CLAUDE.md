@@ -36,7 +36,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 
 必需：`NEXT_PUBLIC_SUPABASE_URL` `NEXT_PUBLIC_SUPABASE_ANON_KEY` `SUPABASE_SERVICE_ROLE_KEY` `ANTHROPIC_API_KEY` `RESEND_API_KEY` `RESEND_FROM` `STRIPE_SECRET_KEY` `STRIPE_WEBHOOK_SECRET` `NEXT_PUBLIC_STRIPE_PRICE_ID` `NEXT_PUBLIC_STRIPE_UNLOCK_PRICE_ID` `NEXT_PUBLIC_SITE_URL` `NEXT_PUBLIC_GOOGLE_MAPS_KEY` `NEXT_PUBLIC_VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY` `CRON_SECRET`（同值存 Vault `cron_secret`）`INBOUND_EMAIL_SECRET`（网站 Worker 与邮件 Worker 同值）。
 
-可选（缺了功能降级、不报错）：`OPENAI_API_KEY` `GEMINI_API_KEY` `DEEPSEEK_API_KEY` `MOONSHOT_API_KEY` `DASHSCOPE_API_KEY`（扫描件 OCR 回退走阿里云中国大陆端点，用户 09-21 决定保留，隐私页已披露）`ZHIPU_API_KEY` `JINA_API_KEY`（预付余额；用完时 CanLII 索引、雇主网页核验、商业检索、房东贴链接读页全部静默降级——症状先查余额）`OPENCORPORATES_API_TOKEN` `CANLII_API_KEY` `VERIFF_*` `FLINKS_*` `CREDIT_PULL_PROVIDER` / `EQUIFAX_*`（生产凭证未到位）`CRA_MODE`（`registered` 默认 / `tool`）`PARTNER_SCREENING_API`。管理 PAT `SUPABASE_ACCESS_TOKEN`（scoped，权限留默认会 401）。
+可选（缺了功能降级、不报错）：`OPENAI_API_KEY` `GEMINI_API_KEY`（也是知识库嵌入模型的密钥）`DEEPSEEK_API_KEY` `MOONSHOT_API_KEY` `DASHSCOPE_API_KEY`（扫描件 OCR 回退走阿里云中国大陆端点，用户 09-21 决定保留，隐私页已披露）`ZHIPU_API_KEY` `JINA_API_KEY`（预付余额；用完时 CanLII 索引、雇主网页核验、商业检索、房东贴链接读页全部静默降级——症状先查余额）`OPENCORPORATES_API_TOKEN` `CANLII_API_KEY` `VERIFF_*` `FLINKS_*` `CREDIT_PULL_PROVIDER` / `EQUIFAX_*`（生产凭证未到位）`CRA_MODE`（`registered` 默认 / `tool`）`PARTNER_SCREENING_API`。管理 PAT `SUPABASE_ACCESS_TOKEN`（scoped，权限留默认会 401）。
 
 ## 数据库与迁移
 
@@ -132,6 +132,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 申请包：`applicant_profiles` + `/tenant/passport`、`/api/profile/*`
 - LTB 判令目录：`lib/ltb/`（ingest 与查询共用 `normalize.ts`；只有房东发起且对方是租客才算风险；姓名命中未经地址佐证一律视为同名；目录没有判决结果，只能说「已出判令」）。CanLII API 不能按姓名查。
 - 后台：`/admin`（verify / users / usage / models / agents / providers / partners / consumer-requests），门禁 `is_stayloop_admin()`
+- **知识库（RAG，2026-10-27）**：`lib/kb/`（`chunk` 切块、`trigger` 触发与中→英检索词、`cite` 参考资料段 / 条号核对 / 来源清单、`search` 调 RPC、`config` 读 `app_config.kb`）、`lib/llmEmbed.ts`（嵌入，`ai_usage` slot `embed`，默认 `gemini-embedding-001` 1024 维）、表 `knowledge_sources / documents / chunks`（只有 service role）+ RPC `kb_search`、语料清单 `scripts/kb/sources.ts`、入库 `scripts/kb/ingest.ts`（版本只追加不删）、评测 `scripts/kb/eval.ts` + `design/kb-golden-set-2026-10-27.json`、每周 `kb-refresh.yml`（需 GitHub secret `GEMINI_API_KEY`）。**开关在 `app_config.kb`**（`audience` test → all），计划 `design/rag-knowledge-base-plan-2026-10-27.md`。回答里的条号必须来自本轮参考资料，否则守卫改写并记 `kb_uncited`。
 
 ## 路由速查
 
