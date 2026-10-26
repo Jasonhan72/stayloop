@@ -10,7 +10,16 @@ import { AgentBadge } from '@/components/AgentBadge'
 import AgentAvatar from '@/components/agent/AgentAvatar'
 import { useT } from '@/lib/i18n'
 import { categoryLabel } from '@/lib/agentProfile'
-import { AGENT_FOCUS, AGENT_LANGUAGES, focusLabel, languageLabel, type PublicAgent } from '@/lib/agentPublic'
+import { AGENT_FOCUS, AGENT_LANGUAGES, focusLabel, languageLabel, type PublicAgent, SIGNAL_MIN_SAMPLES, type AgentSignals } from '@/lib/agentPublic'
+
+// Station-only signals (2026-10-27): counts from Stayloop's own records; a thin sample says so instead of a number.
+function signalLine(s: AgentSignals, L: 'zh' | 'en'): string {
+  const zh = L === 'zh'
+  const reply = s.response_samples >= SIGNAL_MIN_SAMPLES && s.response_median_minutes != null
+    ? (zh ? `回复中位 ${s.response_median_minutes < 60 ? `${s.response_median_minutes} 分钟` : `${Math.round(s.response_median_minutes / 60)} 小时`}` : `median reply ${s.response_median_minutes < 60 ? `${s.response_median_minutes} min` : `${Math.round(s.response_median_minutes / 60)} h`}`)
+    : (zh ? '回复速度：尚无足够数据' : 'reply time: not enough data yet')
+  return [zh ? `站内筛查 ${s.screenings}` : `${s.screenings} screenings here`, zh ? `签约 ${s.leases}` : `${s.leases} leased`, reply].join(' · ')
+}
 
 export default function AgentsDirectoryPage() {
   const { lang } = useT()
@@ -97,10 +106,11 @@ export default function AgentsDirectoryPage() {
                     <div className="text-[12.5px] font-semibold text-body">{a.brokerage_name}</div>
                   </div>
                 </div>
-                <div className="mt-3"><AgentBadge agent={a} lang={L} compact /></div>
+                <div className="mt-3"><AgentBadge agent={a} lang={L} compact linkless /></div>
                 {a.languages.length > 0 && <div className="mt-3 text-[12.5px] text-body-2">{a.languages.map((c) => languageLabel(c, L)).join(' · ')}</div>}
                 {a.focus.length > 0 && <div className="mt-1 text-[12.5px] text-body-3">{a.focus.map((c) => focusLabel(c, L)).join(' · ')}</div>}
                 {a.service_areas.length > 0 && <div className="mt-1 truncate text-[12.5px] text-body-3">{a.service_areas.join(' · ')}</div>}
+                {a.signals && <div className="mt-2 text-[12px] text-body-2" data-testid="agent-signals">{signalLine(a.signals, L)}</div>}
               </Link>
             ))}
           </div>

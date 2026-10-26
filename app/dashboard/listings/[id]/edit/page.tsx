@@ -1,6 +1,7 @@
 'use client'
 
 
+import PriceReferenceCard from '@/components/listings/PriceReferenceCard'
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -56,6 +57,7 @@ type Form = {
   lease_term: string
   pets_allowed: string
   smoking_policy: string
+  first_occupied_after_2018: '' | 'yes' | 'no'
   furnished: '' | 'yes' | 'no'
   utilities_included: string[]
 }
@@ -95,6 +97,7 @@ function applyAgentStash(f: Form, d: AgentStash): Form {
     ...(has('lease_term') ? { lease_term: String(d.lease_term) } : {}),
     ...(has('pets_allowed') ? { pets_allowed: String(d.pets_allowed) } : {}),
     ...(has('smoking_policy') ? { smoking_policy: String(d.smoking_policy) } : {}),
+    ...(has('first_occupied_after_2018') ? { first_occupied_after_2018: d.first_occupied_after_2018 === true ? 'yes' as const : d.first_occupied_after_2018 === false ? 'no' as const : '' as const } : {}),
     ...(has('furnished') && typeof d.furnished === 'boolean' ? { furnished: d.furnished ? 'yes' : 'no' } : {}),
     ...(has('utilities_included') && Array.isArray(d.utilities_included) ? { utilities_included: d.utilities_included.map(String) } : {}),
   }
@@ -124,6 +127,7 @@ function listingRowFromForm(form: Form, photos: string[]): Record<string, unknow
     lease_term: form.lease_term || null,
     pets_allowed: form.pets_allowed || null,
     smoking_policy: form.smoking_policy || null,
+    first_occupied_after_2018: form.first_occupied_after_2018 === '' ? null : form.first_occupied_after_2018 === 'yes',
     furnished: form.furnished === '' ? null : form.furnished === 'yes',
     utilities_included: form.utilities_included,
     images: photos,
@@ -141,6 +145,8 @@ export default function EditPublishedListingPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [form, setForm] = useState<Form | null>(null)
+  // The owner (profile id) of the row, for the price reference card's own-listings query.
+  const [landlordId, setLandlordId] = useState<string | null>(null)
   const [photos, setPhotos] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -222,8 +228,10 @@ export default function EditPublishedListingPage() {
           pets_allowed: data.pets_allowed || '',
           smoking_policy: data.smoking_policy || '',
           furnished: data.furnished == null ? '' : data.furnished ? 'yes' : 'no',
+          first_occupied_after_2018: data.first_occupied_after_2018 == null ? '' : data.first_occupied_after_2018 ? 'yes' : 'no',
           utilities_included: Array.isArray(data.utilities_included) ? data.utilities_included : [],
         }
+        setLandlordId((data.landlord_id as string | null) ?? null)
         const loadedPhotos: string[] = Array.isArray(data.images) ? data.images : []
         setOriginal({ form: loaded, photos: loadedPhotos })
         // ?relist=1 (the move-out → re-list step): pre-tick 已上架 on an off-market or deleted listing; nothing is saved until 保存.
@@ -487,6 +495,16 @@ export default function EditPublishedListingPage() {
               <LabelField label={zh ? '月租 (CAD) *' : 'Rent (CAD) *'}>
                 <input className="sl-input" type="number" value={form.monthly_rent} onChange={(e) => set('monthly_rent', Number(e.target.value) || 0)} required />
               </LabelField>
+              {form.province === 'ON' && (
+                <div className="sm:col-span-2" data-testid="first-occupied">
+                  <div className="text-[12px] font-semibold">{zh ? '2018-11-15 之后才第一次有人入住？' : 'First occupied after 2018-11-15?'}</div>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {([['', zh ? '不清楚' : 'Not sure'], ['yes', zh ? '是' : 'Yes'], ['no', zh ? '否' : 'No']] as const).map(([v, l]) => <button key={v} type="button" onClick={() => setForm((f) => f && { ...f, first_occupied_after_2018: v })} className={`rounded-full border px-3 py-1 text-[12.5px] font-semibold ${form.first_occupied_after_2018 === v ? 'border-brand bg-[#E9F5FD] text-brand' : 'border-line-divider bg-white text-body-2'}`}>{l}</button>)}
+                  </div>
+                  <p className="mt-1 text-[11.5px] text-body-3">{zh ? '是 → 在租涨幅不受年度指导比例限制（RTA s.6.1）；否 → 受指导比例约束。房源页会照实写出来。' : 'Yes → increases for a sitting tenant are not bound by the annual guideline (RTA s.6.1); no → the guideline applies. The listing page states it as given.'}</p>
+                  <div className="mt-2"><PriceReferenceCard zh={zh} province={form.province} city={form.city} neighborhood={form.neighborhood} bedrooms={form.bedrooms} propertyType={null} rent={form.monthly_rent || null} landlordId={landlordId} /></div>
+                </div>
+              )}
               <LabelField label={deposit ? (zh ? '押金 (CAD)' : 'Deposit (CAD)') : zh ? '租金押金 (CAD)' : 'Rent deposit (CAD)'}>
                 <input className="sl-input" type="number" value={form.deposit ?? ''} onChange={(e) => set('deposit', e.target.value ? Number(e.target.value) : null)} />
                 {!deposit && form.deposit != null && form.monthly_rent > 0 && form.deposit > form.monthly_rent && (

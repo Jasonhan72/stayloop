@@ -193,6 +193,8 @@ export type DraftListing = {
   /** 'no' | 'yes' | 'outdoor_only' — tenants filter on it; the RTA lets a
    *  landlord set it (unlike pets). */
   smoking_policy?: string
+  /** Landlord's own statement: first occupied for residential purposes after 2018-11-15 (RTA s.6.1, guideline exemption). null / undefined = not stated. */
+  first_occupied_after_2018?: boolean | null
   /** Which utilities the rent covers: hydro / water / heat / gas / internet / cable. */
   utilities_included?: string[]
   virtual_tour_url?: string

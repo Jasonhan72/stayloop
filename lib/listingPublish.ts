@@ -259,6 +259,7 @@ export function buildListingRow(form: ListingFormInput, opts: BuildListingRowOpt
       lease_term: form.lease_term ?? null,
       pets_allowed: form.pets_allowed ?? null,
       smoking_policy: form.smoking_policy ?? null,
+      first_occupied_after_2018: form.first_occupied_after_2018 ?? null,
       furnished: form.furnished ?? null,
       utilities_included: form.utilities_included ?? [],
       // Landlord-reviewed copy from the wizard's last step (SL-L-03); absent → address / none.
@@ -313,6 +314,7 @@ export function buildListingRow(form: ListingFormInput, opts: BuildListingRowOpt
     deposit: form.deposit ?? null,
     lease_term: form.lease_term ?? null,
     smoking_policy: form.smoking_policy ?? null,
+    first_occupied_after_2018: form.first_occupied_after_2018 ?? null,
     utilities_included: form.utilities_included ?? [],
     virtual_tour_url: form.virtual_tour_url ?? null,
     mls_number: form.mls_number ?? null,
@@ -469,7 +471,7 @@ export const LISTING_EDIT_DRAFT_PREFIX = 'stayloop-listing-edit-draft:'
 
 const PATCHABLE: (keyof DraftListing)[] = [
   'title', 'description', 'monthly_rent', 'bedrooms', 'bathrooms', 'sqft', 'available_date', 'parking', 'pet_policy', 'amenities', 'has_den',
-  'deposit', 'lease_term', 'pets_allowed', 'smoking_policy', 'furnished', 'utilities_included', 'parking_spaces',
+  'deposit', 'lease_term', 'pets_allowed', 'smoking_policy', 'furnished', 'utilities_included', 'parking_spaces', 'first_occupied_after_2018',
 ]
 
 export function buildListingPatch(form: DraftListing, photos: string[] | null, fields: string[]): Record<string, unknown> {

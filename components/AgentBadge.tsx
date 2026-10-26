@@ -7,7 +7,7 @@
 // complaints desk (design/roles-and-agent-verification-2026-09.md §5).
 import { RECO_COMPLAINTS_URL, RECO_REGISTER_URL, categoryLabel, isRegistrationLive, type AgentProfile } from '@/lib/agentProfile'
 
-export function AgentBadge({ agent, lang, compact = false }: { agent: Pick<AgentProfile, 'status' | 'reco_number' | 'brokerage_name' | 'verified_at' | 'category' | 'crea_member'>; lang: 'zh' | 'en'; compact?: boolean }) {
+export function AgentBadge({ agent, lang, compact = false, linkless = false }: { agent: Pick<AgentProfile, 'status' | 'reco_number' | 'brokerage_name' | 'verified_at' | 'category' | 'crea_member'>; lang: 'zh' | 'en'; /** Inside another link (a directory card): a span, since <a> cannot nest <a> (hydration error, 2026-10-27). */ linkless?: boolean; compact?: boolean }) {
   const zh = lang === 'zh'
   if (!isRegistrationLive(agent.status)) {
     return (
@@ -17,6 +17,14 @@ export function AgentBadge({ agent, lang, compact = false }: { agent: Pick<Agent
     )
   }
   const date = agent.verified_at ? new Date(agent.verified_at).toLocaleDateString(zh ? 'zh-CN' : 'en-CA') : ''
+  if (compact && linkless) {
+    return (
+      <span title={zh ? `RECO 注册已核 · #${agent.reco_number} · ${agent.brokerage_name} · 核于 ${date}` : `RECO registration verified · #${agent.reco_number} · ${agent.brokerage_name} · checked ${date}`}
+        className="inline-flex items-center gap-1 rounded-full px-2 py-[2px] text-[11px] font-bold" style={{ background: '#E4EEE3', color: '#065F46' }}>
+        ✓ {zh ? 'RECO 注册已核' : 'RECO verified'}
+      </span>
+    )
+  }
   if (compact) {
     return (
       <a href={RECO_REGISTER_URL} target="_blank" rel="noopener noreferrer" title={zh ? `RECO 注册已核 · #${agent.reco_number} · ${agent.brokerage_name} · 核于 ${date}` : `RECO registration verified · #${agent.reco_number} · ${agent.brokerage_name} · checked ${date}`}

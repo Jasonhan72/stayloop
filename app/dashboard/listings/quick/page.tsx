@@ -5,6 +5,7 @@
 // confirms, answers the policy questions a photo cannot (pets / smoking / term /
 // utilities / deposit) and publishes. Same row builder, same publish gate, same
 // TRESA disclosure and same verification queue as the 5-step wizard.
+import PriceReferenceCard from '@/components/listings/PriceReferenceCard'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -61,6 +62,7 @@ export default function QuickListingPage() {
     property_type: 'condo', bedrooms: '1', bathrooms: '1', has_den: false, furnished: '' as '' | 'yes' | 'no', sqft: '',
     amenities: [] as string[], pets_allowed: '' as '' | 'yes' | 'restricted' | 'no', smoking_policy: '' as '' | 'no' | 'outdoor_only' | 'yes',
     lease_term: '', utilities_included: [] as string[], available_date: '', deposit: '', title: '', description: '',
+    first_occupied: '' as '' | 'yes' | 'no',
   })
   const [copyEdited, setCopyEdited] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -153,6 +155,7 @@ export default function QuickListingPage() {
       sqft: parseInt(form.sqft) || null, deposit: parseInt(form.deposit) || null, amenities: form.amenities,
       lease_term: form.lease_term.trim() || undefined, pets_allowed: form.pets_allowed || undefined, smoking_policy: form.smoking_policy || undefined,
       furnished: form.furnished === '' ? undefined : form.furnished === 'yes', utilities_included: form.utilities_included,
+      first_occupied_after_2018: form.first_occupied === '' ? null : form.first_occupied === 'yes',
       available_date: form.available_date || undefined, title: copy.title.trim() || undefined, description: copy.description.trim() || undefined,
     }, { landlordId: landlord!.landlordId, slug, slim: true, photos: photos.map((p) => p.store) })
   }
@@ -305,6 +308,16 @@ export default function QuickListingPage() {
                     {(['no', 'outdoor_only', 'yes'] as const).map((v) => <button key={v} type="button" className={chip(form.smoking_policy === v)} onClick={() => setForm({ ...form, smoking_policy: v })}>{v === 'no' ? (zh ? '禁烟' : 'No') : v === 'outdoor_only' ? (zh ? '仅室外' : 'Outdoor only') : (zh ? '允许' : 'Yes')}</button>)}
                   </div>
                 </div>
+                {province === 'ON' && (
+                  <div data-testid="first-occupied">
+                    <div className="text-[12px] font-semibold">{zh ? '2018-11-15 之后才第一次有人入住？' : 'First occupied after 2018-11-15?'}</div>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {([['', zh ? '不清楚' : 'Not sure'], ['yes', zh ? '是' : 'Yes'], ['no', zh ? '否' : 'No']] as const).map(([v, l]) => <button key={v} type="button" className={chip(form.first_occupied === v)} onClick={() => setForm({ ...form, first_occupied: v })}>{l}</button>)}
+                    </div>
+                    <p className="mt-1 text-[11.5px] text-body-3">{zh ? '是 → 在租涨幅不受年度指导比例限制（RTA s.6.1，仍要提前 90 天通知）；否 → 受指导比例约束。房源页会照实写出来。' : 'Yes → increases for a sitting tenant are not bound by the annual guideline (RTA s.6.1; 90 days’ notice still); no → the guideline applies. The listing page states it as given.'}</p>
+                    <div className="mt-2"><PriceReferenceCard zh={zh} province={province} city={city} bedrooms={parseInt(form.bedrooms) || 0} propertyType={form.property_type} rent={parseInt(rent) || null} landlordId={landlord?.landlordId ?? null} /></div>
+                  </div>
+                )}
                 <label className="block"><span className="text-[12px] font-semibold">{zh ? '租期' : 'Lease term'}</span>
                   <select className="sl-input mt-1 w-full" value={form.lease_term} onChange={(e) => setForm({ ...form, lease_term: e.target.value })}>
                     <option value="">{zh ? '未说明' : 'Not stated'}</option><option value="12 months">{zh ? '12 个月' : '12 months'}</option><option value="month-to-month">{zh ? '月租' : 'Month-to-month'}</option><option value="short-term ok">{zh ? '可短租' : 'Short-term OK'}</option>

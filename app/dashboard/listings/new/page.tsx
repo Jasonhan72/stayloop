@@ -1,5 +1,6 @@
 'use client'
 
+import PriceReferenceCard from '@/components/listings/PriceReferenceCard'
 import { draftListingCopy } from '@/lib/listingCopy'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -70,6 +71,7 @@ export default function NewListingPage() {
     province: 'ON' as ProvinceCode,
     monthly_rent: '',
     deposit: '',
+    first_occupied_after_2018: '' as '' | 'yes' | 'no',
     bedrooms: '1',
     bathrooms: '1',
     sqft: '',
@@ -211,7 +213,7 @@ export default function NewListingPage() {
         unit: form.unit,
         city: form.city,
         province: form.province,
-        monthly_rent: parseInt(form.monthly_rent) || null,
+        monthly_rent: parseInt(form.monthly_rent) || null, first_occupied_after_2018: form.first_occupied_after_2018 === '' ? null : form.first_occupied_after_2018 === 'yes',
         bedrooms: parseInt(form.bedrooms),
         bathrooms: parseInt(form.bathrooms),
         property_type: form.property_type,
@@ -644,6 +646,16 @@ export default function NewListingPage() {
                     </div>
                   )
                 })()}
+                {form.province === 'ON' && (
+                  <div data-testid="first-occupied">
+                    <div className="text-[12px] font-semibold">{lang === 'zh' ? '2018-11-15 之后才第一次有人入住？' : 'First occupied after 2018-11-15?'}</div>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {([['', lang === 'zh' ? '不清楚' : 'Not sure'], ['yes', lang === 'zh' ? '是' : 'Yes'], ['no', lang === 'zh' ? '否' : 'No']] as const).map(([v, l]) => <button key={v} type="button" onClick={() => set('first_occupied_after_2018', v)} className={`rounded-full border px-3 py-1 text-[12.5px] font-semibold ${form.first_occupied_after_2018 === v ? 'border-brand bg-[#E9F5FD] text-brand' : 'border-line-divider bg-white text-body-2'}`}>{l}</button>)}
+                    </div>
+                    <p className="mt-1 text-[11.5px] text-body-3">{lang === 'zh' ? '是 → 在租涨幅不受年度指导比例限制（RTA s.6.1，仍要提前 90 天通知）；否 → 受指导比例约束。房源页会照实写出来。' : 'Yes → increases for a sitting tenant are not bound by the annual guideline (RTA s.6.1; 90 days’ notice still); no → the guideline applies. The listing page states it as given.'}</p>
+                  </div>
+                )}
+                <PriceReferenceCard zh={lang === 'zh'} province={form.province} city={form.city} bedrooms={parseInt(form.bedrooms) || 0} propertyType={form.property_type} rent={parseInt(form.monthly_rent) || null} landlordId={landlord?.landlordId ?? null} />
                 <div className="grid gap-4 sm:grid-cols-4">
                   <Field label={lang === 'zh' ? '租期' : 'Lease term'}><input className="sl-input" value={form.lease_term} onChange={(e) => set('lease_term', e.target.value)} placeholder={lang === 'zh' ? '如：12 个月 / 可短租' : 'e.g. 12 months / short-term OK'} /></Field>
                   <Field label={lang === 'zh' ? '宠物' : 'Pets'}>

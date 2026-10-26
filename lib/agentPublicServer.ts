@@ -16,7 +16,19 @@ export async function listPublicAgents(admin: SupabaseClient): Promise<PublicAge
   const { data } = await admin.from('agent_profiles').select(PUBLIC_AGENT_COLUMNS)
     .eq('public_profile', true).in('status', ['verified', 'renewal_due']).not('profile_slug', 'is', null)
     .order('verified_at', { ascending: false }).limit(200)
-  return ((data ?? []) as AgentProfileRow[]).filter((r) => isPublishable(r)).map(toPublicAgent)
+  const rows = ((data ?? []) as AgentProfileRow[]).filter((r) => isPublishable(r))
+  const items = rows.map(toPublicAgent)
+  // In-platform signals (2026-10-27): one locked RPC for the agents who opted into showing activity.
+  const optIn = rows.filter((r) => r.show_activity).map((r) => r.auth_id)
+  if (optIn.length) {
+    const { data: sig } = await admin.rpc('agent_public_signals', { p_auth_ids: optIn })
+    const byAuth = new Map(((sig ?? []) as { auth_id: string; screenings: number; leases: number; response_samples: number; response_median_minutes: number | null }[]).map((x) => [x.auth_id, x]))
+    rows.forEach((r, i) => {
+      const x = r.show_activity ? byAuth.get(r.auth_id) : undefined
+      items[i].signals = x ? { screenings: x.screenings, leases: x.leases, response_samples: x.response_samples, response_median_minutes: x.response_median_minutes } : null
+    })
+  }
+  return items
 }
 
 /** Listings this agent published on Stayloop (as their landlord profile). The page asks

@@ -160,7 +160,14 @@ export type PublicAgent = {
   bio: string | null
   /** Public URL of the agent's own photo under our storage, or null (initials). */
   photo_url: string | null
+  /** In-platform signals (2026-10-27), only when the agent ticked show_activity; null = not shown. */
+  signals?: AgentSignals | null
 }
+
+/** Counts from Stayloop's own records: screenings completed (365 d), clients leased / closed, median minutes to the agent's first reply (90 d). */
+export type AgentSignals = { screenings: number; leases: number; response_samples: number; response_median_minutes: number | null }
+/** Below this many replies the card says 「尚无足够数据」 instead of a number. */
+export const SIGNAL_MIN_SAMPLES = 3
 
 export type AgentActivity = { clients: number; confirmed_delegations: number; listings: number }
 

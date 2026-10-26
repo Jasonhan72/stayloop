@@ -75,6 +75,7 @@ interface DBListing {
   sqft: number | null
   parking: string | null
   pet_policy: string | null
+  first_occupied_after_2018?: boolean | null
   amenities: string[] | null
   utilities_included: string[] | null
   description: string | null
@@ -628,6 +629,7 @@ export default function ListingDetailPage() {
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] tracking-eyebrow text-body-3">
                     {ppsf != null && <span>${ppsf}/ft²{zh ? ' · 月' : ' · mo'}</span>}
                     {leaseTerm && <span>{leaseTerm}</span>}
+                    {listing.first_occupied_after_2018 != null && province === 'ON' && <span data-testid="rent-control-status" title={zh ? '房东的陈述（RTA s.6.1）' : 'The landlord’s statement (RTA s.6.1)'}>{listing.first_occupied_after_2018 ? (zh ? '2018-11-15 后首次入住 · 涨租不受指导比例限制' : 'First occupied after 2018-11-15 · increases not guideline-bound') : (zh ? '受年度涨租指导比例约束' : 'Annual rent guideline applies')}</span>}
                     <span>{listing.available_date ? (zh ? `${listing.available_date.slice(0, 10)} 起` : `from ${listing.available_date.slice(0, 10)}`) : (zh ? '即可入住' : 'Available now')}</span>
                     {dom != null && <span>{dom === 0 ? (zh ? '今天上架' : 'Listed today') : zh ? `上架 ${dom} 天` : `${dom} days on market`}</span>}
                     {change && (

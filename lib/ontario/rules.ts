@@ -173,6 +173,12 @@ export const ONTARIO_RULES: Rule[] = [
     enforcement: { zh: '房源宠物字段只允许「允许 / 有限制」；附表 B 出现禁宠条款即阻止。', en: 'Listing pets field allows only yes/restricted; Schedule B with a pet ban is blocked.' },
   },
   {
+    id: 'RTA-6-1-rent-control-status', area: 'listing', statute: 'RTA s.6.1', severity: 'info', since: '2018-11-15',
+    title: { zh: '房源要说清是否受年度指导比例约束', en: 'A listing states whether the guideline applies' },
+    summary: { zh: '2018-11-15 之后首次有人入住的单位，在租涨幅不受年度指导比例限制（仍要提前 90 天用 N2 通知、12 个月一次）；之前入住的受指导比例约束。这是房东自己的事实陈述，租客在看房前有权知道。', en: 'A unit first occupied for residential purposes after 2018-11-15 is not bound by the annual guideline (notice is still 90 days on an N2, once per 12 months); one occupied before is. It is the landlord’s own statement of fact, and a tenant may know it before viewing.' },
+    enforcement: { zh: '发布与编辑页有「2018-11-15 后首次入住」三选一（不清楚 / 是 / 否），公开房源页照实显示；N1 工具按同一标记判断豁免。', en: 'Publish and edit have a three-way “first occupied after 2018-11-15” (unknown / yes / no); the public page shows it as stated; the N1 tool reads the same flag.' },
+  },
+  {
     id: 'OREG9-18-standard-lease', area: 'lease', statute: 'O. Reg. 9/18', severity: 'block', since: '2018-04-30',
     title: { zh: '安省标准租约强制使用', en: 'Ontario standard lease is mandatory' },
     summary: { zh: '2018-04-30 起大多数住宅租约必须使用标准表格；OREA Form 400 只是要约，不是租约。', en: 'Most residential tenancies since 2018-04-30 must use the standard form; OREA Form 400 is an offer, not the lease.' },
