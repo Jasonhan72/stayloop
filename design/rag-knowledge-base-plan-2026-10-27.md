@@ -198,3 +198,55 @@
 - 查不到（召回分数低于阈值）：不注入空段落，提示词改为「本轮没有找到对应原文，只按规则表回答，并提醒用户核对官方页面」，回执写「没查到对应原文」，不装作查到了。
 - 延迟：多一次嵌入调用（几十毫秒）+ 一次 RPC（pgvector HNSW，几十毫秒）+ 输入 token 变多；目标整轮增加 < 300 ms。检索在 Worker 里调 Supabase RPC，不在 Worker 内存里放索引。
 - 成本：每次命中 ② 多约 1,500 input token；不命中零成本。按槽位记进 `ai_usage`（kind = `embed`）。
+
+## 9. 第 2 期怎么做（用户 2026-10-27 追问：「接下来的第二期要怎么做」）
+
+第 2 期 = 把知识库从「只有安省」做到「四顶帽子、全部省份」，机制不变（同一套表、RPC、ingest、评测、周更），变的是语料、抓取格式、省份路由和几处小代码。按三步走，每步都能单独上线。
+
+### 9.1 先补安省自己的缺口（半天，和第 1 期同一套机器）
+
+- **OHRC 政策正文**：概览页下面有 10 个子页（`/en/policy-human-rights-and-rental-housing/i-introduction` … `/x-preventing-and-responding-discrimination-rental-housing`，加附录案例表），都是普通 HTML，加 11 条 `html` 来源即可。这直接补上评测里「能不能问有没有小孩」「收入比例」两类问题的依据。
+- **经纪帽子**：TRESA（Trust in Real Estate Services Act, 2002，e-Laws alias `statute/02t30`，JSON 端点已验证可读）+ 其条例 O. Reg. 579/22（Code of Ethics）+ RECO 的 Information Guide 与广告指引（RECO 网站是 JS 应用，文件多为 PDF，需要 9.2 的 PDF 抓取）。
+- **RentSafeTO 主页**（现在只有租客页，192 token）与多伦多翻新许可条例页（上次 URL 404，要重新找）。
+- 守卫：经纪帽子的回答里引用 TRESA 时用 `s.` 条号，和 RTA 同一套条号核对。
+
+### 9.2 抓取与切块要加三样东西（1–2 天）
+
+- **PDF 来源**（`kind: 'pdf'`）：Alberta King's Printer、Nova Scotia、Yukon、Saskatchewan Publications、RECO 指南都是 PDF。用仓库里已有的 `unpdf` 抽文本，再走通用「编号条文」切块。
+- **通用条文切块器**：对非 e-Laws 的法条文本，按行首的 `^\d+(\.\d+)*\s` / `^Article \d+` / `^Section \d+` 切成条，Part / Division 标题做 heading path；切不出条号的（指南、手册）退回按标题切。BC laws（HTML，`<p class="sec">` 之类）和 Manitoba（HTML 1.2 MB）各写一个小的站点适配，其余走通用。
+- **语言**：魁北克用英文版（CCQ 与 TAL 页面都有英文），全文检索仍用 `english` 配置；法文版第 3 期再说。`knowledge_sources.lang` 字段已有。
+- **抓不到的来源**不硬抓：`legisquebec.gouv.qc.ca` 对脚本 403、NS 的 PDF 超时，先用各省官方指南页（TAL、NS Residential Tenancies Program 页面）顶上，法条原文列为「待补」在 README 里记一行。ingest 的 FAILED 行就是清单。
+
+### 9.3 省份路由（半天，turn 路由 + 配置各改一处）
+
+- **省份从哪来**：现在是 `messageProvince || 'ON'`（房东消息里点名的自有房源）。第 2 期改成：消息点名的房源省份 → 租客在管租约的省份（`leaseProvince`，快照里有）→ 房东全部房源同一省时取那个省 → 用户资料省份 → 'ON'。匿名预览只有消息文本，没省就按 'ON'。
+- **按省开关**：`app_config.kb.provinces`（默认 `["ON"]`）。某省的语料没装齐之前不对它检索——半套语料会让模型只看到一部分法条。装齐 + 评测过线才把省份加进名单。
+- **外省回答的约束不变**：外省事实块与守卫已经禁止 RTA / LTB / N 表字样；参考资料段本身按省过滤，不会混进安省条文。魁北克的条号写法是 `art. 1902`，条号核对的正则加一条 `art(?:icle)?\.?\s*\d+`。
+- **回执与来源清单**：`shortSourceLabel` 加各省法案的短名（BC RTA、AB RTA、CCQ、MB RTA …），其余照旧。
+
+### 9.4 省份语料分三批装（每批 2–3 天：来源 → dry run → golden set → 评测 → 加进名单）
+
+来源清单的起点是 `lib/provinces/rules.ts` 里每条事实带的官方链接（约 60 个，写省份事实时已经人工核过），不另起炉灶。
+
+| 批 | 省份 | 法条原文 | 官方指南 | 备注 |
+|---|---|---|---|---|
+| A | BC、AB、QC | BC RTA + Residential Tenancy Regulation（bclaws HTML）；AB RTA + Ministerial Regulation（King's Printer PDF）；QC CCQ 第 1851–2000 条（英文；legisquebec 403 时先用 TAL 页面） | BC Residential Tenancy Branch 政策指引；AB RTDRS 与 SARTR 手册（PDF）；TAL 的 7 个主题页 | 三个最大市场；QC 条号格式不同 |
+| B | MB、SK、NS、NB | MB RTA（HTML）；SK RTA 2006（PDF）；NS RTA + 涨租上限法（PDF，先试站点适配）；NB RTA（laws.gnb.ca HTML） | MB RTB 页面；SK ORT 页面；NS 项目页；NB Tribunal 页 | |
+| C | PE、NL、YT、NT、NU | PE RTA 2022；NL RTA 2018（assembly.nl.ca HTML）；YT RLTA（PDF）；NT / NU RTA | PEI Rental Office；NL 页面；各领地司法部页面 | 量小，一次装完 |
+
+每批的 golden set 加 3 问 × 省（涨租、押金、通知期各一，中英各半），`scripts/kb/eval.ts` 加 `--province=BC` 过滤；过线标准和安省一样（hit@5 ≥ 75%，无检索题 100%），过线才把省加进 `app_config.kb.provinces`。
+
+### 9.5 评测与守卫要加的
+
+- 守卫：安省之外的省份检索结果里不得出现 `on-` 前缀的来源（RPC 已按省过滤，测试用 fixture 断言 `kbPromptBlock` 对 BC 的 hits 不含 RTA）；`SECTION_CITE` 认 `art.`；`kb.provinces` 不在名单的省份 `kbSearch` 直接返回空。
+- 评测：每省一张小表，写进 `design/kb-eval-2026-11.md`；周更 Action 后面跟一次全量评测，下降即在 Action 里标红（第 1 期还没接，第 2 期一起接）。
+- 用量：`ai_usage` slot=`embed` 一次性多几万 token（12 省原文估计 20–40 万 token），之后只嵌变动的条。
+
+### 9.6 顺序与产出
+
+1. 9.1（OHRC 子页 + TRESA + RentSafeTO）→ 当天上线，安省评测重跑。
+2. 9.2 + 9.3（PDF、通用切块、省份路由、`kb.provinces`）→ 一起上线，此时外省仍是空名单，行为不变。
+3. 9.4 A 批 → B 批 → C 批，每批评测过线即加进名单。
+4. 9.5 的评测报告与 Action 内评测收尾。
+
+不在第 2 期：判例、用户自己的文件、`/admin/knowledge` 人审队列、法文版（都在第 3 期）。
