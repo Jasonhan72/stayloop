@@ -204,6 +204,12 @@ function provinceRefusalNote(code: NonOntarioCode, zh: boolean, kind: 'card' | '
 /** 「实时」类说法（2026-10-18 全站测试 N-1）：模型在发房源对话里自己写「我会实时更新草稿 / 卡片」，
  *  卡片并不实时同步，属不实说法。确定性改成平实说法（中英都处理），只动「实时 + 更新类动词」与
  *  英文 real-time / live update 这几种固定搭配，不改别的句子。 */
+/** The reply never ends with a 「办完了。」 / "Done." sign-off (user 2026-10-27: the receipt card already says
+ *  what was done). 「等你点头。」 and 「还缺：…」 stay — they carry information. */
+export function dropDoneSignOff(text: string): string {
+  return text.replace(/(?:\r?\n|^)[ \t]*(?:[（(]?办完了[。.!！]?[)）]?|(?:all )?done[.!]?|finished[.!]?)[ \t]*$/i, '').replace(/\s+$/, '')
+}
+
 export function plainLiveWording(text: string): string {
   if (!text) return text
   return text
@@ -327,6 +333,8 @@ export function applyGuardrail(
 
   // 6) 不实的「实时」说法（N-1）——确定性改写，不追加注释；只是措辞，不记作合规拦截（不进 flags）。
   reply = plainLiveWording(reply)
+  // 7) 去掉结尾的「办完了。」(用户 2026-10-27:回执卡已经说明做了什么,收尾句不用写)
+  reply = dropDoneSignOff(reply)
 
   return { out: { ...out, reply, proposedAction: action, memoryWrites: cleanedMemories }, flags }
 }

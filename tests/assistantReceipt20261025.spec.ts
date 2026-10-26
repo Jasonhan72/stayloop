@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { humanValue, memoryNoteLines, receiptIsEmpty, receiptSummary, type TurnReceipt } from '@/lib/agent/receipt'
 import { threadSummary } from '@/lib/agent/threads'
+import { dropDoneSignOff } from '@/lib/agent/guardrail'
 import type { ChatMessage } from '@/lib/agent/types'
 
 const read = (p: string) => readFileSync(p, 'utf8')
@@ -45,7 +46,7 @@ describe('receipt helpers', () => {
 })
 
 describe('② conversation list outcome line', () => {
-  const msg = (over: Partial<ChatMessage>): ChatMessage => ({ id: 'm', role: 'agent', text: '好的，我看了你的租约，下面是建议……\n\n办完了。', ...over })
+  const msg = (over: Partial<ChatMessage>): ChatMessage => ({ id: 'm', role: 'agent', text: '好的，我看了你的租约，下面是建议……', ...over })
   it('uses the receipt when the last reply has one, else the flattened prose', () => {
     expect(threadSummary([{ id: 'u', role: 'user', text: '帮我看看' }, msg({ receipt })])).toBe('查了 CMHC / 统计局租金基准（North York） · 出了待批卡：发租金提醒')
     expect(threadSummary([{ id: 'u', role: 'user', text: '帮我看看' }, msg({})])).toMatch(/^好的，我看了你的租约/)
@@ -79,9 +80,18 @@ describe('wiring', () => {
     expect(p).toContain("'预览 · 未登录，只看不记'")
     expect(p).toContain('已连接 · 读取${STATUS_READS[role].zh}')
   })
-  it('the prompt asks for the one-line sign-off; the snapshot builder reports its counts', () => {
-    expect(read('lib/agent/prompts.ts')).toContain('「办完了。」')
-    expect(read('lib/agent/prompts.ts')).toContain('「等你点头。」')
+  it('the prompt asks for the sign-off only when waiting or missing something — never 「办完了。」(user 2026-10-27); the snapshot builder reports its counts', () => {
+    const p = read('lib/agent/prompts.ts')
+    expect(p).toContain('「等你点头。」')
+    expect(p).toContain('不要写「办完了」')
+    expect(p).not.toContain('「办完了。」(本轮该做的都做了)')
+    expect(code('app/api/cron/agent-routines/route.ts')).not.toContain('办完了')
+    expect(code('lib/agent/guardrail.ts')).toContain('reply = dropDoneSignOff(reply)')
+    expect(dropDoneSignOff('好的，下面是建议。\n\n办完了。')).toBe('好的，下面是建议。')
+    expect(dropDoneSignOff('Here is the plan.\n\nDone.')).toBe('Here is the plan.')
+    expect(dropDoneSignOff('已发出去。\n\n等你点头。')).toBe('已发出去。\n\n等你点头。')
+    expect(dropDoneSignOff('还缺：入住日期。')).toBe('还缺：入住日期。')
+    expect(dropDoneSignOff('这件事办完了，下一步是签字。')).toBe('这件事办完了，下一步是签字。')
     const u = code('lib/agent/userContext.ts')
     expect(u).toContain('export async function buildUserContextDetailed')
     expect(u).toMatch(/read: \{ applications: appRows\.length, screenings: scr\.length, leases: leaseRows\.length/)

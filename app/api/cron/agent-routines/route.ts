@@ -50,7 +50,7 @@ async function report(svc: SupabaseClient, r: Row, lines: string[], readLine: { 
   if (mainId) {
     const msg: ChatMessage = {
       id: `rt-${r.id.slice(0, 8)}-${Date.now().toString(36)}`, role: 'agent',
-      text: `⏱ 例行任务「${r.title}」\n${lines.filter(Boolean).join('\n')}\n\n办完了。`,
+      text: `⏱ 例行任务「${r.title}」\n${lines.filter(Boolean).join('\n')}`,
       receipt: { read: [{ kind: 'snapshot', ...readLine }], did: [{ kind: 'routine', zh: `按例行任务「${r.title}」汇报`, en: `Reported for the routine “${r.title}”` }] },
     }
     await appendToThread(svc, mainId, [msg])
