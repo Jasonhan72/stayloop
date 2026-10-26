@@ -22,8 +22,11 @@ describe('agent home search reads the listings table as the server', () => {
     expect(s).toContain('LISTING_VISIBILITY_OR')
     expect(s).toContain('hasUsablePhotos(r.images)')
   })
-  it('is only imported by server code (the key must never reach a client bundle)', () => {
-    for (const p of ['app/api/agent/turn/route.ts', 'lib/listings/realtorFreshness.ts']) expect(code(p)).toContain("lib/agent/listingSearch'")
+  it('is reachable only from route handlers: no component or client-reachable lib imports it (review 2026-10-27)', () => {
+    const { execSync } = require('node:child_process') as typeof import('node:child_process')
+    const importers = execSync("grep -rl \"lib/agent/listingSearch'\" app components lib --include='*.ts' --include='*.tsx' || true", { encoding: 'utf8' }).split('\n').filter(Boolean).sort()
+    expect(importers).toEqual(['app/api/agent/turn/route.ts'])
+    expect(code('lib/listings/realtorFreshness.ts')).toContain("from '@/lib/agent/realtorPage'")
     expect(code('lib/agent/listingSearch.ts')).not.toContain("'use client'")
   })
 })

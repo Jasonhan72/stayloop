@@ -32,10 +32,12 @@ export function cardAddress(address: string, unit: string | null | undefined): s
   const a = (address || '').trim()
   const u = (unit || '').trim().replace(/^(unit|apt|suite|#)\s*/i, '')
   if (!u) return a
-  const token = u.toLowerCase()
+  const token = u.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const head = a.toLowerCase()
-  // "605 - 28 Avondale Ave", "#605-28 Avondale", "28 Avondale Ave Unit 605", "28 Avondale Ave #605"
-  if (new RegExp(`(^|[#\\s-])${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s*-\\s*|\\s|$)`).test(head)) return a
+  // Only a unit-shaped position counts — "605 - 28 Avondale Ave", "#605-28 Avondale", "28 Avondale Ave Unit 605",
+  // "28 Avondale Ave #605", "…, Apt 605". A street number that happens to equal the unit ("605 Yonge St") does not.
+  const unitShaped = new RegExp(`(^\\s*#?${token}\\s*-\\s*\\d)|((?:unit|apt|apartment|suite|ste|#)\\s*${token}(?![\\w-]))`)
+  if (unitShaped.test(head)) return a
   return `${a} #${u}`
 }
 

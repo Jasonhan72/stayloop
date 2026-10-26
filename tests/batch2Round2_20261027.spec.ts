@@ -29,6 +29,15 @@ describe('T776 figures', () => {
     { household_id: 'H1', status: 'completed', invoice_amount: 500, approved_amount: null, quote_amount: null, completed_at: '2025-06-02T00:00:00Z' },
     { household_id: 'H-unknown', status: 'closed', invoice_amount: 40, approved_amount: null, quote_amount: null, completed_at: '2026-06-02T00:00:00Z' },
   ]
+  it('the year is the Toronto year: 21:00 on Dec 31 (02:00Z next day) stays in it (review 2026-10-27)', () => {
+    const s = summarizeT776({ year: 2026, leases, rents: [
+      { lease_id: 'L1', amount: 100, status: 'paid', paid_at: '2027-01-01T02:00:00Z' },   // Dec 31 21:00 Toronto → 2026
+      { lease_id: 'L1', amount: 200, status: 'paid', paid_at: '2026-01-01T02:00:00Z' },   // Dec 31 2025 21:00 Toronto → 2025
+      { lease_id: 'L1', amount: 400, status: 'paid', paid_at: '2026-01-01T06:00:00Z' },   // Jan 1 01:00 Toronto → 2026
+    ], workOrders: [], householdOfLease: { L1: 'H1' } })
+    expect(s.totals.gross_rents).toBe(500)
+    expect(code('app/api/finance/t776/route.ts')).toContain('fromToronto(year, 1, 1, 0)')
+  })
   it('line 8141 counts rent RECORDED as received in the year, per property; deposits and open periods never', () => {
     const s = summarizeT776({ year: 2026, leases, rents, workOrders, householdOfLease: { L1: 'H1' } })
     const p1 = s.properties.find((p) => p.label === '100 Test Ave #1')!

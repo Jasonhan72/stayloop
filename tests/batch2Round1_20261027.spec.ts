@@ -59,6 +59,8 @@ describe('professional trades', () => {
     expect(code('components/landlord/NoticeToolbox.tsx')).toContain('href="/providers/professional?trade=paralegal"')
     expect(code('components/agent/ApprovalActionCard.tsx')).toContain('href="/providers/professional?trade=paralegal"')
     expect(code('components/landlord/NoticeToolbox.tsx')).toContain('不给法律意见')
+    // review 2026-10-27: a professional trade never appears in the dispatch preference card
+    expect(code('components/marketplace/DispatchPolicyCard.tsx')).toContain('!isProfessionalTrade(t.key) && providers.some')
   })
 })
 
@@ -97,6 +99,9 @@ describe('condition photos', () => {
     expect(c).not.toMatch(/\.delete\(|\.update\(|\.remove\(/)
     expect(c).not.toMatch(/llmChat|damage score|损坏评分/)
     expect(c).toContain('data-testid="condition-phase"')
+    // review 2026-10-27: signed thumbnails are re-signed while the page stays open
+    expect(c).toContain('const SIGNED_URL_SECONDS = 3600')
+    expect(c).toContain('setInterval(() => void load(), RESIGN_MS)')
     for (const p of ['app/h/[id]/page.tsx', 'app/tenant/move-in/page.tsx']) expect(code(p), p).toContain('<ConditionPhotos householdId=')
   })
   it('the evidence pack lists each photo’s hash and server time in its own section', () => {

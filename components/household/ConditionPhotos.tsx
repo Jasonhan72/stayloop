@@ -14,6 +14,9 @@ import {
 } from '@/lib/household/conditionPhotos'
 
 const COLS = 'id, household_id, phase, item_key, path, sha256, bytes, content_type, note, taken_by, created_at'
+// Signed thumbnails last an hour; the list re-signs itself before that and when the tab comes back (review 2026-10-27).
+const SIGNED_URL_SECONDS = 3600
+const RESIGN_MS = 45 * 60_000
 
 export default function ConditionPhotos({ householdId, zh, province = 'ON' }: { householdId: string; zh: boolean; province?: string | null }) {
   const { user } = useAuth()
@@ -30,13 +33,19 @@ export default function ConditionPhotos({ householdId, zh, province = 'ON' }: { 
     const list = (data ?? []) as ConditionPhotoRow[]
     setRows(list)
     if (list.length) {
-      const { data: signed } = await supabase.storage.from('tenancy-files').createSignedUrls(list.map((r) => r.path), 600)
+      const { data: signed } = await supabase.storage.from('tenancy-files').createSignedUrls(list.map((r) => r.path), SIGNED_URL_SECONDS)
       const map: Record<string, string> = {}
       for (const s of signed ?? []) if (s.path && s.signedUrl) map[s.path] = s.signedUrl
       setUrls(map)
     }
   }, [householdId])
   useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    const t = setInterval(() => void load(), RESIGN_MS)
+    const onVis = () => { if (document.visibilityState === 'visible') void load() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis) }
+  }, [load])
 
   if (!rows) return null
   const pairs = pairByItem(rows, items)

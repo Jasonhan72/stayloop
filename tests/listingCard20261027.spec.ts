@@ -18,6 +18,9 @@ describe('card wording', () => {
     expect(cardAddress('100 Test Ave', null)).toBe('100 Test Ave')
     // "16" inside "1605" is not the unit
     expect(cardAddress('1605 Yonge St', '16')).toBe('1605 Yonge St #16')
+    // a street number that equals the unit is not the unit (review 2026-10-27)
+    expect(cardAddress('605 Yonge St', '605')).toBe('605 Yonge St #605')
+    expect(cardAddress('28 Avondale Ave, Apt 605', '605')).toBe('28 Avondale Ave, Apt 605')
   })
   it('the kicker reads type · place, in one language', () => {
     expect(cardKicker({ property_type: 'condo', neighborhood: 'Yonge & Sheppard', city: 'North York' }, 'zh')).toBe('公寓 · Yonge & Sheppard，North York')

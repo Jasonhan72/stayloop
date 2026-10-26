@@ -118,10 +118,15 @@ describe('routes + data', () => {
   it('/go/<code>: one rpc, redirect with ?src=, no-store, fails open, never stores the visitor', () => {
     const s = code('app/go/[code]/route.ts')
     expect(s).toContain("rpc('bump_share_link'")
+    // review 2026-10-27: link previews and HEAD are redirected without counting
+    expect(s).toContain('export async function HEAD(')
+    expect(s).toContain("isPreviewFetch(req.method, req.headers.get('user-agent'))")
+    expect(s).not.toMatch(/export (const|function) (?!GET|HEAD|POST|OPTIONS)/)
+    expect(s).toContain('resolveNoCount(code)')
     expect(s).toContain('?src=')
     expect(s).toContain("'Cache-Control': 'no-store'")
     expect(s).toContain('underHourlyLimit(`go:${ip}`, 600, true)')
-    expect(s).not.toMatch(/\.insert\(|user-agent|referer/i)
+    expect(s).not.toMatch(/\.insert\(|referer/i) // the user-agent is read to skip previews, never stored
   })
   it('share-links / syndications / poster: signed-in owner only, service role after the check', () => {
     for (const p of ['app/api/listings/share-links/route.ts', 'app/api/listings/syndications/route.ts', 'app/api/listings/poster/route.ts']) {
@@ -144,6 +149,18 @@ describe('routes + data', () => {
   })
 })
 
+describe('short-link preview detection (review 2026-10-27)', () => {
+  it('HEAD and known preview fetchers do not count; a phone browser does', async () => {
+    const { isPreviewFetch } = await import('@/lib/listings/previewFetch')
+    expect(isPreviewFetch('HEAD', 'Mozilla/5.0 (iPhone)')).toBe(true)
+    expect(isPreviewFetch('GET', 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)')).toBe(true)
+    expect(isPreviewFetch('GET', 'WhatsApp/2.23.20.0 A')).toBe(true)
+    expect(isPreviewFetch('GET', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 MicroMessenger/8.0.44')).toBe(false)
+    expect(isPreviewFetch('GET', 'Mozilla/5.0 (Linux; Android 14) Chrome/120 Mobile Safari/537.36')).toBe(false)
+    expect(isPreviewFetch('GET', null)).toBe(false)
+  })
+})
+
 describe('take-down loop', () => {
   it('takedown_reminder is executable, acknowledged-only in chat copy, and closes the rows', () => {
     expect(EXECUTABLE_ACTION_TYPES).toContain('takedown_reminder')
@@ -162,6 +179,9 @@ describe('take-down loop', () => {
     expect(sw).toContain('if (pendingFor.has(l.id)) continue')
     expect(sw).toContain('attachMainThread(admin, inserts)')
     expect(sw).toContain("l.status === 'archived' || l.status === 'rented'")
+    // review 2026-10-27: a profile with no auth id is skipped, never carded under its profile id
+    expect(sw).toContain('authIds.has(l.landlord_id) ? l.landlord_id : null')
+    expect(sw).toContain('if (!userId) { unresolved++; continue }')
     const p = code('app/api/agent/proactive/route.ts')
     expect(p).toContain('const takedown = await runTakedownSweep(admin)')
     expect(p).toContain('{ ...summary, takedown }')

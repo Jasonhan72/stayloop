@@ -59,6 +59,9 @@ describe('monthly brief routine', () => {
     expect(r).toContain("if (r.kind === 'monthly_brief') {")
     for (const t of ["from('rent_payments')", "from('work_orders')", "from('listings')", "from('applications')"]) expect(r).toContain(t)
     expect(r).toContain('没有记录的，这里不猜。')
+    // review 2026-10-27: completed-but-unaccepted work orders are reported as awaiting, not in progress
+    expect(r).toContain("w.status === 'completed'")
+    expect(r).toContain("!['completed', 'accepted', 'paid', 'closed', 'declined', 'cancelled'].includes(w.status)")
     expect(r).toContain('建议：上月没有需要动的地方。')
     expect(r).not.toMatch(/llmChat/)
   })

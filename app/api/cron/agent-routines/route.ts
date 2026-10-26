@@ -146,7 +146,8 @@ async function runOne(svc: SupabaseClient, r: Row, now: Date): Promise<RunResult
     const woRows = (wos ?? []) as { status: string; invoice_amount: number | null; approved_amount: number | null; quote_amount: number | null; completed_at: string | null }[]
     const done = woRows.filter((w) => w.completed_at && w.completed_at.slice(0, 10) >= first && w.completed_at.slice(0, 10) <= last)
     const spend = done.reduce((s, w) => s + Number(w.invoice_amount ?? w.approved_amount ?? w.quote_amount ?? 0), 0)
-    const openWo = woRows.filter((w) => !['accepted', 'paid', 'closed', 'declined', 'cancelled'].includes(w.status)).length
+    const awaiting = woRows.filter((w) => w.status === 'completed').length
+    const openWo = woRows.filter((w) => !['completed', 'accepted', 'paid', 'closed', 'declined', 'cancelled'].includes(w.status)).length
     const { data: lst } = await svc.from('listings').select('id, address, unit, published_at, created_at').in('landlord_id', ids).eq('is_active', true).neq('status', 'archived').limit(100)
     const live = (lst ?? []) as { id: string; address: string; unit: string | null; published_at: string | null; created_at: string }[]
     const { data: apps } = live.length
@@ -166,7 +167,7 @@ async function runOne(svc: SupabaseClient, r: Row, now: Date): Promise<RunResult
       } else { state = '未记收'; unpaid++ }
       return `· ${l.unit_label || '?'} · ${l.tenant_name || '?'} · ${money(l.monthly_rent)} · ${state}`
     })
-    const todayIso2 = now.toISOString().slice(0, 10)
+    const todayIso2 = `${t.y}-${String(t.m).padStart(2, '0')}-${String(t.d).padStart(2, '0')}`
     const endingSoon = ls.filter((l) => l.end_date && l.end_date >= todayIso2 && (Date.parse(l.end_date) - now.getTime()) / 86_400_000 <= 120)
     const listingLines = live.map((l) => {
       const since = l.published_at || l.created_at
@@ -185,7 +186,7 @@ async function runOne(svc: SupabaseClient, r: Row, now: Date): Promise<RunResult
       `${y} 年 ${mth} 月 · 一页纸`,
       `租金（${ls.length} 份生效租约）：`,
       ...(rentLines.length ? rentLines : ['· 没有生效中的租约记录。']),
-      `维修：上月完工 ${done.length} 张工单${spend ? `，有记录的支出 ${money(spend)}` : ''}；进行中 ${openWo} 张。`,
+      `维修：上月完工 ${done.length} 张工单${spend ? `，有记录的支出 ${money(spend)}` : ''}；进行中 ${openWo} 张${awaiting ? `，待你验收 ${awaiting} 张` : ''}。`,
       `在市房源 ${live.length} 套：`,
       ...(listingLines.length ? listingLines : ['· 没有在市房源。']),
       suggestion,

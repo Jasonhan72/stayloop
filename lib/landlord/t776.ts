@@ -9,6 +9,8 @@
 //     taxes, interest, utilities and the rest never pass through Stayloop, so
 //     the landlord fills them from their own papers. Nothing is estimated.
 // Not tax advice; the official form and guide (T4036) govern.
+import { torontoDate } from '@/lib/household/ledger'
+
 export type T776Line = { line: string; zh: string; en: string; source?: 'rent' | 'work_orders' }
 export const T776_LINES: T776Line[] = [
   { line: '8141', zh: '租金总收入', en: 'Gross rents', source: 'rent' },
@@ -35,7 +37,8 @@ export type T776Property = { key: string; label: string; gross_rents: number; re
 export type T776Summary = { year: number; properties: T776Property[]; totals: { gross_rents: number; rent_count: number; repairs: number; repair_count: number }; unplaced_repairs: number }
 
 const num = (v: unknown): number => { const n = typeof v === 'string' ? Number(v) : typeof v === 'number' ? v : NaN; return Number.isFinite(n) ? n : 0 }
-const inYear = (iso: string | null | undefined, year: number) => !!iso && iso.slice(0, 4) === String(year)
+// A landlord's year is the Toronto year: a receipt recorded at 21:00 on Dec 31 (02:00Z next day) stays in it (review 2026-10-27).
+const inYear = (iso: string | null | undefined, year: number) => { if (!iso) return false; try { return torontoDate(iso).slice(0, 4) === String(year) } catch { return false } }
 export const propertyLabel = (l: T776Lease): string => (l.household ? `${l.household.address}${l.household.unit ? ` #${l.household.unit}` : ''}` : (l.unit_label || '').trim() || '—')
 
 /** Amount a completed work order puts on line 8960: what was invoiced, else approved, else quoted. */

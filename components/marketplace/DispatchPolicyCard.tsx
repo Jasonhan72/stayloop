@@ -10,7 +10,7 @@ import { SectionCard } from '@/components/workspace'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { DEFAULT_POLICY, EMERGENCY_CAP_MAX, normalizePolicy, type DispatchMode, type DispatchPolicy, MODE_LABEL } from '@/lib/marketplace/dispatchPolicy'
-import { TRADES, type Trade } from '@/lib/marketplace/trades'
+import { isProfessionalTrade, TRADES, type Trade } from '@/lib/marketplace/trades'
 import { QUOTE_HOURS_DEFAULT } from '@/lib/marketplace/sla'
 
 export type PolicyProvider = { id: string; name: string; coveredTrades: Trade[] }
@@ -42,7 +42,8 @@ export default function DispatchPolicyCard({ providers, zh }: { providers: Polic
     setMsg(error ? error.message : (zh ? '已保存' : 'Saved'))
   }
 
-  const trades = TRADES.filter((t) => providers.some((p) => p.coveredTrades.includes(t.key)))
+  // Professional services are never dispatched, so they have no place in a dispatch preference (review 2026-10-27).
+  const trades = TRADES.filter((t) => !isProfessionalTrade(t.key) && providers.some((p) => p.coveredTrades.includes(t.key)))
 
   return (
     <SectionCard className="mb-4" title={zh ? '派单策略' : 'Dispatch policy'} meta={saving ? '…' : msg ?? ''}>

@@ -8,6 +8,7 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { adminClient, callerOf, NO_STORE, ownerIdsOf } from '@/lib/listings/serverAuth'
 import { summarizeT776, t776Csv, T776_GUIDE_URL, T776_LINES, type T776Lease, type T776Rent, type T776Summary, type T776WorkOrder } from '@/lib/landlord/t776'
 import { esc } from '@/lib/export/evidencePack'
+import { fromToronto } from '@/lib/agent/routines'
 
 const money = (n: number) => `$${n.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -64,13 +65,16 @@ export async function POST(req: Request) {
   const format = body?.format === 'csv' ? 'csv' : 'html'
   const svc = adminClient()
   const ids = await ownerIdsOf(svc, user.id)
+  // The year's bounds in Toronto time; summarizeT776 re-checks each row by its Toronto date.
+  const from = fromToronto(year, 1, 1, 0).toISOString()
+  const to = fromToronto(year + 1, 1, 1, 0).toISOString()
   const { data: leaseRows } = await svc.from('lease_documents').select('id, unit_label').in('landlord_id', ids).limit(500)
   const leases = (leaseRows ?? []) as { id: string; unit_label: string | null }[]
   const leaseIds = leases.map((l) => l.id)
   const [{ data: hhRows }, { data: rentRows }, { data: woRows }] = await Promise.all([
     leaseIds.length ? svc.from('households').select('id, address, unit, current_lease_id, previous_lease_id').or(`current_lease_id.in.(${leaseIds.join(',')}),previous_lease_id.in.(${leaseIds.join(',')})`).limit(500) : Promise.resolve({ data: [] as unknown[] }),
-    leaseIds.length ? svc.from('rent_payments').select('lease_id, amount, status, paid_at').in('lease_id', leaseIds).in('status', ['paid', 'late']).gte('paid_at', `${year}-01-01T00:00:00Z`).lt('paid_at', `${year + 1}-01-01T00:00:00Z`).limit(5000) : Promise.resolve({ data: [] as unknown[] }),
-    svc.from('work_orders').select('household_id, status, invoice_amount, approved_amount, quote_amount, completed_at').eq('landlord_auth_id', user.id).gte('completed_at', `${year}-01-01T00:00:00Z`).lt('completed_at', `${year + 1}-01-01T00:00:00Z`).limit(2000),
+    leaseIds.length ? svc.from('rent_payments').select('lease_id, amount, status, paid_at').in('lease_id', leaseIds).in('status', ['paid', 'late']).gte('paid_at', from).lt('paid_at', to).limit(5000) : Promise.resolve({ data: [] as unknown[] }),
+    svc.from('work_orders').select('household_id, status, invoice_amount, approved_amount, quote_amount, completed_at').eq('landlord_auth_id', user.id).gte('completed_at', from).lt('completed_at', to).limit(2000),
   ])
   const hhs = (hhRows ?? []) as { id: string; address: string; unit: string | null; current_lease_id: string | null; previous_lease_id: string | null }[]
   const hhOfLease: Record<string, string> = {}

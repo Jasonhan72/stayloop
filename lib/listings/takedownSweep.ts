@@ -6,7 +6,7 @@ import { attachMainThread } from '@/lib/agent/mainThread'
 import { isPasteBackChannel, PASTE_BACK_CHANNELS, PASTE_BACK_LABEL } from '@/lib/listings/shareChannels'
 
 export const TAKEDOWN_ACTION_TYPE = 'takedown_reminder'
-export type TakedownSweepSummary = { cards: number; listings: number; error?: string }
+export type TakedownSweepSummary = { cards: number; listings: number; unresolved?: number; error?: string }
 
 // Take-down reminders (回流闭环 2026-10-26): a listing that is off market while a
 // hand-posted ad (Kijiji / Marketplace / group / 小红书 / Instagram / WeChat) is
@@ -26,15 +26,21 @@ export async function runTakedownSweep(admin: SupabaseClient): Promise<TakedownS
   const off = ((ls ?? []) as L[]).filter((l) => !l.is_active || l.status === 'archived' || l.status === 'rented')
   if (!off.length) return { cards: 0, listings: 0 }
   const landlordIds = [...new Set(off.map((l) => l.landlord_id).filter((x): x is string => !!x))]
-  const { data: lds } = await admin.from('landlords').select('id, auth_id').in('id', landlordIds)
-  const authOf = new Map(((lds ?? []) as { id: string; auth_id: string | null }[]).map((r) => [r.id, r.auth_id]))
+  // listings.landlord_id is a landlords.id (older rows) or an auth id (newer rows). A profile with no
+  // auth_id has nobody to card: skip it rather than insert a card for a user that does not exist (review 2026-10-27).
+  const idList = landlordIds.join(',')
+  const { data: lds } = await admin.from('landlords').select('id, auth_id').or(`id.in.(${idList}),auth_id.in.(${idList})`)
+  const rows2 = (lds ?? []) as { id: string; auth_id: string | null }[]
+  const authOf = new Map(rows2.map((r) => [r.id, r.auth_id]))
+  const authIds = new Set(rows2.map((r) => r.auth_id).filter((x): x is string => !!x))
+  let unresolved = 0
   const { data: cards } = await admin.from('agent_pending_actions').select('id, metadata').eq('action_type', TAKEDOWN_ACTION_TYPE).eq('status', 'pending').limit(2000)
   const pendingFor = new Set(((cards ?? []) as { metadata: { listing_id?: string } | null }[]).map((c) => c.metadata?.listing_id).filter((x): x is string => !!x))
   const inserts: { user_id: string; role: string; metadata: Record<string, unknown>; [k: string]: unknown }[] = []
   for (const l of off) {
     if (pendingFor.has(l.id)) continue
-    const userId = (l.landlord_id && authOf.get(l.landlord_id)) || l.landlord_id
-    if (!userId) continue
+    const userId = l.landlord_id ? (authOf.get(l.landlord_id) ?? (authIds.has(l.landlord_id) ? l.landlord_id : null)) : null
+    if (!userId) { unresolved++; continue }
     const places = byListing.get(l.id) ?? []
     const names = places.map((p) => (isPasteBackChannel(p.channel) ? PASTE_BACK_LABEL[p.channel].zh : p.channel))
     const namesEn = places.map((p) => (isPasteBackChannel(p.channel) ? PASTE_BACK_LABEL[p.channel].en : p.channel))
@@ -47,9 +53,9 @@ export async function runTakedownSweep(admin: SupabaseClient): Promise<TakedownS
       metadata: { listing_id: l.id, channels: places.map((p) => p.channel), urls: places.map((p) => p.external_url), source: 'proactive_sweep' },
     })
   }
-  if (!inserts.length) return { cards: 0, listings: off.length }
+  if (!inserts.length) return { cards: 0, listings: off.length, unresolved }
   const { error: insErr } = await admin.from('agent_pending_actions').insert(await attachMainThread(admin, inserts))
   if (insErr) throw new Error(`takedown insert failed: ${insErr.message}`)
-  return { cards: inserts.length, listings: off.length }
+  return { cards: inserts.length, listings: off.length, unresolved }
 }
 

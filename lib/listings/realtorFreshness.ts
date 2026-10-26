@@ -6,7 +6,7 @@
 // Listings (whose $X/Monthly lines are OTHER units), while its CDN photos keep
 // returning 200 — so only the page itself can say it's gone. A live page
 // carries "MLS® Number: <mls>" and its own price as the first $X/Monthly.
-import { classifyRealtorPage } from '@/lib/agent/listingSearch'
+import { classifyRealtorPage } from '@/lib/agent/realtorPage'
 
 export type RealtorReading =
   | { kind: 'live'; rent: number | null }
