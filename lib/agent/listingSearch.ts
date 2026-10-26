@@ -376,7 +376,7 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   const p = new URLSearchParams()
   p.set(
     'select',
-    'id,title,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,trust_tier,images,amenities,has_den,slug,source,verification_status,is_test'
+    'id,title,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,trust_tier,images,amenities,has_den,slug,source,verification_status,is_test,available_date,pet_policy,property_type,photo_count'
   )
   p.set('is_active', 'eq.true')
   p.set('display_internet', 'eq.true')
@@ -441,6 +441,12 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
           // Some rows already embed the unit in the address ("605 - 28 Avondale…").
           return u && !a.toLowerCase().startsWith(u.toLowerCase()) ? `${u} - ${a}` : a
         })(),
+        unit: r.unit ? String(r.unit) : undefined,
+        has_den: r.has_den === true,
+        available_date: (r.available_date as string) || undefined,
+        pet_policy: (r.pet_policy as string) || undefined,
+        property_type: (r.property_type as string) || undefined,
+        photo_count: typeof r.photo_count === 'number' ? r.photo_count : Array.isArray(r.images) ? r.images.length : undefined,
         neighborhood: (r.neighborhood as string) || undefined,
         city: (r.city as string) || undefined,
         price: Number(r.monthly_rent) || 0,

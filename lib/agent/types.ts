@@ -108,6 +108,12 @@ export type ListingCard = {
   tags?: string[]
   url?: string
   note?: string
+  // 2026-10-27: the chat card shares the /listings card; these feed its kicker, title, facts and dots.
+  unit?: string
+  has_den?: boolean
+  available_date?: string
+  pet_policy?: string
+  photo_count?: number
   // Commercial-lease cards (lib/agent/commercialSearch.ts). `price` is the
   // monthly figure when known; `price_basis` says whether it is the asking
   // monthly rent, an estimate from a $/sqft/year net rate, or unknown.

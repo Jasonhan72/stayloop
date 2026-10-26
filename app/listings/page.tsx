@@ -1,6 +1,6 @@
 'use client'
 
-import { isTestListing, TEST_LISTING_LABEL } from '@/lib/listingVisibility'
+import { isTestListing } from '@/lib/listingVisibility'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react'
@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { resolveList } from '@/lib/listingLang'
 import { cardAddress, cardFacts, cardKicker, sizeFacts } from '@/lib/listings/cardFacts'
+import ListingCardView from '@/components/listings/ListingCardView'
 import { useAuth } from '@/lib/useAuth'
 import { writeAuditEvent } from '@/lib/agent/audit'
 import { useAIName } from '@/lib/aiName'
@@ -890,14 +891,6 @@ function Chip({ label, on, open, onToggle, children }: {
   )
 }
 
-// Small line icons for the size row (bed · bath · area); decorative, the text carries the meaning.
-function SizeIcon({ kind }: { kind: 'bed' | 'bath' | 'sqft' }) {
-  const common = { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true, style: { color: '#6B7280', flex: 'none' } }
-  if (kind === 'bed') return <svg {...common}><path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7" /><path d="M3 15h18" /><path d="M6 9V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" /></svg>
-  if (kind === 'bath') return <svg {...common}><path d="M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3z" /><path d="M6 12V6a2 2 0 0 1 4 0" /><path d="M7 19l-1 2M17 19l1 2" /></svg>
-  return <svg {...common}><path d="M4 4h16v16H4z" /><path d="M4 9h5V4M15 20v-5h5" /></svg>
-}
-
 function ListingCard({
   l,
   zh,
@@ -918,129 +911,52 @@ function ListingCard({
   // Nothing writes trust_tier today — the stamp pill shows only when a row carries one.
   const tierClass = (l.trust_tier ?? 0) >= 3 ? 't3' : 't2'
   const heroImage = l.images && l.images.length > 0 ? l.images[0] : null
+  const lang = zh ? 'zh' : 'en'
+  // The same card as the AI chat results (components/listings/ListingCardView); only the words are computed here.
   return (
-    <Link
+    <ListingCardView
+      zh={zh}
       href={`/listings/${l.slug}`}
       onMouseEnter={onHover}
-      className="block bg-white transition"
-      style={{
-        border: '1px solid #E8E2D2',
-        borderRadius: 12,
-        overflow: 'hidden',
-        boxShadow: isActive ? '0 12px 28px rgba(0,0,0,0.10)' : 'none',
-        transform: isActive ? 'translateY(-1px)' : 'none',
-      }}
-    >
-      <div
-        style={{
-          aspectRatio: '1.5',
-          background: heroImage
-            ? `url(${heroImage}) center/cover no-repeat, linear-gradient(135deg,${a},${b})`
-            : `linear-gradient(135deg,${a},${b})`,
-          position: 'relative',
-        }}
-      >
-        <VerificationBadge listing={l} variant="public-card" />
-        <FavHeart
-          fav={fav}
-          onToggle={onToggleFav}
-          zh={zh}
-          style={{
-            position: 'absolute',
-            top: 10,
-            right: 10,
-            width: 30,
-            height: 30,
-            background: 'rgba(0,0,0,0.50)',
-            border: 'none',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-          }}
-        />
-        {l.photo_count && l.photo_count > 1 && (l.photo_count <= 8 ? (
-          <span style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 4 }} aria-label={zh ? `${l.photo_count} 张照片` : `${l.photo_count} photos`} data-testid="card-photo-dots">
-            {Array.from({ length: l.photo_count }, (_, i) => <span key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: i === 0 ? '#fff' : 'rgba(255,255,255,0.55)' }} />)}
-          </span>
-        ) : (
-          <span
-            style={{
-              position: 'absolute',
-              bottom: 10,
-              right: 10,
-              background: 'rgba(0,0,0,0.65)',
-              color: '#fff',
-              padding: '3px 8px',
-              borderRadius: 4,
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: 10.5,
-            }}
-          >
-            1 / {l.photo_count}
-          </span>
-        ))}
-      </div>
-      <div style={{ padding: '14px 16px' }} data-testid="card-body">
-        {/* Kicker: type · neighbourhood (StreetEasy "Condo in Midtown South") */}
-        {cardKicker({ property_type: l.property_type, neighborhood: l.neighborhood, city: l.city }, zh ? 'zh' : 'en') && (
-          <div style={{ fontSize: 12, color: '#71717A' }} data-testid="card-kicker">{cardKicker({ property_type: l.property_type, neighborhood: l.neighborhood, city: l.city }, zh ? 'zh' : 'en')}</div>
-        )}
-        {/* Title: the address, the unit once */}
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#1B1B3C', marginTop: 2, lineHeight: 1.3 }} data-testid="card-address">{cardAddress(l.address, l.unit)}</div>
-        {isTestListing(l) && (
-          <div className="mt-1 inline-block rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800" data-testid="test-listing-badge">
-            {zh ? TEST_LISTING_LABEL.zh : TEST_LISTING_LABEL.en}
-          </div>
-        )}
-        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em', marginTop: 6 }}>
-          ${l.monthly_rent.toLocaleString()}
-          <small style={{ fontSize: 12, fontWeight: 500, color: '#71717A' }}>{zh ? '/月' : '/mo'}</small>
-        </div>
-        {/* Size row, one language, with icons (bed · bath · ft²) */}
-        <div style={{ fontSize: 13, color: '#171717', margin: '6px 0 0', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }} data-testid="card-size">
-          {sizeFacts(l, zh ? 'zh' : 'en').map((f) => (
-            <span key={f.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 600 }}>
-              <SizeIcon kind={f.key} />
-              {f.text}
-            </span>
-          ))}
-        </div>
-        {/* Concrete facts only (availability, pets) — never generic chips */}
-        {cardFacts(l, zh ? 'zh' : 'en').length > 0 && (
-          <div style={{ fontSize: 12.5, color: '#3F3F46', marginTop: 4 }} data-testid="card-facts">{cardFacts(l, zh ? 'zh' : 'en').join(' · ')}</div>
-        )}
-        {/* Listing brokerage / source, no smaller than the listing facts above (PropTx Rule 8.26). */}
+      active={isActive}
+      image={heroImage}
+      fallback={`linear-gradient(135deg,${a},${b})`}
+      photoCount={l.photo_count}
+      topLeft={<VerificationBadge listing={l} variant="public-card" />}
+      fav={fav}
+      onToggleFav={onToggleFav}
+      kicker={cardKicker({ property_type: l.property_type, neighborhood: l.neighborhood, city: l.city }, lang)}
+      title={cardAddress(l.address, l.unit)}
+      isTest={isTestListing(l)}
+      price={l.monthly_rent}
+      size={sizeFacts(l, lang)}
+      facts={cardFacts(l, lang)}
+      sourceLine={
+        /* Listing brokerage / source, no smaller than the listing facts above (PropTx Rule 8.26). */
         <div style={{ fontSize: 13, color: '#3F3F46', marginTop: 4 }} data-testid="card-brokerage">
           {sourceOf(l) === 'realtor'
             ? <>{zh ? '挂牌 · ' : 'Listed by '}<b style={{ fontWeight: 600, color: '#171717' }}>{l.brokerage || (zh ? '房东直租' : 'Direct from landlord')}</b></>
             : <>{zh ? '房东直租 · ' : 'Direct from landlord · '}<b style={{ fontWeight: 600, color: '#171717' }}>Stayloop</b></>}
         </div>
-        {(l.amenities?.length ?? 0) > 0 && (
-          <div style={{ display: 'flex', gap: 5, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: '#71717A' }} data-testid="card-amenities">{resolveList('amenities', l.amenities, zh ? 'zh' : 'en').slice(0, 3).join(' · ')}</span>
-            {l.trust_tier != null && (
-              <span
-                style={{
-                  fontFamily: 'JetBrains Mono, monospace',
-                  fontSize: 9.5,
-                  fontWeight: 700,
-                  padding: '2px 6px',
-                  borderRadius: 3,
-                  letterSpacing: '0.06em',
-                  background:
-                    tierClass === 't3' ? 'rgba(217,119,6,0.10)' : 'rgba(4,120,87,0.10)',
-                  color: tierClass === 't3' ? '#B45309' : '#047857',
-                }}
-              >
-                {zh ? `需 ${stampForTier(l.trust_tier).zh}` : `${stampForTier(l.trust_tier).en} required`}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    </Link>
+      }
+      amenities={resolveList('amenities', l.amenities, zh ? 'zh' : 'en').slice(0, 3)}
+      chips={l.trust_tier != null ? (
+        <span
+          style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 9.5,
+            fontWeight: 700,
+            padding: '2px 6px',
+            borderRadius: 3,
+            letterSpacing: '0.06em',
+            background: tierClass === 't3' ? 'rgba(217,119,6,0.10)' : 'rgba(4,120,87,0.10)',
+            color: tierClass === 't3' ? '#B45309' : '#047857',
+          }}
+        >
+          {zh ? `需 ${stampForTier(l.trust_tier).zh}` : `${stampForTier(l.trust_tier).en} required`}
+        </span>
+      ) : null}
+    />
   )
 }
 

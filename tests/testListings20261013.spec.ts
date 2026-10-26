@@ -19,7 +19,8 @@ describe('isTestListing', () => {
 })
 
 describe('the badge is rendered everywhere a listing appears', () => {
-  for (const f of ['app/listings/page.tsx', 'app/listings/[slug]/page.tsx', 'components/agent/ListingChatCard.tsx', 'app/apply/[slug]/page.tsx']) {
+  // 2026-10-27: /listings and the chat results render the one shared card (components/listings/ListingCardView).
+  for (const f of ['components/listings/ListingCardView.tsx', 'app/listings/[slug]/page.tsx', 'app/apply/[slug]/page.tsx']) {
     it(`${f} carries data-testid="test-listing-badge"`, () => {
       expect(read(f)).toMatch(/test-listing-badge/)
     })
@@ -30,7 +31,7 @@ describe('the badge is rendered everywhere a listing appears', () => {
   it('the column travels through the search API, the similar-card columns and the AI search', () => {
     expect(read('app/api/listings/search/route.ts')).toMatch(/display_avm,is_test'/)
     expect(read('app/api/listings/[slug]/route.ts')).toMatch(/source, brokerage, is_test`/)
-    expect(read('lib/agent/listingSearch.ts')).toMatch(/verification_status,is_test'/)
+    expect(read('lib/agent/listingSearch.ts')).toMatch(/verification_status,is_test,/)
     expect(read('lib/agent/types.ts')).toContain('is_test?: boolean')
   })
   it('public stats exclude test listings', () => {

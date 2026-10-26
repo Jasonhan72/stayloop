@@ -39,18 +39,33 @@ describe('card wording', () => {
   })
 })
 
-describe('the /listings card', () => {
-  const src = code('app/listings/page.tsx')
-  it('uses the shared wording, keeps the test badge and the source line, and the amenities as a muted line', () => {
-    for (const t of ['data-testid="card-kicker"', 'data-testid="card-address"', 'data-testid="card-size"', 'data-testid="card-facts"', 'data-testid="card-brokerage"', 'data-testid="test-listing-badge"', 'data-testid="card-amenities"']) expect(src).toContain(t)
-    expect(src).toContain('cardAddress(l.address, l.unit)')
-    expect(src).toContain("sizeFacts(l, zh ? 'zh' : 'en')")
-    expect(src).not.toContain("`${l.bedrooms}B${l.has_den ? ' + den' : ''}`")
-    expect(src).not.toContain('{l.unit && ` · Unit ${l.unit}`}')
+describe('the shared card: /listings and the chat results render ListingCardView', () => {
+  const view = code('components/listings/ListingCardView.tsx')
+  const page = code('app/listings/page.tsx')
+  const chat = code('components/agent/ListingChatCard.tsx')
+  it('the view owns the layout: kicker, title, test badge, price, size row, facts, amenities line, dots / counter, note bar', () => {
+    for (const t of ['data-testid="card-kicker"', 'data-testid="card-address"', 'data-testid="test-listing-badge"', 'data-testid="card-price"', 'data-testid="card-size"', 'data-testid="card-facts"', 'data-testid="card-amenities"', 'data-testid="card-photo-dots"', 'data-testid="card-photo-count"', 'data-testid="card-note"']) expect(view).toContain(t)
+    expect(view).toContain('p.photoCount <= 8')
   })
-  it('small galleries get dots, larger ones the counter; the search API now returns property_type for the kicker', () => {
-    expect(src).toContain('data-testid="card-photo-dots"')
-    expect(src).toContain('1 / {l.photo_count}')
+  it('both surfaces compute the words with the same helpers and pass them in', () => {
+    for (const src of [page, chat]) {
+      expect(src).toContain('<ListingCardView')
+      expect(src).toContain('cardAddress(')
+      expect(src).toContain('sizeFacts(')
+      expect(src).toContain('cardFacts(')
+      expect(src).toContain('cardKicker(')
+    }
+    expect(page).not.toContain("`${l.bedrooms}B${l.has_den ? ' + den' : ''}`")
+    expect(chat).not.toContain("`${l.beds}B${den ? ' + den' : ''}`")
+    expect(page).toContain("resolveList('amenities', l.amenities, zh ? 'zh' : 'en')")
+    expect(page).toContain('data-testid="card-brokerage"')
+  })
+  it('the search result carries what the card needs; Realtor results still open outside and keep their note', () => {
+    const search = code('lib/agent/listingSearch.ts')
+    expect(search).toContain('available_date,pet_policy,property_type,photo_count')
+    expect(search).toContain('photo_count: typeof r.photo_count')
+    expect(chat).toContain("external={external}")
+    expect(chat).toContain("tone: external ? 'external' : 'info'")
     expect(read('app/api/listings/search/route.ts')).toMatch(/CARD_COLUMNS = '[^']*property_type/)
   })
 })
