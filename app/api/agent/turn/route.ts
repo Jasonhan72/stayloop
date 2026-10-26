@@ -35,6 +35,7 @@ import { loadKbConfig, kbEnabledFor } from '@/lib/kb/config'
 import { kbSearch, type KbHit } from '@/lib/kb/search'
 import { shouldRetrieve } from '@/lib/kb/trigger'
 import { kbPromptBlock, checkCitations, referenceList, kbReceiptLine, type KbReference } from '@/lib/kb/cite'
+import { loadPendingNotices, noticePromptBlock } from '@/lib/kb/notices'
 import { llmChat, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
 
 
@@ -618,6 +619,9 @@ export async function POST(req: Request) {
       kbMs = kr.ms
       if (kbHits.length) system += kbPromptBlock(kbHits, uiLang, kbCfg.maxChars)
     }
+    // 「规则待核对」(design §7.3): a statute a rule rests on changed and nobody has reviewed the rule yet —
+    // the model says so instead of answering from a table that may lag. Independent of the retrieval switch.
+    system += noticePromptBlock(await loadPendingNotices(), uiLang)
   }
 
   // PDF attachments → text layer (乙 #9). Each file's block says plainly when it is a scan

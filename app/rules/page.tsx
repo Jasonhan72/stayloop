@@ -8,6 +8,9 @@ import Footer from '@/components/Footer'
 import { useT } from '@/lib/i18n'
 import Link from 'next/link'
 import { officialLinkFor, ONTARIO_RULES, RULES_CHANGELOG, type RuleArea } from '@/lib/ontario/rules'
+import { useEffect, useState } from 'react'
+
+type PendingNotice = { rule_id: string; source_title: string; new_date: string | null; detected_at: string }
 
 const AREAS: { key: RuleArea; zh: string; en: string }[] = [
   { key: 'listing', zh: '房源发布', en: 'Listings' },
@@ -21,6 +24,18 @@ const AREAS: { key: RuleArea; zh: string; en: string }[] = [
 ]
 
 export default function RulesPage() {
+  // 「待核对」(knowledge base §7.3): rules whose statute changed and is pending human review
+  const [pending, setPending] = useState<Record<string, PendingNotice>>({})
+  useEffect(() => {
+    let on = true
+    fetch('/api/kb/notices').then((r) => (r.ok ? r.json() : { notices: [] })).then((j: { notices?: PendingNotice[] }) => {
+      if (!on) return
+      const map: Record<string, PendingNotice> = {}
+      for (const n of j.notices || []) if (!map[n.rule_id]) map[n.rule_id] = n
+      setPending(map)
+    }).catch(() => {})
+    return () => { on = false }
+  }, [])
   const { lang } = useT()
   const zh = lang === 'zh'
   return (
@@ -79,6 +94,11 @@ export default function RulesPage() {
                         </span>
                         <span className="text-[12.5px] text-body-3">{r.statute}</span>
                         <span className="text-[12.5px] text-body-3">· {zh ? '生效' : 'since'} {r.since}</span>
+                        {pending[r.id] && (
+                          <span className="rounded-full bg-amber-50 px-2 py-[2px] text-[11px] font-bold text-amber-800" data-testid="rule-pending-notice" title={pending[r.id].source_title}>
+                            {zh ? `条文 ${pending[r.id].new_date || pending[r.id].detected_at.slice(0, 10)} 有修订 · 待核对` : `amended ${pending[r.id].new_date || pending[r.id].detected_at.slice(0, 10)} · pending review`}
+                          </span>
+                        )}
                         <a href={officialLinkFor(r).url} target="_blank" rel="noreferrer" className="text-[12.5px] text-brand underline-offset-2 hover:underline">{zh ? officialLinkFor(r).label.zh : officialLinkFor(r).label.en} ↗</a>
                       </div>
                       <div className="mt-1.5 text-[16px] font-semibold">{zh ? r.title.zh : r.title.en}</div>

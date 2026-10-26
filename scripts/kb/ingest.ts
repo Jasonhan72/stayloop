@@ -10,6 +10,9 @@ import { createHash } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { chunkElaws, chunkHtmlGuide, type Chunk } from '../../lib/kb/chunk'
 import { embedTexts } from '../../lib/llmEmbed'
+import { diffSections, sectionNumbers, type DiffChunk } from '../../lib/kb/diff'
+import { rulesAffectedBy } from '../../lib/kb/ruleMap'
+import { sendEmail } from '../../lib/email'
 import { KB_SOURCES, type KbSource } from './sources'
 
 const args = new Set(process.argv.slice(2))
@@ -114,10 +117,50 @@ async function ingest(src: KbSource): Promise<string> {
     const { error } = await sb.from('knowledge_chunks').insert(rows.slice(i, i + 200))
     if (error) throw error
   }
-  // previous current versions of this source → superseded (never deleted)
+  // previous current versions of this source → superseded (never deleted); the change goes to the review queue
+  const { data: prev } = await sb.from('knowledge_documents').select('id, consolidated_date').eq('source_id', sourceId).eq('status', 'current').neq('id', doc.id)
   const { error: se } = await sb.from('knowledge_documents').update({ status: 'superseded', superseded_by: doc.id, effective_to: f.consolidatedDate || today }).eq('source_id', sourceId).eq('status', 'current').neq('id', doc.id)
   if (se) throw se
-  return `${src.key}: NEW version ${versionHash.slice(0, 10)} · ${f.chunks.length} chunks · ~${tokens} tokens · date ${f.consolidatedDate ?? '—'}${noEmbed ? ' · no embeddings' : ''}`
+  let queued = ''
+  if (prev && prev.length) {
+    const old = prev[0] as { id: string; consolidated_date: string | null }
+    const { data: oldChunks } = await sb.from('knowledge_chunks').select('section_ref, heading_path, ord, text').eq('document_id', old.id)
+    const d = diffSections((oldChunks || []) as DiffChunk[], f.chunks.map((c) => ({ section_ref: c.sectionRef, heading_path: c.headingPath, ord: c.ord, text: c.text })))
+    const affected = rulesAffectedBy(src.key, sectionNumbers([...d.added, ...d.removed, ...d.changed]))
+    const { data: ch, error: ce } = await sb.from('knowledge_changes').insert({
+      source_key: src.key, source_title: src.title, old_document_id: old.id, new_document_id: doc.id,
+      old_date: old.consolidated_date, new_date: f.consolidatedDate, sections_added: d.added, sections_removed: d.removed, sections_changed: d.changed,
+      affected_rule_ids: affected, meta: { chunks_before: (oldChunks || []).length, chunks_after: f.chunks.length },
+    }).select('id').single()
+    if (ce) throw ce
+    queued = ` · queued change ${String(ch.id).slice(0, 8)} (+${d.added.length} −${d.removed.length} ~${d.changed.length}, rules: ${affected.join(', ') || 'none'})`
+    await notifyReviewers(src, d, affected, f.consolidatedDate).catch((e) => console.log(`  (review email failed: ${(e as Error).message})`))
+  }
+  return `${src.key}: NEW version ${versionHash.slice(0, 10)} · ${f.chunks.length} chunks · ~${tokens} tokens · date ${f.consolidatedDate ?? '—'}${noEmbed ? ' · no embeddings' : ''}${queued}`
+}
+
+/** Who reviews: KB_REVIEW_EMAIL (comma-separated), else every admin_users account's email (service role). */
+async function reviewerEmails(): Promise<string[]> {
+  const fromEnv = (process.env.KB_REVIEW_EMAIL || '').split(',').map((x) => x.trim()).filter(Boolean)
+  if (fromEnv.length) return fromEnv
+  const { data } = await sb.from('admin_users').select('user_id').limit(10)
+  const out: string[] = []
+  for (const row of (data || []) as { user_id: string }[]) {
+    const { data: u } = await sb.auth.admin.getUserById(row.user_id)
+    if (u?.user?.email) out.push(u.user.email)
+  }
+  return out
+}
+
+async function notifyReviewers(src: KbSource, d: { added: string[]; removed: string[]; changed: string[] }, affected: string[], newDate: string | null) {
+  const to = await reviewerEmails()
+  if (!to.length) { console.log('  (no reviewer email configured: set KB_REVIEW_EMAIL)'); return }
+  const site = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai'
+  const list = (xs: string[]) => (xs.length ? xs.slice(0, 30).join('、') + (xs.length > 30 ? ` …共 ${xs.length}` : '') : '无')
+  const text = [`来源「${src.title}」有新版本（${newDate ?? '日期未知'}）。`, `新增：${list(d.added)}`, `删除：${list(d.removed)}`, `改动：${list(d.changed)}`,
+    `涉及规则：${affected.join('、') || '无'}`, affected.length ? '这些规则在站上已自动标「待核对」，请到后台核对并更新规则表。' : '没有规则引用这些条文，确认后在后台标「无影响」即可。',
+    `${site}/admin/knowledge`, src.url].join('\n')
+  await sendEmail({ to: to.join(','), subject: `[Stayloop 知识库] ${src.title} 有新版本${affected.length ? `，涉及 ${affected.length} 条规则` : ''}`, html: `<pre style="font: 14px/1.6 -apple-system, sans-serif; white-space: pre-wrap">${text.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c] || c)}</pre>`, text })
 }
 
 async function main() {

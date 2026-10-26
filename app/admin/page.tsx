@@ -117,6 +117,14 @@ export default function AdminHomePage() {
       hot: consumerOpen === 'error' || (typeof consumerOpen === 'number' && consumerOpen > 0),
     },
     {
+      href: '/admin/knowledge',
+      icon: '📚',
+      title: zh ? '知识库' : 'Knowledge base',
+      desc: zh ? '助理引用的官方原文：每份来源的版本与新鲜度；原文有修订时的变动队列（涉及哪些规则、人工核对后撤掉「待核对」）。' : 'The official texts the AI Agent cites: each source’s version and freshness; the change queue when a text is amended (which rules it touches; review clears the “pending” badge).',
+      stat: zh ? '来源 · 变动队列' : 'sources · change queue',
+      hot: false,
+    },
+    {
       href: '/admin/partners',
       icon: '🔑',
       title: zh ? 'Stayloop API 合作方' : 'Stayloop API partners',

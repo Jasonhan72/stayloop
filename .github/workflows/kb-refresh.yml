@@ -48,6 +48,10 @@ jobs:
           # New versions are embedded with gemini-embedding-001; without this key a changed source
           # cannot be stored (the run fails loudly rather than storing passages the search cannot see).
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # optional: who gets the change-queue email (comma-separated); default = every admin account
+          KB_REVIEW_EMAIL: ${{ vars.KB_REVIEW_EMAIL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ vars.RESEND_FROM }}
         run: |
           if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "::error::SUPABASE_SERVICE_ROLE_KEY is not set (Settings → Secrets and variables → Actions)."
@@ -58,3 +62,10 @@ jobs:
             exit 1
           fi
           ./node_modules/.bin/tsx scripts/kb/ingest.ts ${{ inputs.dry_run && '--dry-run' || '' }} ${{ inputs.only && format('--only={0}', inputs.only) || '' }}
+      - name: Retrieval eval (golden set, hit@5 must stay ≥ 70 %)
+        if: ${{ !inputs.dry_run }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://uotcczsfeiptnabamzcd.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: ./node_modules/.bin/tsx scripts/kb/eval.ts

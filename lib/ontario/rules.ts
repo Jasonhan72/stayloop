@@ -124,6 +124,18 @@ export type Rule = {
   enforcement: { zh: string; en: string }
   severity: RuleSeverity
   since: string
+  /** Knowledge-base plan §7.3 (2026-10-27): a rule can be shipped before it applies and retired on a date.
+   *  ISO dates; absent = always. `activeRules(asOf)` and both compliance checks honour them. */
+  effective_from?: string
+  effective_to?: string
+}
+
+/** Is this rule in force on `asOf` (default today, Toronto date not needed — day precision)? */
+export function ruleInForce(r: Pick<Rule, 'effective_from' | 'effective_to'>, asOf: string | Date = new Date()): boolean {
+  const d = typeof asOf === 'string' ? asOf.slice(0, 10) : asOf.toISOString().slice(0, 10)
+  if (r.effective_from && d < r.effective_from) return false
+  if (r.effective_to && d >= r.effective_to) return false
+  return true
 }
 
 /** One line stating every published guideline year, for rule text and prompts. */
@@ -336,6 +348,16 @@ export function ruleById(id: string): Rule | undefined {
   return ONTARIO_RULES.find((r) => r.id === id)
 }
 
+/** The rules in force on a date (pages and prompts list these, not the whole table). */
+export function activeRules(asOf: string | Date = new Date()): Rule[] {
+  return ONTARIO_RULES.filter((r) => ruleInForce(r, asOf))
+}
+
+/** Findings whose rule is not in force on `asOf` are dropped (a rule shipped early or retired). */
+function inForceFindings(f: Finding[], asOf: string | Date | undefined): Finding[] {
+  return f.filter((x) => { const r = ruleById(x.rule); return !r || ruleInForce(r, asOf ?? new Date()) })
+}
+
 // ---------------------------------------------------------------------------
 // Deterministic checks
 // ---------------------------------------------------------------------------
@@ -365,7 +387,7 @@ export function mentionsFee(text: string): boolean {
   return FEE_RE.test((text || '').replace(FEE_NEGATED_RE, ' '))
 }
 
-export function checkListingCompliance(input: ListingInput): { passed: boolean; findings: Finding[] } {
+export function checkListingCompliance(input: ListingInput, asOf?: string | Date): { passed: boolean; findings: Finding[] } {
   const f: Finding[] = []
   const rent = Number(input.monthly_rent) || 0
   const dep = input.deposit == null ? null : Number(input.deposit)
@@ -385,7 +407,8 @@ export function checkListingCompliance(input: ListingInput): { passed: boolean; 
   if (PET_DEPOSIT_RE.test(text)) {
     f.push({ rule: 'RTA-134-no-fees', statute: 'RTA s.134(2)', severity: 'block', message: { zh: '提到宠物押金 / 清洁押金 / 损坏押金。除租金押金与钥匙押金外，其余押金一律禁止。', en: 'A pet / cleaning / damage deposit is mentioned. Only a rent deposit and a key deposit are lawful.' } })
   }
-  return { passed: !f.some((x) => x.severity === 'block'), findings: f }
+  const fs = inForceFindings(f, asOf)
+  return { passed: !fs.some((x) => x.severity === 'block'), findings: fs }
 }
 
 export type LeaseTermsInput = {
@@ -397,7 +420,7 @@ export type LeaseTermsInput = {
   end_date?: string | null
 }
 
-export function checkLeaseTerms(input: LeaseTermsInput): { passed: boolean; findings: Finding[] } {
+export function checkLeaseTerms(input: LeaseTermsInput, asOf?: string | Date): { passed: boolean; findings: Finding[] } {
   const f: Finding[] = []
   const rent = Number(input.rent_amount) || 0
   const dep = input.deposit_amount == null ? null : Number(input.deposit_amount)
@@ -420,7 +443,8 @@ export function checkLeaseTerms(input: LeaseTermsInput): { passed: boolean; find
   if (input.start_date && input.end_date && input.end_date < input.start_date) {
     f.push({ rule: 'OREG9-18-standard-lease', statute: 'O. Reg. 9/18', severity: 'block', message: { zh: '结束日期早于开始日期。', en: 'End date is before the start date.' } })
   }
-  return { passed: !f.some((x) => x.severity === 'block'), findings: f }
+  const fs = inForceFindings(f, asOf)
+  return { passed: !fs.some((x) => x.severity === 'block'), findings: fs }
 }
 
 /** The s.10(7) + OHRC paragraph every adverse-decision notice must carry. */

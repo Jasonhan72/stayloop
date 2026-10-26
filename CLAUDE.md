@@ -131,8 +131,8 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 消费者档案：`lib/consumer/`、`/my-file`、`/admin/consumer-requests`
 - 申请包：`applicant_profiles` + `/tenant/passport`、`/api/profile/*`
 - LTB 判令目录：`lib/ltb/`（ingest 与查询共用 `normalize.ts`；只有房东发起且对方是租客才算风险；姓名命中未经地址佐证一律视为同名；目录没有判决结果，只能说「已出判令」）。CanLII API 不能按姓名查。
-- 后台：`/admin`（verify / users / usage / models / agents / providers / partners / consumer-requests），门禁 `is_stayloop_admin()`
-- **知识库（RAG，2026-10-27）**：`lib/kb/`（`chunk` 切块、`trigger` 触发与中→英检索词、`cite` 参考资料段 / 条号核对 / 来源清单、`search` 调 RPC、`config` 读 `app_config.kb`）、`lib/llmEmbed.ts`（嵌入，`ai_usage` slot `embed`，默认 `gemini-embedding-001` 1024 维）、表 `knowledge_sources / documents / chunks`（只有 service role）+ RPC `kb_search`、语料清单 `scripts/kb/sources.ts`、入库 `scripts/kb/ingest.ts`（版本只追加不删）、评测 `scripts/kb/eval.ts` + `design/kb-golden-set-2026-10-27.json`、每周 `kb-refresh.yml`（需 GitHub secret `GEMINI_API_KEY`）。**开关在 `app_config.kb`**（`audience` test → all），计划 `design/rag-knowledge-base-plan-2026-10-27.md`。回答里的条号必须来自本轮参考资料，否则守卫改写并记 `kb_uncited`。
+- 后台：`/admin`（verify / users / usage / models / agents / providers / partners / consumer-requests / knowledge），门禁 `is_stayloop_admin()`
+- **知识库（RAG，2026-10-27）**：`lib/kb/`（`chunk` 切块、`trigger` 触发与中→英检索词、`cite` 参考资料段 / 条号核对 / 来源清单、`search` 调 RPC、`config` 读 `app_config.kb`）、`lib/llmEmbed.ts`（嵌入，`ai_usage` slot `embed`，默认 `gemini-embedding-001` 1024 维）、表 `knowledge_sources / documents / chunks`（只有 service role）+ RPC `kb_search`、语料清单 `scripts/kb/sources.ts`、入库 `scripts/kb/ingest.ts`（版本只追加不删）、评测 `scripts/kb/eval.ts` + `design/kb-golden-set-2026-10-27.json`、每周 `kb-refresh.yml`（需 GitHub secret `GEMINI_API_KEY`）。**开关在 `app_config.kb`**（`audience` test → all），计划 `design/rag-knowledge-base-plan-2026-10-27.md`。回答里的条号必须来自本轮参考资料，否则守卫改写并记 `kb_uncited`。 **更新机制**：原文有新版本 → `knowledge_changes` 队列（逐条 diff → 反查规则 `lib/kb/ruleMap.ts`）→ 审核人邮件（`KB_REVIEW_EMAIL`）→ 人在 `/admin/knowledge` 标状态；pending 期间涉及的规则在助理提示词与 `/rules` 上标「待核对」（`lib/kb/notices.ts`）。规则表只在代码里改，可用 `effective_from/to` 提前上线。
 
 ## 路由速查
 

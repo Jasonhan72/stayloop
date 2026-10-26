@@ -70,7 +70,9 @@ const ZH_TO_EN: [RegExp, string][] = [
 /** The full-text query: English terms for the Chinese topics + any ASCII words / form numbers the user typed. */
 export function kbQueryText(message: string): string {
   const parts = new Set<string>()
-  for (const [re, en] of ZH_TO_EN) if (re.test(message)) parts.add(en)
+  // a late-fee / penalty question is about charges (s.134), not arrears — the arrears terms would drown it (eval 2026-10-27)
+  const feeQuestion = /滞纳金|逾期费|罚款|手续费|late (fee|charge|payment (fee|charge))|penalt/i.test(message)
+  for (const [re, en] of ZH_TO_EN) if (re.test(message) && !(feeQuestion && /arrears non-payment/.test(en))) parts.add(en)
   const ascii = message.match(/[A-Za-z][A-Za-z0-9.-]{1,}/g) || []
   for (const w of ascii) if (w.length >= 2 && !/^(the|and|for|with|that|this|from|have|has|are|was|were|you|your|can|could|should|would|will|what|when|where|how|why|does|did|about|into|not|but|any|all|out|our|its|it's|i'm|im)$/i.test(w)) parts.add(w)
   return Array.from(parts).join(' ').slice(0, 400)
