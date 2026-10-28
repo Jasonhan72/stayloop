@@ -5,7 +5,18 @@
 
 ## 1. 摘要
 
-（测试员回报后填）
+| 指标 | 结果 |
+|---|---|
+| 范围 | 10-17 基线回归（R1 全跑、R2 / R3 抽样）+ 10-18 以来全部新功能（OpenNext 迁移、经纪主页、MLS 交接、工具页、分享包 v2、专业服务、状态照片、T776、证据包、知识库 RAG 等） |
+| 用例 | 17 个模块（含视口）**289 条** + T4 权限矩阵 269 探针 / 185 审计 + 手机审计 384 组合 |
+| 执行率 | 用例 288 / 289（99.7%）；矩阵与审计 100% |
+| 首轮通过率 | 用例 277 / 288（96%）：失败 6、部分通过 5 |
+| 缺陷 | **S0 ×0 · S1 ×1 · S2 ×6 · S3 ×15**（另有观察 / 已知 / 产品问题 10 条，见台账） |
+| 已修复并上线 | S1 1 / 1 · S2 6 / 6 · S3 12 / 15（剩 3 条记录：npm audit 两条构建期高危、平板 < 16px 控件、404 页 200） |
+| 复测 | ship99 后：T6-D12 / C-D1 / C-D2 / B-D1 / B-D3 / T6-D13 / N-D1 生产复测通过；D-D1 / G-D1 见 §5；I-D1 为模型概率性输出错误，修复是「记原文 + 换默认模型重试一次」，守卫覆盖，未在生产复现 |
+| 门禁 | tsc 干净；vitest 234 文件 / 3175 条全过；冒烟 10 / 10；路由审计 124 / 124（含新加 http → https 两条）；pg_cron 9 / 9 成功；知识库评测 94% |
+
+**建议：Go**（S0 / S1 / S2 清零并上线；残留 S3 均不影响主流程，见 §7）。
 
 ## 2. 自动层（T1–T4，主线程，2026-10-28）
 
@@ -46,10 +57,39 @@
 
 见 `design/test-cases-2026-10-28/defect-ledger.md`。
 
-## 5. 未执行
+## 5. 复测（ship99 `043495cf`，2026-10-28）
 
-## 6. 数据副作用
+| 缺陷 | 复测 | 结果 |
+|---|---|---|
+| T6-D12 明文 HTTP | `curl -sI http://www.stayloop.ai/login` / `http://stayloop.ai/` | 308 → `https://www.stayloop.ai/…`；路由审计 124 / 124 含两条 http 探针 |
+| C-D1 照片数 | `/api/listings/search`、`/api/listings/<slug>` | 77 Sitetest `photo_count 2`、`images 2`；列已回填 |
+| C-D2 宠物 | `/api/listings/search?pets=1` | 含 77 Sitetest（`pets_allowed=yes`），卡片 `pet_policy: yes` |
+| B-D1 / B-D3 | `<title>`、`sitemap.xml` | 四页标题正确；sitemap 含四条 |
+| T6-D13 | `has_function_privilege('authenticated','kb_source_status()','execute')` | false |
+| N-D1 | `gh run` 40745687864 | 入库 46 份 unchanged + 评测 94%，success |
+| D-D1 房东已查看 | landlord-test 在生产打开 `/landlord/applicants/0a1da57b…`（此前 `viewed_at` 为 null） | `viewed_at = 2026-10-28 19:21:29+00`，租客追踪条可点亮 |
+| G-D1 专业工种派单 | landlord-test JWT `POST /api/work-orders/dispatch {trade:'lawyer'}`（工单 `bb7e59fa`） | **422** `professional trade is referral only`，无工单生成 |
 
-## 7. 残留风险与绕行
+## 6. 未执行
 
-## 8. Go / No-Go
+- A-13 魔法链接落页分流（测试工具问题，已修工具）；A-04 邮箱查询预算用尽（上轮通过）。
+- C-17 快速发布第二屏（需识图）；下架提醒 / 贴回 / MLS 请求未真点（C 组）；上轮 C-24–26 回滚探针未重跑。
+- O-12 只量了 `/consumer-rights` 视口；`/my-file` 未真发确认邮件；`/contact` 未发信；WebKit 未跑（无工具）。
+- 筛查评分本身只做回归比对（DO NOT TOUCH 模块）；真实付款、真实 Veriff / Flinks / Equifax 不在范围。
+
+## 7. 数据副作用
+
+全部 `[TEST]` 数据，未删任何行，未付款：匿名申请 `374a0317`（已录取）、消费者索档 `bc684cac`（fulfilled）、状态照片 2 张（入住 / 退租）+ 2 个 storage 对象、租金记录 `609440b6`（08-01 · late · 已确认）、工单 `bb7e59fa`（new）/ `802d52fd`（AI 卡执行）/ `a89d1948`（误派 lawyer，已 cancel）、MLS 交接 `8dbb1a10`（removed）、经纪客户 `ef0c2201`、短链 kijiji `e96ur7cn` clicks +1、tenant-test / landlord-test 新对话若干、月度简报例行 `aee14f73` 跑过一次、Stripe live 两个未打开的 Checkout 会话（24h 过期）、77 Sitetest 描述由「[TEST] edited by service role…」改回正常示例文案、邮件 ≤ 15 封全部测试号。各组明细在用例文件末尾。
+
+## 8. 残留风险与绕行
+
+- `overpass-api.de` 满载时房源详情「位置与交通」显示未响应（外部）；已加镜像兜底，仍不保证。
+- `claim_landlord()` 对任何登录用户可调（10-17 已知，产品决定）。
+- npm audit 两条 high（postcss 间接依赖，仅构建期）；随升级消化。
+- 平板宽度下少量 < 16px 文本控件（iOS 只在手机宽度触发缩放）。
+- 助理 JSON 输出偶发格式错误：现在会换默认模型重试一次，后台可按 `ai_usage.source = 'agent/turn-retry'` 看频率。
+- `stayloop.pages.dev` 仍跑 10-18 旧代码（按用户决定暂留）。
+
+## 9. Go / No-Go
+
+**Go。** S0 / S1 / S2 清零并上线（ship99）；R1 用例 100% 执行；残留 S3 有记录与绕行。
