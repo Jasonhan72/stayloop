@@ -9,7 +9,10 @@ import { kbSearch } from '../../lib/kb/search'
 import { KB_DEFAULTS } from '../../lib/kb/config'
 import { shouldRetrieve } from '../../lib/kb/trigger'
 
-for (const line of readFileSync('.env.local', 'utf8').split('\n')) { const m = line.match(/^([A-Z0-9_]+)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^"|"$/g, '').trim() }
+// Credentials: process env (CI), else .env.local (a developer by hand) — CI has no .env.local.
+try {
+  for (const line of readFileSync('.env.local', 'utf8').split('\n')) { const m = line.match(/^([A-Z0-9_]+)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^"|"$/g, '').trim() }
+} catch { /* CI */ }
 const args = process.argv.slice(2)
 const K = Number(args.find((a) => a.startsWith('--k='))?.slice(4) || 5)
 const verbose = args.includes('--verbose')

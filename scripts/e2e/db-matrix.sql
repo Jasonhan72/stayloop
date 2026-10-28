@@ -389,7 +389,9 @@ begin
         'attach_application_files','recent_application_count','listing_accepts_applications',                                    -- anonymous application flow
         'decline_household_invite','peek_household_invite',                                       -- /join/<token>
         'is_household_member','is_stayloop_admin','is_stayloop_superadmin','is_direct_client_write', -- policy / trigger helpers
-        'is_email_unsubscribed') then 'allowlisted' else 'NOT allowlisted' end, '', null);
+        'is_email_unsubscribed',
+        'kb_pending_rule_notices'                                                                  -- /rules「待核对」角标 + /api/kb/notices（知识库 §7.3，2026-10-27）
+        ) then 'allowlisted' else 'NOT allowlisted' end, '', null);
   end loop;
   update result set pass = (actual = expected) where tbl = 'audit:anon_exec_function';
 end $a$;
@@ -442,7 +444,7 @@ begin
     from unnest(expected_policies) e where not exists (select 1 from pg_policies where schemaname='storage' and tablename='objects' and policyname = e);
   for r in select id, public, file_size_limit, coalesce(array_to_string(allowed_mime_types, ','), '') mimes from storage.buckets order by 1 loop
     insert into result values (4100, 'storage', 'audit:bucket', r.id, 
-      case r.id when 'tenant-files' then 'private/26214400' when 'tenancy-files' then 'private/26214400' when 'thread-inbound' then 'private/26214400' when 'assistant-avatars' then 'public/2097152' else 'unknown bucket' end,
+      case r.id when 'tenant-files' then 'private/26214400' when 'tenancy-files' then 'private/26214400' when 'thread-inbound' then 'private/26214400' when 'assistant-avatars' then 'public/2097152' when 'agent-photos' then 'public/1048576' else 'unknown bucket' end,  -- agent-photos: 经纪公开主页头像（2026-10-23）
       (case when r.public then 'public' else 'private' end) || '/' || coalesce(r.file_size_limit::text, 'nolimit'), r.mimes, null);
   end loop;
   update result set pass = (actual = expected) where tbl = 'audit:bucket';
