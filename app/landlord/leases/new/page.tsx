@@ -444,7 +444,8 @@ function NewLeasePageInner() {
       end_date: isTrreb ? tt.term.end_date : t.term.end_date,
     })
     if (rules.findings.length && landlord) {
-      void supabase.from('compliance_events').insert(rules.findings.map((f) => ({ user_id: landlord.authId, role: 'landlord', source: 'lease_terms', rule_id: f.rule, severity: f.severity, metadata: { message: f.message.zh } })))
+      // site test 2026-10-28 (D-D1 root cause): without .then the builder never sent this — `source='lease_terms'` had 0 rows
+      void supabase.from('compliance_events').insert(rules.findings.map((f) => ({ user_id: landlord.authId, role: 'landlord', source: 'lease_terms', rule_id: f.rule, severity: f.severity, metadata: { message: f.message.zh } }))).then(() => {}, () => {})
     }
     if (!rules.passed) {
       setErr(rules.findings.filter((f) => f.severity === 'block').map((f) => `${f.statute}：${zh ? f.message.zh : f.message.en}`).join('；'))

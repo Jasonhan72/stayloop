@@ -110,6 +110,9 @@ await probe('v1/late-payment/persistent 121 periods → 400', `${BASE}/api/v1/la
 await probe('v1/rent-benchmark condo 1 bed', `${BASE}/api/v1/rent-benchmark?province=ON&area=Liberty%20Village&bedrooms=1&type=condo`, {}, { status: [200, 404, 429], headers: V1H, json: j => j.error === 'rate_limited' || j.error === 'not_available' || (typeof j.benchmark?.avg === 'number' && !!j.attribution?.en && !!j.attribution?.zh) || `got ${JSON.stringify(j).slice(0, 120)}` })
 await probe('v1/rent-benchmark QC → 404 not_available', `${BASE}/api/v1/rent-benchmark?province=QC`, {}, { status: [404, 429], bodyIncludes: '"error"' })
 await probe('v1/openapi.json', `${BASE}/api/v1/openapi.json`, {}, { status: 200, headers: { 'x-api-version': /^2026-\d\d-\d\d$/, 'cache-control': /max-age=3600/ }, json: j => (j.openapi === '3.1.0' && Object.keys(j.paths).length === 7) || `got openapi=${j.openapi} paths=${Object.keys(j.paths || {}).length}` })
+// Plain HTTP must never serve a page (site test 2026-10-28, T6-D12): 308 to https://www, for www and the apex.
+await probe('http → https (www)', `http://www.stayloop.ai/login`, { redirect: 'manual' }, { status: [301, 308], headers: { location: /^https:\/\/www\.stayloop\.ai\/login/ } })
+await probe('http → https (apex)', `http://stayloop.ai/`, { redirect: 'manual' }, { status: [301, 308], headers: { location: /^https:\/\/www\.stayloop\.ai\// } })
 // Knowledge base (2026-10-27): public notices endpoint; admin API refuses without a session; admin page shell renders.
 await probe('kb notices public', `${BASE}/api/kb/notices?${bust()}`, {}, { status: 200, json: j => Array.isArray(j.notices) })
 await probe('admin knowledge API → 401', `${BASE}/api/admin/knowledge`, {}, { status: 401 })

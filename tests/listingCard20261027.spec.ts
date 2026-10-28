@@ -65,8 +65,10 @@ describe('the shared card: /listings and the chat results render ListingCardView
   })
   it('the search result carries what the card needs; Realtor results still open outside and keep their note', () => {
     const search = code('lib/agent/listingSearch.ts')
-    expect(search).toContain('available_date,pet_policy,property_type,photo_count')
-    expect(search).toContain('photo_count: typeof r.photo_count')
+    expect(search).toContain('available_date,pet_policy,pets_allowed,property_type,photo_count')
+    // site test 2026-10-28 (C-D1 / C-D2): the stored photo_count lagged the images array; pets_allowed is what the forms write
+    expect(search).toContain('photo_count: Array.isArray(r.images) ? r.images.length : typeof r.photo_count')
+    expect(search).toContain("pet_policy: ((r.pet_policy as string) || (r.pets_allowed as string)) || undefined")
     expect(chat).toContain("external={external}")
     expect(chat).toContain("tone: external ? 'external' : 'info'")
     expect(read('app/api/listings/search/route.ts')).toMatch(/CARD_COLUMNS = '[^']*property_type/)

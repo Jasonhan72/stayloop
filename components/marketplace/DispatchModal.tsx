@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useOnChange } from '@/lib/ui/useOnChange'
 import { supabase } from '@/lib/supabase'
-import { CREDENTIAL_LABEL, coverageFor, providerEligible, tradeForCategory, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
+import { CREDENTIAL_LABEL, coverageFor, isProfessionalTrade, providerEligible, tradeForCategory, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
 import { isEmergencyMaintenance } from '@/lib/agent/maintenanceTriage'
 
@@ -98,7 +98,7 @@ export default function DispatchModal({ ticketId, category, city, zh, onClose, o
           <button onClick={onClose} autoFocus className="h-9 w-9 rounded-full border border-line-divider text-[16px]" aria-label={zh ? '关闭' : 'Close'}>×</button>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <label className="text-[11.5px] text-body-3">{zh ? '工种' : 'Trade'}<select className={input + ' mt-1 w-full'} value={trade} onChange={(e) => { setTrade(e.target.value as Trade); setPick(null) }}>{TRADES.map((t) => <option key={t.key} value={t.key}>{zh ? t.zh : t.en}</option>)}</select></label>
+          <label className="text-[11.5px] text-body-3">{zh ? '工种' : 'Trade'}<select className={input + ' mt-1 w-full'} value={trade} onChange={(e) => { setTrade(e.target.value as Trade); setPick(null) }}>{TRADES.filter((t) => !isProfessionalTrade(t.key)).map((t) => <option key={t.key} value={t.key}>{zh ? t.zh : t.en}</option>)}</select></label>
           <label className="text-[11.5px] text-body-3">{zh ? '进入方式（RTA s.27）' : 'Entry (RTA s.27)'}<select className={input + ' mt-1 w-full'} value={entry} onChange={(e) => setEntry(e.target.value as typeof entry)}><option value="call_first">{zh ? '进入前先电话' : 'Call first'}</option><option value="anytime">{zh ? '按 24 小时通知进入' : 'Per 24h notice'}</option><option value="tenant_present">{zh ? '须租客在场' : 'Tenant present'}</option></select></label>
           <label className="flex items-center gap-2 text-[12.5px] sm:col-span-2"><input type="checkbox" checked={emergency} onChange={(e) => setEmergency(e.target.checked)} />{zh ? '紧急件（无暖气 / 停水 / 燃气 / 淹水 / 门锁）— 进入按 RTA s.26 可不提前通知' : 'Emergency (no heat / water / gas / flooding / locks) — entry without notice under RTA s.26'}</label>
         </div>

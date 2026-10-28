@@ -65,6 +65,8 @@ export async function POST(req: Request) {
   const format = body?.format === 'csv' ? 'csv' : 'html'
   const svc = adminClient()
   const ids = await ownerIdsOf(svc, user.id)
+  // site test 2026-10-28 (F-D1): no landlord hat → 403, like the billing routes (not an empty table)
+  if (ids.length < 2) return NextResponse.json({ error: 'landlord_required' }, { status: 403, headers: NO_STORE })
   // The year's bounds in Toronto time; summarizeT776 re-checks each row by its Toronto date.
   const from = fromToronto(year, 1, 1, 0).toISOString()
   const to = fromToronto(year + 1, 1, 1, 0).toISOString()

@@ -29,6 +29,9 @@ const withheld = (l: Record<string, unknown>) => ({ ...l, address: '', unit: nul
 const publicShape = (l: Record<string, unknown>, owner: boolean) => {
   const out: Record<string, unknown> = { ...l }
   for (const k of PRIVATE_COLUMNS) delete out[k]
+  // site test 2026-10-28 (C-D1 / C-D2): the images array is the photo count; the forms write pets_allowed
+  out.photo_count = Array.isArray(out.images) ? out.images.length : (typeof out.photo_count === 'number' ? out.photo_count : 0)
+  if (out.pet_policy == null && typeof out.pets_allowed === 'string') out.pet_policy = out.pets_allowed
   return !owner && out.display_address === false ? withheld(out) : out
 }
 

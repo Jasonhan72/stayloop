@@ -82,7 +82,7 @@ export default function LandlordProvidersPage() {
       <PageHeader title={zh ? '服务商' : 'Service providers'} sub={<><span className="font-mono text-[11px] uppercase tracking-eyebrow text-body-3">LANDLORD · PROVIDERS</span><span className="mx-1.5 text-body-3">·</span>{zh ? '精选网络里的每一家都由 Stayloop 人工对照公开注册库核验资质；到期即停派单。派单从在管租约的报修工单发起。' : 'Every provider in the curated network is checked by hand against the public registers; expired credentials stop dispatch. Dispatch starts from a ticket on a managed tenancy.'}</>} />
       <DispatchPolicyCard providers={policyProviders} zh={zh} />
       <div className="mb-3 flex flex-wrap gap-2">
-        <select value={trade} onChange={(e) => setTrade(e.target.value as Trade | 'all')} className="rounded-lg border border-line-divider bg-white px-2 py-1.5 text-[12.5px]"><option value="all">{zh ? '全部工种' : 'All trades'}</option>{TRADES.map((t) => <option key={t.key} value={t.key}>{zh ? t.zh : t.en}</option>)}</select>
+        <select value={trade} onChange={(e) => setTrade(e.target.value as Trade | 'all')} className="rounded-lg border border-line-divider bg-white px-2 py-1.5 text-[12.5px]"><option value="all">{zh ? '全部工种' : 'All trades'}</option>{TRADES.filter((t) => !isProfessionalTrade(t.key)).map((t) => <option key={t.key} value={t.key}>{zh ? t.zh : t.en}</option>)}</select>
         <select value={city} onChange={(e) => setCity(e.target.value)} className="rounded-lg border border-line-divider bg-white px-2 py-1.5 text-[12.5px]"><option value="all">{zh ? '全部城市' : 'All cities'}</option>{CITIES.map((c) => <option key={c} value={c}>{c}</option>)}</select>
       </div>
       <SectionCard className="mb-4" title={zh ? '精选网络 · 已核验' : 'Curated network · verified'} meta={`${rows.filter((r) => !r.p.trades.every(isProfessionalTrade)).length}`}>
@@ -117,6 +117,10 @@ export default function LandlordProvidersPage() {
             ))}
           </div>
         )}
+        {/* site test 2026-10-28 (G-D2): one link per professional trade */}
+        <div className="mt-2 flex flex-wrap gap-1.5" data-testid="professional-trade-links">
+          {TRADES.filter((t) => isProfessionalTrade(t.key)).map((t) => <Link key={t.key} href={`/providers/professional?trade=${t.key}`} className="rounded-full border border-line-divider px-2.5 py-[3px] text-[12px] font-semibold text-body-2 hover:border-brand hover:text-brand">{zh ? t.zh : t.en}</Link>)}
+        </div>
         <p className="mt-2 text-[12px]"><Link href="/providers/professional" className="font-semibold text-brand underline-offset-2 hover:underline">{zh ? '专业服务目录 →' : 'Professional services directory →'}</Link></p>
       </SectionCard>
       <SectionCard title={zh ? '我自己的联系人' : 'My own contacts'} meta={`${contacts.length}`}>

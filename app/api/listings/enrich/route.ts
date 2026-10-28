@@ -165,14 +165,26 @@ function background(p: Promise<unknown>): void {
   try { getCloudflareContext().ctx.waitUntil(p) } catch { void p }
 }
 
+// The main instance answers「at capacity」(502) for stretches (site test 2026-10-28, B-D4); a public mirror gets a
+// second chance before the page says the map service did not respond. A failure is never cached (CLAUDE.md).
+const OVERPASS_HOSTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']
+
 async function nearbyTransit(lat: number, lng: number): Promise<ListingTransit | null> {
   const q = transitOverpassQuery(lat, lng)
+  for (const host of OVERPASS_HOSTS) {
+    const r = await overpassOnce(host, q, lat, lng)
+    if (r) return r
+  }
+  return null
+}
+
+async function overpassOnce(host: string, q: string, lat: number, lng: number): Promise<ListingTransit | null> {
   try {
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
+    const res = await fetch(host, {
       method: 'POST',
       headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `data=${encodeURIComponent(q)}`,
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(12000),
     })
     if (!res.ok) return null
     const json = (await res.json()) as { elements?: Parameters<typeof overpassPoints>[0]; remark?: string }

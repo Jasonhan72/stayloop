@@ -113,12 +113,22 @@ export function referenceList(reply: string, hits: KbHit[]): { reply: string; re
   const order: number[] = []
   const nums = (first: string, rest: string) => [first, ...(rest.match(/\d{1,2}/g) || [])].map(Number)
   for (const m of reply.matchAll(MARK_RE)) for (const k of nums(m[2], m[3])) if (k >= 1 && k <= hits.length && !order.includes(k)) order.push(k)
-  const refs: KbReference[] = order.map((k, i) => {
+  // site test 2026-10-28 (I-D4): two passages of one section (s.106 (1/2) and (2/2)) are one reference, not [1] and [2]
+  const refOf = (h: KbHit) => ({ title: h.title, ref: h.section_ref ? `s. ${h.section_ref.replace(/\s*\(\d+\/\d+\)$/, '')}` : (h.heading_path.slice(-1)[0] || null), url: h.url.replace(/#.*$/, '') })
+  const keyOf = (h: KbHit) => { const r = refOf(h); return `${r.title}|${r.ref}|${r.url}` }
+  const refs: KbReference[] = []
+  const numberOf = new Map<number, number>()   // hit index (1-based) → reference number
+  for (const k of order) {
     const h = hits[k - 1]
-    return { n: i + 1, title: h.title, ref: h.section_ref ? `s. ${h.section_ref.replace(/\s*\(\d+\/\d+\)$/, '')}` : (h.heading_path.slice(-1)[0] || null), url: h.url, date: h.consolidated_date, inForce: h.in_force }
-  })
+    const key = keyOf(h)
+    const existing = refs.find((r) => `${r.title}|${r.ref}|${r.url.replace(/#.*$/, '')}` === key)
+    if (existing) { numberOf.set(k, existing.n); continue }
+    const r = refOf(h)
+    refs.push({ n: refs.length + 1, title: r.title, ref: r.ref, url: h.url, date: h.consolidated_date, inForce: h.in_force })
+    numberOf.set(k, refs.length)
+  }
   const text = reply.replace(MARK_RE, (m, ws: string, first: string, rest: string) => {
-    const ns = nums(first, rest).map((k) => order.indexOf(k)).filter((i) => i >= 0).map((i) => i + 1)
+    const ns = nums(first, rest).map((k) => numberOf.get(k)).filter((n): n is number => typeof n === 'number')
     return ns.length ? `${ws ? ' ' : ''}[${Array.from(new Set(ns)).join(', ')}]` : ''
   })
   return { reply: text, refs }

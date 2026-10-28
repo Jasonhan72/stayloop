@@ -6,7 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
 import { canAct, entryCancelText, entryNoticeText, entryWindowProblem, invoiceWithinEstimate, mergeCompletion, mergeQuote, quoteExpired, quoteStillAsSeen, resolveEntryPermission, TICKET_STATUS_FOR, validateQuote, type ActorKind, type WoAction, type WorkOrderStatus } from './workOrders'
-import { clampGraceDays, providerEligible, tradeForCategory, TRADES, type Trade } from './trades'
+import { clampGraceDays, providerEligible, tradeForCategory, TRADES, type Trade, isProfessionalTrade } from './trades'
 import { declineText, quoteDueAt, validateDecline } from './sla'
 import { ensureThread, noteOnWorkOrder, postSystemMessage, replyTokenFor } from '@/lib/threads/server'
 import { replyAddress } from '@/lib/threads/emailReply'
@@ -134,6 +134,9 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
     provider = row
   }
   const trade: Trade = i.trade && TRADES.some((t) => t.key === i.trade) ? (i.trade as Trade) : tradeForCategory(ctx.ticket.category)
+  // Site test 2026-10-28 (G-D1): lawyer / paralegal / insurance broker / photographer are directory-and-referral only
+  // (lib/marketplace/trades.ts PROFESSIONAL_TRADES); the dispatcher never creates a work order for them, UI or API.
+  if (isProfessionalTrade(trade)) return { ok: false, error: 'professional trade is referral only', status: 422 }
   if (provider) {
     // The UI greys out ineligible providers; the server is the rule (E2E 2026-09-23
     // dispatched a plumber to a locks job through the API). Licensed trades need

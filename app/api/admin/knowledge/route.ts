@@ -40,7 +40,8 @@ export async function PATCH(req: Request) {
   const status = typeof body.status === 'string' && STATUSES.has(body.status) ? body.status : null
   if (!id || !status) return NextResponse.json({ error: 'id and a valid status are required' }, { status: 400 })
   const note = typeof body.note === 'string' ? body.note.slice(0, 2000) : null
-  const { error } = await gate.admin.from('knowledge_changes').update({ status, note, reviewed_by: status === 'pending' ? null : gate.userId, reviewed_at: status === 'pending' ? null : new Date().toISOString() }).eq('id', id)
+  const { data, error } = await gate.admin.from('knowledge_changes').update({ status, note, reviewed_by: status === 'pending' ? null : gate.userId, reviewed_at: status === 'pending' ? null : new Date().toISOString() }).eq('id', id).select('id')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!data || !data.length) return NextResponse.json({ error: 'not found' }, { status: 404 })   // site test 2026-10-28, M-D2
   return NextResponse.json({ ok: true })
 }

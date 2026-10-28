@@ -34,7 +34,7 @@ function withSecurityHeaders(res: NextResponse): NextResponse {
 // client intake link is the credential. /my-file/<token> (V0.8, Consumer
 // Reporting Act s.12): the applicant's one-time file-access link, same rule.
 // Everything else: origin only across sites.
-const TOKEN_PAGE_PREFIXES = ['/verify/', '/intake/', '/my-file/', '/w/', '/lease/sign/', '/p/', '/join/', '/delegate/']
+const TOKEN_PAGE_PREFIXES = ['/verify/', '/intake/', '/my-file/', '/w/', '/lease/sign/', '/p/', '/join/', '/delegate/', '/api/w/', '/api/consumer/request/', '/api/verify/']  // + the token APIs (site test 2026-10-28, E-D1)
 
 function withReferrerPolicy(res: NextResponse, pathname: string): NextResponse {
   // Every token page in the route table (site test 2026-10-17, G-D3: /w /lease/sign /p /join /delegate were missing).
@@ -50,8 +50,20 @@ function withReferrerPolicy(res: NextResponse, pathname: string): NextResponse {
 // origin where login, billing and the passport all live.
 export function proxy(request: NextRequest) {
   const host = request.headers.get('host') || ''
+  // Plain HTTP → HTTPS (site test 2026-10-28, T6-D12): since the 10-19 move to the Worker the zone
+  // route hands http:// requests to the app too, and the Pages platform's 301 is gone — a whole page
+  // was served in clear and HSTS sent over http is ignored by browsers. One 308 to the canonical
+  // https://www host; the apex / screening hops below then only ever see https.
+  const scheme = (request.headers.get('x-forwarded-proto') || new URL(request.url).protocol.replace(':', '')).toLowerCase()
+  if (scheme === 'http' && /stayloop\.ai$/.test(host)) {
+    const url = new URL(request.url)
+    url.protocol = 'https:'
+    url.host = host === 'stayloop.ai' ? 'www.stayloop.ai' : host
+    return withSecurityHeaders(NextResponse.redirect(url, 308))
+  }
   if (host === 'stayloop.ai') {
     const url = new URL(request.url)
+    url.protocol = 'https:'
     url.host = 'www.stayloop.ai'
     return withSecurityHeaders(NextResponse.redirect(url, 308))
   }

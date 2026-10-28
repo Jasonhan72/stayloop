@@ -749,6 +749,27 @@ export async function POST(req: Request) {
 
   let parsed = safeParseJson(raw)
 
+  // Site test 2026-10-28 (I-D1): the repair guided card got「输出格式出错，原样再发」twice in a row — the
+  // configured model (gemini-3.7-flash, jsonMode) answered with something that is not the JSON contract.
+  // Log the head of what came back and retry ONCE on the built-in default before the canned line.
+  if (!parsed || typeof parsed.reply !== 'string') {
+    console.warn(`[agent/turn] unparseable reply from ${modelUsed} (${raw.length} chars): ${raw.slice(0, 300).replace(/\s+/g, ' ')}`)
+    const catalogForRetry = await getCatalog()
+    const retryDef = (turnDef && turnDef.id !== DEFAULT_MODELS.turn ? (findModel(DEFAULT_MODELS.turn, catalogForRetry) as CatalogModel | undefined) : null) ?? turnDef
+    if (retryDef) {
+      try {
+        const { text: raw2 } = await llmChat({
+          model: retryDef, system, messages: [{ role: 'user', content: userContent }],
+          maxTokens: retryDef.provider === 'openai-compat' ? 4000 : 2500, temperature: 0.2, jsonMode: retryDef.provider === 'openai-compat',
+          signal: AbortSignal.timeout(60000), meta: { userId: anonymous ? null : turnUserId, slot: 'turn', source: 'agent/turn-retry' },
+        })
+        const p2 = safeParseJson(raw2)
+        if (p2 && typeof p2.reply === 'string') { parsed = p2; raw = raw2; modelUsed = retryDef.id; turnDef = retryDef }
+        else console.warn(`[agent/turn] retry on ${retryDef.id} still unparseable (${raw2.length} chars)`)
+      } catch (e) { console.warn('[agent/turn] retry after unparseable reply failed', String((e as Error)?.message || '').slice(0, 160)) }
+    }
+  }
+
   // On-demand lookup (second pass): the model asked for user data the
   // snapshot didn't carry — run ONE whitelisted RLS query and re-ask with
   // the real rows. Authed turns only; at most one lookup per turn.

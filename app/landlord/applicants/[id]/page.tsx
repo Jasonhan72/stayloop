@@ -166,7 +166,8 @@ function RealApplicantDetail({ id }: { id: string }) {
       // Applicant tracker (P1 2026-09-23): first open by the landlord stamps
       // viewed_at so the tenant sees "房东已查看". Idempotent; RLS-scoped.
       if (data && !(data as { viewed_at?: string | null }).viewed_at) {
-        void supabase.from('applications').update({ viewed_at: new Date().toISOString() }).eq('id', id).is('viewed_at', null)
+        // site test 2026-10-28 (D-D1): a PostgrestBuilder sends nothing until it is awaited or .then'd — `void` alone never ran this
+        void supabase.from('applications').update({ viewed_at: new Date().toISOString() }).eq('id', id).is('viewed_at', null).then(() => {}, () => {})
       }
     })()
     return () => {

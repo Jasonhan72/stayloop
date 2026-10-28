@@ -185,7 +185,7 @@ export default function DisputesPage() {
           </h1>
           <p className="mt-5 max-w-[640px] text-[16px] leading-relaxed text-body-2">
             {zh
-              ? 'Stayloop 内部 dispute resolution 是非约束性的 · 双方任何阶段均可终止并直接诉诸 LTB / 法院 · 仲裁员独立中立 · 每一步留痕可查。'
+              ? 'Stayloop 站内的争议处理不具约束力 · 双方任何阶段都可以停下来直接去 LTB / 法院 · 仲裁员独立中立 · 每一步留痕可查。'
               : 'Stayloop’s in-house dispute resolution is non-binding · either party can stop at any stage and go straight to the LTB / courts · arbitrators are independent and neutral · every step is logged and traceable.'}
           </p>
           {/* The removed page-top bar (2026-10-03) was the only place with these two real referrals — kept as one line. */}

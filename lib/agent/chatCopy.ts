@@ -240,6 +240,8 @@ const REASON_TEXT: Record<string, Bi> = {
   'not the landlord of this household': NOT_LANDLORD,
   'not the landlord of this work order': NOT_LANDLORD,
   'provider not verified': { zh: '这位服务商还没有通过核验', en: 'this provider has not been verified yet' },
+  // site test 2026-10-28 (G-D1): lawyer / paralegal / insurance broker / photographer are directory-and-referral only
+  'professional trade is referral only': { zh: '这类专业服务只展示与转介，不走派单；请直接联系目录里的服务者', en: 'this professional service is listed for referral only, not dispatched — contact them from the directory' },
   'provider_id or a valid external_email required': { zh: '卡片上没有服务商，也没有有效的联系人邮箱', en: 'the card has neither a provider nor a valid contact email' },
   application_withdrawn: { zh: '申请人已经撤回了申请，这封通知没有发出', en: 'the applicant withdrew the application, so this notice was not sent' },
   'lease has no end date': { zh: '这份租约没有到期日，没法写续约函', en: 'this lease has no end date, so a renewal letter cannot be written' },

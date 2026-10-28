@@ -46,7 +46,7 @@ export default function AdminKnowledgePage() {
   }
 
   if (loading) return null
-  if (!role) return <div style={{ background: '#F3F8FC', minHeight: '100vh' }}><Header variant="solid" /><div className="mx-auto max-w-[800px] px-5 py-16 text-center text-body-2">{zh ? '仅限管理员。' : 'Admins only.'}</div></div>
+  if (!role) return <div style={{ background: '#F3F8FC', minHeight: '100vh' }}><Header variant="solid" /><div className="mx-auto max-w-[800px] px-5 py-16 text-center text-body-2">{zh ? '仅限管理员。' : 'Admins only.'} <Link href="/" className="text-brand underline-offset-2 hover:underline">{zh ? '回首页' : 'Back home'}</Link></div></div>
 
   const pending = changes.filter((c) => c.status === 'pending')
   const staleCount = sources.filter((s) => s.stale).length

@@ -5,6 +5,7 @@
 // search result into the card's words and the few parts that differ. Stayloop
 // listings link internally; external Realtor.ca results open in a new tab and
 // carry their note bar; commercial spaces show their own price basis and specs.
+import { resolveList } from '@/lib/listingLang'
 import ListingCardView, { type CardSize } from '@/components/listings/ListingCardView'
 import { useT } from '@/lib/i18n'
 import { favKey, useFavorites } from '@/lib/favorites'
@@ -58,7 +59,8 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
   const kicker = commercial
     ? [l.neighborhood, l.city].filter(Boolean).join(zh ? '，' : ', ')
     : cardKicker({ property_type: l.property_type ?? null, neighborhood: l.neighborhood ?? null, city: l.city ?? null }, L)
-  const amenities = commercial ? ((zh ? l.specs : l.specs_en || l.specs) || []).slice(0, 5) : (l.tags || []).filter((t) => t !== 'den').slice(0, 3)
+  // site test 2026-10-28 (I-D2): the same single-language amenity line as /listings (resolveList), not the raw bilingual tags
+  const amenities = commercial ? ((zh ? l.specs : l.specs_en || l.specs) || []).slice(0, 5) : resolveList('amenities', (l.tags || []).filter((t) => t !== 'den'), zh ? 'zh' : 'en').slice(0, 3)
   const warns = commercial ? (zh ? l.specs_warn : l.specs_warn_en || l.specs_warn) || [] : []
   const noteText = zh ? l.note : l.note_en || l.note
 

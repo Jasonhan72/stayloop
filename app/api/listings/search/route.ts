@@ -14,7 +14,7 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 export const PAGE_SIZE = 100
 export const ANON_SEARCHES_PER_HOUR = 240
 export const USER_SEARCHES_PER_HOUR = 1200
-export const CARD_COLUMNS = 'id,slug,address,unit,city,province,monthly_rent,bedrooms,bathrooms,sqft,neighborhood,pet_policy,property_type,amenities,lat,lng,thumb_a,thumb_b,photo_count,created_at,images,available_date,has_den,source,verification_status,brokerage,display_address,display_avm,is_test'
+export const CARD_COLUMNS = 'id,slug,address,unit,city,province,monthly_rent,bedrooms,bathrooms,sqft,neighborhood,pet_policy,pets_allowed,property_type,amenities,lat,lng,thumb_a,thumb_b,photo_count,created_at,images,available_date,has_den,source,verification_status,brokerage,display_address,display_avm,is_test'
 
 const NEGATIVE_PETS = /\b(no|not|without)\b|不可|禁止|不允许|不接受/i
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -75,7 +75,8 @@ export async function GET(req: Request) {
   if (minBaths != null) q = q.gte('bathrooms', minBaths)
   if (minSqft != null) q = q.gte('sqft', minSqft)
   if (moveIn) q = q.or(`available_date.is.null,available_date.lte.${moveIn}`)
-  if (pets) q = q.not('pet_policy', 'is', null)
+  // site test 2026-10-28 (C-D2): the forms write pets_allowed (yes / no / restricted); pet_policy is the older free text
+  if (pets) q = q.or('pet_policy.not.is.null,pets_allowed.in.(yes,restricted)')
   if (bbox) q = q.gte('lat', bbox.s).lte('lat', bbox.n).gte('lng', bbox.w).lte('lng', bbox.e)
   if (tokens.length) q = q.or(tokens.map((t) => `address.ilike.*${t}*,unit.ilike.*${t}*,city.ilike.*${t}*,neighborhood.ilike.*${t}*`).join(','))
   q = sort === 'price_asc' ? q.order('monthly_rent', { ascending: true }) : sort === 'price_desc' ? q.order('monthly_rent', { ascending: false }) : q.order('created_at', { ascending: false })
@@ -88,12 +89,14 @@ export async function GET(req: Request) {
   }
   if (error) return NextResponse.json({ error: 'search_failed' }, { status: 502, headers: { 'Cache-Control': 'no-store' } })
 
-  type Row = Record<string, unknown> & { images: unknown; pet_policy: string | null; display_address: boolean; address: string; unit: string | null }
+  type Row = Record<string, unknown> & { images: unknown; pet_policy: string | null; pets_allowed: string | null; photo_count: number | null; display_address: boolean; address: string; unit: string | null }
   let rows = ((data || []) as Row[]).filter((l) => hasUsablePhotos(l.images))
-  if (pets) rows = rows.filter((l) => !!l.pet_policy && !NEGATIVE_PETS.test(l.pet_policy))
+  const petsOk = (l: Row) => (!!l.pet_policy && !NEGATIVE_PETS.test(l.pet_policy)) || l.pets_allowed === 'yes' || l.pets_allowed === 'restricted'
+  if (pets) rows = rows.filter(petsOk)
   // 8.14: a withheld address never leaves the server.
   const items = rows.slice(0, PAGE_SIZE).map((r) => {
-    const l = { ...r, images: cardImages(r.images) }
+    // C-D1: photo_count is a stored column with an old default of 12 that not every write path kept up — the images array is the truth.
+    const l = { ...r, images: cardImages(r.images), pet_policy: r.pet_policy ?? r.pets_allowed ?? null, photo_count: Array.isArray(r.images) ? r.images.length : r.photo_count ?? 0 }
     return l.display_address ? l : { ...l, address: '', unit: null, lat: null, lng: null }
   })
   const total = count ?? items.length
