@@ -178,4 +178,5 @@ CLAUDE.md 在 2026-10-18 瘦身。原来按日期写的 136 节原样搬到这�
 | 2026-10-27 | 知识库更新机制：变动队列 `knowledge_changes`（逐条 diff → 反查规则 → 人审 + 邮件）、待核对降级（助理提示词 + /rules 角标）、`/admin/knowledge`、规则 `effective_from/to` + `asOf`、Action 后跟评测 | `2026-10.md` |
 | 2026-10-28 | 全站测试 2026-10-28 轮：289 条用例 + 矩阵 + 手机审计；S1 1 / S2 6 / S3 15，S1–S2 全修上线（ship99）：明文 HTTP、`void` 查询不发请求、专业工种可派单、照片数 / 宠物字段、助理 JSON 重试、Action 评测 ENOENT；建议 Go | `2026-10.md` |
 | 2026-10-29/30 | 全站测试转下轮四项（ship100）：不存在的房源页真 404、≤1023 控件 16px、跳过起名也写 `assistant_profiles` 行 + 回填、npm audit fix；iCloud 在 node_modules 造 dataless 重复文件让 Turbopack 超时 | `2026-10.md` |
+| 2026-10-31 | iCloud 占位重复文件长期修复：`scripts/icloud-nosync.sh` 删「name N.ext」+ 标 `fileprovider.ignore`，接 `npm predev` 与 ship 脚本构建前后；守卫 `icloudNosync20261031` | `2026-10.md` |
 | — | Preferences | `2026-09-b.md` |

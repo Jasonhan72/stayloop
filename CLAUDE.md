@@ -29,6 +29,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 这台机器（M1 mini，8 GB）构建慢：一律 `nohup bash ./ship2-v53.command > <scratchpad>/shipNN.log 2>&1 &`，再用 until-loop 等结束标记；工具单次超时 600 秒不够。
 - **默认 `node` 必须是 node@22**（node 26 让 JS 慢 10–100 倍）。`brew upgrade` 会弄坏它（已发生三次：simdutf、simdjson 升级后 node@22 链接库缺失）。修法：`brew reinstall node@22` → `brew unlink node && brew link --overwrite node@22`。node 26 keg 留给用户的 openclaw，别卸。构建 / 测试卡住先看 `node --version` 与 `top -o mem`（swap 满时进程 0% CPU 假死）。
 - 构建会清掉正在跑的 `next dev` 的 `.next`，部署后本地预览要重启 dev server。
+- **`~/Documents` 在 iCloud Drive 域里**：iCloud 会给 `node_modules` / `.next` / `.open-next` 造「name 2.js」占位重复文件，Turbopack 一读就等网络超时。`scripts/icloud-nosync.sh` 删重复文件并给构建目录打 `com.apple.fileprovider.ignore#P`（`npm run dev` 的 predev 与 ship 脚本构建前后都会跑，守卫 `icloudNosync20261031`）；构建报「reading file … N.js」或 `find . -name "* [0-9].*"` 有结果就手动跑一次。
 
 ## 环境变量
 
