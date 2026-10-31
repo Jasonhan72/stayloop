@@ -24,8 +24,10 @@ export function homeForHats(stored: string | null | undefined, hats: HatsLite): 
   return HOME.tenant
 }
 
-/** A brand-new account: no landlord / agent / provider hat and the assistant never named
- *  (assistant_profiles.name or this browser's cache for the account). */
+/** A brand-new account: no landlord / agent / provider hat and never through onboarding —
+ *  `named` is true once the assistant has a name (assistant_profiles.name or this browser's cache
+ *  for the account) OR a profile row exists at all (「跳过」 writes one, D-X1). Every account holds
+ *  the tenant hat, so it cannot count here. */
 export function isBrandNewAccount(hats: HatsLite, named: boolean): boolean {
   return !named && !hats?.landlord && !hats?.agent && !hats?.provider
 }

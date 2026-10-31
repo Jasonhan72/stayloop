@@ -98,6 +98,16 @@ export async function saveAssistantName(client: SupabaseClient, userId: string, 
   return !error
 }
 
+/** 「跳过 · 先用默认名」 still counts as having been through onboarding: write the account's
+ *  profile row with no name (ON CONFLICT DO NOTHING — a name set meanwhile is kept), so a new
+ *  device does not treat the account as brand-new and send it back to /onboarding/name on every
+ *  visit to the homepage (site test 2026-10-28, D-X1). */
+export async function markAssistantOnboarded(client: SupabaseClient, userId: string): Promise<boolean> {
+  const { error } = await client.from('assistant_profiles').upsert({ user_id: userId }, { onConflict: 'user_id', ignoreDuplicates: true })
+  if (error) console.warn('[assistant] onboarded mark failed', error.message)
+  return !error
+}
+
 /** The chosen avatar preset (lib/agent/avatars.tsx); null = the default face. */
 export async function saveAssistantAvatar(client: SupabaseClient, userId: string, avatar: string | null): Promise<boolean> {
   const { error } = await client.from('assistant_profiles').upsert({ user_id: userId, avatar }, { onConflict: 'user_id' })

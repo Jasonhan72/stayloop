@@ -264,8 +264,10 @@ html, body {
    房源、导入租约、设置……
    修法是把手机断点上的文本类控件抬到 16px。桌面端字号一点不动；勾选框、
    单选、滑块、文件选择本来就不触发缩放，排除掉以免撑坏它们的方框。
-   需要 !important 是因为要盖过 Tailwind 的 `!text-[12px]` 这类行内工具类。 */
-@media (max-width: 767px) {
+   需要 !important 是因为要盖过 Tailwind 的 `!text-[12px]` 这类行内工具类。
+   2026-10-29（全站测试 B-D2）：断点从 767 抬到 1023——iPad 竖屏（768–834）同样是触屏，
+   /tools、/agents、/listings、首页在 768 宽下仍有 13–15px 的输入框 / 下拉。 */
+@media (max-width: 1023px) {
   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
   textarea,
   select {

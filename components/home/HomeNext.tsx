@@ -325,7 +325,8 @@ export default function HomeNext() {
     const uid = auth.user!.id
     if (getStoredAIName(uid)) { setNamed(true); return }
     let cancelled = false
-    resolveAccountNameFor(uid).then(({ uid: u, name }) => { if (!cancelled) setNamed(u === uid && !!name) })
+    // A profile row without a name = onboarding was skipped on some device; not brand-new either (D-X1).
+    resolveAccountNameFor(uid).then(({ uid: u, name, onboarded }) => { if (!cancelled) setNamed(u === uid && (!!name || onboarded)) })
     return () => { cancelled = true }
   }, [signedIn, auth.user])
   const ready = signedIn && !hats.loading && named !== null

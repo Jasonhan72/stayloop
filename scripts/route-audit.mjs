@@ -48,7 +48,7 @@ await probe('verify page no-referrer', `${BASE}/verify/not-a-real-token?${bust()
 // Every token page sends no-referrer (site test 2026-10-17, G-D3).
 for (const p of ['/delegate', '/w', '/lease/sign', '/p', '/join']) await probe(`${p} token page no-referrer`, `${BASE}${p}/not-a-real-token?${bust()}`, {}, { status: 200, headers: { ...HDR, 'referrer-policy': /no-referrer$/ } })
 await probe('public share invalid token', `${BASE}/p/invalid-token-xyz?${bust()}`, {}, { status: 200 })
-await probe('listing detail 404 on unknown slug renders', `${BASE}/listings/no-such-slug-xyz?${bust()}`, {}, { status: [200, 404] })
+await probe('listing detail unknown slug → real 404', `${BASE}/listings/no-such-slug-xyz?${bust()}`, {}, { status: 404 })
 // Public agent profiles (2026-10-21): directory JSON, unknown slug 404, contact needs sign-in.
 await probe('agents directory JSON', `${BASE}/api/agents?${bust()}`, {}, { status: 200, json: j => Array.isArray(j.items) })
 await probe('agent profile unknown slug → 404', `${BASE}/api/agents/no-such-agent-xyz`, {}, { status: 404 })

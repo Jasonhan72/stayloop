@@ -77,7 +77,8 @@ export function getDefaultName(): string {
 // One in-flight DB resolve shared across every hook instance on the page —
 // without this, each component that shows the name (chat header, watch bars,
 // memory aside, audit log…) fired its own identical SELECT per navigation.
-let nameResolve: Promise<{ uid: string | null; name: string | null }> | null = null
+export type AccountName = { uid: string | null; name: string | null; /** a profile row exists — named, or onboarding was skipped (D-X1) */ onboarded: boolean }
+let nameResolve: Promise<AccountName> | null = null
 
 /** Clear the cached assistant name (localStorage + in-flight resolve).
  *  Called on sign-out and whenever another account's cache is found. */
@@ -89,15 +90,15 @@ export function clearCachedAiNames() {
   }
 }
 
-/** The signed-in account and its saved assistant name (null when signed out or unnamed); shared per page load. */
-export function resolveAccountName(): Promise<{ uid: string | null; name: string | null }> {
+/** The signed-in account, its saved assistant name (null when signed out or unnamed) and whether a profile row exists at all; shared per page load. */
+export function resolveAccountName(): Promise<AccountName> {
   if (nameResolve) return nameResolve
   const p = supabase.auth.getSession().then(async ({ data: { session } }) => {
     const uid = session?.user?.id ?? null
-    if (!uid) return { uid, name: null }
+    if (!uid) return { uid, name: null, onboarded: false }
     const profile = await readAssistantProfile(supabase)
-    return { uid, name: profile?.name ?? null }
-  }).catch(() => ({ uid: null as string | null, name: null as string | null }))
+    return { uid, name: profile?.name ?? null, onboarded: !!profile }
+  }).catch((): AccountName => ({ uid: null, name: null, onboarded: false }))
   nameResolve = p
   return p
 }
@@ -108,7 +109,7 @@ export function resolveAccountName(): Promise<{ uid: string | null; name: string
  * account on the same browser); such an answer is discarded once and the
  * profile re-read for the session that is now live.
  */
-export function resolveAccountNameFor(uid: string): Promise<{ uid: string | null; name: string | null }> {
+export function resolveAccountNameFor(uid: string): Promise<AccountName> {
   return resolveAccountName().then((r) => {
     if (r.uid === uid) return r
     invalidateAiName()

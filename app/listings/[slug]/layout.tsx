@@ -10,6 +10,7 @@
 // Fetched with the anon key and the SAME public-visibility rule the RLS policy
 // enforces, so an unverified/inactive listing can never leak a title.
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 import { listingTitle } from '@/lib/listingDisplay'
@@ -102,6 +103,27 @@ export async function generateMetadata(
   }
 }
 
-export default function ListingDetailLayout({ children }: { children: React.ReactNode }) {
+/** Does an active row carry this slug? null = could not tell (no env / query failed) — never a 404 on an infra hiccup. */
+async function activeSlugExists(slug: string): Promise<boolean | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key || !slug || slug.length > 200) return null
+  try {
+    const sb = createClient(url, key, { auth: { persistSession: false } })
+    const { data, error } = await sb.from('listings').select('id').eq('slug', slug).eq('is_active', true).maybeSingle()
+    if (error) return null
+    return !!data
+  } catch {
+    return null
+  }
+}
+
+// A slug no active listing carries is a real 404 (status + the site's not-found page), not a 200
+// shell saying「房源未找到」(site test 2026-10-28, C-D4; the client page cannot set a status).
+// Rows that exist but are not publicly visible still reach the client page: /api/listings/[slug]
+// decides there whether the viewer is the owner.
+export default async function ListingDetailLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  if ((await activeSlugExists(slug)) === false) notFound()
   return children
 }

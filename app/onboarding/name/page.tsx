@@ -5,8 +5,8 @@ import { useState, useEffect, Suspense } from 'react'
 import OnboardingStage from '@/components/OnboardingStage'
 import RoleChooser from '@/components/onboarding/RoleChooser'
 import SignInBlock from '@/components/auth/SignInBlock'
-import { GENERIC_AI_NAME, setAIName, displayAiName, genericAiName, isGenericAiName } from '@/lib/aiName'
-import { saveAssistantName } from '@/lib/agent/assistantProfile'
+import { GENERIC_AI_NAME, invalidateAiName, setAIName, displayAiName, genericAiName, isGenericAiName } from '@/lib/aiName'
+import { markAssistantOnboarded, saveAssistantName } from '@/lib/agent/assistantProfile'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
 import { invalidateHats } from '@/lib/useHats'
@@ -271,7 +271,9 @@ function NamePageInner() {
     // The page is behind sign-in (above), so this names the account's
     // assistant; `null` only covers a session that ended while the page was open.
     setAIName(chosen, user?.id ?? null)
-    if (user && !isGenericAiName(chosen)) void saveAssistantName(supabase, user.id, chosen)
+    // A real name is saved; 「跳过」 still writes the profile row (no name), so another device knows this
+    // account has been through onboarding and does not send it back here from the homepage (D-X1).
+    if (user) void (isGenericAiName(chosen) ? markAssistantOnboarded(supabase, user.id) : saveAssistantName(supabase, user.id, chosen)).then(() => invalidateAiName())
     setRole(role)
     // First-time landlords land on the aha moment, not a chat shell.
     // Production data (2026-08-12): 33 signups/30d but 3 active screeners —

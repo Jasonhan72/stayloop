@@ -40,7 +40,7 @@ describe('one assistant per account', () => {
       expect(s, f).not.toMatch(/useAIName\('|getAIName\(role|setAIName\([^)]*, *role\)|getStoredAvatar\(role|setStoredAvatar\(role/)
     }
     expect(read('components/agent/AssistantPanel.tsx')).toContain('await saveAssistantName(supabase, auth.user.id, next)')
-    expect(read('app/onboarding/name/page.tsx')).toContain('if (user && !isGenericAiName(chosen)) void saveAssistantName(supabase, user.id, chosen)')
+    expect(read('app/onboarding/name/page.tsx')).toContain('if (user) void (isGenericAiName(chosen) ? markAssistantOnboarded(supabase, user.id) : saveAssistantName(supabase, user.id, chosen))') // a skip still writes the profile row (D-X1, 2026-10-29)
     expect(read('lib/useOnboarding.ts')).toContain('setNamed(!!getStoredAIName(user?.id ?? null))')
   })
   it('the session loads the account profile and every hat’s memories; the prompt tags facts from other hats', () => {

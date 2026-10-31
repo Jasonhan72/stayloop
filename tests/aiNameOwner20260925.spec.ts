@@ -87,7 +87,7 @@ describe('assistant name cache is bound to its account', () => {
     h.reads = 0
     const a = await resolveAccountName()
     const b = await resolveAccountName()
-    expect(a).toEqual({ uid: 'u2', name: 'Zed' })
+    expect(a).toEqual({ uid: 'u2', name: 'Zed', onboarded: true }) // onboarded = a profile row exists (D-X1, 2026-10-29)
     expect(b).toEqual(a)
     expect(h.reads).toBe(1)
     invalidateAiName()
@@ -106,7 +106,7 @@ describe('assistant name cache is bound to its account', () => {
     expect(read('app/settings/page.tsx')).toContain('setAIName(trimmed, user?.id ?? null)')
     expect(read('app/settings/page.tsx')).toContain('getStoredAIName(auth.user?.id ?? null)')
     expect(read('app/onboarding/name/page.tsx')).toContain('setAIName(chosen, user?.id ?? null)')
-    expect(read('lib/useOnboarding.ts')).toContain('resolveAccountName().then(({ uid, name }) => { if (!cancelled && uid === user.id && name) setNamed(true) })')
+    expect(read('lib/useOnboarding.ts')).toContain('resolveAccountName().then(({ uid, name, onboarded }) => { if (!cancelled && uid === user.id && (name || onboarded)) setNamed(true) })')
     const lib = read('lib/aiName.ts')
     expect(lib).toContain('if (uid) dropForeignAIName(uid)')
     expect(lib).toContain("const OWNER_KEY = 'sl-ai-name-owner'")
