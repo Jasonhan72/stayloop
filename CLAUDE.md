@@ -13,7 +13,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - Cloudflare Workers：Worker `stayloop-web`（OpenNext `@opennextjs/cloudflare` 1.20.12，要求 wrangler ≥ 4.148；配置 `wrangler.jsonc`）；Workers Paid。2026-10-19 起从 Pages + next-on-pages 迁来，Pages 项目 `stayloop` 原样保留作回滚。`waitUntil` 用 `getCloudflareContext()`
 - Supabase：项目 `uotcczsfeiptnabamzcd`（AWS ca-central-1 蒙特利尔，Pro + Micro，磁盘 16 GB），对外地址 **`https://auth.stayloop.ai`**（自定义域名；`*.supabase.co` 仍可用）。Auth 隐式流（`lib/supabase.ts`、`lib/useAuth.ts`）
 - 模型：全部调用经 `lib/llmChat.ts`（`llmChat` / `llmChatStream`，记账写 `ai_usage`）。槽位默认值在 `app_config.models`（2026-10：turn = gemini-3.7-flash、screening = gpt-5.4、classify = claude-sonnet-4-6、forensics = claude-haiku-4-5），管理员在 `/admin/models` 改，用户在 `/settings/models` 自选覆盖。目录 `model_catalog` 每周一自动发现新模型（pg_cron）
-- 邮件：Resend（应用通知 + Supabase Auth SMTP）。回复邮件经 `reply.stayloop.ai` → Email Worker `workers/reply-email` → `/api/threads/inbound`
+- 邮件：Resend（应用通知 + Supabase Auth SMTP，发件人 `notifications@stayloop.ai`，DKIM / SPF 与域名对齐）。回复邮件经 `reply.stayloop.ai` → Email Worker `workers/reply-email` → `/api/threads/inbound`。收信是 Cloudflare Email Routing（只转发，没有邮箱）。**DMARC 2026-11-04 起 `p=none` + 报告**（Cloudflare 后台 Email → DMARC Management 看报告）；报告干净约两周后收紧到 `quarantine`，再到 `reject`。`.env.local` 的 Cloudflare 令牌没有 DNS / 邮件路由权限，这类改动走后台。
 - 支付：Stripe **LIVE**（房东 Pro $19 CAD/月、单次解锁 $14.99）
 - 推送：自写 Web Push（`lib/push/`，VAPID 无库实现）
 - 地图：Google Maps；交通站点 OpenStreetMap（Nominatim + Overpass）
