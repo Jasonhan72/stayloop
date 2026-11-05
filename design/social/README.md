@@ -34,17 +34,23 @@
 
 ## 3. 图片素材
 
-都在 [`assets/`](assets/)，由 `build.sh` 从 `banner.template.html` / `avatar.template.html` 生成（字标、配色、首页渐变底、首页主图与主副标题都取自线上站点）。要改文案或尺寸就改模板再跑一次：
+都在 [`assets/`](assets/)，由 `build.sh` 从 `banner.template.html` / `avatar.template.html` 生成。字标、配色、首页渐变底、主标题都取自线上站点；横幅右侧四张图是首页四个身份的 3D 场景（租客、房东、经纪、服务商），标签用各自的身份色。要改文案或尺寸就改模板再跑一次：
 
 ```bash
 bash design/social/build.sh
 ```
 
+横幅现在用的是「四个身份场景卡」（2026-11-05 选定）。模板里还留着另外三个方向，想换就带上 `VARIANT`：`a` 浅色底加多伦多雾景照片、`c` 深色底单张看房场景、`d` 不用照片的纯文字。
+
+```bash
+VARIANT=c bash design/social/build.sh
+```
+
 | 文件 | 用在哪里 |
 |---|---|
 | `avatar-1024.png` | 全部八个平台的头像。一行字标、白底，四周留白按圆形裁切算过 |
-| `x-header-1500x500-en.png` / `-zh.png` | X 顶部横幅。左下角留给头像 |
-| `linkedin-cover-1128x191-en.png` / `-zh.png` | LinkedIn 公司主页封面 |
+| `x-header-1500x500-en.png` / `-zh.png` | X 顶部横幅。左侧留空给头像 |
+| `linkedin-cover-1128x191-en.png` / `-zh.png` | LinkedIn 公司主页封面。高度只有 191，四张图排成一行、不带标签 |
 | `facebook-cover-1640x624-en.png` / `-zh.png` | Facebook 主页封面。内容在中间 67%，手机端不会被裁掉 |
 | `youtube-banner-2560x1440-en.png` / `-zh.png` | YouTube 频道横幅。内容在中间 1546×423 安全区 |
 

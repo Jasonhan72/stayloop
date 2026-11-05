@@ -13,47 +13,120 @@ body {
   color: #1B1B3C;
   -webkit-font-smoothing: antialiased;
 }
-#safe { position: absolute; display: flex; align-items: center; gap: calc(var(--u) * 0.9); }
-#photo { flex: 0 0 auto; height: 100%; border-radius: calc(var(--u) * 0.32); overflow: hidden; box-shadow: 0 calc(var(--u) * 0.25) calc(var(--u) * 0.8) rgba(27,27,60,0.16); }
-#photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 49%; display: block; }
+#safe { position: absolute; display: flex; align-items: center; gap: calc(var(--g) * 1px); }
 #text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; white-space: nowrap; }
 .wm { font-weight: 800; letter-spacing: -0.04em; line-height: 1; font-size: calc(var(--u) * 1.5); }
 .wm .accent { background: linear-gradient(90deg, #1B1B3C 0%, #00ACE4 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .hl { font-weight: 700; letter-spacing: -0.02em; line-height: 1.12; font-size: calc(var(--u) * 1); margin-top: calc(var(--u) * 0.55); }
 .hl em { font-style: normal; color: #00ACE4; }
 .sub { font-weight: 500; line-height: 1.25; font-size: calc(var(--u) * 0.5); margin-top: calc(var(--u) * 0.3); color: #55607A; }
-.url { font-weight: 600; font-size: calc(var(--u) * 0.42); margin-top: calc(var(--u) * 0.5); color: #1B1B3C; letter-spacing: 0.01em; }
-body.compact .sub, body.compact .url { display: none; }
-body.compact .hl { margin-top: calc(var(--u) * 0.35); }
+.url { font-weight: 600; font-size: calc(var(--u) * 0.42); margin-top: calc(var(--u) * 0.5); letter-spacing: 0.01em; }
+.roles { display: flex; gap: calc(var(--u) * 0.22); margin-top: calc(var(--u) * 0.6); }
+.pill { font-weight: 700; font-size: calc(var(--u) * 0.36); line-height: 1; color: #fff; padding: calc(var(--u) * 0.17) calc(var(--u) * 0.3); border-radius: 999px; }
+.hide { display: none !important; }
+
+/* media side */
+#media { flex: 0 0 auto; height: 100%; }
+.card { position: relative; border-radius: calc(var(--r) * 1px); overflow: hidden; box-shadow: 0 6px 22px rgba(27,27,60,0.16); }
+.card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#media.one .card { width: 100%; height: 100%; }
+#media.grid { display: grid; gap: calc(var(--g) * 0.28px); }
+#media.grid .card { width: 100%; height: 100%; min-height: 0; }
+.card .tag { position: absolute; left: 7%; bottom: 8%; font-weight: 700; color: #fff; line-height: 1; padding: 0.42em 0.75em; border-radius: 999px; font-size: calc(var(--t) * 1px); }
+
+/* v=c: dark */
+body.dark { background: radial-gradient(120% 140% at 85% 50%, #123A63 0%, #1B1B3C 55%, #14142E 100%); color: #FFFFFF; }
+body.dark .wm .accent { background: linear-gradient(90deg, #FFFFFF 0%, #00ACE4 100%); -webkit-background-clip: text; background-clip: text; }
+body.dark .sub { color: #B9C4DA; }
+body.dark .card { box-shadow: 0 10px 34px rgba(0,0,0,0.45); }
+/* v=c and v=d: the one-line promise is the headline */
+body.promise .hl { font-weight: 700; }
+/* v=d: type only */
+body.type .wm { font-size: calc(var(--u) * 0.95); }
+body.type .hl { font-size: calc(var(--u) * 1.75); margin-top: calc(var(--u) * 0.5); letter-spacing: -0.03em; }
 </style>
 </head>
 <body>
 <div id="safe">
-  <div id="photo"><img src="../../public/home/hero-mist.jpg" alt=""></div>
   <div id="text">
     <div class="wm">Stay<span class="accent">loop.AI</span></div>
-    <div class="hl" data-en="Leave renting to <em>an AI Agent</em>" data-zh="租房的事，交给<em>AI助理</em>"></div>
-    <div class="sub" data-en="From search to renewal: it does the work, you approve." data-zh="找房到续约，它去办，你来批准。"></div>
+    <div class="hl"></div>
+    <div class="sub"></div>
+    <div class="roles"></div>
     <div class="url">www.stayloop.ai</div>
   </div>
+  <div id="media"></div>
 </div>
 <script>
-// ?lang=en|zh&sx=&sy=&sw=&sh=&photo=<fraction of safe width>&compact=1
+// ?v=a|b|c|d&lang=en|zh&sx=&sy=&sw=&sh=&photo=<fraction of safe width>&compact=1
+//   a  light, misty skyline card on the left, headline + promise + url
+//   b  light, the four role scenes from the homepage (tenant / landlord / realtor / provider), headline only
+//   c  dark, one scene card on the right, the promise as the headline
+//   d  type only: small wordmark, big headline, role pills
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? Number(q.get(k)) : d);
+const v = (q.get('v') || 'a').toLowerCase();
 const lang = q.get('lang') === 'zh' ? 'zh' : 'en';
+const compact = q.get('compact') === '1';
 document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
-if (q.get('compact') === '1') document.body.classList.add('compact');
-for (const el of document.querySelectorAll('[data-en]')) el.innerHTML = el.dataset[lang];
+const T = {
+  headline: { en: 'Leave renting to <em>an AI Agent</em>', zh: '租房的事，交给<em>AI助理</em>' },
+  promise:  { en: 'From search to renewal: it does the work, you approve.', zh: '找房到续约，它去办，你来批准。' },
+  promiseHl:{ en: 'From search to renewal:<br>it does the work, <em>you approve.</em>', zh: '找房到续约，<br>它去办，<em>你来批准。</em>' },
+};
+const ROLES = [
+  { en: 'Tenant',   zh: '租客',   color: '#7C3AED', img: 'film/mia-sofa.webp',        pos: '50% 30%' },
+  { en: 'Landlord', zh: '房东',   color: '#047857', img: 'film/sarah-report.webp',    pos: '32% 35%' },
+  { en: 'Realtor',  zh: '经纪',   color: '#2563EB', img: 'film/david-lobby.webp',     pos: '76% 25%' },
+  { en: 'Provider', zh: '服务商', color: '#C2410C', img: 'film/provider-repair.webp', pos: '36% 30%' },
+];
+const IMG = '../../public/home/';
+const $ = (s) => document.querySelector(s);
+const safe = $('#safe'), text = $('#text'), media = $('#media');
 const W = innerWidth, H = innerHeight;
 const sx = num('sx', 0), sy = num('sy', 0), sw = num('sw', W), sh = num('sh', H);
-const safe = document.getElementById('safe'), photo = document.getElementById('photo'), text = document.getElementById('text');
 Object.assign(safe.style, { left: sx + 'px', top: sy + 'px', width: sw + 'px', height: sh + 'px' });
-photo.style.width = Math.round(sw * num('photo', 0.34)) + 'px';
+const root = document.documentElement.style;
+root.setProperty('--g', sh * 0.16);
+root.setProperty('--r', Math.max(8, sh * 0.06));
+const card = (src, pos) => `<div class="card"><img src="${IMG}${src}" style="object-position:${pos}" alt=""></div>`;
+const hide = (...sel) => sel.forEach((s) => $(s).classList.add('hide'));
+const pills = () => ROLES.map((r) => `<span class="pill" style="background:${r.color}">${r[lang]}</span>`).join('');
+
+$('.hl').innerHTML = T.headline[lang];
+$('.sub').textContent = T.promise[lang];
+if (v === 'a') {
+  hide('.roles');
+  if (compact) hide('.sub', '.url');
+  media.className = 'one'; media.style.order = -1;
+  media.style.width = Math.round(sw * num('photo', 0.34)) + 'px';
+  media.innerHTML = card('hero-mist.jpg', '50% 49%');
+} else if (v === 'b') {
+  hide('.sub', '.url', '.roles');
+  media.className = 'grid';
+  media.style.width = Math.round(sw * num('photo', 0.52)) + 'px';
+  media.style.gridTemplateColumns = compact ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)';
+  media.style.gridTemplateRows = compact ? '1fr' : 'repeat(2, 1fr)';
+  root.setProperty('--t', compact ? 0 : Math.max(11, sh * 0.04));
+  media.innerHTML = ROLES.map((r) => `<div class="card"><img src="${IMG}${r.img}" style="object-position:${r.pos}" alt="">${compact ? '' : `<span class="tag" style="background:${r.color}">${r[lang]}</span>`}</div>`).join('');
+} else if (v === 'c') {
+  document.body.classList.add('dark', 'promise');
+  hide('.sub', '.url', '.roles');
+  $('.hl').innerHTML = compact ? T.promise[lang] : T.promiseHl[lang];
+  media.className = 'one';
+  media.style.width = Math.round(sw * num('photo', 0.44)) + 'px';
+  media.innerHTML = card('film/showing.webp', '50% 30%');
+} else {
+  document.body.classList.add('type');
+  hide('.sub', '#media');
+  if (compact) hide('.url'); 
+  $('.roles').innerHTML = pills();
+  hide('.url');
+}
 // Largest unit at which the text column fits the safe box in both directions.
-let u = sh / 3;
-const fits = () => text.scrollWidth <= text.clientWidth + 0.5 && [...text.children].reduce((h, c) => h + c.getBoundingClientRect().height + parseFloat(getComputedStyle(c).marginTop), 0) <= sh;
-const set = () => document.documentElement.style.setProperty('--u', u + 'px');
+let u = sh / 2.2;
+const fits = () => text.scrollWidth <= text.clientWidth + 0.5 && [...text.children].reduce((h, c) => h + (c.classList.contains('hide') ? 0 : c.getBoundingClientRect().height + parseFloat(getComputedStyle(c).marginTop)), 0) <= sh;
+const set = () => root.setProperty('--u', u + 'px');
 set();
 document.fonts.ready.then(() => { while (!fits() && u > 4) { u *= 0.98; set(); } document.title = 'ready u=' + u.toFixed(1); });
 </script>
