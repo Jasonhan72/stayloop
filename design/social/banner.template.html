@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stayloop social banner</title>
+<style>
+@font-face { font-family: 'Inter Tight'; font-weight: 400 800; src: url(data:font/woff2;base64,__FONT__) format('woff2'); }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+body {
+  background: linear-gradient(180deg, #E9F5FD 0%, #FFFFFF 100%);
+  font-family: 'Inter Tight', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  color: #1B1B3C;
+  -webkit-font-smoothing: antialiased;
+}
+#safe { position: absolute; display: flex; align-items: center; gap: calc(var(--u) * 0.9); }
+#photo { flex: 0 0 auto; height: 100%; border-radius: calc(var(--u) * 0.32); overflow: hidden; box-shadow: 0 calc(var(--u) * 0.25) calc(var(--u) * 0.8) rgba(27,27,60,0.16); }
+#photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 49%; display: block; }
+#text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; white-space: nowrap; }
+.wm { font-weight: 800; letter-spacing: -0.04em; line-height: 1; font-size: calc(var(--u) * 1.5); }
+.wm .accent { background: linear-gradient(90deg, #1B1B3C 0%, #00ACE4 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.hl { font-weight: 700; letter-spacing: -0.02em; line-height: 1.12; font-size: calc(var(--u) * 1); margin-top: calc(var(--u) * 0.55); }
+.hl em { font-style: normal; color: #00ACE4; }
+.sub { font-weight: 500; line-height: 1.25; font-size: calc(var(--u) * 0.5); margin-top: calc(var(--u) * 0.3); color: #55607A; }
+.url { font-weight: 600; font-size: calc(var(--u) * 0.42); margin-top: calc(var(--u) * 0.5); color: #1B1B3C; letter-spacing: 0.01em; }
+body.compact .sub, body.compact .url { display: none; }
+body.compact .hl { margin-top: calc(var(--u) * 0.35); }
+</style>
+</head>
+<body>
+<div id="safe">
+  <div id="photo"><img src="../../public/home/hero-mist.jpg" alt=""></div>
+  <div id="text">
+    <div class="wm">Stay<span class="accent">loop.AI</span></div>
+    <div class="hl" data-en="Leave renting to <em>an AI Agent</em>" data-zh="租房的事，交给<em>AI助理</em>"></div>
+    <div class="sub" data-en="From search to renewal: it does the work, you approve." data-zh="找房到续约，它去办，你来批准。"></div>
+    <div class="url">www.stayloop.ai</div>
+  </div>
+</div>
+<script>
+// ?lang=en|zh&sx=&sy=&sw=&sh=&photo=<fraction of safe width>&compact=1
+const q = new URLSearchParams(location.search);
+const num = (k, d) => (q.has(k) ? Number(q.get(k)) : d);
+const lang = q.get('lang') === 'zh' ? 'zh' : 'en';
+document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+if (q.get('compact') === '1') document.body.classList.add('compact');
+for (const el of document.querySelectorAll('[data-en]')) el.innerHTML = el.dataset[lang];
+const W = innerWidth, H = innerHeight;
+const sx = num('sx', 0), sy = num('sy', 0), sw = num('sw', W), sh = num('sh', H);
+const safe = document.getElementById('safe'), photo = document.getElementById('photo'), text = document.getElementById('text');
+Object.assign(safe.style, { left: sx + 'px', top: sy + 'px', width: sw + 'px', height: sh + 'px' });
+photo.style.width = Math.round(sw * num('photo', 0.34)) + 'px';
+// Largest unit at which the text column fits the safe box in both directions.
+let u = sh / 3;
+const fits = () => text.scrollWidth <= text.clientWidth + 0.5 && [...text.children].reduce((h, c) => h + c.getBoundingClientRect().height + parseFloat(getComputedStyle(c).marginTop), 0) <= sh;
+const set = () => document.documentElement.style.setProperty('--u', u + 'px');
+set();
+document.fonts.ready.then(() => { while (!fits() && u > 4) { u *= 0.98; set(); } document.title = 'ready u=' + u.toFixed(1); });
+</script>
+</body>
+</html>

@@ -181,4 +181,5 @@ CLAUDE.md 在 2026-10-18 瘦身。原来按日期写的 136 节原样搬到这�
 | 2026-10-31 | iCloud 占位重复文件长期修复：`scripts/icloud-nosync.sh` 删「name N.ext」+ 标 `fileprovider.ignore`，接 `npm predev` 与 ship 脚本构建前后；守卫 `icloudNosync20261031` | `2026-10.md` |
 | 2026-10-31 | 系统体检：全绿；修 `settle_referral_commission` 被 20260708 重新授给 authenticated（撤销）、3 对重复索引；顾问其余项逐条说明为何不动 | `2026-10.md` |
 | 2026-11-04 | 邮件：DMARC `p=none` + 报告上线（Cloudflare DMARC Management），三步收紧计划；`social@` 转发表单待用户保存；Cloudflare Email Sending 调研（公测、事务性、无邮箱） | `2026-10.md` |
+| 2026-11-04 | 社交媒体账号资料包 `design/social/`：统一用户名 `stayloopai`、头像与四个平台横幅（中英）、八个平台的简介与注册清单 | `2026-10.md` |
 | — | Preferences | `2026-09-b.md` |

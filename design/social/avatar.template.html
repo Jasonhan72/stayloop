@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stayloop social avatar</title>
+<style>
+@font-face { font-family: 'Inter Tight'; font-weight: 400 800; src: url(data:font/woff2;base64,__FONT__) format('woff2'); }
+* { margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #FFFFFF; }
+body { display: flex; align-items: center; justify-content: center; font-family: 'Inter Tight', sans-serif; color: #1B1B3C; -webkit-font-smoothing: antialiased; }
+.wm { font-weight: 800; letter-spacing: -0.04em; line-height: 1; white-space: nowrap; font-size: 100px; }
+.wm .accent { background: linear-gradient(90deg, #1B1B3C 0%, #00ACE4 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+#ring { position: absolute; inset: 0; border-radius: 50%; border: 2px dashed #E11D48; display: none; }
+</style>
+</head>
+<body>
+<div class="wm" id="wm">Stay<span class="accent">loop.AI</span></div>
+<div id="ring"></div>
+<script>
+// ?fill=<wordmark width as a fraction of the canvas>&ring=1 (show the circular crop)
+const q = new URLSearchParams(location.search);
+const fill = q.has('fill') ? Number(q.get('fill')) : 0.7;
+if (q.get('ring') === '1') document.getElementById('ring').style.display = 'block';
+const wm = document.getElementById('wm');
+document.fonts.ready.then(() => {
+  const w = wm.getBoundingClientRect().width;
+  wm.style.fontSize = (100 * (innerWidth * fill) / w) + 'px';
+  document.title = 'ready';
+});
+</script>
+</body>
+</html>
