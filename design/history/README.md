@@ -183,4 +183,5 @@ CLAUDE.md 在 2026-10-18 瘦身。原来按日期写的 136 节原样搬到这�
 | 2026-11-04 | 邮件：DMARC `p=none` + 报告上线（Cloudflare DMARC Management），三步收紧计划；`social@` 转发表单待用户保存；Cloudflare Email Sending 调研（公测、事务性、无邮箱） | `2026-10.md` |
 | 2026-11-04 | 社交媒体账号资料包 `design/social/`：统一用户名 `stayloopai`、头像与四个平台横幅（中英）、八个平台的简介与注册清单 | `2026-10.md` |
 | 2026-11-15 | 全站代码审查（S0 1 / S1 5 / S2 31 / S3 32）与 S0 + S1 修复上线（ship101）：导出过滤注入、LTB 查询身份判断、房东行禁删、`ilikeExact`、`afterResponse`、房东邮件回复房源咨询；node@22 因 simdjson 升级崩溃与 node 26 的连带修复 | `2026-11.md` |
+| 2026-11-15 | 代码审查 S2 修 27 / 31（ship102）：卡片守卫触发器、tenants 守卫、对话保存带版本合并、哈希链先锁后取号、发信端点全站桶、`sameSitePath`、外省工单通知等；4 条等用户决定 | `2026-11.md` |
 | — | Preferences | `2026-09-b.md` |

@@ -68,6 +68,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - **筛查只给房东或 RECO 注册有效的经纪**（`lib/screening/roleGate.ts`，触发器 `guard_screening_role` + 四个路由）。客户确认的委托可选，用来让客户也看到报告。
 - **帽子与活动帽子分开**：资格由 `my_hats()` RPC 给出（`lib/useHats.ts`，`heldHat / activeHat` 是唯一谓词），活动帽子按路由前缀（`lib/activeRole.ts`）。**页面加载永不开通房东帽子**，只有 `/landlord/become`、起名页选房东、发布房源才 `claim_landlord`；计费路由对没有房东帽子的账号返回 403。页头「我是…」显示身份由 `lib/displayIdentity.ts` 决定，权限永远只看帽子。
 - **一个用户一个 AI 助理**：名字 / 头像 / 人设 / 风格存 `assistant_profiles`，记忆按身份存、读全部身份，反思画像一人一份（`user_memories` role `self`）。未起名时中文自称「AI 助理」、英文「AI Agent」（`lib/agent/assistantName.ts`）。
+- **待批卡只能经 `decide_pending_action` 批准**：`agent_pending_actions` 上有守卫触发器，客户端直接改只能编辑待批卡、撤销（approved → pending）或作废；已执行的卡只读。新增客户端写法前先对照 `20261115b_code_review_s2.sql`。
 - **待批卡只能提议有执行器的动作**（`EXECUTABLE_ACTION_TYPES`）。租客模型只能提 `maintenance_request` 与带正文的 `send_message`；**房东与经纪的模型不出卡**。执行器批准前重新核对事实，失效即 409 + `expired`。批准后 60 秒可撤销（`UNDO_MS`）；关页面后续跑 / 待办页「现在执行」。
 - **人与人的消息只追加**：`thread_messages` 对所有角色（含 service role）拒绝 UPDATE / DELETE / TRUNCATE，撤回 = 新增一行；每条带哈希链（格式 `stayloop-thread-v1`，`lib/threads/hashChain.ts` 逐字节复现——**改格式会让历史链失效，要改就加 v2**）。当事人判定只在 `party_for()`；对外一律经中转地址，不暴露私人邮箱。
 - **Stayloop 不经手资金**：不做在线收租 / 代收 / 抽成（FINTRAC + RPAA）。租金记录只经 `mark_rent_paid` / `confirm_rent_payment` / `/api/rent/evidence`；服务商付款线下。
@@ -85,7 +86,8 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 页面主容器统一 `max-w-[1320px] px-6 sm:px-8 lg:px-12`（与页头对齐）。
 - 中文标题只在标点 / 空格处断行（`.sl-type-head`，keep-all）；超过约 10 个字没有标点的一段要放零宽空格断点。**WebKit 下相邻的 nowrap span 不会换行**，测首页断行要同时跑 WebKit。
 - 给思考型模型的结构化输出调用留足 `max_tokens`（推理会先吃掉预算导致 JSON 截断）。
-- 发信类限流 fail-closed、成本类 fail-open（`lib/rateLimit.ts underHourlyLimit`）；匿名面都要有全站总闸。
+- 发信类限流 fail-closed、成本类 fail-open（`lib/rateLimit.ts underHourlyLimit`）；匿名面都要有全站总闸。**会发信的端点用 `underMailLimits`**（调用者桶 + 全站桶），按 IP 归桶用 `ipBucket`（IPv6 按 /64）。
+- `?next=` / `?redirect=` 一律过 `lib/auth/sameSitePath.ts`（「以 / 开头且不以 // 开头」挡不住制表符）。
 - 外部失败（429 / 超时）不能当成「没有结果」缓存；Overpass 查站点用 `nwr` + `out center`。
 - Worker 的响应不经过 zone 的 CDN 缓存（`s-maxage` 无效），要缓存用 Workers Cache API（`caches.default`）。
 - **响应返回后还要做的事（推送、通知邮件、派单建议）一律 `afterResponse(…)`**（`lib/afterResponse.ts`，挂 `waitUntil`）：Worker 上裸写 `void notifyUser(…)` 会随响应一起被取消，本地却一切正常。cron 路由里直接 `await`。守卫 `codeReview20261115` 会扫。
