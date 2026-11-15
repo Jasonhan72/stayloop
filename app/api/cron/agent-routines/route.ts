@@ -19,6 +19,7 @@ import { appendToThread } from '@/lib/agent/threads'
 import { daysUntilDueDay, dueDateIso, nextRunAt, routineDef, torontoParts, type RoutineRow } from '@/lib/agent/routines'
 import type { ChatMessage } from '@/lib/agent/types'
 import { notifyUser } from '@/lib/push/notify'
+import { ilikeExact } from '@/lib/db/ilikeExact'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 const ROW_COLS = 'id, user_id, role, kind, title, params, schedule, next_run_at, last_run_at, last_result, enabled, created_at'
@@ -201,7 +202,7 @@ async function runOne(svc: SupabaseClient, r: Row, now: Date): Promise<RunResult
     const left = daysUntilDueDay(dueDay, now)
     if (left > num(p.days_before, 3)) return { ok: true, count: 0, note: `due in ${left} days — not yet` }
     const email = await userEmail(svc, r.user_id)
-    const { data } = email ? await svc.from('lease_documents').select('unit_label, monthly_rent, status, end_date').ilike('tenant_email', email).in('status', [...IN_FORCE_STATUSES]).order('created_at', { ascending: false }).limit(3) : { data: [] }
+    const { data } = email ? await svc.from('lease_documents').select('unit_label, monthly_rent, status, end_date').ilike('tenant_email', ilikeExact(email)).in('status', [...IN_FORCE_STATUSES]).order('created_at', { ascending: false }).limit(3) : { data: [] }
     const leases = ((data ?? []) as { unit_label: string | null; monthly_rent: number | null; end_date: string | null }[]).filter((l) => !l.end_date || l.end_date >= todayIso)
     const dueDate = dueDateIso(dueDay, now)
     const lines = leases.length ? leases.map((l) => `· ${l.unit_label || '你的单元'} · ${money(l.monthly_rent)} · ${dueDate} 到期`) : [`· ${dueDate} 是约定的交租日（Stayloop 里没有你的在管租约，金额以租约为准）。`]

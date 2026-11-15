@@ -22,6 +22,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import type { LeaseImportExtraction } from '@/lib/household/importExtract'
 import { sameTenancyAddress } from '@/lib/lease/householdMatch'
+import { emailShapeOk, EMAIL_SHAPE_MESSAGE } from '@/lib/validation/emailShape'
 
 type Role = 'landlord' | 'tenant' | 'agent'
 type Step = 'role' | 'files' | 'confirm' | 'invite' | 'done'
@@ -131,6 +132,7 @@ export default function LeaseImportPage() {
   async function correctHousehold(h: MyHousehold) {
     setError(null)
     if (form.address.trim().length < 5) { setError(zh ? '请填写房屋地址' : 'Address is required'); return }
+    if (!emailShapeOk(form.tenant_email)) { setError(zh ? EMAIL_SHAPE_MESSAGE.zh : EMAIL_SHAPE_MESSAGE.en); return }
     setCreating(true)
     try {
       const { error: rpcErr } = await supabase.rpc('update_household_import', {
@@ -222,6 +224,7 @@ export default function LeaseImportPage() {
       setError(zh ? '请填写房屋地址' : 'Address is required')
       return
     }
+    if (!emailShapeOk(form.tenant_email)) { setError(zh ? EMAIL_SHAPE_MESSAGE.zh : EMAIL_SHAPE_MESSAGE.en); return }
     if (editing) { await correctHousehold(editing); return }
     setCreating(true)
     try {

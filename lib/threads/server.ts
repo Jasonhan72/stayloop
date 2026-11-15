@@ -414,6 +414,13 @@ async function tokenStillParty(admin: Admin, row: { thread_id: string; email: st
   }
   if (th.kind === 'listing_inquiry') {
     if (row.party_kind === 'tenant') return !!row.user_id && row.user_id === th.subject_user
+    // The notice email gives the listing's landlord a reply address too (notifyThreadParties);
+    // refusing it here dropped their reply without a trace (code review 2026-11-15, S1-5).
+    // Same re-check as the application branch: still the landlord of that listing, today.
+    if (row.party_kind === 'landlord' && row.user_id) {
+      const people = await threadParties(admin, { id: row.thread_id, kind: th.kind, ref_id: th.ref_id, household_id: null, title: null, listing_id: th.listing_id, subject_user: th.subject_user })
+      return people.some((p) => p.kind === 'landlord' && p.userId === row.user_id)
+    }
     return false
   }
   if (th.kind === 'agent_client') {

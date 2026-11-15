@@ -5,6 +5,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
+import { afterResponse } from '@/lib/afterResponse'
 import { canAct, entryCancelText, entryNoticeText, entryWindowProblem, invoiceWithinEstimate, mergeCompletion, mergeQuote, quoteExpired, quoteStillAsSeen, resolveEntryPermission, TICKET_STATUS_FOR, validateQuote, type ActorKind, type WoAction, type WorkOrderStatus } from './workOrders'
 import { clampGraceDays, providerEligible, tradeForCategory, TRADES, type Trade, isProfessionalTrade } from './trades'
 import { declineText, quoteDueAt, validateDecline } from './sla'
@@ -168,7 +169,7 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   }).select('*').single()
   if (error || !wo) return { ok: false, error: error?.message || 'insert failed', status: 500 }
   await event(admin, wo.id, i.actor ?? 'landlord', i.landlordAuthId, 'offered', { provider_id: provider?.id ?? null, external_email: wo.external_email, trade, emergency })
-  void ensureMatter(admin, 'work_order', wo.id) // 节点 5: hangs off the household's rental matter
+  afterResponse(ensureMatter(admin, 'work_order', wo.id)) // 节点 5: hangs off the household's rental matter
   // A suggestion card for this ticket is now moot (the landlord dispatched by hand or via another card).
   // Expired before the ticket status changes: the A3 trigger would otherwise retire it first, as
   // 'ticket_status_changed', and the more specific 'dispatched' could never be shown.
@@ -193,7 +194,7 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
     const replyTo = await relayReplyTo(admin, wo as WorkOrderRow, to, provider ? 'provider' : 'external', provider?.auth_id ?? null, provider ? (provider.trade_name || provider.legal_name) : (i.externalName || null), ctx.ticket.title)
     await sendEmail({ to, subject, html, text, replyTo, fromName: '房东 经 Stayloop' })
   }
-  if (provider?.auth_id) void notifyUser(admin, provider.auth_id, { kind: 'approval', title: `新工单 / New work order · ${ctx.ticket.title}`, body: unit, url: '/provider/jobs' })
+  if (provider?.auth_id) afterResponse(notifyUser(admin, provider.auth_id, { kind: 'approval', title: `新工单 / New work order · ${ctx.ticket.title}`, body: unit, url: '/provider/jobs' }))
   return { ok: true, wo: wo as WorkOrderRow }
 }
 
@@ -355,7 +356,7 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
         const r = await actOnWorkOrder(admin, { woId: wo.id, action: 'approve_quote', by: 'landlord', actorId: wo.landlord_auth_id, payload: { expected_amount: wo.quote_amount, expected_version: wo.quote_version, auto_policy: true } })
         if (r.ok) {
           await admin.from('agent_audit_events').insert({ actor_id: wo.landlord_auth_id, actor_type: 'system', action: 'work_order_quote_auto_approved', target_type: 'work_order', target_id: wo.id, metadata: { amount: wo.quote_amount, cap: policy.emergency_cap } })
-          void notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `紧急报价 ${money(wo.quote_amount)} 已按预授权批准 / Pre-approved`, body: `${prov.name} · ${ctx.ticket.title}`, url: landlordUrl })
+          afterResponse(notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `紧急报价 ${money(wo.quote_amount)} 已按预授权批准 / Pre-approved`, body: `${prov.name} · ${ctx.ticket.title}`, url: landlordUrl }))
           return
         }
         console.warn('[marketplace] emergency auto-approve failed, falling back to a card:', r.error)
@@ -376,10 +377,10 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
         recipient_label: ctx.tenantEmails[0] ?? null, data_scope: ['工单', '报价', '进入时间'], excluded_data: ['租约', '筛查报告'], risk_level: 'low', status: 'pending', requires_approval: true,
         metadata: meta,
       })
-      void notifyUser(admin, wo.landlord_auth_id, { kind: 'approval', title: `报价 ${money(wo.quote_amount)} · ${ctx.ticket.title}`, body: prov.name, url: '/landlord/todo' })
+      afterResponse(notifyUser(admin, wo.landlord_auth_id, { kind: 'approval', title: `报价 ${money(wo.quote_amount)} · ${ctx.ticket.title}`, body: prov.name, url: '/landlord/todo' }))
     }
     if (i.action === 'decline') {
-      void notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `服务商婉拒 · ${ctx.ticket.title}`, body: `${prov.name} · ${declineText(wo.decline_code, wo.cancel_reason, true)}`, url: landlordUrl })
+      afterResponse(notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `服务商婉拒 · ${ctx.ticket.title}`, body: `${prov.name} · ${declineText(wo.decline_code, wo.cancel_reason, true)}`, url: landlordUrl }))
       // 节点 3: a decline is not a dead end — the landlord gets the next candidate at once
       // (a card, or an auto-dispatch under their policy), never the one who declined.
       await suggestDispatch(admin, wo.landlord_auth_id, wo.ticket_id, { excludeProviderIds: wo.provider_id ? [wo.provider_id] : [], because: 'declined' })
@@ -407,16 +408,16 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
         // No tenant email on the household (an emergency with nobody joined yet): no notice went out — record that too.
         await admin.from('compliance_events').insert({ user_id: wo.landlord_auth_id, role: 'landlord', source: 'work_order', rule_id: wo.emergency ? 'RTA-26-emergency-entry' : 'RTA-27-entry-notice', severity: 'info', target_type: 'work_order', target_id: wo.id, metadata: { household_id: wo.household_id, notice_sent: false, reason: 'no_tenant_email' } }).then(() => undefined, () => undefined)
       }
-      for (const uid of ctx.tenantAuthIds) void notifyUser(admin, uid, { kind: 'event', title: `进入通知 · ${ctx.ticket.title}`, body: notice.subject, url: `/h/${wo.household_id}` })
+      for (const uid of ctx.tenantAuthIds) afterResponse(notifyUser(admin, uid, { kind: 'event', title: `进入通知 · ${ctx.ticket.title}`, body: notice.subject, url: `/h/${wo.household_id}` }))
       const cSubject = `报价已批准 · ${ctx.ticket.title} · ${unit} / Quote approved`
       const cBody = `房东已批准您的报价 ${money(wo.approved_amount)}。地址：${unit}。${wo.entry_permission === 'tenant_present' ? '须租客在场。' : wo.entry_permission === 'call_first' ? '进入前请先电话联系租客。' : ''}到场后请在工单页点「已到场」，完工后上传说明与账单。\n${wo.provider_id ? `${SITE()}/provider/jobs` : `${SITE()}/w/${wo.token}`}\n\nQuote ${money(wo.approved_amount)} approved. Address: ${unit}. Tap "Arrived" on the job page when on site; add notes and the invoice when done.`
       if (prov.email) { const { html, text } = renderAgentMessageEmail({ subject: cSubject, body: cBody }); await sendEmail({ to: prov.email, subject: cSubject, html, text, replyTo: provReplyTo, fromName: '房东 经 Stayloop' }) }
-      if (prov.authId) void notifyUser(admin, prov.authId, { kind: 'event', title: '报价已批准 / Quote approved', body: `${ctx.ticket.title} · ${unit}`, url: '/provider/jobs' })
+      if (prov.authId) afterResponse(notifyUser(admin, prov.authId, { kind: 'event', title: '报价已批准 / Quote approved', body: `${ctx.ticket.title} · ${unit}`, url: '/provider/jobs' }))
     }
     if (i.action === 'reject_quote' || i.action === 'cancel') {
       const subj = `工单已取消 · ${ctx.ticket.title} / Work order cancelled`
       if (prov.email && i.by === 'landlord') { const { html, text } = renderAgentMessageEmail({ subject: subj, body: `房东取消了这张工单。${wo.cancel_reason ? `原因：${wo.cancel_reason}` : ''}\n\nThe landlord cancelled this work order.` }); await sendEmail({ to: prov.email, subject: subj, html, text }) }
-      if (i.by !== 'landlord') void notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `服务商取消 · ${ctx.ticket.title}`, body: prov.name, url: landlordUrl })
+      if (i.by !== 'landlord') afterResponse(notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `服务商取消 · ${ctx.ticket.title}`, body: prov.name, url: landlordUrl }))
     }
     if (i.action === 'cancel' && wo.entry_notice_sent_at) {
       // The tenant was formally told someone would enter (email + push + a copy in
@@ -434,11 +435,11 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
       }
       const th = await ensureThread(admin, 'work_order', wo.id, { householdId: wo.household_id, title: ctx.ticket.title, createdBy: wo.landlord_auth_id })
       if (th) await postSystemMessage(admin, th.id, { kind: 'formal_copy', senderKind: 'system', senderLabel: 'Stayloop · 进入取消 / Entry cancelled', body: `${off.subject}\n\n${off.body}`, meta: { notice: 'entry_cancelled', sent_to: sentTo, sent: sentTo.length > 0, by: i.by } })
-      for (const uid of ctx.tenantAuthIds) void notifyUser(admin, uid, { kind: 'event', title: `进入取消 · ${ctx.ticket.title} / Entry cancelled`, body: off.subject, url: `/h/${wo.household_id}?tab=maintenance` })
+      for (const uid of ctx.tenantAuthIds) afterResponse(notifyUser(admin, uid, { kind: 'event', title: `进入取消 · ${ctx.ticket.title} / Entry cancelled`, body: off.subject, url: `/h/${wo.household_id}?tab=maintenance` }))
     }
     if (i.action === 'arrive') {
-      for (const uid of ctx.tenantAuthIds) void notifyUser(admin, uid, { kind: 'event', title: `服务商已到场 · ${ctx.ticket.title}`, body: prov.name, url: `/h/${wo.household_id}` })
-      void notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `已到场 · ${ctx.ticket.title}`, body: prov.name, url: landlordUrl })
+      for (const uid of ctx.tenantAuthIds) afterResponse(notifyUser(admin, uid, { kind: 'event', title: `服务商已到场 · ${ctx.ticket.title}`, body: prov.name, url: `/h/${wo.household_id}` }))
+      afterResponse(notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `已到场 · ${ctx.ticket.title}`, body: prov.name, url: landlordUrl }))
     }
     if (i.action === 'complete') {
       const cpa = invoiceWithinEstimate(wo.approved_amount, wo.invoice_amount)
@@ -450,19 +451,19 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
         recipient_label: null, data_scope: ['完工说明', '账单'], excluded_data: ['租约', '筛查报告'], risk_level: cpa.ok && !noEstimate ? 'low' : 'medium', status: 'pending', requires_approval: true,
         metadata: { work_order_id: wo.id, ticket_id: wo.ticket_id, household_id: wo.household_id, source: 'work_order' },
       })
-      void notifyUser(admin, wo.landlord_auth_id, { kind: 'approval', title: `完工待验收 · ${ctx.ticket.title}`, body: prov.name, url: '/landlord/todo' })
-      for (const uid of ctx.tenantAuthIds) void notifyUser(admin, uid, { kind: 'approval', title: `问题解决了吗？· ${ctx.ticket.title}`, body: '请在租约页确认 / Please confirm on your tenancy page', url: `/h/${wo.household_id}?tab=maintenance` })
+      afterResponse(notifyUser(admin, wo.landlord_auth_id, { kind: 'approval', title: `完工待验收 · ${ctx.ticket.title}`, body: prov.name, url: '/landlord/todo' }))
+      for (const uid of ctx.tenantAuthIds) afterResponse(notifyUser(admin, uid, { kind: 'approval', title: `问题解决了吗？· ${ctx.ticket.title}`, body: '请在租约页确认 / Please confirm on your tenancy page', url: `/h/${wo.household_id}?tab=maintenance` }))
     }
     if (i.action === 'tenant_confirm') {
-      void notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `租客确认已解决 · ${ctx.ticket.title}`, body: unit, url: landlordUrl })
+      afterResponse(notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `租客确认已解决 · ${ctx.ticket.title}`, body: unit, url: landlordUrl }))
     }
     if (i.action === 'accept_completion' || i.action === 'request_rework' || i.action === 'mark_paid') {
       const label = i.action === 'accept_completion' ? '房东已验收 / Accepted' : i.action === 'request_rework' ? `房东要求返工 / Rework requested${wo.resolution_note ? `：${wo.resolution_note}` : ''}` : '房东已标记付款 / Marked as paid'
       if (prov.email) { const { html, text } = renderAgentMessageEmail({ subject: `${label} · ${ctx.ticket.title}`, body: `${label}\n${ctx.ticket.title} · ${unit}\n${wo.provider_id ? `${SITE()}/provider/jobs` : wo.token ? `${SITE()}/w/${wo.token}` : ''}` }); await sendEmail({ to: prov.email, subject: `${label} · ${ctx.ticket.title}`, html, text, replyTo: provReplyTo, fromName: '房东 经 Stayloop' }) }
-      if (prov.authId) void notifyUser(admin, prov.authId, { kind: 'event', title: label, body: ctx.ticket.title, url: '/provider/jobs' })
+      if (prov.authId) afterResponse(notifyUser(admin, prov.authId, { kind: 'event', title: label, body: ctx.ticket.title, url: '/provider/jobs' }))
     }
     if (i.action === 'dispute') {
-      void notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `工单进入争议 · ${ctx.ticket.title}`, body: wo.dispute_reason || '', url: landlordUrl })
+      afterResponse(notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `工单进入争议 · ${ctx.ticket.title}`, body: wo.dispute_reason || '', url: landlordUrl }))
     }
   } catch (e) {
     console.warn('[marketplace] side effects failed:', (e as Error).message)
@@ -579,7 +580,7 @@ export async function suggestDispatch(admin: Admin, landlordAuthId: string, tick
       const r = await createWorkOrder(admin, { ticketId, landlordAuthId, providerId: top.provider_id, trade, emergency, actor: 'system' })
       if (r.ok) {
         await admin.from('agent_audit_events').insert({ actor_id: landlordAuthId, actor_type: 'system', action: 'work_order_auto_dispatched', target_type: 'work_order', target_id: r.wo.id, metadata: { ticket_id: ticketId, provider_id: top.provider_id, reason: top.reason, mode: policy.mode, emergency } })
-        void notifyUser(admin, landlordAuthId, { kind: 'event', title: `已按你的派单策略派给 ${top.name} / Auto-dispatched`, body: `${ctx.ticket.title} · ${unit}`, url: `/h/${ctx.household.id}?tab=maintenance` })
+        afterResponse(notifyUser(admin, landlordAuthId, { kind: 'event', title: `已按你的派单策略派给 ${top.name} / Auto-dispatched`, body: `${ctx.ticket.title} · ${unit}`, url: `/h/${ctx.household.id}?tab=maintenance` }))
         return
       }
       console.warn('[marketplace] auto-dispatch failed, falling back to a card:', r.error)

@@ -27,6 +27,7 @@ import { leaseIsEditableDraft, leaseIsWithdrawable } from '@/lib/lease/leaseStat
 import { listingProvince, provinceName } from '@/lib/listingDisplay'
 import { leaseFormGuidance, rulesFor } from '@/lib/provinces/rules'
 import type { ProvinceCode, ProvinceRow } from '@/lib/provinces/detect'
+import { emailShapeOk, EMAIL_SHAPE_MESSAGE } from '@/lib/validation/emailShape'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -404,6 +405,9 @@ function NewLeasePageInner() {
   const patchT = (p: Partial<OfferSummaryTerms>) => setTt((prev) => ({ ...prev, ...p }))
 
   const save = async () => {
+    // Same shape the database enforces (lease_documents_tenant_email_shape, 2026-11-15) — say so
+    // here rather than surface a constraint error.
+    if (!emailShapeOk(tenantEmail)) { setErr(zh ? EMAIL_SHAPE_MESSAGE.zh : EMAIL_SHAPE_MESSAGE.en); return }
     if (saving || !landlord) return
     if (editBlocked) return
     if (priorLease && !replaceOk && !editId) {

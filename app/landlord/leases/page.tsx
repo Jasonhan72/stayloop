@@ -28,6 +28,7 @@ import { daysBetween, monthsBetween, parseDateOnly, todayUtc } from '@/lib/dates
 import { leaseDisplayState } from '@/lib/matters/states'
 import { successorLease, type LeaseSlot } from '@/lib/agent/renewalStages'
 import MessageButton from '@/components/messages/MessageButton'
+import { emailShapeOk, EMAIL_SHAPE_MESSAGE } from '@/lib/validation/emailShape'
 
 // Tenant's answer to the 30-day touchpoint (renewal_intents, P1 2026-09-23).
 const INTENT_LABEL: Record<string, { zh: string; en: string }> = {
@@ -645,10 +646,7 @@ function LeaseEntryModal({ lang, landlordId, onClose, onSaved }: {
       setErr(zh ? '请填写租客姓名、单元、月租和到期日' : 'Tenant name, unit, rent and end date are required')
       return
     }
-    if (f.tenant_email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.tenant_email.trim())) {
-      setErr(zh ? '租客邮箱格式不对' : 'Tenant email looks invalid')
-      return
-    }
+    if (!emailShapeOk(f.tenant_email)) { setErr(zh ? EMAIL_SHAPE_MESSAGE.zh : EMAIL_SHAPE_MESSAGE.en); return }
     setErr(null)
     setSaving(true)
     const { error } = await supabase.from('lease_documents').insert({

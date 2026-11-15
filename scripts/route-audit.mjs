@@ -75,7 +75,7 @@ await probe('stripe/webhook unsigned → 400', `${BASE}/api/stripe/webhook`, { m
 await probe('lease/send anon → 401', `${BASE}/api/lease/send`, { method: 'POST', ...J, body: '{}' }, { status: [401, 400] })
 await probe('lease/sign bad token → 4xx', `${BASE}/api/lease/sign`, { method: 'POST', ...J, body: '{"token":"nope"}' }, { status: [400, 401, 404] })
 await probe('file-url anon → 401', `${BASE}/api/file-url`, { method: 'POST', ...J, body: '{"path":"x"}' }, { status: [400, 401] })
-await probe('ltb-search anon → 401', `${BASE}/api/ltb-search`, { method: 'POST', ...J, body: '{"name":"x"}' }, { status: [400, 401] })
+await probe('ltb-search removed → 404/405', `${BASE}/api/ltb-search`, { method: 'POST', ...J, body: '{"name":"x"}' }, { status: [404, 405] })
 await probe('retired ai-score → 404', `${BASE}/api/ai-score`, { method: 'POST', ...J, body: '{"application_id":"zzz"}' }, { status: [404, 405], bodyExcludes: 'invalid input syntax' })
 await probe('stripe/connect/onboard anon → 401', `${BASE}/api/stripe/connect/onboard`, { method: 'POST', ...J, body: '{}' }, { status: 401 })
 await probe('stripe/connect/settle anon → 401', `${BASE}/api/stripe/connect/settle`, { method: 'POST', ...J, body: '{}' }, { status: 401 })

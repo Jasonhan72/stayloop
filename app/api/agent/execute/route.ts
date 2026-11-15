@@ -39,6 +39,8 @@ import { listingProvince } from '@/lib/listingDisplay'
 import { leaseProvince, unitTermsOf } from '@/lib/provinces/lease'
 import { rentAmount } from '@/lib/agent/chatCopy'
 import { notifyUser } from '@/lib/push/notify'
+import { afterResponse } from '@/lib/afterResponse'
+import { ilikeExact } from '@/lib/db/ilikeExact'
 import { actOnWorkOrder, createWorkOrder, suggestDispatch } from '@/lib/marketplace/server'
 import { findOpenDuplicate, type OpenTicketLite } from '@/lib/agent/userContext'
 import { displayNameFor, ensureListingThread, ensureThread, notifyThreadParties, postSystemMessage, replyTokenFor } from '@/lib/threads/server'
@@ -644,7 +646,7 @@ async function resolveTenantLandlord(admin: Admin, userId: string, callerEmail: 
     }
   }
   if (callerEmail) {
-    const { data: leases } = await admin.from('lease_documents').select('landlord_id, unit_label, status').ilike('tenant_email', callerEmail).in('status', ['signed_both', 'active', 'imported', 'sent', 'signed_tenant']).order('created_at', { ascending: false }).limit(3)
+    const { data: leases } = await admin.from('lease_documents').select('landlord_id, unit_label, status').ilike('tenant_email', ilikeExact(callerEmail)).in('status', ['signed_both', 'active', 'imported', 'sent', 'signed_tenant']).order('created_at', { ascending: false }).limit(3)
     for (const l of (leases ?? []) as { landlord_id: string | null; unit_label: string | null }[]) {
       if (!l.landlord_id) continue
       const { data: row } = await admin.from('landlords').select('email, auth_id').eq('id', l.landlord_id).maybeSingle()
@@ -859,11 +861,13 @@ The ticket is on your shared tenancy hub; both sides see its progress.${emergenc
   const hhThread = await ensureThread(admin, 'tenancy', ll.household_id, { householdId: ll.household_id, createdBy: userId })
   const llToken = hhThread ? await replyTokenFor(admin, hhThread.id, ll.email, { kind: 'landlord', userId: ll.auth_id, label: null }) : null
   const result = await sendEmail({ to: ll.email, subject, html, text, replyTo: llToken ? replyAddress(llToken) : undefined, fromName: '租客 经 Stayloop' })
-  if (ll.auth_id) void notifyUser(admin, ll.auth_id, { kind: 'event', title: '新的报修工单 / New repair ticket', body: title, url: `/h/${ll.household_id}` })
+  if (ll.auth_id) afterResponse(notifyUser(admin, ll.auth_id, { kind: 'event', title: '新的报修工单 / New repair ticket', body: title, url: `/h/${ll.household_id}` }))
   // Services marketplace step ③: suggest the dispatch to the landlord as a card
   // (candidates = verified providers covering the trade and city; own contact
   // always possible). Never auto-dispatches.
-  if (ll.auth_id) void suggestDispatch(admin, ll.auth_id, ticket.id)
+  // Rides waitUntil: a bare `void` here was cancelled with the response on the Worker, so the
+  // landlord never got the dispatch card and 「紧急件自动派」 never fired (code review 2026-11-15, S1-4).
+  if (ll.auth_id) afterResponse(suggestDispatch(admin, ll.auth_id, ticket.id))
   // The ticket exists either way; only an email that went out may be called "sent to the landlord".
   const executionResult = { ok: true, kind: 'ticket', ticket_id: ticket.id, household_id: ll.household_id, email_id: result.ok ? result.id : null, sent_to: result.ok ? '房东' : null, email_error: result.ok ? null : (result.error || 'send failed') }
   return finalizeExecution(admin, userId, action, 'executed_maintenance_request', executionResult, { ticket_id: ticket.id, household_id: ll.household_id, sent_to: result.ok ? '房东' : null, emailed: result.ok })

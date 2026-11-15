@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { notifyUser } from '@/lib/push/notify'
+import { afterResponse } from '@/lib/afterResponse'
 import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { isRegistrationLive } from '@/lib/agentProfile'
 import type { DelegationAction, DelegationScope } from '@/lib/delegations/shared'
@@ -47,12 +48,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   await admin.from('agent_audit_events').insert({ actor_id: me, actor_type: 'user', action: 'delegation_revoked', target_type: 'delegation', target_id: id, acting_role: asDelegate ? 'agent' : null, delegation_id: id, metadata: { by: asDelegate ? 'delegate' : 'principal', previous_status: d.status } }).then(() => undefined, () => undefined)
   // Tell the other side. The principal may have no account: email.
   if (asPrincipal) {
-    void notifyUser(admin, d.delegate_auth_id, { kind: 'event', title: `委托已撤销 / Delegation revoked · ${d.principal_name || d.principal_email}`, body: d.scope.join(' · '), url: '/agent/clients' })
+    afterResponse(notifyUser(admin, d.delegate_auth_id, { kind: 'event', title: `委托已撤销 / Delegation revoked · ${d.principal_name || d.principal_email}`, body: d.scope.join(' · '), url: '/agent/clients' }))
   } else {
-    if (d.principal_auth_id) void notifyUser(admin, d.principal_auth_id, { kind: 'event', title: '经纪撤回了委托 / Your agent withdrew the delegation', body: d.scope.join(' · '), url: '/settings' })
+    if (d.principal_auth_id) afterResponse(notifyUser(admin, d.principal_auth_id, { kind: 'event', title: '经纪撤回了委托 / Your agent withdrew the delegation', body: d.scope.join(' · '), url: '/settings' }))
     const subject = '经纪撤回了委托 / Your agent withdrew the delegation'
     const { html, text } = renderAgentMessageEmail({ subject, body: `${d.principal_name || ''} 你好，\n\n你的经纪撤回了在 Stayloop 上的委托（范围：${d.scope.join('、')}），即时生效。\n\nHi ${d.principal_name || ''},\n\nYour agent withdrew the Stayloop delegation (scope: ${d.scope.join(', ')}), effective immediately.` })
-    void sendEmail({ to: d.principal_email, subject, html, text })
+    afterResponse(sendEmail({ to: d.principal_email, subject, html, text }))
   }
   return NextResponse.json({ ok: true })
 }

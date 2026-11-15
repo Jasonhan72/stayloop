@@ -3,6 +3,7 @@
 // what they may see (full address only after accepting); POST performs the
 // contractor-side actions. Rate-limited per IP; the token is 64 hex chars.
 import { NextResponse } from 'next/server'
+import { afterResponse } from '@/lib/afterResponse'
 import { createClient } from '@supabase/supabase-js'
 import { actOnWorkOrder, peekByToken } from '@/lib/marketplace/server'
 import type { WoAction } from '@/lib/marketplace/workOrders'
@@ -57,7 +58,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     const { data: ins, error } = await a.from('thread_messages').insert({ thread_id: th.id, sender_id: null, sender_kind: 'external', acting_role: 'provider', sender_label: label, kind: 'message', body: text, meta: { via: 'token' } }).select('id, created_at').maybeSingle()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     const row = ins as { id: number; created_at: string } | null
-    void notifyThreadParties(a, th, { messageId: row?.id ?? null, createdAt: row?.created_at, exceptEmail: v.wo.external_email, preview: text.slice(0, 120), body: text, senderLabel: `${label}（服务商） / ${label} (Contractor)` })
+    afterResponse(notifyThreadParties(a, th, { messageId: row?.id ?? null, createdAt: row?.created_at, exceptEmail: v.wo.external_email, preview: text.slice(0, 120), body: text, senderLabel: `${label}（服务商） / ${label} (Contractor)` }))
     return NextResponse.json({ ok: true }, { headers: { 'Referrer-Policy': 'no-referrer' } })
   }
   const action = body.action as WoAction

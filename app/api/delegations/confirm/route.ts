@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { notifyUser } from '@/lib/push/notify'
+import { afterResponse } from '@/lib/afterResponse'
 
 const TOKEN = /^[0-9a-f]{32,80}$/i
 const admin = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
@@ -65,6 +66,6 @@ export async function POST(req: Request) {
   const { data: hit } = await a.from('delegations').update({ status: 'active', principal_auth_id: ud.user.id, confirmed_at: now, confirm_token: null, updated_at: now }).eq('id', v.d.id).eq('status', 'pending').select('id')
   if (!hit || !hit.length) return NextResponse.json({ error: 'status_changed' }, { status: 409 })
   await a.from('agent_audit_events').insert({ actor_id: ud.user.id, actor_type: 'user', action: 'delegation_confirmed', target_type: 'delegation', target_id: v.d.id, delegation_id: v.d.id, metadata: { delegate_auth_id: v.d.delegate_auth_id, scope: v.d.scope, allowed_actions: v.d.allowed_actions, expires_at: v.d.expires_at, basis_version: v.d.basis_version } }).then(() => undefined, () => undefined)
-  void notifyUser(a, v.d.delegate_auth_id, { kind: 'event', title: `客户确认了委托 / Delegation confirmed · ${v.d.principal_name || mask(v.d.principal_email)}`, body: `${v.d.scope.join(' · ')} · ${v.d.expires_at.slice(0, 10)}`, url: '/agent/clients' })
+  afterResponse(notifyUser(a, v.d.delegate_auth_id, { kind: 'event', title: `客户确认了委托 / Delegation confirmed · ${v.d.principal_name || mask(v.d.principal_email)}`, body: `${v.d.scope.join(' · ')} · ${v.d.expires_at.slice(0, 10)}`, url: '/agent/clients' }))
   return NextResponse.json({ ok: true, id: v.d.id })
 }

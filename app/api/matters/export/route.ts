@@ -6,7 +6,7 @@
 // carries the matter and the hat. Attachments are listed by name / size /
 // SHA-256 only — the files themselves stay behind the audited signed-URL route.
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { canonicalJson, isPackKind, renderEvidencePack, type EvidencePackData, type PackConditionPhoto, type PackKind, type PackThread, type PackWorkOrder } from '@/lib/export/evidencePack'
 import { loadPackThread } from '@/lib/export/threadRecord'
@@ -19,6 +19,27 @@ const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai
 async function sha256Hex(s: string): Promise<string> {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))
   return Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+const DELEG_COLS = 'id, principal_auth_id, principal_email, principal_name, delegate_auth_id, scope, allowed_actions, status, confirmed_at, revoked_at, expires_at, basis_version'
+
+/**
+ * The delegations of the matter's two principals. `tenant_email` is text a landlord typed
+ * into a lease, and this runs with the service role: it must never be spliced into a
+ * PostgREST `or=(…)` string, where a comma starts another condition (code review
+ * 2026-11-15, S0-1 — `x@y.zz,principal_email.neq.zz` listed every delegation on the site).
+ * Two parameterised queries instead, merged by id.
+ */
+async function delegationsOfMatter(admin: SupabaseClient, M: { landlord_auth_id: string; tenant_auth_id: string | null; tenant_email: string | null }): Promise<{ data: Record<string, unknown>[] }> {
+  const principals = [M.landlord_auth_id, M.tenant_auth_id].filter((v): v is string => !!v && UUID.test(v))
+  const email = (M.tenant_email || '').trim().toLowerCase()
+  const [byId, byEmail] = await Promise.all([
+    principals.length ? admin.from('delegations').select(DELEG_COLS).in('principal_auth_id', principals) : Promise.resolve({ data: [] }),
+    email ? admin.from('delegations').select(DELEG_COLS).eq('principal_email', email) : Promise.resolve({ data: [] }),
+  ])
+  const seen = new Map<string, Record<string, unknown>>()
+  for (const r of [...((byId.data ?? []) as Record<string, unknown>[]), ...((byEmail.data ?? []) as Record<string, unknown>[])]) seen.set(String(r.id), r)
+  return { data: [...seen.values()] }
 }
 
 export async function POST(req: Request) {
@@ -60,7 +81,7 @@ export async function POST(req: Request) {
     ids('work_order').length ? admin.from('work_orders').select('*').in('id', ids('work_order')).order('created_at') : Promise.resolve({ data: [] }),
     admin.from('threads').select('id, kind, title, created_at').eq('matter_id', mid).order('created_at'),
     admin.from('agent_audit_events').select('created_at, action, actor_id, actor_type, acting_role, delegation_id, matter_type, matter_id, rental_matter_id').or(`rental_matter_id.eq.${mid}${ids('work_order').length || ids('application').length || ids('lease').length || ids('household').length ? `,matter_id.in.(${[...ids('work_order'), ...ids('application'), ...ids('lease'), ...ids('household')].join(',')})` : ''}`).order('created_at', { ascending: true }).limit(500),
-    admin.from('delegations').select('id, principal_auth_id, principal_email, principal_name, delegate_auth_id, scope, allowed_actions, status, confirmed_at, revoked_at, expires_at, basis_version').or(`principal_auth_id.eq.${M.landlord_auth_id}${M.tenant_auth_id ? `,principal_auth_id.eq.${M.tenant_auth_id}` : ''}${M.tenant_email ? `,principal_email.eq.${M.tenant_email.toLowerCase()}` : ''}`),
+    delegationsOfMatter(admin, M),
   ])
 
   // Threads with every message (retractions folded onto their target, never dropped).

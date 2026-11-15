@@ -12,6 +12,7 @@
 // 7 days / total) — never amounts.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StayloopHistoryEntry } from './types'
+import { ilikeExact } from '@/lib/db/ilikeExact'
 
 type HouseholdRow = {
   id: string
@@ -146,7 +147,7 @@ export async function stayloopHistory(sb: SupabaseClient, uid: string, email: st
   try {
     const mail = (email || '').trim()
     if (mail) {
-      const { data } = await sb.from('lease_documents').select(cols).ilike('tenant_email', mail).limit(50)
+      const { data } = await sb.from('lease_documents').select(cols).ilike('tenant_email', ilikeExact(mail)).limit(50)
       leases = ((data ?? []) as LeaseRow[])
     }
     const missing = Array.from(leaseIds).filter((id) => !leases.some((l) => l.id === id))

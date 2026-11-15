@@ -12,6 +12,7 @@
 //   • anything else is `needs_review`: a human looks before a single byte of the
 //     file is shown.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { ilikeExact } from '@/lib/db/ilikeExact'
 
 export type CandidateSource = 'application' | 'verification_request' | 'agent_intake'
 
@@ -19,11 +20,6 @@ export type CandidateScreening = {
   screening_id: string
   via: CandidateSource[]
   application_id: string | null
-}
-
-/** Escape `%` / `_` so an email can be used in an ILIKE equality (case-insensitive exact match). */
-function ilikeExact(s: string): string {
-  return s.replace(/[\\%_]/g, (m) => `\\${m}`)
 }
 
 /** Screening ids reachable from `email` through the three application chains. Never by name. */

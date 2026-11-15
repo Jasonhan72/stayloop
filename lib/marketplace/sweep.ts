@@ -46,7 +46,7 @@ export async function sweepOverdueQuotes(admin: Admin, now = new Date()): Promis
       const { html, text } = renderAgentMessageEmail({ subject, body })
       await sendEmail({ to: prov.email, subject, html, text })
     }
-    if (prov.authId) void notifyUser(admin, prov.authId, { kind: 'approval', title: `报价已逾期 ${hours} 小时 / Quote overdue`, body: ctx.ticket.title, url: '/provider/jobs' })
+    if (prov.authId) await notifyUser(admin, prov.authId, { kind: 'approval', title: `报价已逾期 ${hours} 小时 / Quote overdue`, body: ctx.ticket.title, url: '/provider/jobs' })
     // The landlord's card: approve = withdraw this offer and get the next candidate.
     const { data: existing } = await admin.from('agent_pending_actions').select('id').eq('user_id', wo.landlord_auth_id).eq('action_type', 'work_order_overdue').eq('status', 'pending').contains('metadata', { work_order_id: wo.id }).limit(1)
     if (!existing || !existing.length) {
@@ -59,7 +59,7 @@ export async function sweepOverdueQuotes(admin: Admin, now = new Date()): Promis
         metadata: { work_order_id: wo.id, ticket_id: wo.ticket_id, household_id: wo.household_id, provider_id: wo.provider_id, quote_due_at: wo.quote_due_at, overdue_hours: hours, source: 'work_order' },
       })
       cards++
-      void notifyUser(admin, wo.landlord_auth_id, { kind: 'approval', title: `服务商逾期未报价 · ${ctx.ticket.title}`, body: `${prov.name} · 改派？`, url: '/landlord/todo' })
+      await notifyUser(admin, wo.landlord_auth_id, { kind: 'approval', title: `服务商逾期未报价 · ${ctx.ticket.title}`, body: `${prov.name} · 改派？`, url: '/landlord/todo' })
     }
     await admin.from('agent_audit_events').insert({ actor_id: wo.landlord_auth_id, actor_type: 'system', action: 'work_order_quote_overdue', target_type: 'work_order', target_id: wo.id, acting_role: 'landlord', matter_type: 'work_order', matter_id: wo.id, metadata: { provider_id: wo.provider_id, quote_due_at: wo.quote_due_at, overdue_hours: hours } }).then(() => undefined, () => undefined)
   }
@@ -113,7 +113,7 @@ export async function sweepCredentialReminders(admin: Admin, today = new Date())
       `Hi ${name},\n\n${enLines}\n\nAn expired credential no longer counts toward trade coverage and dispatch skips you until you update the number and expiry on the onboarding page and Stayloop re-verifies it. Update: ${SITE()}/provider/onboard`
     if (prov.contact_email) { const { html, text } = renderAgentMessageEmail({ subject, body }); await sendEmail({ to: prov.contact_email, subject, html, text }) }
     if (prov.auth_id) {
-      void notifyUser(admin, prov.auth_id, { kind: 'approval', title: subject, body: items.map((i) => CREDENTIAL_LABEL[i.kind]?.zh ?? i.kind).join(' · '), url: '/provider/onboard' })
+      await notifyUser(admin, prov.auth_id, { kind: 'approval', title: subject, body: items.map((i) => CREDENTIAL_LABEL[i.kind]?.zh ?? i.kind).join(' · '), url: '/provider/onboard' })
       await admin.from('agent_audit_events').insert({ actor_id: prov.auth_id, actor_type: 'system', action: 'credential_expiry_reminder', target_type: 'service_provider', target_id: prov.id, acting_role: 'provider', metadata: { items } }).then(() => undefined, () => undefined)
     }
   }

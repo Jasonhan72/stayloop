@@ -77,7 +77,8 @@ describe('schema: one writer, party-scoped reads, delegation-gated screenings', 
     expect(sql.indexOf('alter table public.threads add column if not exists matter_id')).toBeLessThan(sql.indexOf('create or replace function public.matter_summary'))
     expect(read('lib/threads/server.ts')).toContain(': await ensureMatter(admin, matterKindOfThread(kind), refId)')
     expect(read('app/api/agent/execute/route.ts')).toContain('rental_matter_id: rentalMatterId')
-    expect(read('lib/marketplace/server.ts')).toContain("void ensureMatter(admin, 'work_order', wo.id)")
+    // 2026-11-15: rides waitUntil through afterResponse — a bare `void` was cancelled with the response on the Worker.
+    expect(read('lib/marketplace/server.ts')).toContain("afterResponse(ensureMatter(admin, 'work_order', wo.id))")
   })
 })
 

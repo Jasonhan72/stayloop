@@ -5,10 +5,7 @@
 // matches the client's email).
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { displayNameFor } from '@/lib/threads/server'
-
-function ilikeExact(v: string): string {
-  return v.replace(/[\\%_]/g, (c) => `\\${c}`)
-}
+import { ilikeExact } from '@/lib/db/ilikeExact'
 
 export type ConnectedClient = { clientId: string; created: boolean; name: string; email: string }
 
