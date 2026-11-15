@@ -21,7 +21,8 @@ import { countMaterialBlanks } from '@/lib/screening/rubric'
 import { scanBureauDelinquencies } from '@/lib/screening/bureauTextScan'
 import { checkResidenceTimeline, footprintFromFacts } from '@/lib/screening/residenceTimeline'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
-import { FREE_SCREENINGS_PER_MONTH, isProEntitled } from '@/lib/billing/entitlement'
+import { FREE_RUNS_PER_SCREENING, FREE_SCREENINGS_PER_MONTH, SCREEN_SCORE_RUNS_PER_HOUR, isProEntitled } from '@/lib/billing/entitlement'
+import { underHourlyLimit } from '@/lib/rateLimit'
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { analyzeStatementLiquidity, findRecurringMonthlyPayment } from '@/lib/forensics/payroll-deposits'
 import { monthsSince, parsePeriodMonths, parseDateLoose, datesAgree } from '@/lib/screening/periods'
@@ -911,7 +912,35 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
           { status: 429 }
         )
       }
+      // Code review 2026-11-15, S2-11 — the count above looks only at rows CREATED this month,
+      // once each. A row from last month scored again with new files, or one row scored over
+      // and over, cost nothing. screening_quota_usage (definer, reads the service-only run log)
+      // adds both: every screening scored this month counts as one of the allowance, and one
+      // screening can be scored FREE_RUNS_PER_SCREENING times a month. Fail-open: a failed
+      // lookup leaves the check above as the only one.
+      const { data: usage } = await supabase.rpc('screening_quota_usage', { p_screening_id: screening_id })
+      const u = usage as { rows_this_month?: number; counted?: boolean; runs_this_row?: number } | null
+      if (u && !u.counted && Number(u.rows_this_month) >= FREE_SCREENINGS_PER_MONTH) {
+        return NextResponse.json(
+          { error: `Monthly screening limit reached (${FREE_SCREENINGS_PER_MONTH}/${FREE_SCREENINGS_PER_MONTH}). Upgrade to Pro for unlimited screenings.` },
+          { status: 429 }
+        )
+      }
+      if (u && Number(u.runs_this_row) >= FREE_RUNS_PER_SCREENING) {
+        return NextResponse.json(
+          { error: `This screening has already been scored ${FREE_RUNS_PER_SCREENING} times this month — the free plan's limit for one screening. Upgrade to Pro for unlimited runs. / 这份筛查本月已评分 ${FREE_RUNS_PER_SCREENING} 次，达到免费档单份筛查的上限；升级 Pro 后不限次数。`, code: 'rerun_limit' },
+          { status: 429 }
+        )
+      }
     }
+    // A ceiling on what one account can spend in an hour, whatever the plan (S2-11: the route
+    // had no cost limiter of its own). Fail-open, like every cost guard.
+    if (!partnerLandlordId && !(await underHourlyLimit(`screen-score:${userData.user.id}`, SCREEN_SCORE_RUNS_PER_HOUR, true))) {
+      return NextResponse.json({ error: 'Too many screenings this hour — try again later. / 这一小时内评分次数过多，请稍后再试。', code: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '3600' } })
+    }
+    // One row in the run log per scoring run — what the allowance above reads next time.
+    // Best-effort: a failed write must not stop the screening.
+    await supabase.rpc('record_screening_run', { p_screening_id: screening_id }).then(() => {}, () => {})
 
     // ---- Live progress -------------------------------------------------
     // Written at each real stage boundary so the client renders ACTUAL

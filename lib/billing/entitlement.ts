@@ -9,6 +9,25 @@ export const TRIAL_DAYS = 30
 export const LEGACY_TRIAL_UNTIL = '2026-11-14T23:59:59-04:00'
 /** Free plan: screenings per calendar month (deep check and verification links are Pro / per-use). */
 export const FREE_SCREENINGS_PER_MONTH = 3
+/**
+ * Free plan: how many times ONE screening may be scored in a calendar month. Re-running after
+ * adding a missing document is normal; re-using one row for a stream of different applicants
+ * was a way round the monthly allowance (code review 2026-11-15, S2-11).
+ */
+export const FREE_RUNS_PER_SCREENING = 3
+/** Scoring runs per account per hour, every plan — a cost ceiling, fail-open. */
+export const SCREEN_SCORE_RUNS_PER_HOUR = 40
+
+/**
+ * Whether the name a deep-check request carries is the applicant of the screening its
+ * one-time unlock was bought for (code review 2026-11-15, S2-10). Case, spacing, punctuation
+ * and word order are ignored; anything else is a different person.
+ */
+export function sameApplicantName(claimed: string | null | undefined, onFile: (string | null | undefined)[]): boolean {
+  const key = (v: string | null | undefined) => (v ?? '').normalize('NFKC').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean).sort().join(' ')
+  const want = key(claimed)
+  return !!want && onFile.some((n) => key(n) === want)
+}
 
 export type EntitlementRow = { plan?: string | null; pro_trial_until?: string | null } | null | undefined
 

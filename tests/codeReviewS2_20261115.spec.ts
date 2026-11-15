@@ -9,9 +9,11 @@ import { __resetThreadVersions, foreignMessages, placeForeign, saveThread } from
 import { canAct, entryNoticeText, entryWindowProblem } from '@/lib/marketplace/workOrders'
 import { MCP_MAX_BATCH, parseMcpBody } from '@/lib/mcp/jsonrpc'
 import type { ChatMessage } from '@/lib/agent/types'
+import { FREE_RUNS_PER_SCREENING, FREE_SCREENINGS_PER_MONTH, SCREEN_SCORE_RUNS_PER_HOUR, sameApplicantName } from '@/lib/billing/entitlement'
 
-// Code review 2026-11-15 — the S2 findings that were fixed (27 of 31; S2-6, S2-10, S2-11 and
-// S2-31 wait for a decision, S2-9 is only narrowed). One block per finding.
+// Code review 2026-11-15 — the S2 findings that were fixed (29 of 31; S2-6 and S2-31 wait for
+// a decision, S2-9 is only narrowed). One block per finding. S2-10 and S2-11 sit in the
+// screening module and were changed on the user's explicit request (「修这两条」).
 const ROOT = join(__dirname, '..')
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8')
 const walk = (dir: string, out: string[] = []): string[] => {
@@ -373,3 +375,60 @@ describe('S2-30 · the realtor rail prompt names Stayloop listings and the publi
     expect(s).toContain('Stayloop 在租挂牌和 CMHC / 统计局的公开租金基准')
   })
 })
+
+describe('S2-10 · a one-time unlock pays for the applicant on that screening, nobody else', () => {
+  it('sameApplicantName ignores case, spacing, punctuation and word order — and nothing more', () => {
+    const onFile = ['Wei  Zhang', null]
+    for (const ok of ['Wei Zhang', 'wei zhang', 'ZHANG, Wei', ' Zhang  Wei ']) expect(sameApplicantName(ok, onFile)).toBe(true)
+    for (const bad of ['Wei Zhao', 'Wei', 'Zhang', 'Wei Zhang Jr', '', null, undefined]) expect(sameApplicantName(bad as string | null, onFile)).toBe(false)
+    expect(sameApplicantName('张伟', ['张伟'])).toBe(true)
+    expect(sameApplicantName('张伟', ['张 伟'])).toBe(false)
+    expect(sameApplicantName('Wei Zhang', [null, undefined, ''])).toBe(false)
+    expect(sameApplicantName('Wei Zhang', ['someone else', 'Zhang Wei'])).toBe(true)
+  })
+  const dc = read('app/api/deep-check/route.ts')
+  it('the gate compares the claimed applicant with the screening row before a credit is spent', () => {
+    const check = dc.indexOf('if (claimedApplicant !== null && !sameApplicantName(claimedApplicant, [s?.ai_extracted_name as string | null, s?.tenant_name as string | null]))')
+    expect(check).toBeGreaterThan(-1)
+    expect(check).toBeLessThan(dc.indexOf("rlsClient.rpc('consume_unlock_credit'"))
+    expect(check).toBeLessThan(dc.indexOf('if (s?.unlocked_at) return null'))
+    // …and only after the plan checks: Pro and trial accounts are not limited this way
+    expect(check).toBeGreaterThan(dc.indexOf('if (isProEntitled(landlord)) return null'))
+    expect(dc).toContain('const gate = await enforceProGate(req, gateScreeningId, claimedApplicant)')
+  })
+})
+
+describe('S2-11 · the free allowance counts what was scored this month', () => {
+  const MIGC = read('supabase/migrations/20261115c_screening_run_log.sql')
+  const ss = read('app/api/screen-score/route.ts')
+  it('the run log is service-only and survives the screening being deleted', () => {
+    expect(MIGC).toContain('create table if not exists public.screening_runs (')
+    expect(MIGC).toContain('alter table public.screening_runs enable row level security;')
+    expect(MIGC).toContain('revoke all on public.screening_runs from anon, authenticated;')
+    expect(MIGC).not.toMatch(/screening_id\s+uuid[^,]*references/)
+    expect(MIGC).not.toMatch(/create policy[^;]*screening_runs/)
+  })
+  it('both functions check that the screening is the caller’s own', () => {
+    expect(MIGC).toContain("if auth.uid() is not null and not (auth.uid() = any(v_keys)) and not coalesce(public.is_stayloop_admin(), false) then\n    raise exception 'not_your_screening'")
+    expect(MIGC).toContain('if auth.uid() is not null and not (auth.uid() = any(public.screening_landlord_keys(v_ll))) and not coalesce(public.is_stayloop_admin(), false) then\n    return;')
+    expect(MIGC).toContain('revoke execute on function public.screening_quota_usage(uuid) from public, anon;')
+    expect(MIGC).toContain('revoke execute on function public.record_screening_run(uuid) from public, anon;')
+  })
+  it('the route keeps the old check, adds the two new ones, a cost ceiling and the run record — in that order', () => {
+    const oldCheck = ss.indexOf("if (count !== null && count >= FREE_SCREENINGS_PER_MONTH) {")
+    const usage = ss.indexOf("await supabase.rpc('screening_quota_usage', { p_screening_id: screening_id })")
+    const rows = ss.indexOf('if (u && !u.counted && Number(u.rows_this_month) >= FREE_SCREENINGS_PER_MONTH) {')
+    const runs = ss.indexOf('if (u && Number(u.runs_this_row) >= FREE_RUNS_PER_SCREENING) {')
+    const hourly = ss.indexOf('underHourlyLimit(`screen-score:${userData.user.id}`, SCREEN_SCORE_RUNS_PER_HOUR, true)')
+    const record = ss.indexOf("await supabase.rpc('record_screening_run', { p_screening_id: screening_id }).then(() => {}, () => {})")
+    const start = ss.indexOf("writeProgress('signing_files', 6)")
+    for (const i of [oldCheck, usage, rows, runs, hourly, record, start]) expect(i).toBeGreaterThan(-1)
+    expect([oldCheck, usage, rows, runs, hourly, record, start]).toEqual([oldCheck, usage, rows, runs, hourly, record, start].slice().sort((a, b) => a - b))
+  })
+  it('the numbers live in lib/billing/entitlement.ts', () => {
+    expect(FREE_SCREENINGS_PER_MONTH).toBe(3)
+    expect(FREE_RUNS_PER_SCREENING).toBe(3)
+    expect(SCREEN_SCORE_RUNS_PER_HOUR).toBe(40)
+  })
+})
+

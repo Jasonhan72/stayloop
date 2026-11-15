@@ -46,7 +46,7 @@ import type { BNLookupResult } from '@/lib/forensics/bn-check'
 import { captureException } from '@/lib/observability/sentry'
 import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
-import { isProEntitled } from '@/lib/billing/entitlement'
+import { isProEntitled, sameApplicantName } from '@/lib/billing/entitlement'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { callerHats, mayScreen, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
 
@@ -429,7 +429,7 @@ function dedupeStrings(list: string[]): string[] {
  *
  * Returns null when the caller is authorized; otherwise a Response to return.
  */
-async function enforceProGate(req: Request, screeningId: string | null): Promise<Response | null> {
+async function enforceProGate(req: Request, screeningId: string | null, claimedApplicant: string | null = null): Promise<Response | null> {
   // Review 2026-09-19: the session check comes FIRST. The internal test
   // month (lib/billing/freeWindow.ts) waives only the PLAN check below — it
   // used to return before the Authorization header was even read, so an
@@ -511,9 +511,20 @@ async function enforceProGate(req: Request, screeningId: string | null): Promise
   if (screeningId) {
     const { data: s } = await rlsClient
       .from('screenings')
-      .select('unlocked_at')
+      .select('unlocked_at, ai_extracted_name, tenant_name')
       .eq('id', screeningId)
       .maybeSingle()
+    // A one-time unlock (or a prepaid credit) pays for the deep check of ONE applicant: the one
+    // on this screening. The request body used to name whoever it liked, so a single unlock
+    // covered any number of people (code review 2026-11-15, S2-10). Checked before a credit is
+    // spent. Pro and trial accounts returned above and are not limited this way.
+    if (claimedApplicant !== null && !sameApplicantName(claimedApplicant, [s?.ai_extracted_name as string | null, s?.tenant_name as string | null])) {
+      return bad(
+        'This unlock covers the applicant on that screening only. Run the deep check from the screening it belongs to, or upgrade to Pro.',
+        '单次解锁只覆盖这份筛查上的申请人。请从对应的筛查里发起深度核查，或升级 Pro。',
+        403,
+      )
+    }
     if (s?.unlocked_at) return null
     const { data: spent } = await rlsClient.rpc('consume_unlock_credit', { p_screening_id: screeningId })
     if (spent === true) return null
@@ -536,7 +547,11 @@ export async function POST(req: Request) {
     // screening the unlock would apply to.
     const gateScreeningId = typeof body.screening_id === 'string' && /^[0-9a-f-]{36}$/i.test(body.screening_id)
       ? body.screening_id : null
-    const gate = await enforceProGate(req, gateScreeningId)
+    // The applicant the structured body names (the branch below that uses it); null when the
+    // payload will be read from the screening row itself.
+    const claimedApplicant = Array.isArray(body.employer_names) && body.employer_names.length > 0 && typeof body.applicant_name === 'string' && body.applicant_name
+      ? body.applicant_name : null
+    const gate = await enforceProGate(req, gateScreeningId, claimedApplicant)
     if (gate) return gate
 
     // Resolve payload: prefer structured body; fall back to screening_id lookup.
