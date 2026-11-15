@@ -27,7 +27,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - **回滚**：坏版本 `wrangler rollback --name stayloop-web -y`；整体退回 Pages `bash scripts/worker-routes.sh off`（几秒生效）。
 - Worker 服务端密钥由用户在终端跑 `scripts/worker-secrets-sync.sh`（从 `.env.local` 同步；自动模式不让 Claude 写密钥）。wrangler 认证靠 `.env.local` 的 `CLOUDFLARE_API_TOKEN`，只在仓库目录下生效。
 - 这台机器（M1 mini，8 GB）构建慢：一律 `nohup bash ./ship2-v53.command > <scratchpad>/shipNN.log 2>&1 &`，再用 until-loop 等结束标记；工具单次超时 600 秒不够。
-- **默认 `node` 必须是 node@22**（node 26 让 JS 慢 10–100 倍）。`brew upgrade` 会弄坏它（已发生三次：simdutf、simdjson 升级后 node@22 链接库缺失）。修法：`brew reinstall node@22` → `brew unlink node && brew link --overwrite node@22`。node 26 keg 留给用户的 openclaw，别卸。构建 / 测试卡住先看 `node --version` 与 `top -o mem`（swap 满时进程 0% CPU 假死）。
+- **默认 `node` 必须是 node@22**（node 26 让 JS 慢 10–100 倍）。`brew upgrade` 会弄坏它（已发生三次：simdutf、simdjson 升级后 node@22 链接库缺失）。修法：`brew reinstall node@22` → `brew unlink node && brew link --overwrite node@22`。node 26 keg 留给用户的 openclaw，别卸；**重装 node@22 会连带升级 simdjson，node 26 可能因此起不来**，重装后要验证 `/opt/homebrew/Cellar/node/*/bin/node` 能启动（2026-11-15 的处理见 `design/history/2026-11.md`）。症状也可能不是 dyld 报错而是读 `package.json` 时 SIGABRT（退出码 134、零输出）。构建 / 测试卡住先看 `node --version` 与 `top -o mem`（swap 满时进程 0% CPU 假死）。
 - 构建会清掉正在跑的 `next dev` 的 `.next`，部署后本地预览要重启 dev server。
 - **`~/Documents` 在 iCloud Drive 域里**：iCloud 会给 `node_modules` / `.next` / `.open-next` 造「name 2.js」占位重复文件，Turbopack 一读就等网络超时。`scripts/icloud-nosync.sh` 删重复文件并给构建目录打 `com.apple.fileprovider.ignore#P`（`npm run dev` 的 predev 与 ship 脚本构建前后都会跑，守卫 `icloudNosync20261031`）；构建报「reading file … N.js」或 `find . -name "* [0-9].*"` 有结果就手动跑一次。
 
@@ -52,6 +52,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
   - **策略里不能查自己的表**（无限递归）；查别的表要考虑调用者对那张表有没有 SELECT（anon 已无 `listings` SELECT），需要时包成 SECURITY DEFINER 助手。permissive 策略 OR 在一起求值，绑 `{public}` 的策略对 anon 也会执行。
   - **`INSERT … RETURNING` 也套 SELECT 策略**：匿名插入不要 `.select()`，客户端自己生成 uuid。
   - `language sql` 函数在定义时校验列：引用的新列要先 ALTER。
+  - **plpgsql 的 `IF` 把 NULL 当假**：`if not (a or x in (…))` 在 x 为 NULL 时不会进分支。权限判断逐项 `coalesce`，并用「应该被拒的身份」探针试跑（`search_ltb_orders` 2026-11-15 差点带着这个洞上线）。
   - 外部文本（PDF 抽取、OCR、模型输出）写 jsonb / text 前过 `stripNul`（`lib/screening/jsonSafe.ts`），否则 22P05。
   - 新表靠事件触发器 `ensure_rls` 自动开 RLS；仍要显式写策略。
 - **Auth 配置改动必须整块 PATCH**，改完 GET 回来逐键 diff（只 PATCH 一个 SMTP 键会清空其他键）；GET 回来的 `smtp_pass` / `external_google_secret` 是掩码，不能照抄。自动模式分类器不让 Claude 改生产 Auth 配置时，由用户在终端跑。
@@ -87,6 +88,8 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 发信类限流 fail-closed、成本类 fail-open（`lib/rateLimit.ts underHourlyLimit`）；匿名面都要有全站总闸。
 - 外部失败（429 / 超时）不能当成「没有结果」缓存；Overpass 查站点用 `nwr` + `out center`。
 - Worker 的响应不经过 zone 的 CDN 缓存（`s-maxage` 无效），要缓存用 Workers Cache API（`caches.default`）。
+- **响应返回后还要做的事（推送、通知邮件、派单建议）一律 `afterResponse(…)`**（`lib/afterResponse.ts`，挂 `waitUntil`）：Worker 上裸写 `void notifyUser(…)` 会随响应一起被取消，本地却一切正常。cron 路由里直接 `await`。守卫 `codeReview20261115` 会扫。
+- **用户能影响的文本不进 PostgREST 的 `.or()` 过滤串**（逗号会多出条件），拆成 `.eq()` / `.in()`；邮箱进 `.ilike()` 一律过 `ilikeExact`（`lib/db/ilikeExact.ts`，`_` 与 `%` 是通配符）。
 - 页面里不能从 `page.tsx` 导出多余符号（Next 构建拒绝）；Route Handler 不能从带 `'use client'` 的模块取常量（会变成 client-reference 存根）。
 - 演示产品的动画 / 示例用产品真实组件按脚本驱动，不手画仿制界面。
 - 示范数据必须标「示例数据」小标签（`SampleBanner` / `SampleTag`）；工作台样例页走 `WorkspaceShell` 的 `DEMO_GATE` / `SAMPLE_NOTE`。不编造数字、评分、客户数、百分比收益。

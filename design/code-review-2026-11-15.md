@@ -3,6 +3,23 @@
 审查对象：分支 `v5.3-launch`（`b1b7a3f`），线上版本 ship100 `efd44319`，Supabase 项目 `uotcczsfeiptnabamzcd` 的线上现状。
 这一轮只审不改：没有改业务代码、没有部署、没有跑迁移。数据库验证全部在会回滚的事务里以测试号身份试跑（`tenant-test` / `landlord-test`，非管理员），没有写入生产数据。
 
+## 修复记录
+
+**2026-11-15 · ship101 `98c6be6d`（提交 `b1b7ad4`，迁移 `20261115_code_review_s0_s1`，守卫 `tests/codeReview20261115.spec.ts`）：S0-1 与 S1-1 至 S1-5 已修并在生产复测。S2 / S3 共 63 条未动。**
+
+| 条目 | 怎么修的 | 生产复测 |
+|---|---|---|
+| S0-1 | 导出路由的委托查询拆成两次参数化查询（`delegationsOfMatter`），不再拼 `or=()`；`lease_documents.tenant_email` 加格式约束，三处写入表单先提示 | 带逗号的邮箱建租约返回 400 `23514`；房东导出自己的事务 200 |
+| S1-1 | `search_ltb_orders` 函数体内判断身份（房东帽子 / 注册有效的经纪 / 管理员；service role 不受影响），删掉 `/api/ltb-search` | 租客测试号 403 `42501`，房东测试号 200；旧路由 404 |
+| S1-2 | `landlords` 的 FOR ALL 策略换成只管 UPDATE 的策略，撤销 anon / authenticated 的 DELETE 与 TRUNCATE | 房东测试号 DELETE 返回 403 `42501` |
+| S1-3 | 新增共用的 `lib/db/ilikeExact.ts`，两处照改；守卫另外扫出第三处 `lib/profile/history.ts:149`，一并改掉；原来两份私有副本改为引用 | 代码与守卫 |
+| S1-4 | 新增 `lib/afterResponse.ts`（挂 `waitUntil`，本地无上下文时照常跑），25 处悬空的通知 / 派单建议 / 邮件接上去；日扫里的 3 处改成 `await` | 租客测试号真实报修一张 `[TEST]` 工单：同一秒出现 `work_order_dispatch_no_candidate` 审计行并给房东发了说明邮件（该房东没有可派的服务商，所以是「无人可派」分支而不是出卡） |
+| S1-5 | `tokenStillParty` 的 `listing_inquiry` 分支补上房东复核（与 `application` 分支同一做法） | 代码与守卫；没有在生产上发真实邮件复现 |
+
+试跑迁移时抓到一个自己写出来的洞：身份判断最初写成 `not (房东 or 经纪状态 in (…) or 管理员)`，租客的经纪状态是 NULL，`NULL in (…)` 让整个条件变成 NULL，IF 当成假，租客照样查得到。改成每一项都 `coalesce` 之后探针才对。守卫钉住了这个写法。
+
+权限矩阵（`scripts/e2e/db-matrix.sh`）加了 4 行，全部通过；另有 2 条与本次无关的失败，是 10-28 测试时给测试租约记了一笔 2026-08-01 的租金，夹具要求那个账期是空的。
+
 ## 总览
 
 | 严重度 | 条数 | 含义 |
