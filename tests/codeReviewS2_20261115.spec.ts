@@ -425,6 +425,15 @@ describe('S2-11 · the free allowance counts what was scored this month', () => 
     for (const i of [oldCheck, usage, rows, runs, hourly, record, start]) expect(i).toBeGreaterThan(-1)
     expect([oldCheck, usage, rows, runs, hourly, record, start]).toEqual([oldCheck, usage, rows, runs, hourly, record, start].slice().sort((a, b) => a - b))
   })
+  it('the free plan says so on /pricing, with the number the route enforces', async () => {
+    const { LANDLORD_GO } = await import('@/lib/billing/landlordPlans')
+    const line = LANDLORD_GO.features.find((f) => f.zh.includes('同一份筛查'))
+    expect(line).toEqual({ zh: `同一份筛查每月最多评分 ${FREE_RUNS_PER_SCREENING} 次`, en: `One screening can be scored up to ${FREE_RUNS_PER_SCREENING} times a month` })
+    // right under the monthly allowance it qualifies
+    const i = LANDLORD_GO.features.findIndex((f) => f.zh.startsWith('每月 3 次租客筛查'))
+    expect(LANDLORD_GO.features[i + 1]).toBe(line)
+    expect(read('lib/billing/landlordPlans.ts')).toContain('`同一份筛查每月最多评分 ${FREE_RUNS_PER_SCREENING} 次`')
+  })
   it('the numbers live in lib/billing/entitlement.ts', () => {
     expect(FREE_SCREENINGS_PER_MONTH).toBe(3)
     expect(FREE_RUNS_PER_SCREENING).toBe(3)

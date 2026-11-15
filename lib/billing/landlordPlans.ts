@@ -14,6 +14,8 @@
 // (app/api/deep-check enforceProGate), applicant verification links
 // (lib/billing/access hasProAccess), and dispatch to the verified provider
 // network (lib/marketplace networkDispatchAllowed). Keep this list to those.
+import { FREE_RUNS_PER_SCREENING } from './entitlement'
+
 export type PlanFeature = { zh: string; en: string; href?: string; /** for compact grids (the /settings card) */ short?: { zh: string; en: string } }
 
 export const LANDLORD_PRO_PRICE = 19
@@ -25,6 +27,10 @@ export const LANDLORD_GO: { name: PlanFeature; tagline: PlanFeature; features: P
     { zh: '房源发布，不限套数', en: 'Publish listings, no cap' },
     { zh: '接收在线申请', en: 'Receive online applications' },
     { zh: '每月 3 次租客筛查（含取证与信用分析）· 首次深度核查免费 1 次', en: '3 tenant screenings a month (forensics + credit analysis included) · first deep check free' },
+    // The free plan's second limit, enforced in /api/screen-score since 2026-11-15 (code review
+    // S2-11): said here so nobody meets it first as an error. The number comes from the same
+    // constant the route checks.
+    { zh: `同一份筛查每月最多评分 ${FREE_RUNS_PER_SCREENING} 次`, en: `One screening can be scored up to ${FREE_RUNS_PER_SCREENING} times a month` },
     { zh: '深度核查按次解锁 $14.99', en: 'Deep checks unlock per applicant at $14.99' },
     { zh: 'AI 助理、安省标准租约与电子签、续约提醒', en: 'AI Agent, Ontario standard lease with e-signing, renewal reminders' },
     { zh: '维修工单 + 派给你自己的联系人', en: 'Repair tickets + dispatch to your own contacts', href: '/services' },
