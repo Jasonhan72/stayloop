@@ -137,7 +137,11 @@ describe('8.19 privacy policy names association audits', () => {
     expect(privacy).toContain('3b · 房源数据与合规审计')
     expect(privacy).toMatch(/用于审计或法律目的/)
     expect(privacy).toMatch(/for auditing or legal purposes/)
-    expect(privacy).toContain('2026-10-10')
+    // 2026-11-15 (code review S2-31): the section no longer says listing data is licensed from MLS®
+    // systems — Realtor.ca reads stopped on 2026-10-13 — and no longer promises records to boards.
+    expect(privacy).toContain('2026-11-15')
+    expect(privacy).not.toMatch(/授权提供|is licensed from/)
+    expect(privacy).toMatch(/不来自 MLS® 系统/)
   })
 })
 
@@ -263,7 +267,8 @@ describe('public listing reads go through rate-limited server routes', () => {
   })
   it('the search route budgets by IP / account, caps at 100, applies the seller directives and feed staleness', () => {
     expect(search).toContain('export const ANON_SEARCHES_PER_HOUR = 240')
-    expect(search).toContain("underHourlyLimit(`lsearch:ip:${ip}`, ANON_SEARCHES_PER_HOUR, true)")
+    // 2026-11-15 (code review S3-11): the caller bucket (IPv6 per /64) now comes with a site-wide ceiling
+    expect(search).toContain("underCostLimits('lsearch', `ip:${ipBucket(ip)}`, ANON_SEARCHES_PER_HOUR, SITE_SEARCHES_PER_HOUR)")
     expect(search).toContain(".eq('display_internet', true)")
     expect(search).toContain("'feed_updated_at.is.null,feed_updated_at.gt.'")
     expect(search).toContain("l.display_address ? l : { ...l, address: '', unit: null, lat: null, lng: null }")
@@ -274,7 +279,7 @@ describe('public listing reads go through rate-limited server routes', () => {
     expect(detailRoute).toContain("!owner && out.display_address === false ? withheld(out) : out")
     expect(detailRoute).toContain("const publiclyVisible = (l.verification_status === 'verified' || l.source === 'realtor') && l.display_internet !== false && !stale")
     expect(detailRoute).toContain('if (!publiclyVisible && !owner) return NextResponse.json')
-    expect(detailRoute).toContain("underHourlyLimit(`ldetail:ip:${ip}`, ANON_DETAILS_PER_HOUR, true)")
+    expect(detailRoute).toContain("underCostLimits('ldetail', `ip:${ipBucket(ip)}`, ANON_DETAILS_PER_HOUR, SITE_DETAILS_PER_HOUR)")
   })
   it('the pages render the directives: withheld address text, no comparison tile when the seller opts out of AVM', () => {
     expect(listPage).toContain("? (zh ? '地址按卖方要求不公开' : 'Address withheld by the seller')")

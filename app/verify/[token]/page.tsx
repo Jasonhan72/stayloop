@@ -13,6 +13,7 @@ import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useT } from '@/lib/i18n'
+import { supabase } from '@/lib/supabase'
 import { CONSENT_TEXT, CONSENT_VERSION } from '@/lib/verify/consent'
 import type { VerifyPublicView, VerifyStepKey } from '@/lib/verify/types'
 import { bankErrorMessage } from '@/lib/verify/bankErrors'
@@ -38,9 +39,15 @@ export default function VerifyPage() {
   const bankHandled = useRef(false)
 
   const api = useCallback(async (path: string, body?: unknown) => {
+    // A signed-in applicant's session rides along on consent only, so the request can be bound to
+    // their account (S2-9). Nothing else on this page needs to know who is signed in.
+    let bearer: string | null = null
+    if (path === '/consent') {
+      try { bearer = (await supabase.auth.getSession()).data.session?.access_token ?? null } catch { bearer = null }
+    }
     const res = await fetch(`/api/verify/${token}${path}`, {
       method: body === undefined ? 'GET' : 'POST',
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: body === undefined ? undefined : { 'Content-Type': 'application/json', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: 'no-store',
     })

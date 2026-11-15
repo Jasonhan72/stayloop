@@ -8,11 +8,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { LISTING_VISIBILITY_OR, hasUsablePhotos, cardImages } from '@/lib/listingVisibility'
-import { underHourlyLimit } from '@/lib/rateLimit'
+import { ipBucket, underCostLimits } from '@/lib/rateLimit'
 
 
 export const PAGE_SIZE = 100
 export const ANON_SEARCHES_PER_HOUR = 240
+/** Every caller together, an hour: far above honest traffic, a ceiling for one that rotates addresses. */
+const SITE_SEARCHES_PER_HOUR = 30_000
 export const USER_SEARCHES_PER_HOUR = 1200
 export const CARD_COLUMNS = 'id,slug,address,unit,city,province,monthly_rent,bedrooms,bathrooms,sqft,neighborhood,pet_policy,pets_allowed,property_type,amenities,lat,lng,thumb_a,thumb_b,photo_count,created_at,images,available_date,has_den,source,verification_status,brokerage,display_address,display_avm,is_test'
 
@@ -39,9 +41,10 @@ export async function GET(req: Request) {
     const { data } = await asUser.auth.getUser()
     if (data?.user && !data.user.is_anonymous) userId = data.user.id
   }
+  // Caller bucket + a site-wide ceiling (S3-11); IPv6 callers count per /64.
   const ok = userId
-    ? await underHourlyLimit(`lsearch:u:${userId}`, USER_SEARCHES_PER_HOUR, true)
-    : await underHourlyLimit(`lsearch:ip:${ip}`, ANON_SEARCHES_PER_HOUR, true)
+    ? await underCostLimits('lsearch', `u:${userId}`, USER_SEARCHES_PER_HOUR, SITE_SEARCHES_PER_HOUR)
+    : await underCostLimits('lsearch', `ip:${ipBucket(ip)}`, ANON_SEARCHES_PER_HOUR, SITE_SEARCHES_PER_HOUR)
   if (!ok) return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '600', 'Cache-Control': 'no-store' } })
 
   const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })

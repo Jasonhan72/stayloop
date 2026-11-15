@@ -3,6 +3,7 @@ import { isVerifyToken } from '@/lib/verify/token'
 import { adminClient, isExpired, loadRequest, providerAvailability, toPublicView, writeStep } from '@/lib/verify/store'
 import { creditProvider, creditProviderIsSandbox, pullCredit } from '@/lib/verify/providers/equifax'
 import { checkCreditPullIdentity, type VerifiedIdentity } from '@/lib/verify/identityMatch'
+import { underVerifyLimits } from '@/lib/verify/limits'
 
 
 // POST /api/verify/<token>/credit — the applicant's own credit pull.
@@ -12,6 +13,7 @@ import { checkCreditPullIdentity, type VerifiedIdentity } from '@/lib/verify/ide
 export async function POST(req: NextRequest, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params
   if (!isVerifyToken(token)) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 })
+  if (!(await underVerifyLimits('credit', token, req.headers))) return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '600' } })
   const admin = adminClient()
   const row = await loadRequest(admin, token)
   if (!row) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 })

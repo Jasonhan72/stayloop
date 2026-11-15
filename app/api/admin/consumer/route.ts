@@ -16,6 +16,7 @@ import { sendEmail } from '@/lib/email'
 import { applicantDisputeResultEmail, correctionNoticeEmail } from '@/lib/consumer/emails'
 import { CORRECTION_ACTIONS, type ConsumerDispute, type ConsumerRequest, type CorrectionAction } from '@/lib/consumer/types'
 import { NO_STORE, adminClient, audit, dueAtFor, maskEmail, screeningSummaries, siteUrl } from '@/lib/consumer/server'
+import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 
 
 const SIXTY_DAYS_MS = 60 * 86_400_000
@@ -103,14 +104,21 @@ export async function POST(req: Request) {
     const request = r as ConsumerRequest | null
     if (!request) return NextResponse.json({ error: 'not_found' }, { status: 404, headers: NO_STORE })
 
-    // 1. Append-only correction on the screening (the report pages read screening_corrections).
+    // 1. Claim the dispute: a conditional update, so two admins resolving the same dispute at the
+    //    same moment cannot both write a correction and both send the s.13(2) notices (code
+    //    review 2026-11-15, S3-9). The loser gets the same 409 as a late click.
+    const { data: claimed, error: dErr } = await g.admin.from('consumer_disputes').update({ status: resolution, resolution_note: note, resolved_by: g.userId, resolved_at: now }).eq('id', dispute.id).eq('status', 'open').select('id')
+    if (dErr) return NextResponse.json({ error: dErr.message }, { status: 500, headers: NO_STORE })
+    if (!claimed || claimed.length === 0) return NextResponse.json({ error: 'already_resolved' }, { status: 409, headers: NO_STORE })
+    // 2. Append-only correction on the screening (the report pages read screening_corrections).
+    //    If it cannot be written the dispute goes back to open, so it can be resolved again.
     if (dispute.screening_id) {
       const { error: cErr } = await g.admin.from('screening_corrections').insert({ screening_id: dispute.screening_id, dispute_id: dispute.id, item_kind: dispute.item_kind, item_ref: dispute.item_ref, item_label: dispute.item_label, action: resolution, note, created_by: g.userId })
-      if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500, headers: NO_STORE })
+      if (cErr) {
+        await g.admin.from('consumer_disputes').update({ status: 'open', resolution_note: null, resolved_by: null, resolved_at: null }).eq('id', dispute.id).eq('status', resolution)
+        return NextResponse.json({ error: cErr.message }, { status: 500, headers: NO_STORE })
+      }
     }
-    // 2. Dispute status.
-    const { error: dErr } = await g.admin.from('consumer_disputes').update({ status: resolution, resolution_note: note, resolved_by: g.userId, resolved_at: now }).eq('id', dispute.id)
-    if (dErr) return NextResponse.json({ error: dErr.message }, { status: 500, headers: NO_STORE })
 
     // 3. s.13(2): everyone who received the report in the last 60 days.
     const notified: ConsumerDispute['notified_to'] = []
@@ -123,7 +131,9 @@ export async function POST(req: Request) {
         const reportUrl = `${siteUrl()}/screening/${scr.id}/report`
         const targets: Array<{ to: string; kind: 'landlord' | 'principal'; name: string | null }> = []
         if (scr.landlord_id) {
-          const { data: ll } = await g.admin.from('landlords').select('full_name, email').or(`id.eq.${scr.landlord_id},auth_id.eq.${scr.landlord_id}`).limit(1).maybeSingle()
+          // Both columns can match different rows (dual-ID rule): pick the one that is this landlord's.
+          const { data: llRows } = await g.admin.from('landlords').select('id, auth_id, full_name, email').or(`id.eq.${scr.landlord_id},auth_id.eq.${scr.landlord_id}`)
+          const ll = pickLandlordRow((llRows ?? []) as { id: string; auth_id: string | null; full_name: string | null; email: string | null }[], scr.landlord_id)
           let email = (ll as { email?: string | null } | null)?.email ?? null
           let name = (ll as { full_name?: string | null } | null)?.full_name ?? null
           if (!email) { const { data: au } = await g.admin.auth.admin.getUserById(scr.landlord_id); email = au?.user?.email ?? null }

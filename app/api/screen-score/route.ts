@@ -46,6 +46,7 @@ import { searchCanliiViaIndex } from '@/lib/screening/canliiIndex'
 import { craMode, craToolSkipQuery, personalRecordLookupsAllowed, CRA_TOOL_SKIP_NOTE_EN, CRA_TOOL_SKIP_NOTE_ZH } from '@/lib/compliance/craMode'
 import { callerHats, mayScreen, SCREENING_ROLE_CODE, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
 import { V3_WEIGHTS } from '@/lib/screening-types'
+import { partnerScreeningEnabled, PARTNER_SCREENING_CLOSED } from '@/lib/api/partnerScreening'
 
 
 // Applicant-authorised verification facts, rendered for the model as facts
@@ -770,6 +771,11 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     // same plan/quota), using the service role for the row writes.
     const partnerKey = (req.headers.get('x-partner-key') || '').trim()
     let partnerLandlordId: string | null = null
+    // The partner door is the third tier of the open API, closed until the Consumer Reporting Act
+    // registration is done. /api/v1/screen checks the switch; a caller holding a key could skip
+    // that route and post here directly, so the same switch is checked here too (code review
+    // 2026-11-15, S3-8). A user JWT run is untouched.
+    if (partnerKey && !partnerScreeningEnabled()) return NextResponse.json(PARTNER_SCREENING_CLOSED, { status: 503 })
     if (partnerKey && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       const adminK = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
       const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(partnerKey))

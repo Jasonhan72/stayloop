@@ -58,8 +58,12 @@ export async function POST(req: Request) {
   const email = (u?.user?.email || '').toLowerCase()
   const out: Record<string, unknown> = {}
 
-  if (email && (scopes.includes('identity') || scopes.includes('bank') || scopes.includes('credit'))) {
-    const { data: reqs } = await admin.from('verification_requests').select('steps, updated_at, status').eq('tenant_email', email).in('status', ['consented', 'complete']).order('updated_at', { ascending: false }).limit(5)
+  // Verification steps count for the passport holder only when the request is bound to their
+  // account (tenant_auth_id, set at consent while signed in with the address the request names).
+  // The address a landlord typed on the request is not proof of whose verification it is (code
+  // review 2026-11-15, S2-9): matching on it let one person's result be reported under another.
+  if (scopes.includes('identity') || scopes.includes('bank') || scopes.includes('credit')) {
+    const { data: reqs } = await admin.from('verification_requests').select('steps, updated_at, status').eq('tenant_auth_id', tok.tenant_user_id as string).in('status', ['consented', 'complete']).order('updated_at', { ascending: false }).limit(5)
     type Step = { status?: string; provider?: string; sandbox?: boolean; result?: Record<string, unknown>; updated_at?: string }
     const pick = (k: 'id' | 'bank' | 'credit'): Step | null => {
       for (const r of reqs ?? []) {

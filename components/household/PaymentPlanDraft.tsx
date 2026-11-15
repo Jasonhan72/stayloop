@@ -95,8 +95,9 @@ export default function PaymentPlanDraft({ householdId, leaseId, unit, monthlyRe
       title: zh ? `还款计划提议 · ${unit} · ${missed.length} 期欠款` : `Repayment plan proposal · ${unit} · ${missed.length} period(s)`,
       summary: zh ? `按 ${installments} 期补齐 $${arrears.toLocaleString()}，每期随当月租金一起付，无利息与手续费。批准后发给 ${lease.tenant_email}；LTB 效力须另用 Payment Agreement Form（s.206）。` : `Clear $${arrears.toLocaleString()} in ${installments} instalment(s), each with that month's rent, no interest or fees. Sent to ${lease.tenant_email} after approval; LTB effect needs the Payment Agreement Form (s.206).`,
       recipient_label: lease.tenant_email,
-      data_scope: ['租金记录', '还款计划'],
-      excluded_data: ['筛查报告'],
+      // Written in the landlord's interface language, like the title and summary above (code review 2026-11-15 S3-31).
+      data_scope: zh ? ['租金记录', '还款计划'] : ['Rent record', 'Repayment plan'],
+      excluded_data: zh ? ['筛查报告'] : ['Screening report'],
       risk_level: 'low',
       metadata,
     }

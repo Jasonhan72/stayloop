@@ -52,16 +52,23 @@ jobs:
           KB_REVIEW_EMAIL: ${{ vars.KB_REVIEW_EMAIL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM: ${{ vars.RESEND_FROM }}
+          # Inputs reach the script as environment variables, never spliced into the shell text
+          # (a value typed into the dispatch form would otherwise be run as shell).
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_ONLY: ${{ inputs.only }}
         run: |
           if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "::error::SUPABASE_SERVICE_ROLE_KEY is not set (Settings → Secrets and variables → Actions)."
             exit 1
           fi
-          if [ -z "$GEMINI_API_KEY" ] && [ "${{ inputs.dry_run }}" != "true" ]; then
+          if [ -z "$GEMINI_API_KEY" ] && [ "$INPUT_DRY_RUN" != "true" ]; then
             echo "::error::GEMINI_API_KEY is not set. From a checkout: grep '^GEMINI_API_KEY=' .env.local | cut -d= -f2- | gh secret set GEMINI_API_KEY"
             exit 1
           fi
-          ./node_modules/.bin/tsx scripts/kb/ingest.ts ${{ inputs.dry_run && '--dry-run' || '' }} ${{ inputs.only && format('--only={0}', inputs.only) || '' }}
+          ARGS=()
+          if [ "$INPUT_DRY_RUN" = "true" ]; then ARGS+=("--dry-run"); fi
+          if [ -n "$INPUT_ONLY" ]; then ARGS+=("--only=$INPUT_ONLY"); fi
+          ./node_modules/.bin/tsx scripts/kb/ingest.ts "${ARGS[@]}"
       - name: Retrieval eval (golden set, hit@5 must stay ≥ 70 %)
         if: ${{ !inputs.dry_run }}
         env:

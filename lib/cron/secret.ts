@@ -1,5 +1,5 @@
 // Constant-time comparison of a cron secret header against CRON_SECRET (SHA-256 both sides, then XOR).
-// Shared by the cron routes (realtor-freshness, model-discover).
+// Shared by every cron route (the three private copies were folded in here, code review 2026-11-15, S3-29).
 export async function secretMatches(given: string, secret: string): Promise<boolean> {
   const enc = new TextEncoder()
   const [a, b] = await Promise.all([

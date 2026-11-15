@@ -363,6 +363,13 @@ insert into probe(who, tbl, action, expected, sql) values
 ('tenant','ltb_orders','rpc search_ltb_orders (screening role only, review 2026-11-15 S1-1)','ERR 42501', $$select count(*)::text from search_ltb_orders('john smith','john smith',null,null,5)$$),
 ('landlord','ltb_orders','rpc search_ltb_orders (landlord hat)','ok:\d+', $$select count(*)::text from search_ltb_orders('john smith','john smith',null,null,5)$$),
 ('agent','ltb_orders','rpc search_ltb_orders (verified agent)','ok:\d+', $$select count(*)::text from search_ltb_orders('john smith','john smith',null,null,5)$$),
+-- code review 2026-11-15, the remaining items (migration 20261115d)
+('landlord','stripe_events','rpc fulfil_unlock_payment (service only, S3-12)','ERR 42501', $$select fulfil_unlock_payment('evt_matrix_probe','probe','80646b6a-9c7b-4a17-a850-4ff774ea6d64',null,'landlord')$$),
+('tenant','agent','rpc seed_demo_agent_data (dropped, S3-15)','ERR 42883', $$select seed_demo_agent_data('tenant')::text$$),
+('anon','email_unsubscribes','insert (dead table, door closed, S3-16)','ERR 42501', $$with i as (insert into email_unsubscribes(email) values ('matrix-probe@stayloop.ai') returning 1) select count(*)::text from i$$),
+('anon','household_invites','rpc decline_household_invite on an accepted invite (S3-17 keeps the older check)','ERR P0001', $$select decline_household_invite((select token from household_invites where id='6732fdb6-a6c6-4eb1-af6b-1a60f5bc097a'))::text$$),
+('tenant','verification_requests','select requests not bound to me (S2-9)','ok:0', $$select count(*)::text from verification_requests$$),
+('agent','rental_matters','rpc matter_party on a matter of L with no live delegation (S2-6)','ok:', $$select coalesce(matter_party((select id from rental_matters where landlord_auth_id='30d0c280-562d-4d6c-85bf-25cf5862cb8e' limit 1)),'')$$),
 ('anon','auth','rpc auth_email_status (service only)','ERR 42501', $$select auth_email_status('tenant-test@stayloop.ai')::text$$),
 ('anon','admin','rpc admin_list_users (no execute)','ERR 42501', $$select count(*)::text from admin_list_users(5)$$),
 ('tenant','admin','rpc admin_list_users (not admin => empty or error)','ok:0|ERR.*', $$select count(*)::text from admin_list_users(5)$$);

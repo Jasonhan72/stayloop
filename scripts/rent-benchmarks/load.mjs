@@ -56,6 +56,9 @@ if (mode === 'cmhc') {
   // prev_avg = same quarter one year earlier
   const byKey = new Map(rows.map((r) => [`${r.bedrooms}|${r.period}`, r.avg_rent]))
   for (const r of rows) { const [y, m] = r.period.split('-'); r.prev_avg = byKey.get(`${r.bedrooms}|${Number(y) - 1}-${m}`) ?? null }
+  // Nothing parsed is a broken download or a changed table layout, not "no news": fail the run so
+  // the Action goes red instead of reporting a successful refresh that loaded nothing.
+  if (rows.length === 0) { console.error('statcan: 0 rows parsed — the table layout or the download changed'); process.exit(1) }
   console.log('statcan periods', [...new Set(rows.map((r) => r.period))].sort().join(' '))
   await upsert(rows)
 } else { console.error('usage: load.mjs cmhc <json> | statcan'); process.exit(1) }

@@ -62,8 +62,8 @@ export const DICT = {
   'onb.hi': { en: "Hi, I'm your AI Agent.", zh: '嗨，我是你的 AI 助理。' },
   'onb.line2': { en: "Here is how identity verification will work — a preview.", zh: '先看看身份核验是怎么回事 —— 这是一个预览。' },
   'onb.body': {
-    en: 'The identity stamp is the first of four. Real verification runs through Veriff (passport or licence plus a selfie) when a landlord sends you a secure verification link with a screening. This page only previews the steps — nothing is uploaded.',
-    zh: '身份章是四枚章的第一枚。真正的核验由 Veriff 完成（护照 / 驾照 + 自拍），在房东随筛查发给你安全核验链接时进行。本页只是流程预览，不会上传任何东西。',
+    en: 'The identity stamp comes first. Real verification runs through Veriff (passport or licence plus a selfie) when a landlord sends you a secure verification link with a screening. This page only previews the steps — nothing is uploaded.',
+    zh: '身份章是第一枚章。真正的核验由 Veriff 完成（护照 / 驾照 + 自拍），在房东随筛查发给你安全核验链接时进行。本页只是流程预览，不会上传任何东西。',
   },
   'onb.f1': { en: 'Passport, driver’s licence, or PR card', zh: '护照 / 驾照 / PR 卡，三选一' },
   'onb.f2': { en: 'A quick liveness selfie to confirm it’s you', zh: '活体自拍，确认是你本人' },

@@ -17,7 +17,8 @@ describe('settings subscription card', () => {
 describe('dashboard billing button', () => {
   const dash = readFileSync('app/dashboard/page.tsx', 'utf8')
   it('opens the Stripe portal only when a Stripe customer exists; a comped Pro gets a label, not an error alert', () => {
-    expect(dash).toContain("select('plan, stripe_customer_id, pro_trial_until')")
+    // 2026-11-15 (code review S3-10): both ID columns are read so pickLandlordRow can choose the row
+    expect(dash).toContain("select('id, auth_id, plan, stripe_customer_id, pro_trial_until')")
     expect(dash).toContain("{(plan === 'pro' || plan === 'team') && hasStripeCustomer && (")
     expect(dash).toContain('data-testid="plan-comped"')
   })

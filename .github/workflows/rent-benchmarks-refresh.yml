@@ -7,19 +7,25 @@ on:
   schedule:
     - cron: '20 7 15 * *'
   workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: https://uotcczsfeiptnabamzcd.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Preflight
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "SUPABASE_SERVICE_ROLE_KEY secret missing"; exit 1; }
       - name: Load StatCan quarterly asking rents
+        # The key is given to this step only, not to checkout / setup-node.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://uotcczsfeiptnabamzcd.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/rent-benchmarks/load.mjs statcan

@@ -43,7 +43,9 @@ export async function POST(req: NextRequest) {
       .or(`id.eq.${user.id},auth_id.eq.${user.id}`)
     const landlord = pickLandlordRow(rows, user.id)
 
-    if (!landlord?.stripe_customer_id) {
+    // No landlord hat: 403, the same answer every billing route gives (code review 2026-11-15, S3-14).
+    if (!landlord) return NextResponse.json({ error: 'landlord_required' }, { status: 403 })
+    if (!landlord.stripe_customer_id) {
       return NextResponse.json(
         { error: 'no stripe customer on file' },
         { status: 400 }

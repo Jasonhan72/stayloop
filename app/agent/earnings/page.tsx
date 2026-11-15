@@ -19,6 +19,7 @@ import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
+import { stripUrlParams } from '@/lib/ui/stripUrlParams'
 import {
   CLOSED_DEALS,
   DEMO_MONTH,
@@ -170,7 +171,7 @@ export default function AgentEarningsPage() {
     const params = new URLSearchParams(window.location.search)
     if (params.has('connect') || params.has('fee')) {
       loadData()
-      window.history.replaceState(null, '', window.location.pathname)
+      stripUrlParams('all')
     }
   }, [loadData])
 

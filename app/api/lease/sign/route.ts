@@ -12,6 +12,7 @@ import { escapeHtml, sendEmail } from '@/lib/email'
 import { leaseHasTerms, leaseIsSignable } from '@/lib/lease/leaseState'
 import { hasUsableInvite, householdAddressMayMatch, leaseAttachSlot, normalizeEmail, pickHouseholdForLease, sameTenancyAddress, type HouseholdCandidate, type InviteRow } from '@/lib/lease/householdMatch'
 import { firstDueDate, rentDueDay, torontoDate } from '@/lib/household/ledger'
+import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 
 
 type LeaseRow = {
@@ -230,10 +231,22 @@ export async function POST(req: Request) {
         html: `<p>Your Residential Tenancy Agreement for <b>${escapeHtml(unit)}</b> is now <b>fully signed</b> by both parties.</p><p><a href="${tenantLink}">View &amp; download your permanent copy →</a></p><p style="color:#64748b;font-size:13px">该链接长期有效，可随时查看和下载 PDF 备份。</p>`,
       })
     }
+    // The landlord too (code review 2026-11-15, S3-5): when the tenant signs last, this request
+    // is the tenant's — without this the landlord never heard that the lease was complete.
+    const landlordEmail = await landlordEmailOf(admin, lease.landlord_id)
+    if (landlordEmail) {
+      await sendEmail({
+        to: landlordEmail,
+        subject: `Fully signed — the lease for ${unit}`,
+        text: `The Residential Tenancy Agreement for ${unit} is now fully signed by both parties${lease.tenant_name ? ` (${lease.tenant_name})` : ''}.\n\nYour copy is in your Stayloop workspace:\n${siteUrl}/landlord/leases\n\n租约已由双方签署完成，你的副本在工作台的「租约」里，可随时查看和下载。\n\n— Stayloop`,
+        html: `<p>The Residential Tenancy Agreement for <b>${escapeHtml(unit)}</b> is now <b>fully signed</b> by both parties${lease.tenant_name ? ` (${escapeHtml(lease.tenant_name)})` : ''}.</p><p><a href="${siteUrl}/landlord/leases">Open it in your workspace →</a></p><p style="color:#64748b;font-size:13px">租约已由双方签署完成，你的副本在工作台的「租约」里，可随时查看和下载。</p>`,
+      })
+    }
   } else if (signer === 'tenant') {
     // Tell the landlord to countersign. Resolve their email via the lease row.
-    if (lease.landlord_id) {
-      const { data: ll } = await admin.from('landlords').select('email').eq('id', lease.landlord_id).maybeSingle()
+    {
+      const email = await landlordEmailOf(admin, lease.landlord_id)
+      const ll = email ? { email } : null
       if (ll?.email) {
         await sendEmail({
           to: ll.email,
@@ -262,6 +275,15 @@ type ManagedHousehold = { id: string; current_lease_id: string | null; next_leas
  * the same unit with a different (or unknown) tenant is the previous tenancy
  * and is never reused.
  */
+/** The landlord's contact email for a lease. `lease_documents.landlord_id` holds a profile id
+ *  on older rows and an auth id on newer ones (dual-ID rule), so both columns are matched. */
+async function landlordEmailOf(admin: AdminClient, landlordId: string | null | undefined): Promise<string | null> {
+  if (!landlordId || !/^[0-9a-f-]{36}$/i.test(landlordId)) return null
+  const { data } = await admin.from('landlords').select('id, auth_id, email').or(`id.eq.${landlordId},auth_id.eq.${landlordId}`)
+  const row = pickLandlordRow((data ?? []) as { id: string; auth_id: string | null; email: string | null }[], landlordId)
+  return row?.email || null
+}
+
 async function findManagedHousehold(admin: AdminClient, landlordAuth: string, lease: { address: string; unit: string | null; tenant_email: string | null }): Promise<ManagedHousehold | null> {
   if (!normalizeEmail(lease.tenant_email)) return null
   const [{ data: created }, { data: memberOf }] = await Promise.all([

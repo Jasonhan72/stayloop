@@ -168,7 +168,7 @@ function deriveTier(row: AppRow): 0 | 1 | 2 | 3 | 4 {
   const t = row.verified_tier ?? 0
   return (t >= 4 ? 4 : t >= 3 ? 3 : t >= 1 ? 1 : 0) as 0 | 1 | 2 | 3 | 4
 }
-export function verifiedTierFromSnapshot(v: unknown): number {
+function verifiedTierFromSnapshot(v: unknown): number {
   const st = (v && typeof v === 'object' && 'steps' in (v as Record<string, unknown>) ? (v as { steps: unknown }).steps : v) as Record<string, { status?: string; sandbox?: boolean }> | null
   const ok = (k: string) => !!st && st[k]?.status === 'verified' && !st[k]?.sandbox
   return ok('id') ? (ok('bank') ? (ok('credit') ? 4 : 3) : 1) : 0

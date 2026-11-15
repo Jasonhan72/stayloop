@@ -86,9 +86,8 @@ describe('guards on the converted files', () => {
     expect(read('app/admin/agents/page.tsx')).toMatch(/\nfunction Shell\(/)
     expect(read('app/provider/jobs/page.tsx')).toMatch(/\nfunction TILE\(/)
     expect(read('components/admin/RealtorFreshnessCard.tsx')).toMatch(/\nfunction Stat\(/)
-    expect(read('components/AuthModal.tsx')).toMatch(/\nfunction PasswordEye\(/)
-    for (const p of ['app/admin/agents/page.tsx', 'app/provider/jobs/page.tsx', 'components/admin/RealtorFreshnessCard.tsx', 'components/AuthModal.tsx']) {
-      expect(read(p), p).not.toMatch(/\n  const (Shell|TILE|Stat|PasswordEye) = \(/)
+    for (const p of ['app/admin/agents/page.tsx', 'app/provider/jobs/page.tsx', 'components/admin/RealtorFreshnessCard.tsx']) {
+      expect(read(p), p).not.toMatch(/\n  const (Shell|TILE|Stat) = \(/)
     }
   })
   it('preferences read from storage go through the external store, not setState in an effect', () => {

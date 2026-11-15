@@ -11,11 +11,13 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { LISTING_VISIBILITY_OR, hasUsablePhotos } from '@/lib/listingVisibility'
 import { SIMILAR_LIMIT, rankSimilar, similarSearchBox } from '@/lib/listingSimilar'
-import { underHourlyLimit } from '@/lib/rateLimit'
+import { ipBucket, underCostLimits } from '@/lib/rateLimit'
 import type { PublicMlsListing } from '@/lib/listings/syndication'
 
 
 export const ANON_DETAILS_PER_HOUR = 300
+/** Every caller together, an hour: far above honest traffic, a ceiling for one that rotates addresses. */
+const SITE_DETAILS_PER_HOUR = 40_000
 export const USER_DETAILS_PER_HOUR = 1500
 const PRIVATE_COLUMNS = ['broker_phone', 'realtor_check', 'management_company'] as const
 const SIMILAR_RANK_COLUMNS = 'id, slug, address, city, neighborhood, lat, lng, bedrooms, has_den, property_type, monthly_rent, created_at, status, display_address'
@@ -46,9 +48,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
     const { data } = await asUser.auth.getUser()
     if (data?.user && !data.user.is_anonymous) userId = data.user.id
   }
+  // Caller bucket + a site-wide ceiling (S3-11); IPv6 callers count per /64.
   const ok = userId
-    ? await underHourlyLimit(`ldetail:u:${userId}`, USER_DETAILS_PER_HOUR, true)
-    : await underHourlyLimit(`ldetail:ip:${ip}`, ANON_DETAILS_PER_HOUR, true)
+    ? await underCostLimits('ldetail', `u:${userId}`, USER_DETAILS_PER_HOUR, SITE_DETAILS_PER_HOUR)
+    : await underCostLimits('ldetail', `ip:${ipBucket(ip)}`, ANON_DETAILS_PER_HOUR, SITE_DETAILS_PER_HOUR)
   if (!ok) return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '600', 'Cache-Control': 'no-store' } })
 
   const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })

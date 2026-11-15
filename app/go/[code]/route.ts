@@ -5,7 +5,7 @@
 // about the visitor is stored beyond the counter; the hourly cap is per IP and
 // fails open (a counter is not worth blocking a prospective tenant).
 import { NextResponse } from 'next/server'
-import { underHourlyLimit } from '@/lib/rateLimit'
+import { ipBucket, underCostLimits } from '@/lib/rateLimit'
 import { SHARE_CODE_RE } from '@/lib/listings/sharePack'
 import { adminClient, siteUrl } from '@/lib/listings/serverAuth'
 import { isPreviewFetch } from '@/lib/listings/previewFetch'
@@ -33,7 +33,8 @@ async function handle(req: Request, ctx: { params: Promise<{ code: string }> }) 
   const fallback = NextResponse.redirect(`${site}/listings`, { status: 302, headers: HEADERS })
   if (!SHARE_CODE_RE.test(code || '')) return fallback
   const ip = req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  if (!(await underHourlyLimit(`go:${ip}`, 600, true))) return fallback
+  // Caller bucket + a site-wide ceiling (S3-11): past either, the visitor still lands on /listings.
+  if (!(await underCostLimits('go-share-link', `ip:${ipBucket(ip)}`, 600, 30_000))) return fallback
   try {
     let row: { slug: string | null; channel: string } | null | undefined
     if (isPreviewFetch(req.method, req.headers.get('user-agent'))) {

@@ -13,9 +13,12 @@
 //   import { captureException, captureMessage } from '@/lib/observability/sentry'
 //   try { ... } catch (e) { captureException(e, { route: 'screen-score', userId }); throw e }
 //
-// To enable: set SENTRY_DSN in Cloudflare Pages env (Production + Preview).
-// Get the DSN from sentry.io → project settings → Client Keys (DSN).
+// To enable: put SENTRY_DSN in .env.local and run scripts/worker-secrets-sync.sh (it is in that
+// script's optional list). Get the DSN from sentry.io → project settings → Client Keys (DSN).
+// Until then every capture is a no-op: errors are only in the Worker's logs.
 // -----------------------------------------------------------------------------
+
+import { afterResponse } from '@/lib/afterResponse'
 
 interface ParsedDSN {
   publicKey: string
@@ -87,7 +90,7 @@ export function captureException(
     platform: 'javascript',
     level: context.level || 'error',
     logger: context.route || 'stayloop',
-    server_name: 'cf-pages',
+    server_name: 'stayloop-web',
     tags: {
       route: context.route || 'unknown',
       ...(context.tags || {}),
@@ -114,7 +117,9 @@ export function captureException(
 
   // Sentry envelope format (v7). Fire-and-forget.
   const url = `${parsed.protocol}://${parsed.host}/api/${parsed.projectId}/store/?sentry_version=7&sentry_key=${parsed.publicKey}`
-  fetch(url, {
+  // Rides waitUntil: on the Worker a floating fetch is cancelled with the response, so the event
+  // for the very error that ended the request never left (code review 2026-11-15, S3-23).
+  afterResponse(fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(event),
@@ -122,7 +127,7 @@ export function captureException(
     signal: AbortSignal.timeout(2000),
   }).catch(() => {
     // Swallow — observability tool errors must never break the request path.
-  })
+  }))
 }
 
 /**

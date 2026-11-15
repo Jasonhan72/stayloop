@@ -24,6 +24,7 @@ import { supabase } from './supabase'
 import { clearCachedAiNames } from '@/lib/aiName'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 
 export type UserRole = 'landlord' | 'tenant' | 'agent'
 
@@ -226,11 +227,12 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
         }
 
         // Fetch profile from landlords table (using auth_id)
-        const { data: profileData, error: profileError } = await supabase
+        // Either column (dual-ID rule): a legacy row is keyed by the profile id.
+        const { data: profileRows, error: profileError } = await supabase
           .from('landlords')
           .select('*')
-          .eq('auth_id', authId)
-          .maybeSingle()
+          .or(`id.eq.${authId},auth_id.eq.${authId}`)
+        const profileData = pickLandlordRow((profileRows ?? []) as { id: string; auth_id: string | null; role?: UserRole | null; full_name?: string | null; plan?: string | null }[], authId)
 
         if (profileError && profileError.code !== 'PGRST116') {
           // PGRST116 = not found (which is expected, we'll create it)

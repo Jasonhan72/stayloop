@@ -10,21 +10,14 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { reflectUser, runReflectionSweep } from '@/lib/agent/reflection'
+import { secretMatches } from '@/lib/cron/secret'
 
 
-function timingSafeEqual(a: string, b: string): boolean {
-  const ab = new TextEncoder().encode(a)
-  const bb = new TextEncoder().encode(b)
-  let diff = ab.length ^ bb.length
-  const n = Math.max(ab.length, bb.length)
-  for (let i = 0; i < n; i++) diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0)
-  return diff === 0
-}
 
 export async function POST(req: Request) {
   const cronSecret = process.env.CRON_SECRET
   const given = req.headers.get('x-cron-secret')
-  if (cronSecret && given && timingSafeEqual(given, cronSecret)) {
+  if (cronSecret && given && (await secretMatches(given, cronSecret))) {
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,

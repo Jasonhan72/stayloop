@@ -1105,7 +1105,7 @@ async function executeSendMessage(
   }
   const subject =
     (typeof m.subject === 'string' && m.subject.trim()) ||
-    '来自您的 Stayloop 代理的消息 / Message from your Stayloop agent'
+    '经 Stayloop 发来的消息 / A message sent through Stayloop'
   // 乙 #11: a tenant writing to a landlord who is not on Stayloop. Plain email to
   // the address the tenant recorded; the letter says who sent it and that
   // replies are not relayed (no thread exists for this landlord).
@@ -1303,7 +1303,12 @@ async function executeTakedownReminder(admin: Admin, userId: string, action: Act
   if (!(await claimExecution(admin, action.id))) return afterLostClaim(admin, action.id)
   const channels = posted.map((r) => r.channel)
   const { error } = await admin.from('listing_syndications').update({ status: 'removed', removed_at: new Date().toISOString() }).in('id', posted.map((r) => r.id))
-  if (error) return finalizeExecution(admin, userId, action, 'executed_takedown_reminder', { ok: false, reason: error.message, listing_id: listingId }, { listing_id: listingId })
+  // Nothing changed on a failed update: release the claim like every other executor, so the
+  // landlord's next tap retries instead of meeting `in_flight` forever (code review 2026-11-15, S3-1).
+  if (error) {
+    await releaseClaim(admin, action.id, error.message)
+    return NextResponse.json({ executed: false, reason: error.message || 'update failed' }, { status: 502 })
+  }
   return finalizeExecution(admin, userId, action, 'executed_takedown_reminder', { ok: true, kind: 'acknowledged', listing_id: listingId, removed: posted.length, channels }, { listing_id: listingId, channels })
 }
 

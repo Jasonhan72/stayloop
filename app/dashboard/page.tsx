@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useStoredChoice } from '@/lib/ui/useStoredChoice'
 import { useOnChange } from '@/lib/ui/useOnChange'
 import { proTrialActive, trialUntilLabel } from '@/lib/billing/entitlement'
+import { pickLandlordRow } from '@/lib/billing/subscriptionState'
+import { stripUrlParams } from '@/lib/ui/stripUrlParams'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AIProactive from '@/components/AIProactive'
@@ -71,6 +73,17 @@ export default function Dashboard() {
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
   const [checkoutBanner, setCheckoutBanner] = useState<null | 'pending' | 'success' | 'cancel'>(null)
+  // In-page status line instead of window.alert (code review 2026-11-15 S3-24). It renders inside whichever
+  // layer is on top — the delete dialog, the upgrade dialog, or the page under the heading.
+  const [notice, setNotice] = useState<null | { tone: 'error' | 'info'; text: string }>(null)
+  const zh = lang === 'zh'
+  const fail = (zhLead: string, enLead: string, detail?: string | null) => {
+    // The routes' generic fallbacks say nothing the lead-in has not said; anything else is shown as the detail.
+    const d = detail === 'not signed in'
+      ? (zh ? '登录已过期，请重新登录' : 'your session expired — sign in again')
+      : detail === 'checkout failed' || detail === 'portal failed' ? '' : (detail || '').trim()
+    setNotice({ tone: 'error', text: d ? `${zh ? zhLead : enLead}${zh ? '：' : ': '}${d}` : `${zh ? zhLead : enLead}${zh ? '，请重试。' : '. Please try again.'}` })
+  }
 
   const fetchAll = useCallback(async () => {
     if (!landlord) return
@@ -78,16 +91,18 @@ export default function Dashboard() {
     const [appsRes, listingsRes, planRes, archivedRes] = await Promise.all([
       supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
       supabase.from('listings').select('*').eq('landlord_id', landlord.landlordId).neq('status', 'archived').order('created_at', { ascending: false }),
-      supabase.from('landlords').select('plan, stripe_customer_id, pro_trial_until').or(`id.eq.${landlord.landlordId},auth_id.eq.${landlord.landlordId}`).maybeSingle(),
+      // Dual-ID rule: the row useLandlord resolved (by its id) or the one carrying this auth id, then pickLandlordRow.
+      supabase.from('landlords').select('id, auth_id, plan, stripe_customer_id, pro_trial_until').or(`id.eq.${landlord.landlordId},auth_id.eq.${landlord.authId}`),
       supabase.from('listings').select('id, slug, address, unit, city, monthly_rent, status, is_active').eq('landlord_id', landlord.landlordId).eq('status', 'archived').order('created_at', { ascending: false }).limit(50),
     ])
     void loadHandoffs()
     if (appsRes.data) setApplications(appsRes.data as Application[])
     if (listingsRes.data) setListings(listingsRes.data as Listing[])
     if (archivedRes.data) setArchivedListings(archivedRes.data as unknown as Listing[])
-    if (planRes.data?.plan) setPlan(planRes.data.plan as Plan)
-    setHasStripeCustomer(!!(planRes.data as { stripe_customer_id?: string | null } | null)?.stripe_customer_id)
-    setTrialUntil((planRes.data as { pro_trial_until?: string | null } | null)?.pro_trial_until ?? null)
+    const planRow = pickLandlordRow((planRes.data ?? []) as { id: string; auth_id: string | null; plan: string | null; stripe_customer_id: string | null; pro_trial_until: string | null }[], landlord.authId)
+    if (planRow?.plan) setPlan(planRow.plan as Plan)
+    setHasStripeCustomer(!!planRow?.stripe_customer_id)
+    setTrialUntil(planRow?.pro_trial_until ?? null)
     setLoading(false)
   }, [landlord, loadHandoffs])
 
@@ -109,12 +124,7 @@ export default function Dashboard() {
     if (plan === 'pro' || plan === 'team') {
       setCheckoutBanner('success')
       setShowUpgrade(false)
-      if (typeof window !== 'undefined') {
-        const u = new URL(window.location.href)
-        u.searchParams.delete('checkout')
-        u.searchParams.delete('session_id')
-        window.history.replaceState({}, '', u.toString())
-      }
+      stripUrlParams(['checkout', 'session_id'])
       return
     }
     let cancelled = false
@@ -122,12 +132,12 @@ export default function Dashboard() {
     const tick = async () => {
       if (cancelled) return
       tries += 1
-      const { data } = await supabase
+      const { data: rows } = await supabase
         .from('landlords')
-        .select('plan')
-        .or(`id.eq.${landlord.landlordId},auth_id.eq.${landlord.landlordId}`)
-        .maybeSingle()
+        .select('id, auth_id, plan')
+        .or(`id.eq.${landlord.landlordId},auth_id.eq.${landlord.authId}`)
       if (cancelled) return
+      const data = pickLandlordRow((rows ?? []) as { id: string; auth_id: string | null; plan: string | null }[], landlord.authId)
       if (data?.plan && data.plan !== plan) {
         setPlan(data.plan as Plan)
         return
@@ -144,6 +154,7 @@ export default function Dashboard() {
   async function startCheckout() {
     if (plan === 'pro' || plan === 'team') return
     setCheckoutLoading(true)
+    setNotice(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) throw new Error('not signed in')
@@ -156,13 +167,14 @@ export default function Dashboard() {
       if (!res.ok || !data.url) throw new Error(data.error || 'checkout failed')
       window.location.href = data.url
     } catch (err: any) {
-      alert(`Checkout error: ${err?.message || 'unknown'}`)
+      fail('没能打开付款页', 'Could not open checkout', err?.message)
       setCheckoutLoading(false)
     }
   }
 
   async function openBillingPortal() {
     setPortalLoading(true)
+    setNotice(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) throw new Error('not signed in')
@@ -178,11 +190,11 @@ export default function Dashboard() {
       if (msg.includes('no stripe customer')) {
         // Comped / directly-granted Pro — there is no Stripe subscription to
         // manage, and that is not an error worth alarming anyone about.
-        alert(lang === 'zh'
+        setNotice({ tone: 'info', text: lang === 'zh'
           ? '你的 Pro 由 Stayloop 直接开通，没有需要管理的 Stripe 订阅。'
-          : 'Your Pro plan was granted directly by Stayloop — there is no Stripe subscription to manage.')
+          : 'Your Pro plan was granted directly by Stayloop — there is no Stripe subscription to manage.' })
       } else {
-        alert(`Billing portal error: ${msg || 'unknown'}`)
+        fail('没能打开订阅管理', 'Could not open the billing portal', msg)
       }
       setPortalLoading(false)
     }
@@ -203,6 +215,7 @@ export default function Dashboard() {
   async function handleDeleteListing() {
     if (!deletingListing || !deleteReason) return
     setDeleteLoading(true)
+    setNotice(null)
     try {
       const { error } = await supabase
         .from('listings')
@@ -218,7 +231,7 @@ export default function Dashboard() {
       setDeletingListing(null)
       setDeleteReason('')
     } catch (e: any) {
-      alert(e?.message || 'Delete failed')
+      fail('删除失败', 'Delete failed', e?.message)
     } finally {
       setDeleteLoading(false)
     }
@@ -226,8 +239,9 @@ export default function Dashboard() {
 
   // Back into the list, still off market — the landlord relists it with the 上架 toggle or the editor.
   async function restoreArchived(l: Listing) {
+    setNotice(null)
     const { error } = await supabase.from('listings').update({ status: 'active', is_active: false }).eq('id', l.id)
-    if (error) { alert(error.message); return }
+    if (error) { fail('恢复失败', 'Restore failed', error.message); return }
     setArchivedListings((prev) => prev.filter((x) => x.id !== l.id))
     void fetchAll()
   }
@@ -236,8 +250,9 @@ export default function Dashboard() {
     const next = !currentlyActive
     // Re-listing restarts the clock: days-on-market must not include the time it was off market.
     const patch = next ? { is_active: true, published_at: new Date().toISOString() } : { is_active: false }
+    setNotice(null)
     const { error } = await supabase.from('listings').update(patch).eq('id', id)
-    if (error) { alert(error.message); return }
+    if (error) { fail(next ? '上架失败' : '下架失败', next ? 'Could not put the listing on the market' : 'Could not take the listing off the market', error.message); return }
     setListings((prev) => prev.map((l) => l.id === id ? { ...l, ...patch } : l))
     if (!next) void loadHandoffs()
   }
@@ -256,6 +271,17 @@ export default function Dashboard() {
     if (s >= 50) return { bg: 'bg-warning/15', fg: 'text-warning' }
     return { bg: 'bg-danger/15', fg: 'text-danger' }
   }
+
+  const noticeLine = notice && (
+    <div
+      role={notice.tone === 'error' ? 'alert' : 'status'}
+      data-testid="dashboard-notice"
+      className={'flex items-start justify-between gap-3 rounded-lg border bg-white px-4 py-2.5 text-[13px] shadow-sm ' + (notice.tone === 'error' ? 'border-danger/40 text-danger' : 'border-line-strong text-body-2')}
+    >
+      <span className="min-w-0 break-words">{notice.text}</span>
+      <button type="button" onClick={() => setNotice(null)} aria-label={zh ? '关闭提示' : 'Dismiss'} className="flex-shrink-0 font-mono text-[11px] text-body-3 hover:text-body">✕</button>
+    </div>
+  )
 
   if (authLoading || !landlord) {
     return (
@@ -331,6 +357,8 @@ export default function Dashboard() {
               </Link>
             </div>
           </div>
+
+          {noticeLine && !deletingListing && !showUpgrade && <div className="sticky top-20 z-30 mb-6">{noticeLine}</div>}
 
           <AIProactive
             role="landlord"
@@ -478,7 +506,7 @@ export default function Dashboard() {
                         <button onClick={() => toggleListingActive(l.id, l.is_active !== false)} className="rounded-md px-2.5 py-1.5 transition hover:bg-surface-chip" style={{ color: l.is_active !== false ? '#D97706' : '#047857' }}>
                           {l.is_active !== false ? (lang === 'zh' ? '下架' : 'Off') : (lang === 'zh' ? '上架' : 'On')}
                         </button>
-                        <button onClick={() => { setDeletingListing(l); setDeleteReason('') }} className="rounded-md px-2.5 py-1.5 text-body-3 transition hover:bg-danger/5 hover:text-danger">{lang === 'zh' ? '删除' : 'Del'}</button>
+                        <button onClick={() => { setDeletingListing(l); setDeleteReason(''); setNotice(null) }} className="rounded-md px-2.5 py-1.5 text-body-3 transition hover:bg-danger/5 hover:text-danger">{lang === 'zh' ? '删除' : 'Del'}</button>
                       </div>
                     </div>
                   )
@@ -596,7 +624,7 @@ export default function Dashboard() {
                           {l.is_active !== false ? (lang === 'zh' ? '下架' : 'Off') : (lang === 'zh' ? '上架' : 'On')}
                         </button>
                         <button
-                          onClick={() => { setDeletingListing(l); setDeleteReason('') }}
+                          onClick={() => { setDeletingListing(l); setDeleteReason(''); setNotice(null) }}
                           className="flex flex-1 items-center justify-center py-2.5 text-[12px] font-semibold text-body-3 transition hover:bg-danger/5 hover:text-danger"
                         >
                           {lang === 'zh' ? '删除' : 'Del'}
@@ -821,6 +849,7 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
+            {noticeLine && !deletingListing && <div className="mt-4">{noticeLine}</div>}
             <p className="mt-4 text-center font-mono text-[10px] text-body-3">
               {lang === 'zh' ? 'Stripe 安全支付 · 随时在 “管理订阅” 取消' : 'Secure Stripe payment · cancel anytime under "Manage subscription"'}
             </p>
@@ -832,7 +861,7 @@ export default function Dashboard() {
       {deletingListing && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur"
-          onClick={() => { if (!deleteLoading) { setDeletingListing(null); setDeleteReason('') } }}
+          onClick={() => { if (!deleteLoading) { setDeletingListing(null); setDeleteReason(''); setNotice(null) } }}
         >
           <div className="sl-card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[18px] font-bold tracking-tight text-danger">
@@ -853,9 +882,10 @@ export default function Dashboard() {
                 </label>
               ))}
             </div>
+            {noticeLine && <div className="mt-4">{noticeLine}</div>}
             <div className="mt-5 flex gap-3">
               <button
-                onClick={() => { setDeletingListing(null); setDeleteReason('') }}
+                onClick={() => { setDeletingListing(null); setDeleteReason(''); setNotice(null) }}
                 disabled={deleteLoading}
                 className="sl-btn-secondary flex-1 !py-2.5"
               >

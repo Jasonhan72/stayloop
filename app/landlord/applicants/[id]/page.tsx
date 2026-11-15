@@ -115,6 +115,9 @@ function RealApplicantDetail({ id }: { id: string }) {
   const aiName = useAIName()
   const { user, loading: authLoading } = useAuth()
   const [app, setApp] = useState<AppDetail | null | 'missing'>(null)
+  // A failed read is not a missing application (code review 2026-11-15 S3-30): own screen, with a retry.
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [reloadTick, setReloadTick] = useState(0)
   const [busy, setBusy] = useState(false)
   const [declineOpen, setDeclineOpen] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
@@ -155,14 +158,15 @@ function RealApplicantDetail({ id }: { id: string }) {
     }
     let cancelled = false
     ;(async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('applications')
         .select(
           'id, first_name, last_name, ai_extracted_name, monthly_income, employer_name, job_title, ai_score, ai_summary, ai_dimension_notes, doc_authenticity_score, payment_ability_score, court_records_score, stability_score, behavior_signals_score, info_consistency_score, ltb_records_found, status, created_at, archived_at, decision_notified_at, decision_reason, files, viewed_at, listing:listings(address, unit, monthly_rent, city, postal_code, province)',
         )
         .eq('id', id)
         .maybeSingle()
-      if (!cancelled) setApp((data as unknown as AppDetail) ?? 'missing')
+      if (error) { if (!cancelled) setLoadFailed(true); return }
+      if (!cancelled) { setLoadFailed(false); setApp((data as unknown as AppDetail) ?? 'missing') }
       // Applicant tracker (P1 2026-09-23): first open by the landlord stamps
       // viewed_at so the tenant sees "房东已查看". Idempotent; RLS-scoped.
       if (data && !(data as { viewed_at?: string | null }).viewed_at) {
@@ -173,7 +177,7 @@ function RealApplicantDetail({ id }: { id: string }) {
     return () => {
       cancelled = true
     }
-  }, [id, user, authLoading])
+  }, [id, user, authLoading, reloadTick])
 
   async function startScreening() {
     if (!app || app === 'missing' || !user || screenBusy) return
@@ -263,7 +267,10 @@ function RealApplicantDetail({ id }: { id: string }) {
     // failed clean-up here must not block drafting the new one.
     if (expErr) console.warn('[applicant] could not retire older notices', expErr.message)
     const listingAddr = app.listing ? `${(app.listing as { address?: string }).address ?? ''}` : ''
+    // The card is written in the landlord's interface language (code review 2026-11-15 S3-31): `title` / `summary`
+    // are the Chinese text, `titleEn` / `summaryEn` the English one. Cards already stored keep the language they were drafted in.
     const title = decision === 'approved' ? `录取通知：${name} · ${listingAddr}` : decision === 'declined' ? `婉拒通知：${name} · ${listingAddr}` : `补材料通知：${name} · ${listingAddr}`
+    const titleEn = decision === 'approved' ? `Admission notice: ${name} · ${listingAddr}` : decision === 'declined' ? `Decline notice: ${name} · ${listingAddr}` : `Request for documents: ${name} · ${listingAddr}`
     // Relay principle (找得到人 2026-09-30): the card names the applicant, never
     // shows their email — the executor reads the address from the application row.
     const pc = provinceDecisionCopy(app.listing)
@@ -278,15 +285,34 @@ function RealApplicantDetail({ id }: { id: string }) {
       : decision === 'declined'
         ? `批准后我会给${applicantWhoSp}发婉拒通知（发到 TA 申请时填写的邮箱）${reason ? `，理由：「${reason}」` : ''}。信里固定带 s.10(7) 索取权与 OHRC 声明；理由已写入审计。`
         : `批准后我会给${applicantWhoSp}发补材料通知（发到 TA 申请时填写的邮箱）：${reason || '（未填）'}`
-    const { data: row, error } = await supabase.from('agent_pending_actions').insert({
-      user_id: user.id, role: 'landlord', action_type: 'send_decision', title, summary,
-      recipient_label: hasName ? name : null, data_scope: ['申请结果', decision === 'declined' && reason ? '房东填写的理由' : '申请对话（对方回邮件即进对话）'], excluded_data: ['筛查报告', '评分', '其他申请人信息'],
+    const reasonEn = reason ? `, with the reason: “${reason}”` : ''
+    const needsMoreEn = `Once approved I send ${applicantWhoEn} a request for more documents (at the address on the application): ${reason || '(not filled in)'}`
+    const summaryEn = pc
+      ? decision === 'approved'
+        ? `Once approved I send the admission notice to ${applicantWhoEn} (at the address on the application) and say the landlord will be in touch to sign the lease. The letter always carries ${pc.carries.en}.`
+        : decision === 'declined'
+          ? `Once approved I send the decline notice to ${applicantWhoEn} (at the address on the application)${reasonEn}. The letter always carries ${pc.carries.en}; the reason is written to the audit log.`
+          : needsMoreEn
+      : decision === 'approved'
+        ? `Once approved I send the admission notice to ${applicantWhoEn} (at the address on the application) and say the lease follows. The letter always carries the Consumer Reporting Act s.10(7) and OHRC statements.`
+        : decision === 'declined'
+          ? `Once approved I send the decline notice to ${applicantWhoEn} (at the address on the application)${reasonEn}. The letter always carries the s.10(7) right to request the file and the OHRC statement; the reason is written to the audit log.`
+          : needsMoreEn
+    const lists = zh
+      ? { data_scope: ['申请结果', decision === 'declined' && reason ? '房东填写的理由' : '申请对话（对方回邮件即进对话）'], excluded_data: ['筛查报告', '评分', '其他申请人信息'] }
+      : { data_scope: ['The decision', decision === 'declined' && reason ? 'The reason the landlord wrote' : 'The application conversation (replies land there)'], excluded_data: ['Screening report', 'Score', 'Other applicants’ information'] }
+    const ownerId = user.id
+    const applicationId = app.id
+    const insertCard = (title: string, summary: string) => supabase.from('agent_pending_actions').insert({
+      user_id: ownerId, role: 'landlord', action_type: 'send_decision', title, summary,
+      recipient_label: hasName ? name : null, ...lists,
       risk_level: decision === 'declined' ? 'medium' : 'low', status: 'pending', requires_approval: true,
-      metadata: { application_id: app.id, decision, reason: reason || null, source: 'applicant_page' },
+      metadata: { application_id: applicationId, decision, reason: reason || null, source: 'applicant_page' },
     }).select('*').single()
+    const { data: row, error } = await (zh ? insertCard(title, summary) : insertCard(titleEn, summaryEn))
     // The header's red dot counts pending cards; this page drafts, retires and decides them.
     notifyPendingChanged()
-    if (error || !row) { setErr(error?.message || 'could not create card'); await loadCards(); return false }
+    if (error || !row) { setErr(error?.message || (zh ? '没能生成通知卡片，请重试。' : 'Could not draft the notice card. Please try again.')); await loadCards(); return false }
     setNoticeCard(row as PendingAction & NoticeRow)
     setStuckCard(null)
     setLastRejected(null)
@@ -450,6 +476,25 @@ function RealApplicantDetail({ id }: { id: string }) {
   }
 
   const [preview, setPreview] = useState<{ path: string; name: string } | null>(null)
+
+  if (loadFailed && app === null) {
+    return (
+      <WorkspaceShell role="landlord" hideAside>
+        <Link href="/landlord/applicants" className="font-mono text-[12px] text-body-3 hover:text-body">
+          {zh ? '← 返回所有申请' : '← Back to all applications'}
+        </Link>
+        <div className="mt-16 py-16 text-center" role="alert" data-testid="application-load-failed">
+          <div className="text-[18px] font-bold">{zh ? '加载失败，请重试' : 'Could not load this application — please try again'}</div>
+          <p className="mt-2 text-[13.5px] text-body-2">
+            {zh ? '可能是网络不稳，这不代表这份申请不存在。' : 'This is likely a connection problem; it does not mean the application is missing.'}
+          </p>
+          <button type="button" onClick={() => { setLoadFailed(false); setReloadTick((n) => n + 1) }} className="sl-btn-primary mt-5" data-testid="application-load-retry">
+            {zh ? '重试' : 'Retry'}
+          </button>
+        </div>
+      </WorkspaceShell>
+    )
+  }
 
   if (app === null) {
     return (

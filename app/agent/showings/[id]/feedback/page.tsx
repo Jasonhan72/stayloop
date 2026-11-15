@@ -253,7 +253,21 @@ function ChipPicker({
   lang: Lang
 }) {
   const [extra, setExtra] = useState<{ zh: string; en: string }[]>([])
+  // In-page input for a custom tag (was window.prompt — code review 2026-11-15 S3-24).
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState('')
   const allOptions = [...options, ...extra]
+  const closeAdd = () => { setAdding(false); setDraft('') }
+  const commitAdd = () => {
+    const v = draft.trim()
+    if (!v) return
+    // A tag typed in the other language matches the built-in chip instead of adding a twin.
+    const known = allOptions.find((o) => o.zh === v || o.en.toLowerCase() === v.toLowerCase())
+    const key = known ? known.zh : v
+    if (!known) setExtra((prev) => [...prev, { zh: v, en: v }])
+    if (!selected.has(key)) onToggle(key)
+    closeAdd()
+  }
   const onClass =
     tone === 'pro'
       ? 'border-success/40 bg-success/10 text-success'
@@ -277,17 +291,38 @@ function ChipPicker({
             </button>
           )
         })}
-        <button
-          onClick={() => {
-            const v = window.prompt(lang === 'zh' ? '添加一个标签' : 'Add a tag')?.trim()
-            if (!v) return
-            if (!allOptions.some((o) => o.zh === v)) setExtra((prev) => [...prev, { zh: v, en: v }])
-            onToggle(v)
-          }}
-          className="rounded-full border border-dashed border-line-divider bg-white px-3 py-1.5 text-[13px] font-medium text-body-3 transition hover:border-brand hover:text-brand"
-        >
-          {lang === 'zh' ? '+ 添加' : '+ Add'}
-        </button>
+        {adding ? (
+          <form
+            data-testid={`tag-add-${tone}`}
+            className="flex w-full flex-wrap items-center gap-2"
+            onSubmit={(e) => { e.preventDefault(); commitAdd() }}
+          >
+            <input
+              autoFocus
+              value={draft}
+              maxLength={24}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') closeAdd() }}
+              placeholder={lang === 'zh' ? '添加一个标签' : 'Add a tag'}
+              aria-label={lang === 'zh' ? '添加一个标签' : 'Add a tag'}
+              className="min-w-0 flex-1 rounded-full border border-line-strong bg-white px-3 py-1.5 text-[13px] outline-none focus:border-brand"
+            />
+            <button type="submit" disabled={!draft.trim()} className="rounded-full border border-brand bg-brand px-3 py-1.5 text-[13px] font-semibold text-white transition disabled:opacity-40">
+              {lang === 'zh' ? '添加' : 'Add'}
+            </button>
+            <button type="button" onClick={closeAdd} className="rounded-full px-2 py-1.5 text-[13px] font-medium text-body-3 transition hover:text-body">
+              {lang === 'zh' ? '取消' : 'Cancel'}
+            </button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="rounded-full border border-dashed border-line-divider bg-white px-3 py-1.5 text-[13px] font-medium text-body-3 transition hover:border-brand hover:text-brand"
+          >
+            {lang === 'zh' ? '+ 添加' : '+ Add'}
+          </button>
+        )}
       </div>
     </div>
   )

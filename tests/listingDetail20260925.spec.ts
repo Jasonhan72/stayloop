@@ -67,7 +67,8 @@ describe('page, route and migration', () => {
   it('the enrich route serves public listings only, rate-limits by IP, identifies itself to OSM and caches for 30 days', () => {
     const r = read('app/api/listings/enrich/route.ts')
     expect(r).toContain("if (!l || !l.is_active || !(l.verification_status === 'verified' || l.source === 'realtor')) return NextResponse.json({ error: 'not_found' }, { status: 404 })")
-    expect(r).toContain("underHourlyLimit(`listing-enrich:${ip}`, 90, true)")
+    // 2026-11-15 (code review S3-11): caller bucket + site-wide ceiling
+    expect(r).toContain("underCostLimits('listing-enrich', ipBucket(ip), 90, 12_000)")
     expect(r).toContain("'User-Agent': UA")
     expect(r).toContain('https://overpass-api.de/api/interpreter')
     expect(r).toContain('https://nominatim.openstreetmap.org/search')

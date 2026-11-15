@@ -17,6 +17,7 @@ import { FORMAL_COPY_NOTE, KIND_TAG, PARTY_LABEL, messageCenterHref, type Messag
 import { REPLY_MARKER, bareAddress, newReplyToken, replyAddress, stripQuotedReply, tokenFromAddress, htmlToText } from './emailReply'
 import { ensureMatter, matterKindOfThread } from '@/lib/matters/server'
 import { stripNul } from '@/lib/screening/jsonSafe'
+import { autoReplySignal } from '@/lib/threads/autoReply'
 
 type Admin = SupabaseClient
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')
@@ -315,7 +316,7 @@ export type InboundEmail = {
   attachmentCount: number
 }
 
-export type InboundOutcome = 'recorded' | 'unknown_token' | 'sender_mismatch' | 'empty' | 'revoked' | 'error'
+export type InboundOutcome = 'recorded' | 'unknown_token' | 'sender_mismatch' | 'empty' | 'revoked' | 'auto_reply' | 'error'
 
 async function sha256HexBytes(b: Uint8Array): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', b as Uint8Array<ArrayBuffer>)
@@ -346,6 +347,9 @@ export async function recordEmailReply(admin: Admin, mail: InboundEmail): Promis
   if (!row) { await log('unknown_token', null, null); return { outcome: 'unknown_token' } }
   if (row.revoked_at || !(await tokenStillParty(admin, row))) { await log('revoked', row.thread_id, null); return { outcome: 'revoked', threadId: row.thread_id } }
   if (!from || from !== row.email.toLowerCase()) { await log('sender_mismatch', row.thread_id, null); return { outcome: 'sender_mismatch', threadId: row.thread_id } }
+  // An out-of-office or other automatic answer is not that person's message: logged (raw kept),
+  // never posted, never announced to the other side (S3-7).
+  if (autoReplySignal(mail.raw)) { await log('auto_reply', row.thread_id, null); return { outcome: 'auto_reply', threadId: row.thread_id } }
   const plain = mail.text && mail.text.trim() ? mail.text : mail.html ? htmlToText(mail.html) : ''
   let body = stripQuotedReply(plain).slice(0, 3800)
   if (mail.attachmentCount > 0) body = `${body}${body ? '\n\n' : ''}（邮件带有 ${mail.attachmentCount} 个附件，未收录进对话；请在站内对话上传。 / ${mail.attachmentCount} email attachment(s) were not added; please upload them in the app.）`

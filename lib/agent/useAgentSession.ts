@@ -491,11 +491,11 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
         // (that made every message return the canned acknowledgement).
         let session
         try {
-          session = await loadAgentSession(client, role, { seedDemo: false })
+          session = await loadAgentSession(client, role)
         } catch (e1) {
           console.warn('[agent] live load attempt 1 failed, retrying —', (e1 as Error).message)
           await new Promise((r) => setTimeout(r, 1500))
-          session = await loadAgentSession(client, role, { seedDemo: false })
+          session = await loadAgentSession(client, role)
         }
         await reconcileAgentName(client, session, role)
         if (cancelled) return

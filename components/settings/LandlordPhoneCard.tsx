@@ -2,7 +2,8 @@
 // 联系电话 — the landlord's phone for Consumer Reporting Act disclosures (V0.8 · 2026-10-17).
 // s.12(3): an applicant who requests their own screening file is told the name and phone of
 // everyone who viewed it on a landlord's behalf. Stored on landlords.phone; the row is found
-// under the dual-ID invariant (id or auth_id) and updated by auth_id.
+// under the dual-ID invariant (id or auth_id) and the write goes to that same row by its id
+// (a legacy row matched by id has no auth_id — code review 2026-11-15 S3-10).
 import { useCallback, useEffect, useState } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
@@ -24,20 +25,22 @@ export default function LandlordPhoneCard({ userId, zh }: { userId: string; zh: 
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [hasRow, setHasRow] = useState<boolean | null>(null)
+  const [rowId, setRowId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const { data } = await getSupabaseBrowser().from('landlords').select('id, auth_id, phone').or(`id.eq.${userId},auth_id.eq.${userId}`)
     const row = pickLandlordRow((data ?? []) as Row[], userId)
-    setHasRow(!!row)
+    setHasRow(!!row); setRowId(row?.id ?? null)
     setValue(row?.phone ?? ''); setSaved(row?.phone ?? '')
   }, [userId])
   useEffect(() => { void load() }, [load])
 
   async function save() {
+    if (!rowId) return
     const v = cleanPhone(value)
     if (v === null) { setMsg(zh ? '电话格式不对：7–15 位数字，可带国家码、区号与分机。' : 'Phone looks wrong: 7–15 digits, country / area code and extension allowed.'); return }
     setBusy(true); setMsg(null)
-    const { error } = await getSupabaseBrowser().from('landlords').update({ phone: v || null }).eq('auth_id', userId)
+    const { error } = await getSupabaseBrowser().from('landlords').update({ phone: v || null }).eq('id', rowId)
     setBusy(false)
     if (error) { setMsg(error.message); return }
     setSaved(v); setValue(v)

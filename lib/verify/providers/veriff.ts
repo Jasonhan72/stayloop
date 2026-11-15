@@ -7,6 +7,14 @@ export function veriffConfigured(): boolean {
   return !!(process.env.VERIFF_API_KEY && process.env.VERIFF_SECRET_KEY)
 }
 
+/** True when the configured Veriff integration is a test one. Veriff's test and live integrations
+ *  share one API host and differ only by key, so the deployment has to say which it holds:
+ *  VERIFF_SANDBOX=1 (or true / on). Recorded on every step so a test verdict is never read as a
+ *  real one (code review 2026-11-15, S3-13 — it was hard-coded false). */
+export function veriffIsSandbox(env: Record<string, string | undefined> = process.env): boolean {
+  return /^(1|true|on|yes)$/i.test((env.VERIFF_SANDBOX || '').trim())
+}
+
 const BASE = () => (process.env.VERIFF_BASE_URL || 'https://stationapi.veriff.com').replace(/\/$/, '')
 
 export async function veriffCreateSession(args: {

@@ -59,20 +59,27 @@ export default function TenantPassport() {
   const [consentBusy, setConsentBusy] = useState(false)
   const [previewHtml, setPreviewHtml] = useState<string | null>(null)
   const [exportErr, setExportErr] = useState<string | null>(null)
+  // A failed read is not an empty pack (code review 2026-11-15 S3-30): what is on screen stays, and a
+  // line above the sections says the load failed and offers a retry.
+  const [packErr, setPackErr] = useState(false)
+  const [packTick, setPackTick] = useState(0)
 
   const loadProfile = useCallback(async () => {
     if (!uid) return
-    const { data } = await supabase.from('applicant_profiles').select(PROFILE_COLUMNS).eq('auth_id', uid).maybeSingle()
+    const { data, error } = await supabase.from('applicant_profiles').select(PROFILE_COLUMNS).eq('auth_id', uid).maybeSingle()
+    if (error) { setPackErr(true); return }
     setProfile((data as ApplicantProfile | null) ?? null)
   }, [uid])
   const loadHistory = useCallback(async () => {
     if (!uid) return
-    const { data } = await supabase.from('applicant_profile_history').select(HISTORY_COLUMNS).eq('auth_id', uid).order('position', { ascending: true })
+    const { data, error } = await supabase.from('applicant_profile_history').select(HISTORY_COLUMNS).eq('auth_id', uid).order('position', { ascending: true })
+    if (error) { setPackErr(true); return }
     setHistory((data as ProfileHistoryEntry[] | null) ?? [])
   }, [uid])
   const loadFiles = useCallback(async () => {
     if (!uid) return
-    const { data } = await supabase.from('applicant_profile_files').select(FILE_COLUMNS).eq('auth_id', uid).order('uploaded_at', { ascending: false })
+    const { data, error } = await supabase.from('applicant_profile_files').select(FILE_COLUMNS).eq('auth_id', uid).order('uploaded_at', { ascending: false })
+    if (error) { setPackErr(true); return }
     setFiles((data as ProfileFile[] | null) ?? [])
   }, [uid])
 
@@ -88,21 +95,23 @@ export default function TenantPassport() {
       loadHistory(),
       loadFiles(),
       stayloopHistory(supabase, uid, email).then((rows) => { if (!cancelled) setStayloop(rows) }).catch(() => {}),
-      // Applicant-authorised verification steps (Veriff identity / Flinks bank). The
-      // table's policy is landlord-only, so for most tenants this reads nothing and
-      // only the Stayloop-confirmed tenancies carry「已核验」. Best-effort, never blocking.
+      // Applicant-authorised verification steps (Veriff identity / Flinks bank). Only requests
+      // bound to this account count (verification_requests.tenant_auth_id, set when the applicant
+      // consents while signed in with the address the request names — code review 2026-11-15,
+      // S2-9: the address a landlord typed is not proof of whose verification it is).
+      // Best-effort, never blocking.
       (async () => {
-        if (!email) return
+        if (!uid) return
         try {
-          const { data } = await supabase.from('verification_requests').select('steps,status').eq('tenant_email', email).in('status', ['consented', 'complete']).order('updated_at', { ascending: false }).limit(5)
+          const { data } = await supabase.from('verification_requests').select('steps,status').eq('tenant_auth_id', uid).in('status', ['consented', 'complete']).order('updated_at', { ascending: false }).limit(5)
           type Step = { status?: string; sandbox?: boolean }
           const ok = (k: string) => (data ?? []).some((r) => { const st = (r.steps as Record<string, Step> | null)?.[k]; return !!st && st.status === 'verified' && !st.sandbox })
-          if (!cancelled) setVerified({ identity: ok('identity'), income: ok('bank') })
+          if (!cancelled) setVerified({ identity: ok('id'), income: ok('bank') })
         } catch { /* tolerated */ }
       })(),
     ]).finally(() => { if (!cancelled) setPackLoaded(true) })
     return () => { cancelled = true }
-  }, [uid, user?.email, loadProfile, loadHistory, loadFiles])
+  }, [uid, user?.email, loadProfile, loadHistory, loadFiles, packTick])
 
   const saveProfile = useCallback(async (patch: ProfileDraft): Promise<string | null> => {
     if (!uid) return zh ? '请先登录。' : 'Please sign in first.'
@@ -160,16 +169,23 @@ export default function TenantPassport() {
     { key: 'credit', zh: '信用分档（Equifax）', en: 'Credit score band (Equifax)' },
     { key: 'tenancy', zh: '已确认的租史与付租记录', en: 'Confirmed tenancies & rent record' },
   ]
+  // A revoke or an API-scope change that did not go through.
+  const [shareActionErr, setShareActionErr] = useState<null | 'revoke' | 'scope'>(null)
   const toggleScope = async (key: string) => {
     if (!user || !shareToken) return
     const cur = new Set(shareToken.api_scopes ?? [])
     if (cur.has(key)) cur.delete(key); else cur.add(key)
     const next = Array.from(cur)
+    setShareActionErr(null)
     const { error } = await supabase.from('passport_share_tokens').update({ api_scopes: next.length ? next : null }).eq('token', shareToken.token)
     if (!error) setShareToken({ ...shareToken, api_scopes: next.length ? next : null })
+    else setShareActionErr('scope')
   }
   const [shareBusy, setShareBusy] = useState(false)
   const [shareErr, setShareErr] = useState(false)
+  // Reading the active link failed: say so instead of offering to generate a second one (S3-30).
+  const [shareLoadErr, setShareLoadErr] = useState(false)
+  const [shareTick, setShareTick] = useState(0)
 
   // ── Rent-reporting waitlist (user_memories, zero new tables) ──
   const [waitlistJoined, setWaitlistJoined] = useState(false)
@@ -190,8 +206,10 @@ export default function TenantPassport() {
       .gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
-      .then(({ data }) => {
-        if (!cancelled && data && data.length) setShareToken(data[0])
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) { setShareLoadErr(true); return }
+        if (data && data.length) setShareToken(data[0])
       })
     // Already on the rent-reporting waitlist?
     supabase
@@ -206,7 +224,7 @@ export default function TenantPassport() {
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, shareTick])
 
   const handleGenerate = async () => {
     if (!user || shareBusy) return
@@ -226,11 +244,13 @@ export default function TenantPassport() {
   const handleRevoke = async () => {
     if (!user || !shareToken || shareBusy) return
     setShareBusy(true)
+    setShareActionErr(null)
     const { error } = await supabase
       .from('passport_share_tokens')
       .update({ revoked_at: new Date().toISOString() })
       .eq('token', shareToken.token)
     if (!error) setShareToken(null)
+    else setShareActionErr('revoke')
     setShareBusy(false)
   }
 
@@ -351,6 +371,15 @@ export default function TenantPassport() {
           </div>
         )}
 
+        {user && packErr && (
+          <div role="alert" data-testid="pack-load-failed" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/5 px-4 py-3 text-[13px] text-danger">
+            <span className="min-w-0">{zh ? '资料加载失败，请重试。下面显示的可能不是你已保存的内容。' : 'Could not load your pack — please try again. What is shown below may not be what you saved.'}</span>
+            <button type="button" onClick={() => { setPackErr(false); setPackTick((n) => n + 1) }} className="sl-btn-secondary shrink-0 !px-4 !py-2 text-[13px]" data-testid="pack-load-retry">
+              {zh ? '重试' : 'Retry'}
+            </button>
+          </div>
+        )}
+
         <ProfileSections
           zh={zh}
           signedIn={!!user}
@@ -404,7 +433,16 @@ export default function TenantPassport() {
                   : "Landlord not on Stayloop? One read-only link is all it takes — no sign-up on their side; they see only your initials and on-time rent record, drawn only from leases both sides confirmed, and you can revoke it any time. For the full pack, use Export PDF above."}
               </p>
 
-              {user && !shareToken ? (
+              {user && !shareToken && shareLoadErr ? (
+                <div className="mt-4" role="alert" data-testid="share-load-failed">
+                  <p className="text-[12.5px] text-danger">
+                    {zh ? '分享链接加载失败，请重试。' : 'Could not load your share link — please try again.'}
+                  </p>
+                  <button type="button" onClick={() => { setShareLoadErr(false); setShareTick((n) => n + 1) }} className="sl-btn-secondary mt-2 !px-4 !py-2 text-[13px]" data-testid="share-load-retry">
+                    {zh ? '重试' : 'Retry'}
+                  </button>
+                </div>
+              ) : user && !shareToken ? (
                 <div className="mt-4">
                   <button
                     type="button"
@@ -447,6 +485,13 @@ export default function TenantPassport() {
                     {shareBusy ? (zh ? '撤销中…' : 'Revoking…') : zh ? '撤销' : 'Revoke'}
                   </button>
                 </div>
+              )}
+              {isRealShare && shareActionErr && (
+                <p className="mt-2 text-[12px] text-danger" role="alert" data-testid="share-action-error">
+                  {shareActionErr === 'revoke'
+                    ? (zh ? '撤销失败，链接现在仍然有效。请稍后重试。' : 'Could not revoke — the link is still active. Please try again shortly.')
+                    : (zh ? '没保存上，请稍后再试。' : 'Could not save — try again shortly.')}
+                </p>
               )}
               {isRealShare && (
                 <p className="mt-2 font-mono text-[10.5px] tracking-wide text-body-3">

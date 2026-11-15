@@ -214,7 +214,7 @@ const N_FORMS: { code: string; title: { zh: string; en: string }; rule: { zh: st
 const leaseCode = (id: string): string => (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(id) ? `L-${id.slice(0, 4).toUpperCase()}` : id)
 
 /** The landlord-side lease events the "最近活动" rail lists (server-side filter). */
-export const LEASE_ACTIVITY_ACTIONS = [
+const LEASE_ACTIVITY_ACTIONS = [
   'lease_sent_for_signature', 'lease_signed_landlord', 'lease_fully_executed', 'lease_resent', 'lease_withdrawn',
   'executed_send_lease', 'executed_send_renewal_letter', 'executed_renewal_checkpoint', 'executed_rent_reminder',
   'household_created_from_esign', 'household_lease_attached_from_esign',

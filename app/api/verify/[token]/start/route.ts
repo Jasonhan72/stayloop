@@ -40,7 +40,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
         firstName: first || null,
         lastName: rest.length ? rest.join(' ') : null,
       })
-      await writeStep(admin, row, 'id', { status: 'started', provider: 'veriff', session_id: session.id, sandbox: false, result: null, error: null })
+      await writeStep(admin, row, 'id', { status: 'started', provider: 'veriff', session_id: session.id, sandbox: avail.sandbox, result: null, error: null })
       return NextResponse.json({ ok: true, url: session.url })
     }
     if (step === 'bank') {

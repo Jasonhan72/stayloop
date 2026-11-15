@@ -6,7 +6,7 @@ import type {
   ScreeningVerification, VerificationRequestRow, VerifyPublicView, VerifyStep, VerifyStepKey, VerifySteps,
 } from './types'
 import { CONSENT_VERSION } from './consent'
-import { veriffConfigured } from './providers/veriff'
+import { veriffConfigured, veriffIsSandbox } from './providers/veriff'
 import { flinksConfig, flinksConfigured } from './providers/flinks'
 import { creditProvider, creditProviderIsSandbox } from './providers/equifax'
 
@@ -32,7 +32,7 @@ export function isExpired(row: VerificationRequestRow): boolean {
 export function providerAvailability(): Record<VerifyStepKey, { available: boolean; provider: string | null; sandbox: boolean }> {
   const f = flinksConfig()
   return {
-    id: { available: veriffConfigured(), provider: veriffConfigured() ? 'veriff' : null, sandbox: false },
+    id: { available: veriffConfigured(), provider: veriffConfigured() ? 'veriff' : null, sandbox: veriffIsSandbox() },
     // Flinks needs issued credentials even on the public toolbox instance
     // (the tokens on its help page are stale) — without them the step would
     // be clickable but always fail, so it is "未开通" instead.

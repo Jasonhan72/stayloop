@@ -40,6 +40,8 @@ import { runLandlordFollowUps } from '@/lib/landlord/followUp'
 import { RENT_DUE_PUSH_ACTION, RENT_LATE_PUSH_ACTION, RENT_OVERDUE_ACTION_TYPE, landlordLatePush, planRentReminders, tenantDuePush, type ExistingOverdueCard, type ReminderHousehold, type ReminderMember, type ReminderRent } from '@/lib/household/rentReminders'
 import { leaseProvince, unitTermsOf } from '@/lib/provinces/lease'
 import type { ProvinceCode, ProvinceRow } from '@/lib/provinces/detect'
+import { selectInChunks, selectPaged, type PagedResult } from '@/lib/db/paged'
+import { secretMatches } from '@/lib/cron/secret'
 
 
 // Renewal touchpoints (90 / 60 / 30 days) are planned by
@@ -343,11 +345,12 @@ async function runRenewalSweep(): Promise<NextResponse> {
   const landlordIds = Array.from(new Set(allLeases.map((l) => l.landlord_id).filter(Boolean))) as string[]
   const toAuthId = new Map<string, string>()
   if (landlordIds.length > 0) {
-    const inList = `(${landlordIds.join(',')})`
-    const { data: landlordRows, error } = await admin
-      .from('landlords')
-      .select('id, auth_id')
-      .or(`id.in.${inList},auth_id.in.${inList}`)
+    // Chunked: every id goes into the URL twice, and a few hundred uuids no longer fit (S3-3).
+    // The ids are landlord_id values read from lease rows (uuids), not caller text.
+    const { data: landlordRows, error } = await selectInChunks<{ id: string; auth_id: string | null }, string>(landlordIds, (part) => {
+      const inList = `(${part.join(',')})`
+      return admin.from('landlords').select('id, auth_id').or(`id.in.${inList},auth_id.in.${inList}`)
+    }, 60)
     if (error) {
       console.error('proactive landlord resolve failed:', error.message)
       return NextResponse.json({ error: 'landlord resolve failed' }, { status: 500 })
@@ -370,11 +373,20 @@ async function runRenewalSweep(): Promise<NextResponse> {
 
   // Idempotency, checked across each affected user's existing actions:
   // renewals are one-per-lease ever; reminders are one per lease per due_date.
-  const { data: existing, error: existErr } = await admin
-    .from('agent_pending_actions')
-    .select('id, user_id, action_type, status, metadata, executed_at, execution_result')
-    .in('action_type', [...RENEWAL_TYPES, ...EXTRA_TYPES, 'rent_reminder'])
-    .in('user_id', affectedUserIds)
+  // Paged per chunk of users: one unpaged select was cut at the server's max-rows with no
+  // error, and the cards it dropped were then created a second time (S3-3).
+  type ExistingCard = { id: string; user_id: string; action_type: string; status: string; metadata: Record<string, unknown> | null; executed_at: string | null; execution_result: Record<string, unknown> | null }
+  const { data: existing, error: existErr } = await selectInChunks<ExistingCard, string>(affectedUserIds, async (part) => {
+    const r = await selectPaged<ExistingCard>((from, to) => admin
+      .from('agent_pending_actions')
+      .select('id, user_id, action_type, status, metadata, executed_at, execution_result')
+      .in('action_type', [...RENEWAL_TYPES, ...EXTRA_TYPES, 'rent_reminder'])
+      .in('user_id', part)
+      .order('id', { ascending: true })
+      .range(from, to) as unknown as PromiseLike<PagedResult<ExistingCard>>)
+    if (r.truncated) return { data: r.data, error: { message: 'too many existing cards to scan' } }
+    return { data: r.data, error: r.error }
+  })
   if (existErr) {
     console.error('proactive idempotency scan failed:', existErr.message)
     return NextResponse.json({ error: 'idempotency scan failed' }, { status: 500 })
@@ -482,14 +494,24 @@ async function runRentReminderSweep(admin: SupabaseClient, now = new Date()): Pr
   const leaseIds = Array.from(new Set(households.flatMap((h) => [h.current_lease_id, h.next_lease_id ?? null]).filter(Boolean))) as string[]
   const currentIds = households.map((h) => h.current_lease_id).filter(Boolean) as string[]
 
-  const [{ data: leaseRows, error: leaseErr }, { data: rentRows }, { data: memberRows }, { data: cardRows }, { data: pushedRows }] = await Promise.all([
-    admin.from('lease_documents').select(LEASE_COLS).in('id', leaseIds),
-    admin.from('rent_payments').select('lease_id, due_date, status, paid_at, amount').in('lease_id', currentIds),
-    admin.from('household_members').select('household_id, user_id, role, status').in('household_id', hhIds).eq('status', 'active'),
-    admin.from('agent_pending_actions').select('id, status, metadata').eq('action_type', RENT_OVERDUE_ACTION_TYPE).limit(2000),
-    admin.from('agent_audit_events').select('metadata').in('action', [RENT_DUE_PUSH_ACTION, RENT_LATE_PUSH_ACTION]).gte('created_at', new Date(now.getTime() - RENT_PUSH_LOOKBACK_DAYS * 86_400_000).toISOString()).limit(2000),
+  // Chunked `.in()` lists and paged dedupe reads (S3-3): `.limit(2000)` on the two dedupe sets
+  // was still cut at the server's max-rows, and a read that fails must stop the sweep — an
+  // empty dedupe set would re-create every card and re-send every push.
+  const rows = <T,>(q: unknown) => q as unknown as PromiseLike<PagedResult<T>>
+  const pushedSince = new Date(now.getTime() - RENT_PUSH_LOOKBACK_DAYS * 86_400_000).toISOString()
+  const [leaseRes, rentRes, memberRes, cardRes, pushedRes] = await Promise.all([
+    selectInChunks<LeaseRow, string>(leaseIds, (part) => rows<LeaseRow>(admin.from('lease_documents').select(LEASE_COLS).in('id', part))),
+    selectInChunks<Record<string, unknown>, string>(currentIds, (part) => selectPaged<Record<string, unknown>>((from, to) => rows(admin.from('rent_payments').select('lease_id, due_date, status, paid_at, amount').in('lease_id', part).order('lease_id', { ascending: true }).order('due_date', { ascending: true }).range(from, to)))),
+    selectInChunks<Record<string, unknown>, string>(hhIds, (part) => rows(admin.from('household_members').select('household_id, user_id, role, status').in('household_id', part).eq('status', 'active'))),
+    selectPaged<Record<string, unknown>>((from, to) => rows(admin.from('agent_pending_actions').select('id, status, metadata').eq('action_type', RENT_OVERDUE_ACTION_TYPE).order('id', { ascending: true }).range(from, to))),
+    selectPaged<Record<string, unknown>>((from, to) => rows(admin.from('agent_audit_events').select('metadata').in('action', [RENT_DUE_PUSH_ACTION, RENT_LATE_PUSH_ACTION]).gte('created_at', pushedSince).order('id', { ascending: true }).range(from, to))),
   ])
-  if (leaseErr) throw new Error(`lease load failed: ${leaseErr.message}`)
+  if (leaseRes.error) throw new Error(`lease load failed: ${leaseRes.error.message}`)
+  if (rentRes.error) throw new Error(`rent load failed: ${rentRes.error.message}`)
+  if (memberRes.error) throw new Error(`member load failed: ${memberRes.error.message}`)
+  if (cardRes.error || cardRes.truncated) throw new Error(`overdue card scan failed: ${cardRes.error?.message || 'too many rows'}`)
+  if (pushedRes.error || pushedRes.truncated) throw new Error(`push log scan failed: ${pushedRes.error?.message || 'too many rows'}`)
+  const leaseRows = leaseRes.data, rentRows = rentRes.data, memberRows = memberRes.data, cardRows = cardRes.data, pushedRows = pushedRes.data
   const leases = (leaseRows ?? []) as LeaseRow[]
   // s.58 / N4 are Ontario's: the planner says them only for Ontario leases.
   await attachPlaces(admin, leases)
@@ -608,24 +630,13 @@ async function runCronSweep(): Promise<NextResponse> {
 // Route
 // ---------------------------------------------------------------------------
 
-// Constant-time string comparison (edge runtime has no node:crypto
-// timingSafeEqual). XORs every byte so runtime does not depend on where
-// the first mismatch occurs.
-function timingSafeEqual(a: string, b: string): boolean {
-  const ab = new TextEncoder().encode(a)
-  const bb = new TextEncoder().encode(b)
-  let diff = ab.length ^ bb.length
-  const n = Math.max(ab.length, bb.length)
-  for (let i = 0; i < n; i++) diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0)
-  return diff === 0
-}
 
 export async function POST(req: Request) {
   // Cron mode: shared-secret header, only when CRON_SECRET is configured —
   // an unset env var disables the path entirely (no empty-matches-empty).
   const cronSecret = process.env.CRON_SECRET
   const givenSecret = (req.headers.get('x-cron-secret') || '').trim()
-  if (cronSecret && givenSecret && timingSafeEqual(givenSecret, cronSecret)) {
+  if (cronSecret && givenSecret && (await secretMatches(givenSecret, cronSecret))) {
     return runCronSweep()
   }
 

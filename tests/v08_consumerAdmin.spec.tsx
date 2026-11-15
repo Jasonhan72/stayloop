@@ -197,10 +197,11 @@ describe('landlord phone + admin console wiring', () => {
     expect(p).toContain("import LandlordPhoneCard from '@/components/settings/LandlordPhoneCard'")
     expect(p).toContain("{shellRole === 'landlord' && auth.user && <LandlordPhoneCard userId={auth.user.id} zh={zh} />}")
   })
-  it('LandlordPhoneCard writes landlords.phone by auth_id after a dual-ID lookup and says what the phone is for', () => {
+  it('LandlordPhoneCard writes landlords.phone to the row the dual-ID lookup picked and says what the phone is for', () => {
     const c = readFileSync('components/settings/LandlordPhoneCard.tsx', 'utf8')
     expect(c).toContain(".or(`id.eq.${userId},auth_id.eq.${userId}`)")
-    expect(c).toContain("update({ phone: v || null }).eq('auth_id', userId)")
+    // 2026-11-15 (code review S3-10): a legacy row matched by id has no auth_id — the write goes to the picked row
+    expect(c).toContain("update({ phone: v || null }).eq('id', rowId)")
     expect(c).toContain('《消费者报告法》披露会把查阅过申请人档案的人的姓名与电话列给申请人；留空则只列姓名与邮箱')
     expect(c).toContain('data-testid="landlord-phone-card"')
   })

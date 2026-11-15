@@ -57,3 +57,17 @@ export async function underMailLimits(route: string, caller: string, perCallerPe
   ])
   return mine && all
 }
+
+/**
+ * The gate for a public read that costs database or model time (code review 2026-11-15,
+ * S3-11): the caller's own bucket AND one site-wide bucket, both fail-OPEN — a limiter
+ * outage must not take the listings pages down. The site-wide bucket is the ceiling for a
+ * caller who rotates addresses; set it far above honest traffic.
+ */
+export async function underCostLimits(route: string, caller: string, perCallerPerHour: number, siteWidePerHour: number): Promise<boolean> {
+  const [mine, all] = await Promise.all([
+    underHourlyLimit(`${route}:${caller}`, perCallerPerHour, true),
+    underHourlyLimit(`${route}:site-wide`, siteWidePerHour, true),
+  ])
+  return mine && all
+}

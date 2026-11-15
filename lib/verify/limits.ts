@@ -4,7 +4,7 @@
 // Cost guards fail OPEN (CLAUDE.md 工程规则): a limiter outage must not block applicants.
 import { underHourlyLimit } from '@/lib/rateLimit'
 
-export type VerifyRoute = 'start' | 'bank' | 'bank-poll'
+export type VerifyRoute = 'start' | 'bank' | 'bank-poll' | 'credit'
 
 export const VERIFY_LIMITS: Record<VerifyRoute, { perToken: number; perIp: number; global: number }> = {
   // Opening a provider session: a few retries per step is plenty.
@@ -13,6 +13,9 @@ export const VERIFY_LIMITS: Record<VerifyRoute, { perToken: number; perIp: numbe
   bank: { perToken: 6, perIp: 15, global: 300 },
   // The page polls every 5 s for about 10 minutes (120 calls); a reopened page polls again.
   'bank-poll': { perToken: 150, perIp: 300, global: 6000 },
+  // A bureau pull is the most expensive call of the three and is made once per applicant
+  // (code review 2026-11-15, S3-13: this route had no limiter at all).
+  credit: { perToken: 5, perIp: 10, global: 100 },
 }
 
 export function clientIp(headers: Headers): string {

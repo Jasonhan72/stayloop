@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { invalidateHats } from '@/lib/useHats'
+import { externalHref } from '@/lib/ui/externalHref'
 import { CITIES, CREDENTIAL_LABEL, TRADES, coverageFor, coverageLabel, isSuperseded, renewalStanding, renewHintText, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
 
@@ -67,8 +68,11 @@ export default function ProviderOnboardPage() {
     if (!f.trades.length) return setErr(zh ? '至少选一个工种。' : 'Pick at least one trade.')
     if (!f.service_cities.length) return setErr(zh ? '至少选一个服务城市。' : 'Pick at least one city.')
     if (!f.attest) return setErr(zh ? '请勾选承诺。' : 'Please tick the attestation.')
+    // The website is shown as a link to landlords and tenants: save only a full http(s) address (S3-32).
+    const website = f.website.trim() ? externalHref(f.website) : null
+    if (f.website.trim() && !website) return setErr(zh ? '请填写完整网址，例如 https://example.com' : 'Enter a full web address, for example https://example.com')
     setBusy(true)
-    const payload = { auth_id: auth.user.id, legal_name: f.legal_name.trim(), trade_name: f.trade_name.trim() || null, business_number: f.business_number.trim() || null, service_cities: f.service_cities, trades: f.trades, pricing_mode: f.pricing_mode, call_out_fee: f.call_out_fee === '' ? null : Number(f.call_out_fee), hourly_rate: f.hourly_rate === '' ? null : Number(f.hourly_rate), contact_name: f.contact_name.trim() || null, contact_email: f.contact_email.trim() || null, contact_phone: f.contact_phone.trim() || null, website: f.website.trim() || null, attested_at: new Date().toISOString() }
+    const payload = { auth_id: auth.user.id, legal_name: f.legal_name.trim(), trade_name: f.trade_name.trim() || null, business_number: f.business_number.trim() || null, service_cities: f.service_cities, trades: f.trades, pricing_mode: f.pricing_mode, call_out_fee: f.call_out_fee === '' ? null : Number(f.call_out_fee), hourly_rate: f.hourly_rate === '' ? null : Number(f.hourly_rate), contact_name: f.contact_name.trim() || null, contact_email: f.contact_email.trim() || null, contact_phone: f.contact_phone.trim() || null, website, attested_at: new Date().toISOString() }
     const { error } = row && row !== 'loading' ? await supabase.from('service_providers').update(payload).eq('auth_id', auth.user.id) : await supabase.from('service_providers').insert(payload)
     if (error) setErr(error.message)
     else { invalidateHats(); setSaved(true); await load() }
@@ -120,7 +124,7 @@ export default function ProviderOnboardPage() {
         <label className={label}>{zh ? '法定名称（注册名）' : 'Legal name (as registered)'}<input className={input} value={f.legal_name} onChange={(e) => setF({ ...f, legal_name: e.target.value })} /></label>
         <label className={label}>{zh ? '商号（对房东显示）' : 'Trade name (shown to landlords)'}<input className={input} value={f.trade_name} onChange={(e) => setF({ ...f, trade_name: e.target.value })} /></label>
         <label className={label}>{zh ? '企业注册号 / BN' : 'Business number / BN'}<input className={input} value={f.business_number} onChange={(e) => setF({ ...f, business_number: e.target.value })} /></label>
-        <label className={label}>{zh ? '网站（可选）' : 'Website (optional)'}<input className={input} value={f.website} onChange={(e) => setF({ ...f, website: e.target.value })} /></label>
+        <label className={label}>{zh ? '网站（可选）' : 'Website (optional)'}<input className={input} type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://example.com" value={f.website} onChange={(e) => setF({ ...f, website: e.target.value })} data-testid="provider-website" /></label>
         <div className="sm:col-span-2"><div className={label}>{zh ? '工种' : 'Trades'}</div><div className="mt-1 flex flex-wrap gap-1.5">{TRADES.map((t) => <button key={t.key} type="button" onClick={() => setF({ ...f, trades: toggle(f.trades, t.key) })} className={'rounded-full border px-3 py-1 text-[12.5px] ' + (f.trades.includes(t.key) ? 'border-brand bg-brand/10 font-bold text-brand' : 'border-line-divider')}>{zh ? t.zh : t.en}</button>)}</div>
           {row && f.trades.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5" data-testid="trade-coverage">
@@ -139,7 +143,7 @@ export default function ProviderOnboardPage() {
         <label className={label}>{zh ? '接单邮箱' : 'Dispatch email'}<input className={input} type="email" value={f.contact_email} onChange={(e) => setF({ ...f, contact_email: e.target.value })} /></label>
         <label className={label}>{zh ? '电话' : 'Phone'}<input className={input} type="tel" value={f.contact_phone} onChange={(e) => setF({ ...f, contact_phone: e.target.value })} /></label>
         <label className="flex items-start gap-2 text-[13px] sm:col-span-2"><input type="checkbox" className="mt-[3px]" checked={f.attest} onChange={(e) => setF({ ...f, attest: e.target.checked })} /><span>{zh ? '我确认以上信息属实；持证工种的工作只由持有效资格证的人员完成；接受工单即与房东直接订立服务合同；账单不超出经批准报价的 10%（安省《消费者保护法》）；资质变更或到期后 7 天内更新。' : 'I confirm the above is true; licensed-trade work is done only by holders of a valid certificate; accepting a job forms a direct contract with the landlord; invoices stay within 10% of the approved quote (Ontario CPA); I update within 7 days of any credential change or expiry.'}</span></label>
-        {err && <div className="text-[12.5px] font-semibold text-danger sm:col-span-2">⚠ {err}</div>}
+        {err && <div role="alert" className="text-[12.5px] font-semibold text-danger sm:col-span-2">⚠ {err}</div>}
         {saved && !err && (() => {
           const gaps = f.trades.map((t) => { const d = TRADES.find((x) => x.key === t); const cov = coverageFor(t as Trade, creds, new Date(), graceDays); return d && !cov.ok ? `${zh ? d.zh : d.en} → ${[...cov.missing, ...cov.expired, ...cov.unverified].map((k) => (zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en)).join(zh ? '、' : ', ')}` : null }).filter(Boolean) as string[]
           return <div className="text-[12.5px] font-semibold text-success sm:col-span-2" data-testid="save-coverage-hint">✓ {zh ? '已保存。' : 'Saved.'} {gaps.length ? <span className="text-amber-800">{zh ? `还缺（缺了就不会收到该工种的派单）：${gaps.join('；')}` : `Still missing (no dispatch for that trade until complete): ${gaps.join('; ')}`}</span> : <span>{zh ? '所有工种的资质都已登记。' : 'Every trade has its credentials on file.'}</span>}</div>

@@ -20,18 +20,13 @@ import { daysUntilDueDay, dueDateIso, nextRunAt, routineDef, torontoParts, type 
 import type { ChatMessage } from '@/lib/agent/types'
 import { notifyUser } from '@/lib/push/notify'
 import { ilikeExact } from '@/lib/db/ilikeExact'
+import { secretMatches } from '@/lib/cron/secret'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 const ROW_COLS = 'id, user_id, role, kind, title, params, schedule, next_run_at, last_run_at, last_result, enabled, created_at'
 type Row = RoutineRow & { user_id: string }
 type RunResult = { ok: boolean; count: number; note: string; cards?: number }
 
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  let x = 0
-  for (let i = 0; i < a.length; i++) x |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  return x === 0
-}
 const admin = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
 const money = (n: number | null | undefined) => `$${Number(n ?? 0).toLocaleString()}`
 const num = (v: unknown, d: number) => (Number.isFinite(Number(v)) ? Number(v) : d)
@@ -254,7 +249,7 @@ export async function POST(req: Request) {
   const cronSecret = process.env.CRON_SECRET
   const given = (req.headers.get('x-cron-secret') || '').trim()
   const svc = admin()
-  if (cronSecret && given && timingSafeEqual(given, cronSecret)) {
+  if (cronSecret && given && (await secretMatches(given, cronSecret))) {
     const { data, error } = await svc.from('agent_routines').select(ROW_COLS).eq('enabled', true).lte('next_run_at', new Date().toISOString()).order('next_run_at').limit(200)
     if (error) return NextResponse.json({ error: 'read_failed' }, { status: 502, headers: NO_STORE })
     const out = await runRows(svc, (data ?? []) as Row[], true)

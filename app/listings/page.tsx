@@ -241,7 +241,7 @@ export default function ListingsPage() {
     }, 1500)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, loading, appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, sourceFilter, safePage])
+  }, [user, loading, appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, sourceFilter, safePage])
   // Grouped by source when every source is shown; a single source needs no header.
   const groups = useMemo<{ key: SourceKey; items: DBListing[] }[]>(() => {
     if (sourceFilter !== 'all') return [{ key: sourceFilter, items: pageItems }]

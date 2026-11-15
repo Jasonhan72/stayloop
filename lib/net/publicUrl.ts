@@ -3,14 +3,12 @@
 // redirect: 'follow' and accepted any https:// webhook). Same host rules as the turn route's
 // fetchUrlContent, https only, and every redirect hop is re-checked instead of followed blindly.
 
-/** True when the URL is https and its host is not loopback / private / link-local / CGNAT /
- *  an IP literal in an unusual spelling / an internal name. Pure — tested. */
-export function isPublicHttpsUrl(raw: string): boolean {
-  let u: URL
-  try { u = new URL(raw) } catch { return false }
-  if (u.protocol !== 'https:') return false
-  if (u.username || u.password) return false
-  const host = u.hostname.toLowerCase().replace(/\.$/, '')
+/** True when a hostname is a public internet name: not loopback / private / link-local / CGNAT /
+ *  an IP literal in an unusual spelling / an internal name. A trailing dot (`host.`) is the same
+ *  host. Pure — tested. Shared by isPublicHttpsUrl and the assistant's link reader, which used to
+ *  carry a weaker copy (code review 2026-11-15, S3-2). */
+export function isPublicHost(hostname: string): boolean {
+  const host = String(hostname || '').toLowerCase().replace(/\.$/, '')
   if (!host) return false
   if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.lan') || host.endsWith('.home.arpa')) return false
   // IPv6 literals (::1, fc00::/7, fe80::/10, ::ffff:10.0.0.1 …), bare decimal and hex IPv4: no partner
@@ -33,6 +31,38 @@ export function isPublicHttpsUrl(raw: string): boolean {
     ) return false
   }
   return true
+}
+
+/** True when the URL is https and its host is public (isPublicHost). Pure — tested. */
+export function isPublicHttpsUrl(raw: string): boolean {
+  let u: URL
+  try { u = new URL(raw) } catch { return false }
+  if (u.protocol !== 'https:') return false
+  if (u.username || u.password) return false
+  return isPublicHost(u.hostname)
+}
+
+/** Read a response body as text, stopping after `maxBytes`. A page that never ends (or a
+ *  multi-hundred-megabyte file served as text/html) must not be pulled into Worker memory whole. */
+export async function readTextCapped(res: Response, maxBytes: number): Promise<string> {
+  const reader = res.body?.getReader()
+  if (!reader) return (await res.text()).slice(0, maxBytes)
+  const decoder = new TextDecoder()
+  let out = ''
+  let seen = 0
+  try {
+    while (seen < maxBytes) {
+      const { done, value } = await reader.read()
+      if (done || !value) break
+      const room = maxBytes - seen
+      const chunk = value.byteLength > room ? value.subarray(0, room) : value
+      seen += chunk.byteLength
+      out += decoder.decode(chunk, { stream: true })
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined)
+  }
+  return out + decoder.decode()
 }
 
 /** fetch() that follows at most `maxHops` redirects by hand, re-checking each Location with

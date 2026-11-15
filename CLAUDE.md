@@ -22,8 +22,8 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 
 - GitHub `Jasonhan72/stayloop`（**public**，库里不能有真实密钥）；唯一活跃分支 `v5.3-launch`（也是默认分支）。其余分支都在 `archive/` 前缀下。
 - **不要 push 到 git `main`**（该名字已不存在；旧 main 上的 workflow 会把 2026-06 的旧代码部署到生产）。
-- 流量经 zone 路由 `www.stayloop.ai/*` `stayloop.ai/*` `screening.stayloop.ai/*` 进 Worker（DNS 不动），由 `scripts/worker-routes.sh status|on|off` 管理；`wrangler deploy` 不改路由。
-- **部署只走 `ship2-v53.command`**：tsc + 全量 vitest → commit + push → 清缓存 → `opennextjs-cloudflare build` → 入口检查（`.open-next/worker.js` + `server-functions/default/handler.mjs`）→ env 守卫 `scripts/opennext-env-guard.mjs`（OpenNext 会把所有 `.env*` 值打进包，守卫裁到只剩 `NEXT_PUBLIC_*`，有私密值即失败）→ `wrangler deploy`（**全局 wrangler 4.151.3，不用 npx**；低于 4.148 不满足 OpenNext 要求）→ 冒烟（失败自动重试一次，两次都红 = 回滚信号）→ 路由审计 `scripts/route-audit.mjs`。改了 package.json 先在主检出 `npm ci`。
+- 流量经 zone 路由 `www.stayloop.ai/*` `stayloop.ai/*` `screening.stayloop.ai/*` 进 Worker（DNS 不动），由 `scripts/worker-routes.sh status|on|off` 管理；`wrangler deploy` 不改路由。Worker 没有 workers.dev 入口（`workers_dev: false`，那个入口不经过 zone 的规则）。
+- **部署只走 `ship2-v53.command`**（2026-11-15 起入库；`.gitignore` 的 `*.command` 对它例外。旧的一次性脚本在 `legacy-commands/`，不要运行）：tsc + 全量 vitest → commit + push → 清缓存 → `opennextjs-cloudflare build` → 入口检查（`.open-next/worker.js` + `server-functions/default/handler.mjs`）→ env 守卫 `scripts/opennext-env-guard.mjs`（OpenNext 会把所有 `.env*` 值打进包，守卫裁到只剩 `NEXT_PUBLIC_*`，有私密值即失败）→ `wrangler deploy`（**全局 wrangler 4.151.3，不用 npx**；低于 4.148 不满足 OpenNext 要求）→ 冒烟（失败自动重试一次，两次都红 = 回滚信号）→ 路由审计 `scripts/route-audit.mjs`。改了 package.json 先在主检出 `npm ci`。
 - **回滚**：坏版本 `wrangler rollback --name stayloop-web -y`；整体退回 Pages `bash scripts/worker-routes.sh off`（几秒生效）。
 - Worker 服务端密钥由用户在终端跑 `scripts/worker-secrets-sync.sh`（从 `.env.local` 同步；自动模式不让 Claude 写密钥）。wrangler 认证靠 `.env.local` 的 `CLOUDFLARE_API_TOKEN`，只在仓库目录下生效。
 - 这台机器（M1 mini，8 GB）构建慢：一律 `nohup bash ./ship2-v53.command > <scratchpad>/shipNN.log 2>&1 &`，再用 until-loop 等结束标记；工具单次超时 600 秒不够。
@@ -37,7 +37,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 
 必需：`NEXT_PUBLIC_SUPABASE_URL` `NEXT_PUBLIC_SUPABASE_ANON_KEY` `SUPABASE_SERVICE_ROLE_KEY` `ANTHROPIC_API_KEY` `RESEND_API_KEY` `RESEND_FROM` `STRIPE_SECRET_KEY` `STRIPE_WEBHOOK_SECRET` `NEXT_PUBLIC_STRIPE_PRICE_ID` `NEXT_PUBLIC_STRIPE_UNLOCK_PRICE_ID` `NEXT_PUBLIC_SITE_URL` `NEXT_PUBLIC_GOOGLE_MAPS_KEY` `NEXT_PUBLIC_VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY` `CRON_SECRET`（同值存 Vault `cron_secret`）`INBOUND_EMAIL_SECRET`（网站 Worker 与邮件 Worker 同值）。
 
-可选（缺了功能降级、不报错）：`OPENAI_API_KEY` `GEMINI_API_KEY`（也是知识库嵌入模型的密钥）`DEEPSEEK_API_KEY` `MOONSHOT_API_KEY` `DASHSCOPE_API_KEY`（扫描件 OCR 回退走阿里云中国大陆端点，用户 09-21 决定保留，隐私页已披露）`ZHIPU_API_KEY` `JINA_API_KEY`（预付余额；用完时 CanLII 索引、雇主网页核验、商业检索、房东贴链接读页全部静默降级——症状先查余额）`OPENCORPORATES_API_TOKEN` `CANLII_API_KEY` `VERIFF_*` `FLINKS_*` `CREDIT_PULL_PROVIDER` / `EQUIFAX_*`（生产凭证未到位）`CRA_MODE`（`registered` 默认 / `tool`）`PARTNER_SCREENING_API`。管理 PAT `SUPABASE_ACCESS_TOKEN`（scoped，权限留默认会 401）。
+可选（缺了功能降级、不报错）：`OPENAI_API_KEY` `GEMINI_API_KEY`（也是知识库嵌入模型的密钥）`DEEPSEEK_API_KEY` `MOONSHOT_API_KEY` `DASHSCOPE_API_KEY`（扫描件 OCR 回退走阿里云中国大陆端点，用户 09-21 决定保留，隐私页已披露）`ZHIPU_API_KEY` `JINA_API_KEY`（预付余额；用完时 CanLII 索引、雇主网页核验、商业检索、房东贴链接读页全部静默降级——症状先查余额）`OPENCORPORATES_API_TOKEN` `CANLII_API_KEY` `VERIFF_*`（`VERIFF_SANDBOX=1` 表示持有的是测试集成，核验结果会标 sandbox、不计入任何结论）`FLINKS_*` `SENTRY_DSN`（没配时 `captureException` 是空操作，错误只在 Worker 日志里） `CREDIT_PULL_PROVIDER` / `EQUIFAX_*`（生产凭证未到位）`CRA_MODE`（`registered` 默认 / `tool`）`PARTNER_SCREENING_API`。管理 PAT `SUPABASE_ACCESS_TOKEN`（scoped，权限留默认会 401）。
 
 ## 数据库与迁移
 
@@ -62,7 +62,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 ## 关键不变量
 
 - **双 ID**：`landlords.id`（profileId）≠ `auth.users.id`（authId）。旧 `screenings.landlord_id` 存 profileId、新的存 authId；查房东行一律 `.or('id.eq.X,auth_id.eq.X')` 后 `pickLandlordRow`；screenings→landlords 外键已删，PostgREST 不能嵌入。新表的用户键一律 authId。
-- **房源可见性在数据库强制**：公开 = `is_active AND verification_status='verified'`（RLS），房东发布进 pending、`/admin/verify` 核验；守卫让非管理员改不了信任列、改地址 / 租金即打回 pending；**没有照片不上线**（`hasUsablePhotos`）。anon 已无 `listings` SELECT：公开页走 `/api/listings/search`（服务端筛选、每页 ≤100）与 `/api/listings/[slug]`。`listings.is_test` 的房源在所有展示处标「测试房源」。
+- **房源可见性在数据库强制**：公开 = `is_active AND verification_status='verified'`（RLS 与 `LISTING_VISIBILITY_OR` 都只认这一条，2026-11-15 去掉了 realtor 分支），房东发布进 pending、`/admin/verify` 核验；守卫让非管理员改不了信任列、改地址 / 租金即打回 pending；**没有照片不上线**（`hasUsablePhotos`）。anon 已无 `listings` SELECT：公开页走 `/api/listings/search`（服务端筛选、每页 ≤100）与 `/api/listings/[slug]`。`listings.is_test` 的房源在所有展示处标「测试房源」。
 - **Realtor.ca / MLS 读取永久关闭**（PropTx 2026-10-13 拒绝：MLS 数据不得经第三方 AI）。`REALTOR_LIVE_READS=false` 是常量；`isMlsHost()` 的主机一律不读；找房只给 Rentals.ca / Kijiji / Realtor.ca 外链。导入的 Realtor 房源已全部归档。**不要再提 PropTx / DDF / Realtor 抓取。** 租金基准只用 CMHC + 统计局（`lib/market/rentBenchmark.ts`，来源句必显示），不再展示 TRREB 数字。
 - **筛查模块 DO NOT TOUCH**：`app/screening/`、`app/api/screen-score/`、`app/api/deep-check/`、`lib/generateReport.ts`、`lib/forensics/` 未经明确要求不改；需要时只做加法（顶部挂组件、加一句文案）。评分是四项计分（付款能力 / 信用 / 租务与司法历史 / 核验）+ 不计分的申请完整度；没有硬性收入比或信用分截止线（OHRC）。 免费档额度由 `screening_quota_usage` / `record_screening_run`（表 `screening_runs`，仅服务端）计：本月评过分的筛查最多 3 份、每份每月最多评 3 次；单次解锁只覆盖该筛查上的申请人（`sameApplicantName`）。
 - **筛查只给房东或 RECO 注册有效的经纪**（`lib/screening/roleGate.ts`，触发器 `guard_screening_role` + 四个路由）。客户确认的委托可选，用来让客户也看到报告。
@@ -71,6 +71,8 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - **待批卡只能经 `decide_pending_action` 批准**：`agent_pending_actions` 上有守卫触发器，客户端直接改只能编辑待批卡、撤销（approved → pending）或作废；已执行的卡只读。新增客户端写法前先对照 `20261115b_code_review_s2.sql`。
 - **待批卡只能提议有执行器的动作**（`EXECUTABLE_ACTION_TYPES`）。租客模型只能提 `maintenance_request` 与带正文的 `send_message`；**房东与经纪的模型不出卡**。执行器批准前重新核对事实，失效即 409 + `expired`。批准后 60 秒可撤销（`UNDO_MS`）；关页面后续跑 / 待办页「现在执行」。
 - **人与人的消息只追加**：`thread_messages` 对所有角色（含 service role）拒绝 UPDATE / DELETE / TRUNCATE，撤回 = 新增一行；每条带哈希链（格式 `stayloop-thread-v1`，`lib/threads/hashChain.ts` 逐字节复现——**改格式会让历史链失效，要改就加 v2**）。当事人判定只在 `party_for()`；对外一律经中转地址，不暴露私人邮箱。
+- **委托的范围是真的权限**：经纪只有在委托的 `scope` 含 `matter`（事务跟进）时才进得了客户的事务（`matter_party()` / `my_matters()`，导出证据包也经它）。
+- **核验结果按账号归属，不按邮箱**：`verification_requests.tenant_auth_id` 只在申请人用该邮箱的已确认账号登录并同意时写入（`/api/verify/[token]/consent`）；护照接口与申请包页只读绑定到本人的请求。房东填的 `tenant_email` 不能证明是谁做的核验。
 - **Stayloop 不经手资金**：不做在线收租 / 代收 / 抽成（FINTRAC + RPAA）。租金记录只经 `mark_rent_paid` / `confirm_rent_payment` / `/api/rent/evidence`；服务商付款线下。
 - **不代填 / 代选 / 代送 LTB 表格**（LSA s.1(5)）：N 表工具箱只做日期算术与「Stayloop 填写稿」，四张表并排、不预选表，官方 PDF 不改写。
 - **安省规则单一来源** `lib/ontario/rules.ts`（`RENT_GUIDELINE` 按涨租生效年份：2026 2.1%、2027 1.9%；每年 6 月省里公布新数时只改这张表）。**外省**走 `lib/provinces/`（12 省事实快照，每条带引文与官方链接），租约省份只经 `leaseProvince`、房源省份只经 `listingProvince`；外省页面不出现 RTA / LTB / N 表 / OHRC / RECO / TRESA，也不写「不适用」。
@@ -86,12 +88,15 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 页面主容器统一 `max-w-[1320px] px-6 sm:px-8 lg:px-12`（与页头对齐）。
 - 中文标题只在标点 / 空格处断行（`.sl-type-head`，keep-all）；超过约 10 个字没有标点的一段要放零宽空格断点。**WebKit 下相邻的 nowrap span 不会换行**，测首页断行要同时跑 WebKit。
 - 给思考型模型的结构化输出调用留足 `max_tokens`（推理会先吃掉预算导致 JSON 截断）。
-- 发信类限流 fail-closed、成本类 fail-open（`lib/rateLimit.ts underHourlyLimit`）；匿名面都要有全站总闸。**会发信的端点用 `underMailLimits`**（调用者桶 + 全站桶），按 IP 归桶用 `ipBucket`（IPv6 按 /64）。
+- 发信类限流 fail-closed、成本类 fail-open（`lib/rateLimit.ts underHourlyLimit`）；匿名面都要有全站总闸（匿名读端点用 `underCostLimits`：调用者桶 + 全站桶，fail-open）。**会发信的端点用 `underMailLimits`**（调用者桶 + 全站桶），按 IP 归桶用 `ipBucket`（IPv6 按 /64）。
 - `?next=` / `?redirect=` 一律过 `lib/auth/sameSitePath.ts`（「以 / 开头且不以 // 开头」挡不住制表符）。
 - 外部失败（429 / 超时）不能当成「没有结果」缓存；Overpass 查站点用 `nwr` + `out center`。
 - Worker 的响应不经过 zone 的 CDN 缓存（`s-maxage` 无效），要缓存用 Workers Cache API（`caches.default`）。
 - **响应返回后还要做的事（推送、通知邮件、派单建议）一律 `afterResponse(…)`**（`lib/afterResponse.ts`，挂 `waitUntil`）：Worker 上裸写 `void notifyUser(…)` 会随响应一起被取消，本地却一切正常。cron 路由里直接 `await`。守卫 `codeReview20261115` 会扫。
 - **用户能影响的文本不进 PostgREST 的 `.or()` 过滤串**（逗号会多出条件），拆成 `.eq()` / `.in()`；邮箱进 `.ilike()` 一律过 `ilikeExact`（`lib/db/ilikeExact.ts`，`_` 与 `%` 是通配符）。
+- **「读出全部行」要分页**：PostgREST 超过 max-rows（1000）静默截断，长 `.in()` 会撑爆 URL；去重 / 全量扫描用 `lib/db/paged.ts`（`selectPaged`、`selectInChunks`），读失败要中止而不是当成空集。
+- 用户填的外部网址当链接前过 `lib/ui/externalHref.ts`（补协议、只留 http(s)、返回 null 就不渲染）；服务端读用户给的地址用 `lib/net/publicUrl.ts`（`isPublicHost`、`readTextCapped`）。
+- Stripe 一次性付款的入账用单事务 RPC（`fulfil_unlock_payment`：台账 + 发放 + 盖章同成同败），不要拆成几次请求。
 - 页面里不能从 `page.tsx` 导出多余符号（Next 构建拒绝）；Route Handler 不能从带 `'use client'` 的模块取常量（会变成 client-reference 存根）。
 - 演示产品的动画 / 示例用产品真实组件按脚本驱动，不手画仿制界面。
 - 示范数据必须标「示例数据」小标签（`SampleBanner` / `SampleTag`）；工作台样例页走 `WorkspaceShell` 的 `DEMO_GATE` / `SAMPLE_NOTE`。不编造数字、评分、客户数、百分比收益。

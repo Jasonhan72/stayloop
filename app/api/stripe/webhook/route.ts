@@ -95,45 +95,18 @@ export async function POST(req: NextRequest) {
             console.warn('unlock session missing landlord_id', session.id)
             break
           }
-          // Ledger first: a replayed delivery must not credit twice.
-          const { error: ledgerErr } = await admin
-            .from('stripe_events')
-            .insert({ id: event.id, type: event.type })
-          if (ledgerErr) {
-            if ((ledgerErr as { code?: string }).code !== '23505') throw ledgerErr
-            // Seen before. "Seen" is not "fulfilled": if the worker died
-            // between the ledger insert and the grant, the retry used to get
-            // a 200 here and the payment bought nothing (review 2026-09-19).
-            const { data: seen } = await admin.from('stripe_events').select('fulfilled_at').eq('id', event.id).maybeSingle()
-            if (seen?.fulfilled_at) break
-          }
-          // Review 2026-09-14: fulfilment errors were swallowed (payment
-          // captured, nothing granted, and the ledger row blocked Stripe's
-          // retry). Any failure below removes the ledger row and throws so
-          // Stripe retries; a screening that no longer exists / is already
-          // unlocked converts the payment into a prepaid credit instead.
-          try {
-            let granted = false
-            if (screeningId) {
-              const { data: upd, error: updErr } = await admin
-                .from('screenings')
-                .update({ unlocked_at: new Date().toISOString(), unlock_paid_by: payer })
-                .eq('id', screeningId)
-                .is('unlocked_at', null)
-                .select('id')
-              if (updErr) throw updErr
-              granted = (upd ?? []).length > 0
-            }
-            if (!granted) {
-              const { error: creditErr } = await admin.rpc('grant_unlock_credit', { p_landlord_id: landlordId })
-              if (creditErr) throw creditErr
-            }
-            const { error: doneErr } = await admin.from('stripe_events').update({ fulfilled_at: new Date().toISOString() }).eq('id', event.id)
-            if (doneErr) console.warn('stripe_events fulfilled_at write failed', doneErr.message)
-          } catch (fulfilErr) {
-            await admin.from('stripe_events').delete().eq('id', event.id)
-            throw fulfilErr
-          }
+          // Ledger row, grant and fulfilled stamp in ONE transaction (fulfil_unlock_payment,
+          // migration 20261115d — code review 2026-11-15, S3-12). They used to be three requests:
+          // a worker that died after the grant and before the stamp left the ledger row
+          // unfulfilled, and Stripe's retry granted a second time. Now a replay of a fulfilled
+          // event answers 'already', and a failure rolls everything back and throws so Stripe
+          // retries. A screening that no longer exists or is already unlocked turns the payment
+          // into a prepaid credit, as before.
+          const { data: outcome, error: fulfilErr } = await admin.rpc('fulfil_unlock_payment', {
+            p_event_id: event.id, p_event_type: event.type, p_landlord_id: landlordId, p_screening_id: screeningId, p_payer: payer,
+          })
+          if (fulfilErr) throw fulfilErr
+          if (outcome === 'no_landlord') console.error('unlock payment for a landlord row that no longer exists', session.id)
           break
         }
 

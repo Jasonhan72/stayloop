@@ -6,6 +6,7 @@ import { newVerifyToken } from '@/lib/verify/token'
 import { adminClient } from '@/lib/verify/store'
 import { escapeHtml, sendEmail } from '@/lib/email'
 import { callerHats, mayScreen, SCREENING_ROLE_CODE, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
+import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 
 
 /**
@@ -60,7 +61,8 @@ export async function POST(req: NextRequest) {
     const tenantEmail = typeof body.tenant_email === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.tenant_email) ? body.tenant_email.trim() : null
 
     if (!token) {
-      const { data: me } = await rls.from('landlords').select('full_name, email').or(`id.eq.${user.id},auth_id.eq.${user.id}`).limit(1).maybeSingle()
+      const { data: meRows } = await rls.from('landlords').select('id, auth_id, full_name, email').or(`id.eq.${user.id},auth_id.eq.${user.id}`)
+      const me = pickLandlordRow((meRows ?? []) as { id: string; auth_id: string | null; full_name: string | null; email: string | null }[], user.id)
       const landlordName = ((me?.full_name as string | null) || (user.user_metadata?.full_name as string | undefined) || (me?.email as string | null) || '').toString().trim() || null
       token = newVerifyToken()
       const { error } = await admin.from('verification_requests').insert({

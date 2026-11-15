@@ -4,6 +4,7 @@ import { clearLocalSessionState } from '@/lib/auth/clearLocalSession'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from './supabase'
+import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 
 export interface LandlordSession {
   authId: string
@@ -56,11 +57,12 @@ export function useLandlord(): UseLandlordReturn {
       const metaName = ((session.user.user_metadata as Record<string, unknown> | null)?.full_name as string) || null
 
       // Try to find existing
-      const { data: existing } = await supabase
+      // Either column (dual-ID rule): a legacy row is keyed by the profile id.
+      const { data: existingRows } = await supabase
         .from('landlords')
         .select('id, auth_id, email, full_name')
-        .eq('auth_id', authId)
-        .maybeSingle()
+        .or(`id.eq.${authId},auth_id.eq.${authId}`)
+      const existing = pickLandlordRow((existingRows ?? []) as { id: string; auth_id: string | null; email: string | null; full_name: string | null }[], authId)
 
       if (cancelled?.current) return
       if (existing) {

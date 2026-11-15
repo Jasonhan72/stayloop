@@ -128,7 +128,8 @@ describe('credential rules and the reminder ladder', () => {
     const s = read('lib/marketplace/server.ts')
     expect(s).toContain("from('app_config').select('value').eq('key', 'marketplace')")
     expect((s.match(/cfg\.credentialGraceDays/g) || []).length).toBeGreaterThanOrEqual(2)
-    expect(read('app/api/config/marketplace/route.ts')).toContain('credential_grace_days: clampGraceDays(v.credential_grace_days)')
+    // 2026-11-15 (code review S3-11): the value is memoised per isolate for five minutes
+    expect(read('app/api/config/marketplace/route.ts')).toContain('const grace = clampGraceDays(v.credential_grace_days)')
     for (const f of ['components/marketplace/DispatchModal.tsx', 'app/landlord/providers/page.tsx', 'app/provider/onboard/page.tsx', 'app/provider/jobs/page.tsx']) expect(read(f)).toContain('useMarketplaceConfig()')
     expect(read('app/admin/providers/page.tsx')).toContain('data-testid="marketplace-rules"')
   })

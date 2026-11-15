@@ -17,7 +17,7 @@ export default function PrivacyPage() {
           <h1 className="mt-3 text-[36px] font-extrabold leading-tight tracking-tight sm:text-[44px]">
             {zh ? '我们怎么处理你的数据' : 'How we handle your data'}
           </h1>
-          <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? '最后更新 · 2026-10-10' : 'Last updated · 2026-10-10'}</p>
+          <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? '最后更新 · 2026-11-15' : 'Last updated · 2026-11-15'}</p>
 
           <Section title={zh ? '1 · 我们收集什么' : '1 · What we collect'}>
             <p>{zh
@@ -51,8 +51,8 @@ export default function PrivacyPage() {
           </Section>
           <Section title={zh ? '3b · 房源数据与合规审计' : '3b · Listing data and compliance audits'}>
             <p>{zh
-              ? '部分房源数据由房地产协会与 MLS® 系统授权提供。按它们的数据规则，我们记录你对服务条款的同意（版本与时间）以及你在房源页面上的浏览活动；当这些机构有理由认为发生了数据滥用或规则违反时，我们可能把你的姓名、邮箱、账号与相关活动记录提供给它们用于审计或法律目的。按同一规则，我们保存你的姓名、邮箱与登录记录，并在密码失效后至少保留 180 天；使用密码登录的账号每 90 天需要更新一次密码。'
-              : 'Some listing data is licensed from real estate associations and MLS® systems. Under their data rules we record your acceptance of the Terms (version and time) and your activity on listing pages, and we may share your name, email, account and the related activity records with those organisations for auditing or legal purposes when they have reason to believe listing data was misused or their rules were breached.'}</p>
+              ? 'Stayloop 上的房源由房东在本站直接发布，不来自 MLS® 系统或房地产协会的数据授权，我们也不会把你的信息提供给这些机构。为了防止房源数据被批量抓取或滥用，我们记录你对服务条款的同意（版本与时间），以及你登录后在房源页面上的搜索与浏览活动；出现数据滥用或违反使用规则的情况时，这些记录连同你的姓名、邮箱与账号可能被我们用于审计或法律目的。我们保存你的姓名、邮箱与登录记录，并在密码失效后至少保留 180 天；使用密码登录的账号每 90 天需要更新一次密码。'
+              : 'Listings on Stayloop are published here directly by landlords; they do not come from MLS® systems or a data licence from a real estate association, and we do not give your information to those organisations. To keep listing data from being scraped in bulk or misused, we record your acceptance of the Terms (version and time) and, when you are signed in, your searches and views on listing pages; where listing data is misused or the usage rules are breached, we may use those records together with your name, email and account for auditing or legal purposes. We keep your name, email and sign-in records, and retain them for at least 180 days after a password expires; accounts that sign in with a password update it every 90 days.'}</p>
           </Section>
           <Section title={zh ? '4 · 数据存储' : '4 · Data storage'}>
             <p>{zh

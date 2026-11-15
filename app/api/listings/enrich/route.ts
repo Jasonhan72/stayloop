@@ -30,7 +30,7 @@
 import { NextResponse } from 'next/server'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { underHourlyLimit } from '@/lib/rateLimit'
+import { ipBucket, underCostLimits, underHourlyLimit } from '@/lib/rateLimit'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 import { median, overpassPoints, pickTransit, transitOverpassQuery, type ListingTransit } from '@/lib/listingInsights'
 import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/modelConfig'
@@ -45,6 +45,8 @@ const UA = 'Stayloop/0.6 (https://www.stayloop.ai; privacy@stayloop.ai)'
 const FRESH_MS = 30 * 86_400_000
 const RETRY_MS = 60 * 60_000
 const PROFILE_RETRY_MS = 24 * 60 * 60_000
+/** Neighbourhood primers generated site-wide, an hour. */
+const PROFILE_GENERATIONS_PER_HOUR = 120
 
 type Row = TranslatableListing & {
   id: string; address: string; unit: string | null; city: string; province: string | null; postal_code: string | null
@@ -156,6 +158,13 @@ async function generateProfile(svc: SupabaseClient, city: string, province: stri
   } catch (e) {
     await negative(`failed: ${(e as Error).message}`)
   }
+}
+
+/** True for the one request allowed to generate this neighbourhood's primer this hour. */
+async function claimProfileGeneration(city: string, name: string): Promise<boolean> {
+  const key = `nbhd-profile:${city}:${name}`.toLowerCase().replace(/\s+/g, ' ').slice(0, 180)
+  if (!(await underHourlyLimit(key, 1, false))) return false
+  return underHourlyLimit('nbhd-profile:site-wide', PROFILE_GENERATIONS_PER_HOUR, false)
 }
 
 /** Run after the response is sent when the platform allows it (Cloudflare), else as a floating promise (dev). */
@@ -350,9 +359,10 @@ export async function POST(req: Request) {
   if (translationsOnly && !lang) return NextResponse.json({ error: 'bad_request' }, { status: 400 })
   const ip = req.headers.get('cf-connecting-ip') || (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon'
   // One page view makes both calls: each has its own per-IP key, so neither eats the other's 90 an hour.
+  // Each with a site-wide ceiling on top (S3-11); IPv6 callers count per /64.
   const underIpLimit = translationsOnly
-    ? await underHourlyLimit(`listing-translate-ip:${ip}`, 90, true)
-    : await underHourlyLimit(`listing-enrich:${ip}`, 90, true)
+    ? await underCostLimits('listing-translate-ip', ipBucket(ip), 90, 12_000)
+    : await underCostLimits('listing-enrich', ipBucket(ip), 90, 12_000)
   if (!underIpLimit) return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
 
   const svc = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
@@ -407,7 +417,11 @@ export async function POST(req: Request) {
     const c = await cachedProfile(svc, city, hood)
     profile = c.profile
     // Generate after responding: the page shows the primer on its next view; nobody waits 40 s for a model.
-    if (c.stale) {
+    // One generation per neighbourhood at a time, and a site-wide ceiling on model spend (S3-11):
+    // a stale primer used to start one 40-second model call per concurrent viewer. The hourly
+    // bucket is the in-flight marker — a finished run is cached (a failed one for a day), so the
+    // next hour's bucket is never needed for the same place. Fail-closed: no limiter, no spend.
+    if (c.stale && (await claimProfileGeneration(city, hood))) {
       background(generateProfile(svc, city, provinceText(l), hood, {
         transit: (transit?.stations ?? []).slice(0, 6).map((st) => ({ name: st.name, kind: st.kind, lines: st.lines })),
         listings_in_sample: rows.length,

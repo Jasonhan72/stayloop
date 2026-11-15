@@ -108,6 +108,9 @@ export async function buildVapidAuthorization(endpoint: string, keys: PushKeys, 
   return `vapid t=${signingInput}.${bytesToB64url(sig)}, k=${keys.publicKey}`
 }
 
+/** One push request, at most. */
+export const PUSH_TIMEOUT_MS = 8000
+
 export type SendResult = { ok: boolean; status: number; gone: boolean; error?: string }
 
 /** One push message to one subscription. 404/410 = the subscription is dead (`gone`). */
@@ -131,6 +134,9 @@ export async function sendWebPush(
         Urgency: opts.urgency ?? 'normal',
       },
       body: body as unknown as BodyInit,
+      // A push service that never answers must not hold the notification (and the request
+      // waiting on it) open (code review 2026-11-15, S3-6).
+      signal: AbortSignal.timeout(PUSH_TIMEOUT_MS),
     })
     const gone = res.status === 404 || res.status === 410
     return { ok: res.status >= 200 && res.status < 300, status: res.status, gone, error: res.ok ? undefined : (await res.text().catch(() => '')).slice(0, 200) }

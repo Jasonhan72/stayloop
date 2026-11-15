@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   // One announcement per message: a retried request must not email the same line twice.
   const { data: done } = await admin.from('message_deliveries').select('id').eq('message_id', msg.id).limit(1)
   if (done && done.length) return NextResponse.json({ ok: true, already: true })
-  if (!(await underHourlyLimit(`thread-notify:${ud.user.id}`, 60, true))) return NextResponse.json({ ok: true, throttled: true })
+  if (!(await underHourlyLimit(`thread-notify:${ud.user.id}`, 60, false))) return NextResponse.json({ ok: true, throttled: true })
 
   const labelOf: Record<string, string> = { tenant: '租客 / Tenant', landlord: '房东 / Landlord', provider: '服务商 / Provider', agent: '经纪 / Agent', admin: 'Stayloop', member: '用户 / Member' }
   const role = labelOf[msg.sender_kind] || msg.sender_kind

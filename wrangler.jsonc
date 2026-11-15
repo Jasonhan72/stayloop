@@ -8,7 +8,9 @@
 	"name": "stayloop-web",
 	"compatibility_date": "2026-10-01",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-	"workers_dev": true,
+	// No workers.dev hostname: it bypasses the zone (WAF, rate rules, the http→https redirect).
+	// It was only needed for the smoke run before the 2026-10-19 cutover (code review 2026-11-15, S3-19).
+	"workers_dev": false,
 	"preview_urls": false,
 	"assets": {
 		"directory": ".open-next/assets",

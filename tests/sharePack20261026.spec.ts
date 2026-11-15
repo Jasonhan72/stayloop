@@ -125,7 +125,8 @@ describe('routes + data', () => {
     expect(s).toContain('resolveNoCount(code)')
     expect(s).toContain('?src=')
     expect(s).toContain("'Cache-Control': 'no-store'")
-    expect(s).toContain('underHourlyLimit(`go:${ip}`, 600, true)')
+    // 2026-11-15 (code review S3-11): caller bucket + site-wide ceiling, still fail-open
+    expect(s).toContain("underCostLimits('go-share-link', `ip:${ipBucket(ip)}`, 600, 30_000)")
     expect(s).not.toMatch(/\.insert\(|referer/i) // the user-agent is read to skip previews, never stored
   })
   it('share-links / syndications / poster: signed-in owner only, service role after the check', () => {

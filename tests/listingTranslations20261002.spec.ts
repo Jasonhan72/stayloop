@@ -21,7 +21,12 @@ const h = vi.hoisted(() => ({
   waitUntil: vi.fn(),
 }))
 
-vi.mock('@/lib/rateLimit', () => ({ underHourlyLimit: (k: string, n: number, f: boolean) => h.limit(k, n, f) }))
+// 2026-11-15 (code review S3-11): the per-IP keys go through underCostLimits (caller bucket + site-wide ceiling).
+vi.mock('@/lib/rateLimit', () => ({
+  underHourlyLimit: (k: string, n: number, f: boolean) => h.limit(k, n, f),
+  ipBucket: (ip: string) => ip,
+  underCostLimits: async (route: string, caller: string, n: number, site: number) => (await h.limit(`${route}:${caller}`, n, true)) && (await h.limit(`${route}:site-wide`, site, true)),
+}))
 vi.mock('@/lib/llmChat', () => ({ llmChat: (p: unknown) => h.llm(p) }))
 vi.mock('@/lib/modelConfig', () => ({
   DEFAULT_MODELS: { turn: 'claude-sonnet-4-6' },
@@ -141,7 +146,7 @@ describe('enrich route contract (source)', () => {
     expect(collectTranslatables({ parking, parking_spaces: 0 }, 'en').strings).toEqual([parking])
   })
   it('keeps the per-IP limit, adds a fail-closed global cap for translation calls', () => {
-    expect(SRC).toContain('underHourlyLimit(`listing-enrich:${ip}`, 90, true)')
+    expect(SRC).toContain("underCostLimits('listing-enrich', ipBucket(ip), 90, 12_000)")
     expect(SRC).toMatch(/const TRANSLATE_GLOBAL_CAP = 300/)
     expect(SRC.match(/underHourlyLimit\(TRANSLATE_CAP_KEY, TRANSLATE_GLOBAL_CAP, false\)/g)?.length).toBe(2)
   })
@@ -162,8 +167,8 @@ describe('enrich route contract (source)', () => {
     expect(only).toBeGreaterThan(SRC.indexOf('const translationsP'))
     expect(only).toBeLessThan(SRC.indexOf('if (!fresh)'))
     expect(only).toBeGreaterThan(SRC.indexOf("return NextResponse.json({ error: 'not_found' }, { status: 404 })"))
-    expect(SRC).toContain('? await underHourlyLimit(`listing-translate-ip:${ip}`, 90, true)')
-    expect(SRC).toContain(': await underHourlyLimit(`listing-enrich:${ip}`, 90, true)')
+    expect(SRC).toContain("? await underCostLimits('listing-translate-ip', ipBucket(ip), 90, 12_000)")
+    expect(SRC).toContain(": await underCostLimits('listing-enrich', ipBucket(ip), 90, 12_000)")
     const page = readFileSync('app/listings/[slug]/page.tsx', 'utf8')
     expect(page).toContain("body: JSON.stringify({ id: listing.id, lang, only: 'translations' })")
     expect(page).toContain('body: JSON.stringify({ id: listing.id })')

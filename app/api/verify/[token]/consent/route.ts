@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isVerifyToken } from '@/lib/verify/token'
 import { adminClient, isExpired, loadRequest, toPublicView } from '@/lib/verify/store'
 import { CONSENT_VERSION } from '@/lib/verify/consent'
+import { createClient } from '@supabase/supabase-js'
 
 
 // POST /api/verify/<token>/consent — { typed_name, version, accepted: true }
@@ -27,10 +28,32 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
       typed_name: name,
       ua: (req.headers.get('user-agent') || '').slice(0, 200),
     }
-    await admin.from('verification_requests').update({ consent, status: 'consented', updated_at: consent.accepted_at }).eq('id', row.id)
+    // Whose verification is this? The request names an address the landlord typed, which proves
+    // nothing. When the person consenting is signed in to the account that owns that address
+    // (a confirmed email), the request is bound to that account, and only bound requests show up
+    // in a passport (code review 2026-11-15, S2-9). No session, or another account: not bound —
+    // the screening still gets the result, the passport does not.
+    const tenantAuthId = await consentingAccount(req, (row as { tenant_email?: string | null }).tenant_email)
+    await admin.from('verification_requests').update({ consent, status: 'consented', updated_at: consent.accepted_at, ...(tenantAuthId ? { tenant_auth_id: tenantAuthId } : {}) }).eq('id', row.id)
     return NextResponse.json(toPublicView({ ...row, consent, status: 'consented' }))
   } catch (err: any) {
     console.error('verify/consent error', err?.message || err)
     return NextResponse.json({ ok: false, error: 'internal' }, { status: 500 })
+  }
+}
+
+/** The signed-in account consenting, when its confirmed email is the address the request names. */
+async function consentingAccount(req: NextRequest, tenantEmail: string | null | undefined): Promise<string | null> {
+  const want = (tenantEmail || '').trim().toLowerCase()
+  const authHeader = (req.headers.get('authorization') || '').replace(/[^\x20-\x7E]/g, '').trim()
+  if (!want || !authHeader) return null
+  try {
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false, autoRefreshToken: false } })
+    const { data } = await sb.auth.getUser()
+    const u = data?.user
+    if (!u || u.is_anonymous || !u.email_confirmed_at) return null
+    return (u.email || '').trim().toLowerCase() === want ? u.id : null
+  } catch {
+    return null
   }
 }

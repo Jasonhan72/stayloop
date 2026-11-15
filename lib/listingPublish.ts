@@ -2,6 +2,7 @@ import { hasUsablePhotos } from './listingVisibility'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DraftListing } from '@/lib/agent/types'
 import { splitAddress, streetKey } from '@/lib/lease/householdMatch'
+import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 import {
   PROVINCE_CODES, checkListingComplianceFor, effectiveProvince, normalizeProvince, petBanAllowed, provinceFromPostal, provinceName,
   provinceTokenIn, rulesFor, type Bi, type Lang, type ProvinceCode, type ProvinceInput,
@@ -50,14 +51,14 @@ export function makeListingSlug(address: string): string {
 export async function resolveLandlordId(client: SupabaseClient, authUserId: string): Promise<string | null> {
   const { data } = await client
     .from('landlords')
-    .select('id')
+    .select('id, auth_id')
     // Match either column: the documented invariant is that legacy rows are
     // keyed by profileId. (All 52 production rows currently carry auth_id, but
     // the query should not depend on that staying true.)
     .or(`id.eq.${authUserId},auth_id.eq.${authUserId}`)
-    .limit(1)
-    .maybeSingle()
-  if (data?.id) return data.id
+  // Both columns can match (dual-ID rule): the row whose auth_id is this user wins.
+  const own = pickLandlordRow((data ?? []) as { id: string; auth_id: string | null }[], authUserId)
+  if (own?.id) return own.id
 
   const { data: claimed } = await client.rpc('claim_landlord')
   const row = Array.isArray(claimed) ? claimed[0] : claimed

@@ -93,11 +93,15 @@ export default function HouseholdHub() {
   const [intentPick, setIntentPick] = useState<string | null>(null)
   const [intentNote, setIntentNote] = useState('')
   const [notFound, setNotFound] = useState(false)
+  // A failed read is not "no such household" (code review 2026-11-15 S3-30): it gets its own screen with a retry.
+  const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [writeError, setWriteError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const { data: h } = await supabase.from('households').select('*').eq('id', id).maybeSingle()
+    const { data: h, error: hErr } = await supabase.from('households').select('*').eq('id', id).maybeSingle()
+    if (hErr) { setLoadFailed(true); return }
+    setLoadFailed(false)
     if (!h) { setNotFound(true); return }
     const leaseId = (h as Household).current_lease_id
     const [{ data: m }, { data: inv }, { data: ri }, { data: ppl, error: pplErr }, { data: ld }] = await Promise.all([
@@ -142,7 +146,7 @@ export default function HouseholdHub() {
   useEffect(() => {
     if (!user || !id) return
     void load()
-  }, [user?.id, id, load]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, id, load])
 
   // ?intent=renew|leave|negotiate from the 30-day email: preselect, the
   // tenant confirms with one click (read in an effect — never on first paint).
@@ -215,6 +219,18 @@ export default function HouseholdHub() {
       <Shell zh={zh}><div className="py-20 text-center">
         <h1 className="text-[20px] font-extrabold">{zh ? '无权访问或不存在' : 'Not found or no access'}</h1>
         <p className="mt-2 text-[13px] text-body-3">{zh ? '只有该租约的成员可以查看。' : 'Only members of this household can view it.'}</p>
+      </div></Shell>
+    )
+  }
+  // Only before the first successful read: a failed refresh after a write keeps the page that is already shown.
+  if (loadFailed && !household) {
+    return (
+      <Shell zh={zh}><div className="py-20 text-center" role="alert" data-testid="household-load-failed">
+        <h1 className="text-[20px] font-extrabold">{zh ? '加载失败，请重试' : 'Could not load this page — please try again'}</h1>
+        <p className="mt-2 text-[13px] text-body-3">{zh ? '可能是网络不稳，这不代表这份租约不存在。' : 'This is likely a connection problem; it does not mean the tenancy is missing.'}</p>
+        <button type="button" onClick={() => { setLoadFailed(false); void load() }} className="mt-4 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#00ACE4' }} data-testid="household-load-retry">
+          {zh ? '重试' : 'Retry'}
+        </button>
       </div></Shell>
     )
   }

@@ -19,6 +19,7 @@ import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, dropUnsaidDr
 import { aiFactsBlock, effectiveProvince, provinceName, type ProvinceCode, type ProvinceRow } from '@/lib/provinces'
 import { matchOwnedListing, mergeWithExisting, type OwnedListingRow } from '@/lib/agent/draftExisting'
 import { flattenMarkdown, isProviderCapacityError } from '@/lib/agent/turnHelpers'
+import { isPublicHost, readTextCapped } from '@/lib/net/publicUrl'
 import { isMlsHost, MLS_READ_REFUSED_REASON, EXTERNAL_LINKS_NOTE, type ExternalLink } from '@/lib/listings/externalSources'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
@@ -120,6 +121,11 @@ function extractImageUrls(text: string): string[] {
   return picked.map((u) => u.replace(/([?&]im_w=)\d+/, '$11200'))
 }
 
+/** Direct-read fallback: bytes of the page read at most. */
+const DIRECT_READ_MAX_BYTES = 1_500_000
+/** One image attachment, base64 characters at most (≈ 4 MB of image, the same size as a PDF attachment). */
+const IMAGE_MAX_BASE64_CHARS = 5_600_000
+
 async function fetchUrlContent(url: string): Promise<FetchResult> {
   try {
     const parsed = new URL(url)
@@ -147,6 +153,12 @@ async function fetchUrlContent(url: string): Promise<FetchResult> {
     // legitimate listing/marketing page is served off a raw IP literal.
     if (/^\d+$/.test(host) || /^0x/i.test(host) || host.startsWith('[')) {
       return { content: '[blocked: IP-literal URLs not allowed]', images: [] }
+    }
+    // The shared host rule (lib/net/publicUrl.ts) on top of the checks above: it also knows a
+    // trailing dot (`localhost.`), `.internal` / `.lan` names and the reserved ranges this copy
+    // never listed (S3-2).
+    if (!isPublicHost(parsed.hostname)) {
+      return { content: '[blocked: private/internal URLs not allowed]', images: [] }
     }
     // Dotted all-numeric host = IPv4 literal. Re-check private ranges on the
     // parsed octets (catches unusual spellings), and reject leading-zero
@@ -209,7 +221,9 @@ async function fetchUrlContent(url: string): Promise<FetchResult> {
     if (!res.ok) return { content: null, images: [], reason: `${failReason}; direct http ${res.status}`.replace(/^; /, '') }
     const ct = res.headers.get('content-type') || ''
     if (!ct.includes('text/') && !ct.includes('json') && !ct.includes('xml')) return { content: null, images: [], reason: `non-text content (${ct.slice(0, 40)})` }
-    const html = await res.text()
+    // Capped: only the first 6,000 characters of text are used, and an endless or huge body
+    // must not be read into Worker memory whole (S3-2).
+    const html = await readTextCapped(res, DIRECT_READ_MAX_BYTES)
     const images = extractImageUrls(html)
     const stripped = html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -375,7 +389,7 @@ export async function POST(req: Request) {
   const agentName = typeof body.agentName === 'string' ? body.agentName.slice(0, 40) : ''
   const uiLang: 'zh' | 'en' = body.lang === 'en' ? 'en' : 'zh'
   const imgs = (Array.isArray(body.images) ? body.images : [])
-    .filter((im) => im && typeof im.data === 'string' && /^image\//.test(im.media_type || ''))
+    .filter((im) => im && typeof im.data === 'string' && im.data.length <= IMAGE_MAX_BASE64_CHARS && /^image\//.test(im.media_type || ''))
     .slice(0, 3)
   const attachmentNames = Array.isArray(body.attachment_names) ? body.attachment_names.slice(0, 10).map((n) => String(n).slice(0, 120)) : []
   // PDF attachments: count / size clamps here (anonymous: first file only); the text budget

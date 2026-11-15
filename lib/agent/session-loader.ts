@@ -19,7 +19,8 @@ import {
   deriveStatus,
 } from './orchestrator'
 
-type Options = { seedDemo?: boolean }
+// (The demo seed that used to be an option here wrote invented memories and a card with no
+// executor into the caller's real account; it and its RPC were removed — code review 2026-11-15, S3-15.)
 
 function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
@@ -33,7 +34,6 @@ function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T
 export async function loadAgentSession(
   client: SupabaseClient,
   role: AgentRole,
-  opts: Options = {}
 ): Promise<AgentSessionResponse & { approvedUnexecuted: DecidedAction[] }> {
   // 1. Atomic bootstrap (config + active task_memory + session + audit).
   //    Time-bounded so a stalled request fails fast to the demo fallback
@@ -74,11 +74,6 @@ export async function loadAgentSession(
     ])
   if (bootErr) throw new Error(`bootstrap failed: ${bootErr.message}`)
   const session = sessRow as AgentSession
-
-  // 2. Optional demo seed (idempotent, server-side guard).
-  if (opts.seedDemo) {
-    await client.rpc('seed_demo_agent_data', { p_role: role })
-  }
 
   // 3. The config row the bootstrap actually bound (first visit creates it
   //    inside the RPC, so the parallel read can miss or pick another row).

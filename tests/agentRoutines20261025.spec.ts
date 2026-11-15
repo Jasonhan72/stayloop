@@ -65,7 +65,8 @@ describe('schedule arithmetic (Toronto)', () => {
 describe('route and panel', () => {
   it('cron mode needs the shared secret; signed-in mode runs only the caller’s own row and does not advance it', () => {
     const r = code('app/api/cron/agent-routines/route.ts')
-    expect(r).toContain("timingSafeEqual(given, cronSecret)")
+    // 2026-11-15 (code review S3-29): the three private comparisons were folded into lib/cron/secret.ts
+    expect(r).toContain("await secretMatches(given, cronSecret)")
     expect(r).toContain(".eq('enabled', true).lte('next_run_at', new Date().toISOString())")
     expect(r).toContain(".eq('id', id).eq('user_id', ud.user.id)")
     expect(r).toContain('const out = await runRows(svc, [row as Row], false)')

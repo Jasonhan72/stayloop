@@ -13,6 +13,7 @@ import Footer from '@/components/Footer'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
+import { externalHref, externalHrefLabel } from '@/lib/ui/externalHref'
 import { CREDENTIAL_LABEL, coverageFor, isProfessionalTrade, PROFESSIONAL_TRADES, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; contact_email: string | null; contact_phone: string | null; website: string | null; verified_at: string | null }
@@ -78,6 +79,8 @@ export default function ProfessionalDirectoryPage() {
                   {list.map((p) => {
                     const pc = creds.filter((c) => c.provider_id === p.id)
                     const cov = coverageFor(t, pc)
+                    // Only a real http(s) address becomes a link; anything else is not shown.
+                    const site = externalHref(p.website)
                     return (
                       <div key={p.id} className="px-5 py-4" data-testid="professional-provider">
                         <div className="flex flex-wrap items-center gap-2">
@@ -91,7 +94,7 @@ export default function ProfessionalDirectoryPage() {
                         <div className="mt-1 flex flex-wrap gap-3 text-[13px]">
                           {p.contact_email && <a href={`mailto:${p.contact_email}`} className="text-brand underline-offset-2 hover:underline">{p.contact_email}</a>}
                           {p.contact_phone && <span>{p.contact_phone}</span>}
-                          {p.website && <a href={p.website} target="_blank" rel="noreferrer" className="text-brand underline-offset-2 hover:underline">{p.website.replace(/^https?:\/\//, '')}</a>}
+                          {site && <a href={site} target="_blank" rel="noopener noreferrer nofollow" className="break-all text-brand underline-offset-2 hover:underline" data-testid="professional-website">{externalHrefLabel(site)}</a>}
                         </div>
                       </div>
                     )
