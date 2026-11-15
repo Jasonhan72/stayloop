@@ -20,7 +20,8 @@ const MLS_HOSTS = /(^|\.)(realtor\.ca|realtor\.com|mls\.ca|propertysearch\.ca|on
 /** True for Realtor.ca / MLS hosts whose pages Stayloop must not read. */
 export function isMlsHost(url: string): boolean {
   try {
-    return MLS_HOSTS.test(new URL(url).hostname)
+    // `www.realtor.ca.` (trailing dot) is the same host; the pattern ends in `$` (S2-8).
+    return MLS_HOSTS.test(new URL(url).hostname.replace(/\.+$/, ''))
   } catch {
     return false
   }

@@ -55,6 +55,9 @@ export function negotiateProtocolVersion(requested: unknown): string {
 }
 
 /** Parse the HTTP body. `batch` = the body was a JSON array (the reply must be an array too). */
+/** Messages allowed in one JSON-RPC batch. */
+export const MCP_MAX_BATCH = 20
+
 export function parseMcpBody(text: string): { ok: true; messages: unknown[]; batch: boolean } | { ok: false; response: JsonRpcResponse } {
   let parsed: unknown
   try {
@@ -64,6 +67,9 @@ export function parseMcpBody(text: string): { ok: true; messages: unknown[]; bat
   }
   if (Array.isArray(parsed)) {
     if (parsed.length === 0) return { ok: false, response: rpcError(null, JSONRPC.INVALID_REQUEST, 'Invalid Request: empty batch') }
+    // One POST is one tick of the rate limiter: without a ceiling a batch of several hundred
+    // tool calls (each may query the database) cost a single request (S2-16).
+    if (parsed.length > MCP_MAX_BATCH) return { ok: false, response: rpcError(null, JSONRPC.INVALID_REQUEST, `Invalid Request: batch too large (max ${MCP_MAX_BATCH} messages)`) }
     return { ok: true, messages: parsed, batch: true }
   }
   return { ok: true, messages: [parsed], batch: false }

@@ -151,7 +151,12 @@ describe('envelope · OPTIONS · 405 · 429', () => {
   })
   it('both buckets are consulted through the shared limiter, fail-open, keyed by X-Client-Id', async () => {
     await (await routes.rules()).GET(get('/rules', { 'x-client-id': 'acme' }))
-    expect(h.limitCalls.map((c) => c.key).sort()).toEqual(['v1:rules:cid:acme', 'v1:rules:global'])
+    // 2026-11-15 (S2-15): a self-declared client id also counts against the caller's address.
+    const keys = h.limitCalls.map((c) => c.key).sort()
+    expect(keys.length).toBe(3)
+    expect(keys[0]).toBe('v1:rules:cid:acme')
+    expect(keys[1]).toBe('v1:rules:global')
+    expect(keys[2]).toMatch(/^v1:rules:ip:/)
     expect(h.limitCalls.every((c) => c.failOpen)).toBe(true)
     expect(h.limitCalls.find((c) => c.key.endsWith(':global'))!.limit).toBe(V1_LIMITS.perEndpointPerHour)
   })

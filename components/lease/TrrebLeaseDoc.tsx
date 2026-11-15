@@ -10,6 +10,7 @@
 // layout is Stayloop's own, not a copy of any real-estate-board form.
 import type { LeaseSignature } from '@/lib/lease/ontario'
 import type { OfferSummaryTerms } from '@/lib/lease/trreb'
+import { torontoDate } from '@/lib/household/ledger'
 
 function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
@@ -79,7 +80,7 @@ export default function OfferSummaryDoc({
           <div className="mt-2 inline-block rounded border border-green-700 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-green-700">
             ✓ Fully executed{' '}
             {landlordSignature && tenantSignature
-              ? `· ${new Date(Math.max(new Date(landlordSignature.signed_at).getTime(), new Date(tenantSignature.signed_at).getTime())).toISOString().slice(0, 10)}`
+              ? `· ${torontoDate(new Date(Math.max(new Date(landlordSignature.signed_at).getTime(), new Date(tenantSignature.signed_at).getTime())))}`
               : ''}
           </div>
         )}

@@ -13,7 +13,7 @@
 // Rate limit: 10 submissions per IP per hour, fail-closed (it sends mail).
 import { NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { underHourlyLimit } from '@/lib/rateLimit'
+import { ipBucket, requestIp, underHourlyLimit, underMailLimits } from '@/lib/rateLimit'
 import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
 import { personalRecordLookupsAllowed } from '@/lib/compliance/craMode'
@@ -68,8 +68,12 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
 export async function POST(req: Request, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params
   if (!INTAKE_TOKEN_RE.test(token)) return NextResponse.json({ error: 'not found' }, { status: 404, headers: NO_STORE })
-  const ip = req.headers.get('cf-connecting-ip') || (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon'
-  if (!(await underHourlyLimit(`agent-intake-submit:${ip}`, 10, false))) return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: NO_STORE })
+  // Every submission mails the agent: per address (IPv6 by /64), per link and site-wide,
+  // all fail-closed (S2-13).
+  const ip = ipBucket(requestIp(req.headers))
+  if (!(await underMailLimits('agent-intake-submit', `ip:${ip}`, 10, 300)) || !(await underHourlyLimit(`agent-intake-submit:link:${token.slice(0, 32)}`, 30, false))) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: NO_STORE })
+  }
   let body: Record<string, unknown>
   try { body = (await req.json()) as Record<string, unknown> } catch { return NextResponse.json({ error: 'invalid JSON body' }, { status: 400, headers: NO_STORE }) }
 

@@ -37,6 +37,7 @@ import { shouldRetrieve } from '@/lib/kb/trigger'
 import { kbPromptBlock, checkCitations, referenceList, kbReceiptLine, type KbReference } from '@/lib/kb/cite'
 import { loadPendingNotices, noticePromptBlock } from '@/lib/kb/notices'
 import { llmChat, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
+import { afterResponse } from '@/lib/afterResponse'
 
 
 // ── Auth + rate limiting ─────────────────────────────────────────────────────
@@ -182,7 +183,10 @@ async function fetchUrlContent(url: string): Promise<FetchResult> {
         signal: AbortSignal.timeout(18000),
       })
       if (res.ok) {
-        const json = await res.json() as { data?: { content?: string; title?: string; warning?: string; httpStatus?: number } }
+        const json = await res.json() as { data?: { content?: string; title?: string; warning?: string; httpStatus?: number; url?: string } }
+        // The reader follows redirects: a short link can end on Realtor.ca. The page it
+        // actually read is refused like the address typed in (S2-8).
+        if (json.data?.url && isMlsHost(json.data.url)) return { content: null, images: [], reason: MLS_READ_REFUSED_REASON }
         const content = json.data?.content?.trim()
         if (content) {
           const title = json.data?.title ? `# ${json.data.title}\n\n` : ''
@@ -847,7 +851,9 @@ export async function POST(req: Request) {
     try {
       const svcC = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
       // Ontario rule ids only for Ontario properties; elsewhere the raw flag + the province.
-      void svcC.from('compliance_events').insert(flags.slice(0, 10).map((f) => ({ user_id: anonymous ? null : turnUserId, role, source: 'guardrail', rule_id: otherProvince ? `guardrail:${f}`.slice(0, 80) : /ohrc|protected|discrimin/i.test(f) ? 'OHRC-protected-grounds' : /pet/i.test(f) ? 'RTA-14-no-pet-clause' : /fee|deposit/i.test(f) ? 'RTA-134-no-fees' : `guardrail:${f}`.slice(0, 80), severity: 'block', metadata: otherProvince ? { flag: f, province: otherProvince } : { flag: f } })))
+      // A PostgREST builder sends nothing until it is awaited or .then()'d: the bare `void` here
+      // never left the Worker (0 guardrail rows in production; code review 2026-11-15, S2-17).
+      afterResponse(Promise.resolve(svcC.from('compliance_events').insert(flags.slice(0, 10).map((f) => ({ user_id: anonymous ? null : turnUserId, role, source: 'guardrail', rule_id: otherProvince ? `guardrail:${f}`.slice(0, 80) : /ohrc|protected|discrimin/i.test(f) ? 'OHRC-protected-grounds' : /pet/i.test(f) ? 'RTA-14-no-pet-clause' : /fee|deposit/i.test(f) ? 'RTA-134-no-fees' : `guardrail:${f}`.slice(0, 80), severity: 'block', metadata: otherProvince ? { flag: f, province: otherProvince } : { flag: f } })))).then(({ error }) => { if (error) console.warn('[turn] compliance_events insert failed:', error.message) }))
     } catch { /* telemetry only */ }
   }
   // Only cards an executor can carry out from a chat turn survive (sweep

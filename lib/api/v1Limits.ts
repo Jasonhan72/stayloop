@@ -31,12 +31,17 @@ export type V1Endpoint =
 
 const CLIENT_ID_RE = /^[A-Za-z0-9._:@-]{1,64}$/
 
+/** The caller's address as a limiter key. */
+export function ipKeyFor(headers: Headers): string {
+  const ip = (headers.get('cf-connecting-ip') || headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim()
+  return `ip:${ip || 'unknown'}`
+}
+
 /** The limiter key for a request: a well-formed `X-Client-Id` wins, else the IP. */
 export function clientKeyFor(headers: Headers): string {
   const cid = (headers.get('x-client-id') || '').trim()
   if (cid && cid.length <= V1_LIMITS.clientIdMaxLen && CLIENT_ID_RE.test(cid)) return `cid:${cid}`
-  const ip = (headers.get('cf-connecting-ip') || headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim()
-  return `ip:${ip || 'unknown'}`
+  return ipKeyFor(headers)
 }
 
 /** The two bucket names an endpoint consumes (per key + site-wide). */
@@ -46,13 +51,22 @@ export function limitKeys(endpoint: V1Endpoint, clientKey: string): { perKey: st
 
 export type V1LimitResult = { ok: boolean; limit: number; retryAfter: number }
 
-/** Both buckets must be under their hourly limits. Fail-open on limiter outage. */
-export async function underV1Limits(endpoint: V1Endpoint, clientKey: string): Promise<V1LimitResult> {
+/**
+ * Every bucket must be under its hourly limit. Fail-open on limiter outage.
+ *
+ * `X-Client-Id` is self-declared: a caller who sends a new one with every request would get
+ * a fresh per-key bucket each time and be held only by the site-wide one — which they could
+ * then fill for everybody. So a request keyed by client id also counts against its address
+ * (`ipKey`, same limit); a request already keyed by IP is counted once (code review
+ * 2026-11-15, S2-15).
+ */
+export async function underV1Limits(endpoint: V1Endpoint, clientKey: string, ipKey?: string): Promise<V1LimitResult> {
   const keys = limitKeys(endpoint, clientKey)
   const perKeyLimit = endpoint === 'mcp' ? V1_LIMITS.mcpPerIpPerHour : V1_LIMITS.perKeyPerHour
-  const [perKey, global] = await Promise.all([
+  const [perKey, global, perIp] = await Promise.all([
     underHourlyLimit(keys.perKey, perKeyLimit, true),
     underHourlyLimit(keys.global, V1_LIMITS.perEndpointPerHour, true),
+    ipKey && ipKey !== clientKey ? underHourlyLimit(limitKeys(endpoint, ipKey).perKey, perKeyLimit, true) : Promise.resolve(true),
   ])
-  return { ok: perKey && global, limit: perKeyLimit, retryAfter: 3600 }
+  return { ok: perKey && global && perIp, limit: perKeyLimit, retryAfter: 3600 }
 }

@@ -90,7 +90,12 @@ export async function POST(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false, autoRefreshToken: false } },
   )
-  const { data: existing } = await admin.from('screenings').select('id, status').eq('application_id', appId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+  // Through the caller's own client, not the service role (code review 2026-11-15, S2-5): any
+  // account can insert a screenings row carrying somebody's application_id, and the landlord
+  // was then handed the id of a row they cannot open — one-click screening dead for good.
+  // A screening the caller can read (their own, or their agent's under a live delegation)
+  // is the application's screening; anybody else's row is not.
+  const { data: existing } = await sb.from('screenings').select('id, status').eq('application_id', appId).order('created_at', { ascending: false }).limit(1).maybeSingle()
   // A run that is live or finished is the application's screening; one that
   // ended in `error` is history — the landlord may run again.
   if (existing && existing.status !== 'error') {

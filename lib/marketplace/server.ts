@@ -6,6 +6,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
 import { afterResponse } from '@/lib/afterResponse'
+import { leaseProvince } from '@/lib/provinces/lease'
+import { rulesFor } from '@/lib/provinces/rules'
+import type { OtherProvince } from './workOrders'
 import { canAct, entryCancelText, entryNoticeText, entryWindowProblem, invoiceWithinEstimate, mergeCompletion, mergeQuote, quoteExpired, quoteStillAsSeen, resolveEntryPermission, TICKET_STATUS_FOR, validateQuote, type ActorKind, type WoAction, type WorkOrderStatus } from './workOrders'
 import { clampGraceDays, providerEligible, tradeForCategory, TRADES, type Trade, isProfessionalTrade } from './trades'
 import { declineText, quoteDueAt, validateDecline } from './sla'
@@ -48,6 +51,19 @@ async function setTicketStatus(admin: Admin, ticketId: string, status: WorkOrder
 }
 
 /** Household + landlord + tenant contact for a ticket, resolved from membership (never from card metadata). */
+/**
+ * The province a managed tenancy sits in, as the work-order texts need it: null for Ontario
+ * (the Ontario wording and the s.27 window stand), otherwise the code and the governing
+ * statute's name (lib/provinces). Work orders and repair emails used to cite the Ontario Act
+ * to tenants in every province (code review 2026-11-15, S2-29).
+ */
+export function otherProvinceOf(household: { address?: string | null; city?: string | null } | null | undefined): OtherProvince | null {
+  const code = leaseProvince({ household: household ?? null })
+  if (code === 'ON') return null
+  const statute = rulesFor(code)?.statute
+  return { code, statute: statute ? { zh: statute.zh, en: statute.en } : { zh: '本省的住宅租赁法规', en: 'the residential tenancy law of your province' } }
+}
+
 export async function ticketContext(admin: Admin, ticketId: string, callerId?: string | null): Promise<{ ticket: { id: string; title: string; description: string | null; category: string | null; priority: string; household_id: string; status: string }; household: { id: string; address: string; unit: string | null; city: string | null }; landlordAuthId: string | null; tenantEmails: string[]; tenantAuthIds: string[] } | null> {
   const { data: t } = await admin.from('maintenance_tickets').select('id, title, description, category, priority, household_id, status').eq('id', ticketId).maybeSingle()
   if (!t || !t.household_id) return null
@@ -254,7 +270,8 @@ export async function actOnWorkOrder(admin: Admin, i: ActInput): Promise<{ ok: t
       // same amount, new window — would otherwise be approved blind).
       if (!quoteStillAsSeen(wo, p)) return { ok: false, error: 'quote_changed', status: 409 }
       if (quoteExpired(wo.quote_valid_until)) return { ok: false, error: 'quote_expired', status: 422 }
-      const win = entryWindowProblem({ emergency: wo.emergency, scheduleStart: wo.schedule_start, scheduleEnd: wo.schedule_end })
+      const { data: hhRow } = await admin.from('households').select('address, city').eq('id', wo.household_id).maybeSingle()
+      const win = entryWindowProblem({ emergency: wo.emergency, scheduleStart: wo.schedule_start, scheduleEnd: wo.schedule_end, otherProvince: otherProvinceOf(hhRow as { address?: string | null; city?: string | null } | null) })
       if (win) return { ok: false, error: `entry_window_${win}`, status: 422 }
       Object.assign(patch, { approved_amount: wo.quote_amount, approved_at: now })
       if (p.auto_policy === true) evPayload.auto_policy = true
@@ -370,7 +387,7 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
       await admin.from('agent_pending_actions').update({ status: 'expired', execution_result: { ok: false, reason: 'quote_changed' } }).eq('user_id', wo.landlord_auth_id).eq('action_type', 'approve_quote').eq('status', 'pending').contains('metadata', { work_order_id: wo.id })
       const v = Number(wo.quote_version) || 1
       const title = `批准报价${v > 1 ? `（第 ${v} 版）` : ''}：${prov.name} · ${money(wo.quote_amount)} · ${ctx.ticket.title}`
-      const summary = `${prov.name} 对「${ctx.ticket.title}」（${unit}）报价 ${money(wo.quote_amount)}${wo.quote_type === 'hourly_estimate' ? '（按工时估算）' : '（固定价）'}${wo.schedule_start ? `，可到场 ${new Date(wo.schedule_start).toLocaleString('en-CA', { timeZone: 'America/Toronto' })}` : ''}。${wo.quote_note ? `说明：${wo.quote_note} ` : ''}批准后：${wo.emergency ? '紧急件按 RTA s.26 可不提前通知，仍会通知租客。' : '我会给租客发 RTA s.27 的 24 小时进入通知。'}最终账单不得超出报价 10%。`
+      const summary = `${prov.name} 对「${ctx.ticket.title}」（${unit}）报价 ${money(wo.quote_amount)}${wo.quote_type === 'hourly_estimate' ? '（按工时估算）' : '（固定价）'}${wo.schedule_start ? `，可到场 ${new Date(wo.schedule_start).toLocaleString('en-CA', { timeZone: 'America/Toronto' })}` : ''}。${wo.quote_note ? `说明：${wo.quote_note} ` : ''}批准后：${otherProvinceOf(ctx.household) ? '我会给租客发书面进入通知。' : wo.emergency ? '紧急件按 RTA s.26 可不提前通知，仍会通知租客。' : '我会给租客发 RTA s.27 的 24 小时进入通知。'}最终账单不得超出报价 10%。`
       const meta = { work_order_id: wo.id, ticket_id: wo.ticket_id, household_id: wo.household_id, expected_amount: wo.quote_amount, quote_version: v, quoted_at: wo.quoted_at, source: 'work_order' }
       await admin.from('agent_pending_actions').insert({
         user_id: wo.landlord_auth_id, role: 'landlord', action_type: 'approve_quote', title, summary,
@@ -387,7 +404,9 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
     }
     if (i.action === 'approve_quote') {
       // Entry notice to the tenant (RTA s.27 / s.26) + tell the contractor.
-      const notice = entryNoticeText({ unit, scheduleStart: wo.schedule_start, scheduleEnd: wo.schedule_end, provider: prov.name, scope: ctx.ticket.title, entryPermission: wo.entry_permission, emergency: wo.emergency })
+      const elsewhere = otherProvinceOf(ctx.household)
+      const entryRule = elsewhere ? `${wo.emergency ? 'emergency-entry' : 'entry-notice'}:${elsewhere.code}` : wo.emergency ? 'RTA-26-emergency-entry' : 'RTA-27-entry-notice'
+      const notice = entryNoticeText({ unit, scheduleStart: wo.schedule_start, scheduleEnd: wo.schedule_end, provider: prov.name, scope: ctx.ticket.title, entryPermission: wo.entry_permission, emergency: wo.emergency, otherProvince: elsewhere })
       if (ctx.tenantEmails.length) {
         const { html, text } = renderAgentMessageEmail({ subject: notice.subject, body: notice.body })
         // One email per tenant: each carries that tenant's own reply address on the work-order conversation.
@@ -401,12 +420,12 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
         if (r.ok) await admin.from('work_orders').update({ entry_notice_sent_at: new Date().toISOString() }).eq('id', wo.id)
         // 节点 4: a copy of the formal notice in the thread — the email is the notice, the copy is the record.
         const th = await ensureThread(admin, 'work_order', wo.id, { householdId: wo.household_id, title: ctx.ticket.title, createdBy: wo.landlord_auth_id })
-        if (th) await postSystemMessage(admin, th.id, { kind: 'formal_copy', senderKind: 'landlord', senderId: wo.landlord_auth_id, actingRole: 'landlord', senderLabel: '房东 · 进入通知 / Landlord · notice of entry', body: `${notice.subject}\n\n${notice.body}`, meta: { notice: 'entry', rule: wo.emergency ? 'RTA-26-emergency-entry' : 'RTA-27-entry-notice', sent_to: ctx.tenantEmails, sent: r.ok } })
+        if (th) await postSystemMessage(admin, th.id, { kind: 'formal_copy', senderKind: 'landlord', senderId: wo.landlord_auth_id, actingRole: 'landlord', senderLabel: '房东 · 进入通知 / Landlord · notice of entry', body: `${notice.subject}\n\n${notice.body}`, meta: { notice: 'entry', rule: entryRule, sent_to: ctx.tenantEmails, sent: r.ok } })
         // The record says what happened: notice_sent only when an email actually went out (review 2026-10-01).
-        await admin.from('compliance_events').insert({ user_id: wo.landlord_auth_id, role: 'landlord', source: 'work_order', rule_id: wo.emergency ? 'RTA-26-emergency-entry' : 'RTA-27-entry-notice', severity: 'info', target_type: 'work_order', target_id: wo.id, metadata: { household_id: wo.household_id, notice_sent: r.ok } }).then(() => undefined, () => undefined)
+        await admin.from('compliance_events').insert({ user_id: wo.landlord_auth_id, role: 'landlord', source: 'work_order', rule_id: entryRule, severity: 'info', target_type: 'work_order', target_id: wo.id, metadata: { household_id: wo.household_id, notice_sent: r.ok } }).then(() => undefined, () => undefined)
       } else {
         // No tenant email on the household (an emergency with nobody joined yet): no notice went out — record that too.
-        await admin.from('compliance_events').insert({ user_id: wo.landlord_auth_id, role: 'landlord', source: 'work_order', rule_id: wo.emergency ? 'RTA-26-emergency-entry' : 'RTA-27-entry-notice', severity: 'info', target_type: 'work_order', target_id: wo.id, metadata: { household_id: wo.household_id, notice_sent: false, reason: 'no_tenant_email' } }).then(() => undefined, () => undefined)
+        await admin.from('compliance_events').insert({ user_id: wo.landlord_auth_id, role: 'landlord', source: 'work_order', rule_id: entryRule, severity: 'info', target_type: 'work_order', target_id: wo.id, metadata: { household_id: wo.household_id, notice_sent: false, reason: 'no_tenant_email' } }).then(() => undefined, () => undefined)
       }
       for (const uid of ctx.tenantAuthIds) afterResponse(notifyUser(admin, uid, { kind: 'event', title: `进入通知 · ${ctx.ticket.title}`, body: notice.subject, url: `/h/${wo.household_id}` }))
       const cSubject = `报价已批准 · ${ctx.ticket.title} · ${unit} / Quote approved`

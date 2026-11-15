@@ -5,7 +5,7 @@
 // (an agent_profiles row exists — its status decides what the hat may do)
 // and admin. Read from the my_hats() RPC — the server's answer, not the
 // localStorage "active role", which is only a UI preference.
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { isRegistrationLive } from '@/lib/agentProfile'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -42,9 +42,13 @@ function fetchHats(uid: string): Promise<Hats | null> {
   return p
 }
 
+/** Waits between retries of a failed my_hats call; the last one repeats. */
+export const HATS_RETRY_MS = [1000, 3000, 8000, 15000]
+
 export function useHats(): Hats & { refresh: () => Promise<void> } {
   const auth = useAuth()
   const [hats, setHats] = useState<Hats>(cache && cache.uid === auth.user?.id ? cache.hats : EMPTY)
+  const retry = useRef<{ timer: ReturnType<typeof setTimeout> | null; tries: number }>({ timer: null, tries: 0 })
 
   async function load(uid: string) {
     // Loading is set before the RPC leaves: a consumer that decides once (the
@@ -52,7 +56,18 @@ export function useHats(): Hats & { refresh: () => Promise<void> } {
     // answer while a fetch is in flight (V0.7 follow-up, 2026-09-27).
     setHats((h) => (h.loading ? h : { ...h, loading: true }))
     const next = await fetchHats(uid)
-    if (!next) { setHats((h) => ({ ...h, loading: true })); return }
+    if (!next) {
+      // Still loading — answering "no hats" would bounce a landlord off their own pages — but not
+      // for ever: one network blip used to leave /landlord/* and /messages blank until a manual
+      // reload (code review 2026-11-15, S2-26). Try again after 1 s, 3 s, 8 s, then every 15 s.
+      setHats((h) => ({ ...h, loading: true }))
+      if (retry.current.timer) clearTimeout(retry.current.timer)
+      const wait = HATS_RETRY_MS[Math.min(retry.current.tries, HATS_RETRY_MS.length - 1)]
+      retry.current.tries += 1
+      retry.current.timer = setTimeout(() => { retry.current.timer = null; void load(uid) }, wait)
+      return
+    }
+    retry.current.tries = 0
     setHats(next)
   }
 
@@ -61,6 +76,9 @@ export function useHats(): Hats & { refresh: () => Promise<void> } {
     if (!auth.user) { cache = null; setHats({ ...EMPTY, loading: false }); return }
     if (cache && cache.uid === auth.user.id) { setHats(cache.hats); return }
     load(auth.user.id)
+    // A pending retry belongs to this user and this mount.
+    const r = retry.current
+    return () => { if (r.timer) { clearTimeout(r.timer); r.timer = null } r.tries = 0 }
   }, [auth.loading, auth.user])
 
   return { ...hats, refresh: async () => { if (auth.user) await load(auth.user.id) } }

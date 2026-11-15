@@ -7,6 +7,7 @@
 // The printed document is clean English (the official form's language);
 // on-screen chrome may add zh hints with `print:hidden`.
 import type { OntarioLeaseTerms, LeaseSignature } from '@/lib/lease/ontario'
+import { torontoDate } from '@/lib/household/ledger'
 
 // A missing value prints as a dash, never as a guess (an absent utilities block used to read "Tenant").
 const utilLabel = (v?: 'landlord' | 'tenant' | null) => (v === 'landlord' ? 'Landlord' : v === 'tenant' ? 'Tenant' : '—')
@@ -85,7 +86,7 @@ export default function OntarioLeaseDoc({
           <div className="mt-2 inline-block rounded border border-green-700 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-green-700">
             ✓ Fully executed{' '}
             {landlordSignature && tenantSignature
-              ? `· ${new Date(Math.max(new Date(landlordSignature.signed_at).getTime(), new Date(tenantSignature.signed_at).getTime())).toISOString().slice(0, 10)}`
+              ? `· ${torontoDate(new Date(Math.max(new Date(landlordSignature.signed_at).getTime(), new Date(tenantSignature.signed_at).getTime())))}`
               : ''}
           </div>
         )}

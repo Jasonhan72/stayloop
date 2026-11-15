@@ -203,6 +203,33 @@ export async function POST(req: NextRequest) {
           })
           .eq('id', landlordId)
         if (planErr) throw planErr
+        // The renewal date and the card come from the subscription events, and those match the
+        // row by stripe_customer_id — which only the write above sets. When
+        // `customer.subscription.created` is delivered first it matches nothing, answers 200
+        // and is never retried, leaving both empty until the next billing period. Fill them
+        // here as well (code review 2026-11-15, S2-12). Best-effort: the plan is already on.
+        if (subscriptionId) {
+          try {
+            const sub = await stripe.subscriptions.retrieve(subscriptionId)
+            const periodEnd =
+              sub.current_period_end ??
+              (sub.items?.data?.[0] as { current_period_end?: number } | undefined)?.current_period_end ??
+              null
+            const card = await describeCard(stripe, sub).catch(() => null)
+            const { error: detailErr } = await admin
+              .from('landlords')
+              .update({
+                ...(periodEnd ? { plan_current_period_end: new Date(periodEnd * 1000).toISOString() } : {}),
+                plan_cancel_at_period_end: !!sub.cancel_at_period_end,
+                ...(card ? { plan_card_brand: card.brand, plan_card_last4: card.last4 } : {}),
+              })
+              .eq('id', landlordId)
+              .eq('stripe_subscription_id', subscriptionId)
+            if (detailErr) console.warn('checkout.session.completed: subscription details not written', detailErr.message)
+          } catch (e) {
+            console.warn('checkout.session.completed: subscription details not read', e instanceof Error ? e.message : String(e))
+          }
+        }
         break
       }
 

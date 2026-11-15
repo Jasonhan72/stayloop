@@ -182,17 +182,23 @@ export default function NoticeToolbox() {
   const monthlyRent = num(lease?.monthly_rent) || num(household?.monthly_rent) || num(termsRent?.amount as number | string | null)
   const address = household ? [household.address, household.unit, household.city].filter(Boolean).join(' · ') : (lease?.unit_label ?? '')
 
-  const loadLeaseData = useCallback(async (lid: string) => {
+  // `isCurrent` lets the caller drop an answer that arrives after the landlord moved on to
+  // another lease: without it lease B's N4 draft listed lease A's arrears (S2-27).
+  const loadLeaseData = useCallback(async (lid: string, isCurrent: () => boolean = () => true) => {
     const [{ data: rp }, { data: rec }] = await Promise.all([
       supabase.from('rent_payments').select('id, lease_id, due_date, status, paid_at, amount').eq('lease_id', lid).limit(120),
       supabase.from('notice_service_records').select('id, form, served_on, method, deemed_served_on, key_date, created_at').eq('lease_id', lid).order('created_at', { ascending: false }).limit(100),
     ])
+    if (!isCurrent()) return
     setRents((rp ?? []) as DbRent[])
     setRecords((rec ?? []) as ServiceRecord[])
   }, [])
   useOnChange(leaseId, () => { setRents([]); setRecords([]); setForm(null); setRecordMsg(null) })
   useEffect(() => {
-    if (leaseId) void loadLeaseData(leaseId)
+    if (!leaseId) return
+    let cancelled = false
+    void loadLeaseData(leaseId, () => !cancelled)
+    return () => { cancelled = true }
   }, [leaseId, loadLeaseData])
 
   // ── Per-form inputs ────────────────────────────────────────────────────

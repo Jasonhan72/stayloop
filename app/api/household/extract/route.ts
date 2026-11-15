@@ -17,6 +17,7 @@ import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/m
 import { llmChat, type ChatContentBlock } from '@/lib/llmChat'
 import { LEASE_IMPORT_PROMPT, sanitizeLeaseImportExtraction } from '@/lib/household/importExtract'
 import { safeParseJson } from '@/lib/agent/turnHelpers'
+import { underHourlyLimit } from '@/lib/rateLimit'
 
 
 const MAX_FILES = 3
@@ -35,6 +36,11 @@ export async function POST(req: NextRequest) {
   const { data: userData, error: userErr } = await supabase.auth.getUser()
   if (userErr || !userData?.user) {
     return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
+  }
+  // Each call is one model request over a whole PDF: a durable per-account ceiling, fail-open
+  // like every cost guard (code review 2026-11-15, S2-14).
+  if (!(await underHourlyLimit(`household-extract:${userData.user.id}`, 20, true))) {
+    return NextResponse.json({ error: 'Too many extractions this hour — try again later' }, { status: 429 })
   }
 
   let form: FormData

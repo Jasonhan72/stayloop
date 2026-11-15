@@ -54,43 +54,122 @@ export function userTurns(messages: ChatMessage[]): number {
   return messages.filter((m) => m.role === 'user' && m.text.trim()).length
 }
 
-const rowToThread = (r: Record<string, unknown>): ThreadRow => ({
-  id: String(r.id),
-  title: (r.title as string | null) ?? null,
-  messages: Array.isArray(r.messages) ? (r.messages as ChatMessage[]) : [],
-  created_at: String(r.created_at),
-  updated_at: String(r.updated_at),
-})
+// `messages` is one jsonb column that every writer reads, changes and writes back whole. Two
+// writers — the open page and the cron that appends a routine's report, or two tabs — used to
+// overwrite each other silently (code review 2026-11-15, S2-20). So each row is treated as
+// versioned by `last_message_at`:
+//   · `seenStamp` remembers the value this client last read or wrote for a thread;
+//   · saveThread writes only if the row still carries it; when it does not, it reads the row,
+//     keeps every message only the stored copy has (each right after the message it followed
+//     there) and writes the merge;
+//   · `adopted` keeps those foreign messages for later saves from the same page, whose own
+//     copy still lacks them until the thread is loaded again.
+const seenStamp = new Map<string, string>()
+type Foreign = { after: string | null; msg: ChatMessage }
+const adopted = new Map<string, Foreign[]>()
+
+/** The messages only `stored` has, each with the id of the message it followed there. */
+export function foreignMessages(local: ChatMessage[], stored: ChatMessage[]): Foreign[] {
+  const mine = new Set(local.map((m) => m.id))
+  const out: Foreign[] = []
+  let anchor: string | null = null
+  for (const m of stored) {
+    if (!m || typeof m.id !== 'string') continue
+    if (!mine.has(m.id)) out.push({ after: anchor, msg: m })
+    anchor = m.id
+  }
+  return out
+}
+
+/** `local` with each foreign message put back after its anchor (at the end when the anchor is gone). */
+export function placeForeign(local: ChatMessage[], foreign: Foreign[]): ChatMessage[] {
+  if (!foreign.length) return local
+  const out = [...local]
+  for (const f of foreign) {
+    if (out.some((m) => m.id === f.msg.id)) continue
+    if (f.after === null) { out.unshift(f.msg); continue }
+    const at = out.findIndex((m) => m.id === f.after)
+    if (at === -1) out.push(f.msg)
+    else out.splice(at + 1, 0, f.msg)
+  }
+  return out
+}
+
+/** Test hook: forget every remembered version and adopted message. */
+export function __resetThreadVersions(): void { seenStamp.clear(); adopted.clear() }
+
+const rowToThread = (r: Record<string, unknown>): ThreadRow => {
+  const id = String(r.id)
+  // A fresh read is the new baseline: its version, and nothing adopted (the row has it all).
+  if (typeof r.last_message_at === 'string' && r.last_message_at) seenStamp.set(id, r.last_message_at)
+  adopted.delete(id)
+  return {
+    id,
+    title: (r.title as string | null) ?? null,
+    messages: Array.isArray(r.messages) ? (r.messages as ChatMessage[]) : [],
+    created_at: String(r.created_at),
+    updated_at: String(r.updated_at),
+  }
+}
 
 export async function loadThread(client: SupabaseClient, id: string): Promise<ThreadRow | null> {
   if (!UUID.test(id)) return null
-  const { data } = await client.from('agent_threads').select('id, title, messages, created_at, updated_at').eq('id', id).maybeSingle()
+  const { data } = await client.from('agent_threads').select('id, title, messages, created_at, updated_at, last_message_at').eq('id', id).maybeSingle()
   return data ? rowToThread(data as Record<string, unknown>) : null
 }
 
 export async function latestThread(client: SupabaseClient, role: AgentRole): Promise<ThreadRow | null> {
-  const { data } = await client.from('agent_threads').select('id, title, messages, created_at, updated_at').eq('role', role).order('updated_at', { ascending: false }).limit(1).maybeSingle()
+  const { data } = await client.from('agent_threads').select('id, title, messages, created_at, updated_at, last_message_at').eq('role', role).order('updated_at', { ascending: false }).limit(1).maybeSingle()
   return data ? rowToThread(data as Record<string, unknown>) : null
 }
 
 export async function createThread(client: SupabaseClient, userId: string, role: AgentRole, messages: ChatMessage[]): Promise<string | null> {
   const stored = stripForStorage(messages)
+  const stamp = new Date().toISOString()
   const { data, error } = await client
     .from('agent_threads')
-    .insert({ user_id: userId, role, title: threadTitle(messages), summary: threadSummary(messages), turn_count: userTurns(messages), messages: stored, message_count: stored.length, last_message_at: new Date().toISOString() })
+    .insert({ user_id: userId, role, title: threadTitle(messages), summary: threadSummary(messages), turn_count: userTurns(messages), messages: stored, message_count: stored.length, last_message_at: stamp })
     .select('id')
     .single()
   if (error) { console.warn('[threads] create failed', error.message); return null }
-  return (data as { id: string }).id
+  const id = (data as { id: string }).id
+  seenStamp.set(id, stamp)
+  return id
+}
+
+function threadPatch(messages: ChatMessage[]): { patch: Record<string, unknown>; stamp: string } {
+  const stored = stripForStorage(messages)
+  const stamp = new Date().toISOString()
+  const patch: Record<string, unknown> = { messages: stored, message_count: stored.length, summary: threadSummary(messages), turn_count: userTurns(messages), last_message_at: stamp, updated_at: stamp }
+  const title = threadTitle(messages)
+  if (title) patch.title = title
+  return { patch, stamp }
 }
 
 export async function saveThread(client: SupabaseClient, id: string, messages: ChatMessage[]): Promise<void> {
-  const stored = stripForStorage(messages)
-  const patch: Record<string, unknown> = { messages: stored, message_count: stored.length, summary: threadSummary(messages), turn_count: userTurns(messages), last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-  const title = threadTitle(messages)
-  if (title) patch.title = title
-  const { error } = await client.from('agent_threads').update(patch).eq('id', id)
-  if (error) console.warn('[threads] save failed', error.message)
+  const kept = adopted.get(id) ?? []
+  const mine = placeForeign(messages, kept)
+  const known = seenStamp.get(id)
+  const first = threadPatch(mine)
+  if (!known) {
+    // No version on record for this thread (it was not read through this module): write as before.
+    const { error } = await client.from('agent_threads').update(first.patch).eq('id', id)
+    if (error) console.warn('[threads] save failed', error.message)
+    else seenStamp.set(id, first.stamp)
+    return
+  }
+  const { data: hit, error } = await client.from('agent_threads').update(first.patch).eq('id', id).eq('last_message_at', known).select('id')
+  if (error) { console.warn('[threads] save failed', error.message); return }
+  if (hit && hit.length) { seenStamp.set(id, first.stamp); return }
+  // Somebody wrote since this copy was read: keep what they added.
+  const { data: cur } = await client.from('agent_threads').select('messages').eq('id', id).maybeSingle()
+  if (!cur) return // the thread is gone (deleted elsewhere): nothing to write to
+  const theirs = foreignMessages(mine, Array.isArray((cur as { messages?: unknown }).messages) ? ((cur as { messages: ChatMessage[] }).messages) : [])
+  if (theirs.length) adopted.set(id, [...kept, ...theirs])
+  const second = threadPatch(placeForeign(mine, theirs))
+  const { error: e2 } = await client.from('agent_threads').update(second.patch).eq('id', id)
+  if (e2) console.warn('[threads] save failed', e2.message)
+  else seenStamp.set(id, second.stamp)
 }
 
 /** Append messages to a thread that is no longer the one on screen (the reply to

@@ -42,11 +42,13 @@ const TABLE: Record<WoAction, { from: WorkOrderStatus[]; by: ActorKind[]; to: Wo
   tenant_confirm: { from: ['completed', 'accepted', 'paid', 'closed'], by: ['tenant'], to: (s) => s },
   accept_completion: { from: ['completed'], by: OWNER, to: 'accepted' },
   request_rework: { from: ['completed'], by: OWNER, to: 'rework' },
-  dispute: { from: ['completed', 'accepted', 'in_progress'], by: [...OWNER, ...CONTRACTOR], to: 'disputed' },
+  // 'rework' is in both lists below: when the contractor never comes back after 「要求返工」 the
+  // landlord had no move at all — no dispute, no cancel, no re-dispatch (code review 2026-11-15, S2-24).
+  dispute: { from: ['completed', 'accepted', 'in_progress', 'rework'], by: [...OWNER, ...CONTRACTOR], to: 'disputed' },
   resolve_dispute: { from: ['disputed'], by: ['admin'], to: 'accepted' },
   mark_paid: { from: ['accepted'], by: OWNER, to: 'paid' },
   close: { from: ['paid', 'accepted'], by: [...OWNER, 'system'], to: 'closed' },
-  cancel: { from: ['offered', 'quoted', 'scheduled'], by: [...OWNER, ...CONTRACTOR], to: 'cancelled' },
+  cancel: { from: ['offered', 'quoted', 'scheduled', 'rework'], by: [...OWNER, ...CONTRACTOR], to: 'cancelled' },
 }
 
 export function canAct(action: WoAction, status: WorkOrderStatus, by: ActorKind): { ok: boolean; reason?: string; to?: WorkOrderStatus } {
@@ -159,16 +161,23 @@ export function invoiceWithinEstimate(approved: number | null | undefined, invoi
   return over > 0.10 ? { ok: false, overBy: Math.round(over * 1000) / 10 } : { ok: true }
 }
 
+/** A managed tenancy outside Ontario: its code and the name of the statute that governs entry there. */
+export type OtherProvince = { code: string; statute: { zh: string; en: string } }
+
 /**
  * RTA s.27(1): non-emergency entry needs written notice ≥24 h ahead naming a
  * time between 8:00 and 20:00. Returns the reason the window cannot be
  * noticed, or null when it can (emergencies pass: s.26).
  */
-export function entryWindowProblem(i: { emergency: boolean; scheduleStart: string | null | undefined; scheduleEnd?: string | null }, now = new Date()): 'no_window' | 'less_than_24h' | 'outside_8_20' | null {
+export function entryWindowProblem(i: { emergency: boolean; scheduleStart: string | null | undefined; scheduleEnd?: string | null; otherProvince?: OtherProvince | null }, now = new Date()): 'no_window' | 'less_than_24h' | 'outside_8_20' | null {
   if (i.emergency) return null
   if (!i.scheduleStart) return 'no_window'
   const start = new Date(i.scheduleStart)
   if (isNaN(start.getTime())) return 'no_window'
+  // 24 hours and 8:00–20:00 are Ontario's numbers. A tenancy elsewhere follows its own
+  // province's rule, which lib/provinces does not carry: a window is still required, but
+  // Ontario's limits are not enforced on it (code review 2026-11-15, S2-29).
+  if (i.otherProvince) return null
   if (start.getTime() < now.getTime() + 24 * 3_600_000) return 'less_than_24h'
   const hour = (d: Date) => Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', hour: '2-digit', hour12: false }).format(d))
   const h1 = hour(start)
@@ -177,13 +186,19 @@ export function entryWindowProblem(i: { emergency: boolean; scheduleStart: strin
   return null
 }
 
-export function entryNoticeText(i: { unit: string; scheduleStart?: string | null; scheduleEnd?: string | null; provider: string; scope: string; entryPermission: string | null | undefined; emergency: boolean }): { subject: string; body: string } {
+export function entryNoticeText(i: { unit: string; scheduleStart?: string | null; scheduleEnd?: string | null; provider: string; scope: string; entryPermission: string | null | undefined; emergency: boolean; otherProvince?: OtherProvince | null }): { subject: string; body: string } {
   const fmt = (s?: string | null) => (s ? new Date(s).toLocaleString('en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' }) : '待定 / TBD')
   const window = `${fmt(i.scheduleStart)} – ${fmt(i.scheduleEnd)}`
   const perm = i.entryPermission === 'tenant_present' ? { zh: '按您的要求，须您本人在场。', en: 'At your request, you will be present.' }
     : i.entryPermission === 'call_first' ? { zh: '进入前会先电话联系您。', en: 'You will be called before entry.' }
     : { zh: '如您不在，服务商将在上述时间段内进入。', en: 'If you are out, the contractor will enter within the window above.' }
-  const legal = i.emergency
+  // Outside Ontario the notice names that province's own statute and quotes no section or
+  // hour from the Ontario Act (S2-29); the Ontario wording below is unchanged.
+  const legal = i.otherProvince
+    ? (i.emergency
+        ? { zh: `本次为紧急维修，以本邮件告知您。进入单位的规则以${i.otherProvince.statute.zh}为准。`, en: `This is an emergency repair and you are informed by this email. Entry to the unit is governed by ${i.otherProvince.statute.en}.` }
+        : { zh: `这是进入单位的书面通知。提前通知的时长与可进入的时段以${i.otherProvince.statute.zh}为准。`, en: `This is written notice of entry. How far ahead notice must be given, and at what hours entry is allowed, is governed by ${i.otherProvince.statute.en}.` })
+    : i.emergency
     ? { zh: '本次为紧急维修（RTA s.26），可不提前 24 小时通知；仍以本邮件告知。', en: 'This is an emergency repair (RTA s.26); 24 hours\' notice is not required, but you are informed by this email.' }
     : { zh: '按《住宅租赁法》s.27，此为提前 24 小时以上的书面进入通知，进入时间在 8:00–20:00 之间。', en: 'Under RTA s.27 this is written notice of entry given at least 24 hours ahead, between 8:00 and 20:00.' }
   const subject = `进入通知 · ${i.unit} · ${window} / Notice of entry`

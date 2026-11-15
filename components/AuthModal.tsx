@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
 import { v3 } from '@/lib/brand'
+import { sameSitePath } from '@/lib/auth/sameSitePath'
 
 /* ── Palette shim — maps legacy mk.* names to V3 tokens so existing JSX
  *  keeps working without a full rename. Identical surface to the previous
@@ -101,7 +102,7 @@ export default function AuthModal({ open, onClose, defaultTab, next = '/' }: Aut
   const router = useRouter()
   // Reject protocol-relative (//) AND backslash (/\) prefixes: browsers
   // treat \ as / when resolving, so '/\evil.com' escapes the origin.
-  const safeNext = next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') ? next : '/'
+  const safeNext = sameSitePath(next) ?? '/'
 
   /* State */
   const [step, setStep] = useState<Step>('email')

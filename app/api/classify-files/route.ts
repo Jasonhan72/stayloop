@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { llmChat, type ChatContentBlock } from '@/lib/llmChat'
 import { createClient } from '@supabase/supabase-js'
 import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/modelConfig'
+import { underHourlyLimit } from '@/lib/rateLimit'
+import { callerHats, mayScreen, SCREENING_ROLE_CODE, SCREENING_ROLE_MESSAGE } from '@/lib/screening/roleGate'
 
 // Lightweight classification endpoint. Accepts up to MAX_TOTAL_FILES via
 // multipart/form-data and returns, for each file, an array of document
@@ -528,6 +530,16 @@ export async function POST(req: NextRequest) {
       { error: 'Rate limit exceeded — retry later' },
       { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } },
     )
+  }
+
+  // The Map above is per isolate; on Workers that is close to no limit at all. The durable
+  // ceiling (a screening sends its files in several batches, hence 120), fail-open (S2-14).
+  if (!(await underHourlyLimit(`classify-files:${userId}`, 120, true))) {
+    return NextResponse.json({ error: 'Rate limit exceeded — retry later' }, { status: 429, headers: { 'Retry-After': '3600' } })
+  }
+  // Classification is a step of tenant screening: the same people (lib/screening/roleGate.ts).
+  if (!mayScreen(await callerHats(sbAuth), false)) {
+    return NextResponse.json({ error: SCREENING_ROLE_MESSAGE.en, error_zh: SCREENING_ROLE_MESSAGE.zh, code: SCREENING_ROLE_CODE }, { status: 403 })
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY

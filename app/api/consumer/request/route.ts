@@ -21,9 +21,11 @@ export async function POST(req: Request) {
   const lang = langOf(body.lang)
   const ip = clientIp(req)
   const ipHash = await hashIp(ip)
-  // Two buckets, both fail-closed: no limiter → no email.
+  // Three buckets, all fail-closed: no limiter → no email.
   if (!(await underHourlyLimit(`consumer-request:ip:${ipHash}`, 5, false))) return OK()
   if (!(await underHourlyLimit(`consumer-request:email:${(await sha256Hex(email)).slice(0, 32)}`, 3, false))) return OK()
+  // …and one for the whole site: rotating addresses and emails must still hit a ceiling (S2-13).
+  if (!(await underHourlyLimit('consumer-request:site-wide', 100, false))) return OK()
 
   const admin = adminClient()
   const token = makeToken()

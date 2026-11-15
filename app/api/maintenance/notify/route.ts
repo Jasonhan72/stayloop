@@ -11,7 +11,7 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
 import { isEmergencyMaintenance } from '@/lib/agent/maintenanceTriage'
-import { suggestDispatch, ticketContext, SITE } from '@/lib/marketplace/server'
+import { otherProvinceOf, suggestDispatch, ticketContext, SITE } from '@/lib/marketplace/server'
 
 
 const UUID = /^[0-9a-f-]{36}$/i
@@ -51,6 +51,8 @@ export async function POST(req: Request) {
   const openerIsTenant = ctx.tenantAuthIds.includes(user.id)
   const emergency = ctx.ticket.priority === 'high' || isEmergencyMaintenance({ title: ctx.ticket.title, description: ctx.ticket.description ?? '', category: ctx.ticket.category })
   const unit = [ctx.household.address, ctx.household.unit ? `#${ctx.household.unit}` : null].filter(Boolean).join(' ')
+  // A tenancy outside Ontario gets the same request without the Ontario Act's section (S2-29).
+  const elsewhere = otherProvinceOf(ctx.household)
   const url = `${SITE()}/h/${ctx.household.id}?tab=maintenance`
   const subject = `${emergency ? '【紧急】' : ''}报修工单 · ${unit} · ${ctx.ticket.title} — ${emergency ? 'URGENT ' : ''}Repair ticket`
   const who = openerIsTenant ? { zh: '租客', en: 'Your tenant' } : { zh: '房东', en: 'Your landlord' }
@@ -62,7 +64,7 @@ ${who.zh}在 Stayloop 在管租约里提交了一张报修工单：
   • 说明：${ctx.ticket.description || '（无）'}
   • 紧急程度：${emergency ? 'high（影响居住安全或基本服务）' : ctx.ticket.priority}
 
-查看工单与照片、指派维修：${url}${emergency && openerIsTenant ? '\n按 RTA s.20 房东须保持单位适合居住；供暖、供水、燃气、门锁这类问题请今天联系租客。' : ''}
+查看工单与照片、指派维修：${url}${emergency && openerIsTenant ? (elsewhere ? '\n供暖、供水、燃气、门锁这类问题不能等，请今天联系租客。' : '\n按 RTA s.20 房东须保持单位适合居住；供暖、供水、燃气、门锁这类问题请今天联系租客。') : ''}
 
 Hi,
 
@@ -72,7 +74,7 @@ ${who.en} filed a repair ticket on your Stayloop tenancy hub:
   • Details: ${ctx.ticket.description || '(none)'}
   • Priority: ${emergency ? 'high (habitability)' : ctx.ticket.priority}
 
-See the ticket and photos: ${url}${emergency && openerIsTenant ? '\nUnder RTA s.20 heat, water, gas and locks cannot wait — please contact your tenant today.' : ''}`
+See the ticket and photos: ${url}${emergency && openerIsTenant ? (elsewhere ? '\nHeat, water, gas and locks cannot wait — please contact your tenant today.' : '\nUnder RTA s.20 heat, water, gas and locks cannot wait — please contact your tenant today.') : ''}`
   const { html, text: plain } = renderAgentMessageEmail({ subject, body: text })
 
   const sent: string[] = []

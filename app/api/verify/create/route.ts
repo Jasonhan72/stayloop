@@ -70,7 +70,9 @@ export async function POST(req: NextRequest) {
       if (error) throw error
       status = 'pending'
     } else if (tenantEmail) {
-      await admin.from('verification_requests').update({ tenant_email: tenantEmail, ...(tenantName ? { tenant_name: tenantName } : {}) }).eq('token', token)
+      // Only while nobody has consented yet: results are attributed by this address
+      // (/api/v1/passport/verify), so it cannot be re-pointed after the fact (S2-9).
+      await admin.from('verification_requests').update({ tenant_email: tenantEmail, ...(tenantName ? { tenant_name: tenantName } : {}) }).eq('token', token).eq('status', 'pending')
     }
 
     const url = `${siteUrl}/verify/${token}`

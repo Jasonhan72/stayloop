@@ -21,6 +21,7 @@ import { useAuth, roleStorageKey } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { ROLE_HOME } from '@/lib/useOnboarding'
 import { landingAfterSignIn, type HatsLite } from '@/lib/landlordHat'
+import { sameSitePath } from '@/lib/auth/sameSitePath'
 
 export default function AuthPage({ mode }: { mode: 'signin' | 'register' }) {
   const router = useRouter()
@@ -44,7 +45,7 @@ export default function AuthPage({ mode }: { mode: 'signin' | 'register' }) {
     if (!signedIn || !user) return
     const q = new URLSearchParams(window.location.search)
     const redirect = q.get('next') ?? q.get('redirect')
-    const safe = redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\') ? redirect : null
+    const safe = sameSitePath(redirect, window.location.origin)
     if (safe) { router.replace(safe); return }
     const remembered = window.localStorage.getItem(roleStorageKey(user.id))
     void Promise.resolve(getSupabaseBrowser().rpc('my_hats')).then(({ data }) => router.replace(landingAfterSignIn(remembered, remembered ? null : role, data as HatsLite)), () => router.replace(role ? ROLE_HOME[role] : '/tenant/agent'))

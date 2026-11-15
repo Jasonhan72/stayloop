@@ -23,3 +23,37 @@ export async function underHourlyLimit(key: string, limit: number, failOpen: boo
     return failOpen
   }
 }
+
+/** The caller's IP as Cloudflare reports it (first hop of x-forwarded-for elsewhere). */
+export function requestIp(headers: Headers): string {
+  return (headers.get('cf-connecting-ip') || (headers.get('x-forwarded-for') || '').split(',')[0] || '').trim() || 'unknown'
+}
+
+/**
+ * The limiter bucket for an IP: an IPv6 address counts as its /64 — one subscriber owns
+ * the whole block and can rotate through it for free — an IPv4 address as itself.
+ */
+export function ipBucket(ip: string): string {
+  const v = (ip || '').trim().toLowerCase()
+  if (!v) return 'unknown'
+  if (!v.includes(':')) return v
+  if (v.includes('.')) return v.slice(v.lastIndexOf(':') + 1) // ::ffff:1.2.3.4
+  const [head, tail] = v.split('::') as [string, string | undefined]
+  const h = head ? head.split(':') : []
+  const t = tail ? tail.split(':') : []
+  const groups = tail === undefined ? h : [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t]
+  return groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, '')).join(':') + '::/64'
+}
+
+/**
+ * The gate for an endpoint that sends mail (code review 2026-11-15, S2-13): the caller's
+ * own bucket AND one site-wide bucket, both fail-CLOSED — no limiter, no send. A caller
+ * who rotates addresses still runs into the site-wide ceiling.
+ */
+export async function underMailLimits(route: string, caller: string, perCallerPerHour: number, siteWidePerHour: number): Promise<boolean> {
+  const [mine, all] = await Promise.all([
+    underHourlyLimit(`${route}:${caller}`, perCallerPerHour, false),
+    underHourlyLimit(`${route}:site-wide`, siteWidePerHour, false),
+  ])
+  return mine && all
+}

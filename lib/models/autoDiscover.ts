@@ -86,11 +86,18 @@ export async function runAutoDiscovery(admin: SupabaseClient, actorId: string | 
     }
     for (const id of diff.retired) {
       const r = await probe(id, actorId)
+      let disabled = false
+      let offError: string | undefined
       if (!r.ok) {
         const cur = catalog.find((c) => c.id === id)
-        await admin.from('model_catalog').upsert({ id, user_selectable: false, enabled: false, note: `${cur?.note || ''} · 厂商已不再列出 ${stamp}，测试失败`.trim(), updated_at: new Date().toISOString(), updated_by: actorId }, { onConflict: 'id' })
+        // update, not upsert: an upsert carrying only these columns fails on the NOT NULL ones
+        // (label…) with 23502, the error went unread and the email still said 「已停用」
+        // (code review 2026-11-15, S2-21).
+        const { error } = await admin.from('model_catalog').update({ user_selectable: false, enabled: false, note: `${cur?.note || ''} · 厂商已不再列出 ${stamp}，测试失败`.trim(), updated_at: new Date().toISOString(), updated_by: actorId }).eq('id', id)
+        disabled = !error
+        if (error) offError = `disable failed: ${error.message}`
       }
-      out.retired.push({ id, env, ok: r.ok, disabled: !r.ok, error: r.error })
+      out.retired.push({ id, env, ok: r.ok, disabled, error: offError ?? r.error })
     }
   }
   __resetModelConfigCaches()
@@ -99,7 +106,7 @@ export async function runAutoDiscovery(admin: SupabaseClient, actorId: string | 
 
 /** One email to every admin — only when something changed or failed. */
 export async function emailAdminsSummary(admin: SupabaseClient, r: AutoDiscoverResult): Promise<number> {
-  const changed = r.added.length || r.retired.some((x) => x.disabled) || r.providers.some((p) => !p.ok)
+  const changed = r.added.length || r.retired.some((x) => x.disabled || !x.ok) || r.providers.some((p) => !p.ok)
   if (!changed) return 0
   const { data: admins } = await admin.from('admin_users').select('user_id')
   const emails: string[] = []
@@ -112,7 +119,7 @@ export async function emailAdminsSummary(admin: SupabaseClient, r: AutoDiscoverR
   const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#1B1B3C">
 <p>模型目录每周自动检查（${r.checked_at.slice(0, 16).replace('T', ' ')} UTC）。</p>
 <p><b>新加入 ${r.added.length} 个</b></p><ul>${r.added.map((a) => line(`${a.id} · ${a.env} · ${a.ok ? `✓ 测试通过 ${a.latency_ms} ms，已对用户开放（单价待填）` : `✕ ${a.error || 'failed'}（已保留但停用）`}`)).join('') || line('无')}</ul>
-<p><b>厂商已不再列出 ${r.retired.length} 个</b></p><ul>${r.retired.map((x) => line(`${x.id} · ${x.disabled ? '测试失败，已停用' : '测试仍通过，保留'}`)).join('') || line('无')}</ul>
+<p><b>厂商已不再列出 ${r.retired.length} 个</b></p><ul>${r.retired.map((x) => line(`${x.id} · ${x.disabled ? '测试失败，已停用' : x.ok ? '测试仍通过，保留' : `测试失败，但停用没有写入（${x.error || '原因未知'}），请到后台手动停用`}`)).join('') || line('无')}</ul>
 <p><b>厂商</b></p><ul>${r.providers.map((p) => line(`${p.label} · ${p.ok ? `${p.listed} 个在列` : `列表失败：${p.error}`}`)).join('')}</ul>
 <p>到 <a href="https://www.stayloop.ai/admin/models">/admin/models</a> 补单价或调整槽位。</p></div>`
   const res = await sendEmail({ to: emails, subject: `Stayloop 模型目录：新加入 ${r.added.length} 个 · 下架 ${r.retired.filter((x) => x.disabled).length} 个`, html, text: JSON.stringify(r, null, 1) })

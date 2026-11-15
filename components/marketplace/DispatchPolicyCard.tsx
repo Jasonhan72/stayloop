@@ -31,11 +31,17 @@ export default function DispatchPolicyCard({ providers, zh }: { providers: Polic
   useEffect(() => {
     if (auth.loading || !auth.user) return
     supabase.from('dispatch_policies').select('mode, emergency_auto_approve, emergency_cap, preferred, quote_hours').eq('landlord_auth_id', auth.user.id).maybeSingle()
-      .then(({ data }) => { setPolicy(normalizePolicy(data as never)); setLoaded(true) })
+      .then(({ data, error }) => {
+        // A failed read is not "no policy yet": showing the defaults as loaded let one click
+        // upsert the whole row and wipe the preferred contractors and the emergency
+        // pre-approval (code review 2026-11-15, S2-28). The controls stay disabled instead.
+        if (error) { setMsg(zh ? '没读到现有的派单策略，请刷新页面后再改' : 'Could not load your dispatch policy — refresh the page before changing it'); return }
+        setPolicy(normalizePolicy(data as never)); setLoaded(true)
+      })
   }, [auth.loading, auth.user])
 
   async function save(next: DispatchPolicy) {
-    if (!auth.user) return
+    if (!auth.user || !loaded) return
     setPolicy(next); setSaving(true); setMsg(null)
     const { error } = await supabase.from('dispatch_policies').upsert({ landlord_auth_id: auth.user.id, ...next, updated_at: new Date().toISOString() })
     setSaving(false)

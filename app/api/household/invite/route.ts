@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { renderHouseholdInviteEmail, sendEmail } from '@/lib/email'
+import { underHourlyLimit } from '@/lib/rateLimit'
 
 
 const MAX_PER_REQUEST = 5
@@ -65,10 +66,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'household is not active' }, { status: 400 })
   }
 
-  const { count } = await supabase
+  // A count that could not be read is not zero: this route sends mail, so it fails closed (S2-13).
+  const { count, error: countErr } = await supabase
     .from('household_invites')
     .select('id', { count: 'exact', head: true })
     .eq('household_id', householdId)
+  if (countErr) return NextResponse.json({ error: 'could not check the invite limit, try again' }, { status: 503 })
   if ((count ?? 0) + wanted.length > MAX_PER_HOUSEHOLD) {
     return NextResponse.json({ error: 'invite limit reached for this household' }, { status: 429 })
   }
@@ -76,13 +79,18 @@ export async function POST(req: NextRequest) {
   // Per-inviter daily budget across all households (review 2026-09-14: the
   // caps were per request / per household only, and households are
   // unlimited — one account could send hundreds of Stayloop-branded mails).
-  const { count: sentToday } = await supabase
+  const { count: sentToday, error: sentErr } = await supabase
     .from('household_invites')
     .select('id', { count: 'exact', head: true })
     .eq('invited_by', user.id)
     .gte('created_at', new Date(Date.now() - 86_400_000).toISOString())
+  if (sentErr) return NextResponse.json({ error: 'could not check the invite limit, try again' }, { status: 503 })
   if ((sentToday ?? 0) + wanted.length > 30) {
     return NextResponse.json({ error: 'daily invite limit reached' }, { status: 429 })
+  }
+  // One ceiling for the whole site, fail-closed: many accounts must not add up to a mail cannon.
+  if (!(await underHourlyLimit('household-invite:site-wide', 300, false))) {
+    return NextResponse.json({ error: 'invite limit reached, try again later' }, { status: 429 })
   }
 
   const rawName =

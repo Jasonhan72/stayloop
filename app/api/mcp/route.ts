@@ -14,7 +14,7 @@
 // shape.
 import { createClient } from '@supabase/supabase-js'
 import { ApiError, errorResponse, jsonResponse, v1Headers } from '@/lib/api/v1Http'
-import { clientKeyFor, underV1Limits, V1_LIMITS } from '@/lib/api/v1Limits'
+import { clientKeyFor, ipKeyFor, underV1Limits, V1_LIMITS } from '@/lib/api/v1Limits'
 import { handleMcpBody } from '@/lib/mcp/jsonrpc'
 import type { McpToolContext } from '@/lib/mcp/tools'
 import type { BenchmarkClient } from '@/lib/api/v1Core'
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
   }
 
   const key = clientKeyFor(req.headers)
-  const lim = await underV1Limits('mcp', key)
+  const lim = await underV1Limits('mcp', key, ipKeyFor(req.headers))
   if (!lim.ok) {
     const res = errorResponse(new ApiError('rate_limited', 'Too many MCP requests for this client this hour.', 429, lim.retryAfter), lim.limit)
     const h = new Headers(res.headers)

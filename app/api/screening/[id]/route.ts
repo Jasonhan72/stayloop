@@ -28,7 +28,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     const { data: { user } } = await rls.auth.getUser()
     if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     // A row the caller cannot read does not exist.
-    const { data: row } = await rls.from('screenings').select('id, files, status, progress').eq('id', id).maybeSingle()
+    const { data: row } = await rls.from('screenings').select('id, files, status, progress, landlord_id').eq('id', id).maybeSingle()
     if (!row) return NextResponse.json({ error: 'not found' }, { status: 404 })
     // A run that reported progress in the last 10 minutes is still writing.
     const at = Date.parse((row.progress as { at?: string } | null)?.at || '')
@@ -39,9 +39,23 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
+    // Reading is not owning (code review 2026-11-15, S2-4): the principal of a delegation can
+    // read their agent's screening, and this route deletes with the service role. Only the
+    // account the row belongs to — by auth id, or by its landlords row for older rows.
+    const ownerKey = typeof row.landlord_id === 'string' ? row.landlord_id : ''
+    let owner = ownerKey === user.id
+    if (!owner && ownerKey) {
+      const { data: mine } = await admin.from('landlords').select('id').eq('id', ownerKey).eq('auth_id', user.id).maybeSingle()
+      owner = !!mine
+    }
+    if (!owner) return NextResponse.json({ error: 'only the owner can delete a screening', code: 'not_owner' }, { status: 403 })
+    // `files` is a column the owner can write: only objects in this screening's own folder
+    // (screenings/<owner>/<screening id>/…) or the owner's own tree are removed, never a
+    // path that merely starts with screenings/.
+    const ownFolder = new RegExp(`^screenings/[^/]+/${id}/`)
     const paths = (Array.isArray(row.files) ? row.files : [])
       .map((f: { path?: unknown }) => (typeof f?.path === 'string' ? f.path : null))
-      .filter((p): p is string => !!p && p.startsWith('screenings/'))
+      .filter((p): p is string => !!p && !p.includes('..') && (ownFolder.test(p) || p.startsWith(`screenings/${user.id}/`) || (!!ownerKey && p.startsWith(`screenings/${ownerKey}/`))))
     let filesRemoved = 0
     if (paths.length) {
       const { data: removed, error: rmErr } = await admin.storage.from('tenant-files').remove(paths)

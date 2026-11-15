@@ -75,7 +75,10 @@ async function runOne(svc: SupabaseClient, r: Row, now: Date): Promise<RunResult
     const { data: leases } = await svc.from('lease_documents').select('id, tenant_name, tenant_email, unit_label, monthly_rent, status, end_date').in('landlord_id', ids).in('status', [...IN_FORCE_STATUSES]).limit(50)
     const live = ((leases ?? []) as { id: string; tenant_name: string | null; tenant_email: string | null; unit_label: string | null; monthly_rent: number | null; end_date: string | null }[]).filter((l) => l.tenant_email && (!l.end_date || l.end_date >= todayIso))
     if (!live.length) return { ok: true, count: 0, note: 'no lease in force with a tenant email' }
-    const { data: existing } = await svc.from('agent_pending_actions').select('metadata').eq('user_id', r.user_id).eq('action_type', 'rent_reminder').in('status', ['pending', 'approved', 'executed']).gte('created_at', new Date(now.getTime() - 40 * 86_400_000).toISOString())
+    // Any card already raised for this lease and due date, whatever became of it: a landlord who
+    // said no, or a card that expired because the tenant paid, is not asked again the next
+    // morning ('executed' was never a status value; code review 2026-11-15, S2-19).
+    const { data: existing } = await svc.from('agent_pending_actions').select('metadata').eq('user_id', r.user_id).eq('action_type', 'rent_reminder').in('status', ['pending', 'approved', 'rejected', 'expired']).gte('created_at', new Date(now.getTime() - 40 * 86_400_000).toISOString())
     const seen = new Set(((existing ?? []) as { metadata: Record<string, unknown> | null }[]).map((e) => `${e.metadata?.lease_id}:${e.metadata?.due_date}`))
     const mainId = await ensureMainThread(svc, r.user_id, r.role)
     const inserts = live.filter((l) => !seen.has(`${l.id}:${dueDate}`)).map((l) => ({

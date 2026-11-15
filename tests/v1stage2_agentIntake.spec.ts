@@ -119,7 +119,9 @@ describe('lib/agent/intakeLinks · pure rules', () => {
 describe('routes · source guards', () => {
   it('public POST /api/agent-intake/[token]: IP limit 10/h fail-closed, consent version, screening under the agent authId, service role, delegation only when live + screen', () => {
     const r = read('app/api/agent-intake/[token]/route.ts')
-    expect(r).toContain("underHourlyLimit(`agent-intake-submit:${ip}`, 10, false)")
+    // 2026-11-15 (S2-13): still 10 an hour per address, fail-closed — now by /64 for IPv6, plus a per-link and a site-wide bucket.
+    expect(r).toContain("underMailLimits('agent-intake-submit', `ip:${ip}`, 10, 300)")
+    expect(r).toContain('underHourlyLimit(`agent-intake-submit:link:${token.slice(0, 32)}`, 30, false)')
     expect(r).toContain('validateIntakeSubmission(body, v.link.id)')
     expect(r).toContain('landlord_id: v.link.agent_auth_id,')
     expect(r).toContain("SUPABASE_SERVICE_ROLE_KEY!")

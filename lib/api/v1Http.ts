@@ -10,7 +10,7 @@
 //
 // Plain `Response` on purpose — no Next import, so the MCP route and the
 // vitest guard can use the same helpers without a framework shim.
-import { clientKeyFor, underV1Limits, type V1Endpoint } from '@/lib/api/v1Limits'
+import { clientKeyFor, ipKeyFor, underV1Limits, type V1Endpoint } from '@/lib/api/v1Limits'
 
 /** Date version of the API; `x-api-version` on every response, `info.version` in the OpenAPI document. */
 export const API_VERSION = '2026-10-16'
@@ -95,7 +95,7 @@ export type V1Context = { req: Request; url: URL; clientKey: string }
 export async function handleV1(req: Request, endpoint: V1Endpoint, fn: (ctx: V1Context) => Promise<Record<string, unknown>> | Record<string, unknown>): Promise<Response> {
   if (req.method === 'OPTIONS') return optionsResponse()
   const clientKey = clientKeyFor(req.headers)
-  const lim = await underV1Limits(endpoint, clientKey)
+  const lim = await underV1Limits(endpoint, clientKey, ipKeyFor(req.headers))
   if (!lim.ok) return errorResponse(new ApiError('rate_limited', 'Too many requests for this client this hour.', 429, lim.retryAfter), lim.limit)
   try {
     const body = await fn({ req, url: new URL(req.url), clientKey })

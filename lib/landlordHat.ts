@@ -1,9 +1,11 @@
 // /landlord/become helpers (three-role test report 2026-09-24).
+import { sameSitePath } from '@/lib/auth/sameSitePath'
 
 /** Only same-site paths survive as ?next=; anything else → the landlord home. */
 export function safeNext(raw: string | null): string {
-  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\') || raw.startsWith('/landlord/become')) return '/landlord/agent'
-  return raw
+  const path = sameSitePath(raw)
+  if (!path || path.startsWith('/landlord/become')) return '/landlord/agent'
+  return path
 }
 
 export type HatsLite = { landlord?: boolean; agent?: string | null; provider?: string | null } | null | undefined

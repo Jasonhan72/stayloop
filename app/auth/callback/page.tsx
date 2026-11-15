@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
+import { sameSitePath } from '@/lib/auth/sameSitePath'
 
 export default function AuthCallback() {
   const router = useRouter()
@@ -73,7 +74,7 @@ export default function AuthCallback() {
         // Honor an explicit ?next= destination (set by AuthModal) when it's a
         // safe same-origin path — otherwise fall back to role-based routing.
         const rawNext = new URLSearchParams(window.location.search).get('next')
-        const safeNext = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.startsWith('/\\') ? rawNext : null
+        const safeNext = sameSitePath(rawNext, window.location.origin)
 
         // First-time users name their agent, then go straight to the chat.
         // Returning users (role known) skip naming entirely.

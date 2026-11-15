@@ -4,6 +4,7 @@ import { sendEmail, renderNewApplicationEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
 import { ensureThread, replyTokenFor } from '@/lib/threads/server'
 import { replyAddress } from '@/lib/threads/emailReply'
+import { ipBucket, requestIp, underMailLimits } from '@/lib/rateLimit'
 
 
 /**
@@ -72,6 +73,12 @@ export async function POST(req: NextRequest) {
     // Already notified — treat as success so retries from the client are
     // a no-op, not a visible error.
     return NextResponse.json({ ok: true, already_notified: true })
+  }
+  // Anonymous and it sends mail: applications can be created in bulk, so "once per
+  // application" is not a ceiling. Per address and site-wide, fail-closed (S2-13). A
+  // refused notice is not lost — the application is in the landlord's list either way.
+  if (!(await underMailLimits('notify-landlord', `ip:${ipBucket(requestIp(req.headers))}`, 20, 300))) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
   }
 
   // Atomic claim BEFORE sending — the read-check-send-stamp sequence above

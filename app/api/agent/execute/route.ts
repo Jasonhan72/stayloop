@@ -698,12 +698,17 @@ async function saveTenantLandlordContact(admin: Admin, userId: string, email: st
   if (error) console.warn('[execute] tenant_landlord_contacts upsert failed:', error.message)
 }
 
-/** The address from a labelled line in the card (saved for next time), else the tenant's saved contact. */
-async function resolveLandlordContact(admin: Admin, userId: string, texts: unknown[]): Promise<LandlordContact | null> {
+/**
+ * The address from a labelled line in the card, else the tenant's saved contact. It is saved
+ * for next time only when the card is really carried out (`save`): a preview the tenant then
+ * rejects because the address was wrong must not replace the address on file — later repair
+ * requests would have gone there by default (code review 2026-11-15, S2-18).
+ */
+async function resolveLandlordContact(admin: Admin, userId: string, texts: unknown[], save: boolean): Promise<LandlordContact | null> {
   for (const t of texts) {
     const e = landlordEmailFromText(t)
     if (e) {
-      await saveTenantLandlordContact(admin, userId, e)
+      if (save) await saveTenantLandlordContact(admin, userId, e)
       return { email: e, name: null, unit: null }
     }
   }
@@ -800,7 +805,7 @@ async function executeMaintenanceRequest(admin: Admin, userId: string, action: A
   const ll = await resolveTenantLandlord(admin, userId, callerEmail)
   if (!ll || !ll.household_id) {
     // 乙 #11: no managed tenancy — the landlord's own email (given by the tenant) still gets the request.
-    const contact = await resolveLandlordContact(admin, userId, [m.description, m.body, action.summary])
+    const contact = await resolveLandlordContact(admin, userId, [m.description, m.body, action.summary], !preview)
     if (!contact) return NextResponse.json({ executed: false, reason: 'no_household_on_file' }, { status: 422 })
     const ep = (ENTRY_PERMISSIONS as readonly string[]).includes(String(m.entry_permission)) ? String(m.entry_permission) : null
     return executeMaintenanceByContact(admin, userId, action, contact, { title, description, priority, emergency, category, entryPermission: ep }, preview)
@@ -1081,7 +1086,7 @@ async function executeSendMessage(
     if (ll) { to = ll.email; derived = true; tenancyId = ll.household_id }
     else {
       // 乙 #11: no tenancy on file — the address the tenant gave (in this message or earlier) still works.
-      contact = await resolveLandlordContact(admin, userId, [m.body, m.description])
+      contact = await resolveLandlordContact(admin, userId, [m.body, m.description], !preview)
       if (contact) { to = contact.email; derived = true }
     }
   }
@@ -1337,7 +1342,7 @@ async function executeShowingRequest(admin: Admin, userId: string, action: Actio
   }
   const open = intents.filter((r) => (r.status ?? 'pending') === 'pending')
   if (!open.length) return expireCard(admin, action.id, { reason: 'already_notified', intent_ids: intents.map((r) => r.id) })
-  const { data: tenant } = await admin.from('tenants').select('email, full_name').eq('id', intent.tenant_id).maybeSingle()
+  const { data: tenant } = await admin.from('tenants').select('email, full_name, auth_id').eq('id', intent.tenant_id).maybeSingle()
   const to = (tenant?.email || '').trim()
   if (!EMAIL_RE.test(to)) return NextResponse.json({ executed: false, reason: 'tenant has no email' }, { status: 422 })
 
@@ -1351,7 +1356,10 @@ async function executeShowingRequest(admin: Admin, userId: string, action: Actio
   // 消息系统 A 期: no personal address changes hands — both sides continue in the
   // listing-inquiry conversation (reply to this email and it lands there too).
   void callerEmail
-  const tenantAuth = typeof m.tenant_auth_id === 'string' ? m.tenant_auth_id : null
+  // From the tenants row behind the intent, never from the card's metadata: the card is a row
+  // its owner can edit, and a swapped tenant_auth_id opened a conversation with a stranger and
+  // bound the real prospect's reply address to that identity (code review 2026-11-15, S2-2).
+  const tenantAuth = typeof (tenant as { auth_id?: unknown } | null)?.auth_id === 'string' ? (tenant as { auth_id: string }).auth_id : null
   const th = tenantAuth ? await ensureListingThread(admin, { id: listing.id as string, address: listing.address as string | null, unit: listing.unit as string | null }, tenantAuth) : null
   const link = `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')}${th ? messageCenterHref(th.id) : '/messages'}`
   const contact = `请在 Stayloop 的对话里约定时间（直接回复本邮件也会进对话）：${link}`

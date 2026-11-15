@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
 import { CONTACT_TO, makeThrottle, renderContactEmail, validateContact } from '@/lib/contact'
+import { ipBucket, underMailLimits } from '@/lib/rateLimit'
 
 
 /**
@@ -40,6 +41,9 @@ export async function POST(req: NextRequest) {
     (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() ||
     'unknown'
   if (!allow(ip)) return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
+  // The in-memory throttle above lives in one isolate. The durable gate: 5 an hour per
+  // address (IPv6 by /64) and 60 an hour for the whole site, fail-closed (S2-13).
+  if (!(await underMailLimits('contact', `ip:${ipBucket(ip)}`, 5, 60))) return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
 
   const { subject, html, text } = renderContactEmail(v.value)
   const result = await sendEmail({ to: CONTACT_TO, replyTo: v.value.email, subject, html, text })

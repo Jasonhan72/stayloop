@@ -12,6 +12,7 @@ import { getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { passwordErrorMessage } from '@/lib/auth/passwordError'
 import { passwordStampMetadata, termsAcceptanceMetadata } from '@/lib/legal/terms'
+import { sameSitePath } from '@/lib/auth/sameSitePath'
 
 export type LoginTab = 'signin' | 'register'
 /** What the「查收你的邮箱」state is waiting for. */
@@ -30,9 +31,8 @@ export function callbackUrl(nextOverride?: string): string {
   // (browsers treat backslash as slash: '/\evil.com' escapes the origin).
   const q = new URLSearchParams(window.location.search)
   const redirect = nextOverride ?? q.get('next') ?? q.get('redirect')
-  const next = redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\')
-    ? `?next=${encodeURIComponent(redirect)}`
-    : ''
+  const safe = sameSitePath(redirect, window.location.origin)
+  const next = safe ? `?next=${encodeURIComponent(safe)}` : ''
   return `${window.location.origin}/auth/callback${next}`
 }
 

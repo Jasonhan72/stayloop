@@ -113,7 +113,8 @@ describe('proactive + execute wiring', () => {
     expect(execute).toMatch(/case 'listing_inquiry':/)
     expect(execute).toMatch(/!preview && \['send_renewal_letter', 'dispatch_work_order', 'approve_quote', 'accept_completion', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry', 'send_lease', 'send_decision', 'maintenance_request'\]/)
     // recipient comes from the tenants row, never from caller-written metadata
-    expect(execute).toMatch(/from\('tenants'\)\.select\('email, full_name'\)/)
+    // 2026-11-15 (S2-2): auth_id is read from the same row — the prospect no longer comes from the card.
+    expect(execute).toMatch(/from\('tenants'\)\.select\('email, full_name, auth_id'\)/)
     expect(execute).not.toMatch(/m\.tenant_email\s*\)\s*\)\s*\n\s*const \{ html, text \} = renderAgentMessageEmail\(\{ subject, body \}\)/)
   })
 })
