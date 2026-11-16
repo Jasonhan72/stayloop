@@ -27,7 +27,7 @@ export default function PushSettingsCard({ live, frameless = false }: { live: bo
       if (pos === 'off') { await disablePush() }
       else if (!state?.subscribed) {
         const r = await enablePush(pos)
-        if (!r.ok) setNote(r.reason === 'denied' ? (zh ? '浏览器已拒绝通知权限；请在浏览器设置里重新允许。' : 'Notifications are blocked in the browser; re-allow them in the browser settings.') : (zh ? `没能开启：${r.reason}` : `Could not enable: ${r.reason}`))
+        if (!r.ok) setNote(enableFailure(r.reason, zh))
       } else { await setPushLevel(pos) }
       await refresh()
     } finally { setBusy(false) }
@@ -90,4 +90,24 @@ export default function PushSettingsCard({ live, frameless = false }: { live: bo
       )}
     </div>
   )
+}
+
+
+/** Why turning push on failed, in words a person can act on — never the raw database or
+ *  browser message (a user was shown a row-level-security error verbatim, 2026-11-15). */
+export function enableFailure(reason: string | undefined, zh: boolean): string {
+  switch (reason) {
+    case 'denied':
+      return zh ? '浏览器已拒绝通知权限；请在浏览器设置里重新允许。' : 'Notifications are blocked in the browser; re-allow them in the browser settings.'
+    case 'default':
+      return zh ? '还没有允许通知：浏览器弹出询问时请点「允许」。' : 'Notifications were not allowed: choose “Allow” when the browser asks.'
+    case 'signed_out':
+      return zh ? '登录已过期，请重新登录后再开启。' : 'Your session has expired — sign in again, then turn this on.'
+    case 'unsupported':
+      return zh ? '这个浏览器不支持推送提醒。' : 'This browser does not support push notifications.'
+    case 'other_account':
+      return zh ? '这台设备的推送登记在另一个账号名下，没能转过来。请关掉这个页面重新打开后再试一次。' : 'Push on this device is registered to another account and could not be moved over. Close this page, open it again and try once more.'
+    default:
+      return zh ? '没能开启，请稍后再试。' : 'Could not turn this on — try again shortly.'
+  }
 }

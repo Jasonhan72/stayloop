@@ -16,6 +16,8 @@ export type PushState = {
 }
 
 const KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
+/** Postgres insufficient_privilege — what a row-level-security refusal comes back as. */
+const RLS_VIOLATION = '42501'
 
 function b64urlToUint8(s: string): Uint8Array {
   const pad = '='.repeat((4 - (s.length % 4)) % 4)
@@ -61,18 +63,32 @@ export async function enablePush(level: PushLevel = 'default'): Promise<{ ok: bo
   const { data: u } = await supabase.auth.getUser()
   if (!u.user) return { ok: false, reason: 'signed_out' }
   const reg = await navigator.serviceWorker.ready
-  let sub = await reg.pushManager.getSubscription()
-  if (!sub) {
-    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToUint8(KEY) as BufferSource })
+  const subscribe = () => reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToUint8(KEY) as BufferSource })
+  const userId = u.user.id
+  const save = async (sub: PushSubscription): Promise<{ code?: string; message: string } | 'no_keys' | null> => {
+    const keys = sub.toJSON().keys || {}
+    if (!keys.p256dh || !keys.auth) return 'no_keys'
+    const { error } = await supabase.from('push_subscriptions').upsert(
+      { user_id: userId, endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth, level, user_agent: navigator.userAgent.slice(0, 200), disabled_at: null, fail_count: 0 },
+      { onConflict: 'endpoint' },
+    )
+    return error
   }
-  const j = sub.toJSON()
-  const keys = j.keys || {}
-  if (!keys.p256dh || !keys.auth) return { ok: false, reason: 'no_keys' }
-  const { error } = await supabase.from('push_subscriptions').upsert(
-    { user_id: u.user.id, endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth, level, user_agent: navigator.userAgent.slice(0, 200), disabled_at: null, fail_count: 0 },
-    { onConflict: 'endpoint' },
-  )
-  if (error) return { ok: false, reason: error.message }
+  let sub = (await reg.pushManager.getSubscription()) ?? (await subscribe())
+  let err = await save(sub)
+  if (err && err !== 'no_keys' && err.code === RLS_VIOLATION) {
+    // This browser's subscription is registered to another account that used it before
+    // (endpoint is unique, and the row is theirs, so the upsert's UPDATE is refused — the
+    // 「new row violates row-level security policy (USING expression)」 a user hit on 2026-11-15).
+    // A device belongs to whoever is signed in on it now: drop the browser's subscription and
+    // take a fresh one. The old endpoint stops existing, so the other account's row goes dead
+    // on its next push (410 → disabled) and their notifications no longer land here.
+    await sub.unsubscribe().catch(() => {})
+    sub = await subscribe()
+    err = await save(sub)
+  }
+  if (err === 'no_keys') return { ok: false, reason: 'no_keys' }
+  if (err) return { ok: false, reason: err.code === RLS_VIOLATION ? 'other_account' : 'save_failed' }
   return { ok: true }
 }
 
