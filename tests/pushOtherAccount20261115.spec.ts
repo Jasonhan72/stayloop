@@ -110,3 +110,65 @@ describe('the settings card', () => {
     expect(src).not.toContain('没能开启：${r.reason}')
   })
 })
+
+// 2026-11-15 · user: 「退出登录就停掉这台设备的推送」. Before this, signing out left the device's push
+// row in place, so the signed-out account kept getting notifications on a device someone else
+// might now be using.
+describe('signing out stops push on this device', () => {
+  type Sub = { endpoint: string; unsubscribe: () => Promise<boolean> }
+  const calls = { deleted: [] as string[], unsubscribed: 0 }
+  const install = (sub: Sub | null, opts: { hang?: boolean; noSw?: boolean; deleteThrows?: boolean } = {}) => {
+    calls.deleted = []; calls.unsubscribed = 0
+    vi.doMock('@/lib/supabase', () => ({
+      supabase: {
+        from: () => ({ delete: () => ({ eq: (_c: string, v: string) => { if (opts.deleteThrows) return Promise.reject(new Error('offline')); calls.deleted.push(v); return Promise.resolve({ error: null }) } }) }),
+      },
+    }))
+    const getRegistration = opts.hang ? () => new Promise<undefined>(() => {}) : async () => (opts.noSw ? undefined : { pushManager: { getSubscription: async () => sub } })
+    // `ready` must not be used here: it never settles when no service worker is registered
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { getRegistration, get ready() { throw new Error('ready must not be read on sign-out') } } })
+  }
+  const sub = (endpoint: string): Sub => ({ endpoint, unsubscribe: async () => { calls.unsubscribed++; return true } })
+  const run = async (ms?: number) => { vi.resetModules(); const { stopPushOnSignOut } = await import('@/lib/push/client'); await stopPushOnSignOut(ms) }
+
+  it('deletes this device\'s row and drops the browser subscription', async () => {
+    install(sub('https://push.example/this-device'))
+    await run()
+    expect(calls.deleted).toEqual(['https://push.example/this-device'])
+    expect(calls.unsubscribed).toBe(1)
+  })
+
+  it('no subscription or no service worker: nothing to do, no error', async () => {
+    install(null); await run()
+    expect(calls.deleted).toEqual([])
+    install(sub('x'), { noSw: true }); await run()
+    expect(calls.deleted).toEqual([])
+    expect(calls.unsubscribed).toBe(0)
+  })
+
+  it('a failed delete still drops the browser subscription (the row then dies on its next push)', async () => {
+    install(sub('https://push.example/this-device'), { deleteThrows: true })
+    await run()
+    expect(calls.unsubscribed).toBe(1)
+  })
+
+  it('never holds sign-out up: a hung browser call is abandoned after the time limit', async () => {
+    install(sub('x'), { hang: true })
+    const t0 = Date.now()
+    await run(60)
+    expect(Date.now() - t0).toBeLessThan(1000)
+    expect(calls.deleted).toEqual([])
+  })
+
+  it('all three sign-out paths call it before dropping the session; the settings card says so', () => {
+    for (const f of ['lib/useAuth.ts', 'lib/useLandlord.ts', 'lib/useUser.ts']) {
+      const s = readFileSync(f, 'utf8')
+      const stop = s.indexOf('await stopPushOnSignOut()')
+      expect(stop, f).toBeGreaterThan(-1)
+      expect(s.indexOf('await supabase.auth.signOut()', stop), f).toBeGreaterThan(stop)
+      // and no sign-out call sits before it
+      expect(s.slice(0, stop), f).not.toContain('supabase.auth.signOut()')
+    }
+    expect(readFileSync('components/mobile/PushSettingsCard.tsx', 'utf8')).toContain('退出登录会关掉这台设备的推送，下次登录后要重新开启。')
+  })
+})

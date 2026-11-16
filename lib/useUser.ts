@@ -22,6 +22,7 @@
 import { clearLocalSessionState } from '@/lib/auth/clearLocalSession'
 import { supabase } from './supabase'
 import { clearCachedAiNames } from '@/lib/aiName'
+import { stopPushOnSignOut } from '@/lib/push/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
@@ -358,6 +359,7 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
     for (const k of Object.keys(_claimAttempted)) {
       delete _claimAttempted[k]
     }
+    await stopPushOnSignOut()
     await supabase.auth.signOut()
     setUser(null)
     router.push('/login')

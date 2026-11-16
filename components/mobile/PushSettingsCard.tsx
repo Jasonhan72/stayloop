@@ -79,7 +79,7 @@ export default function PushSettingsCard({ live, frameless = false }: { live: bo
               : (zh ? '这个浏览器不支持推送。' : 'This browser does not support push.')
             : state?.permission === 'denied'
               ? (zh ? '浏览器已拒绝通知权限。' : 'Notifications are blocked in the browser.')
-              : (zh ? '每台设备各自设置。' : 'Set per device.')}
+              : (zh ? '每台设备各自设置。退出登录会关掉这台设备的推送，下次登录后要重新开启。' : 'Set per device. Signing out turns push off on this device; turn it on again after you next sign in.')}
         {note ? ` ${note}` : ''}
       </p>
       {state?.subscribed && (

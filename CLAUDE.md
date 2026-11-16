@@ -15,7 +15,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 模型：全部调用经 `lib/llmChat.ts`（`llmChat` / `llmChatStream`，记账写 `ai_usage`）。槽位默认值在 `app_config.models`（2026-10：turn = gemini-3.7-flash、screening = gpt-5.4、classify = claude-sonnet-4-6、forensics = claude-haiku-4-5），管理员在 `/admin/models` 改，用户在 `/settings/models` 自选覆盖。目录 `model_catalog` 每周一自动发现新模型（pg_cron）
 - 邮件：Resend（应用通知 + Supabase Auth SMTP，发件人 `notifications@stayloop.ai`，DKIM / SPF 与域名对齐）。回复邮件经 `reply.stayloop.ai` → Email Worker `workers/reply-email` → `/api/threads/inbound`。收信是 Cloudflare Email Routing（只转发，没有邮箱）。**DMARC 2026-11-04 起 `p=none` + 报告**（Cloudflare 后台 Email → DMARC Management 看报告）；报告干净约两周后收紧到 `quarantine`，再到 `reject`。`.env.local` 的 Cloudflare 令牌没有 DNS / 邮件路由权限，这类改动走后台。
 - 支付：Stripe **LIVE**（房东 Pro $19 CAD/月、单次解锁 $14.99）
-- 推送：自写 Web Push（`lib/push/`，VAPID 无库实现）
+- 推送：自写 Web Push（`lib/push/`，VAPID 无库实现）。一台浏览器只有一个推送地址，归当前登录的人：开启时若地址登记在别的账号名下就换新订阅；**退出登录会停掉这台设备的推送**（`stopPushOnSignOut`，新增退出入口要在 `supabase.auth.signOut()` 之前调它）
 - 地图：Google Maps；交通站点 OpenStreetMap（Nominatim + Overpass）
 
 ## 仓库、分支、部署

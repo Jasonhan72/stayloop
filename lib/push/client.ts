@@ -106,3 +106,24 @@ export async function disablePush(): Promise<void> {
   await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
   await sub.unsubscribe().catch(() => {})
 }
+
+/** Signing out stops push on this device (user 2026-11-15: 「退出登录就停掉这台设备的推送」).
+ *  Otherwise the account that signed out keeps getting its notifications on a device someone
+ *  else may now be using. Call it BEFORE the session is dropped — deleting the row needs the
+ *  signed-in user. The row and the browser subscription go independently: if the delete fails,
+ *  the endpoint is still gone, so the row dies on its next push (410 → disabled).
+ *  Never throws and never holds sign-out up for more than `timeoutMs`. Uses getRegistration(),
+ *  not `ready` — `ready` never settles on a browser that has no service worker registered. */
+export async function stopPushOnSignOut(timeoutMs = 2500): Promise<void> {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+  const work = (async () => {
+    const reg = await navigator.serviceWorker.getRegistration()
+    const sub = await reg?.pushManager?.getSubscription()
+    if (!sub) return
+    await Promise.allSettled([
+      Promise.resolve(supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)),
+      sub.unsubscribe(),
+    ])
+  })().catch(() => {})
+  await Promise.race([work, new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))])
+}

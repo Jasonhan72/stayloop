@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { clearCachedAiNames } from '@/lib/aiName'
 import { clearStoredAvatar } from '@/lib/agent/avatars'
+import { stopPushOnSignOut } from '@/lib/push/client'
 import { rememberableRoleFromPath, roleFromPath } from '@/lib/activeRole'
 export { roleFromPath }
 import { getSupabaseBrowser } from './supabase'
@@ -174,6 +175,8 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
     clearLocalSessionState()
     clearCachedProfilePhotos()
     const supabase = getSupabaseBrowser()
+    // before the session goes: removing this device's push row needs the signed-in user
+    await stopPushOnSignOut()
     await supabase.auth.signOut()
     setRole(null)
     // Hard navigation home: drops every in-memory cache (avatar, role,

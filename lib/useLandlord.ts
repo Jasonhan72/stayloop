@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from './supabase'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
+import { stopPushOnSignOut } from '@/lib/push/client'
 
 export interface LandlordSession {
   authId: string
@@ -110,6 +111,7 @@ export function useLandlord(): UseLandlordReturn {
 
   const signOut = useCallback(async () => {
     clearLocalSessionState()
+    await stopPushOnSignOut()
     await supabase.auth.signOut()
     setLandlord(null)
     router.replace('/')
