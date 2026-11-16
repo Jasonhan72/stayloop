@@ -10,6 +10,7 @@ import Header from '@/components/Header'
 import { supabase } from '@/lib/supabase'
 import { useAdmin } from '@/lib/useAdmin'
 import { useT } from '@/lib/i18n'
+import { notifyAdminPendingChanged } from '@/lib/admin/useAdminPending'
 
 type SourceRow = { key: string; title: string; authority_level: number; url: string; refresh_every: string; document_id: string | null; consolidated_date: string | null; fetched_at: string | null; version_hash: string | null; chunks: number; stale: boolean }
 type ChangeRow = { id: string; source_key: string; source_title: string; old_date: string | null; new_date: string | null; detected_at: string; sections_added: string[]; sections_removed: string[]; sections_changed: string[]; affected_rule_ids: string[]; status: 'pending' | 'reviewed' | 'no_impact' | 'rule_updated'; note: string | null; reviewed_at: string | null }
@@ -42,7 +43,7 @@ export default function AdminKnowledgePage() {
 
   const setStatus = async (c: ChangeRow, status: ChangeRow['status']) => {
     setBusy(c.id)
-    try { await call('PATCH', { id: c.id, status, note: notes[c.id] ?? c.note ?? '' }); await load() } catch (e) { setErr((e as Error).message) } finally { setBusy(null) }
+    try { await call('PATCH', { id: c.id, status, note: notes[c.id] ?? c.note ?? '' }); await load(); notifyAdminPendingChanged() } catch (e) { setErr((e as Error).message) } finally { setBusy(null) }
   }
 
   if (loading) return null

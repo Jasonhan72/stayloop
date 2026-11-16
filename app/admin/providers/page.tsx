@@ -10,6 +10,7 @@ import Header from '@/components/Header'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
+import { notifyAdminPendingChanged } from '@/lib/admin/useAdminPending'
 import { CREDENTIAL_LABEL, GRACE_DAYS_MAX, GRACE_ELIGIBLE_KINDS, TRADES, clampGraceDays, coverageFor, earliestExpiry, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 import { actOn } from '@/components/marketplace/WorkOrderCard'
 
@@ -79,13 +80,13 @@ export default function AdminProvidersPage() {
     const { data: hit, error } = await supabase.from('service_providers').update({ status, review_note: note, verified_at: status === 'verified' ? new Date().toISOString() : null, verified_by: status === 'verified' ? auth.user.id : null }).eq('id', p.id).eq('updated_at', p.updated_at).select('id')
     if (!error && !(hit ?? []).length) { alert(zh ? '该资料在你打开页面后被修改过，已重新加载。' : 'Changed since you loaded it — reloaded.'); await load(); setBusy(null); return }
     if (!error) await supabase.from('agent_audit_events').insert({ actor_id: auth.user.id, actor_type: 'user', action: `provider_${status}`, target_type: 'service_provider', target_id: p.id, metadata: { note, role: 'admin' } })
-    await load(); setBusy(null)
+    await load(); notifyAdminPendingChanged(); setBusy(null)
   }
   async function stampCred(c: Cred, ok: boolean) {
     if (!auth.user) return
     setBusy(c.id)
     await supabase.from('provider_credentials').update({ verified_at: ok ? new Date().toISOString() : null, verified_by: ok ? auth.user.id : null }).eq('id', c.id)
-    await load(); setBusy(null)
+    await load(); notifyAdminPendingChanged(); setBusy(null)
   }
   async function resolve(d: Dispute) {
     const note = (notes[d.id] || '').trim()
@@ -93,7 +94,7 @@ export default function AdminProvidersPage() {
     setBusy(d.id)
     const r = await actOn(d.id, 'resolve_dispute', { note })
     if (!r.ok) alert(r.error)
-    await load(); setBusy(null)
+    await load(); notifyAdminPendingChanged(); setBusy(null)
   }
 
   if (auth.loading || adminRole === 'loading') return <Shell><div className="text-body-3">…</div></Shell>

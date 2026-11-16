@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { useT } from '@/lib/i18n'
+import { useAdminPending } from '@/lib/admin/useAdminPending'
 
 export default function AdminHomePage() {
   const { lang } = useT()
@@ -21,6 +22,9 @@ export default function AdminHomePage() {
   const [members, setMembers] = useState<number | 'error' | null>(null)
   // V0.8: open consumer file requests + open disputes (Consumer Reporting Act s.12 / s.13 queue).
   const [consumerOpen, setConsumerOpen] = useState<number | 'error' | null>(null)
+  // What is waiting per queue (same read as the header's count and the sign-in notice).
+  const waiting = useAdminPending(!!role)
+  const waitingStat = (n: number | undefined, idle: string) => (n ? (zh ? `${n} 项待处理` : `${n} waiting`) : idle)
 
   useEffect(() => {
     if (!role) return
@@ -82,16 +86,16 @@ export default function AdminHomePage() {
       icon: '🪪',
       title: zh ? '经纪认证' : 'Agent verification',
       desc: zh ? '对照 RECO 公开注册库人工核验经纪的注册信息；通过后获得「RECO 注册已核」标记并进入租客可选目录。' : 'Check submitted RECO registrations against the public register by hand; verified agents get the badge and enter the tenant-facing directory.',
-      stat: zh ? '人工核验' : 'manual check',
-      hot: false,
+      stat: waitingStat(waiting?.agents, zh ? '人工核验' : 'manual check'),
+      hot: (waiting?.agents ?? 0) > 0,
     },
     {
       href: '/admin/providers',
       icon: '🔧',
       title: zh ? '服务商核验' : 'Provider verification',
       desc: zh ? '对照 Skilled Trades Ontario / ESA / TSSA / WSIB 公开注册库核验维修服务商的资质；争议工单也在这里裁定。' : 'Check repair providers against the STO / ESA / TSSA / WSIB public registers; disputed work orders are resolved here.',
-      stat: zh ? '人工核验' : 'manual check',
-      hot: false,
+      stat: waitingStat((waiting?.providers ?? 0) + (waiting?.disputes ?? 0), zh ? '人工核验' : 'manual check'),
+      hot: (waiting?.providers ?? 0) + (waiting?.disputes ?? 0) > 0,
     },
     {
       href: '/admin/users',
@@ -121,8 +125,8 @@ export default function AdminHomePage() {
       icon: '📚',
       title: zh ? '知识库' : 'Knowledge base',
       desc: zh ? '助理引用的官方原文：每份来源的版本与新鲜度；原文有修订时的变动队列（涉及哪些规则、人工核对后撤掉「待核对」）。' : 'The official texts the AI Agent cites: each source’s version and freshness; the change queue when a text is amended (which rules it touches; review clears the “pending” badge).',
-      stat: zh ? '来源 · 变动队列' : 'sources · change queue',
-      hot: false,
+      stat: waitingStat(waiting?.knowledge, zh ? '来源 · 变动队列' : 'sources · change queue'),
+      hot: (waiting?.knowledge ?? 0) > 0,
     },
     {
       href: '/admin/partners',

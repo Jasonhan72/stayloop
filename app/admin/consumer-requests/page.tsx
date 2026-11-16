@@ -13,6 +13,7 @@ import Header from '@/components/Header'
 import { supabase } from '@/lib/supabase'
 import { useAdmin } from '@/lib/useAdmin'
 import { useT } from '@/lib/i18n'
+import { notifyAdminPendingChanged } from '@/lib/admin/useAdminPending'
 
 type ScreeningSummary = { id: string; created_at?: string | null; landlord_name?: string | null; property?: string | null; tenant_name?: string | null }
 type RequestRow = {
@@ -173,7 +174,7 @@ export default function AdminConsumerRequestsPage() {
 
   async function act(body: Record<string, unknown>, id: string): Promise<Record<string, unknown> | null> {
     setBusy(id); setErr(null); setPending(null)
-    try { const j = await call('POST', body); await load(); return j } catch (e) { setErr((e as Error).message); return null } finally { setBusy(null) }
+    try { const j = await call('POST', body); await load(); notifyAdminPendingChanged(); return j } catch (e) { setErr((e as Error).message); return null } finally { setBusy(null) }
   }
 
   const openRequests = useMemo(() => requests.filter((r) => r.status !== 'fulfilled' && r.status !== 'closed'), [requests])

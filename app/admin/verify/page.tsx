@@ -10,6 +10,7 @@ import { VerificationBadge } from '@/components/ListingBadges'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
+import { notifyAdminPendingChanged } from '@/lib/admin/useAdminPending'
 import { hasUsablePhotos } from '@/lib/listingVisibility'
 import RealtorFreshnessCard from '@/components/admin/RealtorFreshnessCard'
 
@@ -83,7 +84,7 @@ export default function AdminVerifyPage() {
     }
     const { data: hit, error } = await q.select('id')
     if (!error && !(hit ?? []).length) alert('该房源在你打开页面后被修改过，已重新加载。/ This listing changed after you loaded it — reloaded.')
-    if (!error) await load()
+    if (!error) { await load(); notifyAdminPendingChanged() }
     setBusy(null)
   }
 

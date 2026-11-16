@@ -12,6 +12,7 @@ import Header from '@/components/Header'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
+import { notifyAdminPendingChanged } from '@/lib/admin/useAdminPending'
 import { RECO_REGISTER_URL, categoryLabel, statusLabel, type AgentProfile, type AgentStatus } from '@/lib/agentProfile'
 
 export default function AdminAgentsPage() {
@@ -59,6 +60,7 @@ export default function AdminAgentsPage() {
     if (!error) {
       await supabase.from('agent_verification_events').insert({ agent_auth_id: a.auth_id, action: status, actor: auth.user.id, note })
       await load()
+      notifyAdminPendingChanged()
     }
     setBusy(null)
   }

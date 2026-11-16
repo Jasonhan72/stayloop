@@ -13,6 +13,9 @@ import LanguageCurrencyModal from './LanguageCurrencyModal'
 import { useI18n } from '@/lib/i18n'
 import { profilePhotoOf, readCachedProfilePhoto, useAuth, writeCachedProfilePhoto } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
+import { useAdminPending } from '@/lib/admin/useAdminPending'
+import { pendingTotal } from '@/lib/admin/pendingCounts'
+import AdminPendingNotice from '@/components/admin/AdminPendingNotice'
 import { activeHat, useHats } from '@/lib/useHats'
 import { useHomeHref } from '@/lib/useHomeHref'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
@@ -95,10 +98,14 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   // Messages (消息系统 A 期): the envelope folded into the hamburger (user 2026-09-30) —
   // one red dot for "something is waiting": approval cards on this hat or unread messages.
   const unreadMessages = useUnreadMessages(!auth.loading && !!auth.user)
-  const attention = pendingCount + unreadMessages
+  // Back office (2026-11-15): admins also see what is waiting on them — a count on the menu's
+  // 「后台管理」 row, the same red dot, and a notice after signing in. Non-admins make no request.
+  const adminPending = useAdminPending(isAdmin)
+  const adminWaiting = pendingTotal(adminPending)
+  const attention = pendingCount + unreadMessages + adminWaiting
   const attentionLabel = lang === 'zh'
-    ? [pendingCount ? `${pendingCount} 件等你点头` : '', unreadMessages ? `${unreadMessages} 条未读消息` : ''].filter(Boolean).join('，')
-    : [pendingCount ? `${pendingCount} waiting on you` : '', unreadMessages ? `${unreadMessages} unread messages` : ''].filter(Boolean).join(', ')
+    ? [pendingCount ? `${pendingCount} 件等你点头` : '', unreadMessages ? `${unreadMessages} 条未读消息` : '', adminWaiting ? `后台 ${adminWaiting} 项待处理` : ''].filter(Boolean).join('，')
+    : [pendingCount ? `${pendingCount} waiting on you` : '', unreadMessages ? `${unreadMessages} unread messages` : '', adminWaiting ? `${adminWaiting} waiting in the back office` : ''].filter(Boolean).join(', ')
 
   const handleRoleSwitch = (newRole: string) => {
     auth.setRole(newRole as 'tenant' | 'landlord' | 'agent')
@@ -444,7 +451,8 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                         role="menuitem"
                       >
                         <span className="flex h-[18px] w-[18px] items-center justify-center">🛡️</span>
-                        {lang === 'zh' ? '后台管理' : 'Back office'}
+                        <span className="flex-1">{lang === 'zh' ? '后台管理' : 'Back office'}</span>
+                        {adminWaiting > 0 && <span data-testid="menu-admin-pending" className="rounded-full bg-[#FF385C] px-2 py-[1px] text-[11px] font-bold text-white">{adminWaiting > 99 ? '99+' : adminWaiting}</span>}
                       </Link>
                     )}
 
@@ -566,6 +574,9 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
       </div>
 
     </header>
+      {isAdmin && (
+        <AdminPendingNotice pending={adminPending} userId={auth.user?.id ?? null} signInAt={auth.user?.last_sign_in_at ?? null} pathname={pathname} zh={lang === 'zh'} />
+      )}
       <LanguageCurrencyModal
         open={langModalOpen}
         onClose={() => setLangModalOpen(false)}
