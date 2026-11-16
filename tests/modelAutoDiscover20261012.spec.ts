@@ -42,3 +42,24 @@ describe('the weekly job', () => {
     expect(readFileSync('app/api/cron/realtor-freshness/route.ts', 'utf8')).toContain("import { secretMatches } from '@/lib/cron/secret'")
   })
 })
+
+// 2026-11-15 · user: 「添加新模型的按钮位置有时候会变动」. The weekly-check note was a flex item between
+// the two buttons, so its wrapping (viewport width, language, the "asking…" label) moved and
+// stretched 「添加模型」. Measured before: right edge 0–14px off the container, height 47 / 69 / 150.
+describe('catalogue header on /admin/models', () => {
+  const page = readFileSync('app/admin/models/page.tsx', 'utf8')
+  const from = page.indexOf('data-testid="catalogue-actions"')
+  const actions = page.slice(from, page.indexOf('</div>', from))
+  it('keeps the two buttons alone in a right-aligned group; the note is its own line below', () => {
+    expect(page).toContain('<div className="ml-auto flex shrink-0 items-center gap-2" data-testid="catalogue-actions">')
+    expect(actions.match(/<button /g)).toHaveLength(2)
+    expect(actions).not.toContain('text-[11.5px]')
+    expect(page).toContain('<p className="mt-2 text-[11.5px] text-body-3" data-testid="auto-discover-note">')
+    expect(page.indexOf('data-testid="auto-discover-note"')).toBeLessThan(page.indexOf('{catMsg && <Banner'))
+  })
+  it('the discover button holds both labels in one grid cell, so its width does not change while asking', () => {
+    expect(actions).toContain("col-start-1 row-start-1 ${discovering ? 'invisible' : ''}")
+    expect(actions).toContain("col-start-1 row-start-1 ${discovering ? '' : 'invisible'}")
+    expect(actions).toContain('sl-btn-primary whitespace-nowrap')
+  })
+})

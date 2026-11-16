@@ -383,8 +383,11 @@ export default function AdminModelsPage() {
         </div>
 
         {/* ── Panel 2: catalogue ─────────────────────────────────────────── */}
-        <div className="mt-12 flex flex-wrap items-end justify-between gap-3">
-          <div>
+        {/* The two buttons sit in their own right-aligned group and nothing else shares it: the
+            weekly-check note used to be a flex item between them, so its line wrapping (viewport
+            width, language, the "asking…" label) moved and stretched 「添加模型」. */}
+        <div className="mt-12 flex flex-wrap items-start justify-between gap-x-6 gap-y-3" data-testid="catalogue-head">
+          <div className="min-w-0 flex-1 basis-[320px]">
             <h2 className="text-[18px] font-extrabold tracking-tight">{zh ? '模型目录' : 'Model catalogue'}</h2>
             <p className="mt-1 text-[12.5px] text-body-3">
               {zh
@@ -392,12 +395,19 @@ export default function AdminModelsPage() {
                 : `${catalog.length} models · ${catalog.filter((m) => m.enabled).length} enabled · builtins can be overridden/disabled, not deleted. API keys come only from registered env vars (values never leave the server); base URL hosts must be on that key's allow-list.`}
             </p>
           </div>
-          <div className="flex gap-2">
-            <button className="sl-btn-secondary" disabled={discovering} onClick={discover}>{discovering ? (zh ? '正在询问各厂商…' : 'Asking providers…') : (zh ? '⟳ 发现新模型' : '⟳ Discover new models')}</button>
-            <span className="self-center text-[11.5px] text-body-3" data-testid="auto-discover-note">{zh ? '每周一自动检查一次：新模型连通测试通过即加入并对用户开放（单价留空待填），厂商下架且测试失败的自动停用，结果发邮件给管理员。' : 'Checked automatically every Monday: new models that pass the probe are added and made user-selectable (price left blank), delisted ones that fail are disabled; admins get an email.'}</span>
-            <button className="sl-btn-primary" onClick={() => { setForm({ ...EMPTY_FORM }); setFormBuiltin(false); setCatMsg(null) }}>{zh ? '＋ 添加模型' : '+ Add model'}</button>
+          <div className="ml-auto flex shrink-0 items-center gap-2" data-testid="catalogue-actions">
+            {/* Both labels occupy the same grid cell, so the button keeps the wider one's width
+                while it is asking and nothing beside it reflows. */}
+            <button className="sl-btn-secondary whitespace-nowrap" disabled={discovering} onClick={discover}>
+              <span className="grid justify-items-center">
+                <span className={`col-start-1 row-start-1 ${discovering ? 'invisible' : ''}`}>{zh ? '⟳ 发现新模型' : '⟳ Discover new models'}</span>
+                <span className={`col-start-1 row-start-1 ${discovering ? '' : 'invisible'}`}>{zh ? '正在询问各厂商…' : 'Asking providers…'}</span>
+              </span>
+            </button>
+            <button className="sl-btn-primary whitespace-nowrap" onClick={() => { setForm({ ...EMPTY_FORM }); setFormBuiltin(false); setCatMsg(null) }}>{zh ? '＋ 添加模型' : '+ Add model'}</button>
           </div>
         </div>
+        <p className="mt-2 text-[11.5px] text-body-3" data-testid="auto-discover-note">{zh ? '每周一自动检查一次：新模型连通测试通过即加入并对用户开放（单价留空待填），厂商下架且测试失败的自动停用，结果发邮件给管理员。' : 'Checked automatically every Monday: new models that pass the probe are added and made user-selectable (price left blank), delisted ones that fail are disabled; admins get an email.'}</p>
         {catMsg && <Banner ok={catMsg.ok} text={catMsg.text} />}
 
         {discovery && (
