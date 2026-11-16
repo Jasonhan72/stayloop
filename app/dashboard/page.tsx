@@ -370,7 +370,7 @@ export default function Dashboard() {
               // Only listings the public can actually see: a pending (unverified) one has
               // zero applications because nobody can find it, not because of its price.
               const stale = listings
-                .filter((l) => l.is_active && ((l as { verification_status?: string | null }).verification_status === 'verified' || (l as { source?: string | null }).source === 'realtor'))
+                .filter((l) => l.is_active && (l as { verification_status?: string | null }).verification_status === 'verified')
                 .map((l) => ({
                   l,
                   days: Math.floor((now - new Date((l as { published_at?: string | null }).published_at || l.created_at || nowMs).getTime()) / 86_400_000),

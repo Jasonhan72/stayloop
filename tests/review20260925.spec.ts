@@ -256,7 +256,8 @@ describe('tenant / landlord walk-through fixes (review C)', () => {
   })
   it('the dashboard insight counts only listings the public can see; re-listing restarts the clock', () => {
     const d = read('app/dashboard/page.tsx')
-    expect(d).toContain("verification_status === 'verified' || (l as { source?: string | null }).source === 'realtor'))")
+    // 2026-11-16 (code review S3-18, tail): verified only
+    expect(d).toContain(".filter((l) => l.is_active && (l as { verification_status?: string | null }).verification_status === 'verified')")
     expect(d).toContain("const patch = next ? { is_active: true, published_at: new Date().toISOString() } : { is_active: false }")
   })
   it('lease activity is filtered on the server and live mode prints no invented counts', () => {

@@ -277,7 +277,8 @@ describe('public listing reads go through rate-limited server routes', () => {
   it('the detail route hides private columns, withholds the address, honours the owner preview and feed staleness', () => {
     expect(detailRoute).toContain("const PRIVATE_COLUMNS = ['broker_phone', 'realtor_check', 'management_company'] as const")
     expect(detailRoute).toContain("!owner && out.display_address === false ? withheld(out) : out")
-    expect(detailRoute).toContain("const publiclyVisible = (l.verification_status === 'verified' || l.source === 'realtor') && l.display_internet !== false && !stale")
+    // 2026-11-16 (code review S3-18, tail): verified only — the Realtor.ca branch is gone here too
+    expect(detailRoute).toContain("const publiclyVisible = l.verification_status === 'verified' && l.display_internet !== false && !stale")
     expect(detailRoute).toContain('if (!publiclyVisible && !owner) return NextResponse.json')
     expect(detailRoute).toContain("underCostLimits('ldetail', `ip:${ipBucket(ip)}`, ANON_DETAILS_PER_HOUR, SITE_DETAILS_PER_HOUR)")
   })

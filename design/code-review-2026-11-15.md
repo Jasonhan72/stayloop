@@ -93,7 +93,7 @@ S3（编号同下面的表）：
 | 15 | 删掉 `seed_demo_agent_data` 函数和加载器里通向它的选项 | 生产探针：调用返回 42883（函数不存在） |
 | 16 | `email_unsubscribes` 去掉人人可写的策略并撤销 anon / authenticated 的全部权限（表保留，0 行） | 生产探针：匿名插入 42501 |
 | 17 | 过期或已撤销的邀请不能再「拒绝」 | 生产探针：过期、已撤销都报错且租约状态不变；有效邀请照常 |
-| 18 | 公开房源策略去掉 `OR source = 'realtor'`；共用过滤串 `LISTING_VISIBILITY_OR` 同步。三处单行判断里还留着这个分支（被旧守卫钉住），没有任何在架行能命中 | 生产：策略定义已核对，搜索正常 |
+| 18 | 公开房源策略去掉 `OR source = 'realtor'`；共用过滤串 `LISTING_VISIBILITY_OR` 同步。三处单行判断里当时还留着这个分支（被旧守卫钉住）；**2026-11-16 已去掉**（房源详情接口、详情补充接口、房源后台的滞销提示），旧守卫同步改写 | 生产：策略定义已核对，搜索正常；139 条 Realtor 导入行全部不在架 |
 | 19 | `workers_dev: false` | 部署日志「No targets deployed」，三条 zone 路由都在 |
 | 20 | 删掉仓库里没人用的 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` 两个 secret；`kb-refresh` 的输入改经环境变量传入；`rent-benchmarks-refresh` 加 `permissions`、超时，密钥只给用它的那一步；抓到 0 行时失败 | 守卫；两个 workflow 没有手动触发过 |
 | 21 | `ship2-v53.command` 入库；14 个旧脚本挪进 `legacy-commands/` 并去掉可执行位；`add-canlii-key.command` 删除（确认过同一把密钥在 `.env.local` 里） | 守卫 |
@@ -110,6 +110,8 @@ S3（编号同下面的表）：
 | 32 | 服务商网址过 `lib/ui/externalHref.ts`：补协议、只留 http(s)，不合法就不渲染 / 不保存 | 单元测试 |
 
 权限矩阵（`scripts/e2e/db-matrix.sh`）加 6 行，285 条里 283 条通过；剩下 2 条仍是上面说的夹具漂移，与这次无关。
+
+**2026-11-16 复核（用户「修 S3」，此时 32 条已在 ship105 修完）**：逐项对过代码、守卫（三份共 116 条通过）、线上数据库（演示数据函数已不存在、退订表匿名不可写、解锁入账函数登录账号不可调、公开策略只认已核验、S3 迁移已登记）与线上 Worker（`78b5ef19`，含 `94ae1f2`）。补掉 S3-18 留的三处单行判断（见表）。S3-20 的两个 workflow 之后各定时跑过一次：`rent-benchmarks-refresh` 11-15 成功；`kb-refresh` 11-16 跑完 46 个来源，但因为 **Gemini 预付余额耗尽（402，自 11-09 起）** 失败——与 S3 的改动无关，见 `design/history/2026-11.md`。
 
 这一轮留下的事：`SENTRY_DSN` 没配（配了才有错误上报）；S3-5、S3-7 没有用真实邮件验证；S2-9 的绑定要等核验服务有生产凭证后在真实流程里走一遍。
 

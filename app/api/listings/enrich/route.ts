@@ -373,7 +373,7 @@ export async function POST(req: Request) {
     .maybeSingle()
   const l = data as Row | null
   // Only what the public can already see.
-  if (!l || !l.is_active || !(l.verification_status === 'verified' || l.source === 'realtor')) return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  if (!l || !l.is_active || l.verification_status !== 'verified') return NextResponse.json({ error: 'not_found' }, { status: 404 })
 
   // Runs alongside the transit and neighbourhood work below.
   const translationsP = lang

@@ -37,7 +37,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 
 必需：`NEXT_PUBLIC_SUPABASE_URL` `NEXT_PUBLIC_SUPABASE_ANON_KEY` `SUPABASE_SERVICE_ROLE_KEY` `ANTHROPIC_API_KEY` `RESEND_API_KEY` `RESEND_FROM` `STRIPE_SECRET_KEY` `STRIPE_WEBHOOK_SECRET` `NEXT_PUBLIC_STRIPE_PRICE_ID` `NEXT_PUBLIC_STRIPE_UNLOCK_PRICE_ID` `NEXT_PUBLIC_SITE_URL` `NEXT_PUBLIC_GOOGLE_MAPS_KEY` `NEXT_PUBLIC_VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY` `CRON_SECRET`（同值存 Vault `cron_secret`）`INBOUND_EMAIL_SECRET`（网站 Worker 与邮件 Worker 同值）。
 
-可选（缺了功能降级、不报错）：`OPENAI_API_KEY` `GEMINI_API_KEY`（也是知识库嵌入模型的密钥）`DEEPSEEK_API_KEY` `MOONSHOT_API_KEY` `DASHSCOPE_API_KEY`（扫描件 OCR 回退走阿里云中国大陆端点，用户 09-21 决定保留，隐私页已披露）`ZHIPU_API_KEY` `JINA_API_KEY`（预付余额；用完时 CanLII 索引、雇主网页核验、商业检索、房东贴链接读页全部静默降级——症状先查余额）`OPENCORPORATES_API_TOKEN` `CANLII_API_KEY` `VERIFF_*`（`VERIFF_SANDBOX=1` 表示持有的是测试集成，核验结果会标 sandbox、不计入任何结论）`FLINKS_*` `SENTRY_DSN`（没配时 `captureException` 是空操作，错误只在 Worker 日志里） `CREDIT_PULL_PROVIDER` / `EQUIFAX_*`（生产凭证未到位）`CRA_MODE`（`registered` 默认 / `tool`）`PARTNER_SCREENING_API`。管理 PAT `SUPABASE_ACCESS_TOKEN`（scoped，权限留默认会 401）。
+可选（缺了功能降级、不报错）：`OPENAI_API_KEY` `GEMINI_API_KEY`（也是知识库嵌入模型的密钥；预付余额，用完时返回 402：知识库检索静默失效、助理每轮先失败再回退到 Sonnet、`kb-refresh` 变红——症状先查 `ai_usage` 里 `embed` 的 `ok`）`DEEPSEEK_API_KEY` `MOONSHOT_API_KEY` `DASHSCOPE_API_KEY`（扫描件 OCR 回退走阿里云中国大陆端点，用户 09-21 决定保留，隐私页已披露）`ZHIPU_API_KEY` `JINA_API_KEY`（预付余额；用完时 CanLII 索引、雇主网页核验、商业检索、房东贴链接读页全部静默降级——症状先查余额）`OPENCORPORATES_API_TOKEN` `CANLII_API_KEY` `VERIFF_*`（`VERIFF_SANDBOX=1` 表示持有的是测试集成，核验结果会标 sandbox、不计入任何结论）`FLINKS_*` `SENTRY_DSN`（没配时 `captureException` 是空操作，错误只在 Worker 日志里） `CREDIT_PULL_PROVIDER` / `EQUIFAX_*`（生产凭证未到位）`CRA_MODE`（`registered` 默认 / `tool`）`PARTNER_SCREENING_API`。管理 PAT `SUPABASE_ACCESS_TOKEN`（scoped，权限留默认会 401）。
 
 ## 数据库与迁移
 

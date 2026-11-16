@@ -302,6 +302,13 @@ describe('S3-15 / 16 / 17 / 18 · database clean-ups', () => {
     expect(MIG).toMatch(/create policy "Public can read verified listings" on public\.listings\s+for select to public\s+using \(is_active = true and verification_status = 'verified'\);/)
     expect(LISTING_VISIBILITY_OR).toBe('verification_status.eq.verified')
   })
+  it('no single-row visibility check re-admits an unverified Realtor.ca row (2026-11-16)', () => {
+    for (const f of ['app/api/listings/[slug]/route.ts', 'app/api/listings/enrich/route.ts', 'app/dashboard/page.tsx']) {
+      expect(read(f), f).not.toMatch(/verified'\s*\|\|[^\n]*source\)?\s*===\s*'realtor'/)
+    }
+    expect(read('app/api/listings/[slug]/route.ts')).toContain("const publiclyVisible = l.verification_status === 'verified' && l.display_internet !== false && !stale")
+    expect(read('app/api/listings/enrich/route.ts')).toContain("if (!l || !l.is_active || l.verification_status !== 'verified') return")
+  })
 })
 
 describe('S3-19 … S3-23 · deploy and repo hygiene', () => {

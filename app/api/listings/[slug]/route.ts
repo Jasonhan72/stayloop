@@ -1,6 +1,6 @@
 // GET /api/listings/[slug] — the listing detail read for the public page and the apply page (2026-10-11,
 // PropTx readiness). The browser no longer queries the listings table at all (anon SELECT is revoked):
-//   • public: the row only when it is publicly visible (verified or Realtor.ca import, is_active,
+//   • public: the row only when it is publicly visible (verified, is_active,
 //     display_internet, feed not stale); the owning landlord also sees their own pending listing
 //   • 8.14: with display_address = false the address / unit / coordinates / postal code never leave
 //     the server for anyone but the owner
@@ -70,7 +70,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
     }
   }
   const stale = !!l.feed_updated_at && Date.parse(l.feed_updated_at) < Date.now() - 24 * 3600_000
-  const publiclyVisible = (l.verification_status === 'verified' || l.source === 'realtor') && l.display_internet !== false && !stale
+  const publiclyVisible = l.verification_status === 'verified' && l.display_internet !== false && !stale
   if (!publiclyVisible && !owner) return NextResponse.json({ error: 'not_found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } })
 
   // Similar homes (never for a withheld-address row: no location to compare from).
