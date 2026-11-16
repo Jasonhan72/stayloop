@@ -120,9 +120,19 @@ export default function PublicProfileEditor({ authId, legalName, status, lang }:
         <div className="mt-4 grid gap-4">
           {/* The photo saves on its own (its own route); the rest of the form saves with the button below. */}
           <AgentPhotoControl zh={zh} name={legalName} photoUrl={photoUrl} onChange={setPhotoUrl} />
-          <label className="flex items-start gap-2 text-[13.5px]">
-            <input type="checkbox" className="mt-[3px]" checked={pub} disabled={!live} onChange={(e) => setPub(e.target.checked)} data-testid="agent-public-profile-toggle" />
-            <span className="font-semibold">{zh ? '公开我的主页' : 'Make my profile public'}</span>
+          {/* Locked until the registration is verified. The lock has to be readable on the control
+              itself: with only the notice further up, a greyed box beside a normal-looking label
+              read as a broken checkbox. */}
+          <label className={`flex items-start gap-2 text-[13.5px] ${live ? '' : 'cursor-not-allowed'}`}>
+            <input type="checkbox" className={`mt-[3px] ${live ? '' : 'cursor-not-allowed'}`} checked={pub} disabled={!live} onChange={(e) => setPub(e.target.checked)} data-testid="agent-public-profile-toggle" />
+            <span>
+              <span className={`font-semibold ${live ? '' : 'text-body-3'}`}>{zh ? '公开我的主页' : 'Make my profile public'}</span>
+              {!live && (
+                <span className="ml-2 text-[12px] text-body-3" data-testid="agent-public-profile-toggle-why">
+                  {zh ? '（现在还不能勾选：等 RECO 核验通过）' : '(Not available yet — waiting for RECO verification)'}
+                </span>
+              )}
+            </span>
           </label>
           <label className={label}>
             {zh ? '主页地址' : 'Profile address'}
