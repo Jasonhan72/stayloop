@@ -12,6 +12,8 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { AgentBadge } from '@/components/AgentBadge'
 import AgentAvatar from '@/components/agent/AgentAvatar'
+import { TestDataTag } from '@/components/directory/FindHeader'
+import { isTestName } from '@/components/listing/testAccounts'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
@@ -63,6 +65,28 @@ export default function AgentProfilePage() {
     return () => { on = false }
   }, [auth.user, slug])
 
+  // 「发消息」 in the header (and under the listings on phones) goes to the form. The form mounts after
+  // the profile loads, so a #contact arrival (the directory card's 发消息) is scrolled to here as well.
+  const toContact = (e?: { preventDefault: () => void }) => {
+    e?.preventDefault()
+    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  const loaded = !!agent && agent !== 'missing'
+  useEffect(() => {
+    if (loaded && window.location.hash === '#contact') document.getElementById('contact')?.scrollIntoView({ block: 'start' })
+  }, [loaded])
+  const [copied, setCopied] = useState(false)
+  const share = async () => {
+    const url = window.location.origin + window.location.pathname
+    try {
+      if (navigator.share) { await navigator.share({ title: document.title, url }); return }
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch { /* dismissed share sheet or no clipboard permission: nothing to report */ }
+  }
+  const verifiedOn = loaded && (agent as PublicAgent).verified_at ? String((agent as PublicAgent).verified_at).slice(0, 10) : ''
+
   if (agent === 'missing') {
     return (
       <div className="text-body">
@@ -87,23 +111,98 @@ export default function AgentProfilePage() {
         ) : (
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
             <div className="min-w-0 space-y-6">
+              {/* Header (2026-11-17 redesign): a larger square photo, the brokerage on its own bold line, the
+                  registration as one checkable line, and the two actions — message and share. */}
               <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-head">
-                <div className="flex flex-wrap items-start gap-4">
-                  <AgentAvatar name={agent.name} size={72} photoUrl={agent.photo_url} />
-                  <div className="min-w-0 flex-1">
-                    <h1 className="text-[26px] font-extrabold tracking-tight">{agent.name}</h1>
+                <div className="flex flex-wrap items-start gap-5">
+                  <AgentAvatar name={agent.name} size={128} photoUrl={agent.photo_url} shape="square" />
+                  <div className="min-w-0 flex-1 basis-[240px]">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="min-w-0 break-words text-[28px] font-extrabold leading-tight tracking-tight">{agent.name}</h1>
+                      {isTestName(agent.name) && <TestDataTag zh={zh} />}
+                    </div>
                     {/* O. Reg. 567/05 s.12.1: descriptor + brokerage name, clearly and prominently. */}
-                    <div className="mt-1 text-[15px] font-semibold" data-testid="agent-profile-brokerage">
-                      {categoryLabel(agent.category, L)}{agent.crea_member ? ' · REALTOR®' : ''} · {agent.brokerage_name}
+                    <div className="mt-1 text-[14px] text-body-2" data-testid="agent-profile-descriptor">{categoryLabel(agent.category, L)}{agent.crea_member ? ' · REALTOR®' : ''}</div>
+                    <div className="break-words text-[16px] font-bold" data-testid="agent-profile-brokerage">{agent.brokerage_name}</div>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-body-2">
+                      <AgentBadge agent={agent} lang={L} compact withNumber />
+                      {verifiedOn && <span>{zh ? `核于 ${verifiedOn}` : `checked ${verifiedOn}`}</span>}
+                      <span className="text-body-3">{zh ? `${agent.joined} 加入 Stayloop` : `On Stayloop since ${agent.joined}`}</span>
                     </div>
                     {agent.languages.length > 0 && (
-                      <div className="mt-2 text-[13.5px] text-body-2">{zh ? '服务语言：' : 'Languages: '}{agent.languages.map((c) => languageLabel(c, L)).join(' · ')}</div>
+                      <div className="mt-3 flex flex-wrap gap-1.5" data-testid="agent-profile-head-languages">
+                        {agent.languages.map((c) => <span key={c} className="rounded-full bg-[#EFF4FF] px-2.5 py-[2px] text-[12px] font-semibold text-[#1D4ED8]">{languageLabel(c, L)}</span>)}
+                      </div>
                     )}
-                    <div className="mt-1 text-[12.5px] text-body-3">{zh ? `${agent.joined} 加入 Stayloop` : `On Stayloop since ${agent.joined}`}</div>
                   </div>
                 </div>
-                <div className="mt-4"><AgentBadge agent={agent} lang={L} /></div>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {!isMine && (
+                    <a href="#contact" onClick={toContact} className="sl-btn-primary flex min-h-[44px] items-center justify-center !px-6 !py-0 !text-[14px]" data-testid="agent-profile-message">{zh ? '发消息' : 'Message'}</a>
+                  )}
+                  {isMine && (
+                    <Link href="/agent/verify" className="sl-btn-primary flex min-h-[44px] items-center justify-center !px-6 !py-0 !text-[14px]">{zh ? '编辑主页' : 'Edit profile'}</Link>
+                  )}
+                  <button type="button" onClick={share} className="flex min-h-[44px] items-center justify-center rounded-xl border border-line-strong px-5 text-[14px] font-semibold text-body transition hover:border-[#2563EB]" data-testid="agent-profile-share">
+                    {copied ? (zh ? '链接已复制' : 'Link copied') : (zh ? '分享' : 'Share')}
+                  </button>
+                </div>
               </section>
+
+              {agent.bio && (
+                <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-about">
+                  <h2 className="text-[16px] font-bold">{zh ? '关于我' : 'About'}</h2>
+                  <p className="mt-2 whitespace-pre-line text-[14.5px] leading-[1.7] text-body-2">{agent.bio}</p>
+                </section>
+              )}
+
+              {(agent.languages.length > 0 || agent.focus.length > 0 || agent.service_areas.length > 0) && (
+                <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-services">
+                  <h2 className="text-[16px] font-bold">{zh ? '服务信息' : 'Services'}</h2>
+                  <div className="mt-3 grid gap-5 sm:grid-cols-3">
+                    {agent.languages.length > 0 && (
+                      <div>
+                        <div className="text-[12.5px] font-semibold text-body-3">{zh ? '语言' : 'Languages'}</div>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">{agent.languages.map((c) => <span key={c} className="rounded-full bg-[#EFF4FF] px-3 py-1 text-[12.5px] font-semibold text-[#1D4ED8]">{languageLabel(c, L)}</span>)}</div>
+                      </div>
+                    )}
+                    {agent.focus.length > 0 && (
+                      <div>
+                        <div className="text-[12.5px] font-semibold text-body-3">{zh ? '专长' : 'Focus'}</div>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">{agent.focus.map((c) => <span key={c} className="rounded-full border border-line-divider px-3 py-1 text-[12.5px] text-body-2">{focusLabel(c, L)}</span>)}</div>
+                      </div>
+                    )}
+                    {agent.service_areas.length > 0 && (
+                      <div>
+                        <div className="text-[12.5px] font-semibold text-body-3">{zh ? '服务区域' : 'Areas'}</div>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">{agent.service_areas.map((a) => <span key={a} className="rounded-full border border-line-divider px-3 py-1 text-[12.5px] text-body-2">{a}</span>)}</div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {cards.length > 0 && (
+                <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-listings">
+                  <h2 className="text-[16px] font-bold">{zh ? 'TA 在 Stayloop 发布的在租房源' : 'Listings they publish on Stayloop'}</h2>
+                  <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {cards.map((c) => (
+                      <Link key={c.id} href={`/listings/${c.slug}`} className="block overflow-hidden rounded-xl border border-line-divider transition hover:border-[#2563EB]" data-testid="agent-profile-listing">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        {c.images?.[0] ? <img src={c.images[0]} alt="" className="aspect-[4/3] w-full object-cover" /> : <div className="aspect-[4/3] w-full bg-[#EEF1F5]" />}
+                        <div className="min-w-0 p-3">
+                          <div className="text-[15px] font-bold text-body">${Math.round(c.monthly_rent).toLocaleString('en-CA')}{zh ? '/月' : '/mo'}</div>
+                          <div className="truncate text-[13.5px] font-semibold">{c.address ? listingTitle(c.address, c.unit) : (c.city || (zh ? '地址暂不公开' : 'Address not shown'))}</div>
+                          <div className="text-[12px] text-body-3">{c.bedrooms ?? '–'} {zh ? '卧' : 'bd'} · {c.bathrooms ?? '–'} {zh ? '卫' : 'ba'}{c.is_test ? (zh ? ' · 测试房源' : ' · Test listing') : ''}</div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                  {!isMine && (
+                    <a href="#contact" onClick={toContact} className="mt-4 inline-block text-[13.5px] font-semibold text-brand underline-offset-2 hover:underline lg:hidden">{zh ? `给 ${agent.name} 发消息 ↓` : `Message ${agent.name} ↓`}</a>
+                  )}
+                </section>
+              )}
 
               {activity && (
                 <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-activity">
@@ -124,52 +223,15 @@ export default function AgentProfilePage() {
                 </section>
               )}
 
-              {agent.bio && (
-                <section className="rounded-2xl border border-line-divider bg-white p-6">
-                  <h2 className="text-[16px] font-bold">{zh ? '关于我' : 'About'}</h2>
-                  <p className="mt-2 whitespace-pre-line text-[14.5px] leading-[1.7] text-body-2">{agent.bio}</p>
-                </section>
-              )}
-
-              {(agent.focus.length > 0 || agent.service_areas.length > 0) && (
-                <section className="rounded-2xl border border-line-divider bg-white p-6">
-                  {agent.focus.length > 0 && (
-                    <>
-                      <h2 className="text-[16px] font-bold">{zh ? '专长' : 'Focus'}</h2>
-                      <div className="mt-2 flex flex-wrap gap-2">{agent.focus.map((c) => <span key={c} className="rounded-full bg-[#EFF4FF] px-3 py-1 text-[12.5px] font-semibold text-[#1D4ED8]">{focusLabel(c, L)}</span>)}</div>
-                    </>
-                  )}
-                  {agent.service_areas.length > 0 && (
-                    <>
-                      <h2 className={`${agent.focus.length ? 'mt-5' : ''} text-[16px] font-bold`}>{zh ? '服务区域' : 'Areas'}</h2>
-                      <div className="mt-2 flex flex-wrap gap-2">{agent.service_areas.map((a) => <span key={a} className="rounded-full border border-line-divider px-3 py-1 text-[12.5px] text-body-2">{a}</span>)}</div>
-                    </>
-                  )}
-                </section>
-              )}
-
-              {cards.length > 0 && (
-                <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-listings">
-                  <h2 className="text-[16px] font-bold">{zh ? 'TA 在 Stayloop 发布的在租房源' : 'Listings they publish on Stayloop'}</h2>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    {cards.map((c) => (
-                      <Link key={c.id} href={`/listings/${c.slug}`} className="flex gap-3 rounded-xl border border-line-divider p-2 transition hover:border-[#2563EB]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        {c.images?.[0] ? <img src={c.images[0]} alt="" className="h-20 w-28 shrink-0 rounded-lg object-cover" /> : <div className="h-20 w-28 shrink-0 rounded-lg bg-[#EEF1F5]" />}
-                        <div className="min-w-0 py-1">
-                          <div className="truncate text-[13.5px] font-semibold">{c.address ? listingTitle(c.address, c.unit) : (c.city || (zh ? '地址暂不公开' : 'Address not shown'))}</div>
-                          <div className="text-[13px] font-bold text-body">${Math.round(c.monthly_rent).toLocaleString('en-CA')}{zh ? '/月' : '/mo'}</div>
-                          <div className="text-[12px] text-body-3">{c.bedrooms ?? '–'} {zh ? '卧' : 'bd'} · {c.bathrooms ?? '–'} {zh ? '卫' : 'ba'}{c.is_test ? (zh ? ' · 测试房源' : ' · Test listing') : ''}</div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </section>
-              )}
+              {/* What was checked, by whom and when — moved down from the header, where it pushed everything else off the first screen. */}
+              <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-registration">
+                <h2 className="text-[16px] font-bold">{zh ? '注册与核验' : 'Registration and verification'}</h2>
+                <div className="mt-3"><AgentBadge agent={agent} lang={L} /></div>
+              </section>
             </div>
 
             <aside className="min-w-0">
-              <div className="rounded-2xl border border-line-divider bg-white p-6 lg:sticky lg:top-24">
+              <div id="contact" className="scroll-mt-24 rounded-2xl border border-line-divider bg-white p-6 lg:sticky lg:top-24" data-testid="agent-profile-contact">
                 <h2 className="text-[16px] font-bold">{zh ? `联系 ${agent.name}` : `Contact ${agent.name}`}</h2>
                 {isMine ? (
                   <div className="mt-2 text-[13.5px] text-body-2" data-testid="agent-profile-own">

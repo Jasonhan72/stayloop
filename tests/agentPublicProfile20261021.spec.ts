@@ -217,7 +217,9 @@ describe('wiring', () => {
   it('the profile page names the descriptor and brokerage prominently and says Stayloop is not a brokerage', () => {
     const p = read('app/agents/[slug]/page.tsx')
     expect(p).toContain('data-testid="agent-profile-brokerage"')
-    expect(p).toMatch(/categoryLabel\(agent\.category, L\)\}\{agent\.crea_member \? ' · REALTOR®' : ''\} · \{agent\.brokerage_name\}/)
+    // 2026-11-17 redesign: the descriptor and the brokerage each get their own line in the header, the brokerage in bold.
+    expect(p).toMatch(/data-testid="agent-profile-descriptor">\{categoryLabel\(agent\.category, L\)\}\{agent\.crea_member \? ' · REALTOR®' : ''\}<\/div>/)
+    expect(p).toMatch(/font-bold" data-testid="agent-profile-brokerage">\{agent\.brokerage_name\}<\/div>/)
     expect(p).toContain('Stayloop 不是经纪公司')
     expect(p).not.toMatch(/business_email|business_phone/)
   })

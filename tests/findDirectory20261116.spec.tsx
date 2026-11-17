@@ -278,12 +278,11 @@ describe('经纪 tab: every verified live registration is listed; only published
   it('the API leaves the basic list out while a filter is on, and the server never lists a published profile twice', () => {
     const api = read('app/api/agents/route.ts')
     expect(api).toContain('filtered ? Promise.resolve([]) : listBasicAgents(admin)')
-    expect(api).toContain('NextResponse.json({ items, basic, total: items.length }')
+    expect(api).toContain('NextResponse.json({ items, basic, total: items.length + basic.length }')
     expect(read('lib/agentPublicServer.ts')).toContain('isRegistrationCurrent(r) && !isPublishable(r)).map(toBasicAgent)')
     const page = read('app/agents/page.tsx')
-    expect(page).toContain('data-testid="agents-basic"')
-    // basic cards are not links: there is no profile page to open
-    expect(page).toMatch(/<div key=\{a\.reco_number\}[^>]*data-testid="agent-basic-card"/)
+    // basic cards are not links: there is no profile page to open (one list since 2026-11-17)
+    expect(page).toMatch(/<article key=\{`b-\$\{a\.reco_number\}`\}[^>]*data-testid="agent-basic-card"/)
   })
   it('rows named "[TEST] …" are recognised for the 测试数据 chip', () => {
     expect(isTestName('[TEST] Maple Plumbing')).toBe(true)

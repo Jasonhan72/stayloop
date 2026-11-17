@@ -226,6 +226,30 @@ export function matchesDirectoryFilter(a: PublicAgent, f: { language?: string | 
   return true
 }
 
+/** Name / brokerage search (2026-11-17): every word of the query must appear in the registered name or
+ *  the brokerage name, case-insensitively. Works for published and register-only entries alike. */
+export function matchesAgentQuery(a: { name: string; brokerage_name: string }, q: string | null | undefined): boolean {
+  const words = (q ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+  if (!words.length) return true
+  const hay = `${a.name} ${a.brokerage_name}`.toLowerCase()
+  return words.every((w) => hay.includes(w))
+}
+
+/** One row of the directory: a published agent (card opens a profile, can be messaged) or a register-only entry. */
+export type DirectoryEntry = { kind: 'public'; agent: PublicAgent } | { kind: 'basic'; agent: BasicAgent }
+export type DirectorySort = 'default' | 'name'
+
+/** The directory as one list (2026-11-17). Default order — stated on the page — is published profiles
+ *  first, then register-only entries, each in the order the server returned them (most recently verified
+ *  first). 'name' is A–Z across both. No ranking and no paid placement. */
+export function directoryEntries(items: readonly PublicAgent[], basic: readonly BasicAgent[], sort: DirectorySort = 'default'): DirectoryEntry[] {
+  const all: DirectoryEntry[] = [...items.map((agent) => ({ kind: 'public' as const, agent })), ...basic.map((agent) => ({ kind: 'basic' as const, agent }))]
+  if (sort !== 'name') return all
+  // "[TEST] Agent" sorts under A, not under "[".
+  const key = (e: DirectoryEntry) => e.agent.name.replace(/^\s*\[[^\]]*\]\s*/, '').toLowerCase()
+  return all.sort((x, y) => key(x).localeCompare(key(y)))
+}
+
 export const CONTACT_MIN = 10
 export const CONTACT_MAX = 1500
 
