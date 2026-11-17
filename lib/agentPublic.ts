@@ -191,6 +191,30 @@ export function toPublicAgent(row: AgentProfileRow): PublicAgent {
   }
 }
 
+/** A verified, live registration that has NOT published a profile (2026-11-16): the directory lists the
+ *  registered name, descriptor and brokerage — what RECO's own register shows — and nothing else.
+ *  No slug (there is no page to open), no photo, no bio, no contact details. */
+export type BasicAgent = Pick<PublicAgent, 'name' | 'category' | 'brokerage_name' | 'reco_number' | 'crea_member' | 'status' | 'verified_at'>
+
+/** Registration verified and not past its expiry — the same liveness rule isPublishable applies. */
+export function isRegistrationCurrent(row: Pick<AgentProfileRow, 'status' | 'expires_at'>, now: Date = new Date()): boolean {
+  if (!isRegistrationLive(row.status)) return false
+  if (row.expires_at && Date.parse(row.expires_at) < Date.parse(now.toISOString().slice(0, 10))) return false
+  return true
+}
+
+export function toBasicAgent(row: AgentProfileRow): BasicAgent {
+  return {
+    name: row.legal_name,
+    category: row.category,
+    brokerage_name: row.brokerage_name,
+    reco_number: row.reco_number,
+    crea_member: !!row.crea_member,
+    status: row.status,
+    verified_at: row.verified_at,
+  }
+}
+
 /** Directory filters, applied server-side on the published rows. */
 export function matchesDirectoryFilter(a: PublicAgent, f: { language?: string | null; focus?: string | null; area?: string | null }): boolean {
   if (f.language && !a.languages.includes(f.language)) return false

@@ -68,7 +68,7 @@ const AUDIENCES: { eyebrow: string; title: Bi; steps: Bi[]; cta: Bi; href: strin
 const HONEST: Bi[] = [
   { zh: '试点阶段：网络里的服务商还很少，覆盖多伦多及周边；没有合格服务商时，派给你自己的联系人所有计划都可用。', en: 'Pilot stage: the network is still small and covers Toronto and nearby cities; when no eligible provider exists, dispatching to your own contact works on every plan.' },
   { zh: '付款线下、不抽成：Stayloop 不经手任何资金，「标记已付」只是记录。', en: 'Payment is offline and commission-free: Stayloop never handles money; “mark as paid” is a record only.' },
-  { zh: '没有公开的服务商目录：入驻信息只在房东派单时、按工种与城市可见。', en: 'There is no public provider directory: onboarding details are visible only to a landlord dispatching, by trade and city.' },
+  { zh: '没有公开的服务商目录：服务商和联系方式要登录后才看得到；派单只有房东能做。', en: 'There is no public provider directory: providers and their contact details are visible only after signing in; only a landlord can dispatch.' },
   { zh: '「资质已核」只表示核验日该编号在公开注册库上有效；到期后自动不再计入。争议由 Stayloop 管理员裁定，不替代法院或 LTB。', en: '“Verified” means the number was valid on the public register on the day it was checked; it stops counting at expiry. Disputes are ruled on by a Stayloop admin and do not replace a court or the LTB.' },
 ]
 
@@ -98,6 +98,7 @@ export default function ServicesPage() {
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/landlord/providers" className="sl-btn-primary">{zh ? '房东：去派单' : 'Landlords: dispatch'}</Link>
             <Link href="/provider/onboard" className="sl-btn-secondary">{zh ? '服务商：申请入驻' : 'Providers: apply to join'}</Link>
+            <Link href="/providers" className="sl-btn-secondary" data-testid="services-directory-link">{zh ? '看看有哪些服务商' : 'See the providers'}</Link>
           </div>
         </div>
       </section>

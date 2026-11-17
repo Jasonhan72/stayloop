@@ -1,10 +1,12 @@
 // GET /api/agents?language=&focus=&area= — the public agent directory (2026-10-21).
-// Published, verified, live registrations only; public fields only (lib/agentPublic.ts).
+// `items`: published, verified, live registrations; public fields only (lib/agentPublic.ts).
+// `basic` (2026-11-16): verified, live registrations without a published profile — registered name,
+// descriptor, brokerage and RECO number only. Left out while a filter is on (they carry nothing to match).
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { matchesDirectoryFilter } from '@/lib/agentPublic'
-import { listPublicAgents } from '@/lib/agentPublicServer'
+import { listBasicAgents, listPublicAgents } from '@/lib/agentPublicServer'
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 
@@ -18,7 +20,8 @@ export async function GET(req: Request) {
   const focus = (u.searchParams.get('focus') || '').slice(0, 20) || null
   const area = (u.searchParams.get('area') || '').slice(0, 40) || null
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
-  const all = await listPublicAgents(admin)
+  const filtered = !!(language || focus || area)
+  const [all, basic] = await Promise.all([listPublicAgents(admin), filtered ? Promise.resolve([]) : listBasicAgents(admin)])
   const items = all.filter((x) => matchesDirectoryFilter(x, { language, focus, area }))
-  return NextResponse.json({ items, total: items.length }, { headers: NO_STORE })
+  return NextResponse.json({ items, basic, total: items.length }, { headers: NO_STORE })
 }

@@ -91,7 +91,7 @@ export const DICT = {
   'foot.screening': { en: 'Screening', zh: '租客筛查' },
   'foot.passport': { en: 'Tenant Passport', zh: '租客护照' },
   'foot.disputes': { en: 'Disputes', zh: '争议解决' },
-  'foot.findAgent': { en: 'Find an agent', zh: '找经纪' },
+  'foot.findAgent': { en: 'Find agents & providers', zh: '找经纪 · 服务商' },
   // Footer · for-whom links
   'foot.tenants': { en: 'Tenants', zh: '租客' },
   'foot.landlords': { en: 'Landlords', zh: '房东' },

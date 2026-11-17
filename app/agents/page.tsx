@@ -1,16 +1,20 @@
 'use client'
 
-// /agents — find an agent (2026-10-21). Agents who published a public profile and whose
-// RECO registration is verified and live. Data comes from /api/agents (public fields only).
+// /agents — find an agent (2026-10-21), the 经纪 tab of 「找经纪和服务商」 (2026-11-16). Full cards for
+// agents who published a public profile and whose RECO registration is verified and live; below
+// them, every other verified live registration with its register fields only (name, descriptor,
+// brokerage). Data comes from /api/agents (public fields only).
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { AgentBadge } from '@/components/AgentBadge'
+import FindHeader, { TestDataTag } from '@/components/directory/FindHeader'
+import { isTestName } from '@/components/listing/testAccounts'
 import AgentAvatar from '@/components/agent/AgentAvatar'
 import { useT } from '@/lib/i18n'
 import { categoryLabel } from '@/lib/agentProfile'
-import { AGENT_FOCUS, AGENT_LANGUAGES, focusLabel, languageLabel, type PublicAgent, SIGNAL_MIN_SAMPLES, type AgentSignals } from '@/lib/agentPublic'
+import { AGENT_FOCUS, AGENT_LANGUAGES, focusLabel, languageLabel, type BasicAgent, type PublicAgent, SIGNAL_MIN_SAMPLES, type AgentSignals } from '@/lib/agentPublic'
 
 // Station-only signals (2026-10-27): counts from Stayloop's own records; a thin sample says so instead of a number.
 function signalLine(s: AgentSignals, L: 'zh' | 'en'): string {
@@ -29,6 +33,7 @@ export default function AgentsDirectoryPage() {
   const [focus, setFocus] = useState('')
   const [area, setArea] = useState('')
   const [items, setItems] = useState<PublicAgent[] | null>(null)
+  const [basic, setBasic] = useState<BasicAgent[]>([])
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
@@ -45,6 +50,7 @@ export default function AgentsDirectoryPage() {
         if (!res.ok) { setFailed(true); return }
         setFailed(false)
         setItems((data.items ?? []) as PublicAgent[])
+        setBasic((data.basic ?? []) as BasicAgent[])
       } catch { if (on) setFailed(true) }
     }, area ? 300 : 0)
     return () => { on = false; clearTimeout(t) }
@@ -55,39 +61,36 @@ export default function AgentsDirectoryPage() {
   return (
     <div style={{ background: '#FFFFFF' }} className="text-body">
       <Header variant="transparent" />
-      <section style={{ background: 'linear-gradient(180deg,#EFF4FF 0%,#FFFFFF 100%)' }}>
-        <div className="mx-auto max-w-[1320px] px-6 pb-8 pt-14 sm:px-8 lg:px-12">
-          <div className="font-mono text-[13px] font-semibold uppercase tracking-[.12em] text-[#2563EB]">{zh ? '找经纪' : 'Find an agent'}</div>
-          <h1 className="sl-type-head mt-3 text-[clamp(26px,3.2vw,38px)] font-semibold leading-[1.15] tracking-[-0.02em]">
-            {zh ? '找一位在 RECO 注册过的租赁经纪' : 'Find a RECO-registered leasing agent'}
-          </h1>
-          <p className="mt-3 max-w-[720px] text-[15.5px] leading-[1.6] text-body-2">
-            {zh
-              ? '这里列出的经纪都由 Stayloop 工作人员对照 RECO 公开注册库人工核过，并且自己选择了公开主页。可以按语言、专长和区域找，在站内直接发消息，不用留电话。'
-              : 'Every agent here was checked by a Stayloop staff member against RECO’s public register and chose to publish a profile. Filter by language, focus and area, and message them on Stayloop without giving out your phone number.'}
-          </p>
-          <div className="mt-6 flex flex-wrap gap-2" data-testid="agents-filters">
-            <select className={sel} value={language} onChange={(e) => setLanguage(e.target.value)} aria-label={zh ? '语言' : 'Language'}>
-              <option value="">{zh ? '所有语言' : 'All languages'}</option>
-              {AGENT_LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l[L]}</option>)}
-            </select>
-            <select className={sel} value={focus} onChange={(e) => setFocus(e.target.value)} aria-label={zh ? '专长' : 'Focus'}>
-              <option value="">{zh ? '所有专长' : 'Any focus'}</option>
-              {AGENT_FOCUS.map((f) => <option key={f.code} value={f.code}>{f[L]}</option>)}
-            </select>
-            <input className={`${sel} min-w-0 flex-1 sm:max-w-[280px]`} value={area} onChange={(e) => setArea(e.target.value)} placeholder={zh ? '区域，例如 North York' : 'Area, e.g. North York'} aria-label={zh ? '区域' : 'Area'} />
-          </div>
+      <FindHeader active="agents">
+        <h2 className="sl-type-head text-[20px] font-semibold tracking-tight">
+          {zh ? '找一位在 RECO 注册过的租赁经纪' : 'Find a RECO-registered leasing agent'}
+        </h2>
+        <p className="mt-2 max-w-[720px] text-[14.5px] leading-[1.6] text-body-2">
+          {zh
+            ? '这里列出的经纪都由 Stayloop 工作人员对照 RECO 公开注册库人工核过。开了公开主页的可以按语言、专长和区域找，在站内直接发消息，不用留电话；没开主页的只列注册信息。'
+            : 'Every agent here was checked by a Stayloop staff member against RECO’s public register. Those who published a profile can be filtered by language, focus and area and messaged on Stayloop without giving out your phone number; the rest are listed with their registration details only.'}
+        </p>
+        <div className="mt-5 flex flex-wrap gap-2" data-testid="agents-filters">
+          <select className={sel} value={language} onChange={(e) => setLanguage(e.target.value)} aria-label={zh ? '语言' : 'Language'}>
+            <option value="">{zh ? '所有语言' : 'All languages'}</option>
+            {AGENT_LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l[L]}</option>)}
+          </select>
+          <select className={sel} value={focus} onChange={(e) => setFocus(e.target.value)} aria-label={zh ? '专长' : 'Focus'}>
+            <option value="">{zh ? '所有专长' : 'Any focus'}</option>
+            {AGENT_FOCUS.map((f) => <option key={f.code} value={f.code}>{f[L]}</option>)}
+          </select>
+          <input className={`${sel} min-w-0 flex-1 sm:max-w-[280px]`} value={area} onChange={(e) => setArea(e.target.value)} placeholder={zh ? '区域，例如 North York' : 'Area, e.g. North York'} aria-label={zh ? '区域' : 'Area'} />
         </div>
-      </section>
+      </FindHeader>
 
       <main className="mx-auto max-w-[1320px] px-6 pb-16 sm:px-8 lg:px-12">
         {failed && <div className="rounded-xl bg-amber-50 px-4 py-3 text-[13.5px] text-amber-800">{zh ? '暂时读不到经纪列表，请稍后刷新。' : 'Could not load agents right now. Please refresh shortly.'}</div>}
         {!failed && items === null && <div className="py-10 text-[14px] text-body-3">…</div>}
-        {!failed && items !== null && items.length === 0 && (
+        {!failed && items !== null && items.length === 0 && basic.length === 0 && (
           <div className="rounded-2xl border border-line-divider bg-white p-6 text-[14px] leading-relaxed text-body-2" data-testid="agents-empty">
             {language || focus || area
               ? (zh ? '没有符合条件的经纪，换个条件试试。' : 'No agents match. Try other filters.')
-              : (zh ? '还没有经纪公开主页。' : 'No agent has published a profile yet.')}
+              : (zh ? '暂时还没有完成认证的经纪。' : 'No agent has been verified yet.')}
             <div className="mt-2 text-[13px] text-body-3">
               {zh ? '你是持牌经纪？' : 'Are you a registered agent?'}{' '}
               <Link href="/agent/verify" className="font-semibold text-brand underline">{zh ? '完成认证并公开主页' : 'Get verified and publish your profile'}</Link>
@@ -102,6 +105,7 @@ export default function AgentsDirectoryPage() {
                   <AgentAvatar name={a.name} size={48} photoUrl={a.photo_url} />
                   <div className="min-w-0">
                     <div className="truncate text-[16px] font-bold">{a.name}</div>
+                    {isTestName(a.name) && <TestDataTag zh={zh} />}
                     <div className="text-[12.5px] text-body-2">{categoryLabel(a.category, L)}{a.crea_member ? ' · REALTOR®' : ''}</div>
                     <div className="text-[12.5px] font-semibold text-body">{a.brokerage_name}</div>
                   </div>
@@ -114,6 +118,27 @@ export default function AgentsDirectoryPage() {
               </Link>
             ))}
           </div>
+        )}
+        {!failed && items !== null && basic.length > 0 && (
+          <section className={items.length > 0 ? 'mt-10' : ''} data-testid="agents-basic">
+            <h3 className="text-[16px] font-semibold tracking-tight">{zh ? '已核验 · 还没有公开主页' : 'Verified · no public profile yet'}</h3>
+            <p className="mt-1 max-w-[720px] text-[12.5px] leading-relaxed text-body-3">
+              {zh ? '只列注册名、类别和所属经纪公司，这些在 RECO 公开注册库上都查得到。这几位暂时不能在站内联系。' : 'Registered name, category and brokerage only, all of which are on RECO’s public register. They cannot be messaged on Stayloop yet.'}
+            </p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {basic.map((a) => (
+                <div key={a.reco_number} className="flex flex-col rounded-2xl border border-line-divider bg-white p-5" data-testid="agent-basic-card">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 break-words text-[16px] font-bold">{a.name}</span>
+                    {isTestName(a.name) && <TestDataTag zh={zh} />}
+                  </div>
+                  <div className="mt-0.5 text-[12.5px] text-body-2">{categoryLabel(a.category, L)}{a.crea_member ? ' · REALTOR®' : ''}</div>
+                  <div className="text-[12.5px] font-semibold text-body">{a.brokerage_name}</div>
+                  <div className="mt-3"><AgentBadge agent={a} lang={L} compact /></div>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
         <p className="mt-8 max-w-[860px] text-[12px] leading-relaxed text-body-3">
           {zh

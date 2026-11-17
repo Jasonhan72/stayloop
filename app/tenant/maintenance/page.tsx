@@ -109,15 +109,26 @@ function LiveTenantTickets({ zh, refreshKey, onNew }: { zh: boolean; refreshKey:
     })()
     return () => { cancelled = true }
   }, [auth.loading, auth.user])
-  if (!hh || hh.length === 0) return null
+  if (!hh) return null
+  // 找经纪和服务商 (2026-11-16): the directory is one click away; repairs still start with a ticket.
+  const findLine = (
+    <p className="mb-6 text-[12.5px] leading-relaxed text-body-3" data-testid="tenant-find-line">
+      {zh ? '想看看有哪些维修服务商，或者找专业服务（租客险、Paralegal）？' : 'Want to see the repair providers, or find professional services (tenant insurance, a paralegal)?'}{' '}
+      <Link href="/providers" className="font-semibold text-tenant hover:underline">{zh ? '找经纪和服务商 →' : 'Find agents and providers →'}</Link>
+    </p>
+  )
+  if (hh.length === 0) return findLine
   return (
-    <div className="mb-6 space-y-4" data-testid="live-tickets">
-      {hh.map((h) => (
-        <SectionCard key={`${h.id}-${refreshKey}`} title={`${h.address}${h.unit ? ` #${h.unit}` : ''}`} meta={zh ? '在管租约 · 真实工单' : 'Managed tenancy · live tickets'}>
-          <MaintenancePanel householdId={h.id} city={h.city} myRole="tenant" zh={zh} onNewTicket={onNew} />
-        </SectionCard>
-      ))}
-    </div>
+    <>
+      <div className="mb-4 space-y-4" data-testid="live-tickets">
+        {hh.map((h) => (
+          <SectionCard key={`${h.id}-${refreshKey}`} title={`${h.address}${h.unit ? ` #${h.unit}` : ''}`} meta={zh ? '在管租约 · 真实工单' : 'Managed tenancy · live tickets'}>
+            <MaintenancePanel householdId={h.id} city={h.city} myRole="tenant" zh={zh} onNewTicket={onNew} />
+          </SectionCard>
+        ))}
+      </div>
+      {findLine}
+    </>
   )
 }
 

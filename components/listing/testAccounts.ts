@@ -20,3 +20,8 @@ export function isTestViewer(user: { user_metadata?: Record<string, unknown> | n
 export function visibleAgents<T extends { legal_name?: string | null; brokerage_name?: string | null }>(rows: readonly T[], viewerIsTest: boolean): T[] {
   return viewerIsTest ? [...rows] : rows.filter((r) => !isTestAgent(r))
 }
+
+/** A display name that starts with the seeded "[TEST]" prefix (directory rows show a 「测试数据」 chip). */
+export function isTestName(name: string | null | undefined): boolean {
+  return TEST_PREFIX.test(String(name ?? ''))
+}

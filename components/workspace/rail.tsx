@@ -44,11 +44,16 @@ export function assistantItems(role: WorkspaceRole): RailItem[] {
 
 
 // One entry per page, grouped (2026-10-04): 消息 (talking to people) · the hat's
-// pages · records. The rail stays icon-only with the name on hover (user
+// pages · records. 找人 (2026-11-16) sits under 消息 in every hat's rail: the one door to
+// 「找经纪和服务商」 (agents · repair providers · professional services). The rail stays icon-only with the name on hover (user
 // 2026-10-04: 「保持只有图标」); no icon repeats within one hat's rail.
+/** 找人 → 「找经纪和服务商」 (components/directory/FindHeader.tsx). The same entry for every hat. */
+export const FIND_ITEM: RailItem = { key: 'find', href: '/agents', icon: <FindIcon />, label: { zh: '找人', en: 'Find people' }, desc: { zh: '找经纪、维修服务商和专业服务', en: 'Find agents, repair providers and professional services' }, group: 'inbox' }
+
 export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   tenant: [
     { key: 'msgs',      href: '/messages',  icon: <MailIcon />,    label: { zh: '消息', en: 'Messages' } , desc: { zh: '和房东、服务商、Stayloop 的对话', en: 'Conversations with landlords, providers and Stayloop' }, group: 'inbox' },
+    FIND_ITEM,
     { key: 'passport',  href: '/tenant/passport',  icon: <PassIcon />,    label: { zh: '护照', en: 'Passport' } , desc: { zh: '材料包与只读分享链接', en: 'Your documents and a read-only share link' }, group: 'pages' },
     { key: 'apps',      href: '/tenant/applications', icon: <FileIcon />, label: { zh: '申请', en: 'Applications' } , desc: { zh: '我的申请进度', en: 'Track your applications' }, group: 'pages' },
     { key: 'lease',     href: '/tenant/lease',     icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '查看与签署租约', en: 'View and sign leases' }, group: 'pages' },
@@ -58,6 +63,7 @@ export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   ],
   landlord: [
     { key: 'msgs',      href: '/messages', icon: <MailIcon />,   label: { zh: '消息', en: 'Messages' } , desc: { zh: '和租客、申请人、服务商、Stayloop 的对话', en: 'Conversations with tenants, applicants, providers and Stayloop' }, group: 'inbox' },
+    FIND_ITEM,
     { key: 'listings',  href: '/dashboard',        icon: <HomeIcon />,    label: { zh: '房源', en: 'Listings' } , desc: { zh: '你发布的房源与草稿', en: 'Your listings and drafts' }, group: 'pages' },
     { key: 'apps',      href: '/landlord/applicants', icon: <FileIcon />, label: { zh: '申请', en: 'Applicants' } , desc: { zh: '收到的申请与一键筛查', en: 'Applications received and one-tap screening' }, group: 'pages' },
     { key: 'screen',    href: '/screening/app',    icon: <ScreenIcon />,  label: { zh: '筛查', en: 'Screening' } , desc: { zh: '租客筛查报告', en: 'Tenant screening reports' }, group: 'pages' },
@@ -70,6 +76,7 @@ export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   ],
   agent: [
     { key: 'msgs',      href: '/messages',         icon: <MailIcon />,    label: { zh: '消息', en: 'Messages' } , desc: { zh: '和客户、各方的对话', en: 'Conversations with clients and other parties' }, group: 'inbox' },
+    FIND_ITEM,
     { key: 'clients',   href: '/agent/clients',    icon: <UsersIcon />,   label: { zh: '客户', en: 'Clients' } , desc: { zh: '客户表、委托与代客筛查', en: 'Clients, delegations and screening for clients' }, group: 'pages' },
     { key: 'tasks',     href: '/agent/tasks',      icon: <TaskIcon />,    label: { zh: '任务', en: 'Tasks' } , desc: { zh: '客户表生成的待跟进事项', en: 'Follow-ups generated from your client book' }, group: 'pages' },
     { key: 'checklist', href: '/agent/checklist',  icon: <ChecklistIcon />, label: { zh: '核对清单', en: 'Checklist' } , desc: { zh: '要约与租约要点的确定性核对', en: 'Deterministic check of offer and lease points' }, group: 'pages' },
@@ -166,7 +173,7 @@ export function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailIte
               const hasListings = pages.some((it) => it.key === 'listings')
               return (
                 <>
-                  <div className={cap}>{zh ? '消息' : 'Messages'}</div>
+                  <div className={cap}>{zh ? '消息 · 找人' : 'Messages · find people'}</div>
                   <div className={grid}>{items.filter((it) => it.group === 'inbox').map(itemTile)}</div>
                   <div className={cap}>{zh ? '页面' : 'Pages'}</div>
                   <div className={grid}>
@@ -277,6 +284,8 @@ export function NoticeIcon() { return I('M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1
 export function ToolIcon()  { return I('M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z') }
 export function CashIcon()  { return I('M12 1v22|M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6') }
 export function ScreenIcon() { return I('M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z|M21 21l-5.6-5.6|M7.8 10.6l1.8 1.8 3.4-3.6') }
+/** A person with a magnifier: 找人 (2026-11-16). */
+export function FindIcon() { return I('M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z|M2 21v-2a4 4 0 0 1 4-4h4|M17 20a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M22 22l-2.8-2.8') }
 export function SearchIcon() { return I('M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z|M21 21l-5.6-5.6') }
 export function TaskIcon() { return I('M9 6h11|M9 12h11|M9 18h11|M4 6l1 1 2-2|M4 12l1 1 2-2|M4 18l1 1 2-2') }
 export function ChecklistIcon() { return I('M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z|M16 5h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2|M8.5 13.5l2.2 2.2 4.8-5') }

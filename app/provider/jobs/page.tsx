@@ -97,7 +97,7 @@ export default function ProviderJobsPage() {
         <div>
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '服务商 · 工单' : 'PROVIDER · JOBS'}</div>
           <h1 className="mt-1 text-[24px] font-extrabold tracking-tight">{prov.trade_name || prov.legal_name}</h1>
-          <p className="mt-1 text-[12.5px] text-body-3">{prov.status === 'verified' ? (zh ? '资质已核 · 可接收派单' : 'Verified · eligible for dispatch') : (zh ? `状态：${PROVIDER_STATUS[prov.status]?.zh ?? prov.status} · 核验通过前不会收到派单` : `Status: ${PROVIDER_STATUS[prov.status]?.en ?? prov.status} · no dispatch until verified`)} · <Link href="/provider/onboard" className="underline">{zh ? '资料与资质' : 'Profile & credentials'}</Link> · <Link href="/provider/history" className="underline" data-testid="provider-history-link">{zh ? '历史 · 账单 · 评价' : 'History · invoices · reviews'}</Link></p>
+          <p className="mt-1 text-[12.5px] text-body-3">{prov.status === 'verified' ? (zh ? '资质已核 · 可接收派单' : 'Verified · eligible for dispatch') : (zh ? `状态：${PROVIDER_STATUS[prov.status]?.zh ?? prov.status} · 核验通过前不会收到派单` : `Status: ${PROVIDER_STATUS[prov.status]?.en ?? prov.status} · no dispatch until verified`)} · <Link href="/provider/onboard" className="underline">{zh ? '资料与资质' : 'Profile & credentials'}</Link> · <Link href="/provider/history" className="underline" data-testid="provider-history-link">{zh ? '历史 · 账单 · 评价' : 'History · invoices · reviews'}</Link> · <Link href="/providers" className="underline" data-testid="provider-directory-link">{zh ? '我在目录里的样子' : 'How I appear in the directory'}</Link></p>
         </div>
       </div>
 

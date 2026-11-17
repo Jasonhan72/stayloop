@@ -443,6 +443,17 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       <span className="flex-1">{lang === 'zh' ? '消息' : 'Messages'}</span>
                       {unreadMessages > 0 && <span className="rounded-full bg-[#FF385C] px-2 py-[1px] text-[11px] font-bold text-white">{unreadMessages > 99 ? '99+' : unreadMessages}</span>}
                     </Link>
+                    {/* 找经纪 · 服务商 (2026-11-16): every signed-in hat, from any page. */}
+                    <Link
+                      href="/agents"
+                      onClick={() => setMenuOpen(false)}
+                      data-testid="menu-find"
+                      className="flex items-center gap-3 px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
+                      role="menuitem"
+                    >
+                      <FindIcon />
+                      <span className="flex-1">{lang === 'zh' ? '找经纪 · 服务商' : 'Find agents & providers'}</span>
+                    </Link>
                     {isAdmin && (
                       <Link
                         href="/admin"
@@ -713,6 +724,12 @@ function MailIcon() {
   )
 }
 
+/** A person with a magnifier: 找经纪 · 服务商 (2026-11-16). */
+function FindIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10" cy="7" r="4" /><path d="M2 21v-2a4 4 0 0 1 4-4h4" /><circle cx="17" cy="17" r="3" /><path d="m22 22-2.8-2.8" /></svg>
+  )
+}
 
 function WorkspaceIcon() {
   return (

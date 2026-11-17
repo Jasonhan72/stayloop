@@ -2,7 +2,7 @@
 // toPublicAgent() fields; anon has no access to agent_profiles itself.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LISTING_VISIBILITY_OR, hasUsablePhotos } from './listingVisibility'
-import { PUBLIC_AGENT_COLUMNS, isPublishable, isValidSlug, toPublicAgent, type AgentActivity, type AgentProfileRow, type PublicAgent } from './agentPublic'
+import { PUBLIC_AGENT_COLUMNS, isPublishable, isRegistrationCurrent, isValidSlug, toBasicAgent, toPublicAgent, type AgentActivity, type AgentProfileRow, type BasicAgent, type PublicAgent } from './agentPublic'
 
 export async function loadPublicAgent(admin: SupabaseClient, slug: string): Promise<{ row: AgentProfileRow; agent: PublicAgent } | null> {
   if (!isValidSlug(slug)) return null
@@ -29,6 +29,14 @@ export async function listPublicAgents(admin: SupabaseClient): Promise<PublicAge
     })
   }
   return items
+}
+
+/** Verified, live registrations without a published profile (2026-11-16): basic register fields only. */
+export async function listBasicAgents(admin: SupabaseClient): Promise<BasicAgent[]> {
+  const { data } = await admin.from('agent_profiles').select(PUBLIC_AGENT_COLUMNS)
+    .in('status', ['verified', 'renewal_due'])
+    .order('verified_at', { ascending: false }).limit(200)
+  return ((data ?? []) as AgentProfileRow[]).filter((r) => isRegistrationCurrent(r) && !isPublishable(r)).map(toBasicAgent)
 }
 
 /** Listings this agent published on Stayloop (as their landlord profile). The page asks
