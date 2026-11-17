@@ -50,6 +50,8 @@ import { repairDirectory, type DirectoryCredential, type DirectoryProvider } fro
 import { isRegistrationCurrent, toBasicAgent, type AgentProfileRow } from '../lib/agentPublic'
 import { FIND_ITEM, RAIL_BY_ROLE } from '../components/workspace/rail'
 import { isTestName } from '../components/listing/testAccounts'
+import { buildSystemPrompt, directoryGuide } from '../lib/agent/prompts'
+import { splitPaths } from '../lib/agent/replyPaths'
 
 afterEach(() => {
   cleanup()
@@ -288,5 +290,44 @@ describe('经纪 tab: every verified live registration is listed; only published
     expect(isTestName(' [ test ] x')).toBe(true)
     expect(isTestName('Maple Plumbing [TEST]')).toBe(false)
     expect(isTestName(null)).toBe(false)
+  })
+})
+
+describe('the AI Agent points to the directory when asked to find an agent or a provider', () => {
+  const wf = { current_stage: 'x', completed_steps: [] } as unknown as Parameters<typeof buildSystemPrompt>[3]
+  it('every hat’s system prompt carries the three entries and the no-naming rule', () => {
+    for (const role of ['tenant', 'landlord', 'agent'] as const) {
+      const p = buildSystemPrompt(role, '', [], wf)
+      expect(p, role).toContain(directoryGuide(role))
+      const g = directoryGuide(role)
+      for (const path of ['/agents', '/providers', '/providers/professional']) expect(g, `${role} ${path}`).toContain(path)
+      expect(g).toContain('不点名、不推荐某一家')
+      expect(g).toContain('绝不编造名字、电话、评分或价格')
+      expect(g).toContain('不抽成')
+      // naming: AI 助理 only, no 背调 / 助手
+      expect(g).not.toMatch(/助手|管家|背调/)
+    }
+  })
+  it('tenant: a broken thing in the rental is a repair request first; landlord: dispatch stays on the ticket', () => {
+    const t = directoryGuide('tenant')
+    expect(t).toContain('维修由房东负责安排')
+    expect(t).toContain('报修放在前面')
+    const l = directoryGuide('landlord')
+    expect(l).toContain('/landlord/maintenance')
+    expect(l).toContain('派单只能在那里做')
+    // the landlord and agent models still never propose a card
+    for (const role of ['landlord', 'agent'] as const) expect(directoryGuide(role)).not.toMatch(/proposed_action|待审批卡/)
+  })
+  it('the three paths render as links; a longer path or a URL around them does not', () => {
+    const hrefs = (s: string) => splitPaths(s).filter((x): x is { href: string } => typeof x !== 'string').map((x) => x.href)
+    expect(hrefs('经纪在 /agents，维修在 /providers，专业服务在 /providers/professional。')).toEqual(['/agents', '/providers', '/providers/professional'])
+    expect(hrefs('管理联系人去 /landlord/providers,派单在 /landlord/maintenance')).toEqual(['/landlord/providers', '/landlord/maintenance'])
+    expect(hrefs('后台是 /admin/providers,接口是 /api/agents,主页是 /agents/jane-doe')).toEqual([])
+    expect(hrefs('https://www.stayloop.ai/providers')).toEqual([])
+    expect(hrefs('客户表 /agent/clients 与 /agents')).toEqual(['/agent/clients', '/agents'])
+    expect(splitPaths('没有路径的一句话')).toEqual(['没有路径的一句话'])
+    expect(splitPaths('去 /providers 看看')).toEqual(['去 ', { href: '/providers' }, ' 看看'])
+    // no lookbehind in the source (older iOS Safari cannot parse it)
+    expect(read('lib/agent/replyPaths.ts')).not.toMatch(/\(\?<[!=]/)
   })
 })

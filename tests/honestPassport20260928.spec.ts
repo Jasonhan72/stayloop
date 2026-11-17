@@ -87,7 +87,8 @@ describe('pricing and the agent screening card say what ships', () => {
     // the anchor the card points at
     expect(read('components/agent/ClientBook.tsx')).toMatch(/data-testid="client-book" id="client-book"/)
     // the assistant's reply mentions /agent/clients — it must render as a link
-    expect(read('components/agent/AgentChat.tsx')).toMatch(/const PATH_RE = \/\([^\n]*\\\/agent\\\/clients/)
+    expect(read('lib/agent/replyPaths.ts')).toMatch(/const PATH_RE = \/\([^\n]*\\\/agent\\\/clients/)
+    expect(read('components/agent/AgentChat.tsx')).toContain("import { splitPaths } from '@/lib/agent/replyPaths'")
   })
 
   it('no assistant prompt claims six scoring dimensions', () => {

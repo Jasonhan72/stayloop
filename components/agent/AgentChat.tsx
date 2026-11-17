@@ -17,6 +17,7 @@ import CommercialCompareTable from './CommercialCompareTable'
 import BenchmarkTrendChart from './BenchmarkTrendChart'
 import { benchmarkAttribution, statcanPeriodLabel, benchmarkLabel } from '@/lib/market/rentBenchmark'
 import Link from 'next/link'
+import { splitPaths } from '@/lib/agent/replyPaths'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage, PendingAction, WorkflowState } from '@/lib/agent/types'
 import ApprovalActionCard, { StalledActionRow } from './ApprovalActionCard'
@@ -748,16 +749,15 @@ function ScheduledRow({ id, title, decision, scheduled, onUndo, zh }: { id: stri
   )
 }
 
-// Internal paths the assistant is told to mention (e.g. /screening/app) render
-// as links; everything else stays plain text.
-const PATH_RE = /(\/screening\/app|\/screening|\/verify\/[A-Za-z0-9-]+|\/leases\/import|\/landlord\/applicants|\/agent\/clients|\/landlord\/leases|\/landlord\/todo|\/messages|\/tenant\/lease|\/tenant\/passport)(?![\w/-])/g
+// Internal paths the assistant is told to mention (e.g. /screening/app) render as links;
+// everything else stays plain text. The list and the splitting live in lib/agent/replyPaths.ts.
 function linkifyPaths(text: string) {
-  const parts = text.split(PATH_RE)
-  if (parts.length === 1) return text
+  const parts = splitPaths(text)
+  if (parts.length === 1 && typeof parts[0] === 'string') return text
   return parts.map((part, i) =>
-    i % 2 === 1
-      ? <Link key={i} href={part} className="font-semibold underline underline-offset-2" style={{ color: '#00ACE4' }}>{part}</Link>
-      : part,
+    typeof part === 'string'
+      ? part
+      : <Link key={i} href={part.href} className="font-semibold underline underline-offset-2" style={{ color: '#00ACE4' }}>{part.href}</Link>,
   )
 }
 
