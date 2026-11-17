@@ -37,7 +37,7 @@ export default function FindHeader({ active, children }: { active: FindTab; chil
         <p className="mt-2 max-w-[720px] text-[14.5px] leading-[1.6] text-body-2" data-testid="find-note">
           {zh ? 'Stayloop 只做展示与转介，不抽成，费用由你和对方直接谈。' : 'Stayloop only lists and refers. It takes no commission; fees are between you and them.'}
         </p>
-        <nav className="mt-6 flex gap-1 overflow-x-auto border-b border-line-divider" aria-label={zh ? '找经纪和服务商' : 'Find agents and service providers'} data-testid="find-tabs">
+        <nav className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line-divider" aria-label={zh ? '找经纪和服务商' : 'Find agents and service providers'} data-testid="find-tabs">
           {FIND_TABS.map((t) => {
             const on = t.key === active
             return (
@@ -46,7 +46,7 @@ export default function FindHeader({ active, children }: { active: FindTab; chil
                 href={t.href}
                 aria-current={on ? 'page' : undefined}
                 data-testid={`find-tab-${t.key}`}
-                className={'-mb-px flex min-h-[44px] flex-none items-center whitespace-nowrap border-b-2 px-4 text-[15px] font-semibold transition ' + (on ? 'border-[#1B1B3C] text-body' : 'border-transparent text-body-2 hover:text-body')}
+                className={'flex min-h-[44px] flex-none items-center whitespace-nowrap border-b-2 px-4 text-[15px] font-semibold transition ' + (on ? 'border-[#1B1B3C] text-body' : 'border-transparent text-body-2 hover:text-body')}
               >
                 {zh ? t.zh : t.en}
               </Link>
