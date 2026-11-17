@@ -304,6 +304,7 @@ describe('the AI Agent points to the directory when asked to find an agent or a 
       expect(g).toContain('不点名、不推荐某一家')
       expect(g).toContain('绝不编造名字、电话、评分或价格')
       expect(g).toContain('不抽成')
+      expect(g).toContain('不要译成「法律顾问」或「律师」')
       // naming: AI 助理 only, no 背调 / 助手
       expect(g).not.toMatch(/助手|管家|背调/)
     }

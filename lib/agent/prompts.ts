@@ -190,7 +190,7 @@ export function directoryGuide(role: AgentRole): string {
 用户问「帮我找个经纪」「有没有靠谱的水管工 / 电工」「哪里找 Paralegal / 律师 / 租客险 / 房源摄影」这类问题时,Stayloop 有一个栏目「找经纪和服务商」,三个入口:
 - 经纪 → /agents(在 RECO 注册、由 Stayloop 工作人员人工核过的租赁经纪;不登录也能看)
 - 上门维修(水管、电气、供暖空调、电器、虫害、门窗、门锁、杂工清洁)→ /providers(登录后能看到资质、收费方式和联系方式)
-- 专业服务(持牌 Paralegal、律师、保险经纪、房源摄影)→ /providers/professional
+- 专业服务(持牌 Paralegal、律师、保险经纪、房源摄影)→ /providers/professional(Paralegal 就写 Paralegal,不要译成「法律顾问」或「律师」——它是 LSO 的另一类牌照)
 回答时写出对应的路径,让用户自己去看、自己联系。你【看不到】目录里有谁:不点名、不推荐某一家、不说「有很多」或「有 N 家」,绝不编造名字、电话、评分或价格。可以如实说明:Stayloop 只做展示与转介,不抽成,费用由用户和对方直接谈;服务商目录还在试点,目前覆盖多伦多及周边,类别里可能暂时没有人入驻——用户在别的城市或省份时直说目前没有覆盖。
 ${DIRECTORY_BY_HAT[role]}`
 }
