@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import PublicProfileEditor from '@/components/agent/PublicProfileEditor'
-import { RECO_REGISTER_URL, categoryLabel, isRecoNumber, statusLabel, type AgentCategory, type AgentProfile } from '@/lib/agentProfile'
+import { RECO_REGISTER_URL, categoryLabel, isRecoNumber, isRegistrationLive, statusLabel, type AgentCategory, type AgentProfile } from '@/lib/agentProfile'
 
 export default function AgentVerifyPage() {
   const auth = useAuth()
@@ -87,11 +87,13 @@ export default function AgentVerifyPage() {
     )
   }
 
+  // Once verified the page is where the agent manages the public profile; before that it is the registration form.
+  const verifiedView = !!row && row !== 'loading' && isRegistrationLive(row.status)
   return (
     <WorkspaceShell role="agent" hideAside>
       <div className="mx-auto max-w-[720px]">
-        <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '经纪认证' : 'Agent verification'}</div>
-        <h1 className="mt-1 text-[24px] font-extrabold tracking-tight">{zh ? '提交你的 RECO 注册信息' : 'Submit your RECO registration'}</h1>
+        <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? (verifiedView ? '认证与主页' : '经纪认证') : (verifiedView ? 'Verification & profile' : 'Agent verification')}</div>
+        <h1 className="mt-1 text-[24px] font-extrabold tracking-tight" data-testid="agent-verify-title">{verifiedView ? (zh ? '认证与公开主页' : 'Verification and public profile') : (zh ? '提交你的 RECO 注册信息' : 'Submit your RECO registration')}</h1>
         <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
           {zh
             ? '安省交易不动产（含租赁）须在 RECO 注册。我们只收集 RECO 公开注册库上已有的信息，由 Stayloop 工作人员人工对照注册库核验，通常 1 个工作日内完成。不上传证件，不收社会保险号。'
@@ -110,7 +112,13 @@ export default function AgentVerifyPage() {
           </div>
         )}
 
-        <div className="mt-5 grid gap-4 rounded-2xl border border-line-divider bg-white p-5 sm:grid-cols-2">
+        {/* Verified: what the agent comes back for is the public profile, so it sits above the registration form (2026-11-17). */}
+        {row && row !== 'loading' && auth.user && isRegistrationLive(row.status) && (
+          <PublicProfileEditor authId={auth.user.id} legalName={row.legal_name} status={row.status} lang={lang as 'zh' | 'en'} />
+        )}
+
+        {verifiedView && <h2 className="mt-8 text-[17px] font-bold" data-testid="agent-verify-form-heading">{zh ? 'RECO 注册信息' : 'RECO registration'}</h2>}
+        <div className={(verifiedView ? 'mt-3' : 'mt-5') + ' grid gap-4 rounded-2xl border border-line-divider bg-white p-5 sm:grid-cols-2'}>
           <label className={label}>{zh ? '法定姓名（与 RECO 注册一致）' : 'Legal name (as registered)'}<input className={input} value={f.legal_name} onChange={e => setF({ ...f, legal_name: e.target.value })} autoComplete="name" /></label>
           <label className={label}>{zh ? '常用名（可选，不对外显示）' : 'Trade name (optional, never shown)'}<input className={input} value={f.trade_name} onChange={e => setF({ ...f, trade_name: e.target.value })} /></label>
           <label className={label}>{zh ? 'RECO 注册号（7 位）' : 'RECO registration number (7 digits)'}<input className={input} inputMode="numeric" pattern="[0-9]*" maxLength={7} value={f.reco_number} onChange={e => setF({ ...f, reco_number: e.target.value.replace(/\D/g, '').slice(0, 7) })} /></label>
@@ -137,7 +145,8 @@ export default function AgentVerifyPage() {
           </div>
         </div>
 
-        {row && row !== 'loading' && auth.user && (
+        {/* Not verified yet: the profile settings come after the registration form (they are locked anyway). */}
+        {row && row !== 'loading' && auth.user && !isRegistrationLive(row.status) && (
           <PublicProfileEditor authId={auth.user.id} legalName={row.legal_name} status={row.status} lang={lang as 'zh' | 'en'} />
         )}
 

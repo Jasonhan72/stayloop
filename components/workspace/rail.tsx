@@ -82,6 +82,8 @@ export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
     { key: 'checklist', href: '/agent/checklist',  icon: <ChecklistIcon />, label: { zh: '核对清单', en: 'Checklist' } , desc: { zh: '要约与租约要点的确定性核对', en: 'Deterministic check of offer and lease points' }, group: 'pages' },
     { key: 'cal',       href: '/agent/calendar',   icon: <CalendarIcon />, label: { zh: '日历', en: 'Calendar' } , desc: { zh: '日程（示范）', en: 'Calendar (sample)' }, group: 'pages' },
     { key: 'earn',      href: '/agent/earnings',   icon: <CashIcon />,    label: { zh: '佣金', en: 'Earnings' } , desc: { zh: '佣金记录（示范，尚未上线）', en: 'Earnings (sample, not live yet)' }, group: 'pages' },
+    // 2026-11-17: the RECO status and the public-profile switch had no entry from the workspace.
+    { key: 'profile',   href: '/agent/verify',     icon: <BadgeIcon />,   label: { zh: '认证与主页', en: 'Verification & profile' } , desc: { zh: 'RECO 认证状态，公开或关闭你的经纪主页', en: 'RECO status; publish or hide your agent profile' }, group: 'pages' },
     { key: 'audit',     href: '/agent/audit',      icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '你的操作和它替你做的事，逐条留痕', en: 'Everything you and your AI Agent did, line by line' }, group: 'records' },
   ],
 }
@@ -286,6 +288,8 @@ export function CashIcon()  { return I('M12 1v22|M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3
 export function ScreenIcon() { return I('M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z|M21 21l-5.6-5.6|M7.8 10.6l1.8 1.8 3.4-3.6') }
 /** A person with a magnifier: 找人 (2026-11-16). */
 export function FindIcon() { return I('M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z|M2 21v-2a4 4 0 0 1 4-4h4|M17 20a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M22 22l-2.8-2.8') }
+/** An ID badge: 认证与主页 (2026-11-17). */
+export function BadgeIcon() { return I('M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z|M9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4z|M5.5 17a3.5 3.5 0 0 1 7 0|M15 9h3|M15 13h3') }
 export function SearchIcon() { return I('M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z|M21 21l-5.6-5.6') }
 export function TaskIcon() { return I('M9 6h11|M9 12h11|M9 18h11|M4 6l1 1 2-2|M4 12l1 1 2-2|M4 18l1 1 2-2') }
 export function ChecklistIcon() { return I('M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z|M16 5h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2|M8.5 13.5l2.2 2.2 4.8-5') }

@@ -13,6 +13,10 @@ import FindHeader, { TestDataTag } from '@/components/directory/FindHeader'
 import { isTestName } from '@/components/listing/testAccounts'
 import AgentAvatar from '@/components/agent/AgentAvatar'
 import { useT } from '@/lib/i18n'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/useAuth'
+import { useHats } from '@/lib/useHats'
+import { isRegistrationLive } from '@/lib/agentProfile'
 import { categoryLabel } from '@/lib/agentProfile'
 import { AGENT_FOCUS, AGENT_LANGUAGES, focusLabel, languageLabel, type BasicAgent, type PublicAgent, SIGNAL_MIN_SAMPLES, type AgentSignals } from '@/lib/agentPublic'
 
@@ -35,6 +39,20 @@ export default function AgentsDirectoryPage() {
   const [items, setItems] = useState<PublicAgent[] | null>(null)
   const [basic, setBasic] = useState<BasicAgent[]>([])
   const [failed, setFailed] = useState(false)
+  // A verified agent whose own profile is not public gets a line saying so and where to turn it on
+  // (2026-11-17: the agent saw their own name under 「还没有公开主页」 with no way from here to fix it).
+  const auth = useAuth()
+  const hats = useHats()
+  const [ownHidden, setOwnHidden] = useState(false)
+  const agentLive = isRegistrationLive(hats.agent)
+  useEffect(() => {
+    if (!auth.user || !agentLive) { setOwnHidden(false); return }
+    let on = true
+    supabase.from('agent_profiles').select('public_profile').eq('auth_id', auth.user.id).maybeSingle().then(({ data }) => {
+      if (on) setOwnHidden(!!data && !(data as { public_profile: boolean }).public_profile)
+    })
+    return () => { on = false }
+  }, [auth.user, agentLive])
 
   useEffect(() => {
     let on = true
@@ -84,6 +102,12 @@ export default function AgentsDirectoryPage() {
       </FindHeader>
 
       <main className="mx-auto max-w-[1320px] px-6 pb-16 sm:px-8 lg:px-12">
+        {ownHidden && (
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-[#BFD4FF] bg-[#EFF4FF] px-4 py-3 text-[14px] leading-relaxed" data-testid="agents-own-hidden">
+            <span className="min-w-0 flex-1">{zh ? '你已通过 RECO 核验，但主页还没有公开，所以这里只列了你的注册信息。' : 'Your RECO registration is verified, but your profile is not public yet, so only your registration details are listed here.'}</span>
+            <Link href="/agent/verify" className="sl-btn-primary !px-4 !py-2 !text-[13px]">{zh ? '去公开我的主页' : 'Publish my profile'}</Link>
+          </div>
+        )}
         {failed && <div className="rounded-xl bg-amber-50 px-4 py-3 text-[13.5px] text-amber-800">{zh ? '暂时读不到经纪列表，请稍后刷新。' : 'Could not load agents right now. Please refresh shortly.'}</div>}
         {!failed && items === null && <div className="py-10 text-[14px] text-body-3">…</div>}
         {!failed && items !== null && items.length === 0 && basic.length === 0 && (

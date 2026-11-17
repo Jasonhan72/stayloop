@@ -1,7 +1,10 @@
 'use client'
 
-// The agent's public profile settings (/agent/verify, below the RECO form). Off by default;
-// only a verified, live registration can publish. Saves through the agent's own
+// The agent's public profile settings on /agent/verify — above the RECO form once the registration
+// is verified, below it before. Off by default; only a verified, live registration can publish.
+// The status bar at the top says whether the profile is public and carries the one button that
+// publishes or unpublishes it (2026-11-17: the checkbox sat mid-form under a page titled 「提交你的
+// RECO 注册信息」 and a verified agent could not find it). Saves through the agent's own
 // row-level update; the database checks the slug format, uniqueness and sizes.
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -66,7 +69,9 @@ export default function PublicProfileEditor({ authId, legalName, status, lang }:
 
   const toggle = (list: string[], v: string, set: (x: string[]) => void) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
 
-  async function save() {
+  /** Saves the form. `next` (the status bar's button) sets public / not public in the same save. */
+  async function save(next?: boolean) {
+    const want = next ?? pub
     setErr(null); setOk(null)
     const s = normalizeSlug(slug)
     if (!isValidSlug(s)) return setErr(zh ? '主页地址只能用小写字母、数字和短横线，3–60 个字符。' : 'The address may use lowercase letters, digits and hyphens, 3–60 characters.')
@@ -74,10 +79,10 @@ export default function PublicProfileEditor({ authId, legalName, status, lang }:
     const p = bioProblem(b)
     if (p === 'too_long') return setErr(zh ? `自我介绍最多 ${BIO_MAX} 字。` : `The introduction can be at most ${BIO_MAX} characters.`)
     if (p === 'contact_details') return setErr(zh ? '自我介绍里不要写网址、邮箱或电话——联系都走 Stayloop 站内消息。' : 'Leave links, email addresses and phone numbers out of the introduction — contact goes through Stayloop messages.')
-    if (pub && !live) return setErr(zh ? 'RECO 核验通过后才能公开主页。' : 'You can publish once your RECO registration is verified.')
+    if (want && !live) return setErr(zh ? 'RECO 核验通过后才能公开主页。' : 'You can publish once your RECO registration is verified.')
     setBusy(true)
     const patch = {
-      public_profile: pub && live, profile_slug: s, bio: b || null,
+      public_profile: want && live, profile_slug: s, bio: b || null,
       languages: cleanLanguages(langs), focus: cleanFocus(focus),
       service_areas: cleanAreas(areas.split(/[,，、;；\n]+/)), show_activity: showActivity,
     }
@@ -88,7 +93,7 @@ export default function PublicProfileEditor({ authId, legalName, status, lang }:
       if (error.code === '23514') return setErr(zh ? '有一项超出了限制（地址格式、介绍长度或选项数量），请检查后再保存。' : 'Something is over a limit (address format, introduction length or number of choices). Please check and save again.')
       return setErr(zh ? '没保存上，请稍后再试。' : 'Could not save — try again shortly.')
     }
-    setSlug(s); setSavedSlug(s); setSavedPublic(patch.public_profile)
+    setSlug(s); setSavedSlug(s); setSavedPublic(patch.public_profile); setPub(patch.public_profile)
     setOk(patch.public_profile ? (zh ? '已保存，主页已公开。' : 'Saved — your profile is public.') : (zh ? '已保存。主页目前不公开。' : 'Saved. Your profile is not public.'))
   }
 
@@ -97,7 +102,7 @@ export default function PublicProfileEditor({ authId, legalName, status, lang }:
   const chip = (on: boolean) => 'rounded-full border px-3 py-1 text-[12.5px] ' + (on ? 'border-[#2563EB] bg-[#EFF4FF] font-semibold text-[#1D4ED8]' : 'border-line-divider bg-white text-body-2')
 
   return (
-    <section data-testid="agent-public-profile" className="mt-6 rounded-2xl border border-line-divider bg-white p-5">
+    <section id="public-profile" data-testid="agent-public-profile" className="mt-6 scroll-mt-24 rounded-2xl border border-line-divider bg-white p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-[17px] font-bold">{zh ? '公开主页' : 'Public profile'}</h2>
         {savedPublic && savedSlug && (
@@ -114,6 +119,20 @@ export default function PublicProfileEditor({ authId, legalName, status, lang }:
           {zh ? 'RECO 核验通过后才能公开主页。资料可以先填好保存。' : 'You can publish once your RECO registration is verified. You can fill this in and save it now.'}
         </div>
       )}
+      {live && loaded && (
+        savedPublic ? (
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-[#C5E3D3] bg-[#F4FAF6] px-4 py-3" data-testid="agent-public-profile-status">
+            <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-[#065F46]">{zh ? '✓ 主页已公开，「找经纪」里能看到你。' : '✓ Your profile is public and listed under "Find an agent".'}</span>
+            <button type="button" onClick={() => save(false)} disabled={busy} className="rounded-xl border border-line-divider bg-white px-4 py-2 text-[13px] font-semibold text-body-2 disabled:opacity-50" data-testid="agent-public-profile-unpublish">{busy ? '…' : (zh ? '取消公开' : 'Unpublish')}</button>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-[#BFD4FF] bg-[#EFF4FF] px-4 py-3" data-testid="agent-public-profile-status">
+            <span className="min-w-0 flex-1 text-[13.5px] leading-relaxed text-body">{zh ? '你的主页现在没有公开，「找经纪」里只列了你的注册名、类别和经纪公司。' : 'Your profile is not public. "Find an agent" lists only your registered name, category and brokerage.'}</span>
+            <button type="button" onClick={() => save(true)} disabled={busy} className="sl-btn-primary !px-5 !py-[10px] disabled:opacity-50" data-testid="agent-public-profile-publish">{busy ? '…' : (zh ? '公开我的主页' : 'Make my profile public')}</button>
+          </div>
+        )
+      )}
+      {err && live && loaded && <div className="mt-2 text-[12.5px] font-semibold text-red-700" data-testid="agent-public-profile-status-error">⚠ {err}</div>}
       {!loaded ? (
         <div className="mt-4 text-[13px] text-body-3">…</div>
       ) : (
@@ -173,7 +192,7 @@ export default function PublicProfileEditor({ authId, legalName, status, lang }:
           {err && <div className="text-[12.5px] font-semibold text-red-700" data-testid="agent-public-profile-error">⚠ {err}</div>}
           {ok && !err && <div className="text-[12.5px] font-semibold text-emerald-700" data-testid="agent-public-profile-saved">{ok}</div>}
           <div>
-            <button onClick={save} disabled={busy} className="sl-btn-primary !py-[10px] disabled:opacity-50" data-testid="agent-public-profile-save">{busy ? '…' : (zh ? '保存主页设置' : 'Save profile settings')}</button>
+            <button onClick={() => save()} disabled={busy} className="sl-btn-primary !py-[10px] disabled:opacity-50" data-testid="agent-public-profile-save">{busy ? '…' : (zh ? '保存主页设置' : 'Save profile settings')}</button>
           </div>
         </div>
       )}
