@@ -140,7 +140,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 租约：`app/api/lease/{send,sign,view}`、`lib/lease/`；在管租约中心 `/h/[id]`、`lib/household/`
 - 消息：`/messages`、`components/messages/MessageCenter.tsx`、`lib/threads/`、`components/threads/ThreadPanel.tsx`
 - 服务市场：`lib/marketplace/`（状态机 `workOrders.ts`、服务端 `server.ts`、日扫 `sweep.ts`）
-- 经纪：`agent_profiles` / `agent_clients` / `delegations` / 收件链接 `/intake/[token]`；`/admin/agents` 人工核验 RECO（注册库禁止自动查询，永远手动）
+- 经纪：`agent_profiles` / `agent_clients` / `delegations` / 收件链接 `/intake/[token]`；`/admin/agents` 人工核验 RECO（注册库禁止自动查询，永远手动）；公开主页的开关在 `/agent/verify`（`components/agent/PublicProfileEditor.tsx` 顶部的「公开我的主页」按钮，核验有效后这一节排在注册表单上面；侧栏「认证与主页」）
 - 消费者档案：`lib/consumer/`、`/my-file`、`/admin/consumer-requests`
 - 申请包：`applicant_profiles` + `/tenant/passport`、`/api/profile/*`
 - LTB 判令目录：`lib/ltb/`（ingest 与查询共用 `normalize.ts`；只有房东发起且对方是租客才算风险；姓名命中未经地址佐证一律视为同名；目录没有判决结果，只能说「已出判令」）。CanLII API 不能按姓名查。
