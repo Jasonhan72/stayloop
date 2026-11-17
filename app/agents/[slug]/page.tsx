@@ -85,7 +85,8 @@ export default function AgentProfilePage() {
       setTimeout(() => setCopied(false), 2500)
     } catch { /* dismissed share sheet or no clipboard permission: nothing to report */ }
   }
-  const verifiedOn = loaded && (agent as PublicAgent).verified_at ? String((agent as PublicAgent).verified_at).slice(0, 10) : ''
+  // Same local-date formatting as the full badge further down, so the two never disagree by a day.
+  const verifiedOn = loaded && (agent as PublicAgent).verified_at ? new Date(String((agent as PublicAgent).verified_at)).toLocaleDateString(zh ? 'zh-CN' : 'en-CA') : ''
 
   if (agent === 'missing') {
     return (
@@ -114,11 +115,13 @@ export default function AgentProfilePage() {
               {/* Header (2026-11-17 redesign): a larger square photo, the brokerage on its own bold line, the
                   registration as one checkable line, and the two actions — message and share. */}
               <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-head">
-                <div className="flex flex-wrap items-start gap-5">
-                  <AgentAvatar name={agent.name} size={128} photoUrl={agent.photo_url} shape="square" />
-                  <div className="min-w-0 flex-1 basis-[240px]">
+                <div className="flex flex-wrap items-start gap-4 sm:gap-5">
+                  {/* 128px from sm up; 88px on phones so the name sits beside the photo instead of under it. */}
+                  <span className="hidden sm:block"><AgentAvatar name={agent.name} size={128} photoUrl={agent.photo_url} shape="square" /></span>
+                  <span className="sm:hidden"><AgentAvatar name={agent.name} size={88} photoUrl={agent.photo_url} shape="square" /></span>
+                  <div className="min-w-0 flex-1 basis-[150px]">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="min-w-0 break-words text-[28px] font-extrabold leading-tight tracking-tight">{agent.name}</h1>
+                      <h1 className="min-w-0 break-words text-[22px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{agent.name}</h1>
                       {isTestName(agent.name) && <TestDataTag zh={zh} />}
                     </div>
                     {/* O. Reg. 567/05 s.12.1: descriptor + brokerage name, clearly and prominently. */}
