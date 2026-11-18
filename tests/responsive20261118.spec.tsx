@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { cleanup, render } from '@testing-library/react'
 import { only } from './helpers/dom'
-import { Table, Td, Tr } from '@/components/workspace'
+import { StatStrip, Table, Td, Tr } from '@/components/workspace'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 afterEach(cleanup)
@@ -129,3 +129,56 @@ describe('touch targets', () => {
     expect(role).toContain('<details key={f.q.en} className="group border-t border-line-divider last:border-b"')
   })
 })
+
+// Same day, after the user's 「加上名字」: on a screen that cannot hover, the workspace rail shows each name under
+// its icon. With a mouse it stays icons only (the 2026-10-04 decision), so the names are in the markup but hidden.
+describe('workspace rail on touch screens', () => {
+  const css = read('app/globals.css')
+  const shell = read('components/WorkspaceShell.tsx')
+  const provider = read('components/provider/ProviderNav.tsx')
+
+  it('the name is hidden by default and shown only under (hover: none)', () => {
+    const at = css.indexOf('.sl-rail-label { display: none; }')
+    const media = css.indexOf('@media (hover: none) {')
+    expect(at).toBeGreaterThan(-1)
+    expect(media).toBeGreaterThan(at)
+    const block = css.slice(media, css.indexOf('/* Phone bottom tab bar'))
+    expect(block).toMatch(/\.sl-rail \.sl-rail-label \{[^}]*display: -webkit-box/)
+    expect(block).toMatch(/\.sl-rail \.sl-rail-item \{[^}]*flex-direction: column/)
+    expect(block).toMatch(/nav\.sl-rail \{[^}]*width: 76px/)
+    // nothing about the rail's names applies to devices that can hover
+    expect(css.slice(0, media)).not.toMatch(/\.sl-rail-label \{[^}]*display: (?!none)/)
+  })
+
+  it('both rails carry the hooks and the name, and skip the hover tooltip where there is no hover', () => {
+    for (const src of [shell, provider]) {
+      expect(src).toMatch(/className="sl-rail hidden md:sticky/)
+      expect(src).toContain('className="sl-rail-item relative flex h-11 w-11 flex-none items-center justify-center rounded-[10px] transition hover:bg-white"')
+      expect(src).toContain('<span className="sl-rail-label" data-testid="rail-label">{label}</span>')
+      expect(src).toMatch(/const showTip = [^\n]+\n[^\n]*(?:\n[^\n]*){0,2}\(hover: none\)'\)\.matches\) return/)
+    }
+  })
+})
+
+describe('stat strip with five tiles', () => {
+  const five = [1, 2, 3, 4, 5].map((n) => ({ label: `s${n}`, value: n === 4 ? '$54,600' : String(n) }))
+  it('is three to a row between sm and xl and five from xl', () => {
+    const { container } = render(<StatStrip stats={five} />)
+    const grid = container.firstElementChild as HTMLElement
+    expect(grid.className).toContain('sm:grid-cols-3')
+    expect(grid.className).toContain('xl:grid-cols-5')
+    expect(grid.className).not.toContain('sm:grid-cols-5')
+    const cells = Array.from(grid.children) as HTMLElement[]
+    expect(cells[3].className).toContain('sm:max-xl:border-l-0') // starts the second row of three
+    expect(cells[3].className).toContain('sm:max-xl:border-t')
+    expect(cells[4].className).toContain('sm:max-xl:border-t')
+    expect(cells[1].className).not.toContain('sm:max-xl:')
+  })
+  it('four tiles keep four to a row', () => {
+    const { container } = render(<StatStrip stats={five.slice(0, 4)} />)
+    const grid = container.firstElementChild as HTMLElement
+    expect(grid.className).toContain('sm:grid-cols-4')
+    expect(Array.from(grid.children).some((c) => c.className.includes('sm:max-xl:'))).toBe(false)
+  })
+})
+

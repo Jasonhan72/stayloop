@@ -86,6 +86,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - `useAuth` 对同一登录保留 `user` 引用，effect 依赖 `auth.user` 是安全的；不要改成 `auth.user?.id` 绕法。
 - 宽表：外层 `overflow-x-auto`、`min-w-[N]` 放在表上，外层若是 flex/grid 子项必须 `min-w-0`。手机文本控件 ≥16px（globals.css 已有规则）。SVG 不写死 width。
 - **工作台右侧面板（`WorkspaceShell` 的 aside）从 `lg` 起才与正文并排**，`lg` 以下（手机和竖屏平板）排在正文下面；共用 `Table`（`components/workspace`）在 `lg` 以下的最小宽度按列数算（每列 104px），`mono` 单元格不换行。
+- **工作台侧栏**：有鼠标的设备只有图标、悬停显示名字（2026-10-04 用户定的）；不能悬停的设备（平板）图标下面带名字（2026-11-18 用户定的）。名字一直在标记里，由 `globals.css` 的 `.sl-rail-label` + `@media (hover: none)` 控制显示，两个侧栏（`WorkspaceShell` 的 `Rail`、`ProviderRail`）共用；新增侧栏项不用另外处理。五格及以上的 `StatStrip` 在 `sm`–`xl` 三格一行。
 - `.sl-input` 的 `<textarea>` 高度跟 `rows` 走，要固定高度就写 `h-*`；没写列的 `grid` 里放「前缀 + input」的行要加 `grid-cols-1`（WebKit 的 input 固有宽度大，会把自动列撑出屏幕）；`flex-1` 的文字旁边有不收缩的按钮时给文字一个 `basis-[N]`，否则手机上被挤成一字一行。
 - 页面主容器统一 `max-w-[1320px] px-6 sm:px-8 lg:px-12`（与页头对齐）。
 - 中文标题只在标点 / 空格处断行（`.sl-type-head`，keep-all）；超过约 10 个字没有标点的一段要放零宽空格断点。**WebKit 下相邻的 nowrap span 不会换行**，测首页断行要同时跑 WebKit。

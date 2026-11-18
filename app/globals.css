@@ -281,6 +281,26 @@ html, body {
   }
 }
 
+/* Workspace rail on screens that cannot hover (2026-11-18, user: 「加上名字」).
+   The rail is icons only and each name shows on hover — a tablet has no hover, so its dozen-odd icons had no names
+   at all. There, every icon carries its name underneath. With a mouse nothing changes (「保持只有图标」, 2026-10-04).
+   Two classes deep so these win over the Tailwind utilities on the same elements (h-11 w-11, md:w-16, md:px-2). */
+.sl-rail-label { display: none; }
+@media (hover: none) {
+  nav.sl-rail { width: 76px; padding-left: 4px; padding-right: 4px; }
+  .sl-rail .sl-rail-item { width: 68px; height: auto; min-height: 48px; flex-direction: column; gap: 2px; padding: 7px 2px 6px; }
+  .sl-rail .sl-rail-label {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+    max-width: 100%; text-align: center; font-size: 10.5px; line-height: 1.15; font-weight: 500; overflow-wrap: anywhere;
+  }
+  .sl-rail .sl-rail-badge { right: 14px; top: 3px; }
+}
+/* Held sideways there is ~700px of height for up to sixteen items: tighter rows, so no more of the rail is below
+   the fold than before the names were added (it scrolls, as it always has on short screens). */
+@media (hover: none) and (max-height: 860px) {
+  .sl-rail .sl-rail-item { min-height: 44px; gap: 1px; padding: 5px 2px 4px; }
+}
+
 /* Phone bottom tab bar (components/MobileBottomNav.tsx) reserves its height. */
 @media (max-width: 767px) {
   body.has-bottom-nav { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }

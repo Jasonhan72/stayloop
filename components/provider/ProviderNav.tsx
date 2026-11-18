@@ -51,7 +51,7 @@ export function useProviderInvites(enabled: boolean): number {
 // 找人 is one section with three addresses (/agents, /providers, /providers/professional) — not /provider/….
 const isOn = (path: string, href: string) => (href === FIND_ITEM.href ? /^\/(agents|providers)(\/|$)/.test(path) : path === href || path.startsWith(href + '/'))
 const Dot = ({ n }: { n: number }) => (
-  <span aria-hidden className="absolute right-1 top-1 min-w-[16px] rounded-full px-1 text-center text-[10px] font-extrabold leading-4 text-white" style={{ background: '#EF4444' }}>{n > 99 ? '99+' : n}</span>
+  <span aria-hidden className="sl-rail-badge absolute right-1 top-1 min-w-[16px] rounded-full px-1 text-center text-[10px] font-extrabold leading-4 text-white" style={{ background: '#EF4444' }}>{n > 99 ? '99+' : n}</span>
 )
 
 /** Phone: a fixed five-tab bar (md and below). */
@@ -98,6 +98,7 @@ export function ProviderRail({ phone = false }: { phone?: boolean }) {
   // The name (and what the page is for) beside the icon on hover / focus, drawn fixed so the rail can scroll.
   const [tip, setTip] = useState<{ label: string; desc?: string; x: number; y: number } | null>(null)
   const showTip = (el: HTMLElement, label: string, desc?: string) => {
+    if (typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches) return // the name is under the icon there
     const r = el.getBoundingClientRect()
     const railRight = el.closest('nav')?.getBoundingClientRect().right ?? r.right
     setTip({ label, desc, x: railRight + 6, y: r.top + r.height / 2 })
@@ -118,10 +119,11 @@ export function ProviderRail({ phone = false }: { phone?: boolean }) {
         onMouseLeave={() => setTip(null)}
         onFocus={(e) => showTip(e.currentTarget, label, desc)}
         onBlur={() => setTip(null)}
-        className="relative flex h-11 w-11 flex-none items-center justify-center rounded-[10px] transition hover:bg-white"
+        className="sl-rail-item relative flex h-11 w-11 flex-none items-center justify-center rounded-[10px] transition hover:bg-white"
         style={on ? { background: '#FFFFFF', color: '#1B1B3C', boxShadow: '0 1px 2px rgba(27,27,60,0.10)' } : { color: '#6E6E8A' }}
       >
         {it.icon}
+        <span className="sl-rail-label" data-testid="rail-label">{label}</span>
         {badge > 0 && <Dot n={badge} />}
       </Link>
     )
@@ -132,7 +134,7 @@ export function ProviderRail({ phone = false }: { phone?: boolean }) {
     <>
       {phone && <ProviderTabs />}
       <nav
-        className="hidden md:sticky md:top-[66px] md:flex md:h-[calc(100vh-66px)] md:w-16 md:flex-none md:flex-col md:items-center md:gap-0.5 md:self-start md:overflow-y-auto md:border-r md:border-line-divider md:px-2 md:py-3"
+        className="sl-rail hidden md:sticky md:top-[66px] md:flex md:h-[calc(100vh-66px)] md:w-16 md:flex-none md:flex-col md:items-center md:gap-0.5 md:self-start md:overflow-y-auto md:border-r md:border-line-divider md:px-2 md:py-3"
         style={{ background: '#F3F8FC', scrollbarWidth: 'none' }}
         aria-label={en ? 'Provider' : '服务商'}
         data-testid="provider-rail"

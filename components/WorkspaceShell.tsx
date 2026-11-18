@@ -452,7 +452,8 @@ function Rail({ role }: { role: WorkspaceRole }) {
   const unreadMessages = useUnreadMessages(!auth.loading && !!auth.user)
   // md+ (Muse web reference, user 2026-09-25): a 64px icon column, light, no
   // text labels — the name appears on hover / focus (kept on 2026-10-04: 「保持
-  // 只有图标」). Grouped (2026-10-04): ＋ 新对话 · the AI Agent's four pages ·
+  // 只有图标」). Where the device cannot hover (a tablet) the name sits under the icon
+  // instead (user 2026-11-18: 「加上名字」) — CSS only, globals.css `.sl-rail-label`. Grouped (2026-10-04): ＋ 新对话 · the AI Agent's four pages ·
   // 消息 · the hat's pages · at the bottom 审计 and 账号设置. One definition of
   // the four pages (assistantItems) for the rail, the phone bar and page titles.
   const assistant = assistantItems(role)
@@ -465,6 +466,9 @@ function Rail({ role }: { role: WorkspaceRole }) {
   // 2026-10-04: the landlord rail is ~700px tall and used to push the whole page into a scroll).
   const [tip, setTip] = useState<{ label: string; desc?: string; x: number; y: number } | null>(null)
   const showTip = (el: HTMLElement, label: string, desc?: string) => {
+    // Touch screens show the name under the icon instead (globals.css `.sl-rail-label`); a tooltip there would only
+    // appear after a tap, on the page being left.
+    if (typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches) return
     const r = el.getBoundingClientRect()
     const railRight = el.closest('nav')?.getBoundingClientRect().right ?? r.right
     setTip({ label, desc, x: railRight + 6, y: r.top + r.height / 2 })
@@ -489,12 +493,14 @@ function Rail({ role }: { role: WorkspaceRole }) {
         aria-label={named}
         aria-current={on ? 'page' : undefined}
         {...tipHandlers(label, desc)}
-        className="relative flex h-11 w-11 flex-none items-center justify-center rounded-[10px] transition hover:bg-white"
+        className="sl-rail-item relative flex h-11 w-11 flex-none items-center justify-center rounded-[10px] transition hover:bg-white"
         style={on ? { background: '#FFFFFF', color: '#1B1B3C', boxShadow: '0 1px 2px rgba(27,27,60,0.10)' } : { color: '#6E6E8A' }}
       >
         {it.icon}
+        {/* Shown only where there is no hover (tablets): globals.css `.sl-rail-label`. With a mouse the rail stays icons only. */}
+        <span className="sl-rail-label" data-testid="rail-label">{label}</span>
         {badge > 0 && (
-          <span aria-hidden className="absolute right-1 top-1 min-w-[16px] rounded-full px-1 text-center text-[10px] font-extrabold leading-4 text-white" style={{ background: '#EF4444' }}>{badge > 99 ? '99+' : badge}</span>
+          <span aria-hidden className="sl-rail-badge absolute right-1 top-1 min-w-[16px] rounded-full px-1 text-center text-[10px] font-extrabold leading-4 text-white" style={{ background: '#EF4444' }}>{badge > 99 ? '99+' : badge}</span>
         )}
       </Link>
     )
@@ -503,7 +509,7 @@ function Rail({ role }: { role: WorkspaceRole }) {
     <>
     <PhoneTabs role={role} items={items} />
     <nav
-      className="hidden md:sticky md:top-[66px] md:flex md:h-[calc(100vh-66px)] md:w-16 md:flex-none md:flex-col md:items-center md:gap-0.5 md:self-start md:overflow-y-auto md:border-r md:border-line-divider md:px-2 md:py-3"
+      className="sl-rail hidden md:sticky md:top-[66px] md:flex md:h-[calc(100vh-66px)] md:w-16 md:flex-none md:flex-col md:items-center md:gap-0.5 md:self-start md:overflow-y-auto md:border-r md:border-line-divider md:px-2 md:py-3"
       style={{ background: '#F3F8FC', scrollbarWidth: 'none' }}
       aria-label={en ? 'Workspace' : '工作台'}
     >

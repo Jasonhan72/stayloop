@@ -59,9 +59,12 @@ const TONE: Record<NonNullable<Stat['tone']>, string> = {
 }
 
 export function StatStrip({ stats }: { stats: Stat[] }) {
+  // Five in a row only from xl (2026-11-18). Between sm and xl the page column can be as narrow as ~540px (1024 wide
+  // with the aside beside it — an iPad held sideways), and at 5-up 「$54,600」 ran into the tile next to it. 3-up there.
+  const wide = stats.length >= 5
   const cols =
-    stats.length >= 5
-      ? 'sm:grid-cols-5'
+    wide
+      ? 'sm:grid-cols-3 xl:grid-cols-5'
       : stats.length === 4
         ? 'sm:grid-cols-4'
         : stats.length === 3
@@ -77,7 +80,10 @@ export function StatStrip({ stats }: { stats: Stat[] }) {
             (i > 0 ? 'border-l border-line-divider ' : '') +
             // 2-up on mobile: every even cell starts a new row, so it owns no left rule
             (i > 0 && i % 2 === 0 ? 'max-sm:border-l-0 ' : '') +
-            (i >= 2 ? 'max-sm:border-t max-sm:border-line-divider' : '')
+            (i >= 2 ? 'max-sm:border-t max-sm:border-line-divider ' : '') +
+            // 3-up between sm and xl (five or more stats): same rules for a row of three
+            (wide && i > 0 && i % 3 === 0 ? 'sm:max-xl:border-l-0 ' : '') +
+            (wide && i >= 3 ? 'sm:max-xl:border-t sm:max-xl:border-line-divider' : '')
           }
         >
           <div className="text-[11px] text-body-3">{s.label}</div>

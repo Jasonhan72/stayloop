@@ -39,6 +39,9 @@ describe('icon rail: grouped, one definition, no repeats', () => {
     expect(shell).toContain('{records.map((it) => link(it))}')
     expect(shell).toContain('{...tipHandlers(label, desc)}') // the name (and what the page is for) on hover / focus only
     expect(shell).not.toMatch(/text-\[10\.5px\][^\n]*\{en \? it\.label\.en : it\.label\.zh\}<\/span>\s*<\/Link>/) // no always-on label under the icon
+    // 2026-11-18: the name IS in the markup now, hidden by default (.sl-rail-label) and shown only where the device
+    // cannot hover — a tablet. With a mouse the rail is still icons only.
+    expect(read('app/globals.css')).toContain('.sl-rail-label { display: none; }')
     expect((rail.match(/href: '\/messages'/g) || []).length).toBe(3)
   })
   it('landlords get 房源; agents get 审计 (and it stays open before RECO verification); no icon repeats within a hat', async () => {
