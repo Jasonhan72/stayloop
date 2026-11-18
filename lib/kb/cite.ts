@@ -1,7 +1,8 @@
 // Knowledge base · the prompt block, the citation check and the reference list (pure, no I/O).
 //   kbPromptBlock(): the 【参考资料】 block with [K1]… numbered passages, under a character budget.
-//   checkCitations(): every section / guideline number the reply cites must appear in the passages it
-//     was given; a number it invented is rewritten to「具体条文以官方页面为准」and flagged (design §8 ⑦).
+//   checkCitations(): every section / guideline number the reply cites must appear in what the model
+//     was given — the retrieved passages, the fact packs in its instructions, and what the user wrote
+//     or uploaded; a number it invented is rewritten to「具体条文以官方页面为准」and flagged (design §8 ⑦).
 //   referenceList(): the [K]s the reply actually used → the sources shown under the reply.
 import type { KbHit } from './search'
 
@@ -58,18 +59,42 @@ const GUIDELINE_CITE = /(?:Interpretation Guideline|解释指南|指南)\s*(\d{1
 
 export type CitationCheck = { reply: string; invented: string[] }
 
-/** Rewrite invented section / guideline numbers; keep the rest untouched. Pure. */
-export function checkCitations(reply: string, hits: KbHit[], lang: 'zh' | 'en'): CitationCheck {
+/** The numbers a reply may cite this turn. */
+export type CitationAllowance = { sections: Set<string>; guidelines: Set<string> }
+
+// Section numbers in free text: 「s.105–106」「RTA s. 27」「section 12」「第 3 条」. A range gives both ends.
+// 「第 6 页」「第 2 版」 are not sections: the 第-form needs its 条.
+const SECTION_IN_TEXT = /(?:\bss?\.|\bsections?|\bsubsections?|§)\s*(\d+(?:\.\d+)?)(?:\s*[–—\-~至到]\s*(\d+(?:\.\d+)?))?|第\s*(\d+(?:\.\d+)?)\s*条/gi
+const GUIDELINE_IN_TEXT = /(?:Interpretation )?Guideline\s*(\d{1,2})\b|(?:解释)?指南\s*(\d{1,2})/gi
+
+/** What the model may cite: the passages' own numbers, plus every number in `context` — the instructions it
+ *  was given (the fact packs there are a whitelist of their own: 「只可引用下面这些」) and the user's words
+ *  and documents. 2026-11-18: with the passages alone, a deposit answer citing RTA s.105 and s.134 — both
+ *  in the tenant fact pack, neither among that turn's six passages — came out as 「（相关条文（具体条号以
+ *  官方页面为准）、s.106(10)）」. A number that appears nowhere in what the model saw is still invented. */
+export function citationAllowance(hits: KbHit[], context = ''): CitationAllowance {
+  const sections = allowedSections(hits)
+  const guidelines = allowedGuidelines(hits)
+  for (const m of context.matchAll(SECTION_IN_TEXT)) for (const n of [m[1], m[2], m[3]]) if (n) sections.add(n)
+  for (const m of context.matchAll(GUIDELINE_IN_TEXT)) guidelines.add(m[1] || m[2])
+  return { sections, guidelines }
+}
+
+/** Rewrite invented section / guideline numbers; keep the rest untouched. Pure. `allow` defaults to the
+ *  passages alone; the turn route passes citationAllowance(hits, instructions + user text). */
+export function checkCitations(reply: string, hits: KbHit[], lang: 'zh' | 'en', allow: CitationAllowance = citationAllowance(hits)): CitationCheck {
   if (!hits.length) return { reply, invented: [] }
-  const secs = allowedSections(hits)
-  const guides = allowedGuidelines(hits)
+  const secs = allow.sections
+  const guides = allow.guidelines
   const invented: string[] = []
-  const fallback = lang === 'zh' ? '相关条文（具体条号以官方页面为准）' : 'the relevant provision (the exact section is on the official page)'
-  let out = reply.replace(SECTION_CITE, (m, _act, n1, n2, n3) => {
+  const long = lang === 'zh' ? '相关条文（具体条号以官方页面为准）' : 'the relevant provision (the exact section is on the official page)'
+  const short = lang === 'zh' ? '相关条文' : 'the relevant provision'
+  let out = reply.replace(SECTION_CITE, (m, _act, n1, n2, n3, offset: number, whole: string) => {
     const n = n1 || n2 || n3
     if (!n || secs.has(n)) return m
     invented.push(`s.${n}`)
-    return fallback
+    // Already inside brackets or a list of citations: no brackets within brackets.
+    return /[（(、，,]\s*$/.test(whole.slice(0, offset)) ? short : long
   })
   out = out.replace(GUIDELINE_CITE, (m, n) => {
     if (guides.has(n)) return m

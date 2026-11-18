@@ -199,7 +199,7 @@ describe('turn route wiring', () => {
     expect(r).toContain('kbEnabledFor(kbCfg, { userId: anonymous ? null : turnUserId, anonymous })')
     expect(r).toContain('if (kbHits.length) system += kbPromptBlock(kbHits, uiLang, kbCfg.maxChars)')
     expect(r.indexOf('system += kbPromptBlock')).toBeLessThan(r.indexOf('const callTurn = (m: CatalogModel): Promise<{ text: string }> => callTurnModel({'))
-    expect(r.indexOf('const cc = checkCitations(out.reply, kbHits, uiLang)')).toBeGreaterThan(r.indexOf('const { out, flags } = applyGuardrail(role, normalized, uiLang, turnProvince)'))
+    expect(r.indexOf('const cc = checkCitations(out.reply, kbHits, uiLang, citeAllow)')).toBeGreaterThan(r.indexOf('const { out, flags } = applyGuardrail(role, normalized, uiLang, turnProvince)'))
     expect(r).toContain("flags.push('kb_uncited')")
     expect(r).toContain("receipt.read.push({ kind: 'knowledge', ...kbReceiptLine(kbHits, kbRefs, uiLang) })")
     expect(r).toContain('knowledge: kbRefs.length ? kbRefs : undefined,')

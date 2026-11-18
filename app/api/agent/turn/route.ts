@@ -35,7 +35,7 @@ import { DEFAULT_MODELS, getModelForUser, getCatalog, findModel, type CatalogMod
 import { loadKbConfig, kbEnabledFor } from '@/lib/kb/config'
 import { kbSearch, type KbHit } from '@/lib/kb/search'
 import { shouldRetrieve } from '@/lib/kb/trigger'
-import { kbPromptBlock, checkCitations, referenceList, kbReceiptLine, type KbReference } from '@/lib/kb/cite'
+import { kbPromptBlock, checkCitations, citationAllowance, referenceList, kbReceiptLine, type CitationAllowance, type KbReference } from '@/lib/kb/cite'
 import { loadPendingNotices, noticePromptBlock } from '@/lib/kb/notices'
 import { llmChat, llmChatStream, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
 import { createReplyStreamer, type TurnStreamEvent } from '@/lib/agent/replyStream'
@@ -698,6 +698,10 @@ export async function POST(req: Request) {
   const userText = histText + (message.trim() || '（用户上传了文件,请查看并回应）').slice(0, 4000) + note + docContext + urlContext
   // Only what the user supplied (their own turns, files, fetched pages) — the draft-listing check (I-D1).
   const userSaid = [...hist.filter((h) => h.role === 'user').map((h) => String(h.text || '')), message, docContext, urlContext].join('\n')
+  // The section numbers this turn's reply may cite: the retrieved passages, the fact packs in the
+  // instructions, and the user's own words and documents (lib/kb/cite.ts). Built once: the streamed draft
+  // checks it on every chunk.
+  const citeAllow: CitationAllowance | undefined = kbHits.length ? citationAllowance(kbHits, `${system}\n${userSaid}`) : undefined
   const userContent: ChatMessage['content'] = imgs.length
     ? [
         { type: 'text', text: userText },
@@ -757,7 +761,7 @@ export async function POST(req: Request) {
           emit: (e) => { if (firstDraftMs === null && (e.t === 'd' || e.t === 'r')) firstDraftMs = Date.now() - turnStartedAt; streamEmit?.(e) },
           view: (partial, done) => {
             let t = partial
-            if (kbHits.length) t = referenceList(checkCitations(t, kbHits, uiLang).reply, kbHits).reply
+            if (kbHits.length) t = referenceList(checkCitations(t, kbHits, uiLang, citeAllow).reply, kbHits).reply
             t = plainLiveWording(t)
             return flattenMarkdown(done ? dropDoneSignOff(t) : t)
           },
@@ -906,7 +910,7 @@ export async function POST(req: Request) {
   // an invented one is rewritten to「以官方页面为准」and flagged. [K3] markers become [3] + a source list.
   let kbRefs: KbReference[] = []
   if (kbHits.length) {
-    const cc = checkCitations(out.reply, kbHits, uiLang)
+    const cc = checkCitations(out.reply, kbHits, uiLang, citeAllow)
     if (cc.invented.length) { flags.push('kb_uncited'); console.warn('[kb] invented citations rewritten', cc.invented.slice(0, 5)) }
     const rl = referenceList(cc.reply, kbHits)
     out.reply = rl.reply
