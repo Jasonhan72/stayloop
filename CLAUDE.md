@@ -99,7 +99,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - Stripe 一次性付款的入账用单事务 RPC（`fulfil_unlock_payment`：台账 + 发放 + 盖章同成同败），不要拆成几次请求。
 - 页面里不能从 `page.tsx` 导出多余符号（Next 构建拒绝）；Route Handler 不能从带 `'use client'` 的模块取常量（会变成 client-reference 存根）。
 - 演示产品的动画 / 示例用产品真实组件按脚本驱动，不手画仿制界面。
-- 示范数据必须标「示例数据」小标签（`SampleBanner` / `SampleTag`）；工作台样例页走 `WorkspaceShell` 的 `DEMO_GATE` / `SAMPLE_NOTE`。不编造数字、评分、客户数、百分比收益。
+- 示范数据必须标「示例数据」小标签（`SampleBanner` / `SampleTag`）；工作台样例页一律走 `WorkspaceShell` 的 `DEMO_GATE`：真实内容放 `liveSlot`（列表用 `useReportLiveRows` 报条数），示范是页面正文、点「查看产品演示」才显示。**不做真实记录与示范内容同屏的页面**（`SAMPLE_NOTE` 2026-11-17 起为空）。不编造数字、评分、客户数、百分比收益。
 - `/x/agent` 的对话上方不放任何面板；新面板放右侧 AI 助理面板或别的页面。改助理页只改 `components/agent/AgentWorkspacePage.tsx`。
 - 提示词里新提到的站内路径要加进 `lib/agent/replyPaths.ts` 的 `PATH_RE`，聊天里才会变成链接（长路径排在它的前缀前面；不用正则后顾）。
 
