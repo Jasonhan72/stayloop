@@ -118,6 +118,8 @@ export type UseAgentSession = {
   /** The reply as it is being written (stream mode); null when nothing is in progress. Not a message:
    *  it is never saved, never part of the history sent with the next turn. */
   streamingText: string | null
+  /** Its 「折进来的」 sources, when the turn folded anything in. */
+  streamingSources: ChatMessage['sources']
   /** Resolves with what the decision became (an approval resolves once it ran, failed or was undone). */
   decide: (actionId: string, decision: 'approved' | 'rejected', option?: 'A' | 'B', note?: string) => Promise<DecideOutcome>
   /** Approved actions execute after a short delay; until then they can be undone (lifecycle plan §2.5). */
@@ -199,6 +201,8 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
   // The reply being written (2026-11-17): the turn route streams the text as the model produces it; the
   // finished message replaces it. null = nothing is being written on screen.
   const [streamingText, setStreamingText] = useState<string | null>(null)
+  // The 「折进来的」 line of the reply being written (arrives ahead of the text).
+  const [streamingSources, setStreamingSources] = useState<ChatMessage['sources']>(undefined)
   const [scheduled, setScheduled] = useState<Record<string, { title: string; executeAt: number; threadId?: string | null }>>({})
   const [notice, setNotice] = useState<{ id: string; text: string } | null>(null)
   const undoCtrls = useRef<Map<string, AbortController>>(new Map())
@@ -960,7 +964,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
             history,
             live: true,
             // Only into the conversation the question was asked in: a draft must not appear in another thread.
-            onDraft: (t) => { if (threadIdRef.current === tid) setStreamingText(t || null) },
+            onDraft: (t, src) => { if (threadIdRef.current === tid) { setStreamingText(t || null); setStreamingSources(src) } },
           })
           result = turn.result
           memoryWrites = turn.memoryWrites
@@ -1069,7 +1073,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
             history,
             live: false,
             anonymous: true,
-            onDraft: (t) => setStreamingText(t || null),
+            onDraft: (t, src) => { setStreamingText(t || null); setStreamingSources(src) },
           })
           result = turn.result
           listings = turn.listings
@@ -1158,6 +1162,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       const reply: ChatMessage = { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, links, market, followups, draftListing, receipt, knowledge: knowledge && knowledge.length ? knowledge : undefined, sources: sources && sources.length ? sources : undefined, memoryNotes: memoryNotes.length ? memoryNotes : undefined }
       // The finished message takes the draft's place in the same render.
       setStreamingText(null)
+      setStreamingSources(undefined)
       if (sentThread && threadIdRef.current !== sentThread) {
         void appendToThread(getSupabaseBrowser(), sentThread, [reply]).then(() => notifyActivityChanged())
         return
@@ -1236,5 +1241,5 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
 
   const dismissNotice = useCallback(() => setNotice(null), [])
 
-  return { loading, live, data, status, error, messages, streamingText, decide, sendMessage, markListingsShown, scheduled, undo, executeNow, abandon, notice, dismissNotice, threadId, threadLoading, newThread, openThread }
+  return { loading, live, data, status, error, messages, streamingText, streamingSources, decide, sendMessage, markListingsShown, scheduled, undo, executeNow, abandon, notice, dismissNotice, threadId, threadLoading, newThread, openThread }
 }

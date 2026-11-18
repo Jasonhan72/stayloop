@@ -83,6 +83,7 @@ export default function AgentChat({
   status,
   messages,
   streamingText = null,
+  streamingSources,
   onSend,
   onListingsShown,
   fill = false,
@@ -113,6 +114,8 @@ export default function AgentChat({
   /** The reply while it is being written (2026-11-17): shown in the agent's bubble in place of the
    *  thinking line, and replaced by the finished message. */
   streamingText?: string | null
+  /** The folded-in sources of the reply being written: the same header line the finished message carries. */
+  streamingSources?: ChatMessage['sources']
   onSend: (message: string, attachments?: ChatAttachment[]) => void | Promise<void>
   /** Called with the addresses a 「换一批」 click reveals, so later searches exclude them. */
   onListingsShown?: (addresses: string[]) => void
@@ -606,6 +609,12 @@ export default function AgentChat({
                 // finished message is what a screen reader should read, once.
                 <div className="max-w-[92%] min-w-0" aria-hidden="true" data-testid="agent-streaming">
                   <div className="whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-surface-chip px-4 py-2.5 text-[14px] leading-relaxed text-body">
+                    {streamingSources && streamingSources.length > 0 && (
+                      <div className="mb-1.5 text-[11.5px] leading-snug text-body-3">
+                        {zh ? '折进来的：' : 'Folded in: '}
+                        {streamingSources.map((src, k) => <span key={`${src.href}-${k}`}>{k > 0 && ' · '}<span className="text-brand">{zh ? src.zh : src.en}</span></span>)}
+                      </div>
+                    )}
                     {linkifyPaths(streamingText)}<span className="sl-stream-caret" />
                   </div>
                   <style jsx>{`

@@ -9,8 +9,10 @@
 // markers, 「实时」 wording, markdown) are applied to the draft too by the `view` the route passes in.
 
 /** One line on the wire in stream mode. d = append, r = replace the draft, x = drop the draft
- *  (a second model call is starting: fallback model, retry, or the pass after a data lookup). */
-export type TurnStreamEvent = { t: 'd'; v: string } | { t: 'r'; v: string } | { t: 'x' }
+ *  (a second model call is starting: fallback model, retry, or the pass after a data lookup).
+ *  s = the 「折进来的」 sources of this turn, known before the model starts: the draft bubble shows the
+ *  same header line the finished message will, so nothing is pushed down when it lands. */
+export type TurnStreamEvent = { t: 'd'; v: string } | { t: 'r'; v: string } | { t: 'x' } | { t: 's'; v: unknown[] }
 
 const REPLY_KEY = /"reply"\s*:\s*"/
 

@@ -754,7 +754,7 @@ export async function POST(req: Request) {
     // and the cards arrive with the finished turn.
     replyStreamer = wantStream
       ? createReplyStreamer({
-          emit: (e) => { if (firstDraftMs === null && e.t !== 'x') firstDraftMs = Date.now() - turnStartedAt; streamEmit?.(e) },
+          emit: (e) => { if (firstDraftMs === null && (e.t === 'd' || e.t === 'r')) firstDraftMs = Date.now() - turnStartedAt; streamEmit?.(e) },
           view: (partial, done) => {
             let t = partial
             if (kbHits.length) t = referenceList(checkCitations(t, kbHits, uiLang).reply, kbHits).reply
@@ -763,6 +763,8 @@ export async function POST(req: Request) {
           },
         })
       : null
+    // What was folded into this turn is already known: send it ahead so the draft carries the same header line.
+    if (wantStream && !anonymous && folded.items.length) streamEmit?.({ t: 's', v: folded.items })
     const callTurn = (m: CatalogModel): Promise<{ text: string }> => callTurnModel({
       model: m,
       system,

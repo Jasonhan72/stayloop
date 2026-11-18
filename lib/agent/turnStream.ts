@@ -9,6 +9,8 @@ export class TurnStreamParser {
   draft = ''
   /** The finished turn, once it has arrived. */
   final: Record<string, unknown> | null = null
+  /** The turn's folded-in sources, sent ahead of the reply text (null = none sent). */
+  sources: unknown[] | null = null
 
   /** Feed decoded body text. Returns true when the draft changed. */
   feed(chunk: string): boolean {
@@ -42,6 +44,7 @@ export class TurnStreamParser {
     if (ev.t === 'd' && typeof ev.v === 'string') this.draft += ev.v
     else if (ev.t === 'r' && typeof ev.v === 'string') this.draft = ev.v
     else if (ev.t === 'x') this.draft = ''
+    else if (ev.t === 's' && Array.isArray(ev.v)) this.sources = ev.v
     else if (ev.t === 'final' && ev.payload && typeof ev.payload === 'object') this.final = ev.payload as Record<string, unknown>
     else if (ev.t === undefined) this.final = ev
     return this.draft !== before

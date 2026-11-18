@@ -201,7 +201,7 @@ export async function runAgentTurn(args: {
   threadId?: string | null
   /** Asks the route to stream (2026-11-17): called with the reply text drafted so far, '' when a draft is
    *  withdrawn (a second model call started). The finished turn still comes back as the return value. */
-  onDraft?: (text: string) => void
+  onDraft?: (text: string, sources?: ChatMessage['sources']) => void
 }): Promise<AgentTurn> {
   const { client, userId, role, agentName, message, memories, workflow, stageLabel, attachments, exclude, history, live } = args
   const lang = args.lang === 'en' ? 'en' : 'zh'
@@ -262,7 +262,7 @@ export async function runAgentTurn(args: {
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
-        if (parser.feed(decoder.decode(value, { stream: true }))) args.onDraft!(parser.draft)
+        if (parser.feed(decoder.decode(value, { stream: true }))) args.onDraft!(parser.draft, (parser.sources ?? undefined) as ChatMessage['sources'])
       }
       parser.feed(decoder.decode())
       parser.end()

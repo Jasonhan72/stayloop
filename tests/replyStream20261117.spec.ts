@@ -14,7 +14,7 @@ import { isGeminiEndpoint } from '@/lib/llmChat'
 const read = (p: string) => readFileSync(p, 'utf8')
 
 /** Replays wire events the way the client does. */
-const apply = (events: TurnStreamEvent[]) => events.reduce((d, e) => (e.t === 'd' ? d + e.v : e.t === 'r' ? e.v : ''), '')
+const apply = (events: TurnStreamEvent[]) => events.reduce((d, e) => (e.t === 'd' ? d + e.v : e.t === 'r' ? e.v : e.t === 'x' ? '' : d), '')
 /** Feeds `raw` one character at a time (the harshest chunking) and returns the events. */
 function streamByChar(raw: string, view?: (p: string, done: boolean) => string, holdBack?: number) {
   const events: TurnStreamEvent[] = []
@@ -93,7 +93,7 @@ describe('createReplyStreamer: what goes on the wire', () => {
     const events: TurnStreamEvent[] = []
     const s = createReplyStreamer({ emit: (e) => events.push(e), holdBack: 3 })
     s.push(`{"reply": "${text}`)        // visible would be 'ab' + high surrogate
-    for (const e of events) if (e.t !== 'x') expect(/[\ud800-\udbff]$/.test(e.v)).toBe(false)
+    for (const e of events) if (e.t === 'd' || e.t === 'r') expect(/[\ud800-\udbff]$/.test(e.v)).toBe(false)
     s.push(`{"reply": "${text}"`)
     expect(apply(events)).toBe(text)
   })
@@ -123,7 +123,7 @@ describe('the draft goes through the same rewrites as the final reply', () => {
     // …and not at any point on the way there
     let draft = ''
     for (const e of events) {
-      draft = e.t === 'd' ? draft + e.v : e.t === 'r' ? e.v : ''
+      draft = e.t === 'd' ? draft + e.v : e.t === 'r' ? e.v : e.t === 'x' ? '' : draft
       expect(draft, JSON.stringify(e)).not.toMatch(/\[K\s*\d|s\. 999/)
     }
   })
@@ -171,6 +171,13 @@ describe('TurnStreamParser: the browser side', () => {
     expect(p.draft).toBe('')
     const err = new TurnStreamParser(); err.feed(' {"error":"agent reasoning unavailable"}'); err.end()
     expect(err.final).toEqual({ error: 'agent reasoning unavailable' })
+  })
+  it('the folded-in sources arrive ahead of the text and do not count as a draft change', () => {
+    const p = new TurnStreamParser()
+    expect(p.feed('{"t":"s","v":[{"href":"/messages","zh":"消息中心","en":"Messages"}]}\n')).toBe(false)
+    expect(p.sources).toEqual([{ href: '/messages', zh: '消息中心', en: 'Messages' }])
+    expect(p.feed('{"t":"d","v":"好"}\n')).toBe(true)
+    expect(p.sources).toHaveLength(1)
   })
   it('a broken line in the middle is skipped; a body that ends broken throws', () => {
     const p = new TurnStreamParser()
@@ -221,7 +228,8 @@ describe('wiring', () => {
     expect(orch).toContain('...(args.onDraft ? { stream: true } : {})')
     expect(orch).toContain('const turn = (streamedTurn ?? JSON.parse(rawBody)) as {')
     const hook = read('lib/agent/useAgentSession.ts')
-    expect(hook).toContain('onDraft: (t) => { if (threadIdRef.current === tid) setStreamingText(t || null) }')
+    expect(hook).toContain('onDraft: (t, src) => { if (threadIdRef.current === tid) { setStreamingText(t || null); setStreamingSources(src) } }')
+    expect(route).toContain("if (wantStream && !anonymous && folded.items.length) streamEmit?.({ t: 's', v: folded.items })")
     expect((hook.match(/setStreamingText\(null\)/g) || []).length).toBeGreaterThanOrEqual(3)
     expect(hook).not.toMatch(/setMessages\([^)]*streamingText/)
     const chat = read('components/agent/AgentChat.tsx')

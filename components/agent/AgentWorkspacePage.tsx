@@ -67,7 +67,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
 
 function AgentWorkspaceInner({ role }: { role: AgentRole }) {
   const { lang } = useT()
-  const { loading, live, data, status, messages, streamingText, decide, sendMessage, markListingsShown, scheduled, undo, threadId, threadLoading, openThread, newThread } = useAgentSession(role)
+  const { loading, live, data, status, messages, streamingText, streamingSources, decide, sendMessage, markListingsShown, scheduled, undo, threadId, threadLoading, openThread, newThread } = useAgentSession(role)
   const [draft, setDraft] = useState<ComposerDraft | null>(null)
   const prefill = useCallback((t: string) => setDraft({ text: t, nonce: Date.now() }), [])
   usePromptDeepLink(loading, sendMessage, prefill)
@@ -215,6 +215,7 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
               status={status}
               messages={messages}
               streamingText={streamingText}
+              streamingSources={streamingSources}
               onSend={sendMessage}
               onListingsShown={markListingsShown}
               pendingActions={chatCards}
