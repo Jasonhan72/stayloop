@@ -85,7 +85,9 @@ export default function AgentsDirectoryPage() {
   const entries = useMemo(() => directoryEntries(items ?? [], basic, sort), [items, basic, sort])
   const reachable = items?.length ?? 0
   const filtered = !!(language || focus || area.trim() || q.trim())
-  const sel = 'rounded-xl border border-line-divider bg-white px-3 py-2 text-[14px] outline-none focus:border-brand'
+  // Explicit height: WebKit keeps a styled <select> at its native height and ignores the vertical padding, so the
+  // dropdowns sat 26px tall beside 42px text inputs in Safari (2026-11-18). 42px at the 16px phone font, 39px at 14px.
+  const sel = 'h-[42px] rounded-xl border border-line-divider bg-white px-3 py-2 text-[14px] outline-none focus:border-brand lg:h-[39px]'
   const countLine = zh
     ? `共 ${entries.length} 位经纪，${reachable === entries.length ? '都可以在站内联系' : reachable === 0 ? '暂时都还不能在站内联系' : `其中 ${reachable} 位可以在站内联系`}`
     : `${entries.length} ${entries.length === 1 ? 'agent' : 'agents'}, ${reachable === entries.length ? 'all reachable on Stayloop' : reachable === 0 ? 'none reachable on Stayloop yet' : `${reachable} reachable on Stayloop`}`

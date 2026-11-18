@@ -269,11 +269,11 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   return (
     <div className={fill ? 'flex h-full min-h-0 flex-col bg-white' : 'rounded-xl border border-line-divider bg-white ' + (compact ? '' : 'mt-2')} data-testid="thread-panel" data-kind={kind}>
       {!hideHeader && <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left" aria-expanded={open}>
-        <span className="text-[13px] font-bold">{heading}</span>
-        <span className="font-mono text-[11px] text-body-3">{visible}</span>
-        {unread > 0 && !open && <span className="rounded-full bg-brand px-1.5 py-[1px] font-mono text-[10px] font-bold text-white" data-testid="thread-unread">{unread}</span>}
+        <span className="flex-none whitespace-nowrap text-[13px] font-bold">{heading}</span>
+        <span className="flex-none font-mono text-[11px] text-body-3">{visible}</span>
+        {unread > 0 && !open && <span className="flex-none rounded-full bg-brand px-1.5 py-[1px] font-mono text-[10px] font-bold text-white" data-testid="thread-unread">{unread}</span>}
         {participants && <span className="min-w-0 truncate text-[11.5px] text-body-3">· {participants}</span>}
-        <span className="ml-auto text-[11.5px] text-body-3">{open ? (compact ? (zh ? '收起' : 'Hide') : '') : (zh ? '展开' : 'Open')}</span>
+        <span className="ml-auto flex-none whitespace-nowrap text-[11.5px] text-body-3">{open ? (compact ? (zh ? '收起' : 'Hide') : '') : (zh ? '展开' : 'Open')}</span>
       </button>}
       {open && (
         <div className={fill ? 'flex min-h-0 flex-1 flex-col' : 'border-t border-line-divider'}>

@@ -399,7 +399,11 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
             design/redesign-2026-09/Console.dc.html) */}
         <div className="md:flex md:min-h-[calc(100vh-66px)]">
           {providerNav ? <ProviderRail phone /> : <Rail role={role} />}
-          <div className={phoneApp ? 'sl-phone-pb min-w-0 flex-1 p-0 md:p-0' : 'min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12'}>
+          {/* Content and aside sit side by side from lg only (2026-11-18). At md the aside used to take 320px beside
+              the rail, which left the page ~380px on an iPad held upright: stat tiles overlapped and buttons wrapped
+              one character per line. Below lg the aside follows the page, as it does on phones. */}
+          <div className="flex min-w-0 flex-1 flex-col lg:flex-row" data-testid="shell-columns">
+          <div className={phoneApp ? 'sl-phone-pb min-w-0 flex-1 p-0 md:p-0' : `min-w-0 flex-1 px-5 py-6 ${asideHidden ? 'pb-24' : 'pb-8'} sm:px-7 md:py-9 md:pb-9 lg:px-12`}>
             {headingNeeded && <h1 data-shell-h1="" className="sr-only">{shellPageTitle(role, shellPath, lang === 'zh')}</h1>}
             {(sampleNote || role === 'agent') && (
               <div className={phoneApp ? 'px-5 pt-4 md:px-8 md:pt-4' : ''}>
@@ -415,10 +419,13 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
               : <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo} liveSlot={liveSlot} role={role}>{children}</DemoGate>}
           </div>
           {!asideHidden && (
-            <aside className="border-t border-line-divider bg-white px-5 py-6 md:w-[320px] md:flex-none md:overflow-y-auto md:border-l md:border-t-0 md:p-6">
+            // pb-24 on phones: the aside is the last thing on the page there, and the fixed tab bar (64px + safe area)
+            // used to sit on its last lines — the page above reserved the room, the aside did not.
+            <aside className="border-t border-line-divider bg-white px-5 pb-24 pt-6 sm:px-7 md:pb-9 lg:w-[320px] lg:flex-none lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-6" data-testid="shell-aside">
               {aside}
             </aside>
           )}
+          </div>
         </div>
       </main>
     </>

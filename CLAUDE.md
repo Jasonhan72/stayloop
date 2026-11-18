@@ -85,6 +85,8 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - **首屏不按客户端状态分支**：语言、localStorage、navigator 一律先渲染服务端默认再在 effect 里更新（否则 React #418）。语言键 `localStorage.stayloop_lang`。
 - `useAuth` 对同一登录保留 `user` 引用，effect 依赖 `auth.user` 是安全的；不要改成 `auth.user?.id` 绕法。
 - 宽表：外层 `overflow-x-auto`、`min-w-[N]` 放在表上，外层若是 flex/grid 子项必须 `min-w-0`。手机文本控件 ≥16px（globals.css 已有规则）。SVG 不写死 width。
+- **工作台右侧面板（`WorkspaceShell` 的 aside）从 `lg` 起才与正文并排**，`lg` 以下（手机和竖屏平板）排在正文下面；共用 `Table`（`components/workspace`）在 `lg` 以下的最小宽度按列数算（每列 104px），`mono` 单元格不换行。
+- `.sl-input` 的 `<textarea>` 高度跟 `rows` 走，要固定高度就写 `h-*`；没写列的 `grid` 里放「前缀 + input」的行要加 `grid-cols-1`（WebKit 的 input 固有宽度大，会把自动列撑出屏幕）；`flex-1` 的文字旁边有不收缩的按钮时给文字一个 `basis-[N]`，否则手机上被挤成一字一行。
 - 页面主容器统一 `max-w-[1320px] px-6 sm:px-8 lg:px-12`（与页头对齐）。
 - 中文标题只在标点 / 空格处断行（`.sl-type-head`，keep-all）；超过约 10 个字没有标点的一段要放零宽空格断点。**WebKit 下相邻的 nowrap span 不会换行**，测首页断行要同时跑 WebKit。
 - 给思考型模型的结构化输出调用留足 `max_tokens`（推理会先吃掉预算导致 JSON 截断）。
@@ -129,6 +131,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 测试账号（密码 `Test1234`，`user_metadata.test_account=true`）：`tenant-test@stayloop.ai`（纯租客）、`landlord-test@stayloop.ai`（房东）、`agent-test@stayloop.ai`（已核验经纪 + 服务商 `[TEST] Maple Plumbing`）、`provider-test@stayloop.ai`（纯服务商 `[TEST] Northline`）、`admin-test@stayloop.ai`（后台管理员，`admin_users.role = admin`，不是 superadmin；后台页面与 `/api/admin/*` 的测试都用它）。**`admin@stayloop.ai` 不是测试账号**：它是 superadmin 最高管理账号（与创始人账号并列两个 superadmin），密码只在用户的密码管理器里（2026-10-23 起与创始人账号相同），测试不要用它登录；需要管理员视角的测试经 service role 铸 magic link。Muse 外部测试用的 `muse-*@stayloop.ai` 四个号密码只在本机 `.forensics-tmp/`。**测试数据带 `[TEST]` 前缀，正式发布前不删。**
 - **Claude 不输入密码。** 登录测试号用 service role 调 Auth Admin `generate_link`（type=magiclink），`redirect_to` 必须放 URL 查询参数；链接约 10 分钟失效，铸完即用。service role key 只走 header 文件，不进命令行与报告。
 - 组件测试在 jsdom 里用 `@testing-library/react` 渲染：spec 首行 `// @vitest-environment jsdom` + `afterEach(cleanup)`，助手 `tests/helpers/dom.ts`（`only` 保持「恰好一个」的严格度）。react-test-renderer 在 React 19 已弃用，已删除，不要再引入。jsdom 有真的 `localStorage` / `sessionStorage` / `location`，写过就在 `afterEach` 里清。
+- **手机 / 平板适配巡检**：`scripts/e2e/responsive/sweep.mjs`（Playwright WebKit + Chrome，四个角色 + 未登录，360–1180 共十个宽度；`MODE=covered` 查被盖住的文字；`BASE=http://localhost:3000` 查本机预览）+ `summary.py`。Playwright 不进项目依赖，装在临时目录用 `PLAYWRIGHT=` 指过去。iPhone / iPad 都是 WebKit，只用 Chrome 测会漏。
 - 内置浏览器面板隐藏时页面 JS 不跑、截图是旧画面；批量核对用无头 Chrome + CDP，**每个测试员用私有调试端口，别 pkill 别人的实例**。同一测试号在一处退出会全局作废会话。
 - 测试规范：`design/test-strategy-2026-10-17.md`（ISTQB 流程、风险分级、追溯矩阵、退出准则）+ `design/test-cases-2026-10-17/`。10-17 轮报告 `design/test-report-2026-10-17.md`（S0/S1 清零、建议 Go）；用例文件与 `scripts/e2e/db-matrix.sh` 是每次发布的回归基线。
 - Resend 会把发往不可达地址的收件人加入 suppression 列表；保留域名（example.com）直接 422。

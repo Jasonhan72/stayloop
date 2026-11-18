@@ -78,7 +78,7 @@ export default function Footer() {
                 <li key={l.key}>
                   <Link
                     href={l.href}
-                    className="whitespace-nowrap text-[13.5px] text-body-2 transition hover:text-brand"
+                    className="-my-2 inline-block whitespace-nowrap py-2 text-[13.5px] text-body-2 transition hover:text-brand"
                   >
                     {t(l.key)}
                   </Link>

@@ -46,7 +46,7 @@ export default function ClientTasks({ zh }: { zh: boolean }) {
           {tasks.map((t) => (
             <div key={t.id} className="flex flex-wrap items-center gap-2 py-2.5 text-[13px]">
               <span className={'h-2 w-2 flex-none rounded-full ' + (t.tone === 'warn' ? 'bg-amber-500' : 'bg-brand')} />
-              <span className="min-w-0 flex-1">{zh ? t.zh : t.en}</span>
+              <span className="min-w-0 flex-1 basis-[220px]">{zh ? t.zh : t.en}</span>
               {/* 找得到人 2026-09-30: the agent ↔ client conversation, resolved on click. */}
               {t.clientId && (reachable[t.clientId]
                 ? <MessageButton target={{ kind: 'agent_client', ref: t.clientId }} zh={zh} label={names[t.clientId] ? (zh ? `发消息给 ${names[t.clientId]}` : `Message ${names[t.clientId]}`) : undefined} className="flex-none" testId="client-task-message" />

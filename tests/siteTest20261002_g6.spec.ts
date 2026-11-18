@@ -45,7 +45,8 @@ describe('L7-anon D-10 + L6-public D6: /platform', () => {
 describe('L6-public D2: footer links never split', () => {
   const f = read('components/Footer.tsx')
   it('each link is nowrap and the phone grid sizes the first column to its longest link', () => {
-    expect(f).toContain('className="whitespace-nowrap text-[13.5px] text-body-2 transition hover:text-brand"')
+    // 2026-11-18: the link also became a padded box (touch target); the nowrap is what this pins.
+    expect(f).toMatch(/className="[^"]*\bwhitespace-nowrap\b[^"]*text-\[13\.5px\] text-body-2 transition hover:text-brand"/)
     expect(f).toMatch(/grid-cols-\[auto_1fr\] gap-x-6[^"]*sm:grid-cols-3/)
   })
 })

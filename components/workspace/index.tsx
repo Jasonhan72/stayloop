@@ -16,7 +16,7 @@
 //   · AsideBlock  consistent right-rail section
 //
 // Layout only — no page changes its data, copy or routes to adopt these.
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 /* ── PageHeader ─────────────────────────────────────────────────────── */
 
@@ -131,8 +131,12 @@ export function SectionCard({
 
 export function Table({ head, children }: { head: ReactNode[]; children: ReactNode }) {
   return (
+    // Width follows the number of columns on phones (2026-11-18). A flat 440px squeezed a ten-column table into
+    // ~44px columns (addresses one word per line, dates split in two) while a three-column one scrolled sideways
+    // for no reason, its right-aligned amounts off screen. Tablets held upright (below lg) get the same rule — a
+    // touch screen scrolls a table easily; lg+ keeps the old floor.
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[440px] border-collapse text-[13px]">
+      <table className="w-full min-w-[calc(var(--sl-cols)*104px)] border-collapse text-[13px] lg:min-w-[440px]" style={{ '--sl-cols': head.length } as CSSProperties}>
         <thead>
           <tr>
             {head.map((h, i) => (
@@ -177,7 +181,7 @@ export function Td({
         'h-10 px-4 align-middle ' +
         (align === 'right' ? 'text-right ' : '') +
         (strong ? 'font-semibold ' : '') +
-        (mono ? 'font-mono [font-variant-numeric:tabular-nums] ' : '') +
+        (mono ? 'whitespace-nowrap font-mono [font-variant-numeric:tabular-nums] ' : '') +
         (muted ? 'text-body-2' : '')
       }
     >

@@ -25,9 +25,11 @@ function Section({ n, title, children }: { n: number; title: string; children: R
 
 function Field({ k, v }: { k: string; v: React.ReactNode }) {
   return (
+    // The label is 190px from sm up (and in print). On a phone that left ~85px for the value — a term wrapped into nine
+    // lines, and in a two-column row the second field was cut off by the card (2026-11-18) — so it takes 42% there.
     <div className="flex gap-2">
-      <span className="w-[190px] flex-none text-neutral-500">{k}</span>
-      <span className="font-medium">{v || '—'}</span>
+      <span className="w-[42%] max-w-[190px] flex-none text-neutral-500 sm:w-[190px]">{k}</span>
+      <span className="min-w-0 break-words font-medium">{v || '—'}</span>
     </div>
   )
 }

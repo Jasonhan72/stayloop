@@ -136,7 +136,7 @@ export default function PublicProfileEditor({ authId, legalName, status, lang }:
       {!loaded ? (
         <div className="mt-4 text-[13px] text-body-3">…</div>
       ) : (
-        <div className="mt-4 grid gap-4">
+        <div className="mt-4 grid grid-cols-1 gap-4">
           {/* The photo saves on its own (its own route); the rest of the form saves with the button below. */}
           <AgentPhotoControl zh={zh} name={legalName} photoUrl={photoUrl} onChange={setPhotoUrl} />
           {/* Locked until the registration is verified. The lock has to be readable on the control

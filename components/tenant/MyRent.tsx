@@ -64,7 +64,7 @@ export default function MyRent() {
               <div className="mt-1"><MessageButton variant="link" zh={zh} label={zh ? '在租约对话里问房东' : 'Ask in the tenancy thread'} testId="rent-ask-landlord"
                 target={{ kind: 'tenancy', ref: r.household_id, draft: zh ? `关于 ${r.due_date} 的租金：` : `About the rent due ${r.due_date}: ` }} /></div>
             </div>
-            <div className="flex flex-none flex-wrap items-center gap-2">
+            <div className="flex max-w-full flex-none flex-wrap items-center gap-2">
               {r.amount != null && <span className="font-semibold">${Number(r.amount).toLocaleString()}</span>}
               {r.unrecorded
                 ? <span data-testid="rent-unrecorded" className={`rounded-full px-2 py-[2px] text-[11px] font-bold ${r.overdue ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}>{r.overdue ? (zh ? '逾期 · 还没有记录' : 'Overdue · not recorded') : (zh ? '待付 · 还没有记录' : 'Due · not recorded')}</span>

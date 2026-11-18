@@ -137,6 +137,12 @@ html, body {
     background: #FFFFFF;
     border: 1px solid var(--sl-border);
   }
+  /* A <textarea> keeps its rows= height (2026-11-18): the 44px above squeezed every multi-line box that did not set
+     its own height to a single line. :where() keeps this at one-class specificity so `h-32` etc. still win. */
+  :where(textarea).sl-input {
+    height: auto;
+    min-height: 2.75rem;
+  }
   .sl-input:focus {
     border-color: var(--sl-brand);
     box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.15);

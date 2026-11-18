@@ -496,13 +496,13 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
           </h2>
           <div className="mt-8 max-w-[800px]">
             {cfg.faq.map((f, i) => (
-              <details key={f.q.en} className="group border-t border-line-divider py-4 last:border-b" open={i === 0}>
-                <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-[17px] font-semibold leading-snug text-body [&::-webkit-details-marker]:hidden">
+              <details key={f.q.en} className="group border-t border-line-divider last:border-b" open={i === 0}>
+                <summary className="flex cursor-pointer list-none items-start justify-between gap-4 py-4 text-[17px] font-semibold leading-snug text-body [&::-webkit-details-marker]:hidden">
                   <span>{f.q[lang]}</span>
                   <span className="flex-none text-[18px] font-medium leading-none group-open:hidden" style={{ color: c }}>+</span>
                   <span className="hidden flex-none text-[18px] font-medium leading-none group-open:inline" style={{ color: c }}>–</span>
                 </summary>
-                <p className="mt-3 max-w-[680px] text-[15.5px] leading-[1.65] text-body-2">{f.a[lang]}</p>
+                <p className="-mt-1 max-w-[680px] pb-4 text-[15.5px] leading-[1.65] text-body-2">{f.a[lang]}</p>
               </details>
             ))}
           </div>

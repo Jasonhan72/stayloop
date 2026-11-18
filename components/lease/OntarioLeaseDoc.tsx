@@ -46,9 +46,11 @@ function Section({ n, title, children }: { n: number; title: string; children: R
 
 function Field({ k, v }: { k: string; v: React.ReactNode }) {
   return (
+    // The label is 190px from sm up (and in print). On a phone that left ~85px for the value — a term wrapped into nine
+    // lines, and in a two-column row the second field was cut off by the card (2026-11-18) — so it takes 42% there.
     <div className="flex gap-2">
-      <span className="w-[190px] flex-none text-neutral-500">{k}</span>
-      <span className="font-medium">{v || '—'}</span>
+      <span className="w-[42%] max-w-[190px] flex-none text-neutral-500 sm:w-[190px]">{k}</span>
+      <span className="min-w-0 break-words font-medium">{v || '—'}</span>
     </div>
   )
 }
@@ -134,7 +136,7 @@ export default function OntarioLeaseDoc({
       </Section>
 
       <Section n={6} title="Services and Utilities">
-        <div className="grid grid-cols-2 gap-x-6">
+        <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
           <Field k="Electricity paid by" v={utilLabel(t.utilities.electricity)} />
           <Field k="Heat paid by" v={utilLabel(t.utilities.heat)} />
           <Field k="Water paid by" v={utilLabel(t.utilities.water)} />

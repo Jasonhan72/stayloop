@@ -45,7 +45,7 @@ export default function AgentChecklistPage() {
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
           {/* Left: input */}
-          <div className="sl-card">
+          <div className="sl-card p-4 sm:p-5">
             <label htmlFor="offer-text" className="block text-[12.5px] font-semibold text-body-2">
               {zh ? '把要约 / 租约要点贴进来（不要贴申请人的证件号、SIN）' : 'Paste the offer / lease points (no applicant ID numbers, no SIN)'}
             </label>

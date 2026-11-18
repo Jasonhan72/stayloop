@@ -276,7 +276,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
           <div className="relative" ref={productRef}>
             <button
               onClick={() => setProductOpen((v) => !v)}
-              className="group inline-flex items-center gap-1 text-[14px] transition"
+              className="group -my-3 inline-flex items-center gap-1 py-3 text-[14px] transition"
               style={{
                 color: identityColor ?? (identityPending ? '#717171' : isProductActive ? '#171717' : '#3F3F46'),
                 fontWeight: identityColor || isProductActive ? 600 : 400,
@@ -624,7 +624,7 @@ function NavLink({
       className={
         mobile
           ? 'rounded-md px-3 py-2 text-[14px] transition hover:bg-line-divider/40'
-          : 'group relative inline-flex items-center text-[14px] transition'
+          : 'group relative -my-3 inline-flex items-center py-3 text-[14px] transition'
       }
       style={{ color, fontWeight: isBold ? 600 : 400 }}
     >

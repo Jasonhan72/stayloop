@@ -59,7 +59,7 @@ export default function MyShowings({ zh }: { zh: boolean }) {
               <div className="min-w-0">
                 <div className="font-semibold">
                   {r.kind === 'question' ? (zh ? '提问 · ' : 'Question · ') : (zh ? '看房 · ' : 'Viewing · ')}
-                  {l ? (l.active && l.slug ? <Link href={`/listings/${l.slug}`} className="underline underline-offset-2">{l.address}{l.unit ? ` #${l.unit}` : ''}</Link> : <span>{l.address}{l.unit ? ` #${l.unit}` : ''}<span className="ml-1.5 rounded-full bg-surface-chip px-1.5 py-[1px] text-[10.5px] font-semibold text-body-3">{zh ? '已下架' : 'Off market'}</span></span>) : '—'}
+                  {l ? (l.active && l.slug ? <Link href={`/listings/${l.slug}`} className="underline underline-offset-2">{l.address}{l.unit ? ` #${l.unit}` : ''}</Link> : <span>{l.address}{l.unit ? ` #${l.unit}` : ''}<span className="ml-1.5 whitespace-nowrap rounded-full bg-surface-chip px-1.5 py-[1px] text-[10.5px] font-semibold text-body-3">{zh ? '已下架' : 'Off market'}</span></span>) : '—'}
                 </div>
                 <div className="mt-0.5 break-words text-[12px] text-body-3">
                   {r.move_in_date ? (zh ? `期望入住 ${r.move_in_date} · ` : `Move-in ${r.move_in_date} · `) : ''}{r.message ? r.message.slice(0, 80) : ''}

@@ -66,7 +66,9 @@ export default function RepairDirectoryPage() {
   const rows = useMemo(() => repairDirectory(providers ?? [], creds, reviews, { trade, city }, new Date(), graceDays), [providers, creds, reviews, trade, city, graceDays])
   // The same identity the header names (lib/displayIdentity.ts); it only picks the hint line — everyone sees the same directory.
   const who = auth.user && !hats.loading ? displayIdentity('/providers', home.onProvider, activeHat(hats, auth.role), hats) : null
-  const sel = 'rounded-xl border border-line-divider bg-white px-3 py-2 text-[14px] outline-none focus:border-brand'
+  // Explicit height: WebKit keeps a styled <select> at its native height and ignores the vertical padding, so the
+  // dropdowns sat 26px tall beside 42px text inputs in Safari (2026-11-18). 42px at the 16px phone font, 39px at 14px.
+  const sel = 'h-[42px] rounded-xl border border-line-divider bg-white px-3 py-2 text-[14px] outline-none focus:border-brand lg:h-[39px]'
   const today = new Date().toISOString().slice(0, 10)
 
   return (
