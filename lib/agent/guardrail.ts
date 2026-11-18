@@ -144,6 +144,24 @@ export function replyClaimsExecution(reply: string): boolean {
 const ILLEGAL_LEASE =
   /(禁止养宠|不(允许|得)养宠|no[\s-]?pets?|不(允许|接受)(小孩|孩子|儿童)|no children|押金(超过|高于)一个月|damage deposit)/i
 
+// A reply that says such a term is void, unlawful, or something a landlord may not charge is explaining
+// the rule — the assistant is not drafting the clause. (2026-11-17: a tenant asking 「押金一般交多少」 got a
+// correct answer listing 「损坏押金（Damage Deposit）」 among the fees a landlord cannot charge, and then
+// 「注：…等条款无效,我不会写进租约」 underneath; every deploy's smoke turn was logged as a compliance hit.)
+// Also the one lawful ban on pets in Ontario: a condominium's own declaration / rules.
+const ILLEGAL_TERM_EXPLAINED = new RegExp(
+  [
+    '无效|不可执行|不能执行|法律效力|不合法|违法|非法|违反|无权|明令禁止|不受法律|没有约束力|不具约束力|作废',
+    '法律(?:上)?(?:明确)?(?:禁止|不允许)',
+    '(?:不能|不得|不可以?|禁止|严禁)(?:再|额外|另外|向租客|向你)?(?:收取|收|索要|要求(?:租客|你)?(?:支付|缴纳|交))',
+    '管理规约|共管公寓',
+    String.raw`\bvoid\b|unenforceable|not\s+(?:legally\s+)?(?:valid|enforceable|allowed|permitted|binding)|illegal|unlawful|prohibit(?:s|ed)?\b`,
+    String.raw`(?:cannot|can(?:'|\u2019)?t|can\s+not|may\s+not|must\s+not)\s+(?:charge|ask|require|collect|demand)`,
+    String.raw`against\s+the\s+(?:law|rta|act|code)|condo(?:minium)?\s+(?:rules|declaration|by-?laws)`,
+  ].join('|'),
+  'i',
+)
+
 const KEY_ACTION =
   /(share|submit|sign|payment|pay|tier_upgrade|reject|decline|approve|send_message|schedule)/i
 
@@ -338,13 +356,20 @@ export function applyGuardrail(
   // 2) Illegal lease terms — never draft a void clause. The list and the note are
   //    Ontario's (RTA): a property in another province gets neither (2026-10-02 —
   //    a Quebec landlord may lawfully ban pets; its rules reach the model as facts).
-  if (!other && (ILLEGAL_LEASE.test(reply) || (action && ILLEGAL_LEASE.test(`${action.title} ${action.summary}`)))) {
-    flags.push('illegal_lease_term')
-    // A reply that already says the clause is void needs no note (2026-10-01: the homepage's pets and
-    // deposit examples got 「我不会写进租约」 appended to correct answers nobody asked to draft).
-    if (!/无效|不可执行|不能执行|\bvoid\b|unenforceable|not (?:legally )?(?:valid|enforceable)/i.test(reply)) reply += zh
-      ? '\n\n注：安省 RTA 下「禁止养宠」「押金超过一个月」等条款无效,我不会写进租约。'
-      : '\n\nNote: under the Ontario RTA, clauses like "no pets" or "deposit above one month" are void — I won\'t write them into a lease.'
+  if (!other) {
+    // A reply that already says the term is void or unlawful is explaining the rule: no note (2026-10-01:
+    // the homepage's pets and deposit examples got 「我不会写进租约」 under correct answers nobody asked to
+    // draft) and, since 2026-11-17, no compliance hit either — nothing was intercepted.
+    const explained = ILLEGAL_TERM_EXPLAINED.test(reply)
+    const drafted = ILLEGAL_LEASE.test(reply) && !explained
+    // A tenant's cards are messages and repair requests, never lease text.
+    const inCard = role !== 'tenant' && !!action && ILLEGAL_LEASE.test(`${action.title} ${action.summary}`)
+    if (drafted || inCard) {
+      flags.push('illegal_lease_term')
+      if (!explained) reply += zh
+        ? '\n\n注：安省 RTA 下「禁止养宠」「押金超过一个月」等条款无效,我不会写进租约。'
+        : '\n\nNote: under the Ontario RTA, clauses like "no pets" or "deposit above one month" are void — I won\'t write them into a lease.'
+    }
   }
 
   // 3) No false "already done" claims — the agent proposes, it never executes.
