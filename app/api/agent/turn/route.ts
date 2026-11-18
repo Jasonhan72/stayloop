@@ -15,7 +15,7 @@ import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } 
 import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback, landlordRenewalFacts, landlordListingsBlock, OUT_OF_PROVINCE_FACTS_HEADING } from '@/lib/agent/prompts'
 import { parseTurnDocuments, extractAttachmentTexts, renderDocumentBlocks, detectDocumentProvince, type TurnDocument } from '@/lib/agent/attachmentText'
 import { ANON_TURNS_PER_HOUR, ANON_TURNS_SITE_PER_HOUR } from '@/lib/agent/anonLimits'
-import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, dropUnsaidDraftFacts, nonOntarioProvince, provinceOfDraft, provinceOfOwnedListingInMessage, type TurnOutput } from '@/lib/agent/guardrail'
+import { hasUnfilledTemplate, applyGuardrail, dropDoneSignOff, plainLiveWording, sanitizeDraftListing, dropUnsaidDraftFacts, nonOntarioProvince, provinceOfDraft, provinceOfOwnedListingInMessage, type TurnOutput } from '@/lib/agent/guardrail'
 import { aiFactsBlock, effectiveProvince, provinceName, type ProvinceCode, type ProvinceRow } from '@/lib/provinces'
 import { matchOwnedListing, mergeWithExisting, type OwnedListingRow } from '@/lib/agent/draftExisting'
 import { flattenMarkdown, isProviderCapacityError } from '@/lib/agent/turnHelpers'
@@ -37,7 +37,8 @@ import { kbSearch, type KbHit } from '@/lib/kb/search'
 import { shouldRetrieve } from '@/lib/kb/trigger'
 import { kbPromptBlock, checkCitations, referenceList, kbReceiptLine, type KbReference } from '@/lib/kb/cite'
 import { loadPendingNotices, noticePromptBlock } from '@/lib/kb/notices'
-import { llmChat, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
+import { llmChat, llmChatStream, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
+import { createReplyStreamer, type TurnStreamEvent } from '@/lib/agent/replyStream'
 import { afterResponse } from '@/lib/afterResponse'
 
 
@@ -84,9 +85,20 @@ type TurnRequest = {
   // every server-authored string appended to the reply (guardrail notes,
   // fallbacks). Defaults to zh (the product's primary language).
   lang?: 'zh' | 'en'
+  // 2026-11-17: the caller can read a streamed body — reply text as it is written, then the finished
+  // turn (lib/agent/replyStream.ts). Without it the body is what it always was: whitespace, then one JSON.
+  stream?: boolean
 }
 
 const VALID_ROLES = new Set<AgentRole>(['tenant', 'landlord', 'agent'])
+
+// How much the turn model thinks before it starts writing (2026-11-17). Measured on gemini-3.7-flash with
+// the real system prompt, five representative questions, both settings: at the model's default the first
+// reply text came after 7–14 s (total 10–17 s); at 'low' after 1.6–2.3 s (total 4–6 s), with the same
+// JSON validity, the same cards and drafts and answers of the same substance. 'minimal' is rejected by
+// that model. Only Gemini's endpoint receives the field (lib/llmChat.ts); a model that refuses it is
+// retried without it. To go back to the model's default, set this to undefined.
+const TURN_REASONING_EFFORT: 'low' | 'medium' | 'high' | undefined = 'low'
 
 const URL_RE = /https?:\/\/[^\s<>"')\]]+/gi
 
@@ -596,6 +608,13 @@ export async function POST(req: Request) {
   // Fix: respond IMMEDIATELY with a whitespace heartbeat (legal JSON leading
   // whitespace) every 3s while the turn runs, then emit the final JSON.
   // The client's res.json() parses the whole body unchanged.
+  //
+  // Stream mode (2026-11-17, body.stream === true): the same heartbeat, plus the reply text as the model
+  // writes it. `streamEmit` is set once the response stream is open; runTurn writes draft events through it.
+  const wantStream = body.stream === true
+  let streamEmit: ((e: TurnStreamEvent) => void) | null = null
+  const turnStartedAt = Date.now()
+  let firstDraftMs: number | null = null
   const runTurn = async (): Promise<Record<string, unknown>> => {
 
   // Fetch any URLs the user pasted so the agent can see the content.
@@ -688,6 +707,29 @@ export async function POST(req: Request) {
 
   let raw = ''
   let modelUsed = DEFAULT_MODELS.turn
+  let replyStreamer: ReturnType<typeof createReplyStreamer> | null = null
+  // One model call of this turn: plain when the caller cannot read a stream; otherwise streamed, the
+  // reply text passed on as it grows. Each call starts a fresh draft (fallback model, retry, lookup pass).
+  const callTurnModel = async (base: Parameters<typeof llmChat>[0]): Promise<{ text: string }> => {
+    try {
+      return await callTurnOnce({ ...base, reasoningEffort: TURN_REASONING_EFFORT })
+    } catch (e) {
+      // A model that does not take the thinking setting answers 400: ask again without it rather than fail the turn.
+      if (!TURN_REASONING_EFFORT || !(e instanceof LlmHttpError) || e.status !== 400) throw e
+      console.warn(`[agent/turn] ${base.model.id} refused reasoning_effort=${TURN_REASONING_EFFORT}; retrying without it: ${e.body.slice(0, 160)}`)
+      return callTurnOnce(base)
+    }
+  }
+  const callTurnOnce = async (params: Parameters<typeof llmChat>[0]): Promise<{ text: string }> => {
+    if (!replyStreamer) return llmChat(params)
+    const streamer = replyStreamer
+    streamer.reset()
+    const r = await llmChatStream({ ...params, onText: (acc) => streamer.push(acc) })
+    // Same typed failures as the plain call, so the capacity fallback and the client's labels still apply.
+    if (r.streamError) throw new LlmHttpError(503, `stream error: ${r.streamError}`)
+    if (!r.text.trim() && r.stopReason === 'max_tokens') throw new LlmTruncatedError('stream finish_reason=length')
+    return { text: r.text }
+  }
   // Hoisted for the lookup second pass below (def itself is try-scoped).
   let turnDef: CatalogModel | null = null
   try {
@@ -707,7 +749,21 @@ export async function POST(req: Request) {
     }
     modelUsed = def.id
     turnDef = def
-    const callTurn = (m: CatalogModel) => llmChat({
+    // Stream mode: the draft the reader sees goes through the same deterministic rewrites as the final
+    // reply (citation markers and invented numbers, 「实时」 wording, markdown). The guardrail's notes
+    // and the cards arrive with the finished turn.
+    replyStreamer = wantStream
+      ? createReplyStreamer({
+          emit: (e) => { if (firstDraftMs === null && e.t !== 'x') firstDraftMs = Date.now() - turnStartedAt; streamEmit?.(e) },
+          view: (partial, done) => {
+            let t = partial
+            if (kbHits.length) t = referenceList(checkCitations(t, kbHits, uiLang).reply, kbHits).reply
+            t = plainLiveWording(t)
+            return flattenMarkdown(done ? dropDoneSignOff(t) : t)
+          },
+        })
+      : null
+    const callTurn = (m: CatalogModel): Promise<{ text: string }> => callTurnModel({
       model: m,
       system,
       messages: [{ role: 'user', content: userContent }],
@@ -776,6 +832,8 @@ export async function POST(req: Request) {
     const retryDef = (turnDef && turnDef.id !== DEFAULT_MODELS.turn ? (findModel(DEFAULT_MODELS.turn, catalogForRetry) as CatalogModel | undefined) : null) ?? turnDef
     if (retryDef) {
       try {
+        // What was drafted came from an answer that did not parse; the retry is not streamed.
+        replyStreamer?.reset()
         const { text: raw2 } = await llmChat({
           model: retryDef, system, messages: [{ role: 'user', content: userContent }],
           maxTokens: retryDef.provider === 'openai-compat' ? 4000 : 2500, temperature: 0.2, jsonMode: retryDef.provider === 'openai-compat',
@@ -795,7 +853,7 @@ export async function POST(req: Request) {
   if (lookupReq && sbAuth && turnUserId && turnDef) {
     try {
       const lookupResult = await runLookup(sbAuth, role, turnUserId, lookupReq)
-      const { text: raw2 } = await llmChat({
+      const { text: raw2 } = await callTurnModel({
         model: turnDef,
         system,
         messages: [
@@ -1293,6 +1351,8 @@ export async function POST(req: Request) {
     receipt,
     knowledge: kbRefs.length ? kbRefs : undefined,
     kb_ms: kbHits.length ? kbMs : undefined,
+    // Stream mode: when the first reply text left the server, and when the turn finished (ms from the request).
+    stream_ms: wantStream ? { first: firstDraftMs, total: Date.now() - turnStartedAt } : undefined,
     sources: anonymous ? undefined : folded.items,
     url_images: urlImages.length ? urlImages : undefined,
     // Non-sensitive: the model id string that actually served this turn
@@ -1303,16 +1363,21 @@ export async function POST(req: Request) {
   }
 
   const encoder = new TextEncoder()
+  // Stream mode puts one JSON object per line: draft events, then { t: 'final', payload }. An error rides
+  // as the final payload too, so the client reads `{ error }` the same way in both modes.
+  const finalChunk = (payload: Record<string, unknown>) => encoder.encode(wantStream ? `${JSON.stringify({ t: 'final', payload })}\n` : JSON.stringify(payload))
   const stream = new ReadableStream({
     start(controller) {
       controller.enqueue(encoder.encode(' '))
       const hb = setInterval(() => {
         try { controller.enqueue(encoder.encode(' ')) } catch { clearInterval(hb) }
       }, 3000)
+      if (wantStream) streamEmit = (e) => { try { controller.enqueue(encoder.encode(`\n${JSON.stringify(e)}\n`)) } catch { streamEmit = null } }
       runTurn()
         .then((payload) => {
           clearInterval(hb)
-          controller.enqueue(encoder.encode(JSON.stringify(payload)))
+          streamEmit = null
+          controller.enqueue(finalChunk(payload))
           controller.close()
           // Self-learning trigger: after the reply is on the wire, refresh this
           // user's long-term model in the background — at most ~once a day per
@@ -1348,12 +1413,16 @@ export async function POST(req: Request) {
             : /rate.?limit|429/i.test(raw)
               ? 'Rate limit exceeded — retry later'
               : 'agent reasoning unavailable'
+          streamEmit = null
           try {
-            controller.enqueue(encoder.encode(JSON.stringify({ error: safe })))
+            controller.enqueue(finalChunk({ error: safe }))
             controller.close()
           } catch { /* stream already dead */ }
         })
     },
   })
-  return new Response(stream, { headers: { 'Content-Type': 'application/json; charset=utf-8' } })
+  // no-transform: a proxy that compresses would hold small chunks back until it has a block to compress.
+  return new Response(stream, { headers: wantStream
+    ? { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no' }
+    : { 'Content-Type': 'application/json; charset=utf-8' } })
 }

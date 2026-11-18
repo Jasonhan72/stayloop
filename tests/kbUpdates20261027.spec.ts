@@ -65,7 +65,7 @@ describe('pending notices', () => {
   it('the turn route appends them on every law question; /rules shows the badge; the admin page reviews them', () => {
     const t = code('app/api/agent/turn/route.ts')
     expect(t).toContain('system += noticePromptBlock(await loadPendingNotices(), uiLang)')
-    expect(t.indexOf('system += noticePromptBlock')).toBeLessThan(t.indexOf('const callTurn = (m: CatalogModel) => llmChat({'))
+    expect(t.indexOf('system += noticePromptBlock')).toBeLessThan(t.indexOf('const callTurn = (m: CatalogModel): Promise<{ text: string }> => callTurnModel({'))
     const rules = code('app/rules/page.tsx')
     expect(rules).toContain("fetch('/api/kb/notices')")
     expect(rules).toContain('data-testid="rule-pending-notice"')

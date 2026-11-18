@@ -82,6 +82,7 @@ export default function AgentChat({
   agentName,
   status,
   messages,
+  streamingText = null,
   onSend,
   onListingsShown,
   fill = false,
@@ -109,6 +110,9 @@ export default function AgentChat({
   agentName: string
   status: AgentStatus
   messages: ChatMessage[]
+  /** The reply while it is being written (2026-11-17): shown in the agent's bubble in place of the
+   *  thinking line, and replaced by the finished message. */
+  streamingText?: string | null
   onSend: (message: string, attachments?: ChatAttachment[]) => void | Promise<void>
   /** Called with the addresses a 「换一批」 click reveals, so later searches exclude them. */
   onListingsShown?: (addresses: string[]) => void
@@ -242,6 +246,13 @@ export default function AgentChat({
   useEffect(() => {
     scrollToEnd()
   }, [messages.length, thinking])
+  // While the reply is being written the view follows it — unless the reader has scrolled up to read something.
+  const streamingLen = streamingText ? streamingText.length : 0
+  useEffect(() => {
+    const el = threadRef.current
+    if (!streamingLen || !el) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 160) el.scrollTop = el.scrollHeight
+  }, [streamingLen])
 
   return (
     <div className={`flex flex-col overflow-hidden bg-white ${hero ? 'h-full' : fill ? 'h-full rounded-2xl border border-line-divider shadow-sm' : phoneFill ? 'h-full md:h-[70vh] md:rounded-2xl md:border md:border-line-divider md:shadow-sm lg:h-full' : pendingActions ? 'h-[calc(100dvh-150px)] sm:h-[70vh] sm:rounded-2xl sm:border sm:border-line-divider sm:shadow-sm lg:h-full' : 'h-[70vh] rounded-2xl border border-line-divider shadow-sm lg:h-full'}`}>
@@ -588,7 +599,23 @@ export default function AgentChat({
         {thinking && (
           <div className="flex justify-start">
             <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero && !device ? 'md:hidden' : ''}`} fallback={avatarFallback} />
-            <ThinkingIndicator status={status} lang={lang} />
+            {streamingText
+              ? (
+                // The reply as it is written. Same bubble as a finished message, so nothing jumps when the
+                // finished one (with its cards and receipt) takes its place. Polite live region off: the
+                // finished message is what a screen reader should read, once.
+                <div className="max-w-[92%] min-w-0" aria-hidden="true" data-testid="agent-streaming">
+                  <div className="whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-surface-chip px-4 py-2.5 text-[14px] leading-relaxed text-body">
+                    {linkifyPaths(streamingText)}<span className="sl-stream-caret" />
+                  </div>
+                  <style jsx>{`
+                    .sl-stream-caret { display: inline-block; width: 6px; height: 1em; margin-left: 2px; vertical-align: -2px; border-radius: 1px; background: #94a3b8; animation: sl-caret 1s steps(2, start) infinite; }
+                    @keyframes sl-caret { to { visibility: hidden; } }
+                    @media (prefers-reduced-motion: reduce) { .sl-stream-caret { animation: none; } }
+                  `}</style>
+                </div>
+              )
+              : <ThinkingIndicator status={status} lang={lang} />}
           </div>
         )}
       </div>

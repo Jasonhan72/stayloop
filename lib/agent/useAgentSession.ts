@@ -115,6 +115,9 @@ export type UseAgentSession = {
   status: AgentStatus
   error: string | null
   messages: ChatMessage[]
+  /** The reply as it is being written (stream mode); null when nothing is in progress. Not a message:
+   *  it is never saved, never part of the history sent with the next turn. */
+  streamingText: string | null
   /** Resolves with what the decision became (an approval resolves once it ran, failed or was undone). */
   decide: (actionId: string, decision: 'approved' | 'rejected', option?: 'A' | 'B', note?: string) => Promise<DecideOutcome>
   /** Approved actions execute after a short delay; until then they can be undone (lifecycle plan §2.5). */
@@ -193,6 +196,9 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
   const [status, setStatus] = useState<AgentStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  // The reply being written (2026-11-17): the turn route streams the text as the model produces it; the
+  // finished message replaces it. null = nothing is being written on screen.
+  const [streamingText, setStreamingText] = useState<string | null>(null)
   const [scheduled, setScheduled] = useState<Record<string, { title: string; executeAt: number; threadId?: string | null }>>({})
   const [notice, setNotice] = useState<{ id: string; text: string } | null>(null)
   const undoCtrls = useRef<Map<string, AbortController>>(new Map())
@@ -414,11 +420,14 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
     if (scope === 'anon') { try { localStorage.removeItem(chatKey(role, 'anon')) } catch { /* private mode */ } }
     urlImagesRef.current = []
     setStatus('idle')
+    setStreamingText(null)
     applyThread(null, null, scope)
   }, [flushThread, applyThread, role])
   const openThread = useCallback(async (id: string) => {
     if (chatScopeRef.current === 'anon' || id === threadIdRef.current) return
     flushThread()
+    // A draft being written belongs to the conversation being left; its finished reply is saved there.
+    setStreamingText(null)
     setThreadLoading(true)
     const gen = ++resolveGen.current
     creating.current = null
@@ -950,6 +959,8 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
             exclude: Array.from(shownListings.current),
             history,
             live: true,
+            // Only into the conversation the question was asked in: a draft must not appear in another thread.
+            onDraft: (t) => { if (threadIdRef.current === tid) setStreamingText(t || null) },
           })
           result = turn.result
           memoryWrites = turn.memoryWrites
@@ -1058,6 +1069,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
             history,
             live: false,
             anonymous: true,
+            onDraft: (t) => setStreamingText(t || null),
           })
           result = turn.result
           listings = turn.listings
@@ -1144,6 +1156,8 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       // reply is written to that row instead of the one on screen (review 2026-09-25).
       const memoryNotes = memoryNoteLines(memoryWrites, langRef.current === 'zh')
       const reply: ChatMessage = { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, links, market, followups, draftListing, receipt, knowledge: knowledge && knowledge.length ? knowledge : undefined, sources: sources && sources.length ? sources : undefined, memoryNotes: memoryNotes.length ? memoryNotes : undefined }
+      // The finished message takes the draft's place in the same render.
+      setStreamingText(null)
       if (sentThread && threadIdRef.current !== sentThread) {
         void appendToThread(getSupabaseBrowser(), sentThread, [reply]).then(() => notifyActivityChanged())
         return
@@ -1222,5 +1236,5 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
 
   const dismissNotice = useCallback(() => setNotice(null), [])
 
-  return { loading, live, data, status, error, messages, decide, sendMessage, markListingsShown, scheduled, undo, executeNow, abandon, notice, dismissNotice, threadId, threadLoading, newThread, openThread }
+  return { loading, live, data, status, error, messages, streamingText, decide, sendMessage, markListingsShown, scheduled, undo, executeNow, abandon, notice, dismissNotice, threadId, threadLoading, newThread, openThread }
 }

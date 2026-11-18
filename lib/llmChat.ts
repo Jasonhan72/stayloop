@@ -87,6 +87,13 @@ export interface LlmChatParams {
   prefillJson?: boolean
   /** anthropic: add cache_control to the system block (default true). */
   cacheSystem?: boolean
+  /**
+   * How much the model may think before it answers (2026-11-17). Sent as `reasoning_effort` to Gemini's
+   * OpenAI-compatible endpoint only (docs: minimal / low / medium / high for Gemini 3 Flash; thinking
+   * cannot be switched off there). Other providers ignore it: their models either do not think or name
+   * the control differently. Unset = the model's own default.
+   */
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high'
   signal?: AbortSignal
   /** Metering context (who / which screening / which slot) — recorded to ai_usage with tokens + cost. */
   meta?: LlmUsageMeta
@@ -360,6 +367,11 @@ function safeFilename(title: string): string {
   return /\.pdf$/i.test(base) ? base : base + '.pdf'
 }
 
+/** Google's OpenAI-compatible endpoint — the only one `reasoning_effort` is sent to. */
+export function isGeminiEndpoint(baseUrl: string | null | undefined): boolean {
+  return /(^|\/\/)generativelanguage\.googleapis\.com\//.test(`${baseUrl ?? ''}/`)
+}
+
 async function openaiBody(p: LlmChatParams, stream: boolean) {
   const messages = [
     { role: 'system' as const, content: p.system },
@@ -374,6 +386,7 @@ async function openaiBody(p: LlmChatParams, stream: boolean) {
     // Kimi 思考型模型 / GPT-5 只允许默认 temperature —— 标了 omitTemperature 的省略该参数。
     ...(p.temperature !== undefined && !p.model.omitTemperature ? { temperature: p.temperature } : {}),
     ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+    ...(p.reasoningEffort && isGeminiEndpoint(p.model.baseUrl) ? { reasoning_effort: p.reasoningEffort } : {}),
     // stream_options.include_usage makes the final chunk carry token usage
     // (OpenAI / DeepSeek / DashScope / Moonshot / Gemini-compat all accept it).
     ...(stream ? { stream: true, stream_options: { include_usage: true } } : {}),

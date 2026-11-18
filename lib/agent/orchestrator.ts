@@ -1,6 +1,7 @@
 // Agent spine — orchestration helpers: role metadata, workflow stage
 // labels, status derivation, and a rule-based message handler (MVP).
 // Real model calls slot in here later without changing the page.
+import { TurnStreamParser } from './turnStream'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { FoldedSource } from './foldedSources'
 import type { TurnReceipt } from './receipt'
@@ -198,6 +199,9 @@ export async function runAgentTurn(args: {
   lang?: 'zh' | 'en'
   /** The conversation this turn belongs to (agent_threads.id) — approval cards show only in it, and outcomes reopen it. */
   threadId?: string | null
+  /** Asks the route to stream (2026-11-17): called with the reply text drafted so far, '' when a draft is
+   *  withdrawn (a second model call started). The finished turn still comes back as the return value. */
+  onDraft?: (text: string) => void
 }): Promise<AgentTurn> {
   const { client, userId, role, agentName, message, memories, workflow, stageLabel, attachments, exclude, history, live } = args
   const lang = args.lang === 'en' ? 'en' : 'zh'
@@ -235,25 +239,44 @@ export async function runAgentTurn(args: {
   // aborts fetch AND body read; the error message matches the existing
   // /timeout/ classifier in useAgentSession's fallback copy.
   let res: Response
-  let rawBody: string
+  let rawBody = ''
+  // Stream mode: the finished turn as the stream delivered it (null = read the body as one JSON).
+  let streamedTurn: Record<string, unknown> | null = null
   try {
     res = await fetch('/api/agent/turn', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, documents, exclude: exclude ?? [], history: history ?? [], lang }),
+      body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, documents, exclude: exclude ?? [], history: history ?? [], lang , ...(args.onDraft ? { stream: true } : {}) }),
       signal: AbortSignal.timeout(100_000),
     })
     // A 429 says which limit: Retry-After 600 = the site-wide anonymous cap, 3600 = this visitor's hour.
     if (!res.ok) throw new Error(`turn failed: ${res.status}${res.status === 429 ? ` retry-after=${res.headers.get('Retry-After') ?? ''}` : ''}`)
     // The route streams heartbeat whitespace then the JSON body; errors that
     // occur mid-stream arrive as { error } inside a 200 body.
-    rawBody = await res.text()
+    const reader = args.onDraft ? res.body?.getReader() : null
+    if (reader) {
+      // Draft events as they arrive, then the finished turn. Works against a server that did not
+      // stream as well: the parser reads a single JSON body as the final payload.
+      const parser = new TurnStreamParser()
+      const decoder = new TextDecoder()
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (parser.feed(decoder.decode(value, { stream: true }))) args.onDraft!(parser.draft)
+      }
+      parser.feed(decoder.decode())
+      parser.end()
+      if (!parser.final) throw new Error('turn failed: empty body')
+      streamedTurn = parser.final
+    } else {
+      rawBody = await res.text()
+    }
   } catch (e) {
     const name_ = (e as Error)?.name
     if (name_ === 'TimeoutError' || name_ === 'AbortError') throw new Error('turn failed: timeout')
     throw e
   }
-  const turn = JSON.parse(rawBody) as {
+  const turn = (streamedTurn ?? JSON.parse(rawBody)) as {
     error?: string
     reply: string
     memory_writes: MemoryItem[]
