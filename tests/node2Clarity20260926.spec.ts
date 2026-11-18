@@ -45,7 +45,9 @@ describe('the provider is a landing hat', () => {
     expect(h).toContain('data-testid="nav-identity"')
     // signed in, the label is bold and in the acting hat's colour (tests/headerIdentityColor20260929.spec.ts)
     expect(h).toContain("<ReservedText text={home.signedIn ? navIdentityLabel : t('nav.product')} bold={!!identityColor || isProductActive} />")
-    for (const f of ['app/provider/jobs/page.tsx', 'app/provider/onboard/page.tsx']) expect(read(f)).toContain('<Header />')
+    // 2026-11-17: the provider pages share one frame (rail + the same header) instead of three private copies
+    for (const f of ['app/provider/jobs/page.tsx', 'app/provider/onboard/page.tsx']) expect(read(f)).toContain('<ProviderShell')
+    expect(read('components/provider/ProviderShell.tsx')).toContain('<Header />')
   })
   it('notifications retired (user 2026-09-30): its three blocks live in 待办, the work-order conversations and 审计', async () => {
     expect(existsSync('components/notifications/LiveNotifications.tsx')).toBe(false)

@@ -17,6 +17,9 @@ import { supabase } from '@/lib/supabase'
 import { roleStorageKey, useAuth } from '@/lib/useAuth'
 import { assistantItems, GearIcon, PhoneTabs, PlusIcon, RAIL_BY_ROLE, type RailItem, type WorkspaceRole } from './workspace/rail'
 import { useUnreadMessages } from '@/lib/messages/unread'
+import { ProviderRail } from './provider/ProviderNav'
+import { useHomeHref } from '@/lib/useHomeHref'
+import { displayIdentity } from '@/lib/displayIdentity'
 
 export type { WorkspaceRole } from './workspace/rail'
 
@@ -371,6 +374,11 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
   const shellPath = usePathnameSafe()
   const { lang } = useI18n()
   const headingNeeded = useShellHeadingNeeded()
+  // Shared pages (/messages, /settings) opened as a service provider carry the provider's rail, not the
+  // tenant's (2026-11-17). Decided the way the header names the identity; a hat's own pages never switch.
+  const shellHats = useHats()
+  const shellHome = useHomeHref()
+  const providerNav = !!shellHats.provider && displayIdentity(shellPath, shellHome.onProvider, role, shellHats) === 'provider'
   // On a gated route the aside is demo narrative too (Unit 1207 stories) —
   // an honest empty state beside a fixture-driven aside defeats the point.
   const asideHidden = hideAside || (gate != null && !showDemo)
@@ -382,7 +390,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
             sidebar left · content · aside right (2026-09 console redesign,
             design/redesign-2026-09/Console.dc.html) */}
         <div className="md:flex md:min-h-[calc(100vh-66px)]">
-          <Rail role={role} />
+          {providerNav ? <ProviderRail phone /> : <Rail role={role} />}
           <div className={phoneApp ? 'sl-phone-pb min-w-0 flex-1 p-0 md:p-0' : 'min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12'}>
             {headingNeeded && <h1 data-shell-h1="" className="sr-only">{shellPageTitle(role, shellPath, lang === 'zh')}</h1>}
             {(sampleNote || role === 'agent') && (

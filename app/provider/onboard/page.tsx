@@ -8,8 +8,7 @@
 // hand. The guard trigger keeps status out of self-service reach.
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import ProviderShell from '@/components/provider/ProviderShell'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
@@ -23,8 +22,9 @@ type Cred = { id: string; kind: CredentialKind; number: string | null; holder_na
 
 const STATUS_LABEL: Record<string, { zh: string; en: string }> = { pending: { zh: '待核验', en: 'pending verification' }, verified: { zh: '已核验', en: 'verified' }, rejected: { zh: '未通过', en: 'rejected' }, suspended: { zh: '已暂停', en: 'suspended' }, expired: { zh: '已过期', en: 'expired' } }
 
+// The shared provider frame (rail + phone bar once the account has a provider record).
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-screen flex-col bg-surface"><Header /><main className="mx-auto w-full max-w-[760px] flex-1 px-5 py-8">{children}</main><Footer /></div>
+  return <ProviderShell narrow>{children}</ProviderShell>
 }
 
 export default function ProviderOnboardPage() {

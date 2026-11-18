@@ -15,12 +15,16 @@ import { activeHat, useHats } from '@/lib/useHats'
 import { useT } from '@/lib/i18n'
 import { shouldShowMobileNav } from '@/lib/mobileNavRoutes'
 import { PhoneTabs, RAIL_BY_ROLE } from './workspace/rail'
+import { ProviderTabs } from './provider/ProviderNav'
+import { useHomeHref } from '@/lib/useHomeHref'
+import { displayIdentity } from '@/lib/displayIdentity'
 
 export default function MobileBottomNav() {
   const path = usePathname() || '/'
   const { lang } = useT()
   const auth = useAuth()
   const hats = useHats()
+  const home = useHomeHref()
   const zh = lang === 'zh'
   const show = shouldShowMobileNav(path)
 
@@ -40,6 +44,9 @@ export default function MobileBottomNav() {
     // the landlord bar flash and fired a landlord badge query).
     if (hats.loading) return null
     const role = activeHat(hats, auth.role)
+    // A service provider gets its own bar (2026-11-17): on its pages, and anywhere the header says
+    // 「我是服务商」 (lib/displayIdentity.ts). It used to be the tenant workspace's tabs.
+    if (hats.provider && displayIdentity(path, home.onProvider, role, hats) === 'provider') return <ProviderTabs />
     return <PhoneTabs role={role} items={RAIL_BY_ROLE[role]} />
   }
   const items = [

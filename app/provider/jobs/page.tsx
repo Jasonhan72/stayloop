@@ -11,8 +11,7 @@ import { WORK_ORDER_COLUMNS } from '@/lib/marketplace/workOrders'
 import { buildProviderTiles, PROVIDER_GROUPS } from '@/lib/marketplace/providerView'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import ProviderShell from '@/components/provider/ProviderShell'
 import WorkOrderCard, { type WorkOrderLite } from '@/components/marketplace/WorkOrderCard'
 import ThreadPanel from '@/components/threads/ThreadPanel'
 import MessageButton from '@/components/messages/MessageButton'
@@ -31,8 +30,9 @@ const PROVIDER_STATUS: Record<string, { zh: string; en: string }> = { pending: {
 const money = (n: number | string | null | undefined) => (n == null || n === '' ? '—' : `$${Number(n).toLocaleString('en-CA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`)
 const { IN_PROGRESS, AWAITING_ACCEPT } = PROVIDER_GROUPS
 
+// The shared provider frame (rail + phone bar once the account has a provider record).
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-screen flex-col bg-surface"><Header /><main className="mx-auto w-full max-w-[860px] flex-1 px-5 py-8">{children}</main><Footer /></div>
+  return <ProviderShell>{children}</ProviderShell>
 }
 
 export default function ProviderJobsPage() {

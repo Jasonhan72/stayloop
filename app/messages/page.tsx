@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import Header from '@/components/Header'
 import MessageCenter from '@/components/messages/MessageCenter'
+import { ProviderRail } from '@/components/provider/ProviderNav'
 import { roleStorageKey, useAuth } from '@/lib/useAuth'
 import { activeHat, useHats } from '@/lib/useHats'
 
@@ -19,9 +20,20 @@ function Inner() {
   }, [auth.loading, auth.user, router])
   if (auth.loading || !auth.user || hats.loading) return <div className="min-h-screen bg-[#F3F8FC]" />
   const remembered = typeof window !== 'undefined' ? (() => { try { return localStorage.getItem(roleStorageKey(auth.user!.id)) } catch { return null } })() : null
-  // A pure service provider (no landlord / agent hat, remembered provider) gets the plain header.
+  // A service provider (remembered provider) gets the provider's own navigation: its rail beside the
+  // message centre on desktop, its five-tab bar on phones (mounted by the Header) — 2026-11-17.
   if (hats.provider && remembered === 'provider') {
-    return (<><Header variant="solid" /><main className="bg-[#F3F8FC]"><MessageCenter hat="provider" /></main></>)
+    return (
+      <>
+        <Header variant="solid" />
+        <main className="bg-[#F3F8FC]">
+          <div className="md:flex md:min-h-[calc(100vh-66px)]">
+            <ProviderRail />
+            <div className="min-w-0 flex-1"><MessageCenter hat="provider" /></div>
+          </div>
+        </main>
+      </>
+    )
   }
   const hat = activeHat(hats, remembered)
   return (
