@@ -37,7 +37,7 @@ const PROTECTED_GROUNDS =
 
 // Phrases that falsely claim a key action already happened — actions must be
 // proposed as approval cards, never reported as done by the agent itself.
-const EXEC_VERBS_ZH = '发送|发出|提交|递交|分享|签署|签好|签了|扣款|付款|支付|批准|拒绝|婉拒|预约|安排|下单|升级|申请'
+const EXEC_VERBS_ZH = '发送|发出|发给|提交|递交|分享|签署|签好|签了|扣款|付款|支付|批准|拒绝|婉拒|预约|安排|下单|升级|申请|邀请'
 const EXEC_VERBS_EN =
   'sent|submitted|shared|signed|scheduled|booked|paid|approved|rejected|declined|applied|cancelled|canceled|upgraded|went\\s+out|has\\s+been\\s+sent|was\\s+sent'
 const EXECUTED_CLAIM = new RegExp(
@@ -48,7 +48,7 @@ const EXECUTED_CLAIM = new RegExp(
     `(${EXEC_VERBS_ZH})(好了|完成|成功|出去了|过了)`,
     // "我给房东发送了消息" / "把申请交上去了" / "邮件已经发给房东了" —
     // perfective 了 right after the verb, or 给…了 (review 2026-09-14)
-    `(我|已经|邮件|消息|申请)[^。！!？?\n]{0,10}(发给|发送|发出|提交|递交|交|递|发)[^。！!？?\n]{0,8}(了|上去了|过去了)`,
+    `(我|已经|已|邮件|消息|申请)[^。！!？?\n]{0,10}(发给|发送|发出|提交|递交|交|递|发)[^。！!？?\n]{0,8}(了|上去了|过去了)`,
     // English past-tense verbs of outbound action: "Done — I emailed the landlord."
     String.raw`\b(i|we)\s+(emailed|messaged|texted|notified|forwarded)\b`,
     String.raw`\b(emailed|messaged|texted|notified)\s+(the|your)\s+(landlord|tenant|agent|applicant)\b`,
@@ -61,6 +61,84 @@ const EXECUTED_CLAIM = new RegExp(
   ].join('|'),
   'i',
 )
+
+// ── Whose action is it? (2026-11-17) ────────────────────────────────────────
+// EXECUTED_CLAIM alone fires on any 「已…发出 / 提交 / 签署…」, whoever did it. On reply text that put the
+// 「以上操作尚未真正执行」 note under correct answers about other people's actions: 「双方已经同意解约或已
+// 发出搬迁通知」 (the landlord's notice), 「房东目前是否已经向你提出了具体涨幅或发了通知？」 (a question),
+// 「确认必填项处于「已提交审核」状态」 (a status label) — about one turn in twenty in production. A reply
+// claims execution only when a clause says so in its own voice: not a question, not a condition, not
+// advice, not something the landlord / tenant / the reader did, not a label in quotes, not 「已签署的租约」.
+// The card path (action title / summary) still uses the bare pattern: a card is always the assistant's own.
+const CJK_CHAR = /[\u3400-\u9fff]/
+// A status label (「已提交审核」) or a message quoted for the reader to send (「我已经在 11 月 1 日付款」): not the assistant speaking.
+const QUOTED_SPAN = /「[^」]{0,300}」|『[^』]{0,300}』|“[^”]{0,300}”|"[^"\n]{0,120}"|‘[^’\n]{0,120}’/g
+// 「已签署的租约」「提交成功后」「付款完成前」 — the verb describes a thing or a point in time, not a deed.
+const NOT_A_DEED_AFTER = /^\s*(?:的|后|之后|以后|前|之前|时|期间|与否)/
+const ZH_QUESTION = /吗|是否|有没有|是不是|有无|能否|可否|哪些|哪个|什么时候|何时|多久/
+const ZH_CONDITIONAL = /如果|如若|如已|假如|假设|要是|一旦|万一|除非|只要|只有|倘若|若(?!干)|当.{0,14}时|即使|哪怕|无论|不管|凡是|比如|例如|的话|情况下|情形下/
+// 请 as a request, not the 请 in 申请 / 邀请 / 聘请.
+const ZH_ADVICE = /(?:^|[^申邀聘])请|确认|确保|检查|核对|核实|记得|务必|建议|需要|应该|应当|必须|可以|才能|不得|不能|不要|是指|指的是|意味着|视为|通常|一般/
+const ZH_FIRST_PERSON = /我|(?:帮|替|为|给|代)(?:你|您)/
+const ZH_PARTY = '房东|业主|租客|房客|租户|对方|双方|申请人|担保人|经纪|中介|服务商|师傅|物业|管理处|LTB|委员会|仲裁庭|法庭|法院|法警|市府|政府|银行|雇主|保险公司|他们|她们|他|她|你们|你|您'
+// 「房东已…」 anywhere in the clause, or a clause whose subject is that party (「房东安排好了师傅」).
+// 「你的申请已提交」 and 「房东的消息已发出」 are about a thing, not about what that person did.
+const ZH_OTHER_SUBJECT = new RegExp(
+  `(?:${ZH_PARTY})(?:方|那边|这边|自己|本人)?(?:目前|现在|之前|此前|当时|确实|可能|应该|也|都|就|才|还|又|刚|刚刚|早就|早|必须|须)*(?:已|曾)`
+  + `|^[\\s·•\\-\\d.、）)]*(?:而且|并且|同时|另外|此外|但是|但|不过|然后|目前|现在)?(?:${ZH_PARTY})(?!的)`,
+)
+// From here on the reply is a draft in the reader's voice (「我在 10 月 2 日提交了报修…」 is the tenant's
+// letter, not the assistant's deed). Inside a draft only an explicit 「已帮你 / 替你…」 still counts.
+const ZH_DRAFT_INTRO = /起草|草稿|草拟|拟好|拟了|写好|(?:帮|替|为|给)你写|话术|模板|范文|内容如下|如下[：:]?\s*$|正文[：:]|主题[：:]|可以(?:这样|这么)(?:说|写|回|发)|你可以(?:说|写|回复|发)[：:]/
+const EN_DRAFT_INTRO = /\bdraft(?:ed)?\b|\btemplate\b|\bsubject:|here(?:'|\u2019)s\s+(?:a|the|your)\b[^.]{0,30}\b(?:message|reply|letter|email|note|text)\b|\byou\s+(?:can|could|might)\s+(?:say|write|send|reply)\b/i
+const ZH_BENEFACTIVE = /(?:帮|替|为|给|代)(?:你|您)/
+const EN_BENEFACTIVE = /\b(?:for you|on your behalf)\b/i
+const EN_QUESTION = /^\s*(?:has|have|had|did|do|does|is|are|was|were|can|could|should|would|will)\b/i
+const EN_CONDITIONAL = /\b(?:if|once|after|when|whenever|whether|until|unless|before|in case|as soon as|provided|assuming|suppose)\b/i
+const EN_ADVICE = /\b(?:should|must|needs? to|can|could|would|will|may|might|have to|has to|make sure|ensure|check|confirm|please|usually|generally|typically)\b/i
+const EN_FIRST_PERSON = /\b(?:i|we)\b|\b(?:i|we)['\u2019](?:ve|m|d)\b/i
+const EN_OTHER_SUBJECT = new RegExp(String.raw`\b(?:landlord|tenant|applicant|guarantor|agent|broker|provider|contractor|board|ltb|court|sheriff|bank|employer|they|he|she|you)\b(?:'s|\u2019s)?\s+(?:(?:has|have|had|already|just|then|also)\s+)*(?:${EXEC_VERBS_EN})\b`, 'i')
+
+function clauseClaimsExecution(text: string, hypothetical: boolean, question: boolean, inDraft: boolean): boolean {
+  let deed = false
+  for (const m of text.matchAll(new RegExp(EXECUTED_CLAIM.source, 'gi'))) {
+    if (!NOT_A_DEED_AFTER.test(text.slice((m.index ?? 0) + m[0].length))) { deed = true; break }
+  }
+  if (!deed || hypothetical || question) return false
+  if (inDraft) return (CJK_CHAR.test(text) ? ZH_BENEFACTIVE : EN_BENEFACTIVE).test(text)
+  if (CJK_CHAR.test(text)) {
+    if (ZH_QUESTION.test(text)) return false
+    if (ZH_FIRST_PERSON.test(text)) return true
+    return !ZH_ADVICE.test(text) && !ZH_OTHER_SUBJECT.test(text)
+  }
+  if (EN_QUESTION.test(text)) return false
+  if (EN_FIRST_PERSON.test(text)) return true
+  return !EN_ADVICE.test(text) && !EN_OTHER_SUBJECT.test(text)
+}
+
+/** Does the reply, in its own voice, say an outbound action has already been carried out? Pure.
+ *  A condition covers its clause and the rest of the sentence (「如果房东已发出 N4，你有 7 天」); a
+ *  question mark covers the last clause. Each clause is judged on its own, so 「已帮你提交，如果房东没
+ *  回应我会提醒你」 is still a claim. Quoted text and whatever follows the introduction of a draft are
+ *  the reader's words to send, not the assistant's report. */
+export function replyClaimsExecution(reply: string): boolean {
+  let inDraft = false
+  for (const sentence of reply.replace(QUOTED_SPAN, ' ').match(/[^。！!？?；;\n]+[。！!？?；;]?/g) ?? []) {
+    if (EXECUTED_CLAIM.test(sentence)) {
+      const asks = /[？?]\s*$/.test(sentence)
+      const clauses = sentence.split(/[，,、：:]+|\s[—–-]\s/).filter((c) => c.trim())
+      let hypothetical = false
+      for (let i = 0; i < clauses.length; i++) {
+        const c = clauses[i]
+        if ((CJK_CHAR.test(c) ? ZH_CONDITIONAL : EN_CONDITIONAL).test(c)) hypothetical = true
+        if (clauseClaimsExecution(c, hypothetical, asks && i === clauses.length - 1, inDraft)) return true
+      }
+    }
+    // The sentence that introduces a draft is still the assistant's own; what follows it is not.
+    if ((CJK_CHAR.test(sentence) ? ZH_DRAFT_INTRO : EN_DRAFT_INTRO).test(sentence)) inDraft = true
+  }
+  return false
+}
 
 // Lease clauses that are void/illegal in Ontario.
 const ILLEGAL_LEASE =
@@ -277,7 +355,7 @@ export function applyGuardrail(
   // 3b) The reply TEXT can also falsely claim execution — worst when there is
   //     no pending card to correct the impression. Appending a correction is
   //     safer than regex-rewriting prose (which garbles mid-sentence Chinese).
-  if (!action && EXECUTED_CLAIM.test(reply)) {
+  if (!action && replyClaimsExecution(reply)) {
     flags.push('executed_claim_in_reply')
     reply += zh
       ? '\n\n注：以上提到的操作**尚未真正执行**——任何对外发送、提交、签署或付款都会先以待确认卡片出现，经你批准后才会发生。'
