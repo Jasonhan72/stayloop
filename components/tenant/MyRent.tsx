@@ -68,7 +68,7 @@ export default function MyRent() {
               {r.amount != null && <span className="font-semibold">${Number(r.amount).toLocaleString()}</span>}
               {r.unrecorded
                 ? <span data-testid="rent-unrecorded" className={`rounded-full px-2 py-[2px] text-[11px] font-bold ${r.overdue ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}>{r.overdue ? (zh ? '逾期 · 还没有记录' : 'Overdue · not recorded') : (zh ? '待付 · 还没有记录' : 'Due · not recorded')}</span>
-                : <span className={`rounded-full px-2 py-[2px] text-[11px] font-bold ${r.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : r.status === 'late' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}>{label(r.status)}</span>}
+                : <span className={`rounded-full px-2 py-[2px] text-[11px] font-bold ${r.status === 'paid' || r.status === 'late' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`} data-testid="rent-status">{label(r.status)}</span>}
               {/* 凭证: the other side's confirmation + a receipt, both done on the tenancy page. */}
               <Link href={`/h/${r.household_id}?tab=rent`} data-testid="rent-evidence-badge" data-badge={r.badge}
                 className={`rounded-full px-2 py-[2px] text-[11px] font-semibold ${r.badge === 'none' ? 'text-body-3' : r.badge === 'awaiting_me' || r.badge === 'awaiting_other' ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'}`}>

@@ -12,6 +12,7 @@
 //   4. Concrete memories (budget / area / move date …) → a check the
 //      assistant can run against real data (rent benchmark, listings, renewals).
 //   5. Existing recommendations (RecommendationDeck) as page links.
+import { pickCardLang } from '@/lib/ui/cardLang'
 import type { AgentRole, BiText, MemoryItem, PendingAction, Recommendation, WorkflowState } from './types'
 import { WORKFLOW_STAGES, stageIndex } from './orchestrator'
 import { formatMemoryValue } from './memory'
@@ -98,7 +99,7 @@ export function buildIdeas(args: {
     push({
       id: 'pending',
       kind: 'pending',
-      text: t(lang, `有 ${pending.length} 件事等你点头：${pending[0].title}`, `${pending.length} waiting for your nod: ${pending[0].title}`),
+      text: t(lang, `有 ${pending.length} 件事等你点头：${pickCardLang(pending[0].title, 'zh')}`, `${pending.length} waiting for your nod: ${pickCardLang(pending[0].title, 'en')}`),
       why: t(lang, '我不会替你决定，批准后才执行', 'I never decide for you — nothing runs until you approve'),
       href: `/${role}/todo`,
     })

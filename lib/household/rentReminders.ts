@@ -179,9 +179,11 @@ export function lateCountWithin(late: string[], todayIso: string): number {
 }
 
 export function buildOverdueProposal(userId: string, meta: OverdueMetadata): OverdueProposal {
-  const unit = meta.unit_label || '你的单元 / your unit'
+  // One language per half: the card shows only the reader's half (lib/ui/cardLang.ts).
+  const unitZh = meta.unit_label || '你的单元'
+  const unitEn = meta.unit_label || 'your unit'
   const ontario = meta.province === 'ON'
-  const title = `租金逾期 ${meta.days_late} 天 · ${unit} · ${meta.due_date} / Rent ${meta.days_late} days overdue · ${unit} · ${meta.due_date}`
+  const title = `租金逾期 ${meta.days_late} 天 · ${unitZh} · ${meta.due_date} / Rent ${meta.days_late} days overdue · ${unitEn} · ${meta.due_date}`
   const zh: string[] = []
   const en: string[] = []
   zh.push(`${meta.due_date} 到期的这期租金 $${fmtMoney(meta.amount)} 还没有记录到账`)

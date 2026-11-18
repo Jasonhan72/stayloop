@@ -137,7 +137,7 @@ export function screeningDisplayState(s: { status: string | null | undefined }):
 export const RENT_STATE_LABEL: Record<string, Bi & { tone: Tone }> = {
   due: { zh: '待付', en: 'Due', tone: 'warn' },
   paid: { zh: '已付', en: 'Paid', tone: 'ok' },
-  late: { zh: '逾期', en: 'Late', tone: 'danger' },
+  late: { zh: '已付 · 迟付', en: 'Paid late', tone: 'ok' },
   failed: { zh: '失败', en: 'Failed', tone: 'danger' },
 }
 // 'late' is a RECORDED payment that arrived after the due date (mark_rent_paid

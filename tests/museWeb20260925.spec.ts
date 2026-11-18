@@ -123,7 +123,8 @@ describe('three role pages, one layout', () => {
     expect(s).toContain('<WorkspaceShell role={role} hideAside phoneApp>')
   })
   it('recommendations moved to /x/ideas', () => {
-    expect(read('components/mobile/RolePages.tsx')).toContain('<RecommendationDeck items={data.recommendations} />')
+    // 2026-11-17: the agent's list is filtered by registration status first (recommendationsForAgent)
+    expect(read('components/mobile/RolePages.tsx')).toContain('<RecommendationDeck items={recommendations} />')
   })
 })
 

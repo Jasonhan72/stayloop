@@ -13,6 +13,7 @@ import { isExecutableAction, notifyPendingExpired, type DecidedAction } from '@/
 import { supabase } from '@/lib/supabase'
 import WorkOrderInline from '@/components/agent/WorkOrderInline'
 import { maskEmails } from '@/lib/relay'
+import { pickCardLang } from '@/lib/ui/cardLang'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -179,9 +180,9 @@ export default function ApprovalActionCard({
         </span>
       </div>
 
-      <h3 className={`mt-2 font-bold tracking-tight ${compact ? 'text-[15.5px] leading-snug' : 'text-[18px]'}`}>{mask(action.title)}</h3>
+      <h3 className={`mt-2 font-bold tracking-tight ${compact ? 'text-[15.5px] leading-snug' : 'text-[18px]'}`}>{mask(pickCardLang(action.title, zh ? 'zh' : 'en'))}</h3>
       {action.summary && (
-        <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{mask(action.summary)}</p>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{mask(pickCardLang(action.summary, zh ? 'zh' : 'en'))}</p>
       )}
 
       {/* 节点 5: work-order cards carry the live work order + its thread — act here, no hub detour. */}
@@ -449,7 +450,7 @@ export function StalledActionRow({
       <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-warning">
         {zh ? '已批准，尚未执行' : 'APPROVED · NOT RUN YET'}
       </div>
-      <h3 className={`mt-1.5 font-bold tracking-tight ${compact ? 'text-[14.5px] leading-snug' : 'text-[16px]'}`}>{maskEmails(action.title, zh ? '对方' : 'the other party')}</h3>
+      <h3 className={`mt-1.5 font-bold tracking-tight ${compact ? 'text-[14.5px] leading-snug' : 'text-[16px]'}`}>{maskEmails(pickCardLang(action.title, zh ? 'zh' : 'en'), zh ? '对方' : 'the other party')}</h3>
       <p className="mt-1.5 text-[12.5px] leading-relaxed text-body-2">
         {zh ? `没有执行的原因：${executionReasonText(reason, true)}。` : `Why it hasn't run: ${executionReasonText(reason, false)}.`}
       </p>

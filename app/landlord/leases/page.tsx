@@ -354,8 +354,8 @@ export default function LandlordLeasesPage() {
             <span className="font-mono text-[11px] uppercase tracking-eyebrow text-landlord">LANDLORD · LEASES</span>
             <span className="mx-1.5 text-body-3">·</span>
             {lang === 'zh'
-              ? 'Ontario LTB 标准租约 · RTA 条款自动校验 · 续约 / 涨租通知一键发送'
-              : 'Ontario LTB Standard Lease · automatic RTA clause checks · one-click renewal / rent-increase notices'}
+              ? 'Ontario LTB 标准租约 · RTA 条款自动校验 · 续约提醒与涨租日期核对'
+              : 'Ontario LTB Standard Lease · automatic RTA clause checks · renewal reminders and rent-increase date checks'}
           </>
         }
         actions={

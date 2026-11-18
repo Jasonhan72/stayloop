@@ -22,8 +22,8 @@ const LINKS: Record<AgentRole, { href: string; label: { zh: string; en: string }
   agent: [
     { href: '/agent/tasks', label: { zh: '任务', en: 'Tasks' } },
     { href: '/agent/clients', label: { zh: '客户', en: 'Clients' } },
-    { href: '/agent/calendar', label: { zh: '日历', en: 'Calendar' } },
-    { href: '/agent/earnings', label: { zh: '佣金', en: 'Commission' } },
+    { href: '/agent/checklist', label: { zh: '核对清单', en: 'Checklist' } },
+    { href: '/agent/verify', label: { zh: '认证与主页', en: 'Verification & profile' } },
     { href: '/agent/progress', label: { zh: '全流程进度', en: 'Progress' } },
   ],
 }

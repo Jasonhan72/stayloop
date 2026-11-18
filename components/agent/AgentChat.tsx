@@ -18,6 +18,7 @@ import BenchmarkTrendChart from './BenchmarkTrendChart'
 import { benchmarkAttribution, statcanPeriodLabel, benchmarkLabel } from '@/lib/market/rentBenchmark'
 import Link from 'next/link'
 import { splitPaths } from '@/lib/agent/replyPaths'
+import { pickCardLang } from '@/lib/ui/cardLang'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage, PendingAction, WorkflowState } from '@/lib/agent/types'
 import ApprovalActionCard, { StalledActionRow } from './ApprovalActionCard'
@@ -740,7 +741,7 @@ function ScheduledRow({ id, title, decision, scheduled, onUndo, zh }: { id: stri
                 : scheduled
                   ? (zh ? `已批准 · ${left} 秒后执行` : `Approved · runs in ${left}s`)
                   // The outcome (sent / expired / failed) is the agent's line just above — this row never claims it.
-                  : (zh ? '已批准 · 结果见上方消息' : 'Approved · see the result above')} · {title}
+                  : (zh ? '已批准 · 结果见上方消息' : 'Approved · see the result above')} · {pickCardLang(title, zh ? 'zh' : 'en')}
       </span>
       {scheduled && onUndo && (
         <button type="button" onClick={() => onUndo(id)} className="flex-none rounded-full border border-line-strong bg-white px-2.5 py-[3px] text-[11.5px] font-semibold text-body hover:border-danger hover:text-danger">{zh ? '撤销' : 'Undo'}</button>

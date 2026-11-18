@@ -80,8 +80,8 @@ export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
     { key: 'clients',   href: '/agent/clients',    icon: <UsersIcon />,   label: { zh: '客户', en: 'Clients' } , desc: { zh: '客户表、委托与代客筛查', en: 'Clients, delegations and screening for clients' }, group: 'pages' },
     { key: 'tasks',     href: '/agent/tasks',      icon: <TaskIcon />,    label: { zh: '任务', en: 'Tasks' } , desc: { zh: '客户表生成的待跟进事项', en: 'Follow-ups generated from your client book' }, group: 'pages' },
     { key: 'checklist', href: '/agent/checklist',  icon: <ChecklistIcon />, label: { zh: '核对清单', en: 'Checklist' } , desc: { zh: '要约与租约要点的确定性核对', en: 'Deterministic check of offer and lease points' }, group: 'pages' },
-    { key: 'cal',       href: '/agent/calendar',   icon: <CalendarIcon />, label: { zh: '日历', en: 'Calendar' } , desc: { zh: '日程（示范）', en: 'Calendar (sample)' }, group: 'pages' },
-    { key: 'earn',      href: '/agent/earnings',   icon: <CashIcon />,    label: { zh: '佣金', en: 'Earnings' } , desc: { zh: '佣金记录（示范，尚未上线）', en: 'Earnings (sample, not live yet)' }, group: 'pages' },
+    // 日历 and 佣金 left the rail on 2026-11-17: both pages are a one-line empty state (the commission engine is
+    // frozen, the calendar is a demo). The pages stay reachable by address; they come back when they are real.
     // 2026-11-17: the RECO status and the public-profile switch had no entry from the workspace.
     { key: 'profile',   href: '/agent/verify',     icon: <BadgeIcon />,   label: { zh: '认证与主页', en: 'Verification & profile' } , desc: { zh: 'RECO 认证状态，公开或关闭你的经纪主页', en: 'RECO status; publish or hide your agent profile' }, group: 'pages' },
     { key: 'audit',     href: '/agent/audit',      icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '你的操作和它替你做的事，逐条留痕', en: 'Everything you and your AI Agent did, line by line' }, group: 'records' },

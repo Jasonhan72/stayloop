@@ -91,12 +91,12 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     ctaZh: '和 AI 助理开工 →', ctaEn: 'Start with your AI Agent →', href: '/agent/agent',
   },
   '/agent/calendar': {
-    zh: '还没有带看日程。让 AI 助理帮你安排第一场。', en: 'No showings yet. Let your AI Agent schedule your first.',
-    ctaZh: '打开 AI 助理 →', ctaEn: 'Open your AI Agent →', href: '/agent/agent',
+    zh: '日历还没有上线，这一页目前只有产品演示。要跟进的客户在任务页。', en: 'The calendar is not live yet; this page only holds a product demo. Clients to follow up are on the Tasks page.',
+    ctaZh: '去任务页 →', ctaEn: 'Go to Tasks →', href: '/agent/tasks',
   },
   '/agent/earnings': {
-    zh: '还没有结算记录。完成的转介与筛查服务会在这里对账。', en: 'No settlements yet. Completed referrals and screenings reconcile here.',
-    ctaZh: '打开 AI 助理 →', ctaEn: 'Open your AI Agent →', href: '/agent/agent',
+    zh: '佣金记录还没有上线。Stayloop 不收佣金，也不替任何人结算佣金。', en: 'Commission records are not live yet. Stayloop takes no commission and settles none for anyone.',
+    ctaZh: '回客户表 →', ctaEn: 'Back to clients →', href: '/agent/clients',
   },
   '/tenant/passport/sharing': {
     zh: '还没有授权记录。第一次分享护照后，谁能看到什么会列在这里。', en: 'No grants yet. Once you share your Passport, who can see what is listed here.',
@@ -333,6 +333,8 @@ export function shellPageTitle(role: WorkspaceRole, path: string, zh: boolean): 
     ...assistantItems(role),
     ...RAIL_BY_ROLE[role],
     { key: 'settings', href: '/settings', label: { zh: '设置', en: 'Settings' } },
+    // Off the rail since 2026-11-17, still pages with a name.
+    ...(role === 'agent' ? [{ key: 'cal', href: '/agent/calendar', label: { zh: '日历', en: 'Calendar' } }, { key: 'earn', href: '/agent/earnings', label: { zh: '佣金', en: 'Earnings' } }] : []),
   ]
   let best: (typeof items)[number] | null = null
   for (const it of items) {

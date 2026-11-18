@@ -101,6 +101,13 @@ export function nextBestAction(
   return lang === 'zh' ? `下一步 · ${cur.label.zh}` : `Next · ${cur.label.en}`
 }
 
+/** The agent's suggestion list carries both 「RECO 注册核验」 and 「公开你的经纪主页」; which one applies
+ *  depends on the registration (2026-11-17: a verified agent was told to go and get verified). Until the
+ *  hats are known neither is shown. Other hats' lists pass through. */
+export function recommendationsForAgent<T extends { id: string }>(items: readonly T[], registrationLive: boolean | null): T[] {
+  return items.filter((r) => (r.id === 'verify' ? registrationLive === false : r.id === 'profile' ? registrationLive === true : true))
+}
+
 // MVP rule-based recommendations. For tenants we surface the next concrete
 // move; later this reads from listings/applications.
 export function buildRecommendations(
@@ -125,6 +132,8 @@ export function buildRecommendations(
         { id: 'tasks', title: { zh: '今日任务', en: "Today's tasks" }, description: { zh: '带看 / 拍照 / Listing prep,授权范围已标注。', en: 'Showings / photos / listing prep, authorization scope marked.' }, href: '/agent/tasks', badge: 'TASKS' },
         { id: 'clients', title: { zh: '客户与回复', en: 'Clients & replies' }, description: { zh: '客户档案与跟进记录。', en: 'Client files and follow-ups.' }, href: '/agent/clients', badge: 'CLIENTS' },
         { id: 'verify', title: { zh: 'RECO 注册核验', en: 'RECO registration check' }, description: { zh: '认证后进入租客可选的经纪目录。', en: 'Once verified you appear in the tenant-facing directory.' }, href: '/agent/verify', badge: 'VERIFY' },
+        // Shown instead of the one above once the registration is verified (lib/agent/ideas.ts swaps them).
+        { id: 'profile', title: { zh: '认证与公开主页', en: 'Verification & public profile' }, description: { zh: '核验已通过。在这里公开或更新你的主页：介绍、语言、服务区域。', en: 'Your registration is verified. Publish or update your profile here: introduction, languages, areas.' }, href: '/agent/verify', badge: 'PROFILE' },
       ]
     default:
       return []
