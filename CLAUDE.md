@@ -139,7 +139,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 生命周期事实：`lifecycle_facts_{tenant,landlord,agent}()` RPC → `lib/facts/useFacts.ts`；rail / 今日卡在 `lib/lifecycle/`；事务主记录 `rental_matters` + `my_matters()`
 - 租约：`app/api/lease/{send,sign,view}`、`lib/lease/`；在管租约中心 `/h/[id]`、`lib/household/`
 - 消息：`/messages`、`components/messages/MessageCenter.tsx`、`lib/threads/`、`components/threads/ThreadPanel.tsx`
-- 服务市场：`lib/marketplace/`（状态机 `workOrders.ts`、服务端 `server.ts`、日扫 `sweep.ts`）
+- 服务市场：`lib/marketplace/`（状态机 `workOrders.ts`、服务端 `server.ts`、日扫 `sweep.ts`）；服务商的导航 `components/provider/ProviderNav.tsx`（`PROVIDER_ITEMS`：工单 · 历史 · 资料与资质 · 消息 · 找人；桌面 `ProviderRail`、手机 `ProviderTabs`），三个服务商页共用 `ProviderShell`（有服务商档案才出侧栏）；消息 / 设置 / 公开页在页头显示「我是服务商」时用服务商的导航（同一个 `displayIdentity` 判定）
 - 经纪：`agent_profiles` / `agent_clients` / `delegations` / 收件链接 `/intake/[token]`；`/admin/agents` 人工核验 RECO（注册库禁止自动查询，永远手动）；公开主页的开关在 `/agent/verify`（`components/agent/PublicProfileEditor.tsx` 顶部的「公开我的主页」按钮，核验有效后这一节排在注册表单上面；侧栏「认证与主页」）
 - 消费者档案：`lib/consumer/`、`/my-file`、`/admin/consumer-requests`
 - 申请包：`applicant_profiles` + `/tenant/passport`、`/api/profile/*`
