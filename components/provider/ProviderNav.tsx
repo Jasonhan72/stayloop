@@ -48,7 +48,8 @@ export function useProviderInvites(enabled: boolean): number {
   return n
 }
 
-const isOn = (path: string, href: string) => path === href || path.startsWith(href + '/')
+// 找人 is one section with three addresses (/agents, /providers, /providers/professional) — not /provider/….
+const isOn = (path: string, href: string) => (href === FIND_ITEM.href ? /^\/(agents|providers)(\/|$)/.test(path) : path === href || path.startsWith(href + '/'))
 const Dot = ({ n }: { n: number }) => (
   <span aria-hidden className="absolute right-1 top-1 min-w-[16px] rounded-full px-1 text-center text-[10px] font-extrabold leading-4 text-white" style={{ background: '#EF4444' }}>{n > 99 ? '99+' : n}</span>
 )

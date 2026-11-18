@@ -90,6 +90,15 @@ describe('phone: a five-tab bar', () => {
     ])
     expect(links.map((a) => a.getAttribute('aria-current'))).toEqual(['page', null, null, null, null])
   })
+  it('找人 is current on all three directory addresses, and never on the provider’s own pages', async () => {
+    for (const [path, want] of [['/agents', '/agents'], ['/providers', '/agents'], ['/providers/professional', '/agents'], ['/agents/jane-doe', '/agents'], ['/provider/onboard', '/provider/onboard']] as const) {
+      state.path = path
+      const { container } = render(<ProviderTabs />)
+      await settle()
+      expect(all<HTMLAnchorElement>(container, 'a[aria-current="page"]').map((a) => a.getAttribute('href')), path).toEqual([want])
+      cleanup()
+    }
+  })
   it('工单 carries the invitations waiting for an answer, 消息 the unread count', async () => {
     state.invites = 2
     state.unread = 12
