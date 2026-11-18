@@ -10,12 +10,13 @@ const shell = readFileSync('components/WorkspaceShell.tsx', 'utf8')
 
 const GATED = [
   '/landlord/finance', '/landlord/maintenance',
-  '/tenant/applications', '/tenant/payments', '/tenant/move-in', '/tenant/maintenance',
+  '/tenant/applications', '/tenant/payments', '/tenant/move-in', '/tenant/maintenance', '/tenant/lease',
   '/tenant/passport/sharing', '/tenant/audit', '/landlord/audit',
   '/agent/tasks', '/agent/clients', '/agent/calendar', '/agent/earnings', '/agent/showings/*',
 ]
 // /tenant/passport left this list on 2026-10-16: it is the real applicant pack now (tests/v1stage4_passportPack.spec.tsx).
-const NOTED = ['/tenant/lease']
+// /tenant/lease left this list on 2026-11-17: it is gated now (tests/sampleGate20261117.spec.ts). No route mixes real and sample content any more.
+const NOTED: string[] = []
 
 describe('sample-data notices', () => {
   it('gates every fixture-only workspace route', () => {

@@ -144,7 +144,8 @@ describe('tenant lease page carries the two tools; move-in links to them', () =>
     expect(src).toContain("import MoveOutTools from '@/components/tenant/MoveOutTools'")
     const n1 = src.indexOf('<N1CheckCard />')
     const mo = src.indexOf('<MoveOutTools />')
-    const header = src.indexOf('<PageHeader')
+    // 2026-11-17: the tools are in the page's live block; the sample lease (its header names Unit 1207) is the gated body after it
+    const header = src.indexOf("title={zh ? 'Unit 1207 · King West 租约'")
     expect(n1).toBeGreaterThan(0)
     expect(mo).toBeGreaterThan(n1)
     expect(header).toBeGreaterThan(mo)

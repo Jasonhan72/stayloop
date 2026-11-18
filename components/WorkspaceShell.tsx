@@ -68,6 +68,14 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     zh: '还没有租房申请。让 AI 助理按你的预算和区域先找几套,再一键申请。', en: 'No applications yet. Let your AI Agent shortlist homes for your budget and area first.',
     ctaZh: '让 AI 助理开始找房 →', ctaEn: 'Let your AI Agent start searching →', href: '/tenant/agent',
   },
+  '/tenant/lease': {
+    zh: '还没有在管租约。导入已经签好的租约，或接受房东的邀请后，这份租约会出现在这里——对话、租金记录和报修都从它开始。', en: 'No managed tenancy yet. Import a lease you have already signed, or accept your landlord’s invitation, and it appears here — the conversation, rent records and repairs all start from it.',
+    ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
+    note: {
+      zh: '这份「Unit 1207 · King West」租约、它的签署进度和 AI 助理解读都是示范数据，不是你的租约。',
+      en: 'This “Unit 1207 · King West” lease, its signing progress and the AI Agent commentary are sample data, not your lease.',
+    },
+  },
   '/tenant/payments': {
     zh: '还没有租金记录。加入或导入你的在管租约后,每月租金在这里留痕——准时记录会进入你的租客护照。', en: 'No rent records yet. Join or import your managed tenancy and every month leaves a record here.',
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
@@ -126,12 +134,10 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
 // Routes that mix real functionality with fixture sections (deliberately not
 // gated — see above). They carry the banner permanently; the note says which
 // parts are real.
-const SAMPLE_NOTE: Record<string, GateNote> = {
-  '/tenant/lease': {
-    zh: '本页的「在管租约」列表、N1 涨租核对与退租工具是真实功能；下面的租约条款、签署进度与 AI 助理解读是示范数据。',
-    en: 'The managed-lease list, the N1 rent-increase check and the move-out tools are live; the clauses, signing progress and AI Agent commentary below are sample data.',
-  },
-}
+// Empty since 2026-11-17: /tenant/lease was the last one. A tenant with a real tenancy saw it under a
+// page titled 「Unit 1207 · King West 租约」 and a banner calling the page a demo (product report §4.5);
+// it is gated now like the rest — real records and tools by default, the sample lease on request.
+const SAMPLE_NOTE: Record<string, GateNote> = {}
 
 function lookupGate(path: string) {
   if (DEMO_GATE[path]) return DEMO_GATE[path]
@@ -187,10 +193,12 @@ function GateEmptyState({ gate, zh, setShowDemo, hasLive, role }: { gate: NonNul
   const ctaHref = gate.href === '/dashboard' && role !== 'landlord' ? `/${role}/agent` : gate.href
   // Real rows are on screen: the "nothing yet" copy would contradict them.
   const copy = hasLive && live > 0
-    ? (zh ? '以上是你的真实记录。这一页的其余部分仍是产品演示。' : 'Those are your real records. The rest of this page is still a product demo.')
+    ? (zh ? '以上是你的真实记录。想看这一页填满示范数据的样子，可以打开产品演示。' : 'Those are your real records. To see this page filled with sample data, open the product demo.')
     : (zh ? gate.zh : gate.en)
+  // Under real rows this is a footnote, not the page: no tall empty-state box.
+  const compact = hasLive && live > 0
   return (
-    <div className="rounded-2xl border border-line-divider bg-white px-6 py-16 text-center">
+    <div className={`rounded-2xl border border-line-divider bg-white px-6 text-center ${compact ? 'py-6' : 'py-16'}`} data-testid="gate-empty" data-compact={compact ? '1' : '0'}>
       <p className="mx-auto max-w-[420px] text-[14px] leading-relaxed text-body-2">{copy}</p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Link href={ctaHref} className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#00ACE4' }}>

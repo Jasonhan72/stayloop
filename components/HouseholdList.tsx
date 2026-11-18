@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import MessageButton from '@/components/messages/MessageButton'
 import { roleLabel } from '@/lib/threads/shared'
+import { useReportLiveRows } from '@/lib/liveRows'
 
 interface Row {
   id: string; address: string; unit: string | null; city: string | null
@@ -30,6 +31,8 @@ export default function HouseholdList() {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [others, setOthers] = useState<Others>({})
   const [othersLoaded, setOthersLoaded] = useState(false)
+  // Inside a gated page (/tenant/lease) the shell's empty state must not say 「还没有在管租约」 under a real one.
+  useReportLiveRows('households', rows ? rows.length : null)
 
   useEffect(() => {
     if (!user) return

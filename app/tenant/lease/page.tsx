@@ -111,6 +111,25 @@ const RIGHTS: Array<{ zh: string; en: string }> = [
   },
 ]
 
+// What is real on this page (2026-11-17: it used to sit above an always-on sample lease, under a banner
+// calling the whole page a demo): the tenant's managed tenancies, then the tools that need no account
+// data — check an N1 against lib/ontario/rules, and N9 dates / deposit interest / move-out checklist
+// (V1.0 stage 2, 乙 #10). Rendered through the shell's liveSlot.
+function LeaseLive({ zh }: { zh: boolean }) {
+  return (
+    <div className="mb-6" data-testid="lease-live">
+      <PageHeader
+        title={zh ? '租约' : 'Lease'}
+        sub={<><span className="font-mono text-[11px] uppercase tracking-eyebrow text-tenant">LEASE</span><span className="mx-1.5 text-body-3">·</span>{zh ? '你的在管租约，和涨租、退租时用得上的核对工具。' : 'Your managed tenancies, and the checks you need when rent goes up or you move out.'}</>}
+      />
+      <InsuranceReferralCard />
+      <HouseholdList />
+      <N1CheckCard />
+      <MoveOutTools />
+    </div>
+  )
+}
+
 export default function TenantLeasePage() {
   const name = useAIName()
   const { lang } = useT()
@@ -133,13 +152,8 @@ export default function TenantLeasePage() {
   ]
 
   return (
-    <WorkspaceShell role="tenant" aside={<SigningAside lang={lang} insights={insights} />}>
-      <InsuranceReferralCard />
-      <HouseholdList />
-      {/* Real tenant tools (V1.0 stage 2, 乙 #10) — above the sample lease below: check an N1 against
-          lib/ontario/rules, and N9 dates / deposit interest / move-out checklist. No account data. */}
-      <N1CheckCard />
-      <MoveOutTools />
+    <WorkspaceShell role="tenant" aside={<SigningAside lang={lang} insights={insights} />} liveSlot={<LeaseLive zh={zh} />}>
+      {/* Everything below is the sample lease: shown only after 「查看产品演示」, under the sample banner. */}
       <PageHeader
         title={zh ? 'Unit 1207 · King West 租约' : 'Unit 1207 · King West Lease'}
         sub={
