@@ -187,7 +187,8 @@ describe('/providers — the repair directory page', () => {
         prov({ id: 'p2', legal_name: 'Paralegal Only', trades: ['paralegal'] }),
       ],
       provider_credentials_public: HANDYMAN_OK('p1'),
-      provider_reviews: [{ provider_id: 'p1', overall: 4 }],
+      // one row per provider, already averaged (view provider_review_stats, 2026-11-22)
+      provider_review_stats: [{ provider_id: 'p1', overall: 4, reviews: 1 }],
     }
   }
   const mount = async () => {
@@ -213,16 +214,18 @@ describe('/providers — the repair directory page', () => {
     expect(textOf(card)).toContain('[TEST] Maple Plumbing')
     only(card, '[data-testid="test-data-tag"]')
     expect(textOf(only(card, '[data-testid="provider-rating"]'))).toBe('★ 4 (1)')
-    expect(textOf(only(card, '[data-testid="provider-credentials"]'))).toContain('到期 2027-06-30')
-    expect(only<HTMLAnchorElement>(card, 'a[href^="mailto:"]').getAttribute('href')).toBe('mailto:maple@example.org')
-    // a non-http(s) "website" never becomes a link
-    expect(all(card, '[data-testid="provider-website"]').length).toBe(0)
+    // 2026-11-22: the card is the agent directory's card — it opens the provider's page, where the
+    // credentials, the contact details and the message form are; none of them sits on the card.
+    expect(only<HTMLAnchorElement>(card, '[data-testid="provider-card-view"]').getAttribute('href')).toBe('/providers/p1')
+    expect(only<HTMLAnchorElement>(card, '[data-testid="provider-card-message"]').getAttribute('href')).toBe('/providers/p1#contact')
+    expect(all(card, 'a[href^="mailto:"], a[href^="tel:"], [data-testid="provider-website"], [data-testid="provider-credentials"]').length).toBe(0)
+    expect(textOf(card)).not.toContain('maple@example.org')
     const hint = only(container, '[data-testid="providers-role-hint"]')
     expect(textOf(hint)).toContain('先报修')
     expect(only<HTMLAnchorElement>(hint, 'a').getAttribute('href')).toBe('/tenant/maintenance')
     expect(container.textContent).not.toMatch(/派给|指派|Dispatch to/)
     expect(textOf(only(container, '[data-testid="providers-order-note"]'))).toContain('排序固定')
-    expect(state.asked).toEqual(['provider_directory', 'provider_credentials_public', 'provider_reviews'])
+    expect(state.asked).toEqual(['provider_directory', 'provider_credentials_public', 'provider_review_stats'])
   })
   it('landlord and provider get their own line; an agent gets none', async () => {
     seed()
@@ -251,7 +254,8 @@ describe('/providers — the repair directory page', () => {
     const src = read('app/providers/page.tsx')
     expect(src).not.toMatch(/service_role|SUPABASE_SERVICE_ROLE_KEY|window\.confirm|alert\(/)
     for (const f of ['app/providers/page.tsx', 'components/directory/FindHeader.tsx']) expect(read(f), f).not.toMatch(/\b(RTA|LTB|OHRC|RECO|TRESA)\b/)
-    expect(src).toContain('rel="noopener noreferrer nofollow"')
+    // the website link moved to the provider's page with the rest of the contact details
+    expect(read('app/providers/[id]/page.tsx')).toContain('rel="noopener noreferrer nofollow"')
     seed()
     state.lang = 'en'
     state.auth = { user: { id: 'u1' }, loading: false, role: 'tenant' }

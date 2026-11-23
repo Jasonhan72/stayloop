@@ -390,7 +390,9 @@ describe('S3-24 … S3-32 · signed-in pages', () => {
       expect(externalHref(bad as string | null | undefined), String(bad)).toBeNull()
     }
     expect(externalHrefLabel('https://example.com/')).toBe('example.com')
-    expect(read('app/providers/professional/page.tsx')).toContain('rel="noopener noreferrer nofollow"')
+    // since 2026-11-22 the website sits on the provider's page, not on the directory rows
+    expect(read('app/providers/[id]/page.tsx')).toContain('rel="noopener noreferrer nofollow"')
+    expect(read('app/providers/[id]/page.tsx')).toContain('const site = p ? externalHref(p.website) : null')
     expect(read('app/provider/onboard/page.tsx')).toContain('const website = f.website.trim() ? externalHref(f.website) : null')
   })
 })

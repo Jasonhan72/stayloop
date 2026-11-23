@@ -117,20 +117,25 @@ describe('POST /api/providers/[id]/contact', () => {
   })
 })
 
-describe('「发消息」 on a directory card', () => {
-  it('both tabs carry it, beside the address and the number', () => {
-    expect(read('app/providers/page.tsx')).toContain('<ProviderContact providerId={p.id} providerName={p.trade_name || p.legal_name} zh={zh} as={activeHat(hats, auth.role)} />')
-    expect(read('app/providers/professional/page.tsx')).toContain('<ProviderContact providerId={p.id} providerName={p.trade_name || p.legal_name} zh={zh} />')
-    expect(read('app/providers/page.tsx')).toContain('href={`mailto:${p.contact_email}`}')
+describe('「发消息」 to a provider', () => {
+  it('both tabs lead to it: the card’s 发消息 opens the contact panel on the provider’s page, where the address and the number are too', () => {
+    // the same day the cards were made to match the agent directory, so the form moved off the card
+    const card = read('components/directory/ProviderCard.tsx')
+    expect(card).toContain('<Link href={`${href}#contact`}')
+    expect(card).not.toMatch(/mailto:|ProviderContact/)
+    for (const f of ['app/providers/page.tsx', 'app/providers/professional/page.tsx']) expect(read(f), f).toContain('<ProviderCard')
+    const page = read('app/providers/[id]/page.tsx')
+    expect(page).toContain('<ProviderContact providerId={p.id} providerName={name} zh={zh} as={activeHat(hats, auth.role)} professional={professionalOnly} />')
+    expect(page).toContain('href={`mailto:${p.contact_email}`}')
   })
 
-  it('open → write → send; then a link into the conversation', async () => {
+  it('write → send; then a link into the conversation', async () => {
     const fetchMock = vi.fn(async (_url: string, _init?: { body?: string; headers?: Record<string, string> }) => ({ ok: true, json: async () => ({ ok: true, thread_id: 'thread-9' }) }))
     vi.stubGlobal('fetch', fetchMock)
     const { container: c } = render(React.createElement(ProviderContact, { providerId: PROVIDER_ID, providerName: 'Northline', zh: true, as: 'landlord' }))
-    expect(byId(c, 'provider-contact-form').length).toBe(0)
-    fireEvent.click(byId(c, 'provider-contact-open')[0])
+    expect(byId(c, 'provider-contact-form').length).toBe(1)
     const send = byId(c, 'provider-contact-send')[0] as HTMLButtonElement
+    expect(send.disabled).toBe(true) // nothing written yet
     fireEvent.change(byId(c, 'provider-contact-input')[0], { target: { value: '太短' } })
     expect(send.disabled).toBe(true) // under the minimum
     fireEvent.change(byId(c, 'provider-contact-input')[0], { target: { value: '厨房水槽下面漏水，在 North York，周末方便上门吗？' } })
@@ -148,7 +153,6 @@ describe('「发消息」 on a directory card', () => {
   it('a refusal is one sentence and the text stays in the box', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => ({ error: 'rate_limited' }) })))
     const { container: c } = render(React.createElement(ProviderContact, { providerId: PROVIDER_ID, providerName: 'Northline', zh: true }))
-    fireEvent.click(byId(c, 'provider-contact-open')[0])
     const input = byId(c, 'provider-contact-input')[0] as HTMLTextAreaElement
     fireEvent.change(input, { target: { value: '热水器不出热水了，在 Markham。' } })
     await act(async () => { fireEvent.click(byId(c, 'provider-contact-send')[0]) })

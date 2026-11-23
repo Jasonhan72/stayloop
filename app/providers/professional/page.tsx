@@ -8,25 +8,29 @@
 // brokers, landlords need paralegals); the person contacts and contracts with
 // the provider directly. Stayloop dispatches nothing, takes no commission,
 // gives no legal advice and sells no insurance.
+// 2026-11-22: the rows became the agent directory's card (components/directory/ProviderCard.tsx),
+// still grouped by licence category; each card opens the provider's page, /providers/<id>, where
+// the contact details and the message form are.
 import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import FindHeader, { TestDataTag } from '@/components/directory/FindHeader'
-import ProviderContact from '@/components/directory/ProviderContact'
-import { isTestName } from '@/components/listing/testAccounts'
+import FindHeader from '@/components/directory/FindHeader'
+import ProviderCard from '@/components/directory/ProviderCard'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
-import { externalHref, externalHrefLabel } from '@/lib/ui/externalHref'
+import { useMarketplaceConfig } from '@/lib/marketplace/config'
+import { providerDisplayName } from '@/lib/marketplace/directory'
 import { CREDENTIAL_LABEL, coverageFor, isProfessionalTrade, PROFESSIONAL_TRADES, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 
-type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; contact_email: string | null; contact_phone: string | null; website: string | null; verified_at: string | null }
+type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; verified_at: string | null }
 type Cred = { provider_id: string; kind: string; expires_at: string | null; verified_at: string | null }
 
 export default function ProfessionalDirectoryPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
   const auth = useAuth()
+  const { graceDays } = useMarketplaceConfig()
   const [providers, setProviders] = useState<Provider[] | null>(null)
   const [creds, setCreds] = useState<Cred[]>([])
   const [trade, setTrade] = useState<Trade | 'all'>('all')
@@ -39,7 +43,7 @@ export default function ProfessionalDirectoryPage() {
     if (auth.loading || !auth.user) return
     let on = true
     void (async () => {
-      const { data } = await supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, contact_email, contact_phone, website, verified_at').overlaps('trades', [...PROFESSIONAL_TRADES]).limit(200)
+      const { data } = await supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, verified_at').overlaps('trades', [...PROFESSIONAL_TRADES]).limit(200)
       const list = (data ?? []) as Provider[]
       const ids = list.map((p) => p.id)
       const { data: c } = ids.length ? await supabase.from('provider_credentials_public').select('provider_id, kind, expires_at, verified_at').in('provider_id', ids) : { data: [] }
@@ -69,37 +73,32 @@ export default function ProfessionalDirectoryPage() {
       <section>
         <div className="mx-auto max-w-[1320px] px-6 pb-14 sm:px-8 lg:px-12">
           {!auth.loading && !auth.user && (
-            <p className="rounded-2xl border border-line-divider bg-surface-chip/40 p-5 text-[14px]" data-testid="professional-signin">{zh ? '登录后可以看到联系方式。' : 'Sign in to see contact details.'} <a href="/login?next=/providers/professional" className="font-semibold text-brand underline-offset-2 hover:underline">{zh ? '去登录 →' : 'Sign in →'}</a></p>
+            <p className="rounded-2xl border border-line-divider bg-surface-chip/40 p-5 text-[14px]" data-testid="professional-signin">{zh ? '登录后可以看到服务商与联系方式。' : 'Sign in to see providers and their contact details.'} <a href="/login?next=/providers/professional" className="font-semibold text-brand underline-offset-2 hover:underline">{zh ? '去登录 →' : 'Sign in →'}</a></p>
           )}
           {auth.user && providers && byTrade.map(({ t, def, list }) => (
             <div key={t} className="mb-10" data-testid={`professional-group-${t}`}>
               <h2 className="text-[20px] font-semibold tracking-tight">{zh ? def.zh : def.en}</h2>
               <p className="mt-1 text-[12.5px] text-body-3">{zh ? '需要的牌照：' : 'Licence required: '}{def.required.map((k) => (zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en)).join(zh ? '、' : ', ')}</p>
               {list.length === 0 ? <p className="mt-3 text-[13.5px] text-body-3" data-testid="professional-empty">{zh ? '这个类别暂时还没有入驻的服务商。' : 'No provider has joined in this category yet.'}</p> : (
-                <div className="mt-3 divide-y divide-line-divider rounded-2xl border border-line-divider bg-white">
+                <div className="mt-3 grid gap-4 lg:grid-cols-2">
                   {list.map((p) => {
                     const pc = creds.filter((c) => c.provider_id === p.id)
-                    const cov = coverageFor(t, pc)
-                    // Only a real http(s) address becomes a link; anything else is not shown.
-                    const site = externalHref(p.website)
+                    const cov = coverageFor(t, pc, new Date(), graceDays)
+                    const licences = pc.filter((c) => c.verified_at && def.required.includes(c.kind as CredentialKind))
+                      .map((c) => `${zh ? CREDENTIAL_LABEL[c.kind as CredentialKind]?.zh : CREDENTIAL_LABEL[c.kind as CredentialKind]?.en}${c.expires_at ? ` · ${zh ? '到期' : 'expires'} ${c.expires_at}` : ''}`).join(' · ')
                     return (
-                      <div key={p.id} className="px-5 py-4" data-testid="professional-provider">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[15px] font-semibold">{p.trade_name || p.legal_name}</span>
-                          {isTestName(p.trade_name || p.legal_name) && <TestDataTag zh={zh} />}
-                          <span className={`rounded-full px-2 py-[2px] text-[11px] font-bold ${cov.ok ? 'bg-[#ECFDF5] text-[#047857]' : 'bg-amber-50 text-amber-800'}`}>{cov.ok ? (zh ? '牌照已核' : 'licence verified') : (zh ? '牌照待核或已过期' : 'licence pending or expired')}</span>
-                        </div>
-                        <div className="mt-1 text-[12.5px] text-body-2">
-                          {pc.filter((c) => def.required.includes(c.kind as CredentialKind)).map((c) => `${zh ? CREDENTIAL_LABEL[c.kind as CredentialKind]?.zh : CREDENTIAL_LABEL[c.kind as CredentialKind]?.en}${c.expires_at ? ` · ${zh ? '到期' : 'expires'} ${c.expires_at}` : ''}`).join(' · ')}
-                        </div>
-                        <div className="mt-1 text-[12.5px] text-body-3">{p.service_cities.join(' · ')}</div>
-                        <div className="mt-1 flex flex-wrap gap-3 text-[13px]">
-                          {p.contact_email && <a href={`mailto:${p.contact_email}`} className="text-brand underline-offset-2 hover:underline">{p.contact_email}</a>}
-                          {p.contact_phone && <span>{p.contact_phone}</span>}
-                          {site && <a href={site} target="_blank" rel="noopener noreferrer nofollow" className="break-all text-brand underline-offset-2 hover:underline" data-testid="professional-website">{externalHrefLabel(site)}</a>}
-                        </div>
-                        <ProviderContact providerId={p.id} providerName={p.trade_name || p.legal_name} zh={zh} />
-                      </div>
+                      <ProviderCard
+                        key={p.id}
+                        id={p.id}
+                        name={providerDisplayName(p)}
+                        legalName={p.legal_name}
+                        zh={zh}
+                        testid="professional-provider"
+                        badge={{ ok: cov.ok, label: cov.ok ? (zh ? '牌照已核' : 'Licence verified') : (zh ? '牌照待核或已过期' : 'Licence pending or expired') }}
+                        chips={p.trades.filter(isProfessionalTrade).map((k) => { const d = TRADES.find((x) => x.key === k); return { key: k, label: d ? (zh ? d.zh : d.en) : k, ok: coverageFor(k, pc, new Date(), graceDays).ok } })}
+                        cities={p.service_cities ?? []}
+                        detail={licences || null}
+                      />
                     )
                   })}
                 </div>

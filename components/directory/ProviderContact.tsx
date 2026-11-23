@@ -1,9 +1,11 @@
 'use client'
 
-// 「发消息」 on a service-provider card (维修服务 / 专业服务) — V0.9, 2026-11-22.
+// 「发消息」 to a service provider (维修服务 / 专业服务) — V0.9, 2026-11-22.
 // The first message goes through POST /api/providers/<id>/contact, which opens the one conversation
-// between this person and that provider; everything after that happens in /messages. The card keeps
-// its e-mail address and phone number — this is one more way to reach the provider, kept on record.
+// between this person and that provider; everything after that happens in /messages.
+// It lives in the contact panel of the provider's page (/providers/<id>#contact) — the directory
+// cards link there, the way the agent cards link to the agent's page. It began the same day as a
+// button on the card itself; the cards were then made to match the agent directory.
 import { useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -20,14 +22,15 @@ export function providerContactErrorText(code: string | null | undefined, zh: bo
   }
 }
 
-export default function ProviderContact({ providerId, providerName, zh, as }: {
+export default function ProviderContact({ providerId, providerName, zh, as, professional = false }: {
   providerId: string
   providerName: string
   zh: boolean
   /** the hat the person is wearing; the server keeps it only if the account holds it */
   as?: 'tenant' | 'landlord' | 'agent' | null
+  /** a licensed professional or a photographer, not a repair trade: the prompt in the box asks for different things */
+  professional?: boolean
 }) {
-  const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -45,7 +48,7 @@ export default function ProviderContact({ providerId, providerName, zh, as }: {
       const res = await fetch(`/api/providers/${providerId}/contact`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ message: body, ...(as ? { as } : {}) }) })
       const j = (await res.json().catch(() => ({}))) as { thread_id?: string; error?: string }
       if (!res.ok || !j.thread_id) { setErr(providerContactErrorText(j.error, zh)); return }
-      setSent(j.thread_id); setText(''); setOpen(false)
+      setSent(j.thread_id); setText('')
     } catch {
       setErr(providerContactErrorText(null, zh))
     } finally {
@@ -55,39 +58,30 @@ export default function ProviderContact({ providerId, providerName, zh, as }: {
 
   if (sent) {
     return (
-      <p className="mt-3 text-[13px] text-body-2" data-testid="provider-contact-sent">
-        ✓ {zh ? `已发给 ${providerName}。对方回复后会出现在你的消息里。` : `Sent to ${providerName}. Their reply will appear in your messages.`}{' '}
-        <Link href={`/messages?t=${sent}`} className="font-semibold text-brand underline underline-offset-2">{zh ? '去消息 →' : 'Open messages →'}</Link>
-      </p>
-    )
-  }
-  if (!open) {
-    return (
-      <div className="mt-3">
-        <button type="button" onClick={() => setOpen(true)} data-testid="provider-contact-open" className="sl-btn-secondary !px-4 !py-2 !text-[13px]">{zh ? '发消息' : 'Message'}</button>
+      <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-3 text-[13.5px] text-emerald-800" data-testid="provider-contact-sent">
+        {zh ? `已发给 ${providerName}。对方回复后会出现在你的消息里。` : `Sent to ${providerName}. Their reply will appear in your messages.`}
+        <Link href={`/messages?t=${sent}`} className="mt-2 block font-semibold underline">{zh ? '打开这段对话' : 'Open the conversation'}</Link>
       </div>
     )
   }
   return (
-    <div className="mt-3" data-testid="provider-contact-form">
+    <div className="mt-3 space-y-3" data-testid="provider-contact-form">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        rows={3}
         maxLength={CONTACT_MAX}
         aria-label={zh ? `给 ${providerName} 的消息` : `Message to ${providerName}`}
-        placeholder={zh ? '说说要做什么、在哪个城市、大概什么时候方便。' : 'What needs doing, in which city, and roughly when works for you.'}
-        className="sl-input h-24 w-full resize-y"
+        placeholder={professional
+          ? (zh ? '说说是哪一类事、有没有期限、在哪个城市。先不要写证件号码。' : 'What kind of matter, any deadline, and which city. Leave ID numbers out for now.')
+          : (zh ? '说说要做什么、在哪个城市、大概什么时候方便。' : 'What needs doing, in which city, and roughly when works for you.')}
+        className="min-h-[120px] w-full rounded-xl border border-line-divider px-3 py-2 text-[14px] outline-none focus:border-brand"
         data-testid="provider-contact-input"
       />
-      <p className="mt-1 text-[11.5px] leading-relaxed text-body-3">
+      <p className="text-[11.5px] leading-relaxed text-body-3">
         {zh ? '消息进入站内对话并留有记录；对方回复后你会在「消息」里看到。费用由你和对方直接谈，Stayloop 不经手。' : 'The message opens an in-app conversation that is kept on record; the reply appears in Messages. Fees are between you and them — nothing goes through Stayloop.'}
       </p>
-      {err && <p className="mt-1 text-[12px] text-danger" role="alert" data-testid="provider-contact-error">{err}</p>}
-      <div className="mt-2 flex flex-wrap gap-2">
-        <button type="button" onClick={() => void send()} disabled={busy || !ready} data-testid="provider-contact-send" className="sl-btn-primary !px-4 !py-2 !text-[13px] disabled:opacity-50">{busy ? '…' : zh ? '发送' : 'Send'}</button>
-        <button type="button" onClick={() => { setOpen(false); setErr(null) }} disabled={busy} className="sl-btn-secondary !px-4 !py-2 !text-[13px]">{zh ? '取消' : 'Cancel'}</button>
-      </div>
+      {err && <p className="text-[12.5px] font-semibold text-red-700" role="alert" data-testid="provider-contact-error">{err}</p>}
+      <button type="button" onClick={() => void send()} disabled={busy || !ready} data-testid="provider-contact-send" className="sl-btn-primary w-full !py-[10px] disabled:opacity-50">{busy ? '…' : zh ? '发送消息' : 'Send message'}</button>
     </div>
   )
 }

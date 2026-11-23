@@ -15,10 +15,13 @@ import { CITIES, coverageFor, isProfessionalTrade, TRADES, type Trade } from '@/
 import { providerMetrics, type WoRow } from '@/lib/marketplace/workOrders'
 import DispatchPolicyCard, { type PolicyProvider } from '@/components/marketplace/DispatchPolicyCard'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
+import { providerHref, ratingFor, type DirectoryReview } from '@/lib/marketplace/directory'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; contact_email: string | null; contact_phone: string | null; website: string | null; verified_at: string | null }
 type Cred = { provider_id: string; kind: string; expires_at: string | null; verified_at: string | null }
-type Review = { provider_id: string | null; overall: number }
+// One row per provider from the view provider_review_stats (2026-11-22): the review table itself shows an
+// account only the reviews it wrote, so the rating differed from person to person.
+type Review = DirectoryReview
 
 export default function LandlordProvidersPage() {
   const { lang } = useT()
@@ -43,7 +46,7 @@ export default function LandlordProvidersPage() {
       const ids = list.map((x) => x.id)
       const [{ data: c }, { data: r }] = await Promise.all([
         ids.length ? supabase.from('provider_credentials_public').select('provider_id, kind, expires_at, verified_at').in('provider_id', ids) : Promise.resolve({ data: [] }),
-        ids.length ? supabase.from('provider_reviews').select('provider_id, overall').in('provider_id', ids) : Promise.resolve({ data: [] }),
+        ids.length ? supabase.from('provider_review_stats').select('provider_id, overall, reviews').in('provider_id', ids) : Promise.resolve({ data: [] }),
       ])
       if (cancelled) return
       setProviders(list); setCreds((c ?? []) as Cred[]); setReviews((r ?? []) as Review[]); setMine((w ?? []) as typeof mine)
@@ -54,10 +57,9 @@ export default function LandlordProvidersPage() {
   const rows = useMemo(() => providers.filter((p) => (trade === 'all' || p.trades.includes(trade)) && (city === 'all' || p.service_cities.includes(city))).map((p) => {
     const pc = creds.filter((c) => c.provider_id === p.id)
     const cov = p.trades.map((t) => ({ t: t as Trade, ok: coverageFor(t as Trade, pc, new Date(), graceDays).ok }))
-    const rv = reviews.filter((r) => r.provider_id === p.id)
-    const avg = rv.length ? Math.round((rv.reduce((s, r) => s + r.overall, 0) / rv.length) * 10) / 10 : null
+    const rating = ratingFor(p.id, reviews)
     const myJobs = mine.filter((m) => m.provider_id === p.id)
-    return { p, cov, avg, n: rv.length, metrics: providerMetrics(myJobs as WoRow[]) }
+    return { p, cov, avg: rating.avg, n: rating.n, metrics: providerMetrics(myJobs as WoRow[]) }
   }), [providers, creds, reviews, mine, trade, city, graceDays])
   const policyProviders = useMemo<PolicyProvider[]>(() => providers.map((p) => {
     const pc = creds.filter((c) => c.provider_id === p.id)
@@ -91,7 +93,7 @@ export default function LandlordProvidersPage() {
             {rows.filter((r) => !r.p.trades.every(isProfessionalTrade)).map(({ p, cov, avg, n, metrics }) => (
               <div key={p.id} className="py-3 text-[13px]">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold">{p.trade_name || p.legal_name}</span>
+                  <Link href={providerHref(p.id)} className="font-bold underline-offset-2 hover:underline" data-testid="landlord-provider-link">{p.trade_name || p.legal_name}</Link>
                   <StatusPill tone="ok">{zh ? '资质已核' : 'verified'}{p.verified_at ? ` · ${p.verified_at.slice(0, 10)}` : ''}</StatusPill>
                   {avg != null && <span className="text-[12px] text-body-2">★ {avg} ({n})</span>}
                   {metrics.offered > 0 && <span className="text-[11.5px] text-body-3" data-testid="provider-track-record">{zh ? `你派过 ${metrics.offered} 次 · 接单率 ${metrics.acceptRate == null ? '—' : Math.round(metrics.acceptRate * 100) + '%'}${metrics.responseHoursMedian != null ? ` · 响应中位 ${metrics.responseHoursMedian < 1 ? '<1' : metrics.responseHoursMedian} 小时` : ''}${metrics.onTimeRate != null ? ` · 准时 ${Math.round(metrics.onTimeRate * 100)}%` : ''}` : `${metrics.offered} dispatched · accept ${metrics.acceptRate == null ? '—' : Math.round(metrics.acceptRate * 100) + '%'}${metrics.responseHoursMedian != null ? ` · median response ${metrics.responseHoursMedian < 1 ? '<1' : metrics.responseHoursMedian} h` : ''}${metrics.onTimeRate != null ? ` · on time ${Math.round(metrics.onTimeRate * 100)}%` : ''}`}</span>}
@@ -110,7 +112,7 @@ export default function LandlordProvidersPage() {
           <div className="divide-y divide-line-divider">
             {rows.filter((r) => r.p.trades.some(isProfessionalTrade)).map(({ p, cov }) => (
               <div key={p.id} className="py-3 text-[13px]" data-testid="professional-row">
-                <div className="flex flex-wrap items-center gap-2"><span className="font-bold">{p.trade_name || p.legal_name}</span><StatusPill tone="ok">{zh ? '牌照已核' : 'licence verified'}</StatusPill></div>
+                <div className="flex flex-wrap items-center gap-2"><Link href={providerHref(p.id)} className="font-bold underline-offset-2 hover:underline" data-testid="landlord-provider-link">{p.trade_name || p.legal_name}</Link><StatusPill tone="ok">{zh ? '牌照已核' : 'licence verified'}</StatusPill></div>
                 <div className="mt-1 flex flex-wrap gap-1.5">{cov.filter((c) => isProfessionalTrade(c.t)).map((c) => { const d = TRADES.find((x) => x.key === c.t); return <span key={c.t} className={'rounded-full px-2 py-[2px] text-[11px] ' + (c.ok ? 'bg-success/10 text-success' : 'bg-amber-50 text-amber-800')}>{zh ? d?.zh : d?.en}</span> })}</div>
                 <div className="mt-1 text-[12px] text-body-3">{p.service_cities.join(' · ')}{p.contact_email ? ` · ${p.contact_email}` : ''}{p.contact_phone ? ` · ${p.contact_phone}` : ''}{p.website ? ` · ${p.website}` : ''}</div>
               </div>
