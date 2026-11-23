@@ -243,17 +243,13 @@ export default function AgentClientsPage() {
         </Table>
       </SectionCard>
 
-      {/* Closed deals — the CRM used to hide that these clients had already signed. */}
+      {/* Closed deals — the CRM used to hide that these clients had already signed.
+          No door to the commission page: it is off the rail and not live (2026-11-17), and this
+          card's header kept a link to it (removed 2026-11-22). */}
       <SectionCard
         className="mt-4"
         padded={false}
         title={zh ? '已成交客户 / 续约机会' : 'Closed clients / renewal openings'}
-        meta={zh ? '佣金明细见「收益」页' : 'Full ledger on Earnings'}
-        action={
-          <Link href="/agent/earnings" className="text-[12px] font-semibold text-agent underline underline-offset-2">
-            {zh ? '打开账本 →' : 'Open ledger →'}
-          </Link>
-        }
       >
         <Table
           head={[

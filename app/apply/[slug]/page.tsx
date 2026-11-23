@@ -120,6 +120,10 @@ export default function ApplyPage() {
   const submittingRef = useRef(false)
   // A signed-in applicant who already applied to this listing (by their login email).
   const [existingApp, setExistingApp] = useState<{ id: string; created_at: string } | null>(null)
+  // The "already applied?" lookup has answered for the signed-in account. The pack fills the form on
+  // its own (2026-11-22) only after that: before, a listing the applicant had already applied to was
+  // filled in the moment before the lookup returned and the pack box went away, undo link and all.
+  const [priorChecked, setPriorChecked] = useState(false)
   // 乙 #7: the applicant's own pack (components/apply/UseMyPack). `packFileIds` are
   // applicant_profile_files ids ticked for this application; the server copies them at
   // submit time and the resulting manifest is kept on a ref so a retry does not copy twice.
@@ -160,6 +164,13 @@ export default function ApplyPage() {
       const cur = next[k]
       if (cur === '' || cur === null || cur === undefined || (cur === 'false' && v === 'true')) next[k] = v
     }
+    return next as typeof f
+  })
+  // Takes a pack fill back (it runs on its own when the page opens, 2026-11-22): each field returns to
+  // what it held before the fill, unless the applicant has changed it since.
+  const undoPackFill = (patch: Record<string, string>, prev: Record<string, string>) => setForm((f) => {
+    const next = { ...f } as Record<string, unknown>
+    for (const [k, v] of Object.entries(patch)) if (next[k] === v) next[k] = prev[k] ?? ''
     return next as typeof f
   })
   // Prefill what the account already knows (SL-T-03) — only empty fields,
@@ -203,6 +214,8 @@ export default function ApplyPage() {
         const prior = await findExistingApplication((listing as { id: string }).id)
         if (!cancelled) setExistingApp(prior)
       }
+      // Answered (or nothing to ask: the listing could not be read — the submit-time check still guards).
+      if (!cancelled && !auth.loading && auth.user) setPriorChecked(true)
       if (!cancelled && listing && (listing as { landlord_id?: string | null }).landlord_id && !auth.loading && auth.user) {
         const uid = auth.user.id
         const lid = (listing as { landlord_id: string }).landlord_id
@@ -730,6 +743,8 @@ export default function ApplyPage() {
                 uid={auth.user.id}
                 form={form}
                 onFill={fillFromPack}
+                onUndoFill={undoPackFill}
+                autoFill={priorChecked}
                 allowedKinds={fileKinds.map((k) => k.kind)}
                 selected={packFileIds}
                 onSelect={setPackFileIds}

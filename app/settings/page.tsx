@@ -12,7 +12,10 @@ import { useI18n } from '@/lib/i18n'
 import { getStoredAIName, invalidateAiName, resolveAccountNameFor, setAIName, GENERIC_AI_NAME, displayAiName, genericAiName, isGenericAiName } from '@/lib/aiName'
 import { isRegistrationLive, statusLabel } from '@/lib/agentProfile'
 import { getSupabaseBrowser } from '@/lib/supabase'
-import { ROLE_THEME } from '@/lib/roleTheme'
+import { PROVIDER_ACCENT, ROLE_THEME } from '@/lib/roleTheme'
+import { displayIdentity } from '@/lib/displayIdentity'
+import { useHomeHref } from '@/lib/useHomeHref'
+import { nameInitial } from '@/lib/ui/nameInitial'
 import SubscriptionCard from '@/components/settings/SubscriptionCard'
 import DisplayNameCard from '@/components/settings/DisplayNameCard'
 import LandlordPhoneCard from '@/components/settings/LandlordPhoneCard'
@@ -29,6 +32,7 @@ const ROLE_LABELS: Record<string, { zh: string; en: string }> = {
   tenant: { zh: '租客', en: 'Tenant' },
   landlord: { zh: '房东', en: 'Landlord' },
   agent: { zh: '经纪', en: 'Agent' },
+  provider: { zh: '服务商', en: 'Provider' },
 }
 
 export default function SettingsPage() {
@@ -38,9 +42,14 @@ export default function SettingsPage() {
   const zh = lang === 'zh'
   // A remembered hat the account does not hold used to bounce this page to /landlord/become (review 2026-09-25).
   const shellRole = activeHat(hats, auth.role) as WorkspaceRole
-  const color = ROLE_COLORS[shellRole] || ROLE_THEME.tenant.accent
+  // The 「角色」 tile and the page's accent name the identity the header names (lib/displayIdentity):
+  // a pure service provider has no workspace hat, so the active hat falls back to 租客 and this tile
+  // said 「角色：租客」 under a header that said 「我是服务商」 (responsive check 2026-11-18, fixed 11-22).
+  const home = useHomeHref()
+  const identity = displayIdentity('/settings', home.onProvider, shellRole, hats)
+  const color = identity === 'provider' ? PROVIDER_ACCENT : ROLE_COLORS[shellRole] || ROLE_THEME.tenant.accent
 
-  const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()
+  const initial = nameInitial(auth.fullName || auth.email, 'U')
   // The name the person gave it, or 「AI 助理」/「AI Agent」 in the interface language (2026-09-28).
   // The cache can be empty (signed out and back in via /login?next=/settings, a new browser), so
   // the account's assistant_profiles.name is resolved too (sweep 2026-10-01).
@@ -141,7 +150,7 @@ export default function SettingsPage() {
                   showed for every account, verified or not). The agent hat shows its real RECO status. */}
               <div className={'mt-5 grid w-full gap-3 border-t border-line-divider pt-5 ' + (hats.agent ? 'grid-cols-2' : 'grid-cols-1')}>
                 <div className="text-center">
-                  <div className="text-[18px] font-bold" style={{ color }}>{ROLE_LABELS[shellRole]?.[zh ? 'zh' : 'en'] || '—'}</div>
+                  <div className="text-[18px] font-bold" style={{ color }} data-testid="settings-role">{ROLE_LABELS[identity]?.[zh ? 'zh' : 'en'] || '—'}</div>
                   <div className="text-[11px] text-body-3">{zh ? '角色' : 'Role'}</div>
                 </div>
                 {hats.agent && (

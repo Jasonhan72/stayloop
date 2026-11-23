@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useReportLiveRows } from '@/lib/liveRows'
 import { useT, type Lang } from '@/lib/i18n'
+import { nameInitial } from '@/lib/ui/nameInitial'
 import { downloadCsv, toCsv } from '@/lib/csv'
 
 const STAGES = { zh: ['已报修', '已派单', '维修中', '完成'], en: ['Reported', 'Assigned', 'In repair', 'Done'] }
@@ -260,7 +261,7 @@ export default function TenantMaintenancePage() {
                 {t.tech ? (
                   <div className="flex items-center gap-2.5 text-[12.5px] text-body-2">
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-chip text-[11px] font-bold">
-                      {t.tech.name.slice(0, 1)}
+                      {nameInitial(t.tech.name)}
                     </span>
                     <span className="font-semibold text-body">{t.tech.name}</span>
                     <span className="text-warning">★ {t.tech.rating}</span>

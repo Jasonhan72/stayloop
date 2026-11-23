@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import PublicPassportView, { type PassportSnapshot } from './view'
+import { stripLeadingTags } from '@/lib/ui/nameInitial'
 
 
 export const metadata: Metadata = {
@@ -19,7 +20,8 @@ const TOKEN_RE = /^[A-Za-z0-9_-]{32,128}$/
 
 /** "陈美雅" → "陈**" · "Mia Chen" → "M.C." — initials only, never the full name. */
 function toInitials(name: string | null | undefined, email: string | null | undefined): string {
-  const n = (name || '').trim()
+  // A leading "[TEST]" tag is not part of the name ("[TEST] Mia Chen" → "M.C.", not "[.M.").
+  const n = stripLeadingTags((name || '').trim())
   if (n) {
     // CJK name: show the family-name character only.
     if (/[一-鿿]/.test(n[0])) return n[0]

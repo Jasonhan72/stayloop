@@ -431,14 +431,14 @@ export default function EditDraftListingPage() {
             {existing && <> <a href={`/dashboard/listings/${existing.id}/edit${existing.is_active ? '' : '?relist=1'}`} className="font-semibold text-brand underline underline-offset-2">{zh ? '打开原房源 →' : 'Open the existing listing →'}</a></>}
           </div>
         )}
-        <div className="sticky bottom-0 mt-8 flex gap-3 border-t border-line-divider bg-surface py-4">
-          <button onClick={handleSave} className="sl-btn-secondary flex-1 !py-3">
+        <div data-testid="listing-save-bar" className="sticky bottom-0 mt-8 flex gap-3 border-t border-line-divider bg-surface py-4 short-landscape:mt-4 short-landscape:py-1.5">
+          <button onClick={handleSave} className="sl-btn-secondary flex-1 !py-3 short-landscape:!py-1.5">
             {zh ? '✓ 保存草稿' : '✓ Save draft'}
           </button>
           <button
             onClick={handlePublish}
             disabled={publishing || !form.address || !form.monthly_rent}
-            className="sl-btn-primary flex-1 !py-3 disabled:opacity-40"
+            className="sl-btn-primary flex-1 !py-3 disabled:opacity-40 short-landscape:!py-1.5"
           >
             {publishing ? '…' : zh ? '发布房源' : 'Publish listing'}
           </button>

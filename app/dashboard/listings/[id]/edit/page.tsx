@@ -645,11 +645,13 @@ export default function EditPublishedListingPage() {
           </div>
         )}
         {outcome && <div className="mt-6 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[13px] text-green-800" data-testid="listing-save-outcome">✓ {outcome}</div>}
-        <div className="sticky bottom-0 mt-8 flex items-center gap-3 border-t border-line-divider bg-surface py-4">
-          <button onClick={() => router.push('/dashboard')} className="sl-btn-secondary flex-1 !py-3">
+        {/* Held sideways on a phone the bar slims down (short-landscape, tailwind.config.ts): with the page
+            header it took 38% of a 390px-high screen. */}
+        <div data-testid="listing-save-bar" className="sticky bottom-0 mt-8 flex items-center gap-3 border-t border-line-divider bg-surface py-4 short-landscape:mt-4 short-landscape:py-1.5">
+          <button onClick={() => router.push('/dashboard')} className="sl-btn-secondary flex-1 !py-3 short-landscape:!py-1.5">
             {zh ? '取消' : 'Cancel'}
           </button>
-          <button onClick={handleSave} disabled={saving} className="sl-btn-primary flex-1 !py-3 disabled:opacity-40">
+          <button onClick={handleSave} disabled={saving} className="sl-btn-primary flex-1 !py-3 disabled:opacity-40 short-landscape:!py-1.5">
             {saving ? '…' : saved ? '✓' : zh ? '保存修改' : 'Save changes'}
           </button>
         </div>

@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import plugin from 'tailwindcss/plugin'
 
 // Stayloop V5 design tokens — sourced from the V5 Hi-Fi UI system
 const config: Config = {
@@ -116,7 +117,14 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // `short-landscape:` — a phone held sideways (844×390): a sticky header plus a sticky action bar
+    // took 38% of the screen on the listing edit pages (responsive check 2026-11-18), so bars slim
+    // down there. A variant, not a `screens` entry: a raw screen would break the min-* / max-* variants.
+    plugin(({ addVariant }) => {
+      addVariant('short-landscape', '@media (orientation: landscape) and (max-height: 500px)')
+    }),
+  ],
 }
 
 export default config

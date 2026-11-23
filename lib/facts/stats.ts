@@ -28,7 +28,8 @@ export type Stats = {
   // agent
   clientsToFollowUp?: number | null
   activeClients?: number | null
-  unsettled?: { count: number; amount: number } | null
+  /** The agent's RECO registration as last checked; null = no registration on file. */
+  registration?: { status: string | null; expiresAt: string | null } | null
 }
 
 const RENEWAL_WINDOW_DAYS = 120
@@ -82,11 +83,13 @@ export function agentStats(f: AgentFactsRaw, today = new Date()): Stats {
   const open = f.clients.filter((c) => c.stage !== 'closed')
   const quietSince = (iso: string | null) => (iso ? daysBetween(todayUtc(new Date(iso)), todayUtc(today)) : Infinity)
   const followUp = open.filter((c) => !c.representation_agreement_at || !c.info_guide_given_at || quietSince(c.last_contact_at) >= QUIET_DAYS).length
-  const unpaid = f.commission.filter((c) => !c.stripe_transfer_id)
+  // No commission figure: commission records are not live and Stayloop settles none, so the tile that
+  // showed one and led to the commission page is gone (2026-11-22). The third fact is the registration
+  // the agent hat rests on.
   return {
     clientsToFollowUp: followUp,
     activeClients: open.length,
-    unsettled: unpaid.length ? { count: unpaid.length, amount: unpaid.reduce((s, c) => s + (Number(c.fee_amount) || 0), 0) } : null,
+    registration: f.profile ? { status: f.profile.status, expiresAt: f.profile.expires_at } : null,
   }
 }
 

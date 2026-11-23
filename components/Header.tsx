@@ -21,6 +21,7 @@ import { useHomeHref } from '@/lib/useHomeHref'
 import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import { PROVIDER_ACCENT, ROLE_THEME, type RoleKey } from '@/lib/roleTheme'
 import { displayIdentity } from '@/lib/displayIdentity'
+import { nameInitial } from '@/lib/ui/nameInitial'
 
 const ROLE_META: Record<string, { label: string; labelEn: string; color: string; home: string; icon: string }> = {
   tenant:   { label: '租客', labelEn: 'Tenant',   color: ROLE_THEME.tenant.accent,   home: '/tenant/agent',   icon: '🏠' },
@@ -165,7 +166,8 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
 
   const isProductActive = PRODUCT_ITEMS.some((p) => isActive(p.href))
 
-  const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()
+  // "[TEST] Northline" → "N", not "[" (lib/ui/nameInitial).
+  const initial = nameInitial(auth.fullName || auth.email, 'U')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   // The signed-in account's own photo only (the cache is per account — sweep 2026-10-01).
   useEffect(() => {

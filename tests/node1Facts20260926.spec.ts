@@ -99,7 +99,7 @@ describe('status tiles come from the same facts as the rail', () => {
     expect(s.openTickets).toBe(1)
     expect(s.rentMonth).toEqual({ expected: 2500, collected: 2000 })
   })
-  it('agent: follow-ups = missing paperwork or quiet 7+ days; commission unsettled', () => {
+  it('agent: follow-ups = missing paperwork or quiet 7+ days; the third fact is the registration, not a commission figure (2026-11-22)', () => {
     const s = agentStats({ profile: { status: 'verified', expires_at: null }, pending: 0, clients: [
       { id: '1', name: 'A', stage: 'searching', representation_agreement_at: '2026-09-01', info_guide_given_at: '2026-09-01', last_contact_at: '2026-09-25T00:00:00Z', updated_at: null },
       { id: '2', name: 'B', stage: 'showing', representation_agreement_at: null, info_guide_given_at: '2026-09-01', last_contact_at: '2026-09-25T00:00:00Z', updated_at: null },
@@ -108,7 +108,8 @@ describe('status tiles come from the same facts as the rail', () => {
     ], commission: [{ fee_amount: 100, stripe_transfer_id: null }, { fee_amount: 50, stripe_transfer_id: 'tr_1' }] }, T)
     expect(s.activeClients).toBe(3)
     expect(s.clientsToFollowUp).toBe(2)
-    expect(s.unsettled).toEqual({ count: 1, amount: 100 })
+    expect(s.registration).toEqual({ status: 'verified', expiresAt: null })
+    expect('unsettled' in s).toBe(false)
   })
 })
 

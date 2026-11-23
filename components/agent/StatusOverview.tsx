@@ -2,7 +2,7 @@
 
 // 状态总览 — the at-a-glance tile grid on the progress page: one tile per
 // real-world fact (applications, lease, tickets, rent, passport / clients,
-// commission…), each linking to the page where the user acts on it. Since
+// RECO registration…), each linking to the page where the user acts on it. Since
 // 节点 1 (2026-09-26) every number comes from lib/facts/useFacts — the same
 // RPC payload the lifecycle rail, the today card and the boards read — and
 // the tile logic is the pure lib/facts/stats. Demo sessions show the
@@ -14,6 +14,7 @@ import type { AgentRole } from '@/lib/agent/types'
 import { useFacts } from '@/lib/facts/useFacts'
 import { statsFromFacts, type Stats } from '@/lib/facts/stats'
 import { LEASE_STATE_LABEL } from '@/lib/matters/states'
+import { statusLabel, type AgentStatus } from '@/lib/agentProfile'
 
 // Design-canon sample numbers — mirror the demo fixtures already shown on
 // the destination pages so the rail and the pages agree.
@@ -22,7 +23,7 @@ function demoStats(role: AgentRole): Stats {
     return { apps: 2, leaseState: 'awaiting_landlord', openTickets: 2, nextRent: { date: '2026-06-01', amount: 2800, late: false }, passportTier: 2 }
   if (role === 'landlord')
     return { pendingApps: 6, activeLeases: 2, upcomingLeases: 0, expiringLeases: 1, renewal: { d90: 1, d60: 0, d30: 0 }, openTickets: 3, rentMonth: { collected: 10590, expected: 10590 } }
-  return { clientsToFollowUp: 2, activeClients: 7, unsettled: { count: 1, amount: 1475 } }
+  return { clientsToFollowUp: 2, activeClients: 7, registration: { status: 'verified', expiresAt: null } }
 }
 
 // ------------------------------------------------------------ formatting --
@@ -71,6 +72,15 @@ const IC = {
   users: <Ic bg="#EBF4F0" fg="#047857" d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9.5 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75" />,
   calendar: <Ic bg="#F3EEFB" fg="#00ACE4" d="M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />,
   zap: <Ic bg="#FCEBEA" fg="#DC2626" d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />,
+}
+
+/** The registration in a word short enough for a tile; the full status line is the tooltip. */
+const REG_WORD: Record<string, { zh: string; en: string; tone: Tone }> = {
+  verified: { zh: '有效', en: 'Valid', tone: 'ok' },
+  renewal_due: { zh: '将到期', en: 'Expiring', tone: 'warn' },
+  pending: { zh: '待核验', en: 'Pending', tone: 'default' },
+  rejected: { zh: '未通过', en: 'Failed', tone: 'danger' },
+  expired: { zh: '已过期', en: 'Expired', tone: 'danger' },
 }
 
 const TONE_CLASS: Record<Tone, string> = {
@@ -227,6 +237,14 @@ export function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: 
     ]
   }
 
+  // The third agent tile used to be a commission figure leading to the commission page — a page that is
+  // off the rail and says commission records are not live (2026-11-17). It is the registration now: a
+  // fact the account has, on the page where it is acted on. `undefined` = facts did not load; `null` =
+  // nothing on file.
+  const reg = s.registration
+  const regWord = reg?.status ? REG_WORD[reg.status] : undefined
+  const regLive = reg?.status === 'verified' || reg?.status === 'renewal_due'
+
   return [
     {
       key: 'followup',
@@ -248,14 +266,18 @@ export function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: 
       href: '/agent/clients',
     },
     {
-      key: 'commission',
-      icon: IC.dollar,
-      label: zh ? '待结算佣金' : 'Commission to settle',
-      value: s.unsettled ? money(s.unsettled.amount) : zh ? '暂无' : 'None',
-      full: s.unsettled ? undefined : zh ? '暂无待结算' : 'Nothing pending',
-      sub: s.unsettled ? (zh ? `${s.unsettled.count} 笔在途` : `${s.unsettled.count} in transit`) : undefined,
-      tone: s.unsettled ? 'default' : 'muted',
-      href: '/agent/earnings',
+      key: 'registration',
+      icon: IC.shield,
+      label: zh ? 'RECO 注册' : 'RECO registration',
+      value: reg === undefined ? '—' : regWord ? (zh ? regWord.zh : regWord.en) : zh ? '未提交' : 'Not filed',
+      full: reg === undefined
+        ? undefined
+        : regWord && reg?.status
+          ? statusLabel(reg.status as AgentStatus, lang)
+          : zh ? '还没有提交 RECO 注册信息' : 'No RECO registration on file yet',
+      sub: regLive && reg?.expiresAt ? (zh ? `${reg.expiresAt.slice(0, 10)} 到期` : `Expires ${reg.expiresAt.slice(0, 10)}`) : undefined,
+      tone: regWord?.tone ?? 'muted',
+      href: '/agent/verify',
     },
   ]
 }

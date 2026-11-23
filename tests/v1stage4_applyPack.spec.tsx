@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 // V1.0 阶段 4 · 乙 #7 申请包 · G15: "fill from my application pack" on /apply/[slug]
 // (design/applicant-pack-contract-2026-10.md). Guards:
-//  · UseMyPack renders a link when the account has no pack; with a pack the button fills
-//    ONLY the fields still empty (the typed first name survives), the previous-tenancy
-//    fields come along, stale / aging files start unticked and kinds the listing does not
-//    collect are not offered; without consent on the pack page the file list is disabled.
+//  · UseMyPack renders a link when the account has no pack; with a pack the form is filled
+//    as soon as the pack is read (2026-11-22 — it used to take a tap on the button), ONLY
+//    the fields still empty (the typed first name survives), the previous-tenancy fields
+//    come along, and one tap takes the fill back; stale / aging files start unticked and
+//    kinds the listing does not collect are not offered; without consent on the pack page
+//    the file list is disabled; a locked form is never filled.
 //  · the apply page copies ticked pack files through POST /api/profile/attach and merges
 //    the manifest BEFORE the single attach_application_files call; "save as my pack"
 //    writes the profile + a history row and never the consent columns.
@@ -66,13 +68,13 @@ const ALLOWED = ['id', 'paystub', 'bank_statement', 'employment_letter']
 const FORM = { first_name: 'Already', last_name: '', email: 'mia@example.com', phone: '', current_address: '', employment_status: 'Full-time employed', employer_name: '', job_title: '', monthly_income: '', employment_start_date: '', employer_phone: '', employer_email: '', prev_landlord_name: '', prev_landlord_phone: '', prev_address: '', prev_rent: '', prev_move_in: '', prev_move_out: '', reason_for_leaving: '', num_occupants: '1', has_pets: 'false', pet_details: '', is_smoker: 'false', move_in_date: '', additional_notes: '', consent_screening: false, consent_credit_check: false }
 
 async function render(props: Partial<React.ComponentProps<typeof UseMyPack>> = {}) {
-  const onFill = vi.fn(); const onSelect = vi.fn(); const onLoaded = vi.fn()
+  const onFill = vi.fn(); const onUndoFill = vi.fn(); const onSelect = vi.fn(); const onLoaded = vi.fn()
   let r!: ReturnType<typeof rtlRender>
   await act(async () => {
-    r = rtlRender(React.createElement(UseMyPack, { zh: false, uid: UID, form: FORM, onFill, allowedKinds: ALLOWED, selected: [], onSelect, ownCount: 1, maxFiles: 20, onLoaded, ...props }))
+    r = rtlRender(React.createElement(UseMyPack, { zh: false, uid: UID, form: FORM, onFill, onUndoFill, allowedKinds: ALLOWED, selected: [], onSelect, ownCount: 1, maxFiles: 20, onLoaded, ...props }))
   })
   await flush()
-  return { root: r.container, onFill, onSelect, onLoaded }
+  return { root: r.container, onFill, onUndoFill, onSelect, onLoaded }
 }
 
 describe('UseMyPack', () => {
@@ -85,7 +87,7 @@ describe('UseMyPack', () => {
     expect(onLoaded).toHaveBeenCalledWith({ hasProfile: false, consented: false })
   })
 
-  it('with a pack: the button fills only empty fields (typed first name kept), brings the prev_* fields, fresh files start ticked and stale / aging ones do not; kinds the listing does not collect are not offered', async () => {
+  it('with a pack: the form is filled on its own — only empty fields (typed first name kept), the prev_* fields come along; fresh files start ticked and stale / aging ones do not; kinds the listing does not collect are not offered', async () => {
     db.tables = { applicant_profiles: [profile()], applicant_profile_history: [history], applicant_profile_files: FILES }
     const { root, onFill, onSelect, onLoaded } = await render()
     expect(onLoaded).toHaveBeenCalledWith({ hasProfile: true, consented: true })
@@ -101,7 +103,7 @@ describe('UseMyPack', () => {
     expect(txt).not.toContain('credit_report')
     // count line: own 1 + 0 selected (the parent owns `selected`)
     expect(textOf(byId(root, 'use-my-pack-count')[0])).toContain('1 / 20')
-    await act(async () => { fireEvent.click(byId(root, 'use-my-pack-fill')[0]) })
+    // no tap: the pack was read, so the empty fields are already filled — exactly once
     expect(onFill).toHaveBeenCalledTimes(1)
     const patch = onFill.mock.calls[0][0] as Record<string, string>
     expect(patch.first_name).toBeUndefined() // already typed
@@ -114,7 +116,46 @@ describe('UseMyPack', () => {
     expect(patch.employment_status).toBeUndefined() // the form default is not empty
     for (const k of ['prev_landlord_name', 'prev_landlord_phone', 'prev_address', 'prev_rent', 'reason_for_leaving', 'prev_move_in', 'prev_move_out']) expect(patch[k], k).toBeTruthy()
     expect(patch.prev_landlord_name).toBe('Sarah Wang')
-    expect(byId(root, 'use-my-pack-filled').length).toBe(1)
+    // the result line says where the values came from; the button has nothing left to do and steps aside
+    const line = byId(root, 'use-my-pack-filled')
+    expect(line.length).toBe(1)
+    expect(line[0].getAttribute('data-mode')).toBe('auto')
+    expect(textOf(line[0])).toContain(`${Object.keys(patch).length} fields filled in from your application pack`)
+    expect(byId(root, 'use-my-pack-fill').length).toBe(0)
+    expect(byId(root, 'use-my-pack-undo').length).toBe(1)
+  })
+
+  it('one tap takes the fill back: the page gets the patch and what each field held before; the button returns and fills again on request', async () => {
+    db.tables = { applicant_profiles: [profile()], applicant_profile_history: [history], applicant_profile_files: FILES }
+    const { root, onFill, onUndoFill } = await render()
+    const patch = onFill.mock.calls[0][0] as Record<string, string>
+    await act(async () => { fireEvent.click(byId(root, 'use-my-pack-undo')[0]) })
+    expect(onUndoFill).toHaveBeenCalledTimes(1)
+    const [undone, prev] = onUndoFill.mock.calls[0] as [Record<string, string>, Record<string, string>]
+    expect(undone).toEqual(patch)
+    expect(Object.keys(prev).sort()).toEqual(Object.keys(patch).sort())
+    expect(prev.last_name).toBe('')
+    expect(prev.has_pets).toBe('false') // a yes/no select goes back to its untouched default, not to ''
+    expect(byId(root, 'use-my-pack-filled').length).toBe(0)
+    expect(byId(root, 'use-my-pack-undo').length).toBe(0)
+    // the fill does not come back by itself; the button does
+    expect(onFill).toHaveBeenCalledTimes(1)
+    await act(async () => { fireEvent.click(byId(root, 'use-my-pack-fill')[0]) })
+    expect(onFill).toHaveBeenCalledTimes(2)
+    expect(byId(root, 'use-my-pack-filled')[0].getAttribute('data-mode')).toBe('manual')
+  })
+
+  it('nothing empty to fill → no fill, no result line, the button stays; without an undo handler there is no undo link', async () => {
+    db.tables = { applicant_profiles: [profile({ first_name: 'Mia', last_name: null, phone: null, current_address: null, employer_name: null, job_title: null, employment_start_date: null, monthly_income: null, has_pets: false, pet_details: null })], applicant_profile_history: [], applicant_profile_files: [] }
+    const full = await render()
+    expect(full.onFill).not.toHaveBeenCalled()
+    expect(byId(full.root, 'use-my-pack-filled').length).toBe(0)
+    expect(byId(full.root, 'use-my-pack-fill').length).toBe(1)
+    cleanup()
+    db.tables = { applicant_profiles: [profile()], applicant_profile_history: [history], applicant_profile_files: FILES }
+    const noUndo = await render({ onUndoFill: undefined })
+    expect(noUndo.onFill).toHaveBeenCalledTimes(1)
+    expect(byId(noUndo.root, 'use-my-pack-undo').length).toBe(0)
   })
 
   it('without consent on the pack page the file checkboxes are disabled, nothing is pre-selected, and the note links to the pack page', async () => {
@@ -127,9 +168,30 @@ describe('UseMyPack', () => {
     for (const b of boxes) expect(b.disabled).toBe(true)
   })
 
-  it('the application row already exists → the fill button is disabled, files can still be ticked', async () => {
+  it('the automatic fill waits for the page (autoFill=false while it is still asking "already applied?"), then runs once', async () => {
+    db.tables = { applicant_profiles: [profile()], applicant_profile_history: [history], applicant_profile_files: FILES }
+    const onFill = vi.fn()
+    const props = { zh: false, uid: UID, form: FORM, onFill, allowedKinds: ALLOWED, selected: [], onSelect: vi.fn(), ownCount: 1, maxFiles: 20 }
+    let r!: ReturnType<typeof rtlRender>
+    await act(async () => { r = rtlRender(React.createElement(UseMyPack, { ...props, autoFill: false })) })
+    await flush()
+    // the pack is read and offered, but nothing has been put into the form yet
+    expect(byId(r.container, 'use-my-pack').length).toBe(1)
+    expect(onFill).not.toHaveBeenCalled()
+    expect(byId(r.container, 'use-my-pack-fill').length).toBe(1)
+    await act(async () => { r.rerender(React.createElement(UseMyPack, { ...props, autoFill: true })) })
+    expect(onFill).toHaveBeenCalledTimes(1)
+    expect(byId(r.container, 'use-my-pack-filled')[0].getAttribute('data-mode')).toBe('auto')
+    // a later re-render does not fill again
+    await act(async () => { r.rerender(React.createElement(UseMyPack, { ...props, autoFill: true, ownCount: 2 })) })
+    expect(onFill).toHaveBeenCalledTimes(1)
+  })
+
+  it('the application row already exists → nothing is filled, the fill button is disabled, files can still be ticked', async () => {
     db.tables = { applicant_profiles: [profile()], applicant_profile_history: [], applicant_profile_files: FILES }
-    const { root } = await render({ locked: true, selected: ['f-fresh'] })
+    const { root, onFill } = await render({ locked: true, selected: ['f-fresh'] })
+    expect(onFill).not.toHaveBeenCalled()
+    expect(byId(root, 'use-my-pack-filled').length).toBe(0)
     expect((byId(root, 'use-my-pack-fill')[0] as HTMLButtonElement).disabled).toBe(true)
     expect(textOf(byId(root, 'use-my-pack-count')[0])).toContain('2 / 20')
   })
@@ -150,6 +212,13 @@ describe('apply page wiring', () => {
     expect(apply.indexOf('<UseMyPack')).toBeLessThan(apply.indexOf('<Section tag="01"'))
     expect(apply).toMatch(/allowedKinds=\{fileKinds\.map\(\(k\) => k\.kind\)\}/)
     expect(apply).toMatch(/onLoaded=\{setPack\}/)
+  })
+  it('the page can take a pack fill back: a field returns to what it held only if the applicant has not changed it since', () => {
+    expect(apply).toContain('onUndoFill={undoPackFill}')
+    // the automatic fill is held until the "already applied?" lookup has answered
+    expect(apply).toContain('autoFill={priorChecked}')
+    expect(apply).toContain('if (!cancelled && !auth.loading && auth.user) setPriorChecked(true)')
+    expect(apply).toContain("if (next[k] === v) next[k] = prev[k] ?? ''")
   })
   it('ticked pack files are copied through POST /api/profile/attach and merged before the single attach_application_files call; own uploads + pack count against MAX_FILES; a copy failure is shown and does not stop the rest', () => {
     expect(apply).toContain("fetch('/api/profile/attach'")

@@ -382,12 +382,6 @@ function Aside({ lang }: { lang: Lang }) {
           </div>
           <div className="mt-0.5 text-[22px] font-extrabold tracking-tight">#3 / 23</div>
           <div className="mt-0.5 text-[11.5px] text-body-3">{zh ? '距 Top 2 还 2 单' : '2 deals from Top 2'}</div>
-          <Link
-            href="/agent/earnings"
-            className="mt-3 block w-full rounded-[8px] border border-line-strong bg-white py-2 text-center text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
-          >
-            {zh ? '打开佣金账本' : 'Open commission ledger'}
-          </Link>
         </div>
       </AsideBlock>
     </div>

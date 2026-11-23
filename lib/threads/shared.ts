@@ -3,6 +3,7 @@
 // application / tenancy / dispute); messages are append-only; a retraction is
 // a new row that hides the original from the default view but never from the
 // record; read marks are per-party high-water marks (送达 · 打开 · 确认).
+import { nameInitial } from '@/lib/ui/nameInitial'
 
 export type ThreadKind = 'work_order' | 'application' | 'tenancy' | 'dispute' | 'listing_inquiry' | 'agent_client' | 'support'
 export type SenderKind = 'tenant' | 'landlord' | 'provider' | 'external' | 'agent' | 'system' | 'admin' | 'member'
@@ -179,11 +180,7 @@ export function personName(name: string | null | undefined, role: string, zh: bo
  */
 export function initialOf(name: string | null | undefined, role: string, zh: boolean): string {
   if (role === 'admin') return 'S'
-  const s = personName(name, role, zh)
-  const body = s.replace(/^\s*(\[[^\]]*\]\s*)+/, '')
-  const alnum = (c: string) => /[\p{L}\p{N}]/u.test(c)
-  const ch = Array.from(body).find(alnum) ?? Array.from(s).find(alnum) ?? Array.from(s)[0] ?? '?'
-  return /[a-z]/i.test(ch) ? ch.toUpperCase() : ch
+  return nameInitial(personName(name, role, zh))
 }
 /**
  * The name line for a conversation from the viewer's side: "Sarah Wang",

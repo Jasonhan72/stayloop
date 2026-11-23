@@ -3,16 +3,19 @@
 // 乙 #7 · 2026-10-16 · "Fill from my application pack" on /apply/[slug] (G15).
 //
 // Reads the signed-in applicant's own pack (applicant_profiles / _history /
-// _files, all RLS-scoped to the account) and offers two things:
-//   · one tap fills the application form — only fields that are still empty,
-//     never overwriting what the applicant has already typed;
+// _files, all RLS-scoped to the account) and does two things:
+//   · fills the application form as soon as the pack is read — only fields that
+//     are still empty, never overwriting what the applicant has already typed.
+//     Until 2026-11-22 this took a tap on 「用我的申请包填写」; the fill is on
+//     its own now (product report 2026-11-17) and one tap takes it back. The
+//     button stays for the cases the automatic fill did not run or was undone;
 //   · a checklist of the pack's files to attach to this application — only the
 //     kinds this listing collects (Quebec takes no ID), each with its
 //     freshness; aging / stale files start unticked with a note.
 // Files are copied by POST /api/profile/attach at submit time (the page does
 // it); this component only decides what the applicant wants attached. Without
 // consent given on the pack page the file list is read-only.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import type { ApplicantProfile, ProfileFile, ProfileHistoryEntry } from '@/lib/profile/types'
@@ -81,6 +84,10 @@ type Props = {
   /** the live form state; the fill patch only touches keys that are empty here */
   form: Record<string, unknown>
   onFill: (patch: Record<string, string>) => void
+  /** take a fill back: `prev` is what each patched field held before; without it there is no undo link */
+  onUndoFill?: (patch: Record<string, string>, prev: Record<string, string>) => void
+  /** false = hold the automatic fill (the page is still finding out whether this listing was already applied to); default true */
+  autoFill?: boolean
   /** file kinds this listing collects (fileKindsFor) — pack files of other kinds are not offered */
   allowedKinds: readonly string[]
   selected: string[]
@@ -93,12 +100,16 @@ type Props = {
   onLoaded?: (info: { hasProfile: boolean; consented: boolean }) => void
 }
 
-export default function UseMyPack({ zh, uid, form, onFill, allowedKinds, selected, onSelect, ownCount, maxFiles, locked, onLoaded }: Props) {
+export default function UseMyPack({ zh, uid, form, onFill, onUndoFill, autoFill = true, allowedKinds, selected, onSelect, ownCount, maxFiles, locked, onLoaded }: Props) {
   const [state, setState] = useState<'loading' | 'none' | 'ready' | 'error'>('loading')
   const [profile, setProfile] = useState<ApplicantProfile | null>(null)
   const [history, setHistory] = useState<ProfileHistoryEntry[]>([])
   const [files, setFiles] = useState<ProfileFile[]>([])
   const [filled, setFilled] = useState<number | null>(null)
+  // 'auto' = the pack filled the form on its own when the page opened; 'manual' = the button did.
+  const [fillMode, setFillMode] = useState<'auto' | 'manual' | null>(null)
+  const autoTried = useRef(false)
+  const lastFill = useRef<{ patch: Record<string, string>; prev: Record<string, string> } | null>(null)
   const [seeded, setSeeded] = useState(false)
 
   useEffect(() => {
@@ -145,6 +156,32 @@ export default function UseMyPack({ zh, uid, form, onFill, allowedKinds, selecte
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, seeded])
 
+  /** Fills the still-empty fields from the pack and remembers what they held, so the fill can be taken back. */
+  const applyFill = (): number => {
+    if (!profile) return 0
+    const values = profileToApplyForm(profile, history[0]) as Record<string, unknown>
+    const patch = fillOnlyEmpty(form, values)
+    const keys = Object.keys(patch)
+    if (keys.length) {
+      const prev: Record<string, string> = {}
+      for (const k of keys) prev[k] = form[k] == null ? '' : String(form[k])
+      lastFill.current = { patch, prev }
+      onFill(patch)
+    }
+    return keys.length
+  }
+
+  // A pack on file fills the empty fields as soon as it is read and the page lets it (`autoFill`).
+  // Once per page load (the ref also survives StrictMode's second effect pass), never on a locked form.
+  useEffect(() => {
+    if (state !== 'ready' || !autoFill || autoTried.current) return
+    autoTried.current = true
+    if (locked) return
+    const n = applyFill()
+    if (n > 0) { setFilled(n); setFillMode('auto') }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, autoFill])
+
   // A kind that the listing stops collecting (province resolved late) drops out of the selection.
   useEffect(() => {
     if (state !== 'ready') return
@@ -178,11 +215,20 @@ export default function UseMyPack({ zh, uid, form, onFill, allowedKinds, selecte
   const toggle = (id: string) => onSelect(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id])
   const fill = () => {
     if (!profile) return
-    const values = profileToApplyForm(profile, history[0]) as Record<string, unknown>
-    const patch = fillOnlyEmpty(form, values)
-    onFill(patch)
-    setFilled(Object.keys(patch).length)
+    setFilled(applyFill())
+    setFillMode('manual')
   }
+  const undo = () => {
+    const last = lastFill.current
+    if (!last || !onUndoFill) return
+    onUndoFill(last.patch, last.prev)
+    lastFill.current = null
+    setFilled(null)
+    setFillMode(null)
+  }
+  // Something from the pack is in the form right now: the button has nothing left to do, so it steps
+  // aside for the result line and its undo. It is back after an undo, and stays on a locked form.
+  const inForm = filled !== null && filled > 0
 
   return (
     <div data-testid="use-my-pack" className="rounded-2xl border border-brand/30 bg-[#EAF6FD] p-4 sm:p-5">
@@ -193,15 +239,26 @@ export default function UseMyPack({ zh, uid, form, onFill, allowedKinds, selecte
             {zh ? '只填还空着的字段，你已经输入的不会被覆盖；填好后仍可逐项修改。' : 'Fills only the fields still empty — nothing you typed is overwritten, and you can edit every field afterwards.'}
           </div>
         </div>
-        <button type="button" data-testid="use-my-pack-fill" onClick={fill} disabled={!!locked} className="sl-btn-primary !py-[10px] !text-[13px] disabled:opacity-60">
-          {zh ? '用我的申请包填写' : 'Fill from my pack'}
-        </button>
+        {!inForm && (
+          <button type="button" data-testid="use-my-pack-fill" onClick={fill} disabled={!!locked} className="sl-btn-primary !py-[10px] !text-[13px] disabled:opacity-60">
+            {zh ? '用我的申请包填写' : 'Fill from my pack'}
+          </button>
+        )}
       </div>
       {filled !== null && (
-        <div data-testid="use-my-pack-filled" className="mt-2 text-[12.5px] text-body-2">
-          {filled > 0
-            ? (zh ? `已填入 ${filled} 项，请往下核对。` : `${filled} field${filled === 1 ? '' : 's'} filled in — please check them below.`)
-            : (zh ? '表单里没有空着的字段可填。' : 'No empty fields left to fill.')}
+        <div data-testid="use-my-pack-filled" data-mode={fillMode ?? undefined} className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[12.5px] text-body-2">
+          <span>
+            {filled > 0
+              ? fillMode === 'auto'
+                ? (zh ? `已用你的申请包填好 ${filled} 项，请往下核对。` : `${filled} field${filled === 1 ? '' : 's'} filled in from your application pack — please check them below.`)
+                : (zh ? `已填入 ${filled} 项，请往下核对。` : `${filled} field${filled === 1 ? '' : 's'} filled in — please check them below.`)
+              : (zh ? '表单里没有空着的字段可填。' : 'No empty fields left to fill.')}
+          </span>
+          {inForm && onUndoFill && !locked && (
+            <button type="button" data-testid="use-my-pack-undo" onClick={undo} className="font-semibold text-brand underline underline-offset-2">
+              {zh ? '清掉填入的内容' : 'Clear what was filled in'}
+            </button>
+          )}
         </div>
       )}
 
