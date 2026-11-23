@@ -18,6 +18,10 @@ export type DirectoryProvider = {
   contact_phone?: string | null
   website?: string | null
   verified_at: string | null
+  /** What the provider wrote about themselves, the languages they work in and their photo or logo (2026-11-23). */
+  bio?: string | null
+  languages?: string[] | null
+  photo_key?: string | null
 }
 export type DirectoryCredential = CredentialLite & { provider_id: string }
 /**

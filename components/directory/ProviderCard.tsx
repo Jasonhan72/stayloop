@@ -12,13 +12,14 @@ import ProviderAvatar from '@/components/directory/ProviderAvatar'
 import { TestDataTag } from '@/components/directory/FindHeader'
 import { isTestName } from '@/components/listing/testAccounts'
 import { providerHref } from '@/lib/marketplace/directory'
+import { languageLabel } from '@/lib/agentPublic'
 
 /** Cities listed on a card before the rest collapse into “+N”. */
 export const CITIES_ON_CARD = 4
 
 export type ProviderCardChip = { key: string; label: string; ok: boolean }
 
-export default function ProviderCard({ id, name, legalName, zh, badge, rating, chips, cities, detail, email, phone, testid = 'provider-card' }: {
+export default function ProviderCard({ id, name, legalName, zh, badge, rating, chips, cities, detail, email, phone, photoUrl, languages, testid = 'provider-card' }: {
   id: string
   /** the name the provider goes by */
   name: string
@@ -36,15 +37,20 @@ export default function ProviderCard({ id, name, legalName, zh, badge, rating, c
   /** the provider's own contact details, as they entered them */
   email?: string | null
   phone?: string | null
+  /** the photo or logo they uploaded; without one the initial shows */
+  photoUrl?: string | null
+  /** language codes (the agent profile's list) */
+  languages?: string[] | null
   testid?: string
 }) {
   const href = providerHref(id)
   const registered = legalName && legalName.trim() && legalName.trim() !== name ? legalName.trim() : null
+  const langs = languages ?? []
   return (
     <article className="flex min-w-0 flex-col rounded-2xl border border-line-divider bg-white p-5" data-testid={testid}>
       <div className="flex items-start gap-4">
         {/* The name beside it is the link; the avatar repeats it for pointer users only. */}
-        <Link href={href} tabIndex={-1} aria-hidden className="shrink-0"><ProviderAvatar name={name} size={88} /></Link>
+        <Link href={href} tabIndex={-1} aria-hidden className="shrink-0"><ProviderAvatar name={name} size={88} photoUrl={photoUrl} /></Link>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <Link href={href} className="min-w-0 break-words text-[17px] font-bold hover:underline" data-testid="provider-card-name">{name}</Link>
@@ -57,13 +63,14 @@ export default function ProviderCard({ id, name, legalName, zh, badge, rating, c
           </div>
         </div>
       </div>
-      {chips.length > 0 && (
+      {(chips.length > 0 || langs.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1.5" data-testid="provider-card-chips">
           {chips.map((c) => (
             <span key={c.key} className={'rounded-full px-2.5 py-[2px] text-[12px] ' + (c.ok ? 'bg-[#FFF3EA] font-semibold text-[#9A3412]' : 'bg-amber-50 text-amber-800')}>
               {c.label}{c.ok ? '' : (zh ? ' · 资质待补' : ' · credentials pending')}
             </span>
           ))}
+          {langs.map((c) => <span key={`l-${c}`} className="rounded-full border border-line-divider px-2.5 py-[2px] text-[12px] text-body-2" data-testid="provider-card-language">{languageLabel(c, zh ? 'zh' : 'en')}</span>)}
         </div>
       )}
       {cities.length > 0 && (

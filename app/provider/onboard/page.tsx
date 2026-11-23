@@ -16,8 +16,12 @@ import { invalidateHats } from '@/lib/useHats'
 import { externalHref } from '@/lib/ui/externalHref'
 import { CITIES, CREDENTIAL_LABEL, TRADES, coverageFor, coverageLabel, isSuperseded, renewalStanding, renewHintText, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
+import ProviderPhotoControl from '@/components/provider/ProviderPhotoControl'
+import { providerPhotoUrl } from '@/lib/providerPhotoKeys'
+import { providerHref } from '@/lib/marketplace/directory'
+import { AGENT_LANGUAGES, BIO_MAX, LANG_MAX, cleanLanguages } from '@/lib/agentPublic'
 
-type Provider = { id: string; legal_name: string; trade_name: string | null; business_number: string | null; service_cities: string[]; trades: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; website: string | null; status: string; review_note: string | null; verified_at: string | null; attested_at: string | null }
+type Provider = { id: string; legal_name: string; trade_name: string | null; business_number: string | null; service_cities: string[]; trades: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; website: string | null; status: string; review_note: string | null; verified_at: string | null; attested_at: string | null; bio: string | null; languages: string[] | null; photo_key: string | null }
 type Cred = { id: string; kind: CredentialKind; number: string | null; holder_name: string | null; expires_at: string | null; verified_at: string | null }
 
 const STATUS_LABEL: Record<string, { zh: string; en: string }> = { pending: { zh: '待核验', en: 'pending verification' }, verified: { zh: '已核验', en: 'verified' }, rejected: { zh: '未通过', en: 'rejected' }, suspended: { zh: '已暂停', en: 'suspended' }, expired: { zh: '已过期', en: 'expired' } }
@@ -33,7 +37,8 @@ export default function ProviderOnboardPage() {
   const zh = lang === 'zh'
   const [row, setRow] = useState<Provider | null | 'loading'>('loading')
   const [creds, setCreds] = useState<Cred[]>([])
-  const [f, setF] = useState({ legal_name: '', trade_name: '', business_number: '', service_cities: [] as string[], trades: [] as string[], pricing_mode: 'hourly', call_out_fee: '', hourly_rate: '', contact_name: '', contact_email: '', contact_phone: '', website: '', attest: false })
+  const [f, setF] = useState({ legal_name: '', trade_name: '', business_number: '', service_cities: [] as string[], trades: [] as string[], pricing_mode: 'hourly', call_out_fee: '', hourly_rate: '', contact_name: '', contact_email: '', contact_phone: '', website: '', attest: false, bio: '', languages: [] as string[] })
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [cf, setCf] = useState({ kind: 'business_registration' as CredentialKind, number: '', holder_name: '', expires_at: '' })
   // Edit a row in place (a typo, a new expiry) or renew it as a new row; the
   // reminder email says "update the number and expiry" — this is where.
@@ -54,7 +59,8 @@ export default function ProviderOnboardPage() {
     const r = (data as Provider | null) ?? null
     setRow(r)
     if (r) {
-      setF({ legal_name: r.legal_name, trade_name: r.trade_name || '', business_number: r.business_number || '', service_cities: r.service_cities || [], trades: r.trades || [], pricing_mode: r.pricing_mode, call_out_fee: r.call_out_fee != null ? String(r.call_out_fee) : '', hourly_rate: r.hourly_rate != null ? String(r.hourly_rate) : '', contact_name: r.contact_name || '', contact_email: r.contact_email || auth.user.email || '', contact_phone: r.contact_phone || '', website: r.website || '', attest: !!r.attested_at })
+      setF({ legal_name: r.legal_name, trade_name: r.trade_name || '', business_number: r.business_number || '', service_cities: r.service_cities || [], trades: r.trades || [], pricing_mode: r.pricing_mode, call_out_fee: r.call_out_fee != null ? String(r.call_out_fee) : '', hourly_rate: r.hourly_rate != null ? String(r.hourly_rate) : '', contact_name: r.contact_name || '', contact_email: r.contact_email || auth.user.email || '', contact_phone: r.contact_phone || '', website: r.website || '', attest: !!r.attested_at, bio: r.bio || '', languages: cleanLanguages(r.languages) })
+      setPhotoUrl(providerPhotoUrl(r.photo_key))
       const { data: c } = await supabase.from('provider_credentials').select('id, kind, number, holder_name, expires_at, verified_at').eq('provider_id', r.id).order('created_at')
       setCreds((c ?? []) as Cred[])
     } else setF((x) => ({ ...x, contact_email: auth.user?.email || '' }))
@@ -71,8 +77,9 @@ export default function ProviderOnboardPage() {
     // The website is shown as a link to landlords and tenants: save only a full http(s) address (S3-32).
     const website = f.website.trim() ? externalHref(f.website) : null
     if (f.website.trim() && !website) return setErr(zh ? '请填写完整网址，例如 https://example.com' : 'Enter a full web address, for example https://example.com')
+    if (f.bio.trim().length > BIO_MAX) return setErr(zh ? `简介最多 ${BIO_MAX} 个字。` : `The introduction is at most ${BIO_MAX} characters.`)
     setBusy(true)
-    const payload = { auth_id: auth.user.id, legal_name: f.legal_name.trim(), trade_name: f.trade_name.trim() || null, business_number: f.business_number.trim() || null, service_cities: f.service_cities, trades: f.trades, pricing_mode: f.pricing_mode, call_out_fee: f.call_out_fee === '' ? null : Number(f.call_out_fee), hourly_rate: f.hourly_rate === '' ? null : Number(f.hourly_rate), contact_name: f.contact_name.trim() || null, contact_email: f.contact_email.trim() || null, contact_phone: f.contact_phone.trim() || null, website, attested_at: new Date().toISOString() }
+    const payload = { auth_id: auth.user.id, legal_name: f.legal_name.trim(), trade_name: f.trade_name.trim() || null, business_number: f.business_number.trim() || null, service_cities: f.service_cities, trades: f.trades, pricing_mode: f.pricing_mode, call_out_fee: f.call_out_fee === '' ? null : Number(f.call_out_fee), hourly_rate: f.hourly_rate === '' ? null : Number(f.hourly_rate), contact_name: f.contact_name.trim() || null, contact_email: f.contact_email.trim() || null, contact_phone: f.contact_phone.trim() || null, website, bio: f.bio.trim() || null, languages: cleanLanguages(f.languages), attested_at: new Date().toISOString() }
     const { error } = row && row !== 'loading' ? await supabase.from('service_providers').update(payload).eq('auth_id', auth.user.id) : await supabase.from('service_providers').insert(payload)
     if (error) setErr(error.message)
     else { invalidateHats(); setSaved(true); await load() }
@@ -116,7 +123,7 @@ export default function ProviderOnboardPage() {
         <div className="mt-5 rounded-2xl border border-line-divider bg-white p-4 text-[13px]">
           <b>{zh ? '当前状态' : 'Status'}:</b> {zh ? STATUS_LABEL[row.status]?.zh ?? row.status : STATUS_LABEL[row.status]?.en ?? row.status}{row.verified_at ? ` · ${zh ? '核于' : 'verified'} ${row.verified_at.slice(0, 10)}` : ''}
           {row.review_note && row.status !== 'verified' && <div className="mt-1 text-danger">{row.review_note}</div>}
-          {row.status === 'verified' && <div className="mt-1"><Link href="/provider/jobs" className="font-bold text-brand underline underline-offset-2">{zh ? '去看工单 →' : 'Go to jobs →'}</Link></div>}
+          {row.status === 'verified' && <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1"><Link href="/provider/jobs" className="font-bold text-brand underline underline-offset-2">{zh ? '去看工单 →' : 'Go to jobs →'}</Link><Link href={providerHref(row.id)} className="font-bold text-brand underline underline-offset-2" data-testid="onboard-view-page">{zh ? '看我的主页 →' : 'View my page →'}</Link></div>}
         </div>
       )}
 
@@ -142,6 +149,28 @@ export default function ProviderOnboardPage() {
         <label className={label}>{zh ? '联系人' : 'Contact name'}<input className={input} value={f.contact_name} onChange={(e) => setF({ ...f, contact_name: e.target.value })} /></label>
         <label className={label}>{zh ? '接单邮箱' : 'Dispatch email'}<input className={input} type="email" value={f.contact_email} onChange={(e) => setF({ ...f, contact_email: e.target.value })} /></label>
         <label className={label}>{zh ? '电话' : 'Phone'}<input className={input} type="tel" value={f.contact_phone} onChange={(e) => setF({ ...f, contact_phone: e.target.value })} /></label>
+        {/* 2026-11-23: what the provider's page shows about them beyond the registered facts. None of it
+            is verified by Stayloop and changing it does not send the record back to pending. */}
+        <div className="border-t border-line-divider pt-4 sm:col-span-2" data-testid="onboard-profile-content">
+          <div className="text-[13.5px] font-extrabold">{zh ? '主页上的介绍' : 'What your page says about you'}</div>
+          <p className="mt-0.5 text-[12px] leading-relaxed text-body-3">{zh ? '显示在目录卡片和你的主页上，给房东和租客看。这部分不属于核验内容，随时可以改。' : 'Shown on your directory card and your page, to landlords and tenants. It is not part of verification and can be changed at any time.'}</p>
+          {row ? (
+            <div className="mt-3"><ProviderPhotoControl zh={zh} name={f.trade_name.trim() || f.legal_name.trim() || '?'} photoUrl={photoUrl} onChange={setPhotoUrl} /></div>
+          ) : (
+            <p className="mt-2 text-[12px] text-body-3" data-testid="onboard-photo-later">{zh ? '提交资料后可以在这里上传头像或标志。' : 'You can upload a photo or logo here once your details are submitted.'}</p>
+          )}
+          <label className={label + ' mt-4'}>{zh ? '简介（可选）' : 'Introduction (optional)'}
+            <textarea className={input + ' h-28'} maxLength={BIO_MAX} value={f.bio} onChange={(e) => setF({ ...f, bio: e.target.value })} placeholder={zh ? '做什么、做了多久、擅长哪类活、一般多久能上门。' : 'What you do, how long you have done it, what you are best at, how soon you usually come out.'} data-testid="onboard-bio" />
+          </label>
+          <div className="mt-1 text-right text-[11.5px] text-body-3">{f.bio.length} / {BIO_MAX}</div>
+          <div className={label}>{zh ? '服务语言（可选）' : 'Languages (optional)'}</div>
+          <div className="mt-1 flex flex-wrap gap-1.5" data-testid="onboard-languages">
+            {AGENT_LANGUAGES.map((l) => {
+              const on = f.languages.includes(l.code)
+              return <button key={l.code} type="button" aria-pressed={on} disabled={!on && f.languages.length >= LANG_MAX} onClick={() => setF({ ...f, languages: toggle(f.languages, l.code) })} className={'rounded-full border px-3 py-1 text-[12.5px] disabled:opacity-40 ' + (on ? 'border-brand bg-brand/10 font-semibold text-brand' : 'border-line-divider bg-white text-body-2')}>{zh ? l.zh : l.en}</button>
+            })}
+          </div>
+        </div>
         <label className="flex items-start gap-2 text-[13px] sm:col-span-2"><input type="checkbox" className="mt-[3px]" checked={f.attest} onChange={(e) => setF({ ...f, attest: e.target.checked })} /><span>{zh ? '我确认以上信息属实；持证工种的工作只由持有效资格证的人员完成；接受工单即与房东直接订立服务合同；账单不超出经批准报价的 10%（安省《消费者保护法》）；资质变更或到期后 7 天内更新。' : 'I confirm the above is true; licensed-trade work is done only by holders of a valid certificate; accepting a job forms a direct contract with the landlord; invoices stay within 10% of the approved quote (Ontario CPA); I update within 7 days of any credential change or expiry.'}</span></label>
         {err && <div role="alert" className="text-[12.5px] font-semibold text-danger sm:col-span-2">⚠ {err}</div>}
         {saved && !err && (() => {

@@ -25,8 +25,10 @@ import { externalHref, externalHrefLabel } from '@/lib/ui/externalHref'
 import { CREDENTIAL_LABEL, TRADES } from '@/lib/marketplace/trades'
 import { credentialRows, isProviderId, priceLine, providerDisplayName, ratingFor, tradeCoverage, type DirectoryCredential, type DirectoryProvider, type DirectoryReview } from '@/lib/marketplace/directory'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
+import { providerPhotoUrl } from '@/lib/providerPhotoKeys'
+import { languageLabel } from '@/lib/agentPublic'
 
-const COLS = 'id, legal_name, trade_name, trades, service_cities, pricing_mode, call_out_fee, hourly_rate, contact_email, contact_phone, website, verified_at'
+const COLS = 'id, legal_name, trade_name, trades, service_cities, pricing_mode, call_out_fee, hourly_rate, contact_email, contact_phone, website, verified_at, bio, languages, photo_key'
 
 export default function ProviderProfilePage() {
   const params = useParams()
@@ -97,6 +99,9 @@ export default function ProviderProfilePage() {
   const rating = p ? ratingFor(p.id, reviews) : null
   const credRows = p ? credentialRows(p.id, creds) : []
   const site = p ? externalHref(p.website) : null
+  const photo = p ? providerPhotoUrl(p.photo_key) : null
+  const langs = p?.languages ?? []
+  const bio = (p?.bio ?? '').trim()
   const verifiedOn = p?.verified_at ? p.verified_at.slice(0, 10) : ''
   const complete = trades.length > 0 && trades.every((t) => t.ok)
   const card = 'rounded-2xl border border-line-divider bg-white p-6'
@@ -143,8 +148,8 @@ export default function ProviderProfilePage() {
               <section className={card} data-testid="provider-profile-head">
                 <div className="flex flex-wrap items-start gap-4 sm:gap-5">
                   {/* 128px from sm up; 88px on phones so the name sits beside the avatar instead of under it. */}
-                  <span className="hidden sm:block"><ProviderAvatar name={name} size={128} /></span>
-                  <span className="sm:hidden"><ProviderAvatar name={name} size={88} /></span>
+                  <span className="hidden sm:block"><ProviderAvatar name={name} size={128} photoUrl={photo} /></span>
+                  <span className="sm:hidden"><ProviderAvatar name={name} size={88} photoUrl={photo} /></span>
                   <div className="min-w-0 flex-1 basis-[150px]">
                     <div className="flex flex-wrap items-center gap-2">
                       <h1 className="min-w-0 break-words text-[22px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{name}</h1>
@@ -176,9 +181,16 @@ export default function ProviderProfilePage() {
                 </div>
               </section>
 
+              {bio && (
+                <section className={card} data-testid="provider-profile-about">
+                  <h2 className="text-[16px] font-bold">{zh ? '关于我们' : 'About'}</h2>
+                  <p className="mt-2 whitespace-pre-line text-[14.5px] leading-[1.7] text-body-2">{bio}</p>
+                </section>
+              )}
+
               <section className={card} data-testid="provider-profile-services">
                 <h2 className="text-[16px] font-bold">{zh ? '服务信息' : 'Services'}</h2>
-                <div className="mt-3 grid gap-5 sm:grid-cols-3">
+                <div className="mt-3 grid gap-5 sm:grid-cols-2">
                   <div>
                     <div className="text-[12.5px] font-semibold text-body-3">{zh ? '做什么' : 'What they do'}</div>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -197,6 +209,12 @@ export default function ProviderProfilePage() {
                         : <span className="text-[13px] text-body-3">{zh ? '没有填写' : 'Not given'}</span>}
                     </div>
                   </div>
+                  {langs.length > 0 && (
+                    <div data-testid="provider-profile-languages">
+                      <div className="text-[12.5px] font-semibold text-body-3">{zh ? '语言' : 'Languages'}</div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">{langs.map((c) => <span key={c} className="rounded-full border border-line-divider px-3 py-1 text-[12.5px] text-body-2">{languageLabel(c, zh ? 'zh' : 'en')}</span>)}</div>
+                    </div>
+                  )}
                   {repair && (
                     <div data-testid="provider-profile-price">
                       <div className="text-[12.5px] font-semibold text-body-3">{zh ? '怎么收费' : 'How they charge'}</div>

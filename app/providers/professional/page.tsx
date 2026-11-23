@@ -21,9 +21,10 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
 import { providerDisplayName } from '@/lib/marketplace/directory'
+import { providerPhotoUrl } from '@/lib/providerPhotoKeys'
 import { CREDENTIAL_LABEL, coverageFor, isProfessionalTrade, PROFESSIONAL_TRADES, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 
-type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; contact_email: string | null; contact_phone: string | null; verified_at: string | null }
+type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; contact_email: string | null; contact_phone: string | null; verified_at: string | null; languages: string[] | null; photo_key: string | null }
 type Cred = { provider_id: string; kind: string; expires_at: string | null; verified_at: string | null }
 
 export default function ProfessionalDirectoryPage() {
@@ -43,7 +44,7 @@ export default function ProfessionalDirectoryPage() {
     if (auth.loading || !auth.user) return
     let on = true
     void (async () => {
-      const { data } = await supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, contact_email, contact_phone, verified_at').overlaps('trades', [...PROFESSIONAL_TRADES]).limit(200)
+      const { data } = await supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, contact_email, contact_phone, verified_at, languages, photo_key').overlaps('trades', [...PROFESSIONAL_TRADES]).limit(200)
       const list = (data ?? []) as Provider[]
       const ids = list.map((p) => p.id)
       const { data: c } = ids.length ? await supabase.from('provider_credentials_public').select('provider_id, kind, expires_at, verified_at').in('provider_id', ids) : { data: [] }
@@ -100,6 +101,8 @@ export default function ProfessionalDirectoryPage() {
                         detail={licences || null}
                         email={p.contact_email}
                         phone={p.contact_phone}
+                        photoUrl={providerPhotoUrl(p.photo_key)}
+                        languages={p.languages}
                       />
                     )
                   })}

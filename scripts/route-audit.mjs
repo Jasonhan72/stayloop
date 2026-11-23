@@ -63,6 +63,8 @@ await probe('threads draft-reply anon → 401', `${BASE}/api/threads/draft-reply
 await probe('provider contact anon → 401', `${BASE}/api/providers/00000000-0000-4000-8000-000000000000/contact`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }, { status: 401 })
 // A provider's page (2026-11-22) renders for anyone; what it shows is decided in the browser (signed-in accounts only).
 await probe('provider page → 200', `${BASE}/providers/00000000-0000-4000-8000-000000000000?${bust()}`, {}, { status: 200, headers: HDR })
+await probe('provider photo POST anon → 401', `${BASE}/api/providers/photo`, { method: 'POST', body: '' }, { status: 401 })
+await probe('provider photo DELETE anon → 401', `${BASE}/api/providers/photo`, { method: 'DELETE' }, { status: 401 })
 await probe('cron agent-routines anon → 401', `${BASE}/api/cron/agent-routines`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }, { status: 401 })
 // APIs — anonymous
 const J = { headers: { 'content-type': 'application/json' } }

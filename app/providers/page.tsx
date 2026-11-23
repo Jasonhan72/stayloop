@@ -25,6 +25,7 @@ import { useT } from '@/lib/i18n'
 import { CITIES, isProfessionalTrade, TRADES, type Trade } from '@/lib/marketplace/trades'
 import { priceLine, providerDisplayName, repairDirectory, type DirectoryCredential, type DirectoryProvider, type DirectoryReview } from '@/lib/marketplace/directory'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
+import { providerPhotoUrl } from '@/lib/providerPhotoKeys'
 
 const REPAIR_TRADES = TRADES.filter((t) => !isProfessionalTrade(t.key))
 
@@ -51,7 +52,7 @@ export default function RepairDirectoryPage() {
     if (auth.loading || !auth.user) return
     let on = true
     void (async () => {
-      const { data, error } = await supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, pricing_mode, call_out_fee, hourly_rate, contact_email, contact_phone, verified_at').limit(200)
+      const { data, error } = await supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, pricing_mode, call_out_fee, hourly_rate, contact_email, contact_phone, verified_at, languages, photo_key').limit(200)
       if (!on) return
       if (error) { setFailed(true); return }
       const list = (data ?? []) as DirectoryProvider[]
@@ -168,6 +169,8 @@ export default function RepairDirectoryPage() {
                   detail={priceLine(p, zh)}
                   email={p.contact_email}
                   phone={p.contact_phone}
+                  photoUrl={providerPhotoUrl(p.photo_key)}
+                  languages={p.languages}
                 />
               ))}
             </div>
