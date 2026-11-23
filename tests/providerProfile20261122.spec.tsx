@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 // V0.9 (2026-11-22, user: 「要把维修服务，专业服务这个和经纪的页面一样，同时也要可以点击进去看主页」).
 //  A. the two provider tabs use one card, laid out like the agent card: avatar, name, badge, trades,
-//     cities, 看主页 / 发消息 — no address, number or credential list on the card any more;
+//     cities, 看主页 / 发消息. The credential list and the website are on the page only; the e-mail
+//     address and the phone number are on the card too (moved off it at first, then the user:
+//     「卡片上也要」);
 //  B. every provider has a page, /providers/<id>, modelled on the agent's page, with the contact panel;
 //  C. an anonymous visitor still reads nothing about any provider, on the page as in the directory;
 //  D. a rating reads the same for everyone (view provider_review_stats) — the review table showed
@@ -122,7 +124,7 @@ describe('what a card and a page are built from (lib/marketplace/directory.ts)',
 describe('one card for both provider tabs, laid out like the agent card', () => {
   const base = { id: ID, name: '[TEST] Northline Home Services', zh: true, badge: { ok: true, label: '资质已核 · 2026-10-01' }, chips: [{ key: 'plumbing', label: '水管', ok: true }, { key: 'electrical', label: '电气', ok: false }], cities: ['Toronto', 'North York', 'Markham', 'Vaughan', 'Ajax', 'Whitby'] }
   it('the name, 看主页 and 发消息 all open the provider’s page; the initial skips the [TEST] tag', () => {
-    const { container: c } = render(<ProviderCard {...base} legalName="[TEST] Northline Home Services Inc." rating="★ 4.5 (2)" detail="$110/h · 上门费 $75" />)
+    const { container: c } = render(<ProviderCard {...base} legalName="[TEST] Northline Home Services Inc." rating="★ 4.5 (2)" detail="$110/h · 上门费 $75" email="hello@northline.example.org" phone="(416) 555-0100" />)
     const card = only(c, 'article[data-testid="provider-card"]')
     expect(only<HTMLAnchorElement>(card, '[data-testid="provider-card-name"]').getAttribute('href')).toBe(`/providers/${ID}`)
     expect(only<HTMLAnchorElement>(card, '[data-testid="provider-card-view"]').getAttribute('href')).toBe(`/providers/${ID}`)
@@ -137,16 +139,23 @@ describe('one card for both provider tabs, laid out like the agent card', () => 
     expect(all(card, '[data-testid="provider-card-chips"] span').map(textOf)).toEqual(['水管', '电气 · 资质待补'])
     expect(textOf(only(card, '[data-testid="provider-card-cities"]'))).toBe(`服务城市：Toronto · North York · Markham · Vaughan +${base.cities.length - CITIES_ON_CARD}`)
     expect(textOf(only(card, '[data-testid="provider-card-detail"]'))).toBe('$110/h · 上门费 $75')
+    // the provider's own address and number, one tap away from the card
+    const contact = only(card, '[data-testid="provider-card-contact"]')
+    expect(only<HTMLAnchorElement>(contact, 'a[href^="mailto:"]').getAttribute('href')).toBe('mailto:hello@northline.example.org')
+    const tel = only<HTMLAnchorElement>(contact, 'a[href^="tel:"]')
+    expect(tel.getAttribute('href')).toBe('tel:4165550100')
+    expect(textOf(tel)).toBe('(416) 555-0100')
   })
   it('no registered-name line when it is the same name, no rating line where reviews do not apply, and the testid can be the professional one', () => {
     const { container: c } = render(<ProviderCard {...base} legalName="[TEST] Northline Home Services" testid="professional-provider" badge={{ ok: false, label: '牌照待核或已过期' }} />)
     const card = only(c, '[data-testid="professional-provider"]')
-    expect(all(card, '[data-testid="provider-card-legal"], [data-testid="provider-rating"], [data-testid="provider-card-detail"]').length).toBe(0)
+    // …and no contact row when the provider left neither an address nor a number
+    expect(all(card, '[data-testid="provider-card-legal"], [data-testid="provider-rating"], [data-testid="provider-card-detail"], [data-testid="provider-card-contact"]').length).toBe(0)
     expect(only(card, '[data-testid="provider-card-badge"]').className).toContain('bg-amber-50')
   })
-  it('the card carries no address, number, website or credential list, and the avatar is the provider colour', () => {
+  it('the card carries no website link and no credential list, and the avatar is the provider colour', () => {
     const src = read('components/directory/ProviderCard.tsx')
-    expect(src).not.toMatch(/mailto:|tel:|contact_email|contact_phone|website|CREDENTIAL_LABEL/)
+    expect(src).not.toMatch(/externalHref|target="_blank"|CREDENTIAL_LABEL/)
     const { container: c } = render(<ProviderAvatar name="Maple Plumbing" size={88} />)
     const a = only(c, '[data-testid="provider-avatar"]')
     expect(textOf(a)).toBe('M')
@@ -161,7 +170,13 @@ describe('one card for both provider tabs, laid out like the agent card', () => 
     const pro = read('app/providers/professional/page.tsx')
     expect(pro).toContain('<ProviderCard')
     expect(pro).toContain('testid="professional-provider"')
-    for (const s of [repair, pro]) expect(s).not.toMatch(/mailto:|contact_email|contact_phone/)
+    // both lists read the address and the number for the card; the website is read on the page only
+    for (const s of [repair, pro]) {
+      expect(s).toContain('email={p.contact_email}')
+      expect(s).toContain('phone={p.contact_phone}')
+      expect(s).toContain('contact_email, contact_phone, verified_at')
+      expect(s).not.toMatch(/contact_phone, website|externalHref|mailto:/)
+    }
   })
 })
 
@@ -183,6 +198,7 @@ describe('/providers/professional renders the same card, grouped by licence', ()
     expect(textOf(only(card, '[data-testid="provider-card-badge"]'))).toBe('牌照已核')
     expect(textOf(only(card, '[data-testid="provider-card-detail"]'))).toContain('到期 2027-03-31')
     expect(only<HTMLAnchorElement>(card, '[data-testid="provider-card-message"]').getAttribute('href')).toBe(`/providers/${ID}#contact`)
+    expect(only<HTMLAnchorElement>(card, '[data-testid="provider-card-contact"] a[href^="mailto:"]').getAttribute('href')).toBe('mailto:hello@northline.example.org')
     expect(all(card, '[data-testid="provider-rating"]').length).toBe(0)
     // the other three categories say they are empty
     expect(all(c, '[data-testid="professional-empty"]').length).toBe(3)

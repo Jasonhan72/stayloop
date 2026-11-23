@@ -1,8 +1,11 @@
 // One card for both service-provider tabs (维修服务 / 专业服务), laid out like the agent card
 // (app/agents/page.tsx) since 2026-11-22: a square avatar, the name as the link to the provider's
 // page, the verification badge, the trades as chips, where they work, and the same two buttons —
-// 看主页 and 发消息. The e-mail address, phone number and credential list moved to the provider's
-// page (/providers/<id>), which is where 发消息 lands too.
+// 看主页 and 发消息. The credential list and the website are on the provider's page
+// (/providers/<id>), which is where 发消息 lands too. The e-mail address and the phone number are
+// on the card as well as on the page: they were moved off the card with the redesign and the user
+// asked for them back the same day (「卡片上也要」) — a landlord looking for a plumber wants the
+// number without a second click.
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import ProviderAvatar from '@/components/directory/ProviderAvatar'
@@ -15,7 +18,7 @@ export const CITIES_ON_CARD = 4
 
 export type ProviderCardChip = { key: string; label: string; ok: boolean }
 
-export default function ProviderCard({ id, name, legalName, zh, badge, rating, chips, cities, detail, testid = 'provider-card' }: {
+export default function ProviderCard({ id, name, legalName, zh, badge, rating, chips, cities, detail, email, phone, testid = 'provider-card' }: {
   id: string
   /** the name the provider goes by */
   name: string
@@ -30,6 +33,9 @@ export default function ProviderCard({ id, name, legalName, zh, badge, rating, c
   cities: string[]
   /** one more grey line under the cities: how they charge, or which licence was checked */
   detail?: string | null
+  /** the provider's own contact details, as they entered them */
+  email?: string | null
+  phone?: string | null
   testid?: string
 }) {
   const href = providerHref(id)
@@ -66,6 +72,12 @@ export default function ProviderCard({ id, name, legalName, zh, badge, rating, c
         </div>
       )}
       {detail && <div className="mt-1 text-[12px] text-body-3" data-testid="provider-card-detail">{detail}</div>}
+      {(email || phone) && (
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-line-divider pt-3 text-[13px]" data-testid="provider-card-contact">
+          {email && <a href={`mailto:${email}`} className="break-all text-brand underline-offset-2 hover:underline">{email}</a>}
+          {phone && <a href={`tel:${phone.replace(/[^\d+]/g, '')}`} className="whitespace-nowrap text-brand underline-offset-2 hover:underline">{phone}</a>}
+        </div>
+      )}
       <div className="mt-auto flex gap-2 pt-4">
         <Link href={href} className="flex min-h-[42px] flex-1 items-center justify-center rounded-xl border border-line-strong px-4 text-[13.5px] font-semibold text-body transition hover:border-[#C2410C]" data-testid="provider-card-view">{zh ? '看主页' : 'View profile'}</Link>
         <Link href={`${href}#contact`} className="sl-btn-primary flex min-h-[42px] flex-1 items-center justify-center !px-4 !py-0 !text-[13.5px]" data-testid="provider-card-message">{zh ? '发消息' : 'Message'}</Link>

@@ -122,7 +122,8 @@ describe('「发消息」 to a provider', () => {
     // the same day the cards were made to match the agent directory, so the form moved off the card
     const card = read('components/directory/ProviderCard.tsx')
     expect(card).toContain('<Link href={`${href}#contact`}')
-    expect(card).not.toMatch(/mailto:|ProviderContact/)
+    // the form is not on the card (the address and the number are, as plain links)
+    expect(card).not.toContain('ProviderContact')
     for (const f of ['app/providers/page.tsx', 'app/providers/professional/page.tsx']) expect(read(f), f).toContain('<ProviderCard')
     const page = read('app/providers/[id]/page.tsx')
     expect(page).toContain('<ProviderContact providerId={p.id} providerName={name} zh={zh} as={activeHat(hats, auth.role)} professional={professionalOnly} />')

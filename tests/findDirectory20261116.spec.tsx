@@ -215,11 +215,13 @@ describe('/providers — the repair directory page', () => {
     only(card, '[data-testid="test-data-tag"]')
     expect(textOf(only(card, '[data-testid="provider-rating"]'))).toBe('★ 4 (1)')
     // 2026-11-22: the card is the agent directory's card — it opens the provider's page, where the
-    // credentials, the contact details and the message form are; none of them sits on the card.
+    // credentials, the website and the message form are. The address and the number stay on the card.
     expect(only<HTMLAnchorElement>(card, '[data-testid="provider-card-view"]').getAttribute('href')).toBe('/providers/p1')
     expect(only<HTMLAnchorElement>(card, '[data-testid="provider-card-message"]').getAttribute('href')).toBe('/providers/p1#contact')
-    expect(all(card, 'a[href^="mailto:"], a[href^="tel:"], [data-testid="provider-website"], [data-testid="provider-credentials"]').length).toBe(0)
-    expect(textOf(card)).not.toContain('maple@example.org')
+    expect(only<HTMLAnchorElement>(card, 'a[href^="mailto:"]').getAttribute('href')).toBe('mailto:maple@example.org')
+    expect(only<HTMLAnchorElement>(card, 'a[href^="tel:"]').getAttribute('href')).toBe('tel:4165550100')
+    // a "website" is never a link on the card, whatever the provider typed
+    expect(all(card, '[data-testid="provider-website"], [data-testid="provider-credentials"], a[target="_blank"]').length).toBe(0)
     const hint = only(container, '[data-testid="providers-role-hint"]')
     expect(textOf(hint)).toContain('先报修')
     expect(only<HTMLAnchorElement>(hint, 'a').getAttribute('href')).toBe('/tenant/maintenance')

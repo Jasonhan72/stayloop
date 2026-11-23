@@ -9,8 +9,8 @@
 // the provider directly. Stayloop dispatches nothing, takes no commission,
 // gives no legal advice and sells no insurance.
 // 2026-11-22: the rows became the agent directory's card (components/directory/ProviderCard.tsx),
-// still grouped by licence category; each card opens the provider's page, /providers/<id>, where
-// the contact details and the message form are.
+// still grouped by licence category, with the e-mail address and phone number on the card; each
+// card opens the provider's page, /providers/<id>, where the website and the message form are.
 import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -23,7 +23,7 @@ import { useMarketplaceConfig } from '@/lib/marketplace/config'
 import { providerDisplayName } from '@/lib/marketplace/directory'
 import { CREDENTIAL_LABEL, coverageFor, isProfessionalTrade, PROFESSIONAL_TRADES, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 
-type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; verified_at: string | null }
+type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; contact_email: string | null; contact_phone: string | null; verified_at: string | null }
 type Cred = { provider_id: string; kind: string; expires_at: string | null; verified_at: string | null }
 
 export default function ProfessionalDirectoryPage() {
@@ -43,7 +43,7 @@ export default function ProfessionalDirectoryPage() {
     if (auth.loading || !auth.user) return
     let on = true
     void (async () => {
-      const { data } = await supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, verified_at').overlaps('trades', [...PROFESSIONAL_TRADES]).limit(200)
+      const { data } = await supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, contact_email, contact_phone, verified_at').overlaps('trades', [...PROFESSIONAL_TRADES]).limit(200)
       const list = (data ?? []) as Provider[]
       const ids = list.map((p) => p.id)
       const { data: c } = ids.length ? await supabase.from('provider_credentials_public').select('provider_id, kind, expires_at, verified_at').in('provider_id', ids) : { data: [] }
@@ -98,6 +98,8 @@ export default function ProfessionalDirectoryPage() {
                         chips={p.trades.filter(isProfessionalTrade).map((k) => { const d = TRADES.find((x) => x.key === k); return { key: k, label: d ? (zh ? d.zh : d.en) : k, ok: coverageFor(k, pc, new Date(), graceDays).ok } })}
                         cities={p.service_cities ?? []}
                         detail={licences || null}
+                        email={p.contact_email}
+                        phone={p.contact_phone}
                       />
                     )
                   })}

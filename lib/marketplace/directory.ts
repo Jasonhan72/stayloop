@@ -13,7 +13,7 @@ export type DirectoryProvider = {
   pricing_mode: string
   call_out_fee: number | null
   hourly_rate: number | null
-  /** The three contact fields are read on the provider's page only; the directory lists do not ask for them (2026-11-22). */
+  /** The directory lists read the e-mail address and the phone number (shown on the card); the website is read on the provider's page only. */
   contact_email?: string | null
   contact_phone?: string | null
   website?: string | null

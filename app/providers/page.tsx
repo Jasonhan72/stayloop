@@ -7,8 +7,9 @@
 // (provider_directory is readable by signed-in accounts only). Fixed order, no ranking, no
 // commission (lib/marketplace/directory.ts).
 // 2026-11-22: the cards are the agent directory's card (components/directory/ProviderCard.tsx) —
-// avatar, name, badge, trades, cities, 看主页 / 发消息 — and each one opens the provider's own page,
-// /providers/<id>, where the credentials, the contact details and the message form now live.
+// avatar, name, badge, trades, cities, the e-mail address and phone number, 看主页 / 发消息 — and
+// each one opens the provider's own page, /providers/<id>, where the credentials, the website and
+// the message form live.
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -50,7 +51,7 @@ export default function RepairDirectoryPage() {
     if (auth.loading || !auth.user) return
     let on = true
     void (async () => {
-      const { data, error } = await supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, pricing_mode, call_out_fee, hourly_rate, verified_at').limit(200)
+      const { data, error } = await supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, pricing_mode, call_out_fee, hourly_rate, contact_email, contact_phone, verified_at').limit(200)
       if (!on) return
       if (error) { setFailed(true); return }
       const list = (data ?? []) as DirectoryProvider[]
@@ -165,6 +166,8 @@ export default function RepairDirectoryPage() {
                   chips={trades.map((c) => { const d = TRADES.find((x) => x.key === c.t); return { key: c.t, label: d ? (zh ? d.zh : d.en) : c.t, ok: c.ok } })}
                   cities={p.service_cities ?? []}
                   detail={priceLine(p, zh)}
+                  email={p.contact_email}
+                  phone={p.contact_phone}
                 />
               ))}
             </div>
