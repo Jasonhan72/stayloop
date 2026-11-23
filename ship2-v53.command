@@ -75,6 +75,9 @@ else
   echo "----- a probe was red; waiting 30s and retrying once -----"
   sleep 30
   if bash scripts/smoke.sh; then
+    # the audit belongs to every green deploy, not only the first-try one (it was skipped here until 2026-11-23)
+    echo "===== route & API contract audit ====="
+    node scripts/route-audit.mjs | grep -E '^FAIL|^SUMMARY' || true
     echo "================ SHIP2 DONE — smoke green on retry $(date) ================"
   else
     echo
