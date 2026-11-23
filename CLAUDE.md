@@ -1,7 +1,7 @@
 # Stayloop — Project Context for Claude Code
 
 AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloop.ai**。租客 / 房东 / 经纪 / 服务商四顶「帽子」，每个用户一个 AI 助理（「AI 助理 / AI Agent」）。
-当前版本 **V0.7**（页脚），V0.8 开发中；正式版叫 V1.0。git 分支名 `v5.3-launch` 与部署脚本名 `ship2-v53.command` 是旧迭代号，不改。
+当前版本 **V0.7**（页脚），V0.9 开发中（2026-11-22 起，接 V0.8）；正式版叫 V1.0。git 分支名 `v5.3-launch` 与部署脚本名 `ship2-v53.command` 是旧迭代号，不改。
 
 **本文件只放现行规则与事实。** 2026-08 至 2026-10-17 每次改动的来龙去脉原样存在 `design/history/`（`README.md` 是逐节索引）。要查某个功能为什么这样做、当时修了什么，先搜那里，再看代码与守卫测试（`tests/`，200+ 个文件，很多规则只在测试里写着）。
 
@@ -66,7 +66,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - **Realtor.ca / MLS 读取永久关闭**（PropTx 2026-10-13 拒绝：MLS 数据不得经第三方 AI）。`REALTOR_LIVE_READS=false` 是常量；`isMlsHost()` 的主机一律不读；找房只给 Rentals.ca / Kijiji / Realtor.ca 外链。导入的 Realtor 房源已全部归档。**不要再提 PropTx / DDF / Realtor 抓取。** 租金基准只用 CMHC + 统计局（`lib/market/rentBenchmark.ts`，来源句必显示），不再展示 TRREB 数字。
 - **筛查模块 DO NOT TOUCH**：`app/screening/`、`app/api/screen-score/`、`app/api/deep-check/`、`lib/generateReport.ts`、`lib/forensics/` 未经明确要求不改；需要时只做加法（顶部挂组件、加一句文案）。评分是四项计分（付款能力 / 信用 / 租务与司法历史 / 核验）+ 不计分的申请完整度；没有硬性收入比或信用分截止线（OHRC）。 免费档额度由 `screening_quota_usage` / `record_screening_run`（表 `screening_runs`，仅服务端）计：本月评过分的筛查最多 3 份、每份每月最多评 3 次；单次解锁只覆盖该筛查上的申请人（`sameApplicantName`）。
 - **筛查只给房东或 RECO 注册有效的经纪**（`lib/screening/roleGate.ts`，触发器 `guard_screening_role` + 四个路由）。客户确认的委托可选，用来让客户也看到报告。
-- **帽子与活动帽子分开**：资格由 `my_hats()` RPC 给出（`lib/useHats.ts`，`heldHat / activeHat` 是唯一谓词），活动帽子按路由前缀（`lib/activeRole.ts`）。**页面加载永不开通房东帽子**，只有 `/landlord/become`、起名页选房东、发布房源才 `claim_landlord`；计费路由对没有房东帽子的账号返回 403。页头「我是…」显示身份由 `lib/displayIdentity.ts` 决定，权限永远只看帽子。
+- **帽子与活动帽子分开**：资格由 `my_hats()` RPC 给出（`lib/useHats.ts`，`heldHat / activeHat` 是唯一谓词），活动帽子按路由前缀（`lib/activeRole.ts`）。**页面加载永不开通房东帽子**，只有 `/landlord/become`、起名页选房东、发布房源才 `claim_landlord`；计费路由对没有房东帽子的账号返回 403。页头「我是…」显示身份由 `lib/displayIdentity.ts` 决定（设置页的「角色」一格也用它），权限永远只看帽子。
 - **一个用户一个 AI 助理**：名字 / 头像 / 人设 / 风格存 `assistant_profiles`，记忆按身份存、读全部身份，反思画像一人一份（`user_memories` role `self`）。未起名时中文自称「AI 助理」、英文「AI Agent」（`lib/agent/assistantName.ts`）。
 - **待批卡只能经 `decide_pending_action` 批准**：`agent_pending_actions` 上有守卫触发器，客户端直接改只能编辑待批卡、撤销（approved → pending）或作废；已执行的卡只读。新增客户端写法前先对照 `20261115b_code_review_s2.sql`。
 - **待批卡只能提议有执行器的动作**（`EXECUTABLE_ACTION_TYPES`）。租客模型只能提 `maintenance_request` 与带正文的 `send_message`；**房东与经纪的模型不出卡**。执行器批准前重新核对事实，失效即 409 + `expired`。批准后 60 秒可撤销（`UNDO_MS`）；关页面后续跑 / 待办页「现在执行」。
@@ -89,6 +89,8 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - **工作台侧栏**：有鼠标的设备只有图标、悬停显示名字（2026-10-04 用户定的）；不能悬停的设备（平板）图标下面带名字（2026-11-18 用户定的）。名字一直在标记里，由 `globals.css` 的 `.sl-rail-label` + `@media (hover: none)` 控制显示，两个侧栏（`WorkspaceShell` 的 `Rail`、`ProviderRail`）共用；新增侧栏项不用另外处理。五格及以上的 `StatStrip` 在 `sm`–`xl` 三格一行。
 - `.sl-input` 的 `<textarea>` 高度跟 `rows` 走，要固定高度就写 `h-*`；没写列的 `grid` 里放「前缀 + input」的行要加 `grid-cols-1`（WebKit 的 input 固有宽度大，会把自动列撑出屏幕）；`flex-1` 的文字旁边有不收缩的按钮时给文字一个 `basis-[N]`，否则手机上被挤成一字一行。
 - 页面主容器统一 `max-w-[1320px] px-6 sm:px-8 lg:px-12`（与页头对齐）。
+- **手机横屏（高度 ≤ 500px）的样式用 Tailwind 变体 `short-landscape:`**（`tailwind.config.ts` 里的插件；两张房源编辑页的底部保存条用它收窄）。不往 `screens` 里加 raw 断点，那会让 `min-*` / `max-*` 变体失效。
+- 头像里的名字首字母用 `nameInitial`（`lib/ui/nameInitial.ts`，跳过开头的 `[TEST]` 这类标签），不直接 `slice(0, 1)`。
 - 中文标题只在标点 / 空格处断行（`.sl-type-head`，keep-all）；超过约 10 个字没有标点的一段要放零宽空格断点。**WebKit 下相邻的 nowrap span 不会换行**，测首页断行要同时跑 WebKit。
 - 给思考型模型的结构化输出调用留足 `max_tokens`（推理会先吃掉预算导致 JSON 截断）。
 - 发信类限流 fail-closed、成本类 fail-open（`lib/rateLimit.ts underHourlyLimit`）；匿名面都要有全站总闸（匿名读端点用 `underCostLimits`：调用者桶 + 全站桶，fail-open）。**会发信的端点用 `underMailLimits`**（调用者桶 + 全站桶），按 IP 归桶用 `ipBucket`（IPv6 按 /64）。
@@ -144,9 +146,9 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 - 租约：`app/api/lease/{send,sign,view}`、`lib/lease/`；在管租约中心 `/h/[id]`、`lib/household/`
 - 消息：`/messages`、`components/messages/MessageCenter.tsx`、`lib/threads/`、`components/threads/ThreadPanel.tsx`
 - 服务市场：`lib/marketplace/`（状态机 `workOrders.ts`、服务端 `server.ts`、日扫 `sweep.ts`）；服务商的导航 `components/provider/ProviderNav.tsx`（`PROVIDER_ITEMS`：工单 · 历史 · 资料与资质 · 消息 · 找人；桌面 `ProviderRail`、手机 `ProviderTabs`），三个服务商页共用 `ProviderShell`（有服务商档案才出侧栏）；消息 / 设置 / 公开页在页头显示「我是服务商」时用服务商的导航（同一个 `displayIdentity` 判定）
-- 经纪：`agent_profiles` / `agent_clients` / `delegations` / 收件链接 `/intake/[token]`；`/admin/agents` 人工核验 RECO（注册库禁止自动查询，永远手动）；公开主页的开关在 `/agent/verify`（`components/agent/PublicProfileEditor.tsx` 顶部的「公开我的主页」按钮，核验有效后这一节排在注册表单上面；侧栏「认证与主页」）
+- 经纪：`agent_profiles` / `agent_clients` / `delegations` / 收件链接 `/intake/[token]`；`/admin/agents` 人工核验 RECO（注册库禁止自动查询，永远手动）；公开主页的开关在 `/agent/verify`（`components/agent/PublicProfileEditor.tsx` 顶部的「公开我的主页」按钮，核验有效后这一节排在注册表单上面；侧栏「认证与主页」）；佣金页 `/agent/earnings` 和日历页没有上线，工作台里不放通往它们的入口（进度页第三格是 RECO 注册状态）
 - 消费者档案：`lib/consumer/`、`/my-file`、`/admin/consumer-requests`
-- 申请包：`applicant_profiles` + `/tenant/passport`、`/api/profile/*`
+- 申请包：`applicant_profiles` + `/tenant/passport`、`/api/profile/*`；申请页 `components/apply/UseMyPack.tsx` 读到申请包就自动带入还空着的字段（等页面查完「是否已经申请过」，`autoFill`），可以一键清掉
 - LTB 判令目录：`lib/ltb/`（ingest 与查询共用 `normalize.ts`；只有房东发起且对方是租客才算风险；姓名命中未经地址佐证一律视为同名；目录没有判决结果，只能说「已出判令」）。CanLII API 不能按姓名查。
 - 后台：`/admin`（verify / users / usage / models / agents / providers / partners / consumer-requests / knowledge），门禁 `is_stayloop_admin()`。**管理员的待处理提示**（2026-11-15）：RPC `admin_pending_counts()` 只返回六个队列的计数（`lib/admin/pendingCounts.ts` 是队列清单与口径），页头菜单「后台管理」行显示数字，登录后在页头右下浮出提示（`components/admin/AdminPendingNotice.tsx`，`fixed`、不占版面，`/admin` 内不显示；关掉后下次登录或某个队列变多才再出现）。新增后台队列时把它加进 RPC 与 `ADMIN_QUEUES`，并在该页决定后调 `notifyAdminPendingChanged()`
 - **知识库（RAG，2026-10-27）**：`lib/kb/`（`chunk` 切块、`trigger` 触发与中→英检索词、`cite` 参考资料段 / 条号核对 / 来源清单、`search` 调 RPC、`config` 读 `app_config.kb`）、`lib/llmEmbed.ts`（嵌入，`ai_usage` slot `embed`，默认 `gemini-embedding-001` 1024 维）、表 `knowledge_sources / documents / chunks`（只有 service role）+ RPC `kb_search`、语料清单 `scripts/kb/sources.ts`、入库 `scripts/kb/ingest.ts`（版本只追加不删）、评测 `scripts/kb/eval.ts` + `design/kb-golden-set-2026-10-27.json`、每周 `kb-refresh.yml`（需 GitHub secret `GEMINI_API_KEY`）。**开关在 `app_config.kb`**（`audience` test → all），计划 `design/rag-knowledge-base-plan-2026-10-27.md`。回答里的条号必须是模型本轮看到过的——检索到的原文、提示词里的事实包、用户自己写的或上传的文字（`citationAllowance`，2026-11-18 起；此前只认检索结果，会把事实包里正确的条号改掉）——否则守卫改写并记 `kb_uncited`。 **更新机制**：原文有新版本 → `knowledge_changes` 队列（逐条 diff → 反查规则 `lib/kb/ruleMap.ts`）→ 审核人邮件（`KB_REVIEW_EMAIL`）→ 人在 `/admin/knowledge` 标状态；pending 期间涉及的规则在助理提示词与 `/rules` 上标「待核对」（`lib/kb/notices.ts`）。规则表只在代码里改，可用 `effective_from/to` 提前上线。
