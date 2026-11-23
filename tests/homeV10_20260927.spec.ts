@@ -130,7 +130,9 @@ describe('legacy /?role=&ask= deep links', () => {
 
 describe('what did not change, and the version label', () => {
   it('header, footer and logo untouched except the version; the chat header lost only its homepage-only variant', () => {
-    expect(read('components/Footer.tsx')).toContain('>V0.7<')
+    // V0.8 since 2026-11-22 (the user's call when V0.9 development opened); V0.7 from 2026-09-27 until then.
+    expect(read('components/Footer.tsx')).toContain('>V0.8<')
+    expect(read('components/Footer.tsx')).not.toContain('>V0.7<')
     expect(read('components/Footer.tsx')).not.toContain('>V0.6<')
     const chat = read('components/agent/AgentChat.tsx')
     expect(chat).not.toContain('compactHeader')

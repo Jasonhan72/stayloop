@@ -99,8 +99,8 @@ describe('P2 items', () => {
 })
 
 describe('round 2 (user: 改成 V0.6，其余按建议全部修)', () => {
-  it('footer shows the current version label (V0.7 since the marketing + login homepage, 2026-09-27)', () => {
-    expect(read('components/Footer.tsx')).toContain('>V0.7<')
+  it('footer shows the current version label (V0.7 from 2026-09-27; V0.8 since 2026-11-22, the user: 「改成 V0.8」)', () => {
+    expect(read('components/Footer.tsx')).toContain('>V0.8<')
     expect(read('components/Footer.tsx')).not.toContain('>v5.3<')
   })
   it('SL-L-02 · the to-do page does not repeat its own cards in 今日', async () => {
