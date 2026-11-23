@@ -57,6 +57,8 @@ await probe('mls-handoff GET anon → 401', `${BASE}/api/listings/mls-handoff`, 
 await probe('mls-handoff POST anon → 401', `${BASE}/api/listings/mls-handoff`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"action":"request"}' }, { status: 401 })
 await probe('agent photo POST anon → 401', `${BASE}/api/agents/photo`, { method: 'POST', body: '' }, { status: 401 })
 await probe('agent photo DELETE anon → 401', `${BASE}/api/agents/photo`, { method: 'DELETE' }, { status: 401 })
+await probe('agents attribution anon → 401', `${BASE}/api/agents/attribution?screening=00000000-0000-4000-8000-000000000000`, {}, { status: 401 })
+await probe('agents attribution bad id → 400', `${BASE}/api/agents/attribution?screening=nope`, {}, { status: 400 })
 await probe('cron agent-routines anon → 401', `${BASE}/api/cron/agent-routines`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }, { status: 401 })
 // APIs — anonymous
 const J = { headers: { 'content-type': 'application/json' } }
