@@ -27,7 +27,7 @@ export type Target = {
 }
 type Card = { key: string; group: string; names: string[]; roles: string[]; targets: Target[] }
 
-const ICON: Record<ThreadKind, string> = { tenancy: '🏠', application: '📝', work_order: '🔧', dispute: '⚖️', listing_inquiry: '🔑', agent_client: '💼', support: '💬' }
+const ICON: Record<ThreadKind, string> = { tenancy: '🏠', application: '📝', work_order: '🔧', dispute: '⚖️', listing_inquiry: '🔑', agent_client: '💼', support: '💬', provider_inquiry: '🛠️' }
 const CLOSED = new Set(['closed', 'cancelled', 'declined', 'paid', 'ended', 'archived', 'withdrawn'])
 const GROUP_ORDER: Record<string, string[]> = {
   tenant: ['landlord', 'provider', 'agent', 'tenant', 'applicant', 'other'],

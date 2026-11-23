@@ -5,7 +5,7 @@
 // record; read marks are per-party high-water marks (送达 · 打开 · 确认).
 import { nameInitial } from '@/lib/ui/nameInitial'
 
-export type ThreadKind = 'work_order' | 'application' | 'tenancy' | 'dispute' | 'listing_inquiry' | 'agent_client' | 'support'
+export type ThreadKind = 'work_order' | 'application' | 'tenancy' | 'dispute' | 'listing_inquiry' | 'agent_client' | 'support' | 'provider_inquiry'
 export type SenderKind = 'tenant' | 'landlord' | 'provider' | 'external' | 'agent' | 'system' | 'admin' | 'member'
 export type Channel = 'app' | 'email' | 'sms' | 'system'
 export type MessageKind = 'message' | 'system' | 'formal_copy' | 'retraction'
@@ -48,6 +48,8 @@ export const KIND_LABEL: Record<ThreadKind, { zh: string; en: string }> = {
   listing_inquiry: { zh: '房源咨询', en: 'Listing inquiry' },
   agent_client: { zh: '经纪委托', en: 'Agent & client' },
   support: { zh: '联系 Stayloop', en: 'Contact Stayloop' },
+  // V0.9 (2026-11-22): a person writing to a service provider from the directory (维修服务 / 专业服务).
+  provider_inquiry: { zh: '服务商咨询', en: 'Provider inquiry' },
 }
 /** Short type tags for the message-centre list. */
 export const KIND_TAG: Record<ThreadKind, { zh: string; en: string }> = {
@@ -58,6 +60,7 @@ export const KIND_TAG: Record<ThreadKind, { zh: string; en: string }> = {
   listing_inquiry: { zh: '房源咨询', en: 'Listing inquiry' },
   agent_client: { zh: '经纪委托', en: 'Agent & client' },
   support: { zh: '联系 Stayloop', en: 'Stayloop' },
+  provider_inquiry: { zh: '服务商咨询', en: 'Provider inquiry' },
 }
 export const CHANNEL_LABEL: Record<Channel, { zh: string; en: string }> = {
   app: { zh: '站内', en: 'In app' },
@@ -114,6 +117,7 @@ export function threadHref(kind: ThreadKind, refId: string, householdId: string 
   switch (kind) {
     case 'listing_inquiry':
     case 'agent_client':
+    case 'provider_inquiry':
     case 'support': return '/messages'
     case 'tenancy': return `/h/${refId}?tab=messages`
     case 'work_order':

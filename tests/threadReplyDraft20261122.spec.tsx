@@ -161,11 +161,13 @@ describe('what is kept of the answer', () => {
 describe('the route', () => {
   const route = read('app/api/threads/draft-reply/route.ts')
   it('reads the thread as the caller, and only for the agent of an agent ↔ client conversation with a current registration', () => {
-    expect(route).toContain("sb.from('threads').select('id, kind, ref_id').eq('id', tid).maybeSingle()")
-    expect(route).toContain("sb.from('thread_messages').select('id, sender_id, kind, body, ref_message_id, created_at')")
-    expect(route).toContain("if (thread.kind !== 'agent_client') return json({ error: 'not_supported' }, 403)")
-    expect(route).toContain("if (!client || client.agent_auth_id !== uid) return json({ error: 'agent_only' }, 403)")
-    expect(route).toContain("!isRegistrationCurrent(prof)) return json({ error: 'registration_not_live' }, 403)")
+    expect(route).toContain("sb.from('threads').select('id, kind, ref_id, provider_id, subject_user').eq('id', tid).maybeSingle()")
+    expect(route).toContain("sb.from('thread_messages').select('id, sender_id, kind, body, ref_message_id, created_at, acting_role')")
+    // two kinds of conversation have an answering side (the provider's is guarded in providerInquiry20261122)
+    expect(route).toContain("if (thread.kind !== 'agent_client' && thread.kind !== 'provider_inquiry') return json({ error: 'not_supported' }, 403)")
+    expect(route).toContain("if (!client || client.agent_auth_id !== uid) return { error: 'agent_only', status: 403 }")
+    expect(route).toContain("!isRegistrationCurrent(prof)) return { error: 'registration_not_live', status: 403 }")
+    expect(route).toContain("if ('error' in built) return json({ error: built.error }, built.status)")
     expect(route).toContain("if (!last) return json({ error: 'nothing_to_reply' }, 409)")
   })
   it('never posts: no write to the conversation, and the audit row carries no text', () => {
@@ -177,7 +179,8 @@ describe('the route', () => {
     expect(meta.slice(0, meta.indexOf('}'))).not.toMatch(/draft:|body|text/)
   })
   it('first name only to the model, cost limits fail open, citations are checked like the assistant’s', () => {
-    expect(route).toContain("client: { name: (client.name || '').trim().split(/\\s+/)[0] || null")
+    expect(route).toContain("const firstName = (n: string | null | undefined) => (n || '').trim().split(/\\s+/)[0] || null")
+    expect(route).toContain('client: { name: firstName(client.name),')
     expect(route).not.toMatch(/select\('[^']*\b(email|phone)\b/)
     expect(route).toContain('underHourlyLimit(`thread-draft:${uid}`, PER_USER_PER_HOUR, true)')
     expect(route).toContain("underHourlyLimit('thread-draft:global', SITE_PER_HOUR, true)")

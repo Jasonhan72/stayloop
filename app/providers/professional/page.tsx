@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import FindHeader, { TestDataTag } from '@/components/directory/FindHeader'
+import ProviderContact from '@/components/directory/ProviderContact'
 import { isTestName } from '@/components/listing/testAccounts'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -97,6 +98,7 @@ export default function ProfessionalDirectoryPage() {
                           {p.contact_phone && <span>{p.contact_phone}</span>}
                           {site && <a href={site} target="_blank" rel="noopener noreferrer nofollow" className="break-all text-brand underline-offset-2 hover:underline" data-testid="professional-website">{externalHrefLabel(site)}</a>}
                         </div>
+                        <ProviderContact providerId={p.id} providerName={p.trade_name || p.legal_name} zh={zh} />
                       </div>
                     )
                   })}

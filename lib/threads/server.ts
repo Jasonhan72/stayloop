@@ -21,9 +21,9 @@ import { autoReplySignal } from '@/lib/threads/autoReply'
 
 type Admin = SupabaseClient
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')
-const COLS = 'id, kind, ref_id, household_id, title, listing_id, subject_user'
+const COLS = 'id, kind, ref_id, household_id, title, listing_id, subject_user, provider_id'
 
-export type ThreadRow = { id: string; kind: ThreadKind; ref_id: string; household_id: string | null; title: string | null; listing_id?: string | null; subject_user?: string | null }
+export type ThreadRow = { id: string; kind: ThreadKind; ref_id: string; household_id: string | null; title: string | null; listing_id?: string | null; subject_user?: string | null; provider_id?: string | null }
 
 /** RFC 4122 v5 (SHA-1) — the ref of a listing inquiry is uuid_v5(listing, prospect). */
 export async function uuidV5(namespace: string, name: string): Promise<string> {
@@ -39,17 +39,17 @@ export async function uuidV5(namespace: string, name: string): Promise<string> {
 }
 
 /** Get or create the thread of a matter. */
-export async function ensureThread(admin: Admin, kind: ThreadKind, refId: string, opts: { householdId?: string | null; title?: string | null; createdBy?: string | null; listingId?: string | null; subjectUser?: string | null } = {}): Promise<ThreadRow | null> {
+export async function ensureThread(admin: Admin, kind: ThreadKind, refId: string, opts: { householdId?: string | null; title?: string | null; createdBy?: string | null; listingId?: string | null; subjectUser?: string | null; providerId?: string | null } = {}): Promise<ThreadRow | null> {
   const { data: hit } = await admin.from('threads').select(COLS).eq('kind', kind).eq('ref_id', refId).maybeSingle()
   if (hit) return hit as ThreadRow
   // 节点 5: every thread hangs off the rental matter of its ref (derived from the chain; null when there is none yet).
   const matterId = kind === 'listing_inquiry' && opts.listingId
     ? await ensureMatter(admin, 'listing', opts.listingId)
-    : kind === 'agent_client' || kind === 'support' || kind === 'listing_inquiry' ? null
+    : kind === 'agent_client' || kind === 'support' || kind === 'listing_inquiry' || kind === 'provider_inquiry' ? null
     : await ensureMatter(admin, matterKindOfThread(kind), refId)
   const { data, error } = await admin.from('threads').insert({
     kind, ref_id: refId, household_id: opts.householdId ?? null, title: (opts.title || '').slice(0, 200) || null, created_by: opts.createdBy ?? null, matter_id: matterId,
-    listing_id: opts.listingId ?? null, subject_user: opts.subjectUser ?? null,
+    listing_id: opts.listingId ?? null, subject_user: opts.subjectUser ?? null, provider_id: opts.providerId ?? null,
   }).select(COLS).maybeSingle()
   if (error) {
     // Lost a race: read the winner.
@@ -64,6 +64,12 @@ export async function ensureListingThread(admin: Admin, listing: { id: string; a
   const ref = await uuidV5(listing.id, prospectId)
   const title = [listing.address, listing.unit ? `#${listing.unit}` : ''].filter(Boolean).join(' ') || 'Listing'
   return ensureThread(admin, 'listing_inquiry', ref, { title, createdBy: prospectId, listingId: listing.id, subjectUser: prospectId })
+}
+
+/** The one inquiry thread between a service provider and a person (V0.9, 2026-11-22) — ref = uuid_v5(provider, person). */
+export async function ensureProviderThread(admin: Admin, provider: { id: string; name: string | null }, personId: string): Promise<ThreadRow | null> {
+  const ref = await uuidV5(provider.id, personId)
+  return ensureThread(admin, 'provider_inquiry', ref, { title: provider.name || 'Provider', createdBy: personId, providerId: provider.id, subjectUser: personId })
 }
 
 export type SystemMessageInput = {
@@ -184,6 +190,16 @@ async function threadPartiesRaw(admin: Admin, t: ThreadRow): Promise<Party[]> {
     const principal = ((d ?? []) as { principal_auth_id: string }[])[0]?.principal_auth_id ?? null
     if (principal) out.push({ userId: principal, email: null, kind: cl.client_role, label: cl.name })
     else if (cl.email) out.push({ userId: null, email: cl.email, kind: cl.client_role, label: cl.name })
+    return out
+  }
+  if (t.kind === 'provider_inquiry') {
+    if (t.subject_user) out.push({ userId: t.subject_user, email: null, kind: 'member', label: 'member' })
+    if (t.provider_id) {
+      // As on a work order: a provider with an account is reached in the app, one without by relay e-mail.
+      const { data: p } = await admin.from('service_providers').select('auth_id, contact_email, legal_name, trade_name').eq('id', t.provider_id).maybeSingle()
+      const pr = p as { auth_id: string | null; contact_email: string | null; legal_name: string; trade_name: string | null } | null
+      if (pr) out.push({ userId: pr.auth_id, email: pr.auth_id ? null : pr.contact_email, kind: 'provider', label: pr.trade_name || pr.legal_name })
+    }
     return out
   }
   if (t.kind === 'support') {

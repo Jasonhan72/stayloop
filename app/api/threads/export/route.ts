@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   if (!party) return NextResponse.json({ error: 'not_a_party' }, { status: 403 })
   const lang: 'zh' | 'en' = body.lang === 'en' ? 'en' : 'zh'
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
-  const { data: t } = await admin.from('threads').select('id, kind, ref_id, household_id, title, listing_id, subject_user, matter_id, created_at').eq('id', tid).maybeSingle()
+  const { data: t } = await admin.from('threads').select('id, kind, ref_id, household_id, title, listing_id, subject_user, provider_id, matter_id, created_at').eq('id', tid).maybeSingle()
   if (!t) return NextResponse.json({ error: 'not found' }, { status: 404 })
   const T = t as ThreadRow & { matter_id: string | null; created_at: string }
   const { pack, raw } = await loadPackThread(admin, T)

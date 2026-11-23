@@ -190,8 +190,10 @@ export function draftErrorText(code: string | null | undefined, zh: boolean): st
   switch (code) {
     case 'nothing_to_reply': return zh ? '对方还没有发来消息，没有可回复的内容。' : 'There is no message from the other side to reply to yet.'
     case 'registration_not_live': return zh ? 'RECO 注册核验有效后才能用 AI 起草。' : 'AI drafting is available once your RECO registration is verified and current.'
+    case 'provider_not_verified': return zh ? '资质核验有效后才能用 AI 起草。' : 'AI drafting is available once your credentials are verified.'
     case 'agent_only':
-    case 'not_supported': return zh ? '这里只有经纪一方可以用 AI 起草。' : 'Only the agent in this conversation can use AI drafting here.'
+    case 'provider_only':
+    case 'not_supported': return zh ? '这里只有答复咨询的一方（经纪或服务商）可以用 AI 起草。' : 'Only the side answering the inquiry (the agent or the provider) can use AI drafting here.'
     case 'rate_limited':
     case 'busy': return zh ? '用得太频繁了，过一会儿再试。' : 'Too many drafts just now — try again in a little while.'
     case 'sign_in_required': return zh ? '请先登录。' : 'Sign in first.'
@@ -199,8 +201,101 @@ export function draftErrorText(code: string | null | undefined, zh: boolean): st
   }
 }
 
-/** The agent of an agent ↔ client conversation, with something from the other side to answer. */
+/** Whose reply may be drafted, by conversation kind: the agent of an agent ↔ client conversation, and (since the
+ *  directory got 「发消息」 on 2026-11-22) the provider of a provider inquiry. The person who wrote in is never offered it. */
+export const DRAFT_SIDE: Record<string, string> = { agent_client: 'agent', provider_inquiry: 'provider' }
+
+/** The answering side of such a conversation, with something from the other side to answer. */
 export function canOfferDraft(viewer: string, kind: string, messages: readonly { kind: string; sender_id: string | null }[], me: string | null): boolean {
-  return viewer === 'agent' && kind === 'agent_client' && !!me && messages.some((m) => m.kind === 'message' && m.sender_id !== me)
+  return !!DRAFT_SIDE[kind] && DRAFT_SIDE[kind] === viewer && !!me && messages.some((m) => m.kind === 'message' && m.sender_id !== me)
+}
+
+// ───────────────────────────────────────────────────────── the provider's side (维修服务 / 专业服务)
+
+export type ProviderDraftContext = {
+  provider: {
+    name: string
+    trades: string[]
+    cities: string[]
+    /** as registered in the provider's profile; null = not on file */
+    callOutFee: number | null
+    hourlyRate: number | null
+    fixedQuotes: boolean
+    /** a licensed profession (paralegal, lawyer, insurance broker): intake only, never an opinion */
+    professional: boolean
+  }
+  person: { name: string | null; hat: 'tenant' | 'landlord' | 'agent' | null }
+  turns: DraftTurn[]
+  seed: string
+  notesLang: 'zh' | 'en'
+}
+
+export function providerDraftSystemPrompt(professional: boolean): string {
+  return [
+    `你在替一家${professional ? '持牌的专业服务（律师、持牌 Paralegal 或保险经纪）' : '上门服务（维修，或房源拍摄）'}服务商起草一条回复。草稿会放进服务商的输入框，由服务商本人修改后自己发送。你不发送任何东西，也不代表服务商做任何决定。`,
+    '',
+    '规则：',
+    '1. 以服务商本人的口吻写，可以用「我」或「我们」。不提 AI、不提「草稿」、不署名、不写称呼以外的抬头（平台会显示发送人）。',
+    '2. 用对方最后一条消息的语言回复。简短，像真人发的消息：三到六句，不用标题、列表符号、加粗或表情。',
+    '3. 只用下面给你的事实。价格只能引用「服务商资料」里登记的上门费和工时费，原样引用；不估算总价、不给资料里没有的任何金额、不承诺上门时间或档期、不保证结果。资料里没有登记价格，就说了解情况后再报价。',
+    professional
+      ? '4. 这是持牌专业服务，这条消息只做接待：确认收到，问清基本情况（大概是哪一类事、有没有期限或开庭日期、所在城市），说明需要先安排一次咨询。不给法律意见或保险建议，不评价对方的事有没有道理或胜算，不解释法条或保单怎样适用于对方的情况，不报任何费用或保费。提醒对方不要在消息里发证件号码。'
+      : '4. 可以问推进所需的信息：要做什么（出了什么问题，或要拍哪套房）、在哪个城市或大概位置、有没有照片、什么时候方便上门、对方是房东还是租客（谁来确认工作和付款）。已经在对话里说过的不再问，一次最多问三项。',
+    professional
+      ? '5. 对方描述的事如果有紧迫的期限（比如几天内要开庭或要答复），只提醒尽快安排咨询，不替对方判断该怎么做。'
+      : '5. 对方提到燃气味、冒烟起火、触电风险或正在大量漏水时，先请对方注意安全：离开现场或关掉总闸，拨打 911 或燃气、电力公司的紧急电话；然后再谈维修。',
+    '6. 不问、也不评论受《人权法》保护的事项：年龄、族裔、出生地、国籍或移民身份、宗教、性别与性取向、婚姻与家庭状况、残障、是否领取社会救助。',
+    '7. 对方是租客时，不替任何人决定费用该谁出；可以提一句维修通常要先告诉房东。',
+    '8. 不说已经做了任何事（已预约、已派人、已安排、已下单），除非对话里服务商自己说过。',
+    '9. 「服务商已写」不为空时，在它的基础上写完整：保留原意和措辞，不要另起一份。',
+    '',
+    '只输出 JSON：{"draft": "要发的正文", "notes": ["只给服务商看的提醒"]}。',
+    'notes 最多三条，写你没法确认、需要服务商补充或核对的点，用「提醒语言」指定的语言；没有就给空数组。draft 里不要出现 notes 的内容。',
+  ].join('\n')
+}
+
+const cad = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`
+
+export function providerDraftUserText(c: ProviderDraftContext): string {
+  const who = (t: DraftTurn) => (t.from === 'agent' ? '服务商' : '对方')
+  const hat = c.person.hat === 'landlord' ? '房东' : c.person.hat === 'tenant' ? '租客' : c.person.hat === 'agent' ? '经纪' : '未注明'
+  const price = c.provider.fixedQuotes
+    ? '固定报价（了解情况后报价），没有登记单价'
+    : [c.provider.callOutFee != null ? `上门费 ${cad(c.provider.callOutFee)}` : '', c.provider.hourlyRate != null ? `工时费 ${cad(c.provider.hourlyRate)}/小时` : ''].filter(Boolean).join('，') || '没有登记价格'
+  return [
+    '【服务商资料】',
+    `名称：${c.provider.name}`,
+    `服务项目：${list(c.provider.trades)}`,
+    `服务城市：${list(c.provider.cities)}`,
+    `登记的价格：${price}`,
+    '',
+    '【对方】',
+    `称呼：${c.person.name || '（未知）'}`,
+    `发消息时的身份：${hat}`,
+    '',
+    '【对话 · 从早到晚】',
+    ...c.turns.map((t) => `${who(t)}（${t.at.slice(0, 10)}）：${t.body}`),
+    '',
+    `【服务商已写】${c.seed ? `\n${c.seed.slice(0, DRAFT_SEED_MAX)}` : '（空）'}`,
+    '',
+    `【提醒语言】${c.notesLang === 'zh' ? '中文' : 'English'}`,
+  ].join('\n')
+}
+
+// The provider's own prices are the only amounts a draft may state. Any other dollar figure is the model's.
+const AMOUNT = /\$\s?(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s?(?:加元|加币|元|块钱|dollars?|CAD)/gi
+
+/** A note for the provider when the draft states an amount that is not one of their registered prices. */
+export function flagUnlistedAmounts(draft: string, listed: readonly (number | null)[], zh: boolean): string[] {
+  const ok = new Set(listed.filter((n): n is number => typeof n === 'number').map((n) => Number(n)))
+  const odd: string[] = []
+  for (const m of draft.matchAll(AMOUNT)) {
+    const n = Number((m[1] || m[2] || '').replace(/,/g, ''))
+    if (Number.isFinite(n) && !ok.has(n) && !odd.includes(String(n))) odd.push(String(n))
+  }
+  if (!odd.length) return []
+  return [zh
+    ? `草稿里出现了资料里没有登记的金额（${odd.map((x) => '$' + x).join('、')}），AI 不知道你的报价，请核对或删掉。`
+    : `The draft states an amount that is not in your profile (${odd.map((x) => '$' + x).join(', ')}) — the AI does not know your prices; check it or remove it.`]
 }
 

@@ -11,6 +11,7 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import FindHeader, { TestDataTag } from '@/components/directory/FindHeader'
+import ProviderContact from '@/components/directory/ProviderContact'
 import { isTestName } from '@/components/listing/testAccounts'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -173,6 +174,8 @@ export default function RepairDirectoryPage() {
                     {site && <a href={site} target="_blank" rel="noopener noreferrer nofollow" className="break-all text-brand underline-offset-2 hover:underline" data-testid="provider-website">{externalHrefLabel(site)}</a>}
                     {!p.contact_email && !p.contact_phone && !site && <span className="text-body-3">{zh ? '这家还没有留联系方式。' : 'No contact details on file.'}</span>}
                   </div>
+                  {/* V0.9 (2026-11-22): an in-app message beside the address and the number. */}
+                  <ProviderContact providerId={p.id} providerName={p.trade_name || p.legal_name} zh={zh} as={activeHat(hats, auth.role)} />
                 </div>
               )
             })}

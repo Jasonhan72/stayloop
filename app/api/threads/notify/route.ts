@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   let q = sb.from('thread_messages').select('id, body, sender_kind, sender_label, created_at').eq('thread_id', tid).eq('sender_id', ud.user.id).eq('kind', 'message').gte('created_at', since)
   q = messageId !== null ? q.eq('id', messageId) : q.order('id', { ascending: false })
   const [{ data: t }, { data: mine }] = await Promise.all([
-    sb.from('threads').select('id, kind, ref_id, household_id, title, listing_id, subject_user').eq('id', tid).maybeSingle(),
+    sb.from('threads').select('id, kind, ref_id, household_id, title, listing_id, subject_user, provider_id').eq('id', tid).maybeSingle(),
     q.limit(1),
   ])
   const msg = (mine ?? [])[0] as { id: number; body: string; sender_kind: string; sender_label: string | null; created_at: string } | undefined
