@@ -22,6 +22,7 @@ import { useT } from '@/lib/i18n'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
 import { providerDisplayName } from '@/lib/marketplace/directory'
 import { providerPhotoUrl } from '@/lib/providerPhotoKeys'
+import { onboardHref } from '@/lib/marketplace/onboardKind'
 import { CREDENTIAL_LABEL, coverageFor, isProfessionalTrade, PROFESSIONAL_TRADES, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; contact_email: string | null; contact_phone: string | null; verified_at: string | null; languages: string[] | null; photo_key: string | null }
@@ -112,6 +113,10 @@ export default function ProfessionalDirectoryPage() {
           ))}
           <p className="max-w-[760px] text-[12.5px] leading-relaxed text-body-3">
             {zh ? '牌照以 LSO / RIBO 公开名册为准，Stayloop 只做人工核对与记录。选定之后，你们之间的委托、保单与费用不经 Stayloop；在事务档案里留一笔联系记录即可。这不是法律意见，也不是保险建议。' : 'Licences are as the LSO / RIBO public registers state; Stayloop only checks and records them. Your retainer, policy and fees are between you and the provider, not through Stayloop; keep a note of the contact in the matter record. This is not legal or insurance advice.'}
+          </p>
+          <p className="mt-2 text-[12.5px] text-body-3" data-testid="professional-join">
+            {zh ? '你是持牌 Paralegal、律师、保险经纪或房源摄影师？' : 'Are you a licensed paralegal, lawyer, insurance broker or a listing photographer?'}{' '}
+            <a href={onboardHref('professional')} className="underline">{zh ? '申请入驻' : 'Apply to join'}</a>
           </p>
         </div>
       </section>
