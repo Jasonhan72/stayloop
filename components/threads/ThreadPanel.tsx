@@ -19,6 +19,7 @@ import { notifyMessagesChanged } from '@/lib/messages/unread'
 import { takeDraft } from '@/lib/messages/openThread'
 import { roleLabel, type Person } from '@/lib/threads/shared'
 import { isSendKey } from '@/components/messages/composerKeys'
+import { canOfferDraft, draftErrorText } from '@/lib/threads/replyDraft'
 
 export type ThreadViewer = 'tenant' | 'landlord' | 'provider' | 'agent' | 'admin'
 
@@ -68,6 +69,11 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // 「AI 起草回复」 (V0.9, 2026-11-22; lib/threads/replyDraft.ts): for the agent of an agent ↔ client
+  // conversation only. The draft goes into the box — it is never sent from here; `aiNote` holds what the
+  // box held before (to put it back) and the lines meant for the agent's eyes.
+  const [drafting, setDrafting] = useState(false)
+  const [aiNote, setAiNote] = useState<{ notes: string[]; reminders: string[]; sources: { label: string; url: string }[]; before: string } | null>(null)
   // The message list's own scroll container. Never scrollIntoView: it scrolls
   // every scrollable ancestor, document included (site test 2026-10-02 · L6 D4:
   // the landlord applicant page opened 933px down, header and decisions off-screen).
@@ -187,7 +193,7 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
     sendingRef.current = true
     setBusy(true); setErr(null)
     // Clear at once so nothing can be sent twice; put it back if the send fails.
-    setDraft(''); setPending([])
+    setDraft(''); setPending([]); setAiNote(null)
     const restore = () => {
       setDraft((cur) => (cur.trim() ? `${body}\n${cur}` : body))
       setPending((cur) => [...atts, ...cur.filter((a) => !atts.some((x) => x.path === a.path))])
@@ -214,6 +220,28 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
       setBusy(false)
     }
   }
+  async function draftReply() {
+    if (drafting || !tid) return
+    setDrafting(true); setErr(null)
+    const before = draft
+    try {
+      const token = await jwt()
+      if (!token) { setErr(draftErrorText('sign_in_required', zh)); return }
+      const res = await fetch('/api/threads/draft-reply', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ thread_id: tid, seed: before, lang: zh ? 'zh' : 'en' }) })
+      const j = (await res.json().catch(() => ({}))) as { draft?: unknown; notes?: unknown; reminders?: unknown; sources?: unknown; error?: string }
+      if (!res.ok || typeof j.draft !== 'string' || !j.draft.trim()) { setErr(draftErrorText(j.error, zh)); return }
+      const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()) : [])
+      setDraft(j.draft)
+      const sources = (Array.isArray(j.sources) ? j.sources : []).filter((x): x is { label: string; url: string } => !!x && typeof (x as { label?: unknown }).label === 'string' && /^https:\/\//.test(String((x as { url?: unknown }).url)))
+      setAiNote({ notes: strings(j.notes), reminders: strings(j.reminders), sources, before })
+      setTimeout(() => inputRef.current?.focus(), 0)
+    } catch {
+      setErr(draftErrorText(null, zh))
+    } finally {
+      setDrafting(false)
+    }
+  }
+
   async function retract(m: ThreadMessage) {
     if (!tid || !me) return
     setConfirmRetract(null)
@@ -355,9 +383,17 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
                 {pending.map((a) => <span key={a.path} className="flex items-center gap-1 rounded-full bg-surface-chip px-2 py-[2px] text-[11.5px]">{a.name} <span className="text-body-3">{fmtSize(a.size)}</span><button type="button" onClick={() => setPending((p) => p.filter((x) => x.path !== a.path))} className="ml-1 text-body-3">×</button></span>)}
               </div>
             )}
+            {canOfferDraft(viewer, kind, msgs, me) && (
+              <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <button type="button" onClick={() => void draftReply()} disabled={drafting || busy} data-testid="thread-ai-draft" className="rounded-full border border-agent/40 bg-agent/[0.06] px-3 py-[5px] text-[12.5px] font-semibold text-agent transition hover:border-agent disabled:opacity-50">
+                  {drafting ? (zh ? '起草中…' : 'Drafting…') : draft.trim() ? (zh ? 'AI 接着写完' : 'Let AI finish it') : (zh ? 'AI 起草回复' : 'Draft a reply with AI')}
+                </button>
+                <span className="text-[11px] text-body-3">{zh ? '草稿放进输入框，由你修改后自己发送。' : 'The draft goes into the box — you edit it and send it yourself.'}</span>
+              </div>
+            )}
             <div className="flex gap-2">
-              <textarea ref={inputRef} data-testid="thread-input" aria-label={zh ? '输入消息' : 'Message'} className="min-h-[40px] flex-1 resize-y rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]" rows={1} value={draft} placeholder={zh ? '输入消息… Enter 发送，Shift+Enter 换行' : 'Type a message… Enter to send, Shift+Enter for a new line'}
-                onChange={(e) => setDraft(e.target.value)}
+              <textarea ref={inputRef} data-testid="thread-input" aria-label={zh ? '输入消息' : 'Message'} className="min-h-[40px] flex-1 resize-y rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]" rows={aiNote ? 6 : 1} value={draft} placeholder={zh ? '输入消息… Enter 发送，Shift+Enter 换行' : 'Type a message… Enter to send, Shift+Enter for a new line'}
+                onChange={(e) => { setDraft(e.target.value); if (!e.target.value) setAiNote(null) }}
                 onKeyDown={(e) => { if (isSendKey(e)) { e.preventDefault(); void send() } }} />
               {allowAttachments && (
                 <>
@@ -368,6 +404,29 @@ export default function ThreadPanel({ kind, refId, viewer, zh, compact = false, 
               <button type="button" onClick={() => void send()} disabled={busy || (!draft.trim() && pending.length === 0)} className="rounded-lg bg-brand px-4 text-[13px] font-bold text-white disabled:opacity-50">{zh ? '发送' : 'Send'}</button>
             </div>
             {err && <p className="mt-1.5 text-[12px] text-danger">{err}</p>}
+            {aiNote && (
+              <div className="mt-2 rounded-lg border border-agent/25 bg-agent/[0.04] px-3 py-2 text-[12px] leading-relaxed text-body-2" data-testid="thread-ai-note">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="font-semibold text-agent">{zh ? 'AI 起草的，发出前请核对和修改。发出去就是你本人的消息。' : 'Drafted by AI — check and edit before sending. Once sent, it is your own message.'}</span>
+                  <button type="button" onClick={() => { setDraft(aiNote.before); setAiNote(null) }} data-testid="thread-ai-undo" className="font-semibold text-brand underline underline-offset-2">
+                    {aiNote.before.trim() ? (zh ? '恢复我原来写的' : 'Put my own text back') : (zh ? '不用这份草稿' : 'Discard the draft')}
+                  </button>
+                </div>
+                {(aiNote.notes.length > 0 || aiNote.reminders.length > 0 || aiNote.sources.length > 0) && (
+                  <ul className="mt-1.5 space-y-0.5">
+                    {aiNote.sources.length > 0 && (
+                      <li data-testid="thread-ai-sources">· {zh ? '法规部分依据这些原文，发出前可对照：' : 'The rules part rests on these passages — check before sending: '}
+                        {aiNote.sources.map((s, i) => <span key={s.label}>{i > 0 ? (zh ? '、' : ', ') : ''}<a href={s.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand underline underline-offset-2">{s.label} ↗</a></span>)}
+                      </li>
+                    )}
+                    {aiNote.notes.map((n, i) => <li key={`n${i}`} data-testid="thread-ai-note-line">· {n}</li>)}
+                    {aiNote.reminders.map((n, i) => (
+                      <li key={`r${i}`} data-testid="thread-ai-reminder">· {n} <a href="/agent/clients" className="font-semibold text-brand underline underline-offset-2">{zh ? '去客户表 →' : 'Open the client book →'}</a></li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             <p className="mt-1.5 text-[10.5px] text-body-3" title={zh ? `时间按 ${tz} 显示，服务器记录为准；附件由服务器计算 SHA-256，查看与下载写入审计` : `Times in ${tz}; the server record is authoritative; attachments are server-hashed, views and downloads audited`}>{zh ? '记录只追加：撤回不删原文 · 每条带服务器时间与哈希' : 'Append-only: retracting never deletes · every line carries server time and a hash'}</p>
           </div>
         </div>
