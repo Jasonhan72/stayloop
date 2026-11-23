@@ -18,6 +18,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { settlementByMonth } from '@/lib/marketplace/providerView'
+import { isProfessionalOnly } from '@/lib/marketplace/onboardKind'
+import NoDispatchNotice from '@/components/provider/NoDispatchNotice'
 
 type Row = WorkOrderLite & { ticket_id: string; household_id: string }
 type Review = { id: string; by_kind: string; overall: number; on_time: number | null; communication: number | null; quality: number | null; comment: string | null; created_at: string; work_order_id: string }
@@ -35,7 +37,7 @@ export default function ProviderHistoryPage() {
   const auth = useAuth()
   const { lang } = useT()
   const zh = lang === 'zh'
-  const [prov, setProv] = useState<{ id: string; legal_name: string; trade_name: string | null } | null | 'loading'>('loading')
+  const [prov, setProv] = useState<{ id: string; legal_name: string; trade_name: string | null; trades: string[] | null; status: string } | null | 'loading'>('loading')
   const [rows, setRows] = useState<Row[]>([])
   const [reviews, setReviews] = useState<Review[]>([])
   useEffect(() => {
@@ -43,10 +45,12 @@ export default function ProviderHistoryPage() {
     if (!auth.user) { setProv(null); return }
     let cancelled = false
     ;(async () => {
-      const { data: p } = await supabase.from('service_providers').select('id, legal_name, trade_name').eq('auth_id', auth.user!.id).maybeSingle()
+      const { data: p } = await supabase.from('service_providers').select('id, legal_name, trade_name, trades, status').eq('auth_id', auth.user!.id).maybeSingle()
       if (cancelled) return
       setProv((p as typeof prov) ?? null)
       if (!p) return
+      // Nothing is ever dispatched to a professional-only record: no closed jobs, no settlements.
+      if (isProfessionalOnly((p as { trades: string[] | null }).trades)) return
       const pid = (p as { id: string }).id
       const [{ data: w }, { data: rv }] = await Promise.all([
         supabase.from('work_orders').select(WORK_ORDER_COLUMNS).eq('provider_id', pid).order('updated_at', { ascending: false }).limit(300),
@@ -67,6 +71,8 @@ export default function ProviderHistoryPage() {
   if (auth.loading || prov === 'loading') return <Shell><div className="text-body-3">…</div></Shell>
   if (!auth.user) return <Shell><div className="rounded-2xl border border-line-divider bg-white p-6 text-[14px]">{zh ? '请先登录。' : 'Sign in first.'} <Link href="/login?next=/provider/history" className="underline">{zh ? '登录' : 'Sign in'}</Link></div></Shell>
   if (!prov) return <Shell><div className="rounded-2xl border border-line-divider bg-white p-6 text-[14px]">{zh ? '你还没有服务商档案。' : 'No provider profile yet.'} <Link href="/provider/onboard" className="font-bold text-brand underline">{zh ? '入驻 →' : 'Onboard →'}</Link></div></Shell>
+
+  if (isProfessionalOnly(prov.trades)) return <Shell><NoDispatchNotice zh={zh} providerId={prov.id} verified={prov.status === 'verified'} /></Shell>
 
   const stat = (n: string, label: string, sub?: string) => (
     <div className="rounded-xl border border-line-divider bg-white p-3"><div className="text-[20px] font-extrabold tracking-tight">{n}</div><div className="text-[12px] font-semibold text-body-2">{label}</div>{sub ? <div className="mt-0.5 text-[11px] text-body-3">{sub}</div> : null}</div>

@@ -19,6 +19,8 @@ import { dueReminder, type ReminderTier } from './sla'
 import { CREDENTIAL_LABEL, isSuperseded, type CredentialKind, type CredentialLite } from './trades'
 import { providerLabel, SITE, ticketContext, type Admin, type WorkOrderRow } from './server'
 import { noteOnWorkOrder } from '@/lib/threads/server'
+import { isProfessionalOnly } from './onboardKind'
+import { credentialReminderText } from './reminderText'
 
 const fmt = (iso: string, zh: boolean) => new Date(iso).toLocaleString(zh ? 'zh-CN' : 'en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' })
 
@@ -67,7 +69,7 @@ export async function sweepOverdueQuotes(admin: Admin, now = new Date()): Promis
 }
 
 type CredRow = { id: string; provider_id: string; kind: CredentialKind; expires_at: string; reminders_sent: number[] | null }
-type ProvRow = { id: string; auth_id: string | null; legal_name: string; trade_name: string | null; contact_email: string | null; status: string }
+type ProvRow = { id: string; auth_id: string | null; legal_name: string; trade_name: string | null; contact_email: string | null; status: string; trades: string[] | null }
 
 export async function sweepCredentialReminders(admin: Admin, today = new Date()): Promise<{ providers: number; credentials: number }> {
   const t = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
@@ -76,7 +78,7 @@ export async function sweepCredentialReminders(admin: Admin, today = new Date())
   const list = (creds ?? []) as CredRow[]
   if (!list.length) return { providers: 0, credentials: 0 }
   const ids = Array.from(new Set(list.map((c) => c.provider_id)))
-  const { data: provs } = await admin.from('service_providers').select('id, auth_id, legal_name, trade_name, contact_email, status').in('id', ids).in('status', ['verified', 'pending'])
+  const { data: provs } = await admin.from('service_providers').select('id, auth_id, legal_name, trade_name, contact_email, status, trades').in('id', ids).in('status', ['verified', 'pending'])
   const byId = new Map(((provs ?? []) as ProvRow[]).map((p) => [p.id, p]))
   // A renewal added as a new row (and verified) supersedes the old one: the old
   // expiry no longer pauses dispatch, so it must not send "dispatch paused"
@@ -107,13 +109,11 @@ export async function sweepCredentialReminders(admin: Admin, today = new Date())
     const zhLines = items.map((i) => `  • ${CREDENTIAL_LABEL[i.kind]?.zh ?? i.kind} · 到期 ${i.expires_at}（${i.daysLeft < 0 ? `已过期 ${-i.daysLeft} 天` : i.daysLeft === 0 ? '今天到期' : `还有 ${i.daysLeft} 天`}）`).join('\n')
     const enLines = items.map((i) => `  • ${CREDENTIAL_LABEL[i.kind]?.en ?? i.kind} · expires ${i.expires_at} (${i.daysLeft < 0 ? `expired ${-i.daysLeft} day(s) ago` : i.daysLeft === 0 ? 'expires today' : `${i.daysLeft} day(s) left`})`).join('\n')
     const worst = Math.min(...items.map((i) => i.daysLeft))
-    const subject = worst < 0 ? `资质已过期 · 派单已跳过你 / Credential expired · dispatch paused` : `资质 ${worst} 天后到期 / Credential expires in ${worst} day(s)`
-    const body =
-      `您好，${name}，\n\n${zhLines}\n\n到期的资质不再计入工种覆盖，派单会跳过你，直到你在入驻页更新编号与到期日并由 Stayloop 重新核验。更新：${SITE()}/provider/onboard\n\n` +
-      `Hi ${name},\n\n${enLines}\n\nAn expired credential no longer counts toward trade coverage and dispatch skips you until you update the number and expiry on the onboarding page and Stayloop re-verifies it. Update: ${SITE()}/provider/onboard`
+    // A professional-only record is never dispatched: its reminder speaks of the directory and links its own form.
+    const { subject, body, url } = credentialReminderText({ professionalOnly: isProfessionalOnly(prov.trades), name, zhLines, enLines, worst, site: SITE() })
     if (prov.contact_email) { const { html, text } = renderAgentMessageEmail({ subject, body }); await sendEmail({ to: prov.contact_email, subject, html, text }) }
     if (prov.auth_id) {
-      await notifyUser(admin, prov.auth_id, { kind: 'approval', title: subject, body: items.map((i) => CREDENTIAL_LABEL[i.kind]?.zh ?? i.kind).join(' · '), url: '/provider/onboard' })
+      await notifyUser(admin, prov.auth_id, { kind: 'approval', title: subject, body: items.map((i) => CREDENTIAL_LABEL[i.kind]?.zh ?? i.kind).join(' · '), url })
       await admin.from('agent_audit_events').insert({ actor_id: prov.auth_id, actor_type: 'system', action: 'credential_expiry_reminder', target_type: 'service_provider', target_id: prov.id, acting_role: 'provider', metadata: { items } }).then(() => undefined, () => undefined)
     }
   }

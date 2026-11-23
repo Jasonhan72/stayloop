@@ -165,6 +165,14 @@ export function renewalStanding(c: CredentialLite, all: CredentialLite[], today 
 export function renewHintText(kind: CredentialKind, standing: ReturnType<typeof renewalStanding>, zh: boolean): string {
   const name = zh ? CREDENTIAL_LABEL[kind].zh : CREDENTIAL_LABEL[kind].en
   const head = zh ? `续期「${name}」：填新编号（如有）和新的到期日后添加。` : `Renewing "${name}": enter the new number (if any) and the new expiry, then add. `
+  // A professional's own licence (LSO, RIBO) backs a directory listing, not dispatch (2026-11-23).
+  if (kind === 'lso_paralegal' || kind === 'lso_lawyer' || kind === 'ribo_licence') {
+    switch (standing.state) {
+      case 'live': return head + (zh ? '旧记录在新记录核验通过前继续有效，核验通过后不再提醒，可再删除。' : 'The old record stays valid until the new one is verified; after that it sends no reminders and can be removed.')
+      case 'grace': case 'unverified': return head + (zh ? '新记录核验通过后，目录里才显示「牌照已核」。' : 'The directory shows the licence as verified once the new record is checked.')
+      default: return head + (zh ? '旧记录已过期；新记录核验通过前，目录里显示「牌照待核或已过期」。' : 'The old record has expired; until the new one is verified, the directory shows the licence as pending or expired.')
+    }
+  }
   switch (standing.state) {
     case 'live': return head + (zh ? '旧记录在新记录核验通过前继续有效，核验通过后不再提醒，可再删除。' : 'The old record stays valid until the new one is verified; after that it sends no reminders and can be removed.')
     case 'grace': return head + (zh ? `旧记录已过期，宽限期内（到 ${standing.graceUntil}）仍计入覆盖；新记录要在此之前核验通过，否则需要它的工种不计入覆盖，派单会跳过你。` : `The old record has expired but still counts during the grace period (until ${standing.graceUntil}); if the new one is not verified by then, trades that need it stop counting and dispatch skips you.`)

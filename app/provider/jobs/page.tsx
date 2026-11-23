@@ -18,6 +18,8 @@ import MessageButton from '@/components/messages/MessageButton'
 import { CREDENTIAL_LABEL, coverageLabel, earliestExpiry, TRADES, type CredentialKind, type CredentialLite, type Trade } from '@/lib/marketplace/trades'
 import { expiryTone } from '@/lib/marketplace/sla'
 import { useMarketplaceConfig } from '@/lib/marketplace/config'
+import { isProfessionalOnly } from '@/lib/marketplace/onboardKind'
+import NoDispatchNotice from '@/components/provider/NoDispatchNotice'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
@@ -54,6 +56,8 @@ export default function ProviderJobsPage() {
     const { data: p } = await supabase.from('service_providers').select('id, status, legal_name, trade_name, trades, service_cities, contact_email').eq('auth_id', auth.user.id).maybeSingle()
     setProv((p as Prov | null) ?? null)
     if (!p) return
+    // Nothing is ever dispatched to a professional-only record: there are no work orders to read.
+    if (isProfessionalOnly((p as Prov).trades)) return
     const pid = (p as { id: string }).id
     const [{ data: cr }, { data: data }, { data: rv }, { data: c }] = await Promise.all([
       supabase.from('provider_credentials').select('kind, expires_at, verified_at').eq('provider_id', pid),
@@ -78,6 +82,8 @@ export default function ProviderJobsPage() {
   if (auth.loading || prov === 'loading') return <Shell><div className="text-body-3">…</div></Shell>
   if (!auth.user) return <Shell><div className="rounded-2xl border border-line-divider bg-white p-6 text-[14px]">{zh ? '请先登录。' : 'Sign in first.'} <Link href="/login?next=/provider/jobs" className="underline">{zh ? '登录' : 'Sign in'}</Link></div></Shell>
   if (!prov) return <Shell><div className="rounded-2xl border border-line-divider bg-white p-6 text-[14px]">{zh ? '你还没有服务商档案。' : 'No provider profile yet.'} <Link href="/provider/onboard" className="font-bold text-brand underline">{zh ? '入驻 →' : 'Onboard →'}</Link></div></Shell>
+
+  if (isProfessionalOnly(prov.trades)) return <Shell><NoDispatchNotice zh={zh} providerId={prov.id} verified={prov.status === 'verified'} /></Shell>
 
   const groups: { key: string; zh: string; en: string; filter: (r: Row) => boolean }[] = [
     { key: 'invites', zh: '邀请 · 等你回应', en: 'Invitations', filter: (r) => r.status === 'offered' },

@@ -5,6 +5,9 @@
 // four tabs with its own jobs two taps away under 更多. Same look as the workspace rail (64px icon column,
 // name on hover; a five-tab bar on phones), its own five places: 工单 · 历史 · 资料与资质 · 消息 · 找人.
 // No AI Agent items here — a provider has no assistant workspace.
+// 2026-11-23: a provider who lists professional services only (paralegal, lawyer, insurance broker,
+// photography) is never dispatched a work order, so their navigation has no 工单 / 历史 — three places:
+// 资料与牌照 · 消息 · 找人 (providerItemsFor).
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -14,6 +17,7 @@ import { useOnChange } from '@/lib/ui/useOnChange'
 import { useUnreadMessages } from '@/lib/messages/unread'
 import { supabase } from '@/lib/supabase'
 import { BadgeIcon, BriefcaseIcon, FIND_ITEM, GearIcon, MailIcon, ProgressIcon, type RailItem } from '@/components/workspace/rail'
+import { isProfessionalOnly, onboardHref } from '@/lib/marketplace/onboardKind'
 
 export const PROVIDER_ITEMS: RailItem[] = [
   { key: 'jobs', href: '/provider/jobs', icon: <BriefcaseIcon />, label: { zh: '工单', en: 'Jobs' }, desc: { zh: '新邀请、进行中和待验收的工单', en: 'New invitations, jobs in progress and awaiting acceptance' }, group: 'pages' },
@@ -22,30 +26,57 @@ export const PROVIDER_ITEMS: RailItem[] = [
   { key: 'msgs', href: '/messages', icon: <MailIcon />, label: { zh: '消息', en: 'Messages' }, desc: { zh: '和房东、租客、Stayloop 的对话', en: 'Conversations with landlords, tenants and Stayloop' }, group: 'inbox' },
   FIND_ITEM,
 ]
+const PROFESSIONAL_PROFILE: RailItem = { key: 'profile', href: onboardHref('professional'), icon: <BadgeIcon />, label: { zh: '资料与牌照', en: 'Profile & licences' }, desc: { zh: '服务类别、服务城市、牌照号与到期日', en: 'Services, cities, licence numbers and expiry dates' }, group: 'pages' }
+
+/** The places a provider's navigation lists: all five, or three for a professional-only record. */
+export function providerItemsFor(professionalOnly: boolean): RailItem[] {
+  if (!professionalOnly) return PROVIDER_ITEMS
+  return [PROFESSIONAL_PROFILE, ...PROVIDER_ITEMS.filter((it) => it.key === 'msgs' || it.key === 'find')]
+}
+
 /** Short names for the phone bar (five cells across 375px). */
 const TAB_LABEL: Record<string, { zh: string; en: string }> = { profile: { zh: '资料', en: 'Profile' }, find: { zh: '找人', en: 'Find' } }
 
 const SETTINGS: RailItem = { key: 'settings', href: '/settings', icon: <GearIcon />, label: { zh: '账号设置', en: 'Account settings' }, desc: { zh: '账号、登录方式、语言、推送', en: 'Account, sign-in, language, notifications' } }
 
-/** Invitations waiting for this provider's answer (work orders in `offered`) — the 工单 badge. */
-export function useProviderInvites(enabled: boolean): number {
+// What the last read said about each account, so the navigation does not flash 工单 / 历史 at a
+// professional-only provider on every page before the record is read again.
+const knownProfessionalOnly = new Map<string, boolean>()
+
+/**
+ * What the navigation needs from the account's provider record: whether it is professional-only,
+ * and the invitations waiting for an answer (work orders in `offered`) — the 工单 badge. A
+ * professional-only record is never offered a work order, so none are counted for it.
+ */
+export function useProviderNav(enabled: boolean): { invites: number; professionalOnly: boolean } {
   const auth = useAuth()
   const path = usePathname() || ''
+  const uid = auth.user?.id ?? null
   const [n, setN] = useState(0)
+  const [pro, setPro] = useState(false)
   useEffect(() => {
-    if (!enabled || auth.loading || !auth.user) { setN(0); return }
+    if (!enabled || auth.loading || !auth.user) { setN(0); setPro(false); return }
     let on = true
+    setPro(knownProfessionalOnly.get(auth.user.id) ?? false)
     void (async () => {
-      const { data: p } = await supabase.from('service_providers').select('id').eq('auth_id', auth.user!.id).maybeSingle()
-      const pid = (p as { id?: string } | null)?.id
-      if (!pid) { if (on) setN(0); return }
-      const { count } = await supabase.from('work_orders').select('id', { count: 'exact', head: true }).eq('provider_id', pid).eq('status', 'offered')
+      const { data: p } = await supabase.from('service_providers').select('id, trades').eq('auth_id', auth.user!.id).maybeSingle()
+      const row = p as { id?: string; trades?: string[] | null } | null
+      const only = !!row?.id && isProfessionalOnly(row.trades)
+      knownProfessionalOnly.set(auth.user!.id, only)
+      if (on) setPro(only)
+      if (!row?.id || only) { if (on) setN(0); return }
+      const { count } = await supabase.from('work_orders').select('id', { count: 'exact', head: true }).eq('provider_id', row.id).eq('status', 'offered')
       if (on) setN(count ?? 0)
     })()
     return () => { on = false }
     // Re-read on navigation: answering an invitation on the jobs page changes the count.
   }, [enabled, auth.loading, auth.user, path])
-  return n
+  return { invites: n, professionalOnly: !!uid && pro }
+}
+
+/** Invitations waiting for this provider's answer — the 工单 badge. */
+export function useProviderInvites(enabled: boolean): number {
+  return useProviderNav(enabled).invites
 }
 
 // 找人 is one section with three addresses (/agents, /providers, /providers/professional) — not /provider/….
@@ -62,11 +93,12 @@ export function ProviderTabs() {
   const auth = useAuth()
   const signedIn = !auth.loading && !!auth.user
   const unread = useUnreadMessages(signedIn)
-  const invites = useProviderInvites(signedIn)
+  const { invites, professionalOnly } = useProviderNav(signedIn)
+  const items = providerItemsFor(professionalOnly)
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line-divider md:hidden" style={{ background: '#FFFFFF', paddingBottom: 'env(safe-area-inset-bottom)' }} aria-label={zh ? '服务商' : 'Provider'} data-testid="provider-tabs">
       <div className="flex h-16 items-stretch justify-between px-1">
-        {PROVIDER_ITEMS.map((it) => {
+        {items.map((it) => {
           const on = isOn(path, it.href)
           const badge = it.key === 'jobs' ? invites : it.key === 'msgs' ? unread : 0
           const label = TAB_LABEL[it.key] ?? it.label
@@ -94,7 +126,8 @@ export function ProviderRail({ phone = false }: { phone?: boolean }) {
   const auth = useAuth()
   const signedIn = !auth.loading && !!auth.user
   const unread = useUnreadMessages(signedIn)
-  const invites = useProviderInvites(signedIn)
+  const { invites, professionalOnly } = useProviderNav(signedIn)
+  const items = providerItemsFor(professionalOnly)
   // The name (and what the page is for) beside the icon on hover / focus, drawn fixed so the rail can scroll.
   const [tip, setTip] = useState<{ label: string; desc?: string; x: number; y: number } | null>(null)
   const showTip = (el: HTMLElement, label: string, desc?: string) => {
@@ -128,8 +161,8 @@ export function ProviderRail({ phone = false }: { phone?: boolean }) {
       </Link>
     )
   }
-  const pages = PROVIDER_ITEMS.filter((it) => it.group === 'pages')
-  const inbox = PROVIDER_ITEMS.filter((it) => it.group === 'inbox')
+  const pages = items.filter((it) => it.group === 'pages')
+  const inbox = items.filter((it) => it.group === 'inbox')
   return (
     <>
       {phone && <ProviderTabs />}

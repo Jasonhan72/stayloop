@@ -6,12 +6,14 @@
 // ESA contractor licence, TSSA gas cert, WSIB clearance number, business
 // registration, insurance certificate) and a Stayloop admin checks them by
 // hand. The guard trigger keeps status out of self-service reach.
-// 2026-11-23: the form asks first which kind of provider is joining — 上门维修 or 专业服务 — the
-// same split as the two directory tabs (lib/marketplace/onboardKind.ts). The kind chooses the
-// heading, the trades offered, whether rates are asked for, the credential kinds and the wording;
-// it is not stored, and a record that lists trades of both kinds keeps all of them.
+// 2026-11-23: two kinds of provider, two pages (lib/marketplace/onboardKind.ts) — 物业管理服务 here,
+// 专业服务 at /provider/onboard/professional, which renders this same component and reads its kind
+// from the address. The kind chooses the heading, the trades offered, whether rates are asked for,
+// the credential kinds and the wording; it is not stored, and a record that lists trades of both
+// kinds keeps all of them whichever page saves it.
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import ProviderShell from '@/components/provider/ProviderShell'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -24,7 +26,7 @@ import ProviderPhotoControl from '@/components/provider/ProviderPhotoControl'
 import { providerPhotoUrl } from '@/lib/providerPhotoKeys'
 import { providerHref } from '@/lib/marketplace/directory'
 import { AGENT_LANGUAGES, BIO_MAX, LANG_MAX, cleanLanguages } from '@/lib/agentPublic'
-import { ONBOARD_COPY, ONBOARD_KINDS, PROFESSIONAL_REMOVE_CONFIRM, attestText, credentialKindsFor, onboardHref, onboardKindOf, selectedOfKind, selectedOfOtherKind, tradesOfKind, type OnboardKind } from '@/lib/marketplace/onboardKind'
+import { ONBOARD_COPY, PROFESSIONAL_REMOVE_CONFIRM, attestText, credentialKindsFor, onboardHref, onboardKindOf, onboardKindOfPath, otherFormHref, selectedOfKind, selectedOfOtherKind, tradesOfKind, type OnboardKind } from '@/lib/marketplace/onboardKind'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; business_number: string | null; service_cities: string[]; trades: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; website: string | null; status: string; review_note: string | null; verified_at: string | null; attested_at: string | null; bio: string | null; languages: string[] | null; photo_key: string | null }
 type Cred = { id: string; kind: CredentialKind; number: string | null; holder_name: string | null; expires_at: string | null; verified_at: string | null }
@@ -44,8 +46,11 @@ export default function ProviderOnboardPage() {
   const [creds, setCreds] = useState<Cred[]>([])
   const [f, setF] = useState({ legal_name: '', trade_name: '', business_number: '', service_cities: [] as string[], trades: [] as string[], pricing_mode: 'hourly', call_out_fee: '', hourly_rate: '', contact_name: '', contact_email: '', contact_phone: '', website: '', attest: false, bio: '', languages: [] as string[] })
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
-  // Which form is showing. Set once the record is known (or from ?type= for a newcomer) — never on first paint.
-  const [kind, setKind] = useState<OnboardKind>('repair')
+  // Which form this is: the address says (the server renders the same one, so first paint agrees).
+  const router = useRouter()
+  const kind: OnboardKind = onboardKindOfPath(usePathname())
+  // A visitor who belongs on the other page (a professional-only record, or the old ?type=professional link) is being sent there.
+  const [elsewhere, setElsewhere] = useState(false)
   const [cf, setCf] = useState({ kind: 'business_registration' as CredentialKind, number: '', holder_name: '', expires_at: '' })
   // Edit a row in place (a typo, a new expiry) or renew it as a new row; the
   // reminder email says "update the number and expiry" — this is where.
@@ -61,20 +66,24 @@ export default function ProviderOnboardPage() {
   const { graceDays } = useMarketplaceConfig()
 
   const load = useCallback(async () => {
-    if (!auth.user) { setRow(null); setKind(onboardKindOf(null, new URLSearchParams(window.location.search).get('type'))); return }
+    const asked = new URLSearchParams(window.location.search).get('type')
+    const moveOn = (trades: string[] | null | undefined) => {
+      if (kind !== 'repair' || onboardKindOf(trades, asked) !== 'professional') return false
+      setElsewhere(true); router.replace(onboardHref('professional')); return true
+    }
+    if (!auth.user) { if (!moveOn(null)) setRow(null); return }
     const { data } = await supabase.from('service_providers').select('*').eq('auth_id', auth.user.id).maybeSingle()
     const r = (data as Provider | null) ?? null
+    if (moveOn(r?.trades)) return
     setRow(r)
-    const opened = onboardKindOf(r?.trades, new URLSearchParams(window.location.search).get('type'))
-    setKind(opened)
-    setCf((c) => ({ ...c, kind: credentialKindsFor(opened)[0] }))
+    setCf((c) => ({ ...c, kind: credentialKindsFor(kind)[0] }))
     if (r) {
       setF({ legal_name: r.legal_name, trade_name: r.trade_name || '', business_number: r.business_number || '', service_cities: r.service_cities || [], trades: r.trades || [], pricing_mode: r.pricing_mode, call_out_fee: r.call_out_fee != null ? String(r.call_out_fee) : '', hourly_rate: r.hourly_rate != null ? String(r.hourly_rate) : '', contact_name: r.contact_name || '', contact_email: r.contact_email || auth.user.email || '', contact_phone: r.contact_phone || '', website: r.website || '', attest: !!r.attested_at, bio: r.bio || '', languages: cleanLanguages(r.languages) })
       setPhotoUrl(providerPhotoUrl(r.photo_key))
       const { data: c } = await supabase.from('provider_credentials').select('id, kind, number, holder_name, expires_at, verified_at').eq('provider_id', r.id).order('created_at')
       setCreds((c ?? []) as Cred[])
     } else setF((x) => ({ ...x, contact_email: auth.user?.email || '' }))
-  }, [auth.user])
+  }, [auth.user, kind, router])
   useEffect(() => { if (!auth.loading) void load() }, [auth.loading, load])
 
   async function submit() {
@@ -124,27 +133,22 @@ export default function ProviderOnboardPage() {
   const shownTrades = selectedOfKind(f.trades, kind)
   const otherTrades = selectedOfOtherKind(f.trades, kind)
   const credKinds = credentialKindsFor(kind)
-  // Switching the form never touches the trades already picked; it only changes what is on screen.
-  const chooseKind = (k: OnboardKind) => { if (k === kind) return; setKind(k); setCf({ kind: credentialKindsFor(k)[0], number: '', holder_name: '', expires_at: '' }); setRenewHint(null); setErr(null); setSaved(false) }
+  const other: OnboardKind = kind === 'repair' ? 'professional' : 'repair'
 
-  if (auth.loading || row === 'loading') return <Shell><div className="text-body-3">…</div></Shell>
+  if (auth.loading || row === 'loading' || elsewhere) return <Shell><div className="text-body-3">…</div></Shell>
   if (!auth.user) return <Shell><div className="rounded-2xl border border-line-divider bg-white p-6 text-[14px]">{zh ? '请先登录再入驻。' : 'Sign in to onboard.'} <Link href={`/login?next=${encodeURIComponent(onboardHref(kind))}`} className="underline">{zh ? '登录' : 'Sign in'}</Link></div></Shell>
 
   return (
     <Shell>
-      <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '服务商入驻' : 'Provider onboarding'}</div>
+      <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3" data-testid="onboard-eyebrow">{zh ? '服务商入驻' : 'Provider onboarding'} · {copy.choice[L]}</div>
       <h1 className="mt-1 text-[24px] font-extrabold tracking-tight" data-testid="onboard-title">{copy.title[L]}</h1>
       <p className="mt-2 text-[13.5px] leading-relaxed text-body-2" data-testid="onboard-intro">{copy.intro[L]}</p>
 
-      <div className="mt-5 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={zh ? '你提供哪一类服务' : 'Which kind of service you provide'} data-testid="onboard-kind">
-        {ONBOARD_KINDS.map((k) => (
-          <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => chooseKind(k)} data-testid={`onboard-kind-${k}`}
-            className={'min-w-0 rounded-2xl border bg-white px-4 py-3 text-left transition ' + (kind === k ? 'border-brand ring-1 ring-brand' : 'border-line-divider hover:border-line-strong')}>
-            <div className={'text-[14.5px] font-extrabold ' + (kind === k ? 'text-brand' : '')}>{ONBOARD_COPY[k].choice[L]}</div>
-            <div className="mt-0.5 text-[12px] leading-relaxed text-body-2">{ONBOARD_COPY[k].choiceSub[L]}</div>
-          </button>
-        ))}
-      </div>
+      {/* Each kind has its own page; this is the way across. */}
+      <p className="mt-3 text-[13px] text-body-2" data-testid="onboard-other-form">
+        {ONBOARD_COPY[kind].otherForm[L]}{' '}
+        <Link href={otherFormHref(kind)} className="font-semibold text-brand underline underline-offset-2">{zh ? `去「${ONBOARD_COPY[other].choice.zh}」入驻 →` : `Join under ${ONBOARD_COPY[other].choice.en.toLowerCase()} →`}</Link>
+      </p>
 
       {row && (
         <div className="mt-5 rounded-2xl border border-line-divider bg-white p-4 text-[13px]">
@@ -162,9 +166,9 @@ export default function ProviderOnboardPage() {
         <div className="sm:col-span-2"><div className={label}>{copy.tradesLabel[L]}</div><div className="mt-1 flex flex-wrap gap-1.5" data-testid="onboard-trades">{TRADES.filter((t) => tradesOfKind(kind).includes(t.key)).map((t) => <button key={t.key} type="button" aria-pressed={f.trades.includes(t.key)} onClick={() => setF({ ...f, trades: toggle(f.trades, t.key) })} className={'rounded-full border px-3 py-1 text-[12.5px] ' + (f.trades.includes(t.key) ? 'border-brand bg-brand/10 font-bold text-brand' : 'border-line-divider')}>{zh ? t.zh : t.en}</button>)}</div>
           {otherTrades.length > 0 && (
             <p className="mt-2 text-[12px] leading-relaxed text-body-2" data-testid="onboard-other-kind">
-              {zh ? `你的资料里还有「${ONBOARD_COPY[kind === 'repair' ? 'professional' : 'repair'].choice.zh}」的项目：` : `Your record also lists ${ONBOARD_COPY[kind === 'repair' ? 'professional' : 'repair'].choice.en.toLowerCase()}: `}
+              {zh ? `你的资料里还有「${ONBOARD_COPY[other].choice.zh}」的项目：` : `Your record also lists ${ONBOARD_COPY[other].choice.en.toLowerCase()}: `}
               {otherTrades.map((t) => { const d = TRADES.find((x) => x.key === t); return d ? (zh ? d.zh : d.en) : t }).join(zh ? '、' : ', ')}{zh ? '。' : '. '}
-              <button type="button" onClick={() => chooseKind(kind === 'repair' ? 'professional' : 'repair')} className="font-semibold text-brand underline underline-offset-2">{zh ? '切过去查看' : 'Switch to see them'}</button>
+              <Link href={otherFormHref(kind)} className="font-semibold text-brand underline underline-offset-2">{zh ? '去那一页查看和修改' : 'Open that page to see and change them'}</Link>
             </p>
           )}
           {row && shownTrades.length > 0 && (

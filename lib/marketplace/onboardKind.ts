@@ -1,11 +1,15 @@
-// /provider/onboard asks first which kind of provider is joining (2026-11-23, user: 「这个页面是否也要
-// 区分维修和专业服务？」). The directory already has two tabs — 维修服务 and 专业服务 — but the form
-// greeted a lawyer with 「加入 Stayloop 精选维修网络」, one list of twelve trades, an hourly rate and a
-// call-out fee. Pure: which trades, credential kinds and words each kind gets.
+// Two kinds of provider join Stayloop, each on a page of its own (2026-11-23):
+//   • 物业管理服务 — plumbing, electrical, heating, locks, cleaning…  → /provider/onboard
+//   • 专业服务     — paralegal, lawyer, insurance broker, photography → /provider/onboard/professional
+// The form used to be one page that greeted a lawyer with 「加入 Stayloop 精选维修网络」, twelve trades in
+// one list, an hourly rate and a call-out fee (user: 「这个页面是否也要区分维修和专业服务？」). It was first
+// split by a switch on the one page; the user then asked for separate pages and for the first kind
+// to be called 物业管理服务 rather than 上门维修 (「上门维修可以改为物业管理服务，可以单独页面，和专业服务需要
+// 分开」). Pure: which trades, credential kinds and words each kind gets, and which page a record opens on.
 //
 // One account still has one provider record, and that record may list trades of both kinds (a
-// handyman who also shoots listing photos). The kind is a view of the form, not a column: switching
-// it never drops a trade the record already has.
+// handyman who also shoots listing photos). The kind is the page, not a column: neither page ever
+// drops a trade the record already has. The internal key stays 'repair' (the directory tab's key).
 import { CREDENTIAL_LABEL, PROFESSIONAL_TRADES, TRADES, isProfessionalTrade, type CredentialKind, type Trade } from './trades'
 
 export type OnboardKind = 'repair' | 'professional'
@@ -30,9 +34,10 @@ export function selectedOfOtherKind(trades: readonly string[], kind: OnboardKind
 }
 
 /**
- * Which kind the form opens in. An explicit `?type=` wins (the 专业服务 tab links here with it);
- * otherwise the record decides — repairs if it lists any repair trade, professional if it lists
- * only professional ones — and a new record starts as repairs.
+ * Which page a visitor to /provider/onboard belongs on. An explicit `?type=` wins (`?type=repair`
+ * is how a professional-only record opens the other form to add a trade; `?type=professional` is
+ * the link the 专业服务 tab carried for a day); otherwise the record decides — 物业管理服务 if it lists
+ * any such trade, 专业服务 if it lists only professional ones — and a newcomer starts on 物业管理服务.
  */
 export function onboardKindOf(trades: readonly string[] | null | undefined, asked?: string | null): OnboardKind {
   if (isOnboardKind(asked)) return asked
@@ -40,6 +45,16 @@ export function onboardKindOf(trades: readonly string[] | null | undefined, aske
   if (list.some((t) => TRADES.some((d) => d.key === t) && !isProfessionalTrade(t))) return 'repair'
   if (list.some((t) => (PROFESSIONAL_TRADES as readonly string[]).includes(t))) return 'professional'
   return 'repair'
+}
+
+/**
+ * A record that lists professional services and nothing that is dispatched. Such a provider never
+ * receives a work order: their navigation has no 工单 / 历史, and reminders speak of the directory.
+ * A record with no trades yet is not one — a newcomer keeps the full navigation.
+ */
+export function isProfessionalOnly(trades: readonly string[] | null | undefined): boolean {
+  const list = trades ?? []
+  return selectedOfKind(list, 'professional').length > 0 && selectedOfKind(list, 'repair').length === 0
 }
 
 /** The credential kinds a provider of this kind may need: every `required` of its trades, in CREDENTIAL_LABEL order. */
@@ -52,20 +67,32 @@ export function credentialKindsFor(kind: OnboardKind): CredentialKind[] {
   return kind === 'professional' ? [...picked.filter((k) => k.startsWith('lso_') || k === 'ribo_licence'), ...picked.filter((k) => !(k.startsWith('lso_') || k === 'ribo_licence'))] : picked
 }
 
+/** The kind a page address stands for. */
+export function onboardKindOfPath(pathname: string | null | undefined): OnboardKind {
+  return (pathname || '').replace(/\/+$/, '').endsWith('/provider/onboard/professional') ? 'professional' : 'repair'
+}
+
+/** Each kind's own page. */
 export function onboardHref(kind: OnboardKind): string {
-  return kind === 'professional' ? '/provider/onboard?type=professional' : '/provider/onboard'
+  return kind === 'professional' ? '/provider/onboard/professional' : '/provider/onboard'
+}
+
+/** The link from one form to the other. Going to 物业管理服务 says so explicitly, or a professional-only record would be sent straight back. */
+export function otherFormHref(from: OnboardKind): string {
+  return from === 'repair' ? '/provider/onboard/professional' : '/provider/onboard?type=repair'
 }
 
 type Two = { zh: string; en: string }
 /** The words that differ between the two kinds. Everything else on the form is shared. */
 export const ONBOARD_COPY: Record<OnboardKind, {
-  choice: Two; choiceSub: Two; title: Two; intro: Two; tradesLabel: Two; tradeName: Two; email: Two; bioHint: Two
+  choice: Two; choiceSub: Two; otherForm: Two; title: Two; intro: Two; tradesLabel: Two; tradeName: Two; email: Two; bioHint: Two
   credTitle: Two; credHint: Two; missing: Two; attest: Two; footer: Two
 }> = {
   repair: {
-    choice: { zh: '上门维修', en: 'Repairs' },
-    choiceSub: { zh: '水管、电气、供暖、门锁、杂工等。核验后可以接到房东的派单。', en: 'Plumbing, electrical, heating, locks, handyman work. Once verified, landlords can dispatch jobs to you.' },
-    title: { zh: '加入 Stayloop 精选维修网络', en: 'Join the Stayloop curated repair network' },
+    choice: { zh: '物业管理服务', en: 'Property maintenance' },
+    choiceSub: { zh: '水管、电气、供暖、门锁、清洁、杂工等。核验后可以接到房东的派单。', en: 'Plumbing, electrical, heating, locks, cleaning, handyman work. Once verified, landlords can dispatch jobs to you.' },
+    otherForm: { zh: '你提供的是持牌专业服务或房源摄影？', en: 'Are you a licensed professional or a listing photographer?' },
+    title: { zh: '加入 Stayloop 物业管理服务网络', en: 'Join the Stayloop property maintenance network' },
     intro: {
       zh: '我们只收集公开注册库上能查到的资质编号与到期日，由 Stayloop 工作人员人工对照后核验；资质到期会自动停派单。不收取入驻费，工单由房东直接付款，Stayloop 不经手资金。',
       en: 'We collect only credential numbers and expiry dates that public registers show; a Stayloop staff member checks them by hand, and expired credentials stop dispatch automatically. No onboarding fee; landlords pay you directly — no money moves through Stayloop.',
@@ -92,6 +119,7 @@ export const ONBOARD_COPY: Record<OnboardKind, {
   professional: {
     choice: { zh: '专业服务', en: 'Professional services' },
     choiceSub: { zh: '持牌 Paralegal、律师、保险经纪、房源摄影。只在目录里展示和转介，不派单。', en: 'Licensed paralegals, lawyers, insurance brokers, listing photographers. Listed and referred in the directory only — never dispatched.' },
+    otherForm: { zh: '你提供的是水管、电气、清洁这类物业管理服务？', en: 'Do you provide plumbing, electrical, cleaning or other property maintenance?' },
     title: { zh: '加入 Stayloop 专业服务目录', en: 'Join the Stayloop professional services directory' },
     intro: {
       zh: '我们只收集公开名册上能查到的牌照号与到期日，由 Stayloop 工作人员人工对照后核验；牌照到期后目录里不再显示「牌照已核」。不收取入驻费，不派单、不收佣金；委托、保单和费用由你和客户直接谈，Stayloop 不经手资金。',
