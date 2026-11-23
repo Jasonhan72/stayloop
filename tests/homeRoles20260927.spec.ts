@@ -16,7 +16,8 @@ describe('four roles on the homepage', () => {
     expect(home).toMatch(/key: 'provider',\s*pilot: true,\s*tag: \{ zh: '服务商', en: 'Provider' \}/)
     expect(home).toContain("href: '/provider/onboard'")
     expect(home).toMatch(/chips: \[\],\s*facts: \[/)
-    expect(home).toContain("const PANEL_ROLES: HomeRole[] = ['tenant', 'landlord', 'agent', 'provider']")
+    // landlords first since 2026-11-22 (V0.9); the provider is still the fourth panel
+    expect(home).toContain("const PANEL_ROLES: HomeRole[] = ['landlord', 'agent', 'tenant', 'provider']")
     expect(home).toContain("eyebrow: { zh: '服务商 · 试点', en: 'Providers · pilot' }")
     expect(home).toContain('data-testid="provider-facts"')
     expect(home).not.toContain('三种角色')

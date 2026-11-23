@@ -104,9 +104,11 @@ const ROLES: {
       { label: { zh: '发布房源', en: 'List a property' }, prompt: { zh: '我要发布一个新房源，你来帮我整理信息。', en: 'I want to list a new property — help me put it together.' } },
     ],
     modules: [
+      // V0.9 (2026-11-22): the tenancy a landlord already has comes first — the rent record is what brings them back
+      // each month. It took the place of 「租约、续约与维修」 (three modules a role; renewals and repairs live on the same tenancy page).
+      { h: { zh: '已经在租 · 导入租约', en: 'Already renting · import the lease' }, s: { zh: '导入已签租约 · 银行流水对账 · 续约提醒 · 报修派给已核验服务商', en: 'Import the signed lease · reconcile against the bank statement · renewal reminders · repairs dispatched to verified providers' }, href: '/leases/import' },
       { h: { zh: '租客筛查', en: 'Tenant screening' }, s: { zh: '材料取证 · 收入佐证 · LTB 判令与法院记录', en: 'Document forensics · income corroboration · LTB orders and court records' }, href: '/screening' },
-      { h: { zh: '发布房源与申请队列', en: 'Listing and applications' }, s: { zh: '五步向导 · 一句话出草稿 · 核验后上线 · 申请一键筛查', en: 'Five-step wizard · a draft from one sentence · live after verification · one-tap screening from an application' }, href: '/dashboard/listings/new' },
-      { h: { zh: '租约、续约与维修', en: 'Leases, renewals and repairs' }, s: { zh: '标准租约电子签 · 续约 90 / 60 / 30 天 · 报修派给已核验服务商', en: 'Standard lease e-sign · renewal at 90 / 60 / 30 days · repairs dispatched to verified providers' }, href: '/landlord/leases' },
+      { h: { zh: '发布房源与申请队列', en: 'Listing and applications' }, s: { zh: '一句话出草稿 · 核验后上线 · 申请一键筛查 · 标准租约电子签', en: 'A draft from one sentence · live after verification · one-tap screening from an application · standard lease e-sign' }, href: '/dashboard/listings/new' },
     ],
     cta: { zh: '让 {ai} 协助管理房源 →', en: 'Let {ai} help manage your rentals →' },
     href: '/landlord',
@@ -661,7 +663,9 @@ function Panel({ tint, flip, media, eyebrow, title, lead, children, testId, card
 
 // The four roles as four panels (they replace the tabs): the role's scene, what it does for you,
 // one example that opens the AI Agent preview, and the real pages behind it.
-const PANEL_ROLES: HomeRole[] = ['tenant', 'landlord', 'agent', 'provider']
+// Landlords first since 2026-11-22 (V0.9): the paying side, then the agents who bring them, then the
+// tenants and the trades their tenancies need. It was 租客 · 房东 · 经纪 · 服务商 until then.
+const PANEL_ROLES: HomeRole[] = ['landlord', 'agent', 'tenant', 'provider']
 const ROLE_ART: Record<HomeRole, { img: string; alt: Bi; eyebrow: Bi }> = {
   tenant: { img: '/home/film/mia-sofa.webp', alt: { zh: '租客 Mia 在沙发上用电脑找房', en: 'Mia, a tenant, looking for a home on her laptop' }, eyebrow: { zh: '租客', en: 'Tenants' } },
   landlord: { img: '/home/film/sarah-report.webp', alt: { zh: '房东 Sarah 在看筛查报告', en: 'Sarah, a landlord, reading a screening report' }, eyebrow: { zh: '房东', en: 'Landlords' } },

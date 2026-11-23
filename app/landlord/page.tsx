@@ -18,6 +18,12 @@ const CFG: RoleLandingConfig = {
   primaryCta: { label: { zh: '让 AI 接管出租 →', en: 'Let AI take over the rental →' }, href: '/onboarding/name?role=landlord' },
   secondaryCta: { label: { zh: '看看定价', en: 'See pricing' }, href: '/pricing' },
   ctaNote: { zh: '免费发布房源 · 租金 0 抽成', en: 'List free · 0% rent commission' },
+  // V0.9 (2026-11-22): most landlords already have a tenant; the rent record is their way in, not a listing.
+  altCta: {
+    lead: { zh: '房子已经租出去了？', en: 'Already have a tenant?' },
+    label: { zh: '导入租约，把每月租金记起来 →', en: 'Import the lease and keep the rent record →' },
+    href: '/leases/import',
+  },
   agentPoints: [
     { zh: '申请按待筛查 / 待决定 / 已决定分组', en: 'Applications grouped: to screen / to decide / decided' },
     { zh: '四项计分 + 一项提示 · 每条结论标出处', en: 'Four scored items + one note · every conclusion sourced' },
@@ -98,6 +104,7 @@ const CFG: RoleLandingConfig = {
     note: { zh: '这是数据库里能直接数出来的数字。我们不展示百分比收益、客户数或评分——那些我们没有可审计的对照组。', en: 'A number counted straight from the database. We show no percentage gains, customer counts or ratings — we have no auditable control group for those.' },
   },
   faq: [
+    { q: { zh: '房子已经租出去了，还用得上吗？', en: 'My unit is already rented — is this still useful?' }, a: { zh: '用得上。导入已签的租约（上传文件，核对后保存），之后每月把租金记上：上传银行流水的 CSV 自动对到每一期，或逐期标记。迟付几次、欠了几期一眼看得到；需要留底时可以把这份租约的记录导出来。Stayloop 只做记录，不经手租金，也不替你填写或提交 LTB 表格。', en: 'Yes. Import the signed lease (upload it, check the details, save), then record the rent each month: upload a bank statement CSV to match deposits to periods, or mark periods one by one. Late and missed periods are plain to see, and the tenancy’s record can be exported when you need it on file. Stayloop keeps records only — no rent moves through it, and it does not fill in or file LTB forms for you.' } },
     { q: { zh: '免费能筛几次？', en: 'How many screenings are free?' }, a: { zh: '免费档每月 3 次，含取证与信用分析，另送 1 次深度核查；新注册的房东账号前 30 天按 Pro 计，不限次。Pro $19/月不限次并包含深度核查与本人核验链接；也可按次解锁一份深度核查（$14.99）。', en: 'The free tier includes 3 a month with forensics and credit analysis, plus one deep check; a new landlord account runs as Pro for its first 30 days, unlimited. Pro at $19/month is unlimited and includes deep checks and verification links; a single deep check can also be unlocked for $14.99.' } },
     { q: { zh: '筛查看什么、不看什么？', en: 'What is checked — and what is not?' }, a: { zh: '看：收入文件算术与互证、征信转录与分析、证件有效性、LTB 判令目录、安省法院门户、雇主注册状态。不看、也不让模型推断 OHRC 受保护特征（国籍、家庭状况、收入来源类型等）。收入租金比只作信息，不设截止线。', en: 'Checked: income-document arithmetic and cross-checks, bureau transcription and analysis, ID validity, the LTB order catalogue, the Ontario courts portal, employer registry status. Never checked or inferred: OHRC protected grounds (nationality, family status, source of income and the rest). Income-to-rent is information only, with no cut-off.' } },
     { q: { zh: '申请人怎么授权？', en: 'How does the applicant authorise checks?' }, a: { zh: '你在筛查记录上生成一条链接，申请人本人签版本化同意后逐步授权身份（Veriff）、银行（Flinks）、征信（Equifax）。我们不收 SIN。', en: 'You generate a link on the screening record; the applicant signs a versioned consent and then authorises identity (Veriff), bank (Flinks) and credit (Equifax) step by step. We never collect a SIN.' } },

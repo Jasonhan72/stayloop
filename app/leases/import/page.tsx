@@ -542,6 +542,14 @@ export default function LeaseImportPage() {
                 ? (zh ? '没有另建一份；已发出的邀请仍然有效。' : 'No second tenancy was created; invitations already sent still work.')
                 : (zh ? '对方加入后,对话、报修、租金记录都会在这里汇合。' : 'Once the others join, chat, maintenance and rent records all live here.')}
             </p>
+            {/* V0.9 (2026-11-22): what a landlord does next with a tenancy that is already running. */}
+            {role === 'landlord' && !corrected && (
+              <p className="mx-auto mt-3 max-w-[460px] text-[12.5px] leading-relaxed text-body-2" data-testid="import-next-landlord">
+                {zh
+                  ? '下一步：在管理页把每一期租金记上（上传银行流水的 CSV，或逐期标记）；需要留底时，一键导出这份租约的记录。'
+                  : 'Next: record each rent period on the tenancy page (upload the bank statement CSV, or mark periods one by one); export the tenancy’s record whenever you need it on file.'}
+              </p>
+            )}
             <button
               onClick={() => householdId && router.push(`/h/${householdId}`)}
               className="mt-5 rounded-lg px-6 py-3 text-[14px] font-bold text-white"

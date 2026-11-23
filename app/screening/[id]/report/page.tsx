@@ -32,6 +32,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/lib/useAuth'
+import AgentAttribution from '@/components/screening/AgentAttribution'
 import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import type { ScoreResult, CourtQuery, OntarioPortalMatch, LtbCheck } from '@/lib/screening-types'
@@ -449,6 +450,9 @@ export default function ReportPage() {
           )}
           {r.model_version && (<><span>&middot;</span><span>{r.model_version.toUpperCase()}</span></>)}
         </div>
+
+        {/* V0.9 (2026-11-22): who prepared it, when that was an agent — an addition only; nothing below changes. */}
+        <AgentAttribution screeningId={id} zh={zh} />
 
         {/* Actions bar */}
         <div className="mt-5 flex flex-wrap gap-2">

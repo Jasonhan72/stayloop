@@ -98,7 +98,29 @@ export default function DelegateConfirmPage() {
 
       <div className="mt-4">
         {done || peek.status === 'active' ? (
-          <div className="rounded-xl border border-success/30 bg-success/5 p-4 text-[13.5px]" data-testid="delegation-confirmed">✓ {zh ? '已确认。' : 'Confirmed.'} <Link href="/settings" className="font-semibold text-brand underline">{zh ? '在设置里管理委托 →' : 'Manage in Settings →'}</Link></div>
+          <div data-testid="delegation-confirmed">
+            <div className="rounded-xl border border-success/30 bg-success/5 p-4 text-[13.5px]">✓ {zh ? '已确认。' : 'Confirmed.'} <Link href="/settings" className="font-semibold text-brand underline">{zh ? '在设置里管理委托 →' : 'Manage in Settings →'}</Link></div>
+            {/* V0.9 (2026-11-22): a confirmed delegation used to end here. The client is on Stayloop now — say what
+                they can do next. Shown to the signed-in client only; the links carry nothing about the delegation. */}
+            {auth.user && (
+              <div className="mt-3 rounded-xl border border-line-divider bg-white p-4 text-[13px] leading-relaxed" data-testid="delegation-next">
+                <div className="font-bold">{zh ? '接下来你可以' : 'What you can do next'}</div>
+                <ul className="mt-2 space-y-2 text-body-2">
+                  <li>
+                    {zh ? '经纪在这份委托下替你跑的筛查，报告顶部会写明是哪位经纪准备的。' : 'A screening your agent runs for you under this delegation names the agent at the top of the report.'}
+                  </li>
+                  <li>
+                    {zh ? '房子已经租出去了？' : 'Already have a tenant? '}
+                    <Link href="/leases/import" className="font-semibold text-brand underline underline-offset-2" data-testid="delegation-next-import">{zh ? '导入租约，把每月的租金记起来 →' : 'Import the lease and keep the rent record month by month →'}</Link>
+                  </li>
+                  <li>
+                    {zh ? '要自己发房源、看申请人：' : 'To post listings and review applicants yourself: '}
+                    <Link href="/landlord/become" className="font-semibold text-brand underline underline-offset-2">{zh ? '开通房东工作台 →' : 'open the landlord workspace →'}</Link>
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
         ) : peek.status !== 'pending' ? (
           <p className="text-[13px] text-body-3">{zh ? '这份委托已不可确认。' : 'This delegation can no longer be confirmed.'}</p>
         ) : auth.loading ? null : !auth.user ? (

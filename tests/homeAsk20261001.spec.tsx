@@ -16,7 +16,7 @@ const push = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }))
 vi.mock('next/link', () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => React.createElement('a', { href, ...rest }, children) }))
 
-import HeroComposer, { HERO_EXAMPLES, examplePlaceholder, heroSubmit } from '../components/home/HeroComposer'
+import HeroComposer, { DEFAULT_ASK_ROLE, FIRST_EXAMPLE, HERO_EXAMPLES, examplePlaceholder, heroSubmit } from '../components/home/HeroComposer'
 import { assistantPromptHref } from '../lib/homeDeepLink'
 import { ANON_TURNS_PER_HOUR, ANON_TURNS_SITE_PER_HOUR } from '../lib/agent/anonLimits'
 import { RENEWAL_INTENT_RE, landlordRenewalFacts } from '../lib/agent/prompts'
@@ -69,7 +69,15 @@ describe('submitting', () => {
   it('renders, types, picks a role and submits', () => {
     const { container: r } = render(React.createElement(HeroComposer, { zh: true }))
     const input = byTestId(r, 'home-ask-input')
-    expect(String(input.getAttribute('placeholder'))).toBe(`试试「${HERO_EXAMPLES[0].ask.zh}」`)
+    // The box opens as a landlord (V0.9, 2026-11-22; it was 租客 before): the first example on show is the
+    // landlord's first, with no role tag, and the role chip says 房东.
+    expect(DEFAULT_ASK_ROLE).toBe('landlord')
+    expect(HERO_EXAMPLES[FIRST_EXAMPLE].role).toBe('landlord')
+    expect(String(input.getAttribute('placeholder'))).toBe(`试试「${HERO_EXAMPLES[FIRST_EXAMPLE].ask.zh}」`)
+    expect(byTestId<HTMLSelectElement>(r, 'home-ask-role').value).toBe('landlord')
+    // only the photo on show is fetched first
+    const imgs = Array.from(r.querySelectorAll('img'))
+    expect(imgs.filter((im) => im.getAttribute('fetchpriority') === 'high').map((im) => im.getAttribute('src'))).toEqual([HERO_EXAMPLES[FIRST_EXAMPLE].img])
     fireEvent.change(byTestId(r, 'home-ask-role'), { target: { value: 'agent' } })
     fireEvent.change(input, { target: { value: '押金最多收多少' } })
     fireEvent.submit(only(r, 'form'))
@@ -78,26 +86,27 @@ describe('submitting', () => {
   it('rotating examples never change the role chip, and only the chip’s own examples rotate (2026-10-17: a landlord saw「试试（租客）…」)', () => {
     const { container: r } = render(React.createElement(HeroComposer, { zh: false }))
     const next = only(r, 'button[aria-label="Next example"]')
-    expect(byTestId<HTMLSelectElement>(r, 'home-ask-role').value).toBe('tenant')
+    expect(byTestId<HTMLSelectElement>(r, 'home-ask-role').value).toBe('landlord')
     fireEvent.click(next)
-    expect(HERO_EXAMPLES[1].role).toBe('landlord')
-    expect(byTestId<HTMLSelectElement>(r, 'home-ask-role').value).toBe('tenant')
-    const tenantAsks = HERO_EXAMPLES.filter((x) => x.role === 'tenant').map((x) => `Try ‘${x.ask.en}’`)
-    expect(tenantAsks).toContain(String(byTestId(r, 'home-ask-input').getAttribute('placeholder')))
-    expect(String(byTestId(r, 'home-ask-input').getAttribute('placeholder'))).not.toMatch(/\(landlord\)|\(agent\)/)
-    fireEvent.change(byTestId(r, 'home-ask-input'), { target: { value: 'One bedroom near U of T' } })
+    // the example after the landlord's first in the list is somebody else's; the rotation skips it
+    expect(HERO_EXAMPLES[FIRST_EXAMPLE + 1].role).not.toBe('landlord')
+    expect(byTestId<HTMLSelectElement>(r, 'home-ask-role').value).toBe('landlord')
+    const landlordAsks = HERO_EXAMPLES.filter((x) => x.role === 'landlord').map((x) => `Try ‘${x.ask.en}’`)
+    expect(landlordAsks).toContain(String(byTestId(r, 'home-ask-input').getAttribute('placeholder')))
+    expect(String(byTestId(r, 'home-ask-input').getAttribute('placeholder'))).not.toMatch(/\(tenant\)|\(agent\)/)
+    fireEvent.change(byTestId(r, 'home-ask-input'), { target: { value: 'How much notice for a rent increase' } })
     fireEvent.submit(only(r, 'form'))
-    expect(push).toHaveBeenCalledWith(assistantPromptHref('tenant', 'One bedroom near U of T'))
+    expect(push).toHaveBeenCalledWith(assistantPromptHref('landlord', 'How much notice for a rent increase'))
   })
   it('switching the chip jumps to that role’s first example and keeps rotating inside it', () => {
     const { container: r } = render(React.createElement(HeroComposer, { zh: true }))
-    fireEvent.change(byTestId(r, 'home-ask-role'), { target: { value: 'landlord' } })
-    const landlordAsks = HERO_EXAMPLES.filter((x) => x.role === 'landlord').map((x) => `试试「${x.ask.zh}」`)
-    expect(String(byTestId(r, 'home-ask-input').getAttribute('placeholder'))).toBe(landlordAsks[0])
+    fireEvent.change(byTestId(r, 'home-ask-role'), { target: { value: 'tenant' } })
+    const tenantAsks = HERO_EXAMPLES.filter((x) => x.role === 'tenant').map((x) => `试试「${x.ask.zh}」`)
+    expect(String(byTestId(r, 'home-ask-input').getAttribute('placeholder'))).toBe(tenantAsks[0])
     const next = only(r, 'button[aria-label="下一个例子"]')
-    for (let k = 0; k < landlordAsks.length + 1; k++) {
+    for (let k = 0; k < tenantAsks.length + 1; k++) {
       fireEvent.click(next)
-      expect(landlordAsks).toContain(String(byTestId(r, 'home-ask-input').getAttribute('placeholder')))
+      expect(tenantAsks).toContain(String(byTestId(r, 'home-ask-input').getAttribute('placeholder')))
     }
   })
   it('the placeholder names the example’s role only when it differs from the chip', () => {

@@ -54,6 +54,8 @@ export type RoleLandingConfig = {
   proof: { key: StatKey; label: Bi; note: Bi }
   faq: { q: Bi; a: Bi }[]
   ctaNote?: Bi
+  /** A second way in under the buttons — a lead-in and one link (the landlord page: 「房子已经租出去了？」 → /leases/import). */
+  altCta?: { lead: Bi; label: Bi; href: string }
   // Optional value band ("what your passport does" etc.) — restrained
   // self-referential list rendered between JOURNEY and SCENARIO.
   valueBand?: {
@@ -192,6 +194,12 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
               </Link>
             </div>
             {cfg.ctaNote && <p className="mt-4 text-[13px] text-body-3">{cfg.ctaNote[lang]}</p>}
+            {cfg.altCta && (
+              <p className="mt-2 text-[14px] text-body-2" data-testid="role-alt-cta">
+                {cfg.altCta.lead[lang]}{' '}
+                <Link href={cfg.altCta.href} className="font-semibold underline underline-offset-4 transition hover:opacity-80" style={{ color: c }}>{cfg.altCta.label[lang]}</Link>
+              </p>
+            )}
             {/* Fact chips — only things we can point at (a page, a law, a date). */}
             <ul className="mt-5 flex flex-wrap gap-2" aria-label={zh ? '事实' : 'Facts'}>
               {cfg.chips.map((ch) => {

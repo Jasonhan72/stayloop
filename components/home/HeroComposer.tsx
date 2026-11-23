@@ -50,6 +50,12 @@ export const HERO_EXAMPLES: HeroExample[] = [
   { role: 'tenant', img: '/home/film/mia-cafe.webp', alt: { zh: 'Mia 在咖啡馆看手机', en: 'Mia in a café, looking at her phone' }, ask: { zh: '租约到期前多久要给房东退租通知？', en: 'How much notice do I have to give before moving out at the end of my lease?' } },
 ]
 
+/** Who the box asks as until the visitor picks a role (or is signed in wearing another hat).
+ *  Landlords since 2026-11-22 (V0.9): they are who Stayloop is sold to, so the first screen speaks to
+ *  them first. It was 租客 until then. The first photo and example on show are that role's. */
+export const DEFAULT_ASK_ROLE: AssistantRole = 'landlord'
+export const FIRST_EXAMPLE = Math.max(0, HERO_EXAMPLES.findIndex((x) => x.role === DEFAULT_ASK_ROLE))
+
 export const ROLE_LABEL: Record<AssistantRole, Bi> = {
   tenant: { zh: '租客', en: 'Tenant' },
   landlord: { zh: '房东', en: 'Landlord' },
@@ -84,17 +90,17 @@ export default function HeroComposer({ zh, className = '', homeHref, defaultRole
   defaultRole?: AssistantRole | null
 }) {
   const router = useRouter()
-  const [i, setI] = useState(0)
+  const [i, setI] = useState(FIRST_EXAMPLE)
   const [playing, setPlaying] = useState(true)
   const [text, setText] = useState('')
-  const [role, setRole] = useState<AssistantRole>('tenant')
+  const [role, setRole] = useState<AssistantRole>(DEFAULT_ASK_ROLE)
   const [inside, setInside] = useState({ hover: false, focus: false })
   const [visible, setVisible] = useState(true)
   const [narrow, setNarrow] = useState(false)
   const [said, setSaid] = useState('')
   const [going, setGoing] = useState(false)
   // Only the current and next photos load (all ten sit in the first viewport, so `loading="lazy"` would not help).
-  const [seen, setSeen] = useState<Set<number>>(() => new Set([0, 1]))
+  const [seen, setSeen] = useState<Set<number>>(() => new Set([FIRST_EXAMPLE, (FIRST_EXAMPLE + 1) % HERO_EXAMPLES.length]))
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const changed = useRef({ at: 0, prev: 0 })
@@ -226,7 +232,7 @@ export default function HeroComposer({ zh, className = '', homeHref, defaultRole
               alt={k === i ? (zh ? x.alt.zh : x.alt.en) : ''}
               aria-hidden={k !== i}
               decoding="async"
-              {...(k === 0 ? { fetchPriority: 'high' as const } : {})}
+              {...(k === FIRST_EXAMPLE ? { fetchPriority: 'high' as const } : {})}
               className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out"
               style={{ opacity: k === i ? 1 : 0 }}
             />

@@ -26,6 +26,7 @@ import ConditionPhotos from '@/components/household/ConditionPhotos'
 import MaintenancePanel from '@/components/household/MaintenancePanel'
 import PaymentPlanDraft from '@/components/household/PaymentPlanDraft'
 import CsvReconcile from '@/components/household/CsvReconcile'
+import AlreadyRenting from '@/components/household/AlreadyRenting'
 import RentPeriodRow, { type RentPeriodRecord } from '@/components/household/RentPeriodRow'
 import { evidenceErrorText } from '@/lib/household/rentEvidence'
 import ThreadPanel from '@/components/threads/ThreadPanel'
@@ -402,6 +403,22 @@ export default function HouseholdHub() {
         )}
       </div>
 
+      {/* V0.9 (2026-11-22): the landlord's three steps — lease here → record the rent → export the record. */}
+      {(myRole === 'landlord' || myRole === 'property_manager') && household.status === 'active' && (
+        <AlreadyRenting
+          householdId={id}
+          zh={zh}
+          imported={household.source === 'imported'}
+          recorded={ledger.recordedRows.length}
+          canReconcile={myRole === 'landlord' && !!household.current_lease_id && Number(household.monthly_rent) > 0}
+          onGoRent={() => {
+            setTab('rent')
+            // the rent tab mounts on the next paint; then bring the reconcile box into view
+            setTimeout(() => { document.getElementById('hub-csv-reconcile')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, 80)
+          }}
+        />
+      )}
+
       <div className="mt-6 flex gap-1 overflow-x-auto whitespace-nowrap border-b border-line-divider">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
@@ -553,7 +570,9 @@ export default function HouseholdHub() {
             </div>
           )}
           {myRole === 'landlord' && household.current_lease_id && Number(household.monthly_rent) > 0 && (
-            <CsvReconcile leaseId={household.current_lease_id} householdId={id} periods={ledger.periods} monthlyRent={Number(household.monthly_rent) || 0} zh={zh} onDone={() => void load()} />
+            <div id="hub-csv-reconcile" className="scroll-mt-24">
+              <CsvReconcile leaseId={household.current_lease_id} householdId={id} periods={ledger.periods} monthlyRent={Number(household.monthly_rent) || 0} zh={zh} onDone={() => void load()} />
+            </div>
           )}
           {ontario && myRole === 'landlord' && missedDue.length > 0 && (
             <PaymentPlanDraft householdId={id} leaseId={household.current_lease_id} unit={address} monthlyRent={Number(household.monthly_rent) || 0} missed={missedDue} arrears={missedArrears(ledger, Number(household.monthly_rent) || 0)} recorded={ledger.recordedRows.length} zh={zh} />

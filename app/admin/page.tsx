@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { useT } from '@/lib/i18n'
 import { useAdminPending } from '@/lib/admin/useAdminPending'
+import NorthStarPanel from '@/components/admin/NorthStarPanel'
 
 export default function AdminHomePage() {
   const { lang } = useT()
@@ -164,7 +165,7 @@ export default function AdminHomePage() {
             number (the "33 signups" incident, 2026-08-12). */}
         <div className="mt-8 rounded-2xl border border-line-divider bg-white p-6">
           <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-body-3">
-            {zh ? '平台实况 · 真实账号与匿名会话分开统计' : 'Platform · real accounts and anonymous sessions counted separately'}
+            {zh ? '平台实况 · 全部账号（含管理员与测试号），与匿名会话分开统计' : 'Platform · all accounts (admins and test accounts included), counted apart from anonymous sessions'}
           </div>
           {stats === 'error' ? (
             <p className="mt-3 text-[13px] text-red-600">{zh ? '指标加载失败' : 'Stats failed to load'}</p>
@@ -173,7 +174,7 @@ export default function AdminHomePage() {
           ) : (
             <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
               {([
-                [zh ? '真实注册' : 'Real users', stats.real_users, zh ? `30 天 +${stats.real_users_30d}` : `+${stats.real_users_30d} /30d`],
+                [zh ? '注册账号（含测试号）' : 'Accounts (incl. test)', stats.real_users, zh ? `30 天 +${stats.real_users_30d}` : `+${stats.real_users_30d} /30d`],
                 [zh ? '匿名试用会话' : 'Anon sessions', stats.anon_sessions, zh ? `${stats.anon_with_screenings} 个跑过筛查` : `${stats.anon_with_screenings} screened`],
                 [zh ? '筛查总量' : 'Screenings', stats.screenings_total, zh ? `30 天 ${stats.screenings_30d} 单 · ${stats.screeners_30d} 人` : `${stats.screenings_30d} /30d by ${stats.screeners_30d}`],
                 [zh ? '在管租约' : 'Households', stats.households, zh ? `${stats.household_invites_pending} 邀请待接受` : `${stats.household_invites_pending} invites pending`],
@@ -189,6 +190,9 @@ export default function AdminHomePage() {
             </div>
           )}
         </div>
+
+        {/* The four numbers over real accounts only (V0.9): the strip above counts admins and test accounts in. */}
+        <NorthStarPanel zh={zh} enabled={!!role} />
 
         <div className="mt-8 grid gap-5 sm:grid-cols-2">
           {cards.map((c) => (
