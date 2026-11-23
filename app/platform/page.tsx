@@ -64,7 +64,6 @@ const STAGES: Stage[] = [
       { t: { zh: 'N 表工具箱 · N1 / N2 / N4 / N12 / N13', en: 'N-form toolbox · N1 / N2 / N4 / N12 / N13' }, href: '/landlord/leases' },
       { t: { zh: '退租 · N9 60 天', en: 'Move-out · N9, 60 days' }, href: '/rules' },
       { t: { zh: '租客护照 · 已确认租史，只读分享', en: 'Tenant passport · confirmed tenancy, read-only sharing' }, href: '/tenant/passport' },
-      { t: { zh: '租金记录上报信用局', en: 'Rent reporting to credit bureaus' }, href: '/tenant/passport', status: 'soon' },
     ],
   },
 ]

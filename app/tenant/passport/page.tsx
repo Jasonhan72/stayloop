@@ -6,9 +6,11 @@
 // self-declared sections + files + consent, lib/profile/*), the preview /
 // printable export (lib/profile/exportPack.ts), the read-only share link
 // (/p/<token>: initials + on-time rent record from leases both sides
-// confirmed), the Stayloop API read scopes on that link, and the
-// rent-reporting waitlist. The four sample stamps, the sample view log and
-// the sample verification history are gone — nothing here is a placeholder.
+// confirmed) and the Stayloop API read scopes on that link. The four sample
+// stamps, the sample view log and the sample verification history are gone —
+// nothing here is a placeholder. The bureau-reporting "coming soon" card and
+// its waitlist went on 2026-11-22: no such agreement is being worked on, so
+// the page no longer says one is (nobody had joined the list).
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
@@ -187,14 +189,9 @@ export default function TenantPassport() {
   const [shareLoadErr, setShareLoadErr] = useState(false)
   const [shareTick, setShareTick] = useState(0)
 
-  // ── Rent-reporting waitlist (user_memories, zero new tables) ──
-  const [waitlistJoined, setWaitlistJoined] = useState(false)
-  const [waitlistBusy, setWaitlistBusy] = useState(false)
-
   useEffect(() => {
     if (!user) {
       setShareToken(null)
-      setWaitlistJoined(false)
       return
     }
     let cancelled = false
@@ -210,16 +207,6 @@ export default function TenantPassport() {
         if (cancelled) return
         if (error) { setShareLoadErr(true); return }
         if (data && data.length) setShareToken(data[0])
-      })
-    // Already on the rent-reporting waitlist?
-    supabase
-      .from('user_memories')
-      .select('id')
-      .eq('role', 'tenant')
-      .eq('key', 'waitlist_rent_reporting')
-      .limit(1)
-      .then(({ data }) => {
-        if (!cancelled && data && data.length) setWaitlistJoined(true)
       })
     return () => {
       cancelled = true
@@ -252,27 +239,6 @@ export default function TenantPassport() {
     if (!error) setShareToken(null)
     else setShareActionErr('revoke')
     setShareBusy(false)
-  }
-
-  const handleJoinWaitlist = async () => {
-    if (!user || waitlistJoined || waitlistBusy) return
-    setWaitlistBusy(true)
-    const { error } = await supabase.from('user_memories').upsert(
-      {
-        user_id: user.id,
-        role: 'tenant',
-        memory_type: 'system',
-        key: 'waitlist_rent_reporting',
-        label: '租金上报征信 · 等候名单',
-        value: { joined_at: new Date().toISOString() },
-        confidence: 1,
-        source: 'waitlist',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,role,memory_type,key' }
-    )
-    if (!error) setWaitlistJoined(true)
-    setWaitlistBusy(false)
   }
 
   const isRealShare = !!(user && shareToken)
@@ -542,44 +508,6 @@ export default function TenantPassport() {
           </div>
         </SectionCard>
 
-        {/* ── Rent reporting to credit bureau — waitlist ── */}
-        <SectionCard className="p-4 sm:p-5" padded={false}>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-[16px] font-bold tracking-tight">
-              {zh ? '上报到信用局' : 'Report rent to the credit bureau'}
-            </h2>
-            <span className="rounded-full bg-tenant/10 px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-tenant">
-              {zh ? '即将上线' : 'COMING SOON'}
-            </span>
-          </div>
-          <p className="mt-2 max-w-[560px] text-[13px] leading-relaxed text-body-2">
-            {zh
-              ? '按时交租也能积累信用：我们正在接入信用局，把你的按时租金记录上报 Equifax，帮你建立加拿大信用历史——对新移民尤其有用。上线后由你自主选择是否开启。'
-              : 'On-time rent can build credit too: we are working on reporting your on-time rent payments to Equifax to help build Canadian credit history — especially useful for newcomers. Opt-in only, once it launches.'}
-          </p>
-          <div className="mt-3">
-            {!user ? (
-              <Link href="/login" className="sl-btn-secondary inline-flex !px-4 !py-2 text-[13px]">
-                {zh ? '登录后加入等候名单' : 'Log in to join the waitlist'}
-              </Link>
-            ) : waitlistJoined ? (
-              <span className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold text-success">
-                {zh ? '已加入 ✓' : 'Joined ✓'}
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={handleJoinWaitlist}
-                disabled={waitlistBusy}
-                className="sl-btn-secondary !px-4 !py-2 text-[13px] disabled:opacity-60"
-              >
-                {waitlistBusy
-                  ? zh ? '提交中…' : 'Joining…'
-                  : zh ? '加入等候名单' : 'Join the waitlist'}
-              </button>
-            )}
-          </div>
-        </SectionCard>
       </div>
     </WorkspaceShell>
   )
