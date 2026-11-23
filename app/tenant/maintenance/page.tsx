@@ -114,7 +114,7 @@ function LiveTenantTickets({ zh, refreshKey, onNew }: { zh: boolean; refreshKey:
   // 找经纪和服务商 (2026-11-16): the directory is one click away; repairs still start with a ticket.
   const findLine = (
     <p className="mb-6 text-[12.5px] leading-relaxed text-body-3" data-testid="tenant-find-line">
-      {zh ? '想看看有哪些维修服务商，或者找专业服务（租客险、Paralegal）？' : 'Want to see the repair providers, or find professional services (tenant insurance, a paralegal)?'}{' '}
+      {zh ? '想看看有哪些物业管理服务商，或者找专业服务（租客险、Paralegal）？' : 'Want to see the property maintenance providers, or find professional services (tenant insurance, a paralegal)?'}{' '}
       <Link href="/providers" className="font-semibold text-tenant hover:underline">{zh ? '找经纪和服务商 →' : 'Find agents and providers →'}</Link>
     </p>
   )

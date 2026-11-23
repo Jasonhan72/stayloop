@@ -45,10 +45,10 @@ export function assistantItems(role: WorkspaceRole): RailItem[] {
 
 // One entry per page, grouped (2026-10-04): 消息 (talking to people) · the hat's
 // pages · records. 找人 (2026-11-16) sits under 消息 in every hat's rail: the one door to
-// 「找经纪和服务商」 (agents · repair providers · professional services). The rail stays icon-only with the name on hover (user
+// 「找经纪和服务商」 (agents · property maintenance · professional services). The rail stays icon-only with the name on hover (user
 // 2026-10-04: 「保持只有图标」); no icon repeats within one hat's rail.
 /** 找人 → 「找经纪和服务商」 (components/directory/FindHeader.tsx). The same entry for every hat. */
-export const FIND_ITEM: RailItem = { key: 'find', href: '/agents', icon: <FindIcon />, label: { zh: '找人', en: 'Find people' }, desc: { zh: '找经纪、维修服务商和专业服务', en: 'Find agents, repair providers and professional services' }, group: 'inbox' }
+export const FIND_ITEM: RailItem = { key: 'find', href: '/agents', icon: <FindIcon />, label: { zh: '找人', en: 'Find people' }, desc: { zh: '找经纪、物业管理服务和专业服务', en: 'Find agents, property maintenance and professional services' }, group: 'inbox' }
 
 export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   tenant: [
@@ -70,7 +70,7 @@ export const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
     { key: 'lease',     href: '/landlord/leases',  icon: <LeaseIcon />,   label: { zh: '租约', en: 'Leases' } , desc: { zh: '租约、电子签与续约', en: 'Leases, e-signing and renewals' }, group: 'pages' },
     { key: 'notices',   href: '/landlord/notices', icon: <NoticeIcon />,  label: { zh: '通知', en: 'Notices' } , desc: { zh: 'N 表日期算术、填写稿与送达记录', en: 'N-form date arithmetic, fill-in sheets and service records' }, group: 'pages' },
     { key: 'maint',     href: '/landlord/maintenance', icon: <ToolIcon />,label: { zh: '维修', en: 'Repairs' } , desc: { zh: '报修工单与派单', en: 'Repair tickets and dispatch' }, group: 'pages' },
-    { key: 'providers', href: '/landlord/providers', icon: <UsersIcon />, label: { zh: '服务商', en: 'Providers' } , desc: { zh: '维修服务商目录与派单策略', en: 'Repair providers and your dispatch policy' }, group: 'pages' },
+    { key: 'providers', href: '/landlord/providers', icon: <UsersIcon />, label: { zh: '服务商', en: 'Providers' } , desc: { zh: '物业管理服务商与派单策略', en: 'Maintenance providers and your dispatch policy' }, group: 'pages' },
     { key: 'fin',       href: '/landlord/finance', icon: <CashIcon />,    label: { zh: '财务', en: 'Finance' } , desc: { zh: '收支面板（示范，尚未上线）', en: 'Finance panel (sample, not live yet)' }, group: 'pages' },
     { key: 'audit',     href: '/landlord/audit',   icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '你的操作和它替你做的事，逐条留痕', en: 'Everything you and your AI Agent did, line by line' }, group: 'records' },
   ],

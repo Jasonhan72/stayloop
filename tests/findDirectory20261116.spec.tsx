@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // 2026-11-16 · 「找经纪和服务商」 — one section, three tabs (design/find-directory-2026-11-16.md).
-// 经纪 /agents (public) · 维修服务 /providers (new, signed in) · 专业服务 /providers/professional.
+// 经纪 /agents (public) · 物业管理服务 /providers (new, signed in; called 维修服务 until 2026-11-23) ·
+// 专业服务 /providers/professional.
 // Every hat reaches it from the workspace rail (找人, under 消息), the avatar menu and the footer;
 // the header row is unchanged. No new anonymous data: the repair directory asks for nothing until
 // someone is signed in. Tenants can view and contact, never dispatch. Fixed order, no ranking.
@@ -72,10 +73,10 @@ const cred = (provider_id: string, kind: string, expires_at: string | null = '20
 const HANDYMAN_OK = (id: string) => [cred(id, 'business_registration'), cred(id, 'liability_insurance')]
 
 describe('one section, three tabs, three real addresses', () => {
-  it('the tabs are 经纪 · 维修服务 · 专业服务 and the section lands on /agents', () => {
+  it('the tabs are 经纪 · 物业管理服务 · 专业服务 and the section lands on /agents', () => {
     expect(FIND_TABS.map((t) => [t.key, t.href, t.zh])).toEqual([
       ['agents', '/agents', '经纪'],
-      ['repairs', '/providers', '维修服务'],
+      ['repairs', '/providers', '物业管理服务'],
       ['professional', '/providers/professional', '专业服务'],
     ])
     expect(FIND_HREF).toBe('/agents')
@@ -104,7 +105,7 @@ describe('one section, three tabs, three real addresses', () => {
 
 describe('entries: rail, avatar menu, footer, /services — the header row is unchanged', () => {
   it('every hat’s rail has 找人 right under 消息, with its own icon', () => {
-    expect(FIND_ITEM).toMatchObject({ key: 'find', href: '/agents', group: 'inbox', label: { zh: '找人' }, desc: { zh: '找经纪、维修服务商和专业服务' } })
+    expect(FIND_ITEM).toMatchObject({ key: 'find', href: '/agents', group: 'inbox', label: { zh: '找人' }, desc: { zh: '找经纪、物业管理服务和专业服务' } })
     for (const role of ['tenant', 'landlord', 'agent'] as const) {
       const items = RAIL_BY_ROLE[role]
       const i = items.findIndex((it) => it.key === 'msgs')

@@ -1,8 +1,9 @@
 'use client'
 
 // 「找经纪和服务商」 (2026-11-16, design/find-directory-2026-11-16.md): one section, three tabs,
-// three real addresses — /agents (public), /providers (repairs, signed in), /providers/professional
-// (signed in). Every hat reaches it from the workspace rail, the avatar menu and the footer; the
+// three real addresses — /agents (public), /providers (物业管理服务, signed in), /providers/professional
+// (signed in). The middle tab was 「维修服务」 until 2026-11-23, when the user renamed this kind of
+// provider everywhere (lib/marketplace/onboardKind.ts); its key and test id stay `repairs`. Every hat reaches it from the workspace rail, the avatar menu and the footer; the
 // header row is unchanged. This component is the shared title + tab bar; each page puts its own
 // sub-heading, intro and filters underneath as children.
 import Link from 'next/link'
@@ -16,7 +17,7 @@ export const FIND_HREF = '/agents'
 
 export const FIND_TABS: { key: FindTab; href: string; zh: string; en: string }[] = [
   { key: 'agents', href: '/agents', zh: '经纪', en: 'Agents' },
-  { key: 'repairs', href: '/providers', zh: '维修服务', en: 'Repairs' },
+  { key: 'repairs', href: '/providers', zh: '物业管理服务', en: 'Property maintenance' },
   { key: 'professional', href: '/providers/professional', zh: '专业服务', en: 'Professionals' },
 ]
 
@@ -28,6 +29,13 @@ export function TestDataTag({ zh }: { zh: boolean }) {
 export default function FindHeader({ active, children }: { active: FindTab; children?: ReactNode }) {
   const { lang } = useT()
   const zh = lang === 'zh'
+  // The three Chinese names fit across a 360px phone as they are and never wrap. The English ones do
+  // not since the middle tab became 「Property maintenance」 (2026-11-23): below `sm` the English tabs
+  // are tighter and may shrink, so the two-word name folds onto two lines — the other two are single
+  // words and keep their width — instead of pushing 「Professionals」 off the screen.
+  const fit = zh
+    ? 'flex-none whitespace-nowrap px-4 text-[15px]'
+    : 'px-3 text-center text-[14px] leading-[1.15] sm:flex-none sm:whitespace-nowrap sm:px-4 sm:text-[15px]'
   return (
     <section style={{ background: 'linear-gradient(180deg,#EFF4FF 0%,#FFFFFF 100%)' }}>
       <div className="mx-auto max-w-[1320px] px-6 pb-8 pt-12 sm:px-8 lg:px-12">
@@ -46,7 +54,7 @@ export default function FindHeader({ active, children }: { active: FindTab; chil
                 href={t.href}
                 aria-current={on ? 'page' : undefined}
                 data-testid={`find-tab-${t.key}`}
-                className={'flex min-h-[44px] flex-none items-center whitespace-nowrap border-b-2 px-4 text-[15px] font-semibold transition ' + (on ? 'border-[#1B1B3C] text-body' : 'border-transparent text-body-2 hover:text-body')}
+                className={`flex min-h-[44px] items-center border-b-2 font-semibold transition ${fit} ` + (on ? 'border-[#1B1B3C] text-body' : 'border-transparent text-body-2 hover:text-body')}
               >
                 {zh ? t.zh : t.en}
               </Link>

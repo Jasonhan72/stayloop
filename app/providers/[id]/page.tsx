@@ -13,7 +13,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import { TestDataTag } from '@/components/directory/FindHeader'
+import { FIND_TABS, TestDataTag } from '@/components/directory/FindHeader'
 import ProviderAvatar from '@/components/directory/ProviderAvatar'
 import ProviderContact from '@/components/directory/ProviderContact'
 import { isTestName } from '@/components/listing/testAccounts'
@@ -92,9 +92,9 @@ export default function ProviderProfilePage() {
   const trades = p ? tradeCoverage(p, creds, new Date(), graceDays) : []
   const repair = trades.some((t) => !t.professional)
   const professionalOnly = trades.length > 0 && !repair
-  const back = professionalOnly
-    ? { href: '/providers/professional', label: zh ? '专业服务' : 'Professionals' }
-    : { href: '/providers', label: zh ? '维修服务' : 'Repairs' }
+  // the crumb is the tab the provider is listed under, by that tab's own name
+  const tab = FIND_TABS.find((t) => t.key === (professionalOnly ? 'professional' : 'repairs'))!
+  const back = { href: tab.href, label: zh ? tab.zh : tab.en }
   const tradeLabel = (k: string) => { const d = TRADES.find((x) => x.key === k); return d ? (zh ? d.zh : d.en) : k }
   const rating = p ? ratingFor(p.id, reviews) : null
   const credRows = p ? credentialRows(p.id, creds) : []

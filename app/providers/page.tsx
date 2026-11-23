@@ -1,7 +1,7 @@
 'use client'
 
 // /providers — the repair-provider directory (2026-11-16, design/find-directory-2026-11-16.md),
-// the 维修服务 tab of 「找经纪和服务商」. The verified part of the landlord's provider page, shown
+// the 物业管理服务 tab of 「找经纪和服务商」 (called 维修服务 until 2026-11-23). The verified part of the landlord's provider page, shown
 // to every signed-in hat: view and contact only — dispatch stays with the landlord, on the
 // maintenance page. Anonymous visitors see the trades and a sign-in prompt, never a provider
 // (provider_directory is readable by signed-in accounts only). Fixed order, no ranking, no
@@ -85,13 +85,13 @@ export default function RepairDirectoryPage() {
       <Header variant="transparent" />
       <FindHeader active="repairs">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-[20px] font-semibold tracking-tight">{zh ? '维修服务商' : 'Repair providers'}</h2>
+          <h2 className="text-[20px] font-semibold tracking-tight">{zh ? '物业管理服务商' : 'Property maintenance providers'}</h2>
           <span className="rounded-full border border-line-divider bg-white px-3 py-[3px] text-[12.5px]" data-testid="providers-pilot">{zh ? '试点 · 多伦多及周边' : 'Pilot · Toronto and nearby'}</span>
         </div>
         <p className="mt-2 max-w-[720px] text-[14.5px] leading-[1.6] text-body-2">
           {zh
-            ? '水管、电气、供暖这类上门维修。每一家的资质都由 Stayloop 工作人员对照公开注册库人工核过，到期就不再算数。'
-            : 'Plumbing, electrical, heating and other on-site repairs. Stayloop staff check each provider’s credentials by hand against the public registers; an expired credential stops counting.'}
+            ? '水管、电气、供暖、门锁、清洁这类物业管理服务。每一家的资质都由 Stayloop 工作人员对照公开注册库人工核过，到期就不再算数。'
+            : 'Plumbing, electrical, heating, locks, cleaning and other property maintenance. Stayloop staff check each provider’s credentials by hand against the public registers; an expired credential stops counting.'}
         </p>
         {who === 'tenant' && (
           <div className="mt-4 flex max-w-[760px] flex-wrap items-center gap-3 rounded-2xl border border-line-divider bg-white px-4 py-3 text-[14px] leading-relaxed" data-testid="providers-role-hint">
