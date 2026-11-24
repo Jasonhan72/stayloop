@@ -13,6 +13,9 @@ import JoinEntry from './JoinEntry'
 
 export type FindTab = 'agents' | 'repairs' | 'professional'
 
+/** The ground the three tabs sit on: a tint of the header's blue, so white cards and the white filter bar stand off it. */
+export const FIND_GROUND = '#F6F9FC'
+
 /** The section's landing address — what the rail, the avatar menu and the footer link to. */
 export const FIND_HREF = '/agents'
 
@@ -35,10 +38,12 @@ export default function FindHeader({ active, children }: { active: FindTab; chil
   // are tighter and may shrink, so the two-word name folds onto two lines — the other two are single
   // words and keep their width — instead of pushing 「Professionals」 off the screen.
   const fit = zh
-    ? 'flex-none whitespace-nowrap px-4 text-[15px]'
-    : 'px-3 text-center text-[14px] leading-[1.15] sm:flex-none sm:whitespace-nowrap sm:px-4 sm:text-[15px]'
+    ? 'flex-none whitespace-nowrap px-4 text-[15px] sm:px-5'
+    : 'px-3 text-center text-[14px] leading-[1.15] sm:flex-none sm:whitespace-nowrap sm:px-5 sm:text-[15px]'
   return (
-    <section style={{ background: 'linear-gradient(180deg,#EFF4FF 0%,#FFFFFF 100%)' }}>
+    // 2026-11-23 redesign: the section runs into the page's tinted ground (FIND_GROUND) instead of fading
+    // to white, so the white cards below read as cards.
+    <section style={{ background: `linear-gradient(180deg,#E8F1FD 0%,${FIND_GROUND} 100%)` }}>
       <div className="mx-auto max-w-[1320px] px-6 pb-8 pt-12 sm:px-8 lg:px-12">
         {/* The title on the left; the way in for agents and providers on the right (under the note on a phone). */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
@@ -52,7 +57,8 @@ export default function FindHeader({ active, children }: { active: FindTab; chil
           </div>
           <JoinEntry zh={zh} />
         </div>
-        <nav className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line-divider" aria-label={zh ? '找经纪和服务商' : 'Find agents and service providers'} data-testid="find-tabs">
+        {/* The three tabs as one segmented control (the underline tabs read as a plain link row). */}
+        <nav className="mt-6 inline-flex max-w-full gap-1 rounded-2xl bg-[#DCE7F4]/80 p-1" aria-label={zh ? '找经纪和服务商' : 'Find agents and service providers'} data-testid="find-tabs">
           {FIND_TABS.map((t) => {
             const on = t.key === active
             return (
@@ -61,7 +67,7 @@ export default function FindHeader({ active, children }: { active: FindTab; chil
                 href={t.href}
                 aria-current={on ? 'page' : undefined}
                 data-testid={`find-tab-${t.key}`}
-                className={`flex min-h-[44px] items-center border-b-2 font-semibold transition ${fit} ` + (on ? 'border-[#1B1B3C] text-body' : 'border-transparent text-body-2 hover:text-body')}
+                className={`flex min-h-[44px] items-center justify-center rounded-xl font-semibold transition ${fit} ` + (on ? 'bg-white text-ink shadow-[0_2px_8px_rgba(27,27,60,0.12)]' : 'text-body-2 hover:bg-white/50 hover:text-ink')}
               >
                 {zh ? t.zh : t.en}
               </Link>

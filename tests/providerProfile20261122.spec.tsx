@@ -164,7 +164,7 @@ describe('one card for both provider tabs, laid out like the agent card', () => 
   })
   it('both tabs render it, in the agent directory’s two-column grid', () => {
     const repair = read('app/providers/page.tsx')
-    expect(repair).toContain('<div className="mt-4 grid gap-4 lg:grid-cols-2" data-testid="providers-grid">')
+    expect(repair).toContain('<div className="mt-5 grid gap-4 lg:grid-cols-2 lg:gap-5" data-testid="providers-grid">')
     expect(repair).toContain('<ProviderCard')
     expect(repair).toContain('data-testid="providers-count"')
     const pro = read('app/providers/professional/page.tsx')

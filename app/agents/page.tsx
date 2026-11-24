@@ -11,7 +11,9 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { AgentBadge } from '@/components/AgentBadge'
-import FindHeader, { TestDataTag } from '@/components/directory/FindHeader'
+import FindHeader, { FIND_GROUND, TestDataTag } from '@/components/directory/FindHeader'
+import { FilterBar, FilterIcon, FilterSelect, FilterText } from '@/components/directory/FilterBar'
+import { CARD, CARD_ACTIONS, CARD_FACT, CARD_FOOT, CARD_MESSAGE, CARD_META, CARD_NAME, CARD_VIEW, CHIP, CHIP_QUIET } from '@/components/directory/cardStyle'
 import { isTestName } from '@/components/listing/testAccounts'
 import AgentAvatar from '@/components/agent/AgentAvatar'
 import { useT } from '@/lib/i18n'
@@ -85,15 +87,12 @@ export default function AgentsDirectoryPage() {
   const entries = useMemo(() => directoryEntries(items ?? [], basic, sort), [items, basic, sort])
   const reachable = items?.length ?? 0
   const filtered = !!(language || focus || area.trim() || q.trim())
-  // Explicit height: WebKit keeps a styled <select> at its native height and ignores the vertical padding, so the
-  // dropdowns sat 26px tall beside 42px text inputs in Safari (2026-11-18). 42px at the 16px phone font, 39px at 14px.
-  const sel = 'h-[42px] rounded-xl border border-line-divider bg-white px-3 py-2 text-[14px] outline-none focus:border-brand lg:h-[39px]'
   const countLine = zh
     ? `共 ${entries.length} 位经纪，${reachable === entries.length ? '都可以在站内联系' : reachable === 0 ? '暂时都还不能在站内联系' : `其中 ${reachable} 位可以在站内联系`}`
     : `${entries.length} ${entries.length === 1 ? 'agent' : 'agents'}, ${reachable === entries.length ? 'all reachable on Stayloop' : reachable === 0 ? 'none reachable on Stayloop yet' : `${reachable} reachable on Stayloop`}`
 
   return (
-    <div style={{ background: '#FFFFFF' }} className="text-body">
+    <div style={{ background: FIND_GROUND }} className="text-body">
       <Header variant="transparent" />
       <FindHeader active="agents">
         <h2 className="sl-type-head text-[20px] font-semibold tracking-tight">
@@ -104,17 +103,19 @@ export default function AgentsDirectoryPage() {
             ? '这里列出的经纪都由 Stayloop 工作人员对照 RECO 公开注册库人工核过。开了公开主页的可以按语言、专长和区域找，在站内直接发消息，不用留电话；没开主页的只列注册信息。'
             : 'Every agent here was checked by a Stayloop staff member against RECO’s public register. Those who published a profile can be filtered by language, focus and area and messaged on Stayloop without giving out your phone number; the rest are listed with their registration details only.'}
         </p>
-        <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]" data-testid="agents-filters">
-          <input className={`${sel} min-w-0`} value={area} onChange={(e) => setArea(e.target.value)} placeholder={zh ? '区域，例如 North York' : 'Area, e.g. North York'} aria-label={zh ? '区域' : 'Area'} />
-          <input className={`${sel} min-w-0`} value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} placeholder={zh ? '姓名或经纪公司' : 'Name or brokerage'} aria-label={zh ? '姓名或经纪公司' : 'Name or brokerage'} data-testid="agents-q" />
-          <select className={`${sel} min-w-0`} value={language} onChange={(e) => setLanguage(e.target.value)} aria-label={zh ? '语言' : 'Language'}>
-            <option value="">{zh ? '所有语言' : 'All languages'}</option>
-            {AGENT_LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l[L]}</option>)}
-          </select>
-          <select className={`${sel} min-w-0`} value={focus} onChange={(e) => setFocus(e.target.value)} aria-label={zh ? '专长' : 'Focus'}>
-            <option value="">{zh ? '所有专长' : 'Any focus'}</option>
-            {AGENT_FOCUS.map((f) => <option key={f.code} value={f.code}>{f[L]}</option>)}
-          </select>
+        <div className="mt-6">
+          <FilterBar cols="sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.8fr)]" testid="agents-filters">
+            <FilterText icon={FilterIcon.pin} value={area} onChange={(e) => setArea(e.target.value)} placeholder={zh ? '区域，例如 North York' : 'Area, e.g. North York'} aria-label={zh ? '区域' : 'Area'} />
+            <FilterText icon={FilterIcon.search} value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} placeholder={zh ? '姓名或经纪公司' : 'Name or brokerage'} aria-label={zh ? '姓名或经纪公司' : 'Name or brokerage'} data-testid="agents-q" />
+            <FilterSelect icon={FilterIcon.globe} value={language} onChange={(e) => setLanguage(e.target.value)} aria-label={zh ? '语言' : 'Language'}>
+              <option value="">{zh ? '所有语言' : 'All languages'}</option>
+              {AGENT_LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l[L]}</option>)}
+            </FilterSelect>
+            <FilterSelect icon={FilterIcon.tag} value={focus} onChange={(e) => setFocus(e.target.value)} aria-label={zh ? '专长' : 'Focus'}>
+              <option value="">{zh ? '所有专长' : 'Any focus'}</option>
+              {AGENT_FOCUS.map((f) => <option key={f.code} value={f.code}>{f[L]}</option>)}
+            </FilterSelect>
+          </FilterBar>
         </div>
       </FindHeader>
 
@@ -142,74 +143,78 @@ export default function AgentsDirectoryPage() {
           <>
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2" data-testid="agents-result-row">
               <div className="text-[15px] font-semibold" data-testid="agents-count">{countLine}</div>
-              <label className="flex items-center gap-2 text-[13px] text-body-2">
+              <label className="relative flex items-center gap-2 text-[13px] text-body-2">
                 {zh ? '排序' : 'Sort'}
-                <select className={sel} value={sort} onChange={(e) => setSort(e.target.value as DirectorySort)} data-testid="agents-sort">
+                <select className="h-11 cursor-pointer appearance-none rounded-full border border-line-divider bg-white pl-4 pr-9 text-[13.5px] font-semibold text-ink outline-none transition hover:border-brand focus:border-brand sm:h-10" value={sort} onChange={(e) => setSort(e.target.value as DirectorySort)} data-testid="agents-sort">
                   <option value="default">{zh ? '默认' : 'Default'}</option>
                   <option value="name">{zh ? '姓名 A–Z' : 'Name A–Z'}</option>
                 </select>
+                <svg aria-hidden width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-body-3"><path d="M6 9l6 6 6-6" /></svg>
               </label>
             </div>
             <p className="mt-1 text-[12px] text-body-3" data-testid="agents-order-note">
               {zh ? '默认顺序：开了主页的在前，其次按核验时间；没有推荐位，也不收排名费。' : 'Default order: agents with a profile first, then by when they were verified; no featured slots, no fee for position.'}
             </p>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2" data-testid="agents-grid">
+            <div className="mt-5 grid gap-4 lg:grid-cols-2 lg:gap-5" data-testid="agents-grid">
               {entries.map((e) => e.kind === 'public' ? (() => {
                 const a = e.agent
                 const href = `/agents/${a.slug}`
                 return (
-                  <article key={`p-${a.slug}`} className="flex min-w-0 flex-col rounded-2xl border border-line-divider bg-white p-5" data-testid="agent-card">
+                  <article key={`p-${a.slug}`} className={CARD} data-testid="agent-card">
                     <div className="flex items-start gap-4">
                       {/* The name beside it is the link; the photo repeats it for pointer users only. */}
-                      <Link href={href} tabIndex={-1} aria-hidden className="shrink-0"><AgentAvatar name={a.name} size={88} photoUrl={a.photo_url} shape="square" /></Link>
+                      <Link href={href} tabIndex={-1} aria-hidden className="shrink-0"><AgentAvatar name={a.name} size={72} photoUrl={a.photo_url} shape="square" /></Link>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Link href={href} className="min-w-0 break-words text-[17px] font-bold hover:underline" data-testid="agent-card-name">{a.name}</Link>
+                          <Link href={href} className={`${CARD_NAME} transition hover:text-brand`} data-testid="agent-card-name">{a.name}</Link>
                           {isTestName(a.name) && <TestDataTag zh={zh} />}
                         </div>
-                        <div className="text-[13px] text-body-2">{categoryLabel(a.category, L)}{a.crea_member ? ' · REALTOR®' : ''}</div>
-                        <div className="break-words text-[13.5px] font-semibold text-body" data-testid="agent-card-brokerage">{a.brokerage_name}</div>
+                        <div className={`mt-0.5 ${CARD_META}`}>{categoryLabel(a.category, L)}{a.crea_member ? ' · REALTOR®' : ''} · <span className="break-words font-semibold text-ink" data-testid="agent-card-brokerage">{a.brokerage_name}</span></div>
                         <div className="mt-2"><AgentBadge agent={a} lang={L} compact withNumber /></div>
                       </div>
                     </div>
                     {(a.languages.length > 0 || a.focus.length > 0) && (
-                      <div className="mt-3 flex flex-wrap gap-1.5" data-testid="agent-card-chips">
-                        {a.languages.map((c) => <span key={`l-${c}`} className="rounded-full bg-[#EFF4FF] px-2.5 py-[2px] text-[12px] font-semibold text-[#1D4ED8]">{languageLabel(c, L)}</span>)}
-                        {a.focus.map((c) => <span key={`f-${c}`} className="rounded-full border border-line-divider px-2.5 py-[2px] text-[12px] text-body-2">{focusLabel(c, L)}</span>)}
+                      <div className="mt-4 flex flex-wrap gap-1.5" data-testid="agent-card-chips">
+                        {a.languages.map((c) => <span key={`l-${c}`} className={`${CHIP} bg-[#EAF1FF] text-[#1D4ED8]`}>{languageLabel(c, L)}</span>)}
+                        {a.focus.map((c) => <span key={`f-${c}`} className={CHIP_QUIET}>{focusLabel(c, L)}</span>)}
                       </div>
                     )}
                     {a.service_areas.length > 0 && (
-                      <div className="mt-2 text-[12.5px] text-body-2" data-testid="agent-card-areas">
-                        {zh ? '服务区域：' : 'Areas: '}{a.service_areas.slice(0, AREAS_ON_CARD).join(' · ')}{a.service_areas.length > AREAS_ON_CARD ? ` +${a.service_areas.length - AREAS_ON_CARD}` : ''}
+                      <div className={`mt-3 ${CARD_FACT}`} data-testid="agent-card-areas">
+                        <span className="mt-[3px] text-body-3">{FilterIcon.pin}</span>
+                        <span className="min-w-0">{zh ? '服务区域：' : 'Areas: '}{a.service_areas.slice(0, AREAS_ON_CARD).join(' · ')}{a.service_areas.length > AREAS_ON_CARD ? ` +${a.service_areas.length - AREAS_ON_CARD}` : ''}</span>
                       </div>
                     )}
-                    {a.signals && <div className="mt-1 text-[12px] text-body-3" data-testid="agent-signals">{signalLine(a.signals, L)}</div>}
-                    <div className="mt-auto flex gap-2 pt-4">
-                      <Link href={href} className="flex min-h-[42px] flex-1 items-center justify-center rounded-xl border border-line-strong px-4 text-[13.5px] font-semibold text-body transition hover:border-[#2563EB]" data-testid="agent-card-view">{zh ? '看主页' : 'View profile'}</Link>
-                      <Link href={`${href}#contact`} className="sl-btn-primary flex min-h-[42px] flex-1 items-center justify-center !px-4 !py-0 !text-[13.5px]" data-testid="agent-card-message">{zh ? '发消息' : 'Message'}</Link>
+                    {a.signals && <div className="mt-1.5 text-[12px] leading-relaxed text-body-3" data-testid="agent-signals">{signalLine(a.signals, L)}</div>}
+                    <div className={CARD_FOOT}>
+                      <div className={CARD_ACTIONS}>
+                        <Link href={href} className={CARD_VIEW} data-testid="agent-card-view">{zh ? '看主页' : 'View profile'}</Link>
+                        <Link href={`${href}#contact`} className={CARD_MESSAGE} data-testid="agent-card-message">{zh ? '发消息' : 'Message'}</Link>
+                      </div>
                     </div>
                   </article>
                 )
               })() : (() => {
                 const a = e.agent
                 return (
-                  <article key={`b-${a.reco_number}`} className="flex min-w-0 flex-col rounded-2xl border border-line-divider bg-white p-5" data-testid="agent-basic-card">
+                  <article key={`b-${a.reco_number}`} className={CARD} data-testid="agent-basic-card">
                     <div className="flex items-start gap-4">
-                      <AgentAvatar name={a.name} size={88} shape="square" muted />
+                      <AgentAvatar name={a.name} size={72} shape="square" muted />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="min-w-0 break-words text-[17px] font-bold" data-testid="agent-card-name">{a.name}</span>
-                          <span className="rounded-full border border-line-divider px-2 py-[1px] text-[11px] font-semibold text-body-3" data-testid="agent-no-profile-tag">{zh ? '未开主页' : 'No profile'}</span>
+                          <span className={CARD_NAME} data-testid="agent-card-name">{a.name}</span>
+                          <span className={CHIP_QUIET} data-testid="agent-no-profile-tag">{zh ? '未开主页' : 'No profile'}</span>
                           {isTestName(a.name) && <TestDataTag zh={zh} />}
                         </div>
-                        <div className="text-[13px] text-body-2">{categoryLabel(a.category, L)}{a.crea_member ? ' · REALTOR®' : ''}</div>
-                        <div className="break-words text-[13.5px] font-semibold text-body" data-testid="agent-card-brokerage">{a.brokerage_name}</div>
+                        <div className={`mt-0.5 ${CARD_META}`}>{categoryLabel(a.category, L)}{a.crea_member ? ' · REALTOR®' : ''} · <span className="break-words font-semibold text-ink" data-testid="agent-card-brokerage">{a.brokerage_name}</span></div>
                         <div className="mt-2"><AgentBadge agent={a} lang={L} compact withNumber /></div>
                       </div>
                     </div>
-                    <p className="mt-3 text-[12.5px] leading-relaxed text-body-3">{zh ? '只列注册信息，暂时不能在站内联系。' : 'Registration details only; not reachable on Stayloop yet.'}</p>
-                    <div className="mt-auto pt-4">
-                      <a href={RECO_REGISTER_URL} target="_blank" rel="noopener noreferrer" className="text-[13.5px] font-semibold text-brand underline-offset-2 hover:underline" data-testid="agent-basic-reco">{zh ? '在 RECO 注册库核实 ↗' : 'Check on the RECO register ↗'}</a>
+                    <p className="mt-4 text-[12.5px] leading-relaxed text-body-3">{zh ? '只列注册信息，暂时不能在站内联系。' : 'Registration details only; not reachable on Stayloop yet.'}</p>
+                    <div className={CARD_FOOT}>
+                      <div className="border-t border-line-divider pt-4 sm:text-right">
+                        <a href={RECO_REGISTER_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center text-[13.5px] font-semibold text-brand underline-offset-2 hover:underline sm:min-h-[40px]" data-testid="agent-basic-reco">{zh ? '在 RECO 注册库核实 ↗' : 'Check on the RECO register ↗'}</a>
+                      </div>
                     </div>
                   </article>
                 )

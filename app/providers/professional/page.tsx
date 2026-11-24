@@ -14,7 +14,7 @@
 import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import FindHeader from '@/components/directory/FindHeader'
+import FindHeader, { FIND_GROUND } from '@/components/directory/FindHeader'
 import ProviderCard from '@/components/directory/ProviderCard'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -27,6 +27,11 @@ import { CREDENTIAL_LABEL, coverageFor, isProfessionalTrade, PROFESSIONAL_TRADES
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; contact_email: string | null; contact_phone: string | null; verified_at: string | null; languages: string[] | null; photo_key: string | null }
 type Cred = { provider_id: string; kind: string; expires_at: string | null; verified_at: string | null }
+
+// The category filter: pills on the section's ground, the chosen one filled (2026-11-23 redesign).
+const PILL = 'flex min-h-[44px] items-center rounded-full border px-4 text-[13.5px] font-semibold transition sm:min-h-[40px]'
+const PILL_ON = 'border-ink bg-ink text-white'
+const PILL_OFF = 'border-line-divider bg-white text-body-2 hover:border-brand hover:text-brand'
 
 export default function ProfessionalDirectoryPage() {
   const { lang } = useT()
@@ -60,7 +65,7 @@ export default function ProfessionalDirectoryPage() {
   const byTrade = PROFESSIONAL_TRADES.filter((t) => trade === 'all' || t === trade).map((t) => ({ t, def: TRADES.find((x) => x.key === t)!, list: shown.filter((p) => p.trades.includes(t)) }))
 
   return (
-    <div style={{ background: '#FFFFFF' }} className="text-body">
+    <div style={{ background: FIND_GROUND }} className="text-body">
       <Header variant="transparent" />
       <FindHeader active="professional">
         <h2 className="sl-type-head max-w-[820px] text-[20px] font-semibold tracking-tight">{zh ? '持牌的人，牌照核过，你直接联系。' : 'Licensed people, licences checked, you contact them directly.'}</h2>
@@ -68,21 +73,21 @@ export default function ProfessionalDirectoryPage() {
           {zh ? '持牌 Paralegal（LTB 代理）、律师、保险经纪、房源摄影。Stayloop 工作人员对照 LSO、RIBO 公开名册人工核过牌照号；你和对方直接联系、直接签约。Stayloop 不派单、不收佣金、不给法律意见、不卖保险。' : 'Licensed paralegals (LTB representation), lawyers, insurance brokers, listing photographers. Stayloop staff check each licence number by hand against the LSO and RIBO public registers; you contact and contract with them directly. Stayloop dispatches nothing, takes no commission, gives no legal advice and sells no insurance.'}
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
-          <button type="button" onClick={() => setTrade('all')} aria-pressed={trade === 'all'} className={`rounded-full border px-4 py-1.5 text-[13px] font-semibold ${trade === 'all' ? 'border-brand bg-white text-brand' : 'border-line-divider bg-white'}`}>{zh ? '全部' : 'All'}</button>
-          {PROFESSIONAL_TRADES.map((t) => { const d = TRADES.find((x) => x.key === t)!; return <button key={t} type="button" onClick={() => setTrade(t)} aria-pressed={trade === t} className={`rounded-full border px-4 py-1.5 text-[13px] font-semibold ${trade === t ? 'border-brand bg-white text-brand' : 'border-line-divider bg-white'}`}>{zh ? d.zh : d.en}</button> })}
+          <button type="button" onClick={() => setTrade('all')} aria-pressed={trade === 'all'} className={`${PILL} ${trade === 'all' ? PILL_ON : PILL_OFF}`}>{zh ? '全部' : 'All'}</button>
+          {PROFESSIONAL_TRADES.map((t) => { const d = TRADES.find((x) => x.key === t)!; return <button key={t} type="button" onClick={() => setTrade(t)} aria-pressed={trade === t} className={`${PILL} ${trade === t ? PILL_ON : PILL_OFF}`}>{zh ? d.zh : d.en}</button> })}
         </div>
       </FindHeader>
       <section>
         <div className="mx-auto max-w-[1320px] px-6 pb-14 sm:px-8 lg:px-12">
           {!auth.loading && !auth.user && (
-            <p className="rounded-2xl border border-line-divider bg-surface-chip/40 p-5 text-[14px]" data-testid="professional-signin">{zh ? '登录后可以看到服务商与联系方式。' : 'Sign in to see providers and their contact details.'} <a href="/login?next=/providers/professional" className="font-semibold text-brand underline-offset-2 hover:underline">{zh ? '去登录 →' : 'Sign in →'}</a></p>
+            <p className="rounded-2xl border border-line-divider bg-white p-5 text-[14px] shadow-[0_1px_2px_rgba(27,27,60,0.04)]" data-testid="professional-signin">{zh ? '登录后可以看到服务商与联系方式。' : 'Sign in to see providers and their contact details.'} <a href="/login?next=/providers/professional" className="font-semibold text-brand underline-offset-2 hover:underline">{zh ? '去登录 →' : 'Sign in →'}</a></p>
           )}
           {auth.user && providers && byTrade.map(({ t, def, list }) => (
             <div key={t} className="mb-10" data-testid={`professional-group-${t}`}>
-              <h2 className="text-[20px] font-semibold tracking-tight">{zh ? def.zh : def.en}</h2>
+              <h2 className="flex flex-wrap items-center gap-2 text-[20px] font-semibold tracking-tight text-ink">{zh ? def.zh : def.en}{list.length > 0 && <span className="rounded-full bg-white px-2.5 py-[2px] text-[12.5px] font-semibold text-body-2 shadow-[0_0_0_1px_#E4EEF6]" data-testid="professional-group-count">{list.length}</span>}</h2>
               <p className="mt-1 text-[12.5px] text-body-3">{zh ? '需要的牌照：' : 'Licence required: '}{def.required.map((k) => (zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en)).join(zh ? '、' : ', ')}</p>
               {list.length === 0 ? <p className="mt-3 text-[13.5px] text-body-3" data-testid="professional-empty">{zh ? '这个类别暂时还没有入驻的服务商。' : 'No provider has joined in this category yet.'}</p> : (
-                <div className="mt-3 grid gap-4 lg:grid-cols-2">
+                <div className="mt-4 grid gap-4 lg:grid-cols-2 lg:gap-5">
                   {list.map((p) => {
                     const pc = creds.filter((c) => c.provider_id === p.id)
                     const cov = coverageFor(t, pc, new Date(), graceDays)

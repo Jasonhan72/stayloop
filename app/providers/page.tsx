@@ -14,7 +14,8 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import FindHeader from '@/components/directory/FindHeader'
+import FindHeader, { FIND_GROUND } from '@/components/directory/FindHeader'
+import { FilterBar, FilterIcon, FilterSelect, FilterText } from '@/components/directory/FilterBar'
 import ProviderCard from '@/components/directory/ProviderCard'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -76,12 +77,9 @@ export default function RepairDirectoryPage() {
   const filtered = trade !== 'all' || city !== 'all' || q.trim() !== ''
   // The same identity the header names (lib/displayIdentity.ts); it only picks the hint line — everyone sees the same directory.
   const who = auth.user && !hats.loading ? displayIdentity('/providers', home.onProvider, activeHat(hats, auth.role), hats) : null
-  // Explicit height: WebKit keeps a styled <select> at its native height and ignores the vertical padding, so the
-  // dropdowns sat 26px tall beside 42px text inputs in Safari (2026-11-18). 42px at the 16px phone font, 39px at 14px.
-  const sel = 'h-[42px] rounded-xl border border-line-divider bg-white px-3 py-2 text-[14px] outline-none focus:border-brand lg:h-[39px]'
 
   return (
-    <div style={{ background: '#FFFFFF' }} className="text-body">
+    <div style={{ background: FIND_GROUND }} className="text-body">
       <Header variant="transparent" />
       <FindHeader active="repairs">
         <div className="flex flex-wrap items-center gap-2">
@@ -112,16 +110,18 @@ export default function RepairDirectoryPage() {
           </div>
         )}
         {auth.user && (
-          <div className="mt-5 grid gap-2 sm:grid-cols-3 lg:max-w-[860px]" data-testid="providers-filters">
-            <input className={`${sel} min-w-0`} value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} placeholder={zh ? '服务商名称' : 'Provider name'} aria-label={zh ? '服务商名称' : 'Provider name'} data-testid="providers-q" />
-            <select className={`${sel} min-w-0`} value={trade} onChange={(e) => setTrade(e.target.value as Trade | 'all')} aria-label={zh ? '工种' : 'Trade'}>
-              <option value="all">{zh ? '全部工种' : 'All trades'}</option>
-              {REPAIR_TRADES.map((t) => <option key={t.key} value={t.key}>{zh ? t.zh : t.en}</option>)}
-            </select>
-            <select className={`${sel} min-w-0`} value={city} onChange={(e) => setCity(e.target.value)} aria-label={zh ? '城市' : 'City'}>
-              <option value="all">{zh ? '全部城市' : 'All cities'}</option>
-              {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+          <div className="mt-6 lg:max-w-[920px]">
+            <FilterBar cols="sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]" testid="providers-filters">
+              <FilterText icon={FilterIcon.search} value={q} maxLength={60} onChange={(e) => setQ(e.target.value)} placeholder={zh ? '服务商名称' : 'Provider name'} aria-label={zh ? '服务商名称' : 'Provider name'} data-testid="providers-q" />
+              <FilterSelect icon={FilterIcon.tool} value={trade} onChange={(e) => setTrade(e.target.value as Trade | 'all')} aria-label={zh ? '工种' : 'Trade'}>
+                <option value="all">{zh ? '全部工种' : 'All trades'}</option>
+                {REPAIR_TRADES.map((t) => <option key={t.key} value={t.key}>{zh ? t.zh : t.en}</option>)}
+              </FilterSelect>
+              <FilterSelect icon={FilterIcon.pin} value={city} onChange={(e) => setCity(e.target.value)} aria-label={zh ? '城市' : 'City'}>
+                <option value="all">{zh ? '全部城市' : 'All cities'}</option>
+                {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </FilterSelect>
+            </FilterBar>
           </div>
         )}
       </FindHeader>
@@ -129,7 +129,7 @@ export default function RepairDirectoryPage() {
       <main className="mx-auto max-w-[1320px] px-6 pb-16 sm:px-8 lg:px-12">
         {!auth.loading && !auth.user && (
           <div data-testid="providers-anon">
-            <p className="rounded-2xl border border-line-divider bg-surface-chip/40 p-5 text-[14px]" data-testid="providers-signin">
+            <p className="rounded-2xl border border-line-divider bg-white p-5 text-[14px] shadow-[0_1px_2px_rgba(27,27,60,0.04)]" data-testid="providers-signin">
               {zh ? '登录后可以看到服务商与联系方式。' : 'Sign in to see providers and their contact details.'}{' '}
               <Link href="/login?next=/providers" className="font-semibold text-brand underline-offset-2 hover:underline">{zh ? '去登录 →' : 'Sign in →'}</Link>
             </p>
@@ -154,7 +154,7 @@ export default function RepairDirectoryPage() {
             <p className="mt-1 text-[12px] text-body-3" data-testid="providers-order-note">
               {zh ? '排序固定：资质齐全的排在前面，其次按入驻先后；没有推荐位，也不收排名费。' : 'The order is fixed: providers with every credential in place come first, then by when they joined; no featured slots, no fee for position.'}
             </p>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2" data-testid="providers-grid">
+            <div className="mt-5 grid gap-4 lg:grid-cols-2 lg:gap-5" data-testid="providers-grid">
               {rows.map(({ p, trades, avg, reviews: n }) => (
                 <ProviderCard
                   key={p.id}
