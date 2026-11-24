@@ -67,8 +67,12 @@ describe('SL-LL-008 / 014 · settings redirect and pricing wording', () => {
   it('/landlord/settings redirects to /settings', () => {
     expect(readFileSync('proxy.ts', 'utf8')).toMatch(/\(landlord\|tenant\|agent\)\\\/settings/)
   })
-  it('the test-period banner says what "coming soon" means', () => {
-    expect(readFileSync('app/pricing/page.tsx', 'utf8')).toContain('标「即将推出」的模块尚未上线，不在免费范围内')
+  it('the banner that said what "coming soon" means is gone (user, 2026-11-23: 「整条都拿掉」); the cards still mark such modules', () => {
+    // SL-LL-014 added that sentence to the strip above the pricing hero; the user later removed the whole strip.
+    const s = readFileSync('app/pricing/page.tsx', 'utf8')
+    expect(s).not.toContain('data-testid="pricing-trial-banner"')
+    expect(s).not.toContain('不在免费范围内')
+    expect(s).toContain("cta: { zh: '即将推出', en: 'Coming soon' }")
   })
 })
 

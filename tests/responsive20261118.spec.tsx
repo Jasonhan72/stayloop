@@ -77,11 +77,12 @@ describe('lease document on a phone', () => {
 })
 
 describe('things that were covered, squeezed or cut', () => {
-  it('pricing: the trial banner is stacked above the hero that pulls itself up under the header', () => {
+  it('pricing: nothing sits between the header and the hero that pulls itself up under it', () => {
+    // 2026-11-18: a green banner sat here and the hero painted over it, so it was given `relative z-10`.
+    // 2026-11-23: the user removed the banner (「整条都拿掉」), so there is nothing left to cover.
     const src = read('app/pricing/page.tsx')
-    const banner = (src.match(/<div className="([^"]+)" data-testid="pricing-trial-banner">/) || [])[1] || ''
-    expect(banner).toContain('relative')
-    expect(banner).toContain('z-10')
+    expect(src).not.toContain('pricing-trial-banner')
+    expect(src).toMatch(/<main>\s*\{\/\*[\s\S]*?\*\/\}\s*<section\s+className="relative overflow-hidden"/)
     expect(src).toContain('marginTop: -72')
   })
 

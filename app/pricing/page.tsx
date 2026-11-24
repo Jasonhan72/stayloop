@@ -14,7 +14,6 @@
 // seven endpoints + MCP) and an institutional tier that is "contact us" until
 // there are real institutional callers (open-api research D4-2).
 import Link from 'next/link'
-import { TRIAL_DAYS } from '@/lib/billing/entitlement'
 import { LANDLORD_GO, LANDLORD_PRO, LANDLORD_PRO_PRICE } from '@/lib/billing/landlordPlans'
 import { useState } from 'react'
 import Header from '@/components/Header'
@@ -261,11 +260,8 @@ export default function PricingPage() {
     <>
       <Header variant="transparent" />
       <main>
-        {/* `relative z-10`: the hero right below pulls itself up 72px (to sit under the see-through header) and, being
-            positioned, painted over this banner — gone on desktop and tablet, one line of four on phones (2026-11-18). */}
-        <div className="relative z-10 border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-[13px] font-semibold text-emerald-900" data-testid="pricing-trial-banner">
-          {lang === 'zh' ? `租客永久免费 · 房东免费档永久免费 · 新注册的房东账号 Pro 功能免费试用 ${TRIAL_DAYS} 天，不要信用卡，到期自动降回免费档。标「即将推出」的模块尚未上线，不在免费范围内，也不会另收费。` : `Tenants: free forever · Landlord Go: free forever · New landlord accounts get every Pro feature free for ${TRIAL_DAYS} days, no card, then drop to Go automatically. Modules marked "coming soon" are not live yet; they are neither included nor charged for.`}
-        </div>
+        {/* No banner above the hero (user, 2026-11-23: 「整条都拿掉」): a green strip about the free tiers, the
+            trial and what 「即将推出」 means used to sit here. The hero pulls itself up under the see-through header. */}
         <section
           className="relative overflow-hidden"
           style={{ background: '#F3F8FC', borderBottom: '1px solid #E4EEF6', marginTop: -72, paddingTop: 72 }}
