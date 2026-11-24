@@ -130,6 +130,12 @@ describe('the turn: the server decides, the model is told, one card a turn', () 
     const both = '我有一份签好的租约，怎么导入进来、每月记租金？'
     expect([wantsLeaseImport(both), wantsRentRecord(both)]).toEqual([true, true])
   })
+  it('a visitor is told to sign in, not to say it again: the preview never has these cards', () => {
+    // 2026-11-24, seen on production: the anonymous landlord preview answered 「说一句 X 月的租金收到了，下面会弹出卡」 — and no card can come
+    const anon = route.match(/const ANON_PROMPT_ADDENDUM = `([\s\S]*?)`\n/)?.[1] ?? ''
+    expect(anon).toContain('(导入租约的卡、记租金的卡)只在登录后的对话里出现,这个预览会话里不会有')
+    expect(anon).toContain('【不要】让他在这里「再说一句」来唤起卡片,也不要说下面有卡')
+  })
   it('the note keeps the reply in step with the card', () => {
     expect(RENT_RECORD_TURN_NOTE).toContain('系统会在你这条回复下面放一张「记租金」卡')
     expect(RENT_RECORD_TURN_NOTE).toContain('点确认之后才会记上')
