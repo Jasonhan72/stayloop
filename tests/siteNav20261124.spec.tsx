@@ -28,6 +28,10 @@ vi.mock('@/lib/useHomeHref', () => ({ useHomeHref: () => ({ href: '/', onProvide
 vi.mock('@/components/Logo', () => ({ default: () => React.createElement('span', null, 'stayloop') }))
 vi.mock('@/components/Header', () => ({ default: () => React.createElement('header') }))
 vi.mock('@/lib/supabase', () => ({ supabase: { from: () => { throw new Error('no data is read in this spec') } } }))
+// the product page carries an ask bar (components/agent/AskBar) that reads who is signed in and navigates on submit
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => {}, prefetch: () => {} }), usePathname: () => '/platform' }))
+vi.mock('@/lib/useAuth', () => ({ useAuth: () => ({ loading: false, user: null, role: null }), roleStorageKey: (id: string) => `role:${id}`, roleFromPath: () => null }))
+vi.mock('@/lib/useHats', () => ({ useHats: () => ({ loading: false, tenant: false, landlord: false, agent: null, provider: null, admin: false, refresh: async () => {} }) }))
 
 import { I18nProvider } from '../lib/i18n'
 import Footer from '../components/Footer'

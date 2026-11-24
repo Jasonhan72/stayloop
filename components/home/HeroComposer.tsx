@@ -64,7 +64,8 @@ export const ROLE_LABEL: Record<AssistantRole, Bi> = {
 
 const ROTATE_MS = 6000
 const CHANGE_GRACE_MS = 1500
-const ROLE_KEY = 'sl-home-ask-role'
+/** The role picked in this tab — shared with the one-line ask bar on other pages (components/agent/AskBar). */
+export const ROLE_KEY = 'sl-home-ask-role'
 
 const roleTag = (ex: HeroExample, chip: AssistantRole, zh: boolean) =>
   ex.role === chip ? '' : zh ? `（${ROLE_LABEL[ex.role].zh}）` : ` (${ROLE_LABEL[ex.role].en.toLowerCase()})`

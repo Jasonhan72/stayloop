@@ -11,20 +11,29 @@
 // block each — the list is lib/nav/siteNav.ts PRODUCT_PAGE_MODULES (the product list without this
 // page). 房源 and 租客筛查 are not on that list and appear nowhere on this page, the lifecycle section
 // included: they are the header row's own items. The page:
-//   hero + jump links → the modules → the lifecycle → what runs through it → the API → resources →
-//   the four role pages.
+//   hero + ask bar + jump links → the modules → the lifecycle → what runs through it → the API →
+//   resources → the four role pages.
+// The same day (user: 「所有产品页面里的模块，都要能在 AI 对话里调用…是不是在产品页，要加上 AI 对话的功能？或者用
+// 已经有的 AI 主对话？」): the page does not get a conversation of its own — a person has one AI Agent.
+// It gets doors into that conversation: one ask bar under the headline (components/agent/AskBar),
+// and under each module the sentences that start it (lib/agent/productModules.ts — the list the
+// assistant's own prompt is built from), each a link that sends the sentence as that role.
 // Every capability listed links to the page that actually does it and carries its real status;
 // nothing here is a promise.
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import AskBar from '@/components/agent/AskBar'
+import { ROLE_LABEL } from '@/components/home/HeroComposer'
 import { FIND_GROUND } from '@/components/directory/FindHeader'
 import { PANEL } from '@/components/directory/cardStyle'
 import { eyebrowFor } from '@/lib/ui/eyebrow'
 import { useT, type Lang } from '@/lib/i18n'
 import { PRODUCT_PAGE_MODULES, RESOURCE_NAV } from '@/lib/nav/siteNav'
 import { PROVIDER_ACCENT, ROLE_THEME } from '@/lib/roleTheme'
+import { moduleInChat, type ModuleAsk } from '@/lib/agent/productModules'
+import { assistantPromptHref } from '@/lib/homeDeepLink'
 
 type Bi = { zh: string; en: string }
 const pick = (b: Bi, lang: Lang) => (lang === 'zh' ? b.zh : b.en)
@@ -166,6 +175,42 @@ const EYEBROW = 'font-mono text-[11px] font-bold uppercase tracking-eyebrowLg te
 const H2 = 'mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-ink sm:text-[32px]'
 const JUMP = 'flex min-h-[40px] items-center rounded-full border border-line-divider bg-white px-4 text-[13.5px] font-semibold text-ink transition hover:border-brand hover:text-brand'
 
+/** The sentences that start a module in the AI conversation: each one a link into that role's AI Agent page, sent on arrival. */
+function ModuleAsks({ asks, lang, dark = false }: { asks: ModuleAsk[]; lang: Lang; dark?: boolean }) {
+  if (!asks.length) return null
+  const zh = lang === 'zh'
+  return (
+    <div className="mt-5" data-testid="platform-module-asks">
+      <div className="flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: dark ? '#93C5FD' : '#0E7FAE' }}>
+        <svg aria-hidden width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></svg>
+        {zh ? '也可以直接跟 AI 助理说' : 'Or just tell the AI Agent'}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {asks.map((a) => {
+          const said = pick(a.ask, lang)
+          return (
+            <Link
+              key={a.role + a.ask.en}
+              href={assistantPromptHref(a.role, said)}
+              aria-label={zh ? `以${ROLE_LABEL[a.role].zh}身份问 AI 助理：${said}` : `Ask the AI Agent as a${a.role === 'agent' ? 'n' : ''} ${ROLE_LABEL[a.role].en.toLowerCase()}: ${said}`}
+              data-testid="platform-module-ask"
+              data-role={a.role}
+              className={`group inline-flex min-h-[44px] max-w-full items-center gap-2 rounded-2xl border px-3.5 py-2 text-left text-[13.5px] leading-snug transition sm:min-h-[40px] ${dark ? 'border-white/20 bg-white/5 text-white hover:border-white/60' : 'border-line-divider bg-[#F8FAFC] text-ink hover:border-brand hover:bg-white'}`}
+            >
+              <span className="inline-flex flex-none items-center gap-1.5 text-[12px]" style={{ color: dark ? '#CBD5E1' : undefined }}>
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: WHO[a.role].color }} />
+                <span className={dark ? '' : 'text-body-2'}>{pick(ROLE_LABEL[a.role], lang)}</span>
+              </span>
+              <span className="min-w-0">{zh ? `「${said}」` : `“${said}”`}</span>
+              <span aria-hidden className={`flex-none transition group-hover:translate-x-0.5 ${dark ? 'text-white/70' : 'text-brand'}`}>→</span>
+            </Link>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function PlatformPage() {
   const { lang, t } = useT()
   const zh = lang === 'zh'
@@ -184,9 +229,18 @@ export default function PlatformPage() {
           </h1>
           <p className="mt-4 max-w-[700px] text-[16px] leading-[1.6] text-body-2">
             {zh
-              ? '从租前到续约，Stayloop 把整个租期放进同一条对话和同一条审批链里；同一套事实与规则再以 Stayloop API 开放给合作方。下面是各个模块，点进去就能用。'
-              : 'From before the lease to renewal, Stayloop keeps the whole tenancy in one conversation and one approval chain; the same facts and rules are exposed to partners as the Stayloop API. The modules are below, each one a tap away.'}
+              ? '从租前到续约，Stayloop 把整个租期放进同一条对话和同一条审批链里；同一套事实与规则再以 Stayloop API 开放给合作方。下面是各个模块：点进去用，或者直接跟 AI 助理说。'
+              : 'From before the lease to renewal, Stayloop keeps the whole tenancy in one conversation and one approval chain; the same facts and rules are exposed to partners as the Stayloop API. The modules are below: open one, or just tell the AI Agent.'}
           </p>
+          {/* one line into the person's own AI Agent — the page has no conversation of its own */}
+          <div className="mt-7" data-testid="platform-ask">
+            <AskBar zh={zh} testId="platform-ask-bar" />
+            <p className="mt-2.5 max-w-[720px] pl-1 text-[13px] leading-relaxed text-body-3">
+              {zh
+                ? '一句话发到你的 AI 助理，在那里接着办。不用登录就能问；登录后它记得你，要对外发出的事先等你批准。'
+                : 'One sentence goes to your AI Agent, and the work continues there. No account needed to ask; signed in, it remembers you, and anything that reaches another person waits for your approval.'}
+            </p>
+          </div>
           {/* the page's own map: every block below is one tap away */}
           <nav className="mt-8 flex flex-wrap gap-2" aria-label={zh ? '本页内容' : 'On this page'} data-testid="platform-jump">
             {PRODUCT_PAGE_MODULES.map((m) => <a key={m.href} href={`#${MODULE[m.href].id}`} className={JUMP}>{t(m.key)}</a>)}
@@ -220,6 +274,7 @@ export default function PlatformPage() {
                   ))}
                 </ul>
                 {d.more && <Link href={d.more.href} className="mt-4 inline-block text-[13.5px] font-semibold text-brand underline-offset-2 hover:underline">{pick(d.more.t, lang)} →</Link>}
+                <ModuleAsks asks={moduleInChat(m.href)?.asks ?? []} lang={lang} />
                 <div className="mt-auto pt-6">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-divider pt-4">
                     <div className="flex flex-wrap gap-1.5" data-testid="platform-module-who">
@@ -325,6 +380,17 @@ export default function PlatformPage() {
               </div>
             ))}
           </div>
+          {/* the API is how OTHER AI conversations call Stayloop: one MCP address */}
+          <div className="mt-4 rounded-2xl border border-white/15 bg-white/5 p-5" data-testid="platform-api-mcp">
+            <div className="text-[13.5px] font-semibold text-white">{zh ? '在你自己的 AI 对话里调用' : 'Call it from your own AI conversation'}</div>
+            <p className="mt-1.5 text-[13.5px] leading-relaxed" style={{ color: '#CBD5E1' }}>
+              {zh
+                ? '第一档的工具同时是一个 MCP 端点。Claude、Claude Code、Cursor 这类支持 MCP 的 AI 客户端填下面这个地址，就能在它们的对话里查规则、算日期、查租金基准，不用密钥。'
+                : 'The tier-1 tools are also an MCP endpoint. Add the address below to an AI client that speaks MCP — Claude, Claude Code, Cursor — and its conversation can look up the rules, do the date arithmetic and read the rent benchmarks, with no key.'}
+            </p>
+            <code className="mt-3 inline-block max-w-full break-all rounded-lg bg-black/30 px-3 py-1.5 font-mono text-[12.5px]" style={{ color: '#7DD3FC' }}>https://www.stayloop.ai/api/mcp</code>
+          </div>
+          <ModuleAsks asks={moduleInChat('/stayloop-api')?.asks ?? []} lang={lang} dark />
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/stayloop-api" className="sl-btn-primary" data-testid="platform-module">{pick(api.cta, lang)}</Link>
             <Link href="/stayloop-api/docs" className="inline-flex items-center justify-center rounded-full border border-white/30 px-5 py-[11px] text-[14px] font-semibold text-white transition hover:border-white">{zh ? '接口文档' : 'API docs'}</Link>
