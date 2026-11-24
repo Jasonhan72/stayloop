@@ -23,3 +23,20 @@ export const CARD_MESSAGE = 'sl-btn-primary flex min-h-[44px] flex-1 items-cente
 export const CHIP = 'rounded-full px-2.5 py-[3px] text-[12px] font-semibold leading-none'
 /** A neutral chip (an agent's focus, a provider's languages). */
 export const CHIP_QUIET = 'rounded-full bg-[#F1F5F9] px-2.5 py-[3px] text-[12px] leading-none text-body-2'
+
+// ── the two profile pages (/agents/<slug>, /providers/<id>) — same surfaces as the cards above ──
+/** A section of a profile page: the white surface of a directory card, with more room. */
+export const PANEL = 'rounded-2xl border border-line-divider bg-white p-6 shadow-[0_1px_2px_rgba(27,27,60,0.04)] sm:p-7'
+/** A section's heading. */
+export const PANEL_TITLE = 'text-[17px] font-semibold tracking-[-0.01em] text-ink'
+/** The small label over a group of chips or a fact. */
+export const PANEL_LABEL = 'text-[12.5px] font-semibold text-body-3'
+/** The name at the head of a profile page. */
+export const PROFILE_NAME = 'min-w-0 break-words text-[24px] font-semibold leading-tight tracking-[-0.02em] text-ink sm:text-[30px]'
+/** Chips at profile size: tinted (add the tint's colours) and quiet. */
+export const CHIP_LG = 'rounded-full px-3 py-1 text-[12.5px] font-semibold'
+export const CHIP_LG_QUIET = 'rounded-full bg-[#F1F5F9] px-3 py-1 text-[12.5px] text-body-2'
+/** The outlined pill beside a profile's primary button (分享). */
+export const PROFILE_SECOND = 'flex min-h-[44px] items-center justify-center rounded-full border border-line-strong bg-white px-5 text-[14px] font-semibold text-ink transition hover:border-brand hover:text-brand'
+/** A figure in a profile's row of counts. */
+export const STAT_NUM = 'sl-type-num text-[26px] font-semibold leading-none'

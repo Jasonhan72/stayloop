@@ -147,3 +147,38 @@ describe('the cards share one look', () => {
     expect(foot.children.length).toBe(2) // an empty spacer, then the actions
   })
 })
+
+describe('the two profile pages wear the same surfaces as the list they are opened from', () => {
+  const agent = read('app/agents/[slug]/page.tsx')
+  const provider = read('app/providers/[id]/page.tsx')
+  it('the tinted ground, the card surface for every section, and one heading style', () => {
+    for (const [name, s] of [['agent', agent], ['provider', provider]] as const) {
+      expect(s, name).toContain('<div style={{ background: FIND_GROUND }} className="text-body">')
+      expect(s, name).not.toMatch(/className="rounded-2xl border border-line-divider bg-white p-6"/)
+      expect(s, name).not.toMatch(/<h2 className="text-\[16px\] font-bold">/)
+      expect(s.match(/<h2 className=\{PANEL_TITLE\}>/g)?.length ?? 0, name).toBeGreaterThanOrEqual(4)
+      expect(s, name).toContain('className={`scroll-mt-24 ${PANEL} lg:sticky lg:top-24`}')
+    }
+    expect(agent.match(/<section className=\{PANEL\} data-testid=/g)?.length).toBe(6)
+    expect(provider).toContain('const card = PANEL')
+  })
+  it('the name, the chips and 分享 come from the shared classes; 分享 is a pill like 发消息', () => {
+    expect(agent).toContain('<h1 className={PROFILE_NAME}>{agent.name}</h1>')
+    expect(provider).toContain('<h1 className={PROFILE_NAME}>{name}</h1>')
+    expect(agent).toContain('className={PROFILE_SECOND} data-testid="agent-profile-share"')
+    expect(provider).toContain('className={PROFILE_SECOND} data-testid="provider-profile-share"')
+    for (const s of [agent, provider]) expect(s).not.toMatch(/rounded-xl border border-line-strong px-5/)
+    expect(agent).toContain('className={CHIP_LG_QUIET}>{focusLabel(c, L)}</span>')
+    expect(provider).toContain('<span key={c} className={CHIP_LG_QUIET}>{c}</span>')
+  })
+  it('the brokerage keeps a line of its own, in bold on the page and in the name’s colour on the card', () => {
+    // O. Reg. 567/05 s.12.1: the brokerage is named clearly and prominently wherever the agent is shown.
+    expect(agent).toMatch(/font-bold" data-testid="agent-profile-brokerage">\{agent\.brokerage_name\}<\/div>/)
+    const list = read('app/agents/page.tsx')
+    expect(list.match(/<div className="break-words text-\[14px\] font-semibold leading-snug text-ink" data-testid="agent-card-brokerage">\{a\.brokerage_name\}<\/div>/g)?.length).toBe(2)
+    expect(list).not.toMatch(/<span className="[^"]*" data-testid="agent-card-brokerage">/)
+  })
+  it('an anonymous visitor to a provider’s page still gets the sign-in panel and nothing else', () => {
+    expect(provider).toContain('<div className={`mt-5 max-w-[640px] ${PANEL}`} data-testid="provider-profile-signin">')
+  })
+})

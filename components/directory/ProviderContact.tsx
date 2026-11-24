@@ -74,7 +74,7 @@ export default function ProviderContact({ providerId, providerName, zh, as, prof
         placeholder={professional
           ? (zh ? '说说是哪一类事、有没有期限、在哪个城市。先不要写证件号码。' : 'What kind of matter, any deadline, and which city. Leave ID numbers out for now.')
           : (zh ? '说说要做什么、在哪个城市、大概什么时候方便。' : 'What needs doing, in which city, and roughly when works for you.')}
-        className="min-h-[120px] w-full rounded-xl border border-line-divider px-3 py-2 text-[14px] outline-none focus:border-brand"
+        className="min-h-[120px] w-full rounded-xl border border-line-divider bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none transition placeholder:text-body-3 focus:border-brand focus:bg-[#F7FBFE]"
         data-testid="provider-contact-input"
       />
       <p className="text-[11.5px] leading-relaxed text-body-3">

@@ -169,7 +169,9 @@ export default function AgentsDirectoryPage() {
                           <Link href={href} className={`${CARD_NAME} transition hover:text-brand`} data-testid="agent-card-name">{a.name}</Link>
                           {isTestName(a.name) && <TestDataTag zh={zh} />}
                         </div>
-                        <div className={`mt-0.5 ${CARD_META}`}>{categoryLabel(a.category, L)}{a.crea_member ? ' · REALTOR®' : ''} · <span className="break-words font-semibold text-ink" data-testid="agent-card-brokerage">{a.brokerage_name}</span></div>
+                        <div className={`mt-0.5 ${CARD_META}`}>{categoryLabel(a.category, L)}{a.crea_member ? ' · REALTOR®' : ''}</div>
+                        {/* On its own line, in the name's colour: the brokerage is named clearly and prominently (O. Reg. 567/05 s.12.1). */}
+                        <div className="break-words text-[14px] font-semibold leading-snug text-ink" data-testid="agent-card-brokerage">{a.brokerage_name}</div>
                         <div className="mt-2"><AgentBadge agent={a} lang={L} compact withNumber /></div>
                       </div>
                     </div>
@@ -206,7 +208,9 @@ export default function AgentsDirectoryPage() {
                           <span className={CHIP_QUIET} data-testid="agent-no-profile-tag">{zh ? '未开主页' : 'No profile'}</span>
                           {isTestName(a.name) && <TestDataTag zh={zh} />}
                         </div>
-                        <div className={`mt-0.5 ${CARD_META}`}>{categoryLabel(a.category, L)}{a.crea_member ? ' · REALTOR®' : ''} · <span className="break-words font-semibold text-ink" data-testid="agent-card-brokerage">{a.brokerage_name}</span></div>
+                        <div className={`mt-0.5 ${CARD_META}`}>{categoryLabel(a.category, L)}{a.crea_member ? ' · REALTOR®' : ''}</div>
+                        {/* On its own line, in the name's colour: the brokerage is named clearly and prominently (O. Reg. 567/05 s.12.1). */}
+                        <div className="break-words text-[14px] font-semibold leading-snug text-ink" data-testid="agent-card-brokerage">{a.brokerage_name}</div>
                         <div className="mt-2"><AgentBadge agent={a} lang={L} compact withNumber /></div>
                       </div>
                     </div>

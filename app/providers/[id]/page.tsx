@@ -13,7 +13,8 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import { FIND_TABS, TestDataTag } from '@/components/directory/FindHeader'
+import { FIND_GROUND, FIND_TABS, TestDataTag } from '@/components/directory/FindHeader'
+import { CHIP_LG, CHIP_LG_QUIET, PANEL, PANEL_LABEL, PANEL_TITLE, PROFILE_NAME, PROFILE_SECOND, STAT_NUM } from '@/components/directory/cardStyle'
 import ProviderAvatar from '@/components/directory/ProviderAvatar'
 import ProviderContact from '@/components/directory/ProviderContact'
 import { isTestName } from '@/components/listing/testAccounts'
@@ -104,7 +105,8 @@ export default function ProviderProfilePage() {
   const bio = (p?.bio ?? '').trim()
   const verifiedOn = p?.verified_at ? p.verified_at.slice(0, 10) : ''
   const complete = trades.length > 0 && trades.every((t) => t.ok)
-  const card = 'rounded-2xl border border-line-divider bg-white p-6'
+  // the directory's card surface (components/directory/cardStyle.ts), shared with the agent's page
+  const card = PANEL
 
   if (!valid || prov === 'missing') {
     return (
@@ -125,7 +127,7 @@ export default function ProviderProfilePage() {
   }
 
   return (
-    <div style={{ background: '#FFFFFF' }} className="text-body">
+    <div style={{ background: FIND_GROUND }} className="text-body">
       <Header />
       <main className="mx-auto max-w-[1320px] px-6 pb-16 pt-8 sm:px-8 lg:px-12">
         <nav className="text-[13px] text-body-3" data-testid="provider-profile-crumb"><Link href={back.href} className="hover:underline">{back.label}</Link>{p ? <> / <span className="text-body-2">{name}</span></> : null}</nav>
@@ -133,8 +135,8 @@ export default function ProviderProfilePage() {
           <div className="py-16 text-[14px] text-body-3">…</div>
         ) : !auth.user ? (
           // Anonymous: nothing about the provider is read. The same rule as the directory itself.
-          <div className="mt-5 max-w-[640px] rounded-2xl border border-line-divider bg-surface-chip/40 p-6" data-testid="provider-profile-signin">
-            <h1 className="text-[20px] font-bold">{zh ? '登录后查看这家服务商' : 'Sign in to see this provider'}</h1>
+          <div className={`mt-5 max-w-[640px] ${PANEL}`} data-testid="provider-profile-signin">
+            <h1 className="text-[20px] font-semibold tracking-[-0.01em] text-ink">{zh ? '登录后查看这家服务商' : 'Sign in to see this provider'}</h1>
             <p className="mt-2 text-[14px] leading-relaxed text-body-2">{zh ? '服务商的资料、资质和联系方式只给登录的账号看。登录后可以在站内直接给对方发消息。' : 'A provider’s details, credentials and contact information are shown to signed-in accounts only. Once signed in you can message them on Stayloop.'}</p>
             <Link href={`/login?next=${encodeURIComponent(`/providers/${id}`)}`} className="sl-btn-primary mt-5 inline-block">{zh ? '去登录' : 'Sign in'}</Link>
           </div>
@@ -152,7 +154,7 @@ export default function ProviderProfilePage() {
                   <span className="sm:hidden"><ProviderAvatar name={name} size={88} photoUrl={photo} /></span>
                   <div className="min-w-0 flex-1 basis-[150px]">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="min-w-0 break-words text-[22px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{name}</h1>
+                      <h1 className={PROFILE_NAME}>{name}</h1>
                       {isTestName(name) && <TestDataTag zh={zh} />}
                     </div>
                     <div className="mt-1 text-[14px] text-body-2" data-testid="provider-profile-descriptor">{trades.map((t) => tradeLabel(t.t)).join(' · ')}</div>
@@ -175,7 +177,7 @@ export default function ProviderProfilePage() {
                   {isMine && (
                     <Link href="/provider/onboard" className="sl-btn-primary flex min-h-[44px] items-center justify-center !px-6 !py-0 !text-[14px]" data-testid="provider-profile-edit">{zh ? '编辑资料' : 'Edit profile'}</Link>
                   )}
-                  <button type="button" onClick={share} className="flex min-h-[44px] items-center justify-center rounded-xl border border-line-strong px-5 text-[14px] font-semibold text-body transition hover:border-[#C2410C]" data-testid="provider-profile-share">
+                  <button type="button" onClick={share} className={PROFILE_SECOND} data-testid="provider-profile-share">
                     {copied ? (zh ? '链接已复制' : 'Link copied') : (zh ? '分享' : 'Share')}
                   </button>
                 </div>
@@ -183,42 +185,42 @@ export default function ProviderProfilePage() {
 
               {bio && (
                 <section className={card} data-testid="provider-profile-about">
-                  <h2 className="text-[16px] font-bold">{zh ? '关于我们' : 'About'}</h2>
+                  <h2 className={PANEL_TITLE}>{zh ? '关于我们' : 'About'}</h2>
                   <p className="mt-2 whitespace-pre-line text-[14.5px] leading-[1.7] text-body-2">{bio}</p>
                 </section>
               )}
 
               <section className={card} data-testid="provider-profile-services">
-                <h2 className="text-[16px] font-bold">{zh ? '服务信息' : 'Services'}</h2>
+                <h2 className={PANEL_TITLE}>{zh ? '服务信息' : 'Services'}</h2>
                 <div className="mt-3 grid gap-5 sm:grid-cols-2">
                   <div>
-                    <div className="text-[12.5px] font-semibold text-body-3">{zh ? '做什么' : 'What they do'}</div>
+                    <div className={PANEL_LABEL}>{zh ? '做什么' : 'What they do'}</div>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {trades.map((t) => (
-                        <span key={t.t} className={'rounded-full px-3 py-1 text-[12.5px] ' + (t.ok ? 'bg-[#FFF3EA] font-semibold text-[#9A3412]' : 'bg-amber-50 text-amber-800')}>
+                        <span key={t.t} className={t.ok ? `${CHIP_LG} bg-[#FFF1E6] text-[#9A3412]` : 'rounded-full bg-amber-50 px-3 py-1 text-[12.5px] text-amber-800'}>
                           {tradeLabel(t.t)}{t.ok ? '' : (zh ? ' · 资质待补' : ' · credentials pending')}
                         </span>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <div className="text-[12.5px] font-semibold text-body-3">{zh ? '服务城市' : 'Serves'}</div>
+                    <div className={PANEL_LABEL}>{zh ? '服务城市' : 'Serves'}</div>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {(p.service_cities ?? []).length > 0
-                        ? p.service_cities.map((c) => <span key={c} className="rounded-full border border-line-divider px-3 py-1 text-[12.5px] text-body-2">{c}</span>)
+                        ? p.service_cities.map((c) => <span key={c} className={CHIP_LG_QUIET}>{c}</span>)
                         : <span className="text-[13px] text-body-3">{zh ? '没有填写' : 'Not given'}</span>}
                     </div>
                   </div>
                   {langs.length > 0 && (
                     <div data-testid="provider-profile-languages">
-                      <div className="text-[12.5px] font-semibold text-body-3">{zh ? '语言' : 'Languages'}</div>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">{langs.map((c) => <span key={c} className="rounded-full border border-line-divider px-3 py-1 text-[12.5px] text-body-2">{languageLabel(c, zh ? 'zh' : 'en')}</span>)}</div>
+                      <div className={PANEL_LABEL}>{zh ? '语言' : 'Languages'}</div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">{langs.map((c) => <span key={c} className={CHIP_LG_QUIET}>{languageLabel(c, zh ? 'zh' : 'en')}</span>)}</div>
                     </div>
                   )}
                   {repair && (
                     <div data-testid="provider-profile-price">
-                      <div className="text-[12.5px] font-semibold text-body-3">{zh ? '怎么收费' : 'How they charge'}</div>
-                      <div className="mt-1.5 text-[14px] font-semibold">{priceLine(p, zh)}</div>
+                      <div className={PANEL_LABEL}>{zh ? '怎么收费' : 'How they charge'}</div>
+                      <div className="mt-1.5 text-[15px] font-semibold text-ink">{priceLine(p, zh)}</div>
                       <p className="mt-1 text-[12px] leading-relaxed text-body-3">{zh ? '这是服务商自己登记的价格，实际费用以对方报价为准，由你们直接结算。' : 'These are the provider’s own listed rates; the real cost is whatever they quote, settled between you.'}</p>
                     </div>
                   )}
@@ -226,7 +228,7 @@ export default function ProviderProfilePage() {
               </section>
 
               <section className={card} data-testid="provider-profile-credentials">
-                <h2 className="text-[16px] font-bold">{zh ? '资质与牌照' : 'Credentials and licences'}</h2>
+                <h2 className={PANEL_TITLE}>{zh ? '资质与牌照' : 'Credentials and licences'}</h2>
                 {credRows.length === 0 ? (
                   <p className="mt-2 text-[13.5px] text-body-3">{zh ? '还没有核过的资质。' : 'No verified credentials yet.'}</p>
                 ) : (
@@ -251,7 +253,7 @@ export default function ProviderProfilePage() {
 
               {repair && rating && (
                 <section className={card} data-testid="provider-profile-reviews">
-                  <h2 className="text-[16px] font-bold">{zh ? '评价' : 'Reviews'}</h2>
+                  <h2 className={PANEL_TITLE}>{zh ? '评价' : 'Reviews'}</h2>
                   {rating.avg == null ? (
                     <p className="mt-2 text-[13.5px] text-body-3">{zh ? '还没有评价。' : 'No reviews yet.'}</p>
                   ) : (
@@ -263,8 +265,8 @@ export default function ProviderProfilePage() {
                         { n: rating.quality, zh: '质量', en: 'Quality' },
                       ].filter((x) => x.n != null).map((x) => (
                         <div key={x.en} className="rounded-xl bg-[#FFF7F0] px-3 py-3">
-                          <div className="text-[24px] font-extrabold text-[#9A3412]">{x.n}</div>
-                          <div className="text-[12px] leading-snug text-body-2">{zh ? x.zh : x.en}</div>
+                          <div className={`${STAT_NUM} text-[#9A3412]`}>{x.n}</div>
+                          <div className="mt-1.5 text-[12px] leading-snug text-body-2">{zh ? x.zh : x.en}</div>
                         </div>
                       ))}
                     </div>
@@ -275,8 +277,8 @@ export default function ProviderProfilePage() {
             </div>
 
             <aside className="min-w-0">
-              <div id="contact" className="scroll-mt-24 rounded-2xl border border-line-divider bg-white p-6 lg:sticky lg:top-24" data-testid="provider-profile-contact">
-                <h2 className="text-[16px] font-bold">{zh ? `联系 ${name}` : `Contact ${name}`}</h2>
+              <div id="contact" className={`scroll-mt-24 ${PANEL} lg:sticky lg:top-24`} data-testid="provider-profile-contact">
+                <h2 className={PANEL_TITLE}>{zh ? `联系 ${name}` : `Contact ${name}`}</h2>
                 {isMine ? (
                   <div className="mt-2 text-[13.5px] text-body-2" data-testid="provider-profile-own">
                     {zh ? '这是你在目录里的主页。' : 'This is your page in the directory.'} <Link href="/provider/onboard" className="font-semibold text-brand underline">{zh ? '编辑资料' : 'Edit profile'}</Link>
@@ -285,7 +287,7 @@ export default function ProviderProfilePage() {
                   <ProviderContact providerId={p.id} providerName={name} zh={zh} as={activeHat(hats, auth.role)} professional={professionalOnly} />
                 )}
                 <div className="mt-5 border-t border-line-divider pt-4" data-testid="provider-profile-details">
-                  <div className="text-[12.5px] font-semibold text-body-3">{zh ? '对方留的联系方式' : 'Their own contact details'}</div>
+                  <div className={PANEL_LABEL}>{zh ? '对方留的联系方式' : 'Their own contact details'}</div>
                   <div className="mt-2 flex flex-col gap-1.5 text-[13.5px]">
                     {p.contact_email && <a href={`mailto:${p.contact_email}`} className="break-all text-brand underline-offset-2 hover:underline">{p.contact_email}</a>}
                     {p.contact_phone && <a href={`tel:${p.contact_phone.replace(/[^\d+]/g, '')}`} className="text-brand underline-offset-2 hover:underline">{p.contact_phone}</a>}

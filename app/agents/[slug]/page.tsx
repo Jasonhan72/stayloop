@@ -12,7 +12,8 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { AgentBadge } from '@/components/AgentBadge'
 import AgentAvatar from '@/components/agent/AgentAvatar'
-import { TestDataTag } from '@/components/directory/FindHeader'
+import { FIND_GROUND, TestDataTag } from '@/components/directory/FindHeader'
+import { CHIP_LG, CHIP_LG_QUIET, PANEL, PANEL_LABEL, PANEL_TITLE, PROFILE_NAME, PROFILE_SECOND, STAT_NUM } from '@/components/directory/cardStyle'
 import { isTestName } from '@/components/listing/testAccounts'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
@@ -103,7 +104,9 @@ export default function AgentProfilePage() {
   }
 
   return (
-    <div style={{ background: '#FFFFFF' }} className="text-body">
+    // 2026-11-23: the directory's tinted ground and card surfaces (components/directory/cardStyle.ts), so the
+    // page reads as the same place as the list it was opened from.
+    <div style={{ background: FIND_GROUND }} className="text-body">
       <Header />
       <main className="mx-auto max-w-[1320px] px-6 pb-16 pt-8 sm:px-8 lg:px-12">
         <nav className="text-[13px] text-body-3"><Link href="/agents" className="hover:underline">{zh ? '找经纪' : 'Find an agent'}</Link>{agent ? <> / <span className="text-body-2">{agent.name}</span></> : null}</nav>
@@ -114,19 +117,19 @@ export default function AgentProfilePage() {
             <div className="min-w-0 space-y-6">
               {/* Header (2026-11-17 redesign): a larger square photo, the brokerage on its own bold line, the
                   registration as one checkable line, and the two actions — message and share. */}
-              <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-head">
+              <section className={PANEL} data-testid="agent-profile-head">
                 <div className="flex flex-wrap items-start gap-4 sm:gap-5">
                   {/* 128px from sm up; 88px on phones so the name sits beside the photo instead of under it. */}
                   <span className="hidden sm:block"><AgentAvatar name={agent.name} size={128} photoUrl={agent.photo_url} shape="square" /></span>
                   <span className="sm:hidden"><AgentAvatar name={agent.name} size={88} photoUrl={agent.photo_url} shape="square" /></span>
                   <div className="min-w-0 flex-1 basis-[150px]">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="min-w-0 break-words text-[22px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{agent.name}</h1>
+                      <h1 className={PROFILE_NAME}>{agent.name}</h1>
                       {isTestName(agent.name) && <TestDataTag zh={zh} />}
                     </div>
                     {/* O. Reg. 567/05 s.12.1: descriptor + brokerage name, clearly and prominently. */}
                     <div className="mt-1 text-[14px] text-body-2" data-testid="agent-profile-descriptor">{categoryLabel(agent.category, L)}{agent.crea_member ? ' · REALTOR®' : ''}</div>
-                    <div className="break-words text-[16px] font-bold" data-testid="agent-profile-brokerage">{agent.brokerage_name}</div>
+                    <div className="break-words text-[16px] text-ink font-bold" data-testid="agent-profile-brokerage">{agent.brokerage_name}</div>
                     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-body-2">
                       <AgentBadge agent={agent} lang={L} compact withNumber />
                       {verifiedOn && <span>{zh ? `核于 ${verifiedOn}` : `checked ${verifiedOn}`}</span>}
@@ -134,7 +137,7 @@ export default function AgentProfilePage() {
                     </div>
                     {agent.languages.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1.5" data-testid="agent-profile-head-languages">
-                        {agent.languages.map((c) => <span key={c} className="rounded-full bg-[#EFF4FF] px-2.5 py-[2px] text-[12px] font-semibold text-[#1D4ED8]">{languageLabel(c, L)}</span>)}
+                        {agent.languages.map((c) => <span key={c} className={`${CHIP_LG} bg-[#EAF1FF] text-[#1D4ED8]`}>{languageLabel(c, L)}</span>)}
                       </div>
                     )}
                   </div>
@@ -146,39 +149,39 @@ export default function AgentProfilePage() {
                   {isMine && (
                     <Link href="/agent/verify" className="sl-btn-primary flex min-h-[44px] items-center justify-center !px-6 !py-0 !text-[14px]">{zh ? '编辑主页' : 'Edit profile'}</Link>
                   )}
-                  <button type="button" onClick={share} className="flex min-h-[44px] items-center justify-center rounded-xl border border-line-strong px-5 text-[14px] font-semibold text-body transition hover:border-[#2563EB]" data-testid="agent-profile-share">
+                  <button type="button" onClick={share} className={PROFILE_SECOND} data-testid="agent-profile-share">
                     {copied ? (zh ? '链接已复制' : 'Link copied') : (zh ? '分享' : 'Share')}
                   </button>
                 </div>
               </section>
 
               {agent.bio && (
-                <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-about">
-                  <h2 className="text-[16px] font-bold">{zh ? '关于我' : 'About'}</h2>
+                <section className={PANEL} data-testid="agent-profile-about">
+                  <h2 className={PANEL_TITLE}>{zh ? '关于我' : 'About'}</h2>
                   <p className="mt-2 whitespace-pre-line text-[14.5px] leading-[1.7] text-body-2">{agent.bio}</p>
                 </section>
               )}
 
               {(agent.languages.length > 0 || agent.focus.length > 0 || agent.service_areas.length > 0) && (
-                <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-services">
-                  <h2 className="text-[16px] font-bold">{zh ? '服务信息' : 'Services'}</h2>
+                <section className={PANEL} data-testid="agent-profile-services">
+                  <h2 className={PANEL_TITLE}>{zh ? '服务信息' : 'Services'}</h2>
                   <div className="mt-3 grid gap-5 sm:grid-cols-3">
                     {agent.languages.length > 0 && (
                       <div>
-                        <div className="text-[12.5px] font-semibold text-body-3">{zh ? '语言' : 'Languages'}</div>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">{agent.languages.map((c) => <span key={c} className="rounded-full bg-[#EFF4FF] px-3 py-1 text-[12.5px] font-semibold text-[#1D4ED8]">{languageLabel(c, L)}</span>)}</div>
+                        <div className={PANEL_LABEL}>{zh ? '语言' : 'Languages'}</div>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">{agent.languages.map((c) => <span key={c} className={`${CHIP_LG} bg-[#EAF1FF] text-[#1D4ED8]`}>{languageLabel(c, L)}</span>)}</div>
                       </div>
                     )}
                     {agent.focus.length > 0 && (
                       <div>
-                        <div className="text-[12.5px] font-semibold text-body-3">{zh ? '专长' : 'Focus'}</div>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">{agent.focus.map((c) => <span key={c} className="rounded-full border border-line-divider px-3 py-1 text-[12.5px] text-body-2">{focusLabel(c, L)}</span>)}</div>
+                        <div className={PANEL_LABEL}>{zh ? '专长' : 'Focus'}</div>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">{agent.focus.map((c) => <span key={c} className={CHIP_LG_QUIET}>{focusLabel(c, L)}</span>)}</div>
                       </div>
                     )}
                     {agent.service_areas.length > 0 && (
                       <div>
-                        <div className="text-[12.5px] font-semibold text-body-3">{zh ? '服务区域' : 'Areas'}</div>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">{agent.service_areas.map((a) => <span key={a} className="rounded-full border border-line-divider px-3 py-1 text-[12.5px] text-body-2">{a}</span>)}</div>
+                        <div className={PANEL_LABEL}>{zh ? '服务区域' : 'Areas'}</div>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">{agent.service_areas.map((a) => <span key={a} className={CHIP_LG_QUIET}>{a}</span>)}</div>
                       </div>
                     )}
                   </div>
@@ -186,11 +189,11 @@ export default function AgentProfilePage() {
               )}
 
               {cards.length > 0 && (
-                <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-listings">
-                  <h2 className="text-[16px] font-bold">{zh ? 'TA 在 Stayloop 发布的在租房源' : 'Listings they publish on Stayloop'}</h2>
+                <section className={PANEL} data-testid="agent-profile-listings">
+                  <h2 className={PANEL_TITLE}>{zh ? 'TA 在 Stayloop 发布的在租房源' : 'Listings they publish on Stayloop'}</h2>
                   <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {cards.map((c) => (
-                      <Link key={c.id} href={`/listings/${c.slug}`} className="block overflow-hidden rounded-xl border border-line-divider transition hover:border-[#2563EB]" data-testid="agent-profile-listing">
+                      <Link key={c.id} href={`/listings/${c.slug}`} className="block overflow-hidden rounded-xl border border-line-divider bg-white transition hover:border-brand hover:shadow-[0_14px_30px_-22px_rgba(27,27,60,0.35)]" data-testid="agent-profile-listing">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         {c.images?.[0] ? <img src={c.images[0]} alt="" className="aspect-[4/3] w-full object-cover" /> : <div className="aspect-[4/3] w-full bg-[#EEF1F5]" />}
                         <div className="min-w-0 p-3">
@@ -208,8 +211,8 @@ export default function AgentProfilePage() {
               )}
 
               {activity && (
-                <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-activity">
-                  <h2 className="text-[16px] font-bold">{zh ? '在 Stayloop 上' : 'On Stayloop'}</h2>
+                <section className={PANEL} data-testid="agent-profile-activity">
+                  <h2 className={PANEL_TITLE}>{zh ? '在 Stayloop 上' : 'On Stayloop'}</h2>
                   <div className="mt-3 grid grid-cols-3 gap-3">
                     {[
                       { n: activity.clients, zh: '客户', en: 'Clients' },
@@ -217,8 +220,8 @@ export default function AgentProfilePage() {
                       { n: activity.listings, zh: '在租房源', en: 'Listings for rent' },
                     ].map((s) => (
                       <div key={s.en} className="rounded-xl bg-[#F5F8FF] px-3 py-3">
-                        <div className="text-[24px] font-extrabold text-[#1D4ED8]">{s.n}</div>
-                        <div className="text-[12px] leading-snug text-body-2">{zh ? s.zh : s.en}</div>
+                        <div className={`${STAT_NUM} text-[#1D4ED8]`}>{s.n}</div>
+                        <div className="mt-1.5 text-[12px] leading-snug text-body-2">{zh ? s.zh : s.en}</div>
                       </div>
                     ))}
                   </div>
@@ -227,15 +230,15 @@ export default function AgentProfilePage() {
               )}
 
               {/* What was checked, by whom and when — moved down from the header, where it pushed everything else off the first screen. */}
-              <section className="rounded-2xl border border-line-divider bg-white p-6" data-testid="agent-profile-registration">
-                <h2 className="text-[16px] font-bold">{zh ? '注册与核验' : 'Registration and verification'}</h2>
+              <section className={PANEL} data-testid="agent-profile-registration">
+                <h2 className={PANEL_TITLE}>{zh ? '注册与核验' : 'Registration and verification'}</h2>
                 <div className="mt-3"><AgentBadge agent={agent} lang={L} /></div>
               </section>
             </div>
 
             <aside className="min-w-0">
-              <div id="contact" className="scroll-mt-24 rounded-2xl border border-line-divider bg-white p-6 lg:sticky lg:top-24" data-testid="agent-profile-contact">
-                <h2 className="text-[16px] font-bold">{zh ? `联系 ${agent.name}` : `Contact ${agent.name}`}</h2>
+              <div id="contact" className={`scroll-mt-24 ${PANEL} lg:sticky lg:top-24`} data-testid="agent-profile-contact">
+                <h2 className={PANEL_TITLE}>{zh ? `联系 ${agent.name}` : `Contact ${agent.name}`}</h2>
                 {isMine ? (
                   <div className="mt-2 text-[13.5px] text-body-2" data-testid="agent-profile-own">
                     {zh ? '这是你的主页。' : 'This is your profile.'} <Link href="/agent/verify" className="font-semibold text-brand underline">{zh ? '编辑主页' : 'Edit profile'}</Link>
@@ -303,13 +306,13 @@ function ContactForm({ slug, agentName, zh }: { slug: string; agentName: string;
       </div>
     )
   }
-  const input = 'w-full rounded-xl border border-line-divider px-3 py-2 text-[14px] outline-none focus:border-brand'
+  const input = 'w-full rounded-xl border border-line-divider bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none transition placeholder:text-body-3 focus:border-brand focus:bg-[#F7FBFE]'
   return (
     <div className="mt-3 space-y-3" data-testid="agent-contact-form">
       <div className="flex gap-2">
         {(['tenant', 'landlord'] as const).map((r) => (
           <button key={r} type="button" onClick={() => setRole(r)}
-            className={'flex-1 rounded-xl border px-3 py-2 text-[13px] ' + (role === r ? 'border-[#2563EB] bg-[#EFF4FF] font-semibold text-[#1D4ED8]' : 'border-line-divider text-body-2')}>
+            className={'min-h-[44px] flex-1 rounded-full border px-3 text-[13px] transition ' + (role === r ? 'border-[#2563EB] bg-[#EAF1FF] font-semibold text-[#1D4ED8]' : 'border-line-divider bg-white text-body-2 hover:border-brand')}>
             {r === 'tenant' ? (zh ? '我想租房' : 'I want to rent') : (zh ? '我有房要出租' : 'I have a place to rent out')}
           </button>
         ))}
