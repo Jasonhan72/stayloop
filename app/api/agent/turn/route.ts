@@ -40,6 +40,7 @@ import { loadPendingNotices, noticePromptBlock } from '@/lib/kb/notices'
 import { llmChat, llmChatStream, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
 import { createReplyStreamer, type TurnStreamEvent } from '@/lib/agent/replyStream'
 import { afterResponse } from '@/lib/afterResponse'
+import { LEASE_IMPORT_TURN_NOTE, wantsLeaseImport } from '@/lib/agent/leaseImportIntent'
 
 
 // ── Auth + rate limiting ─────────────────────────────────────────────────────
@@ -591,6 +592,11 @@ export async function POST(req: Request) {
     }
   }
 
+  // 「导入已签租约」 (2026-11-24): a signed-in person asking to bring a signed lease in gets the lease
+  // import card under the reply, and the model is told so (lib/agent/leaseImportIntent.ts). Read from the
+  // person's own words, never from the model's output; never on an anonymous turn — an import needs an account.
+  const leaseImportOffer = !anonymous && !!turnUserId && wantsLeaseImport(message)
+
   // `let`: the PDF attachments are read inside runTurn (behind the heartbeat); a lease from
   // another province appends that province's fact block before the model is called.
   let system =
@@ -599,6 +605,7 @@ export async function POST(req: Request) {
     (landlordRenewalCtx ? landlordRenewalFacts() : '') +
     landlordAddendum +
     userContextAddendum +
+    (leaseImportOffer ? LEASE_IMPORT_TURN_NOTE : '') +
     (anonymous ? ANON_PROMPT_ADDENDUM : '')
 
   // ---- Heartbeat-streamed response ------------------------------------------
@@ -1327,6 +1334,7 @@ export async function POST(req: Request) {
     if (externalLinks && externalLinks.length) receipt.did.push({ kind: 'links', zh: `附了外部找房链接 ${externalLinks.length} 个`, en: `Added ${externalLinks.length} external search link${externalLinks.length === 1 ? '' : 's'}` })
     if (market) { const area = String((market as { area?: unknown }).area ?? '').trim(); receipt.did.push({ kind: 'market', zh: `查了 CMHC / 统计局租金基准${area ? `（${area}）` : ''}`, en: `Checked the CMHC / StatCan rent benchmark${area ? ` (${area})` : ''}` }) }
     if (draftListing) receipt.did.push({ kind: 'draft', zh: '准备了房源草稿卡', en: 'Prepared a listing draft card' })
+    if (leaseImportOffer) receipt.did.push({ kind: 'draft', zh: '放了一张导入租约的卡，等你核对确认', en: 'Added a lease import card for you to check and confirm' })
     if (!anonymous && out.proposedAction) receipt.did.push({ kind: 'card', zh: `出了待批卡：${String(out.proposedAction.title || '').slice(0, 40)}`, en: `Proposed a card for your approval: ${String(out.proposedAction.title || '').slice(0, 40)}` })
     receipt.read = receipt.read.slice(0, RECEIPT_MAX_LINES); receipt.did = receipt.did.slice(0, RECEIPT_MAX_LINES)
   }
@@ -1353,6 +1361,8 @@ export async function POST(req: Request) {
     search_used: search && typeof search === 'object' ? searchObj : undefined,
     market,
     followups,
+    // the lease import card's id is its own: the browser remembers under it that this import was finished
+    lease_import: leaseImportOffer ? { id: crypto.randomUUID() } : undefined,
     draft_listing: draftListing,
     receipt,
     knowledge: kbRefs.length ? kbRefs : undefined,

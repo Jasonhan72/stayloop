@@ -12,6 +12,7 @@ import { useOnChange } from '@/lib/ui/useOnChange'
 import { useT } from '@/lib/i18n'
 import AgentInputBar, { type ComposerDraft } from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
+import LeaseImportChatCard from './LeaseImportChatCard'
 import ListingChatCard from './ListingChatCard'
 import CommercialCompareTable from './CommercialCompareTable'
 import BenchmarkTrendChart from './BenchmarkTrendChart'
@@ -56,6 +57,8 @@ const SUGGESTIONS: Record<AgentRole, { key: string; icon: string; label: { zh: s
     { key: 'applicant_pack', icon: '🗂️', label: { zh: '准备申请包', en: 'Build my application pack' }, prompt: { zh: '帮我准备申请包：申请表会问什么、要传哪些文件、房东会看到什么？', en: 'Help me build my application pack: what do applications ask for, which files should I add, and what does a landlord see?' } },
   ],
   landlord: [
+    // The guided card collects the file; the sentence it composes opens the lease import card under the reply (lib/agent/leaseImportIntent.ts).
+    { key: 'lease_import', icon: '📑', label: { zh: '导入已签租约', en: 'Import a signed lease' }, prompt: { zh: '我要导入一份已经签好的租约。', en: 'I want to import a lease that is already signed.' } },
     { key: 'screen', icon: '🔎', label: { zh: '租客筛查', en: 'Tenant screening' }, prompt: { zh: '我要筛查一位申请人：告诉我报告会查什么、需要准备哪些材料，然后带我开始。', en: 'I want to screen an applicant: tell me what the report checks, what documents I need, then take me to start.' } },
     { key: 'list', icon: '🏠', label: { zh: '发布房源', en: 'List a property' }, prompt: { zh: '我要发布一个新房源,你来帮我整理信息。', en: 'I want to list a new property — help me put it together.' } },
     { key: 'applications', icon: '📥', label: { zh: '看看新申请', en: 'Review applications' }, prompt: { zh: '帮我看看最新的申请,按质量排序并说明理由。', en: 'Review my latest applications, rank them and explain why.' } },
@@ -509,6 +512,10 @@ export default function AgentChat({
                 <div className="w-[280px]">
                   <DraftListingChatCard draft={m.draftListing} />
                 </div>
+              )}
+              {/* 「导入已签租约」 finished in the thread (2026-11-24): the card under the reply, with the files the question carried */}
+              {m.role === 'agent' && m.leaseImport && live && (
+                <LeaseImportChatCard offer={m.leaseImport} role={role} attachments={messages[i - 1]?.role === 'user' ? messages[i - 1].attachments : undefined} />
               )}
             </div>
           </div>

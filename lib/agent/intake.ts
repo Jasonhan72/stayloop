@@ -446,6 +446,30 @@ const APPLICANT_PACK: IntakeSpec = {
 // ---------------------------------------------------------------------------
 // landlord
 // ---------------------------------------------------------------------------
+// 「导入已签租约」 (2026-11-24): the landlord's first quick start — the main way in for a landlord who
+// already has a tenant. The file is collected here, and the composed sentence is one
+// lib/agent/leaseImportIntent.ts reads, so the reply carries the lease import card with the file
+// already in it (components/agent/LeaseImportChatCard). Nothing about the lease is asked here: the
+// card reads it, and the person checks it there.
+const LEASE_IMPORT: IntakeSpec = {
+  id: 'lease_import',
+  title: { zh: '导入已签租约', en: 'Import a signed lease' },
+  outline: { zh: '租约是什么形式 · 把文件加进来', en: 'what form it is in · add the file' },
+  steps: [
+    { key: 'form', ask: { zh: '这份租约现在是什么形式？', en: 'What form is the lease in?' }, hint: { zh: '在别处签的也可以；导入后邀请租客加入，对话、报修和租金记录都在这份在管租约里。', en: 'A lease signed elsewhere is fine; after the import you invite the tenant, and messages, repairs and the rent record live in the tenancy.' }, options: [
+      { value: 'pdf', label: { zh: 'PDF 文件', en: 'A PDF' } },
+      { value: 'photos', label: { zh: '手机拍的照片', en: 'Photos from my phone' } },
+      { value: 'paper', label: { zh: '只有纸质，手动填', en: 'Paper only — I will type it in' } },
+    ] },
+    { key: 'file', ask: { zh: '把租约加进来', en: 'Add the lease' }, hint: { zh: 'PDF 或照片，最多 3 个。我读出地址、租期和租金，你在下一步的卡上核对后才保存。没有电子版就跳过。', en: 'A PDF or photos, up to 3. I read the address, the term and the rent; nothing is saved until you check them on the card that follows. Skip this if you have no file.' }, optional: true, attach: true },
+  ],
+  compose: (q) => {
+    const zh = q.lang === 'zh'
+    if (zh) return `我要导入一份已经签好的租约${q.attachments ? '，文件已经附上' : '，没有电子版，我在卡上手动填'}。`
+    return `I want to import a lease that is already signed${q.attachments ? ' — the file is attached' : ' — I have no file, so I will fill the card in by hand'}.`
+  },
+}
+
 const SCREEN: IntakeSpec = {
   id: 'screen',
   title: { zh: '租客筛查', en: 'Tenant screening' },
@@ -734,6 +758,7 @@ const RAW_INTAKES: Record<string, IntakeSpec> = {
   repair: REPAIR,
   contact_landlord: CONTACT_LANDLORD,
   applicant_pack: APPLICANT_PACK,
+  lease_import: LEASE_IMPORT,
   screen: SCREEN,
   list: LIST,
   applications: APPLICATIONS,

@@ -70,10 +70,12 @@ describe('every module on the product list is known to the conversation', () => 
       expect(ASSISTANT_ROLES, a.ask.en).toContain(a.role)
     }
   })
-  it('what the record says about today: only a tenant’s repair is finished in the conversation', () => {
+  it('what the record says about today: a tenant’s repair, and the lease import, are finished in the conversation', () => {
     const finishes = MODULES_IN_CHAT.flatMap((m) => ASSISTANT_ROLES.filter((r) => m.reach[r] === 'finishes').map((r) => `${m.href} ${r}`))
-    expect(finishes).toEqual(['/services tenant'])
-    // …and that matches what the prompt allows: a landlord's and an agent's conversation propose no cards
+    // the import half of 租约与租金记录 (the lease import card, 2026-11-24); recording rent is still done on the page
+    expect(finishes).toEqual(['/leases/import tenant', '/leases/import landlord', '/leases/import agent', '/services tenant'])
+    // …and the approval cards are still as the prompt says: a landlord's and an agent's conversation propose none
+    // (the lease import card is a form the person submits, like the listing draft card — not a proposed action)
     const p = read('lib/agent/prompts.ts')
     expect(p).toContain("landlord: '2. 房东身份下你【不产出任何 proposed_action】")
     expect(p).toContain("agent: '2. 经纪身份下你【不产出任何 proposed_action】")
@@ -95,7 +97,7 @@ describe('the assistant is told about each module', () => {
   it('the two modules it did not know: where a signed lease is brought in, and that there is an API', () => {
     const landlord = productModulesGuide('landlord')
     expect(landlord).toContain('租约与租金记录 → /leases/import')
-    expect(landlord).toContain('导入的入口只有 /leases/import')
+    expect(landlord).toContain('页面入口只有 /leases/import')
     for (const role of ASSISTANT_ROLES) {
       const g = productModulesGuide(role)
       expect(g).toContain('Stayloop 有开放 API,问到时【不要说没有】')
@@ -110,6 +112,7 @@ describe('the assistant is told about each module', () => {
   })
   it('it is told what it cannot do: record rent, import a lease, fill a pack, dispatch a job', () => {
     expect(productModulesGuide('landlord')).toContain('你不能替他导入,也不能替他把某一期记成已收')
+    for (const role of ASSISTANT_ROLES) expect(productModulesGuide(role)).toContain('系统会在你的回复下面放一张导入卡')
     expect(productModulesGuide('landlord')).toContain('你不能在对话里替他派单')
     expect(productModulesGuide('tenant')).toContain('你不能替他填、替他分享')
     expect(productModulesGuide('tenant')).toContain('你不能替他导入或替他记')

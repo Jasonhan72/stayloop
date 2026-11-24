@@ -42,10 +42,11 @@ function requiredOnly(spec: IntakeSpec): IntakeAnswers {
 describe('every quick-start card has a guided intake and every intake is well-formed', () => {
   const chat = read('components/agent/AgentChat.tsx')
   const keys = [...chat.matchAll(/key: '(\w+)', icon:/g)].map((m) => m[1])
-  it('15 cards → 15 intakes, no template left in the table', () => {
-    expect(keys.length).toBe(15)
+  it('16 cards → 16 intakes, no template left in the table', () => {
+    // 2026-11-24: the landlord's sixth, 「导入已签租约」 — guided like the rest (it collects the file)
+    expect(keys.length).toBe(16)
     for (const k of keys) expect(INTAKES[k], k).toBeTruthy()
-    expect(new Set(keys).size).toBe(15)
+    expect(new Set(keys).size).toBe(16)
     expect(chat.split('export default function AgentChat')[0]).not.toMatch(/template: \{ zh:/)
   })
   it('steps: ≥2 per intake, the first is required, bilingual strings, unique chip values, ≥2 chips where there are chips', () => {

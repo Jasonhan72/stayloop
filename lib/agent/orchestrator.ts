@@ -159,6 +159,8 @@ export type AgentTurn = {
   market?: MarketInsight
   followups?: FollowUp[]
   draftListing?: DraftListing
+  /** Set by the server when the person asked to import a signed lease; never on an anonymous turn. */
+  leaseImport?: { id: string }
   urlImages?: string[]
   /** What the turn read / did (lib/agent/receipt.ts). */
   receipt?: TurnReceipt
@@ -299,6 +301,7 @@ export async function runAgentTurn(args: {
     market?: MarketInsight
     followups?: FollowUp[]
     draft_listing?: DraftListing
+    lease_import?: { id: string }
     receipt?: TurnReceipt
     knowledge?: ChatMessage['knowledge']
     sources?: FoldedSource[]
@@ -412,6 +415,8 @@ export async function runAgentTurn(args: {
     market: turn.market,
     followups: turn.followups,
     draftListing: turn.draft_listing,
+    // an import needs an account: an anonymous turn never carries the card, whatever the response says
+    leaseImport: !anonymous && turn.lease_import && typeof turn.lease_import.id === 'string' ? { id: turn.lease_import.id } : undefined,
     receipt: turn.receipt,
     knowledge: turn.knowledge,
     sources: turn.sources,
