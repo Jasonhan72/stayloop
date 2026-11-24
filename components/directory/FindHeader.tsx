@@ -9,6 +9,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { useT } from '@/lib/i18n'
+import JoinEntry from './JoinEntry'
 
 export type FindTab = 'agents' | 'repairs' | 'professional'
 
@@ -39,12 +40,18 @@ export default function FindHeader({ active, children }: { active: FindTab; chil
   return (
     <section style={{ background: 'linear-gradient(180deg,#EFF4FF 0%,#FFFFFF 100%)' }}>
       <div className="mx-auto max-w-[1320px] px-6 pb-8 pt-12 sm:px-8 lg:px-12">
-        <h1 className="sl-type-head text-[clamp(26px,3.2vw,38px)] font-semibold leading-[1.15] tracking-[-0.02em]" data-testid="find-title">
-          {zh ? '找经纪和服务商' : 'Find agents and service providers'}
-        </h1>
-        <p className="mt-2 max-w-[720px] text-[14.5px] leading-[1.6] text-body-2" data-testid="find-note">
-          {zh ? 'Stayloop 只做展示与转介，不抽成，费用由你和对方直接谈。' : 'Stayloop only lists and refers. It takes no commission; fees are between you and them.'}
-        </p>
+        {/* The title on the left; the way in for agents and providers on the right (under the note on a phone). */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0">
+            <h1 className="sl-type-head text-[clamp(26px,3.2vw,38px)] font-semibold leading-[1.15] tracking-[-0.02em]" data-testid="find-title">
+              {zh ? '找经纪和服务商' : 'Find agents and service providers'}
+            </h1>
+            <p className="mt-2 max-w-[720px] text-[14.5px] leading-[1.6] text-body-2" data-testid="find-note">
+              {zh ? 'Stayloop 只做展示与转介，不抽成，费用由你和对方直接谈。' : 'Stayloop only lists and refers. It takes no commission; fees are between you and them.'}
+            </p>
+          </div>
+          <JoinEntry zh={zh} tabs={FIND_TABS} />
+        </div>
         <nav className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line-divider" aria-label={zh ? '找经纪和服务商' : 'Find agents and service providers'} data-testid="find-tabs">
           {FIND_TABS.map((t) => {
             const on = t.key === active

@@ -18,6 +18,8 @@ const code = (p: string) => read(p).split('\n').filter((l) => !l.trim().startsWi
 const state = vi.hoisted(() => ({ lang: 'zh' as 'zh' | 'en' }))
 vi.mock('next/link', () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => React.createElement('a', { href, ...rest }, children) }))
 vi.mock('@/lib/i18n', () => ({ useT: () => ({ lang: state.lang, t: (_k: string, f: string) => f }), useI18n: () => ({ lang: state.lang, t: (_k: string, f: string) => f }) }))
+// the header carries 「申请加入」 (components/directory/JoinEntry.tsx), which asks who is looking
+vi.mock('@/lib/useHats', () => ({ useHats: () => ({ loading: false, tenant: false, landlord: false, agent: null, provider: null, admin: false }) }))
 // the rail module reaches the browser client through its unread counter; nothing here reads data
 vi.mock('@/lib/supabase', () => ({ supabase: { from: () => { throw new Error('no data is read in this spec') } } }))
 
