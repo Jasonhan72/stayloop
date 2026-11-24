@@ -122,7 +122,7 @@ AI 租房平台（安省为主，外省按各省法规），线上 **www.stayloo
 
 ## 当前产品决定
 
-- **定价**：租客永久免费（RTA s.134，费用不能转嫁租客）。房东免费档永久免费（每月 3 次筛查 + 首次 1 次深度核查额度）；新房东 Pro 免费试用 30 天（`pro_trial_until`，判定统一用 `lib/billing/entitlement.ts isProEntitled`）；Pro $19/月。经纪 $29 / $59 与团队 $39 标「尚未开售」。计划清单单一来源 `lib/billing/landlordPlans.ts`；订阅状态只用 `resolveSubscriptionState`。
+- **定价**：租客永久免费（RTA s.134，费用不能转嫁租客）。房东免费档永久免费（每月 3 次筛查 + 首次 1 次深度核查额度）；新房东 Pro 免费试用 30 天（`pro_trial_until`，判定统一用 `lib/billing/entitlement.ts isProEntitled`）；Pro $19/月。经纪 $29 / $59 与团队 $39 标「尚未开售」。计划清单单一来源 `lib/billing/landlordPlans.ts`；订阅状态只用 `resolveSubscriptionState`。**定价页标题上方不放标注条**（2026-11-23 用户拿掉了原来那条绿色的，两句都不要；拿掉后定价页上没有文字提 30 天试用，试用本身照旧，登录后在房源管理页和设置页显示「Pro 试用中」）。
 - **登录方式**：Google、邮箱 + 密码登录、邮箱 + 密码注册、忘记密码。**一次性登录链接已弃用**，`signInWithOtp` 不得出现。首页 / `/login` / `/register` / 起名页共用邮箱先行的 `LoginCard`（先查邮箱是否已注册）。条款版本 `TERMS_VERSION`（改它会让所有账号再确认一次）；密码账号 90 天更新。
 - **首页**（`components/home/HomeNext.tsx`）对所有人都是营销页；没有房东 / 经纪 / 服务商帽子且从未走过起名页的新账号会被送去 `/onboarding/name`（起名或「跳过」都算走过：跳过会写一行空名字的 `assistant_profiles`，`isBrandNewAccount` 的第二个参数是「走过起名页」而不只是「起过名」）。首屏是问一句的对话框（`HeroComposer`，按所选身份发到 `/<身份>/agent?prompt=…&send=1` 的免登录预览）；**默认身份是房东**（`DEFAULT_ASK_ROLE`，2026-11-22），四个身份面板的顺序是房东 · 经纪 · 租客 · 服务商，每个身份三个模块。
 - **房东的主入口是「已经在租」**（2026-11-22，优化建议评审后定的方向）：导入已签租约（`/leases/import`）→ 每月把租金记上 → 需要时导出记录。在管租约中心 `/h/[id]` 给房东一侧显示三步引导（`components/household/AlreadyRenting.tsx`，规则 `lib/household/alreadyRenting.ts`；第三步导出的是按「欠租事务」顺序排的记录，不是 LTB 表格）。筛查是换租客时才用一次的入口，不是唯一入口。同一次评审定的「现在不做」：公开按姓名查 LTB（等《消费者报告法》注册）、经纪收费、上报征信、租金保障。评审见 `design/history/2026-11.md`。
