@@ -14,6 +14,7 @@ const PUBLIC_ROUTES = [
   '/tools',
   '/services',
   '/agents',
+  '/onboard',
   '/consumer-rights',
   '/my-file',
   '/stayloop-api',

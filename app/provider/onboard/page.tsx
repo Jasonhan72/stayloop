@@ -11,7 +11,7 @@
 // from the address. The kind chooses the heading, the trades offered, whether rates are asked for,
 // the credential kinds and the wording; it is not stored, and a record that lists trades of both
 // kinds keeps all of them whichever page saves it.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import ProviderShell from '@/components/provider/ProviderShell'
@@ -27,11 +27,25 @@ import { providerPhotoUrl } from '@/lib/providerPhotoKeys'
 import { providerHref } from '@/lib/marketplace/directory'
 import { AGENT_LANGUAGES, BIO_MAX, LANG_MAX, cleanLanguages } from '@/lib/agentPublic'
 import { ONBOARD_COPY, PROFESSIONAL_REMOVE_CONFIRM, attestText, credentialKindsFor, onboardHref, onboardKindOf, onboardKindOfPath, otherFormHref, selectedOfKind, selectedOfOtherKind, tradesOfKind, type OnboardKind } from '@/lib/marketplace/onboardKind'
+import AssistComposer from '@/components/onboard/AssistComposer'
+import AssistReview, { AiTag } from '@/components/onboard/AssistReview'
+import { applyBusiness, newCredentials, type CredentialSuggestion, type ProviderField } from '@/lib/onboard/assist'
+import { takeDraft, type AssistLink, type AssistResult, type OnboardDraft } from '@/lib/onboard/client'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; business_number: string | null; service_cities: string[]; trades: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; website: string | null; status: string; review_note: string | null; verified_at: string | null; attested_at: string | null; bio: string | null; languages: string[] | null; photo_key: string | null }
 type Cred = { id: string; kind: CredentialKind; number: string | null; holder_name: string | null; expires_at: string | null; verified_at: string | null }
 
 const STATUS_LABEL: Record<string, { zh: string; en: string }> = { pending: { zh: '待核验', en: 'pending verification' }, verified: { zh: '已核验', en: 'verified' }, rejected: { zh: '未通过', en: 'rejected' }, suspended: { zh: '已暂停', en: 'suspended' }, expired: { zh: '已过期', en: 'expired' } }
+
+const BLANK = { legal_name: '', trade_name: '', business_number: '', service_cities: [] as string[], trades: [] as string[], pricing_mode: 'hourly', call_out_fee: '', hourly_rate: '', contact_name: '', contact_email: '', contact_phone: '', website: '', attest: false, bio: '', languages: [] as string[] }
+// What the review strip calls each field the AI Agent may fill (components/onboard/AssistReview.tsx).
+const FIELD_NAME: Record<ProviderField, { zh: string; en: string }> = {
+  legal_name: { zh: '法定名称', en: 'legal name' }, trade_name: { zh: '对外名称', en: 'trade name' }, business_number: { zh: '企业注册号', en: 'business number' },
+  trades: { zh: '服务项目', en: 'services' }, service_cities: { zh: '服务城市', en: 'service cities' }, pricing_mode: { zh: '定价方式', en: 'pricing' },
+  hourly_rate: { zh: '时薪', en: 'hourly rate' }, call_out_fee: { zh: '上门费', en: 'call-out fee' }, contact_name: { zh: '联系人', en: 'contact name' },
+  contact_email: { zh: '邮箱', en: 'e-mail' }, contact_phone: { zh: '电话', en: 'phone' }, website: { zh: '网站', en: 'website' }, bio: { zh: '简介', en: 'introduction' }, languages: { zh: '服务语言', en: 'languages' },
+}
+type CredDraft = CredentialSuggestion & { id: string }
 
 // The shared provider frame (rail + phone bar once the account has a provider record).
 function Shell({ children }: { children: React.ReactNode }) {
@@ -64,6 +78,19 @@ export default function ProviderOnboardPage() {
   const [err, setErr] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const { graceDays } = useMarketplaceConfig()
+  // 2026-11-23: the AI Agent may fill the fields that are still empty (lib/onboard/assist.ts). `ai` are the
+  // fields it filled that the person has not changed since; `beforeAi` is the form as it stood, for
+  // 「清掉 AI 填的内容」. It never ticks the attestation and never submits.
+  const [ai, setAi] = useState<ProviderField[]>([])
+  const [beforeAi, setBeforeAi] = useState<typeof BLANK | null>(null)
+  const [aiLinks, setAiLinks] = useState<AssistLink[]>([])
+  const [aiNote, setAiNote] = useState<string | null>(null)
+  // Credentials waiting for the person: read from their material, or typed in before the record exists.
+  // A first application submits them together with the form; on a record they are registered on request.
+  const [drafts, setDrafts] = useState<CredDraft[]>([])
+  // The suggestion carried over from /onboard: taken once, laid in on every load until the person
+  // changes something (load() runs twice under StrictMode, and again after each save).
+  const carried = useRef<OnboardDraft | null>(null)
 
   const load = useCallback(async () => {
     const asked = new URLSearchParams(window.location.search).get('type')
@@ -77,12 +104,24 @@ export default function ProviderOnboardPage() {
     if (moveOn(r?.trades)) return
     setRow(r)
     setCf((c) => ({ ...c, kind: credentialKindsFor(kind)[0] }))
+    let base: typeof BLANK = { ...BLANK, contact_email: auth.user.email || '' }
+    let stored: Cred[] = []
     if (r) {
-      setF({ legal_name: r.legal_name, trade_name: r.trade_name || '', business_number: r.business_number || '', service_cities: r.service_cities || [], trades: r.trades || [], pricing_mode: r.pricing_mode, call_out_fee: r.call_out_fee != null ? String(r.call_out_fee) : '', hourly_rate: r.hourly_rate != null ? String(r.hourly_rate) : '', contact_name: r.contact_name || '', contact_email: r.contact_email || auth.user.email || '', contact_phone: r.contact_phone || '', website: r.website || '', attest: !!r.attested_at, bio: r.bio || '', languages: cleanLanguages(r.languages) })
+      base = ({ legal_name: r.legal_name, trade_name: r.trade_name || '', business_number: r.business_number || '', service_cities: r.service_cities || [], trades: r.trades || [], pricing_mode: r.pricing_mode, call_out_fee: r.call_out_fee != null ? String(r.call_out_fee) : '', hourly_rate: r.hourly_rate != null ? String(r.hourly_rate) : '', contact_name: r.contact_name || '', contact_email: r.contact_email || auth.user.email || '', contact_phone: r.contact_phone || '', website: r.website || '', attest: !!r.attested_at, bio: r.bio || '', languages: cleanLanguages(r.languages) })
       setPhotoUrl(providerPhotoUrl(r.photo_key))
       const { data: c } = await supabase.from('provider_credentials').select('id, kind, number, holder_name, expires_at, verified_at').eq('provider_id', r.id).order('created_at')
-      setCreds((c ?? []) as Cred[])
-    } else setF((x) => ({ ...x, contact_email: auth.user?.email || '' }))
+      stored = (c ?? []) as Cred[]
+      setCreds(stored)
+    }
+    if (!carried.current) carried.current = takeDraft(auth.user.id)
+    const d = carried.current
+    if (d) {
+      const laid = applyBusiness(base, d.suggestion.business, kind, !r)
+      setBeforeAi(base); setAi(laid.filled); setAiLinks(d.links)
+      setDrafts(newCredentials(d.suggestion.credentials, stored, credentialKindsFor(kind)).map((c, i) => ({ ...c, id: `ai-${i}` })))
+      base = laid.next
+    }
+    setF(base)
   }, [auth.user, kind, router])
   useEffect(() => { if (!auth.loading) void load() }, [auth.loading, load])
 
@@ -101,9 +140,61 @@ export default function ProviderOnboardPage() {
     const payload = { auth_id: auth.user.id, legal_name: f.legal_name.trim(), trade_name: f.trade_name.trim() || null, business_number: f.business_number.trim() || null, service_cities: f.service_cities, trades: f.trades, pricing_mode: f.pricing_mode, call_out_fee: f.call_out_fee === '' ? null : Number(f.call_out_fee), hourly_rate: f.hourly_rate === '' ? null : Number(f.hourly_rate), contact_name: f.contact_name.trim() || null, contact_email: f.contact_email.trim() || null, contact_phone: f.contact_phone.trim() || null, website, bio: f.bio.trim() || null, languages: cleanLanguages(f.languages), attested_at: new Date().toISOString() }
     const { error } = row && row !== 'loading' ? await supabase.from('service_providers').update(payload).eq('auth_id', auth.user.id) : await supabase.from('service_providers').insert(payload)
     if (error) setErr(error.message)
-    else { invalidateHats(); setSaved(true); await load() }
+    else {
+      invalidateHats()
+      // the record exists now, so the credentials waiting above can hang off it
+      const credErr = await saveDrafts()
+      carried.current = null; setAi([]); setBeforeAi(null); setAiLinks([]); setAiNote(null)
+      if (credErr) setErr(credErr)
+      setSaved(true); await load()
+    }
     setBusy(false)
   }
+  /** A change by the person: the field is theirs from here on, and the carried suggestion is not laid in again. */
+  function edit(patch: Partial<typeof BLANK>) {
+    carried.current = null
+    setF((x) => ({ ...x, ...patch }))
+    setAi((a) => a.filter((k) => !(k in patch)))
+  }
+  /** What the AI Agent read on this page (the box above the form): into the empty fields, credentials into the waiting list. */
+  function onAssist(r: AssistResult) {
+    carried.current = null
+    const laid = applyBusiness(f, r.suggestion.business, kind, !row)
+    const fresh = newCredentials(r.suggestion.credentials, [...creds, ...drafts], credentialKindsFor(kind))
+    if (!laid.filled.length && !fresh.length) { setAiNote(zh ? 'AI 助理读了，但表里还空着的那几项，材料里没有提到。' : 'The AI Agent read it, but found nothing for the fields that are still empty.'); return }
+    setAiNote(null)
+    setBeforeAi((b) => b ?? f)
+    setF(laid.next)
+    setAi((a) => Array.from(new Set([...a, ...laid.filled])))
+    setAiLinks(r.links)
+    setDrafts((d) => [...d, ...fresh.map((c, i) => ({ ...c, id: `ai-${Date.now()}-${i}` }))])
+  }
+  /** Back to the form as it stood before the AI Agent, for the fields the person has not touched since. */
+  function clearAi() {
+    carried.current = null
+    if (beforeAi) { const back: Record<string, unknown> = {}; for (const k of ai) back[k] = beforeAi[k]; setF((x) => ({ ...x, ...back })) }
+    setAi([]); setBeforeAi(null); setAiLinks([]); setAiNote(null)
+    setDrafts((d) => d.filter((x) => !x.id.startsWith('ai-')))
+  }
+  /** Register the waiting credentials on the record. Returns what went wrong, or null. */
+  async function saveDrafts(): Promise<string | null> {
+    const rows = drafts.filter((d) => (d.number ?? '').trim() || d.expires_at)
+    if (!auth.user || !rows.length) { setDrafts([]); return null }
+    const { data: me } = await supabase.from('service_providers').select('id').eq('auth_id', auth.user.id).maybeSingle()
+    const id = (me as { id?: string } | null)?.id
+    if (!id) return zh ? '资质没有登记上，请在下面重新添加。' : 'The credentials were not saved; add them again below.'
+    const { error } = await supabase.from('provider_credentials').insert(rows.map((d) => ({ provider_id: id, kind: d.kind, number: (d.number ?? '').trim() || null, holder_name: (d.holder_name ?? '').trim() || null, expires_at: d.expires_at || null })))
+    if (error) return error.message
+    setDrafts([])
+    return null
+  }
+  async function registerDrafts() {
+    setBusy(true); setErr(null)
+    const e = await saveDrafts()
+    if (e) setErr(e); else await load()
+    setBusy(false)
+  }
+  const setDraft = (id: string, patch: Partial<CredentialSuggestion>) => { carried.current = null; setDrafts((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x))) }
   async function addCred() {
     if (!row || row === 'loading') return
     setBusy(true); setErr(null)
@@ -134,6 +225,15 @@ export default function ProviderOnboardPage() {
   const otherTrades = selectedOfOtherKind(f.trades, kind)
   const credKinds = credentialKindsFor(kind)
   const other: OnboardKind = kind === 'repair' ? 'professional' : 'repair'
+  const tag = (k: ProviderField) => (ai.includes(k) ? <AiTag zh={zh} /> : null)
+  const aiDrafts = drafts.filter((d) => d.id.startsWith('ai-')).length
+  const reviewFilled = [...ai.map((k) => (k === 'trades' ? (kind === 'professional' ? (zh ? '服务类别' : 'services') : (zh ? '工种' : 'trades')) : FIELD_NAME[k][L])), ...(aiDrafts ? [zh ? `资质 ${aiDrafts} 条` : `${aiDrafts} credential${aiDrafts === 1 ? '' : 's'}`] : [])]
+  const reviewMissing = [
+    !f.legal_name.trim() ? (zh ? '法定名称' : 'legal name') : '',
+    !shownTrades.length ? (kind === 'professional' ? (zh ? '服务类别' : 'services') : (zh ? '工种' : 'trades')) : '',
+    !f.service_cities.length ? (zh ? '服务城市' : 'service cities') : '',
+    !f.attest ? (zh ? '勾选承诺' : 'the attestation') : '',
+  ].filter(Boolean)
 
   if (auth.loading || row === 'loading' || elsewhere) return <Shell><div className="text-body-3">…</div></Shell>
   if (!auth.user) return <Shell><div className="rounded-2xl border border-line-divider bg-white p-6 text-[14px]">{zh ? '请先登录再入驻。' : 'Sign in to onboard.'} <Link href={`/login?next=${encodeURIComponent(onboardHref(kind))}`} className="underline">{zh ? '登录' : 'Sign in'}</Link></div></Shell>
@@ -158,12 +258,21 @@ export default function ProviderOnboardPage() {
         </div>
       )}
 
+      {/* 2026-11-23: hand the material over, check what comes back. The form below is the same form either way. */}
+      <div className="mt-5" data-testid="onboard-assist">
+        <AssistComposer zh={zh} variant="compact" hint={kind} signedIn loginHref={`/login?next=${encodeURIComponent(onboardHref(kind))}`} onResult={onAssist} />
+        {aiNote && <p className="mt-2 text-[13px] text-amber-800" data-testid="onboard-assist-note">{aiNote}</p>}
+      </div>
+      {reviewFilled.length > 0 && <div className="mt-4"><AssistReview zh={zh} filled={reviewFilled} missing={reviewMissing} links={aiLinks} onClear={clearAi} /></div>}
+
       <div className="mt-5 grid gap-4 rounded-2xl border border-line-divider bg-white p-5 sm:grid-cols-2">
-        <label className={label}>{zh ? '法定名称（注册名）' : 'Legal name (as registered)'}<input className={input} value={f.legal_name} onChange={(e) => setF({ ...f, legal_name: e.target.value })} /></label>
-        <label className={label}>{copy.tradeName[L]}<input className={input} value={f.trade_name} onChange={(e) => setF({ ...f, trade_name: e.target.value })} /></label>
-        <label className={label}>{zh ? '企业注册号 / BN' : 'Business number / BN'}<input className={input} value={f.business_number} onChange={(e) => setF({ ...f, business_number: e.target.value })} /></label>
-        <label className={label}>{zh ? '网站（可选）' : 'Website (optional)'}<input className={input} type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://example.com" value={f.website} onChange={(e) => setF({ ...f, website: e.target.value })} data-testid="provider-website" /></label>
-        <div className="sm:col-span-2"><div className={label}>{copy.tradesLabel[L]}</div><div className="mt-1 flex flex-wrap gap-1.5" data-testid="onboard-trades">{TRADES.filter((t) => tradesOfKind(kind).includes(t.key)).map((t) => <button key={t.key} type="button" aria-pressed={f.trades.includes(t.key)} onClick={() => setF({ ...f, trades: toggle(f.trades, t.key) })} className={'rounded-full border px-3 py-1 text-[12.5px] ' + (f.trades.includes(t.key) ? 'border-brand bg-brand/10 font-bold text-brand' : 'border-line-divider')}>{zh ? t.zh : t.en}</button>)}</div>
+        <div className="text-[13.5px] font-extrabold sm:col-span-2">{zh ? '基本信息' : 'The business'}</div>
+        <label className={label}>{zh ? '法定名称（注册名）' : 'Legal name (as registered)'}{tag('legal_name')}<input className={input} value={f.legal_name} onChange={(e) => edit({ legal_name: e.target.value })} /></label>
+        <label className={label}>{copy.tradeName[L]}{tag('trade_name')}<input className={input} value={f.trade_name} onChange={(e) => edit({ trade_name: e.target.value })} /></label>
+        <label className={label}>{zh ? '企业注册号 / BN' : 'Business number / BN'}{tag('business_number')}<input className={input} value={f.business_number} onChange={(e) => edit({ business_number: e.target.value })} /></label>
+        <label className={label}>{zh ? '网站（可选）' : 'Website (optional)'}{tag('website')}<input className={input} type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://example.com" value={f.website} onChange={(e) => edit({ website: e.target.value })} data-testid="provider-website" /></label>
+        <div className="border-t border-line-divider pt-4 text-[13.5px] font-extrabold sm:col-span-2">{kind === 'professional' ? (zh ? '服务' : 'What you offer') : (zh ? '服务与收费' : 'What you do and what you charge')}</div>
+        <div className="sm:col-span-2"><div className={label}>{copy.tradesLabel[L]}{tag('trades')}</div><div className="mt-1 flex flex-wrap gap-1.5" data-testid="onboard-trades">{TRADES.filter((t) => tradesOfKind(kind).includes(t.key)).map((t) => <button key={t.key} type="button" aria-pressed={f.trades.includes(t.key)} onClick={() => edit({ trades: toggle(f.trades, t.key) })} className={'rounded-full border px-3 py-1 text-[12.5px] ' + (f.trades.includes(t.key) ? 'border-brand bg-brand/10 font-bold text-brand' : 'border-line-divider')}>{zh ? t.zh : t.en}</button>)}</div>
           {otherTrades.length > 0 && (
             <p className="mt-2 text-[12px] leading-relaxed text-body-2" data-testid="onboard-other-kind">
               {zh ? `你的资料里还有「${ONBOARD_COPY[other].choice.zh}」的项目：` : `Your record also lists ${ONBOARD_COPY[other].choice.en.toLowerCase()}: `}
@@ -178,16 +287,17 @@ export default function ProviderOnboardPage() {
           )}
           <p className="mt-1 text-[11.5px] text-body-3">{kind === 'professional' ? (zh ? '每个类别要求的牌照：' : 'Required per service: ') : (zh ? '每个工种要求的资质：' : 'Required per trade: ')}{shownTrades.map((t) => { const d = TRADES.find((x) => x.key === t); return d ? `${zh ? d.zh : d.en} → ${d.required.map((k) => (zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en)).join(zh ? '、' : ', ')}` : '' }).filter(Boolean).join('；') || (kind === 'professional' ? (zh ? '先选类别。' : 'pick a service first.') : (zh ? '先选工种。' : 'pick a trade first.'))}</p>
         </div>
-        <div className="sm:col-span-2"><div className={label}>{zh ? '服务城市' : 'Service cities'}</div><div className="mt-1 flex flex-wrap gap-1.5">{CITIES.map((c) => <button key={c} type="button" onClick={() => setF({ ...f, service_cities: toggle(f.service_cities, c) })} className={'rounded-full border px-3 py-1 text-[12.5px] ' + (f.service_cities.includes(c) ? 'border-brand bg-brand/10 font-bold text-brand' : 'border-line-divider')}>{c}</button>)}</div></div>
+        <div className="sm:col-span-2"><div className={label}>{zh ? '服务城市' : 'Service cities'}{tag('service_cities')}</div><div className="mt-1 flex flex-wrap gap-1.5">{CITIES.map((c) => <button key={c} type="button" onClick={() => edit({ service_cities: toggle(f.service_cities, c) })} className={'rounded-full border px-3 py-1 text-[12.5px] ' + (f.service_cities.includes(c) ? 'border-brand bg-brand/10 font-bold text-brand' : 'border-line-divider')}>{c}</button>)}</div></div>
         {/* Rates are what a dispatch offer quotes from; nothing is dispatched to a professional, and a licensed one posts no fee here. */}
-        {kind === 'repair' && <label className={label} data-testid="onboard-pricing">{zh ? '定价方式' : 'Pricing'}<select className={input} value={f.pricing_mode} onChange={(e) => setF({ ...f, pricing_mode: e.target.value })}><option value="hourly">{zh ? '按工时' : 'Hourly'}</option><option value="fixed">{zh ? '固定报价' : 'Fixed quotes'}</option></select></label>}
+        {kind === 'repair' && <label className={label} data-testid="onboard-pricing">{zh ? '定价方式' : 'Pricing'}{tag('pricing_mode')}<select className={input} value={f.pricing_mode} onChange={(e) => edit({ pricing_mode: e.target.value })}><option value="hourly">{zh ? '按工时' : 'Hourly'}</option><option value="fixed">{zh ? '固定报价' : 'Fixed quotes'}</option></select></label>}
         {kind === 'repair' && <div className="grid grid-cols-2 gap-2">
-          <label className={label}>{zh ? '时薪 $' : 'Hourly $'}<input className={input} inputMode="decimal" value={f.hourly_rate} onChange={(e) => setF({ ...f, hourly_rate: e.target.value })} /></label>
-          <label className={label}>{zh ? '上门费 $' : 'Call-out $'}<input className={input} inputMode="decimal" value={f.call_out_fee} onChange={(e) => setF({ ...f, call_out_fee: e.target.value })} /></label>
+          <label className={label}>{zh ? '时薪 $' : 'Hourly $'}{tag('hourly_rate')}<input className={input} inputMode="decimal" value={f.hourly_rate} onChange={(e) => edit({ hourly_rate: e.target.value })} /></label>
+          <label className={label}>{zh ? '上门费 $' : 'Call-out $'}{tag('call_out_fee')}<input className={input} inputMode="decimal" value={f.call_out_fee} onChange={(e) => edit({ call_out_fee: e.target.value })} /></label>
         </div>}
-        <label className={label}>{zh ? '联系人' : 'Contact name'}<input className={input} value={f.contact_name} onChange={(e) => setF({ ...f, contact_name: e.target.value })} /></label>
-        <label className={label}>{copy.email[L]}<input className={input} type="email" value={f.contact_email} onChange={(e) => setF({ ...f, contact_email: e.target.value })} /></label>
-        <label className={label}>{zh ? '电话' : 'Phone'}<input className={input} type="tel" value={f.contact_phone} onChange={(e) => setF({ ...f, contact_phone: e.target.value })} /></label>
+        <div className="border-t border-line-divider pt-4 text-[13.5px] font-extrabold sm:col-span-2">{zh ? '联系方式' : 'How to reach you'}</div>
+        <label className={label}>{zh ? '联系人' : 'Contact name'}{tag('contact_name')}<input className={input} value={f.contact_name} onChange={(e) => edit({ contact_name: e.target.value })} /></label>
+        <label className={label}>{copy.email[L]}{tag('contact_email')}<input className={input} type="email" value={f.contact_email} onChange={(e) => edit({ contact_email: e.target.value })} /></label>
+        <label className={label}>{zh ? '电话' : 'Phone'}{tag('contact_phone')}<input className={input} type="tel" value={f.contact_phone} onChange={(e) => edit({ contact_phone: e.target.value })} /></label>
         {/* 2026-11-23: what the provider's page shows about them beyond the registered facts. None of it
             is verified by Stayloop and changing it does not send the record back to pending. */}
         <div className="border-t border-line-divider pt-4 sm:col-span-2" data-testid="onboard-profile-content">
@@ -198,26 +308,52 @@ export default function ProviderOnboardPage() {
           ) : (
             <p className="mt-2 text-[12px] text-body-3" data-testid="onboard-photo-later">{zh ? '提交资料后可以在这里上传头像或标志。' : 'You can upload a photo or logo here once your details are submitted.'}</p>
           )}
-          <label className={label + ' mt-4'}>{zh ? '简介（可选）' : 'Introduction (optional)'}
-            <textarea className={input + ' h-28'} maxLength={BIO_MAX} value={f.bio} onChange={(e) => setF({ ...f, bio: e.target.value })} placeholder={copy.bioHint[L]} data-testid="onboard-bio" />
+          <label className={label + ' mt-4'}>{zh ? '简介（可选）' : 'Introduction (optional)'}{tag('bio')}
+            <textarea className={input + ' h-28'} maxLength={BIO_MAX} value={f.bio} onChange={(e) => edit({ bio: e.target.value })} placeholder={copy.bioHint[L]} data-testid="onboard-bio" />
           </label>
           <div className="mt-1 text-right text-[11.5px] text-body-3">{f.bio.length} / {BIO_MAX}</div>
-          <div className={label}>{zh ? '服务语言（可选）' : 'Languages (optional)'}</div>
+          <div className={label}>{zh ? '服务语言（可选）' : 'Languages (optional)'}{tag('languages')}</div>
           <div className="mt-1 flex flex-wrap gap-1.5" data-testid="onboard-languages">
             {AGENT_LANGUAGES.map((l) => {
               const on = f.languages.includes(l.code)
-              return <button key={l.code} type="button" aria-pressed={on} disabled={!on && f.languages.length >= LANG_MAX} onClick={() => setF({ ...f, languages: toggle(f.languages, l.code) })} className={'rounded-full border px-3 py-1 text-[12.5px] disabled:opacity-40 ' + (on ? 'border-brand bg-brand/10 font-semibold text-brand' : 'border-line-divider bg-white text-body-2')}>{zh ? l.zh : l.en}</button>
+              return <button key={l.code} type="button" aria-pressed={on} disabled={!on && f.languages.length >= LANG_MAX} onClick={() => edit({ languages: toggle(f.languages, l.code) })} className={'rounded-full border px-3 py-1 text-[12.5px] disabled:opacity-40 ' + (on ? 'border-brand bg-brand/10 font-semibold text-brand' : 'border-line-divider bg-white text-body-2')}>{zh ? l.zh : l.en}</button>
             })}
           </div>
         </div>
-        <label className="flex items-start gap-2 text-[13px] sm:col-span-2"><input type="checkbox" className="mt-[3px]" checked={f.attest} onChange={(e) => setF({ ...f, attest: e.target.checked })} /><span data-testid="onboard-attest">{attestText(f.trades, kind, zh)}</span></label>
-        {err && <div role="alert" className="text-[12.5px] font-semibold text-danger sm:col-span-2">⚠ {err}</div>}
-        {saved && !err && (() => {
-          const gaps = shownTrades.map((t) => { const d = TRADES.find((x) => x.key === t); const cov = coverageFor(t as Trade, creds, new Date(), graceDays); return d && !cov.ok ? `${zh ? d.zh : d.en} → ${[...cov.missing, ...cov.expired, ...cov.unverified].map((k) => (zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en)).join(zh ? '、' : ', ')}` : null }).filter(Boolean) as string[]
-          return <div className="text-[12.5px] font-semibold text-success sm:col-span-2" data-testid="save-coverage-hint">✓ {zh ? '已保存。' : 'Saved.'} {gaps.length ? <span className="text-amber-800">{copy.missing[L]}{gaps.join(zh ? '；' : '; ')}</span> : <span>{kind === 'professional' ? (zh ? '所选类别的牌照都已登记。' : 'Every service has its licence on file.') : (zh ? '所有工种的资质都已登记。' : 'Every trade has its credentials on file.')}</span>}</div>
-        })()}
-        <div className="sm:col-span-2"><button onClick={() => void submit()} disabled={busy} className="sl-btn-primary !py-[10px] disabled:opacity-50">{row ? (zh ? '更新（改注册事实会重新核验）' : 'Update (changing facts re-verifies)') : (zh ? '提交入驻' : 'Submit')}</button></div>
       </div>
+
+      {(drafts.length > 0 || !row) && (
+        <div className="mt-5 rounded-2xl border border-line-divider bg-white p-5" data-testid="onboard-cred-drafts">
+          <h2 className="text-[15px] font-extrabold">{row ? (zh ? '读到的资质，等你确认' : 'Credentials read from your material') : copy.credTitle[L]}</h2>
+          <p className="mt-1 text-[12px] leading-relaxed text-body-3">
+            {row
+              ? (zh ? '核对编号和到期日，再登记到你的资料上；登记后由 Stayloop 工作人员核验。' : 'Check the number and the expiry, then register them on your record; Stayloop staff verify them after that.')
+              : (zh ? '手头有的先登记上，会和申请一起提交；没有的可以提交后再补。只登记编号与到期日，不用上传文件。' : 'Add the ones you have; they go in with the application. The rest can follow later. Only the number and the expiry are recorded — no file is stored.')}
+          </p>
+          {drafts.length > 0 && (
+            <div className="mt-3 grid gap-2">
+              {drafts.map((d) => (
+                <div key={d.id} className="rounded-lg bg-surface-chip p-3" data-testid="credential-draft">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
+                    <select className={input} value={d.kind} aria-label={zh ? '资质种类' : 'Credential kind'} onChange={(e) => setDraft(d.id, { kind: e.target.value as CredentialKind })}>{credKinds.map((k) => <option key={k} value={k}>{zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en}</option>)}</select>
+                    <input className={input} placeholder={zh ? '编号' : 'Number'} aria-label={zh ? '编号' : 'Number'} value={d.number ?? ''} onChange={(e) => setDraft(d.id, { number: e.target.value })} />
+                    <input className={input} placeholder={zh ? '持证人（如与公司不同）' : 'Holder (if a person)'} aria-label={zh ? '持证人' : 'Holder'} value={d.holder_name ?? ''} onChange={(e) => setDraft(d.id, { holder_name: e.target.value })} />
+                    <input className={input} type="date" aria-label={zh ? '到期日' : 'Expiry'} value={d.expires_at ?? ''} onChange={(e) => setDraft(d.id, { expires_at: e.target.value || null })} />
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11.5px] text-body-3">
+                    {d.id.startsWith('ai-') && <><AiTag zh={zh} /><span>{zh ? '对照原件核一遍编号和日期' : 'Check the number and the date against the original'}</span></>}
+                    <button type="button" onClick={() => { carried.current = null; setDrafts((x) => x.filter((y) => y.id !== d.id)) }} className="ml-auto min-h-[36px] px-2 underline" data-testid="credential-draft-remove">{zh ? '移除' : 'remove'}</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            {!row && <button type="button" onClick={() => setDrafts((x) => [...x, { id: `me-${Date.now()}`, kind: credKinds[0], number: '', holder_name: '', expires_at: null }])} className="rounded-full border border-brand px-4 py-1.5 text-[12.5px] font-bold text-brand" data-testid="credential-draft-add">{zh ? '+ 加一条资质' : '+ Add one'}</button>}
+            {row && drafts.length > 0 && <button type="button" disabled={busy} onClick={() => void registerDrafts()} className="rounded-full bg-brand px-4 py-1.5 text-[12.5px] font-bold text-white disabled:opacity-50" data-testid="credential-draft-register">{zh ? `登记这 ${drafts.length} 条` : `Register ${drafts.length === 1 ? 'this one' : `these ${drafts.length}`}`}</button>}
+          </div>
+        </div>
+      )}
 
       {row && (
         <div className="mt-5 rounded-2xl border border-line-divider bg-white p-5">
@@ -269,6 +405,15 @@ export default function ProviderOnboardPage() {
           </div>
         </div>
       )}
+      <div className="mt-5 grid gap-3 rounded-2xl border border-line-divider bg-white p-5" data-testid="onboard-submit-card">
+        <label className="flex items-start gap-2 text-[13px] sm:col-span-2"><input type="checkbox" className="mt-[3px]" checked={f.attest} onChange={(e) => edit({ attest: e.target.checked })} /><span data-testid="onboard-attest">{attestText(f.trades, kind, zh)}</span></label>
+        {err && <div role="alert" className="text-[12.5px] font-semibold text-danger sm:col-span-2">⚠ {err}</div>}
+        {saved && !err && (() => {
+          const gaps = shownTrades.map((t) => { const d = TRADES.find((x) => x.key === t); const cov = coverageFor(t as Trade, creds, new Date(), graceDays); return d && !cov.ok ? `${zh ? d.zh : d.en} → ${[...cov.missing, ...cov.expired, ...cov.unverified].map((k) => (zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en)).join(zh ? '、' : ', ')}` : null }).filter(Boolean) as string[]
+          return <div className="text-[12.5px] font-semibold text-success sm:col-span-2" data-testid="save-coverage-hint">✓ {zh ? '已保存。' : 'Saved.'} {gaps.length ? <span className="text-amber-800">{copy.missing[L]}{gaps.join(zh ? '；' : '; ')}</span> : <span>{kind === 'professional' ? (zh ? '所选类别的牌照都已登记。' : 'Every service has its licence on file.') : (zh ? '所有工种的资质都已登记。' : 'Every trade has its credentials on file.')}</span>}</div>
+        })()}
+        <div className="sm:col-span-2"><button onClick={() => void submit()} disabled={busy} className="sl-btn-primary !py-[10px] disabled:opacity-50">{row ? (zh ? '更新（改注册事实会重新核验）' : 'Update (changing facts re-verifies)') : (zh ? '提交入驻' : 'Submit')}</button></div>
+      </div>
       <p className="mt-4 text-[11.5px] leading-relaxed text-body-3" data-testid="onboard-footer">{copy.footer[L]}</p>
     </Shell>
   )

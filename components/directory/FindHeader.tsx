@@ -50,7 +50,7 @@ export default function FindHeader({ active, children }: { active: FindTab; chil
               {zh ? 'Stayloop 只做展示与转介，不抽成，费用由你和对方直接谈。' : 'Stayloop only lists and refers. It takes no commission; fees are between you and them.'}
             </p>
           </div>
-          <JoinEntry zh={zh} tabs={FIND_TABS} />
+          <JoinEntry zh={zh} />
         </div>
         <nav className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line-divider" aria-label={zh ? '找经纪和服务商' : 'Find agents and service providers'} data-testid="find-tabs">
           {FIND_TABS.map((t) => {

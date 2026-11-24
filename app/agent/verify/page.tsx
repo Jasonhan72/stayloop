@@ -5,7 +5,7 @@
 // We collect only what the public register shows; no ID upload, no SIN.
 // A Stayloop admin checks the entries against registrantsearch.reco.on.ca
 // by hand (its terms forbid automated / commercial use) and stamps the row.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { AgentBadge } from '@/components/AgentBadge'
@@ -13,7 +13,18 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import PublicProfileEditor from '@/components/agent/PublicProfileEditor'
+import AssistComposer from '@/components/onboard/AssistComposer'
+import AssistReview, { AiTag } from '@/components/onboard/AssistReview'
+import { applyAgent, type AgentField } from '@/lib/onboard/assist'
+import { takeDraft, type AssistLink, type AssistResult, type OnboardDraft } from '@/lib/onboard/client'
 import { RECO_REGISTER_URL, categoryLabel, isRecoNumber, isRegistrationLive, statusLabel, type AgentCategory, type AgentProfile } from '@/lib/agentProfile'
+
+const BLANK = { legal_name: '', trade_name: '', reco_number: '', category: 'salesperson' as AgentCategory, brokerage_name: '', business_email: '', business_phone: '', expires_at: '', crea_member: false, attest: false }
+// What the review strip calls each field the AI Agent may fill (components/onboard/AssistReview.tsx).
+const FIELD_NAME: Record<AgentField, { zh: string; en: string }> = {
+  legal_name: { zh: '法定姓名', en: 'legal name' }, reco_number: { zh: '注册号', en: 'registration number' }, category: { zh: '注册类别', en: 'category' },
+  brokerage_name: { zh: '所属经纪公司', en: 'brokerage' }, business_email: { zh: '业务邮箱', en: 'business e-mail' }, business_phone: { zh: '业务电话', en: 'business phone' }, expires_at: { zh: '注册到期日', en: 'registration expiry' },
+}
 
 export default function AgentVerifyPage() {
   const auth = useAuth()
@@ -26,6 +37,15 @@ export default function AgentVerifyPage() {
   // What the save actually did, read back from the stored row (sweep 2026-10-01): the page used to
   // say 「已提交，等待人工核验」 even when the row stayed rejected and never reached the queue.
   const [saved, setSaved] = useState<{ zh: string; en: string; tone: 'ok' | 'warn' } | null>(null)
+  // 2026-11-23: the AI Agent may fill the registration fields that are still empty, from the agent's own
+  // card or words (lib/onboard/assist.ts) — never from the register, which only a person consults. `ai` are
+  // the fields it filled and the agent has not changed since. The REALTOR® mark and the attestation stay theirs.
+  const [ai, setAi] = useState<AgentField[]>([])
+  const [beforeAi, setBeforeAi] = useState<typeof BLANK | null>(null)
+  const [aiLinks, setAiLinks] = useState<AssistLink[]>([])
+  const [aiNote, setAiNote] = useState<string | null>(null)
+  // The suggestion carried over from /onboard: taken once, laid in until the agent changes something.
+  const carried = useRef<OnboardDraft | null>(null)
 
   useEffect(() => {
     if (auth.loading) return
@@ -33,9 +53,40 @@ export default function AgentVerifyPage() {
     supabase.from('agent_profiles').select('*').eq('auth_id', auth.user.id).maybeSingle().then(({ data }) => {
       const r = (data as AgentProfile | null) ?? null
       setRow(r)
-      if (r) setF({ legal_name: r.legal_name, trade_name: r.trade_name || '', reco_number: r.reco_number, category: r.category, brokerage_name: r.brokerage_name, business_email: r.business_email || '', business_phone: r.business_phone || '', expires_at: r.expires_at || '', crea_member: r.crea_member, attest: !!r.attested_at })
+      let base: typeof BLANK = r ? { legal_name: r.legal_name, trade_name: r.trade_name || '', reco_number: r.reco_number, category: r.category, brokerage_name: r.brokerage_name, business_email: r.business_email || '', business_phone: r.business_phone || '', expires_at: r.expires_at || '', crea_member: r.crea_member, attest: !!r.attested_at } : { ...BLANK }
+      if (!carried.current && auth.user) carried.current = takeDraft(auth.user.id)
+      const d = carried.current
+      if (d) {
+        const laid = applyAgent(base, d.suggestion.agent, !r)
+        setBeforeAi(base); setAi(laid.filled); setAiLinks(d.links)
+        base = laid.next
+      }
+      if (r || d) setF(base)
     })
   }, [auth.loading, auth.user])
+
+  /** A change by the agent: the field is theirs from here on, and the carried suggestion is not laid in again. */
+  function edit(patch: Partial<typeof BLANK>) {
+    carried.current = null
+    setF((x) => ({ ...x, ...patch }))
+    setAi((a) => a.filter((k) => !(k in patch)))
+  }
+  /** What the AI Agent read on this page: into the registration fields that are still empty. */
+  function onAssist(r: AssistResult) {
+    carried.current = null
+    const laid = applyAgent(f, r.suggestion.agent, !row)
+    if (!laid.filled.length) { setAiNote(zh ? 'AI 助理读了，但表里还空着的那几项，材料里没有提到。' : 'The AI Agent read it, but found nothing for the fields that are still empty.'); return }
+    setAiNote(null)
+    setBeforeAi((b) => b ?? f)
+    setF(laid.next)
+    setAi((a) => Array.from(new Set([...a, ...laid.filled])))
+    setAiLinks(r.links)
+  }
+  function clearAi() {
+    carried.current = null
+    if (beforeAi) { const back: Record<string, unknown> = {}; for (const k of ai) back[k] = beforeAi[k]; setF((x) => ({ ...x, ...back })) }
+    setAi([]); setBeforeAi(null); setAiLinks([]); setAiNote(null)
+  }
 
   async function submit() {
     setErr(null)
@@ -63,6 +114,7 @@ export default function AgentVerifyPage() {
       const { data } = await supabase.from('agent_profiles').select('*').eq('auth_id', auth.user.id).maybeSingle()
       const next = (data as AgentProfile | null) ?? null
       setRow(next)
+      carried.current = null; setAi([]); setBeforeAi(null); setAiLinks([]); setAiNote(null)
       setSaved(saveOutcome(before, next?.status ?? null))
     } catch (e: any) {
       setErr(/duplicate|unique/i.test(String(e?.message)) ? (zh ? '这个 RECO 注册号已被另一个账号提交。' : 'This RECO number is already submitted by another account.') : String(e?.message || 'failed'))
@@ -73,6 +125,14 @@ export default function AgentVerifyPage() {
 
   const input = 'w-full rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]'
   const label = 'block text-[12.5px] font-semibold text-body-2'
+  const L = zh ? 'zh' : 'en'
+  const tag = (k: AgentField) => (ai.includes(k) ? <AiTag zh={zh} /> : null)
+  const reviewMissing = [
+    f.legal_name.trim().length < 3 ? FIELD_NAME.legal_name[L] : '',
+    !isRecoNumber(f.reco_number) ? FIELD_NAME.reco_number[L] : '',
+    f.brokerage_name.trim().length < 3 ? FIELD_NAME.brokerage_name[L] : '',
+    !f.attest ? (zh ? '勾选承诺' : 'the attestation') : '',
+  ].filter(Boolean)
 
   if (!auth.loading && !auth.user) {
     return (
@@ -117,22 +177,33 @@ export default function AgentVerifyPage() {
           <PublicProfileEditor authId={auth.user.id} legalName={row.legal_name} status={row.status} lang={lang as 'zh' | 'en'} />
         )}
 
+        {/* 2026-11-23: a card photo or a line of text fills the form; the agent checks it. Not offered once the
+            registration is live — the facts are verified then, and changing them re-queues the check. */}
+        {!verifiedView && (
+          <div className="mt-5" data-testid="agent-verify-assist">
+            <AssistComposer zh={zh} variant="compact" hint="agent" signedIn loginHref={`/login?redirect=${encodeURIComponent('/agent/verify')}`} onResult={onAssist}
+              placeholder={{ zh: '拍一张名片，或写下注册名、注册号和所属经纪公司…', en: 'Photograph your business card, or write your registered name, number and brokerage…' }} />
+            {aiNote && <p className="mt-2 text-[13px] text-amber-800" data-testid="agent-verify-assist-note">{aiNote}</p>}
+          </div>
+        )}
+        {ai.length > 0 && <div className="mt-4"><AssistReview zh={zh} filled={ai.map((k) => FIELD_NAME[k][L])} missing={reviewMissing} links={aiLinks} onClear={clearAi} /></div>}
+
         {verifiedView && <h2 className="mt-8 text-[17px] font-bold" data-testid="agent-verify-form-heading">{zh ? 'RECO 注册信息' : 'RECO registration'}</h2>}
         <div className={(verifiedView ? 'mt-3' : 'mt-5') + ' grid gap-4 rounded-2xl border border-line-divider bg-white p-5 sm:grid-cols-2'}>
-          <label className={label}>{zh ? '法定姓名（与 RECO 注册一致）' : 'Legal name (as registered)'}<input className={input} value={f.legal_name} onChange={e => setF({ ...f, legal_name: e.target.value })} autoComplete="name" /></label>
-          <label className={label}>{zh ? '常用名（可选，不对外显示）' : 'Trade name (optional, never shown)'}<input className={input} value={f.trade_name} onChange={e => setF({ ...f, trade_name: e.target.value })} /></label>
-          <label className={label}>{zh ? 'RECO 注册号（7 位）' : 'RECO registration number (7 digits)'}<input className={input} inputMode="numeric" pattern="[0-9]*" maxLength={7} value={f.reco_number} onChange={e => setF({ ...f, reco_number: e.target.value.replace(/\D/g, '').slice(0, 7) })} /></label>
-          <label className={label}>{zh ? '注册类别' : 'Category'}
-            <select className={input} value={f.category} onChange={e => setF({ ...f, category: e.target.value as AgentCategory })}>
+          <label className={label}>{zh ? '法定姓名（与 RECO 注册一致）' : 'Legal name (as registered)'}{tag('legal_name')}<input className={input} value={f.legal_name} onChange={e => edit({ legal_name: e.target.value })} autoComplete="name" /></label>
+          <label className={label}>{zh ? '常用名（可选，不对外显示）' : 'Trade name (optional, never shown)'}<input className={input} value={f.trade_name} onChange={e => edit({ trade_name: e.target.value })} /></label>
+          <label className={label}>{zh ? 'RECO 注册号（7 位）' : 'RECO registration number (7 digits)'}{tag('reco_number')}<input className={input} inputMode="numeric" pattern="[0-9]*" maxLength={7} value={f.reco_number} onChange={e => edit({ reco_number: e.target.value.replace(/\D/g, '').slice(0, 7) })} /></label>
+          <label className={label}>{zh ? '注册类别' : 'Category'}{tag('category')}
+            <select className={input} value={f.category} onChange={e => edit({ category: e.target.value as AgentCategory })}>
               {(['salesperson', 'broker', 'broker_of_record'] as AgentCategory[]).map(c => <option key={c} value={c}>{categoryLabel(c, lang as 'zh' | 'en')}</option>)}
             </select>
           </label>
-          <label className={`${label} sm:col-span-2`}>{zh ? '所属经纪公司（注册名）' : 'Employing brokerage (registered name)'}<input className={input} value={f.brokerage_name} onChange={e => setF({ ...f, brokerage_name: e.target.value })} autoComplete="organization" /></label>
-          <label className={label}>{zh ? '注册到期日' : 'Registration expiry'}<input className={input} type="date" value={f.expires_at} onChange={e => setF({ ...f, expires_at: e.target.value })} /></label>
-          <label className={label}>{zh ? '业务邮箱（对租客显示）' : 'Business email (shown to tenants)'}<input className={input} type="email" autoComplete="email" value={f.business_email} onChange={e => setF({ ...f, business_email: e.target.value })} /></label>
-          <label className={label}>{zh ? '业务电话（对租客显示）' : 'Business phone (shown to tenants)'}<input className={input} type="tel" autoComplete="tel" value={f.business_phone} onChange={e => setF({ ...f, business_phone: e.target.value })} /></label>
-          <label className="flex items-start gap-2 text-[13px] sm:col-span-2"><input type="checkbox" className="mt-[3px]" checked={f.crea_member} onChange={e => setF({ ...f, crea_member: e.target.checked })} /><span>{zh ? '我是 CREA 会员（勾选后可显示 REALTOR® 标记）' : 'I am a CREA member (allows the REALTOR® mark)'}</span></label>
-          <label className="flex items-start gap-2 text-[13px] sm:col-span-2"><input type="checkbox" className="mt-[3px]" checked={f.attest} onChange={e => setF({ ...f, attest: e.target.checked })} />
+          <label className={`${label} sm:col-span-2`}>{zh ? '所属经纪公司（注册名）' : 'Employing brokerage (registered name)'}{tag('brokerage_name')}<input className={input} value={f.brokerage_name} onChange={e => edit({ brokerage_name: e.target.value })} autoComplete="organization" /></label>
+          <label className={label}>{zh ? '注册到期日' : 'Registration expiry'}{tag('expires_at')}<input className={input} type="date" value={f.expires_at} onChange={e => edit({ expires_at: e.target.value })} /></label>
+          <label className={label}>{zh ? '业务邮箱（对租客显示）' : 'Business email (shown to tenants)'}{tag('business_email')}<input className={input} type="email" autoComplete="email" value={f.business_email} onChange={e => edit({ business_email: e.target.value })} /></label>
+          <label className={label}>{zh ? '业务电话（对租客显示）' : 'Business phone (shown to tenants)'}{tag('business_phone')}<input className={input} type="tel" autoComplete="tel" value={f.business_phone} onChange={e => edit({ business_phone: e.target.value })} /></label>
+          <label className="flex items-start gap-2 text-[13px] sm:col-span-2"><input type="checkbox" className="mt-[3px]" checked={f.crea_member} onChange={e => edit({ crea_member: e.target.checked })} /><span>{zh ? '我是 CREA 会员（勾选后可显示 REALTOR® 标记）' : 'I am a CREA member (allows the REALTOR® mark)'}</span></label>
+          <label className="flex items-start gap-2 text-[13px] sm:col-span-2"><input type="checkbox" className="mt-[3px]" checked={f.attest} onChange={e => edit({ attest: e.target.checked })} />
             <span>{zh
               ? '我确认以上信息与 RECO 注册一致；在 Stayloop 上只以注册名与所属经纪公司名展示；向客户提供任何服务前会给出 RECO Information Guide 并签订书面代表协议；转所或注册变更后 24 小时内更新。'
               : 'I confirm the above matches my RECO registration; I will be shown on Stayloop only under my registered name and brokerage; I give clients the RECO Information Guide and a written representation agreement before any service; I will update within 24 hours of a brokerage or registration change.'}</span>
