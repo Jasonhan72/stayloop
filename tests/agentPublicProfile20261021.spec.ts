@@ -226,7 +226,9 @@ describe('wiring', () => {
   it('entry points: listing page, agent picker, footer, route audit', () => {
     expect(read('app/listings/[slug]/page.tsx')).toContain("select('auth_id, profile_slug')")
     expect(read('components/AgentPicker.tsx')).toContain('profile_slug')
-    expect(read('components/Footer.tsx')).toContain("{ key: 'foot.findAgent', href: '/agents' }")
+    // 2026-11-24: the footer's links live in lib/nav/siteNav.ts, the list the header's 「产品」 menu shows too
+    expect(read('lib/nav/siteNav.ts')).toContain("{ key: 'foot.findAgent', href: '/agents',")
+    expect(read('components/Footer.tsx')).toContain('{FOOTER_GROUPS.map((g) => (')
     const audit = read('scripts/route-audit.mjs')
     expect(audit).toContain("'/agents'")
     expect(audit).toContain('agent contact anon → 401')

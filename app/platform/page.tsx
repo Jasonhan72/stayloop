@@ -14,6 +14,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { eyebrowFor } from '@/lib/ui/eyebrow'
 import { useT, type Lang } from '@/lib/i18n'
+import { PRODUCT_NAV, RESOURCE_NAV } from '@/lib/nav/siteNav'
 
 type Bi = { zh: string; en: string }
 const pick = (b: Bi, lang: Lang) => (lang === 'zh' ? b.zh : b.en)
@@ -32,6 +33,7 @@ const STAGES: Stage[] = [
       { t: { zh: '房源发布 · 发布前合规检查', en: 'Listing publish · compliance checks before publish' }, href: '/dashboard/listings/new' },
       { t: { zh: '看房请求与提问 · 进房东待办', en: 'Showing requests & questions · into the landlord queue' }, href: '/listings' },
       { t: { zh: '在线申请 · 材料直达房东', en: 'Online application · documents straight to the landlord' }, href: '/listings' },
+      { t: { zh: '找经纪 · 人工核验过注册的租赁经纪，站内联系', en: 'Find an agent · leasing agents whose registration was checked by hand, reachable on Stayloop' }, href: '/agents' },
       { t: { zh: '租客筛查 · 取证 + 公开记录 + 评分', en: 'Tenant screening · forensics + public records + score' }, href: '/screening' },
       { t: { zh: '申请人本人核验 · 身份 / 银行 / 征信', en: 'Applicant verification · identity / bank / credit' }, href: '/screening', status: 'soon' },
       { t: { zh: '决定通知 · 固定合规声明', en: 'Decision notice · fixed compliance wording' }, href: '/rules' },
@@ -49,8 +51,8 @@ const STAGES: Stage[] = [
       { t: { zh: '租金记录 · 持续迟付法定定义提示', en: 'Rent ledger · statutory persistent-late flag' }, href: '/leases/import' },
       { t: { zh: '报修工单', en: 'Maintenance tickets' }, href: '/tenant/maintenance' },
       { t: { zh: '维修派单 · 已核验服务商或自己的联系人 · 报价须批准 · RTA s.27 进入通知 · 验收', en: 'Repair dispatch · verified providers or your own contacts · quotes need approval · RTA s.27 entry notice · acceptance' }, href: '/services' },
+      { t: { zh: '找物业管理服务与专业服务 · 资质人工核验，直接联系', en: 'Find property maintenance and professional services · credentials checked by hand, contact them directly' }, href: '/providers' },
       { t: { zh: '租金提醒 · 批准后才发', en: 'Rent reminders · sent only after approval' }, href: '/landlord/todo' },
-      { t: { zh: '在线收租', en: 'Online rent collection' }, href: '/tenant/payments', status: 'demo' },
     ],
   },
   {
@@ -68,10 +70,11 @@ const STAGES: Stage[] = [
   },
 ]
 
+// The three tiers as /stayloop-api states them (2026-11-24: the section had kept an older count and listed /screen as open).
 const API_POINTS: { code: string; t: Bi }[] = [
-  { code: 'POST /listings/compliance', t: { zh: '房源合规检查 · 免费、无需密钥、不存个人信息', en: 'Listing compliance · free, keyless, stores no personal data' } },
-  { code: 'POST /passport/verify', t: { zh: '申请人出示的核验结论 · 只回结论不回文件', en: 'Applicant-presented verification · conclusions, never documents' } },
-  { code: 'POST /screen', t: { zh: '发起筛查 · 同一条管线，须附申请人同意', en: 'Start a screening · same pipeline, applicant consent required' } },
+  { code: 'GET /rules · POST /listings/compliance · … + MCP', t: { zh: '第一档 · 七个端点和一个 MCP 端点：规则、合规检查、日期算术、租金基准。免费、无需密钥、不存个人信息', en: 'Tier 1 · seven endpoints and one MCP endpoint: rules, compliance checks, date arithmetic, rent benchmarks. Free, keyless, stores no personal data' } },
+  { code: 'POST /passport/verify', t: { zh: '第二档 · 申请人出示的核验结论：需要合作方密钥和申请人本人授权，只回结论不回文件', en: 'Tier 2 · applicant-presented verification: needs a partner key and the applicant’s own authorisation; conclusions, never documents' } },
+  { code: 'POST /screen', t: { zh: '第三档 · 合作方发起筛查：Stayloop 完成《消费者报告法》注册前暂不开放', en: 'Tier 3 · partner-initiated screening: not open until Stayloop’s Consumer Reporting Act registration is complete' } },
 ]
 
 function StatusTag({ s, lang }: { s?: 'demo' | 'soon'; lang: Lang }) {
@@ -85,7 +88,7 @@ function StatusTag({ s, lang }: { s?: 'demo' | 'soon'; lang: Lang }) {
 }
 
 export default function PlatformPage() {
-  const { lang } = useT()
+  const { lang, t } = useT()
   const zh = lang === 'zh'
   return (
     <div style={{ background: '#FFFFFF' }} className="text-body">
@@ -108,6 +111,33 @@ export default function PlatformPage() {
             <a href="#api" className="sl-btn-secondary">Stayloop API</a>
           </div>
         </div>
+      </section>
+
+      {/* ================= ALL MODULES ================= */}
+      {/* The same list as the header's 「产品」 menu and the footer's 产品 column (lib/nav/siteNav.ts); this page is its first row. */}
+      <section className="mx-auto max-w-[1100px] px-5 pt-12 sm:px-7" data-testid="platform-modules">
+        <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '所有模块' : 'All modules'}</div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {PRODUCT_NAV.filter((m) => m.href !== '/platform').map((m) => (
+            <Link key={m.href} href={m.href} className="group rounded-2xl border border-line-divider bg-white p-5 transition hover:border-brand" data-testid="platform-module">
+              <div className="flex items-center justify-between gap-3 text-[16px] font-bold">
+                {t(m.key)}
+                <span aria-hidden className="text-brand transition group-hover:translate-x-0.5">→</span>
+              </div>
+              <p className="mt-1 text-[13.5px] leading-relaxed text-body-2">{m.desc[lang]}</p>
+            </Link>
+          ))}
+        </div>
+        <p className="mt-4 text-[13px] text-body-3" data-testid="platform-resources">
+          {zh ? '另有：' : 'Also: '}
+          {RESOURCE_NAV.map((r, i) => (
+            <span key={r.href}>
+              {i > 0 && ' · '}
+              <Link href={r.href} className="underline underline-offset-2 hover:text-brand">{t(r.key)}</Link>
+              {r.tag === 'demo' && (zh ? '（示范）' : ' (demo)')}
+            </span>
+          ))}
+        </p>
       </section>
 
       {/* ================= PRODUCT 1: LIFECYCLE ================= */}
@@ -164,7 +194,7 @@ export default function PlatformPage() {
           ))}
         </div>
         <p className="mt-4 text-[12.5px] text-body-3">
-          {zh ? '标「示范」的项目仍是产品演示，标「即将」的项目接口已接、待供应商凭证。规则全文见 ' : 'Items marked "demo" are still product demos; "soon" means the integration is built and awaits provider credentials. Full rules: '}
+          {zh ? '标「即将」的项目接口已接、待供应商凭证。规则全文见 ' : '"Soon" means the integration is built and awaits provider credentials. Full rules: '}
           <Link href="/rules" className="underline">/rules</Link>.
         </p>
       </section>
@@ -176,8 +206,8 @@ export default function PlatformPage() {
           <h2 className="mt-2 text-[26px] font-extrabold leading-tight tracking-tight sm:text-[34px]">Stayloop API</h2>
           <p className="mt-2 max-w-[720px] text-[15.5px] text-body-2">
             {zh
-              ? '全流程里产生的事实与规则，以三个端点开放给物业系统、租赁平台和合作方。申请人主动出示，合作方只拿到结论；每次调用留痕并通知申请人。'
-              : 'The facts and rules produced across the lifecycle, exposed to property systems, rental platforms and partners through three endpoints. Applicants present; partners receive conclusions only; every call is audited and the applicant is told.'}
+              ? '全流程里用到的规则与事实，分三档开放给物业系统、租赁平台和 AI 客户端：规则与日期算术可以直接调用；核验结论由申请人主动出示，合作方只拿到结论，每次调用留痕并通知申请人；合作方发起筛查暂不开放。'
+              : 'The rules and facts used across the lifecycle, opened in three tiers to property systems, rental platforms and AI clients: rules and date arithmetic can be called directly; verification is presented by the applicant, the partner receives conclusions only, and every call is audited and the applicant told; partner-initiated screening is not open yet.'}
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             {API_POINTS.map((a) => (

@@ -132,7 +132,8 @@ describe('entries: rail, avatar menu, footer, /services — the header row is un
     expect(items).not.toMatch(/\/agents'|\/providers'/)
   })
   it('the footer link keeps its address and says both; /services links the directory and tells the truth about it', () => {
-    expect(read('components/Footer.tsx')).toContain("{ key: 'foot.findAgent', href: '/agents' }")
+    // 2026-11-24: the footer's links live in lib/nav/siteNav.ts, the list the header's 「产品」 menu shows too
+    expect(read('lib/nav/siteNav.ts')).toContain("{ key: 'foot.findAgent', href: '/agents',")
     expect(read('lib/i18n.tsx')).toContain("'foot.findAgent': { en: 'Find agents & providers', zh: '找经纪 · 服务商' }")
     const s = read('app/services/page.tsx')
     expect(s).toContain('href="/providers" className="sl-btn-secondary"')

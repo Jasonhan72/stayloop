@@ -38,7 +38,10 @@ describe('where the logo goes', () => {
     expect(h).not.toContain('onClick={() => { setMenuOpen(true); setHatsOpen(true) }}') // no chip, no「切换」that opened the hamburger
     const nav = h.slice(h.indexOf('<nav className="hidden items-center gap-[26px] lg:flex">'), h.indexOf('</nav>'))
     expect(nav).toContain('ref={productRef}')
-    for (const k of ['nav.platform', 'nav.listings', 'nav.pricing', 'nav.screening']) expect(nav).toContain(`i18nKey="${k}"`)
+    // 2026-11-24: 「产品」 keeps its place in the row and opens the product list (lib/nav/siteNav.ts) instead of jumping to one page
+    expect(nav).toContain("<ProductMenu active={isActive('/platform') || isActive('/stayloop-api')} screeningHref={screeningHref} />")
+    expect(nav.indexOf('<ProductMenu')).toBeLessThan(nav.indexOf('i18nKey="nav.listings"'))
+    for (const k of ['nav.listings', 'nav.pricing', 'nav.screening']) expect(nav).toContain(`i18nKey="${k}"`)
     expect(nav).toContain('{productOpen && home.signedIn && (')
     expect(nav).toContain('data-testid="nav-identity-menu"')
     expect(nav).toContain('{productOpen && !home.signedIn && (')

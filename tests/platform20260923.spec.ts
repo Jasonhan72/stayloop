@@ -21,8 +21,14 @@ describe('product structure: lifecycle + Stayloop API', () => {
     expect(readFileSync('app/sitemap.ts', 'utf8')).toContain("'/stayloop-api/docs'")
   })
   it('header, footer and homepage all lead to the product structure', () => {
-    expect(readFileSync('components/Header.tsx', 'utf8')).toMatch(/i18nKey="nav\.platform" href="\/platform"/)
-    expect(readFileSync('components/Footer.tsx', 'utf8')).toMatch(/foot\.platform[\s\S]*foot\.stayloopApi/)
+    // 2026-11-24: the header's 「产品」 menu and the footer's 产品 column are one list (lib/nav/siteNav.ts);
+    // its first row is /platform, and the phone menu still goes straight there
+    const nav = readFileSync('lib/nav/siteNav.ts', 'utf8')
+    expect(nav).toMatch(/PRODUCT_NAV[^\n]*= \[\n  \{ key: 'foot\.platform', href: '\/platform'/)
+    expect(nav).toMatch(/foot\.platform[\s\S]*foot\.stayloopApi/)
+    expect(readFileSync('components/Header.tsx', 'utf8')).toContain('{PRODUCT_NAV.map((item) => (')
+    expect(readFileSync('components/Header.tsx', 'utf8')).toContain(`<Link href="/platform" onClick={() => setMenuOpen(false)}`)
+    expect(readFileSync('components/Footer.tsx', 'utf8')).toContain("import { FOOTER_GROUPS } from '@/lib/nav/siteNav'")
     // 2026-09-28: the lifecycle cards were retired (the film plays before → during → after); the section links the full structure
     const home = readFileSync('components/home/HomeNext.tsx', 'utf8')
     const how = home.slice(home.indexOf('{/* ================= HOW IT WORKS'), home.indexOf('{/* ================= ROLES'))

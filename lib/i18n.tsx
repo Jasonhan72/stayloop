@@ -82,9 +82,10 @@ export const DICT = {
   'foot.product': { en: 'Product', zh: '产品' },
   'foot.forWhom': { en: "Who it's for", zh: '为谁打造' },
   'foot.company': { en: 'Company', zh: '公司' },
+  'foot.resources': { en: 'Resources', zh: '资源' },
   // Footer · product links
   'foot.pricing': { en: 'Pricing', zh: '定价' },
-  'foot.platform': { en: 'Rental lifecycle', zh: '租房全流程' },
+  'foot.platform': { en: 'Product overview', zh: '产品总览' },
   'foot.tools': { en: 'Free rental tools', zh: '租房小工具' },
   'foot.stayloopApi': { en: 'Stayloop API', zh: 'Stayloop API' },
   'foot.services': { en: 'Repairs & services network', zh: '维修与服务网络' },
@@ -92,10 +93,13 @@ export const DICT = {
   'foot.passport': { en: 'Tenant Passport', zh: '租客护照' },
   'foot.disputes': { en: 'Disputes', zh: '争议解决' },
   'foot.findAgent': { en: 'Find agents & providers', zh: '找经纪 · 服务商' },
+  // Footer · resource links
+  'foot.rules': { en: 'Ontario rental rules', zh: '安省租房规则' },
   // Footer · for-whom links
   'foot.tenants': { en: 'Tenants', zh: '租客' },
   'foot.landlords': { en: 'Landlords', zh: '房东' },
   'foot.agents': { en: 'Agents', zh: '经纪' },
+  'foot.providers': { en: 'Providers', zh: '服务商' },
   'foot.partners': { en: 'Partners', zh: '合作伙伴' },
   // Footer · company links
   'foot.about': { en: 'About', zh: '关于' },

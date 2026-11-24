@@ -107,7 +107,7 @@ describe('/tools page', () => {
     expect(read('app/sitemap.ts')).toContain("'/rules'")
     expect(read('scripts/mobile-audit.mjs')).toContain("'/tools'")
     expect(read('scripts/route-audit.mjs')).toContain("'/tools'")
-    expect(read('components/Footer.tsx')).toContain("href: '/tools'")
+    expect(read('lib/nav/siteNav.ts')).toContain("{ key: 'foot.tools', href: '/tools' }") // the footer's links, since 2026-11-24
     expect(read('lib/i18n.tsx')).toContain("'foot.tools'")
   })
 })

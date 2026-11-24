@@ -40,7 +40,7 @@ describe('O-D1 / O-D2 · privacy contact and consumer-rights footer link', () =>
     expect(src.split('privacy@stayloop.ai').length - 1).toBeGreaterThanOrEqual(4)
   })
   it('the footer links /consumer-rights with a Chinese and English label', () => {
-    expect(read('components/Footer.tsx')).toContain("{ key: 'foot.consumerRights', href: '/consumer-rights' }")
+    expect(read('lib/nav/siteNav.ts')).toContain("{ key: 'foot.consumerRights', href: '/consumer-rights' }") // the footer's links, since 2026-11-24
     const line = read('lib/i18n.tsx').split('\n').find((l) => l.includes("'foot.consumerRights'"))!
     expect(line).toContain('Consumer rights')
     expect(line).toContain('消费者权利')

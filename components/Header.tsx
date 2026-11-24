@@ -11,6 +11,7 @@ import Logo from './Logo'
 import MobileBottomNav from './MobileBottomNav'
 import LanguageCurrencyModal from './LanguageCurrencyModal'
 import { useI18n } from '@/lib/i18n'
+import { PRODUCT_NAV } from '@/lib/nav/siteNav'
 import { profilePhotoOf, readCachedProfilePhoto, useAuth, writeCachedProfilePhoto } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { useAdminPending } from '@/lib/admin/useAdminPending'
@@ -318,7 +319,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
             )}
           </div>
 
-          <NavLink i18nKey="nav.platform" href="/platform" active={isActive('/platform') || isActive('/stayloop-api')} />
+          <ProductMenu active={isActive('/platform') || isActive('/stayloop-api')} screeningHref={screeningHref} />
           <NavLink i18nKey="nav.listings" href="/listings" active={isActive('/listings')} />
           <NavLink i18nKey="nav.pricing" href="/pricing" active={isActive('/pricing')} />
           <NavLink i18nKey="nav.screening" href={screeningHref} active={isActive('/screening')} />
@@ -596,6 +597,56 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
       />
       {mobileNav && <MobileBottomNav />}
     </>
+  )
+}
+
+/** 「产品」 in the header row (2026-11-24): the product modules of lib/nav/siteNav.ts — the same list the footer's
+ *  产品 column and the index on /platform show. It opens on a click like 「我是」 beside it; its first row is the
+ *  overview page this item used to link to. Escape, a press elsewhere, or following a row closes it. */
+function ProductMenu({ active, screeningHref }: { active: boolean; screeningHref: string }) {
+  const { lang, t } = useI18n()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const away = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', away)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc) }
+  }, [open])
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="group -my-3 inline-flex items-center gap-1 py-3 text-[14px] transition"
+        style={{ color: active || open ? '#171717' : '#3F3F46', fontWeight: active ? 600 : 400 }}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        data-testid="nav-products"
+      >
+        <ReservedText text={t('nav.platform')} bold={active} />
+        <ChevronIcon open={open} />
+      </button>
+      {open && (
+        <div className="sl-card absolute left-1/2 mt-3 w-[340px] -translate-x-1/2 overflow-hidden p-1" role="menu" data-testid="nav-products-menu">
+          {PRODUCT_NAV.map((item) => (
+            <Link
+              key={item.href}
+              // the screening row goes where the row's own 「租客筛查」 goes (the workbench for a landlord or a registered agent)
+              href={item.href === '/screening' ? screeningHref : item.href}
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="block rounded-md px-3 py-2.5 transition hover:bg-surface-chip"
+            >
+              <span className="block text-[13.5px] font-semibold text-body">{t(item.key)}</span>
+              <span className="block text-[12px] leading-snug text-body-3">{item.desc[lang]}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

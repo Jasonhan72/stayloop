@@ -59,9 +59,12 @@ describe('site-wide links to /services', () => {
     expect(i).toContain("'nav.services': { en: 'Provider', zh: '服务商' }")
     expect(i).toContain("'foot.services': {")
   })
-  it('Footer product column lists it right after Stayloop API', () => {
-    const f = read('components/Footer.tsx')
-    expect(f).toContain("{ key: 'foot.stayloopApi', href: '/stayloop-api' },\n      { key: 'foot.services', href: '/services' },")
+  it('the product list — the footer’s 产品 column and the header’s 「产品」 menu — carries it', () => {
+    // 2026-11-24: one list in lib/nav/siteNav.ts, in the order a tenancy meets the modules (it used to sit right after Stayloop API in the footer file)
+    const nav = read('lib/nav/siteNav.ts')
+    const products = nav.slice(nav.indexOf('export const PRODUCT_NAV'), nav.indexOf('export const RESOURCE_NAV'))
+    expect(products).toContain("{ key: 'foot.services', href: '/services',")
+    expect(products).toContain("{ key: 'foot.stayloopApi', href: '/stayloop-api',")
   })
   it('/platform 租中 has a repair-dispatch capability linking to /services', () => {
     const p = read('app/platform/page.tsx')

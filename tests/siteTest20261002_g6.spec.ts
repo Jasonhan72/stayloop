@@ -47,7 +47,9 @@ describe('L6-public D2: footer links never split', () => {
   it('each link is nowrap and the phone grid sizes the first column to its longest link', () => {
     // 2026-11-18: the link also became a padded box (touch target); the nowrap is what this pins.
     expect(f).toMatch(/className="[^"]*\bwhitespace-nowrap\b[^"]*text-\[13\.5px\] text-body-2 transition hover:text-brand"/)
-    expect(f).toMatch(/grid-cols-\[auto_1fr\] gap-x-6[^"]*sm:grid-cols-3/)
+    // 2026-11-24: four groups, two by two below `lg`; the first column is still sized to its longest link
+    expect(f).toMatch(/grid-cols-\[auto_1fr\] gap-x-6[^"]*lg:grid-cols-\[1\.3fr_repeat\(4,1fr\)\]/)
+    expect(f).not.toMatch(/sm:grid-cols-3|sm:grid-cols-4/)
   })
 })
 
