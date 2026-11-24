@@ -9,7 +9,8 @@
 //      the REALTOR® mark and every trust column stay out of the suggestion's reach.
 //   2. Whatever the model says goes through `sanitizeSuggestion`: closed vocabularies for trades,
 //      cities, credential kinds and languages; shapes for numbers, dates, e-mail and the 7-digit
-//      registration number. Anything else is dropped, not repaired.
+//      registration number. Anything else is dropped, not repaired. (`withStated` then reads the
+//      person's own sentence against a fixed word list, so 「我是电工」 always selects a trade.)
 //   3. A suggestion only fills what is still empty. What the person typed, or what is already on
 //      their record, wins.
 import { CITIES, CREDENTIAL_LABEL, PROFESSIONAL_TRADES, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
@@ -189,11 +190,44 @@ export function sanitizeSuggestion(raw: unknown, today: Date = new Date()): Onbo
   const repairish = trades.some((t) => !(PROFESSIONAL_TRADES as readonly string[]).includes(t))
   const proish = trades.some((t) => (PROFESSIONAL_TRADES as readonly string[]).includes(t))
   let kind: JoinKind | null = isJoinKind(r.kind) ? r.kind : null
-  if (kind === 'agent' && !agentish && !agent.legal_name) kind = null
+  if (kind === 'agent' && !agentish && (repairish || proish)) kind = repairish ? 'repair' : 'professional'
   if (kind === 'repair' && !repairish && proish) kind = 'professional'
   if (kind === 'professional' && !proish && repairish) kind = 'repair'
   if (!kind) kind = agentish ? 'agent' : repairish ? 'repair' : proish ? 'professional' : null
   return { kind, business, credentials, agent }
+}
+
+// What the person said they do, by a fixed word list. The model usually picks this up; on a very
+// short line (「我是电工」) it sometimes returns nothing, and then the person would be asked to choose a
+// kind they have just named. This reads THEIR OWN words only — never a web page — and only adds:
+// a trade to the list, or a kind when there is none. It cannot produce a name, a number or a date.
+const STATED: [Trade, RegExp][] = [
+  ['plumbing', /水管|水喉|通渠|下水道|plumb/i],
+  ['electrical', /电工|电气|电路|electric/i],
+  ['heating_cooling', /暖气|供暖|采暖|空调|暖通|hvac|furnace|heating|air[ -]?condition/i],
+  ['appliance', /(电器|家电)(维修|修理)|修(电器|家电)|appliance/i],
+  ['pest', /除虫|虫害|杀虫|灭鼠|灭虫|pest|exterminat/i],
+  ['structural', /门窗|窗户|干墙|drywall|window/i],
+  ['locks_safety', /开锁|换锁|门锁|锁匠|locksmith/i],
+  ['handyman', /杂工|清洁|保洁|打扫|handyman|clean(ing|er)|janitor/i],
+  ['photographer_floorplan', /摄影|户型图|photograph|floor ?plan/i],
+  ['insurance_broker', /保险经纪|insurance broker/i],
+  ['paralegal', /paralegal/i],
+  ['lawyer', /律师|lawyer|barrister|solicitor/i],
+]
+const STATED_AGENT = /(地产|房产|房地产|租赁)经纪|realtor|real[ -]estate (agent|salesperson|broker)|broker of record/i
+
+/** The suggestion with what the person plainly said they do added to it (see STATED). */
+export function withStated(s: OnboardSuggestion, said: string): OnboardSuggestion {
+  const text = String(said || '').slice(0, ASSIST_MAX_TEXT)
+  const more = STATED.filter(([t, re]) => re.test(text) && !s.business.trades.includes(t)).map(([t]) => t)
+  const trades = more.length ? [...s.business.trades, ...more] : s.business.trades
+  let kind = s.kind
+  if (!kind) {
+    const pro = (t: Trade) => (PROFESSIONAL_TRADES as readonly string[]).includes(t)
+    kind = trades.some((t) => !pro(t)) ? 'repair' : trades.some(pro) ? 'professional' : STATED_AGENT.test(text) ? 'agent' : null
+  }
+  return more.length || kind !== s.kind ? { ...s, kind, business: { ...s.business, trades } } : s
 }
 
 /** How much of a suggestion there is: nothing found means the person is told so, not sent to an empty form. */

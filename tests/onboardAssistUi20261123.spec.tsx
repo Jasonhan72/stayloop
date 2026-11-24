@@ -145,6 +145,10 @@ describe('the box an applicant hands their material to', () => {
     expect(got.length).toBe(0)
     // what they wrote is still there to add to
     expect(only<HTMLTextAreaElement>(c, '[data-testid="assist-text"]').value).toBe('你好')
+    // nothing to fill in, but the kind is known (「我是地产经纪」): that is still worth handing on
+    state.answer = result(AGENT, 0)
+    await click(only(c, '[data-testid="assist-run"]'))
+    expect(got.length).toBe(1)
   })
   it('a register link is answered with why, not with a failure', async () => {
     state.answer = { ok: false, error: 'link_unreadable', links: [{ url: 'https://registrantsearch.reco.on.ca/', ok: false, reason: 'register' }] }

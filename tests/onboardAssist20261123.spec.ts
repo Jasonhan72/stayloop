@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
   ASSIST_MAX_LINKS, EMPTY_SUGGESTION, JOIN_FORM_HREF, JOIN_HREF, applyAgent, applyBusiness, assistSystemPrompt, assistUserText, isRegisterHost, isoDate, linksIn,
-  newCredentials, pageText, sanitizeSuggestion, suggestionSize, type AgentForm, type ProviderForm,
+  newCredentials, pageText, sanitizeSuggestion, suggestionSize, withStated, type AgentForm, type ProviderForm,
 } from '../lib/onboard/assist'
 import { CITIES, CREDENTIAL_LABEL, TRADES } from '../lib/marketplace/trades'
 import { splitPaths } from '../lib/agent/replyPaths'
@@ -111,8 +111,38 @@ describe('whatever the model says is reduced to what the forms can hold', () => 
     expect(k({ kind: 'professional', business: { trades: ['handyman'] } })).toBe('repair')
     expect(k({ kind: null, business: { trades: ['lawyer'] } })).toBe('professional')
     expect(k({ kind: null, agent: { reco_number: '1234567' } })).toBe('agent')
-    expect(k({ kind: 'agent' })).toBeNull() // called an agent, with nothing an agent has
+    expect(k({ kind: 'agent' })).toBe('agent') // said to be an agent: enough to open that form
+    expect(k({ kind: 'agent', business: { trades: ['plumbing'] } })).toBe('repair') // …unless what was found says otherwise
     expect(k({ kind: 'astronaut', business: { legal_name: 'X' } })).toBeNull()
+  })
+})
+
+describe('what the person plainly said they do is never lost', () => {
+  // measured in production on 2026-11-23: 「我是电工」 came back with no trade and no kind, 「我是地产经纪」 with no kind
+  const none = EMPTY_SUGGESTION
+  it('a trade named in their own sentence is selected even when the model returned nothing', () => {
+    expect(withStated(none, '我是电工')).toMatchObject({ kind: 'repair', business: { trades: ['electrical'] } })
+    expect(withStated(none, '我做保洁和除虫，也修暖气').business.trades).toEqual(['heating_cooling', 'pest', 'handyman'])
+    expect(withStated(none, 'Licensed plumber and locksmith')).toMatchObject({ kind: 'repair', business: { trades: ['plumbing', 'locks_safety'] } })
+    expect(withStated(none, '我是律师')).toMatchObject({ kind: 'professional', business: { trades: ['lawyer'] } })
+    expect(withStated(none, '房源摄影和户型图')).toMatchObject({ kind: 'professional', business: { trades: ['photographer_floorplan'] } })
+    // 电器 is not 电气, and an insurance broker is not a real-estate agent
+    expect(withStated(none, '家电维修').business.trades).toEqual(['appliance'])
+    expect(withStated(none, '我是保险经纪')).toMatchObject({ kind: 'professional', business: { trades: ['insurance_broker'] } })
+  })
+  it('an agent who only says so is still sent to the agent’s form', () => {
+    for (const t of ['我是地产经纪', '房产经纪，做租赁', 'I am a realtor', 'real estate salesperson']) expect(withStated(none, t).kind, t).toBe('agent')
+    expect(withStated(none, '你好').kind).toBeNull()
+  })
+  it('it only adds: what the model found stays, a kind it gave stays, and nothing else can appear', () => {
+    const s = sanitizeSuggestion({ kind: 'professional', business: { legal_name: 'Avery Legal', trades: ['paralegal'] } }, TODAY)
+    const out = withStated(s, '我也接一些清洁的活')
+    expect(out.kind).toBe('professional')
+    expect(out.business.trades).toEqual(['paralegal', 'handyman'])
+    expect(out.business.legal_name).toBe('Avery Legal')
+    expect(withStated(s, 'nothing relevant')).toBe(s)
+    // no name, number or date can come out of a sentence
+    expect({ ...withStated(none, '我是电工 许可证 7001234 到期 2027-01-01'), kind: null, business: { ...none.business } }).toEqual(none)
   })
 })
 
@@ -216,7 +246,7 @@ describe('POST /api/onboard/assist', () => {
   it('images are accepted by their bytes, never a PDF, and the answer is whatever survives the sanitizer', () => {
     expect(r).toContain('const type = sniff(bytes)')
     expect(r).not.toMatch(/application\/pdf|type: 'document'/)
-    expect(r).toContain('const suggestion = sanitizeSuggestion(safeParseJson(out))')
+    expect(r).toContain('const suggestion = withStated(sanitizeSuggestion(safeParseJson(out)), said)')
     expect(r).toContain("meta: { userId: uid, slot: 'classify', source: 'onboard/assist' }")
     expect(r).toContain('jsonMode: true')
   })

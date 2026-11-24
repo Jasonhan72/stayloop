@@ -95,7 +95,8 @@ export default function AssistComposer({ zh, hint = null, variant = 'hero', sign
         skipped.length ? (zh ? `有 ${skipped.length} 个文件读不了，已跳过。` : `${skipped.length} file(s) could not be read and were skipped.`) : '',
         bad ? (bad.reason === 'register' ? ERR.register[L] : zh ? '有一个链接没读成，已按其余内容填写。' : 'One link could not be read; the rest was used.') : '',
       ].filter(Boolean).join(' ')
-      if (r.result.found === 0) {
+      // nothing to put in the form, and no idea which form: say so. (Knowing the kind is still worth passing on.)
+      if (r.result.found === 0 && !r.result.suggestion.kind) {
         setErr((zh ? '没读到能填进表里的内容。多写两句：做什么、在哪些城市、怎么联系；或者换一张更清楚的照片。' : 'Nothing here could be put into the form. Add a line or two — what you do, where, how to reach you — or try a clearer photo.') + (said ? ` ${said}` : ''))
         return
       }

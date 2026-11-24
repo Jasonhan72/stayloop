@@ -20,7 +20,7 @@ import { fetchPublicHttps, readTextCapped } from '@/lib/net/publicUrl'
 import { isMlsHost } from '@/lib/listings/externalSources'
 import {
   ASSIST_IMAGE_TYPES, ASSIST_MAX_FILES, ASSIST_MAX_IMAGE_BYTES, ASSIST_MAX_TEXT, ASSIST_PAGE_CHARS,
-  assistSystemPrompt, assistUserText, isJoinKind, isRegisterHost, linksIn, pageText, sanitizeSuggestion, suggestionSize,
+  assistSystemPrompt, assistUserText, isJoinKind, isRegisterHost, linksIn, pageText, sanitizeSuggestion, suggestionSize, withStated,
 } from '@/lib/onboard/assist'
 
 const PER_USER_PER_HOUR = 20
@@ -127,6 +127,7 @@ export async function POST(req: Request) {
     console.error('[onboard/assist] model call failed', (e as Error)?.message)
     return NextResponse.json({ error: 'model_failed' }, { status: 502 })
   }
-  const suggestion = sanitizeSuggestion(safeParseJson(out))
+  // the model's answer through the sanitizer, then the person's own sentence against the fixed word list
+  const suggestion = withStated(sanitizeSuggestion(safeParseJson(out)), said)
   return NextResponse.json({ suggestion, found: suggestionSize(suggestion), links: linkResults, images: images.length }, { headers: { 'Cache-Control': 'no-store' } })
 }
