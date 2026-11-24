@@ -189,6 +189,14 @@ describe('the periods are the tenancy page’s own', () => {
     expect(pickTenancy(list, '租金收到了')).toBe(0)
     expect(pickTenancy([{ ...list[0], periods: [] }, list[1]], '租金收到了')).toBe(1)
     expect(pickTenancy([], '租金收到了')).toBe(-1)
+    // nobody named: the tenancy that has the month they named, before one whose only open period is not due yet
+    const future = { ...list[0], id: 'h0', address: '1 Ahead Rd', periods: [{ due: '2027-01-01', amount: 2100, overdue: false }] }
+    expect(pickTenancy([future, list[1]], '这个月的租金收到了', '2026-11')).toBe(1)
+    expect(pickTenancy([future, list[1]], '租金收到了', null)).toBe(1)
+    expect(pickTenancy([future, { ...list[1], periods: [] }], '租金收到了', null)).toBe(0)
+    expect(pickTenancy([future, list[1]], '1 月的租金收到了', '2027-01')).toBe(0)
+    // a name still wins over the month
+    expect(pickTenancy([future, list[1]], '1 Ahead Rd 这个月的租金收到了', '2026-11')).toBe(0)
     const p = list[0].periods
     expect(pickPeriods(p, '2026-10')).toEqual(['2026-10-01'])
     expect(pickPeriods(p, '2026-12')).toEqual([])
@@ -285,6 +293,15 @@ describe('the card', () => {
     expect(only<HTMLAnchorElement>(c, '[data-testid="rent-record-open"]').getAttribute('href')).toBe('/h/h1?tab=rent')
     expect([db.facts, db.pending]).toEqual([1, 1])
     expect(JSON.parse(localStorage.getItem(rentRecordDoneKey('u-landlord', 'offer-1'))!).recorded.map((r: { due: string }) => r.due)).toEqual(['2026-10-01', '2026-11-01'])
+  })
+  it('with several tenancies and none named, it opens on the one that has the month the person said', async () => {
+    seed([{ ...H1, id: 'h0', address: '1 Ahead Rd', current_lease_id: 'L0', start_date: '2027-01-01' }, H2])
+    db.tables.lease_documents = [...db.tables.lease_documents, { id: 'L0', start_date: '2027-01-01', tenant_name: 'Ahead Tenant' }]
+    db.tables.rent_payments = [{ lease_id: 'L0', due_date: '2027-01-01', status: 'due', paid_at: null, amount: 2100 }]
+    const { container: c } = mount({ said: '这个月的租金租客已经转给我了，帮我记一下' })
+    await ready(c)
+    expect(only<HTMLSelectElement>(c, '[data-testid="rent-record-tenancy"]').selectedOptions[0].textContent).toBe('9 Elm Street · Jordan Park')
+    expect(periods(c)).toEqual([['2026-10-15', '0'], ['2026-11-15', '1']])
   })
   it('nothing ticked, nothing to confirm', async () => {
     const { container: c } = mount({ said: '12 月的租金收到了' })

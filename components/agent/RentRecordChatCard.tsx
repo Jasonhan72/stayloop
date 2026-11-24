@@ -75,7 +75,7 @@ export default function RentRecordChatCard({ offer, role, said }: { offer: RentR
       setTenancies(list)
       if (!list.length) { setStep('empty'); return }
       if (preselect) {
-        const i = Math.max(0, pickTenancy(list, said))
+        const i = Math.max(0, pickTenancy(list, said, month))
         setAt(i)
         setTicked(pickPeriods(list[i].periods, month))
       }

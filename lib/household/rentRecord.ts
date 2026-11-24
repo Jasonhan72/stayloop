@@ -73,11 +73,13 @@ export function buildRentTenancies(
 const norm = (s: string) => s.toLowerCase().replace(/\[test\]/g, ' ').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 
 /**
- * The tenancy the person meant: the one whose tenant's name, street or unit they wrote; otherwise the
- * only one with something to record; otherwise the first with something to record; otherwise the first.
- * It is a starting point — the card always lets them choose.
+ * The tenancy the person meant: the one whose tenant's name, street or unit they wrote. With none
+ * named: one that has a period in the month they named; otherwise one with a period already due;
+ * otherwise one with anything to record; otherwise the first. (2026-11-24, found on production: 「这个月的
+ * 租金收到了」 opened on a tenancy whose only open period was next year's placeholder, while another
+ * had this month's unrecorded.) It is a starting point — the card always lets them choose.
  */
-export function pickTenancy(tenancies: RentTenancy[], said: string | null | undefined): number {
+export function pickTenancy(tenancies: RentTenancy[], said: string | null | undefined, month: string | null = null): number {
   if (!tenancies.length) return -1
   const text = ` ${norm(String(said ?? ''))} `
   const named = tenancies.map((t, i) => {
@@ -91,8 +93,13 @@ export function pickTenancy(tenancies: RentTenancy[], said: string | null | unde
     return { i, score }
   }).filter((x) => x.score > 0).sort((a, b) => b.score - a.score)
   if (named.length && (named.length === 1 || named[0].score > named[1].score)) return named[0].i
-  const withOpen = tenancies.map((t, i) => (t.periods.length ? i : -1)).filter((i) => i >= 0)
-  return withOpen.length ? withOpen[0] : 0
+  const first = (ok: (t: RentTenancy) => boolean) => tenancies.findIndex(ok)
+  for (const i of [
+    month ? first((t) => t.periods.some((p) => p.due.slice(0, 7) === month)) : -1,
+    first((t) => t.periods.some((p) => p.overdue)),
+    first((t) => t.periods.length > 0),
+  ]) if (i >= 0) return i
+  return 0
 }
 
 /**
