@@ -83,6 +83,8 @@ export const DICT = {
   'foot.forWhom': { en: "Who it's for", zh: '为谁打造' },
   'foot.company': { en: 'Company', zh: '公司' },
   'foot.resources': { en: 'Resources', zh: '资源' },
+  'foot.shortcuts': { en: 'Quick links', zh: '常用入口' },
+  'foot.listings': { en: 'Listings', zh: '房源' },
   // Footer · product links
   'foot.pricing': { en: 'Pricing', zh: '定价' },
   'foot.platform': { en: 'Product overview', zh: '产品总览' },

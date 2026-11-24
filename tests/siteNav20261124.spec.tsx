@@ -11,6 +11,8 @@
 // few hours it opened the list as a menu, until the user said (twice) that 房源 and 租客筛查 are
 // already in the header row and must not appear on the product page, and that the menu's items
 // belong inside the page: 「把这个产品单独为一个页面，这些菜单项放在产品页面里，你要重新设计一下产品页面的 UI」.
+// That left the footer with no link to either. Asked whether the footer should keep the two in a
+// column of their own, the user said 「单独放一栏」: a fifth group, 常用入口, never under 「产品」.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import React from 'react'
@@ -31,7 +33,7 @@ import { I18nProvider } from '../lib/i18n'
 import Footer from '../components/Footer'
 import PlatformPage from '../app/platform/page'
 import ImportIntro, { IMPORT_STEPS } from '../components/household/ImportIntro'
-import { COMPANY_NAV, FOOTER_GROUPS, PRODUCT_NAV, PRODUCT_PAGE_MODULES, RESOURCE_NAV, ROLE_NAV } from '../lib/nav/siteNav'
+import { COMPANY_NAV, FOOTER_CELLS, FOOTER_GROUPS, PRODUCT_NAV, PRODUCT_PAGE_MODULES, RESOURCE_NAV, ROLE_NAV, SHORTCUT_NAV } from '../lib/nav/siteNav'
 
 // the real dictionary, in Chinese: the provider paints its default and then follows the stored choice
 beforeEach(() => { localStorage.setItem('stayloop_lang', 'zh') })
@@ -67,9 +69,9 @@ describe('one list of product modules', () => {
 })
 
 describe('the footer', () => {
-  it('four columns: 产品 is the product list, word for word; 资源 stands apart', () => {
+  it('five columns: 产品 is the product list, word for word; 常用入口 and 资源 stand apart', () => {
     const { container: c } = mount(<Footer />)
-    expect(all(c, 'footer h4').map(textOf)).toEqual(['产品', '为谁打造', '资源', '公司'])
+    expect(all(c, 'footer h4').map(textOf)).toEqual(['产品', '常用入口', '为谁打造', '资源', '公司'])
     expect(group(c, 'product')).toEqual([
       ['/platform', '产品总览'], ['/tenant/passport', '租客护照'], ['/leases/import', '租约与租金记录'], ['/services', '维修与服务网络'], ['/agents', '找经纪 · 服务商'], ['/stayloop-api', 'Stayloop API'],
     ])
@@ -85,6 +87,32 @@ describe('the footer', () => {
     expect(doors).toEqual(ROLE_NAV.map((r) => r.href))
     expect(group(c, 'company')).toEqual([['/about', '关于'], ['/partners', '合作伙伴'], ['/contact', '联系'], ['/privacy', '隐私'], ['/terms', '使用条款'], ['/consumer-rights', '消费者权利']])
   })
+  it('常用入口 is the header row’s two destinations, under the header’s own words, and nothing else', () => {
+    // 2026-11-24, user, asked whether the footer should keep the two links in a column of their own: 「单独放一栏」
+    const { container: c } = mount(<Footer />)
+    expect(group(c, 'shortcuts')).toEqual([['/listings', '房源'], ['/screening', '租客筛查']])
+    expect(SHORTCUT_NAV.map((m) => [m.key, m.href])).toEqual([['foot.listings', '/listings'], ['foot.screening', '/screening']])
+    const dict = read('lib/i18n.tsx')
+    for (const [foot, nav] of [['foot.listings', 'nav.listings'], ['foot.screening', 'nav.screening']]) {
+      const words = (k: string) => dict.match(new RegExp(`'${k.replace('.', '\\.')}': (\\{[^}]+\\})`))?.[1]
+      expect(words(foot), foot).toBeTruthy()
+      expect(words(foot), foot).toBe(words(nav))
+    }
+    for (const m of SHORTCUT_NAV) expect(existsSync(`app${m.href}/page.tsx`), m.href).toBe(true)
+  })
+  it('below `lg` the two short groups share a cell, so the groups still sit two by two; from `lg` each is a column', () => {
+    expect(FOOTER_CELLS.map((cell) => cell.map((g) => g.titleKey))).toEqual([['foot.product'], ['foot.shortcuts', 'foot.forWhom'], ['foot.resources'], ['foot.company']])
+    expect(FOOTER_CELLS.flat()).toEqual(FOOTER_GROUPS)
+    const { container: c } = mount(<Footer />)
+    const pair = only(c, '[data-testid="foot-cell-pair"]')
+    expect(all(pair, 'h4').map(textOf)).toEqual(['常用入口', '为谁打造'])
+    expect(pair.className).toContain('lg:contents')
+    const f = read('components/Footer.tsx')
+    // the brand has a row of its own at `lg` (five columns and the brand do not fit 1024), and joins the row from `xl`
+    expect(f).toContain('lg:grid-cols-[1.3fr_0.8fr_0.8fr_1.1fr_0.9fr]')
+    expect(f).toContain('xl:grid-cols-[1.4fr_1.3fr_0.8fr_0.8fr_1.1fr_0.9fr]')
+    expect(f).toContain('className="col-span-2 lg:col-span-5 xl:col-span-1"')
+  })
   it('后台管理 shows for an administrator only; the version label is untouched', () => {
     state.admin = 'admin'
     const { container: c } = mount(<Footer />)
@@ -93,10 +121,12 @@ describe('the footer', () => {
   })
   it('the footer keeps no list of its own', () => {
     const f = read('components/Footer.tsx')
-    expect(f).toContain("import { FOOTER_GROUPS } from '@/lib/nav/siteNav'")
+    expect(f).toContain("import { FOOTER_CELLS, type FooterGroup } from '@/lib/nav/siteNav'")
     expect(f).not.toMatch(/href: '\//)
-    expect(FOOTER_GROUPS.map((g) => g.titleKey)).toEqual(['foot.product', 'foot.forWhom', 'foot.resources', 'foot.company'])
+    expect(f).not.toMatch(/href="\//)
+    expect(FOOTER_GROUPS.map((g) => g.titleKey)).toEqual(['foot.product', 'foot.shortcuts', 'foot.forWhom', 'foot.resources', 'foot.company'])
     expect(FOOTER_GROUPS[0].links).toBe(PRODUCT_NAV)
+    expect(FOOTER_GROUPS[1].links).toBe(SHORTCUT_NAV)
   })
 })
 
@@ -112,12 +142,16 @@ describe('the header', () => {
     // no menu hangs off it, and the header keeps no copy of the product list
     expect(h).not.toMatch(/ProductMenu|nav-products|PRODUCT_NAV|siteNav/)
   })
-  it('房源 and 租客筛查 are the row’s own items and are on no 「产品」 list: not the page’s, not the footer’s', () => {
+  it('房源 and 租客筛查 are the row’s own items and are on no 「产品」 list: not the page’s, not the footer’s 产品 column', () => {
     for (const list of [PRODUCT_NAV, PRODUCT_PAGE_MODULES, RESOURCE_NAV]) for (const m of list) expect(m.href, m.href).not.toMatch(/^\/(listings|screening)/)
     expect(PRODUCT_PAGE_MODULES.map((m) => m.href)).toEqual(['/tenant/passport', '/leases/import', '/services', '/agents', '/stayloop-api'])
     expect(PRODUCT_NAV.map((m) => m.href)).toEqual(['/platform', ...PRODUCT_PAGE_MODULES.map((m) => m.href)])
+    for (const list of [ROLE_NAV, COMPANY_NAV]) for (const m of list) expect(m.href, m.href).not.toMatch(/^\/(listings|screening)/)
+    // the footer links each once, and only in the column of their own
     const { container: c } = mount(<Footer />)
-    expect(all<HTMLAnchorElement>(c, 'footer a').map((a) => a.getAttribute('href')).filter((x) => /^\/(listings|screening)/.test(x ?? ''))).toEqual([])
+    expect(all<HTMLAnchorElement>(c, 'footer a').map((a) => a.getAttribute('href')).filter((x) => /^\/(listings|screening)/.test(x ?? ''))).toEqual(['/listings', '/screening'])
+    expect(all<HTMLAnchorElement>(only(c, '[data-testid="foot-group-shortcuts"]'), 'a').length).toBe(2)
+    expect(group(c, 'product').map((l) => l[0]).filter((x) => /^\/(listings|screening)/.test(x ?? ''))).toEqual([])
   })
 })
 

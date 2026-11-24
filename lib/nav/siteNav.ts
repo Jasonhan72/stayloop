@@ -17,7 +17,9 @@
 // 页面，这些菜单项放在产品页面里」, and again: 「房源和租客筛选已经在头部菜单里有了，不要再放进产品页面里了」.
 // So the header row is 我是 · 产品 · 房源 · 定价 · 租客筛查, and 房源 and 租客筛查 are NOT on this list:
 // they are the row's own items (and the phone tab bar's), on screen on every page, and they are
-// not repeated under 「产品」 anywhere — not on the product page, not in the footer column.
+// not repeated under 「产品」 anywhere — not on the product page, not in the footer's 产品 column.
+// The footer still links them, in a column of their own (SHORTCUT_NAV, 「常用入口」): asked whether the
+// footer should keep the two links in a separate column, the user said 「单独放一栏」.
 // What is not a product has its own list, RESOURCE_NAV (the price list, the free tools, the rule
 // book, and the one page that is still only a demo, marked as such). The labels are i18n keys so
 // the footer and the page cannot word them differently.
@@ -37,6 +39,13 @@ export const PRODUCT_NAV: (SiteLink & { desc: Words })[] = [
 
 /** What the product page presents, one block each: the list without the page itself. */
 export const PRODUCT_PAGE_MODULES = PRODUCT_NAV.filter((m) => m.href !== '/platform')
+
+/** The header row's own two destinations, kept in the footer in a column of their own — never under 「产品」.
+ *  The same words as the header row (房源 · 租客筛查), in the same order. */
+export const SHORTCUT_NAV: SiteLink[] = [
+  { key: 'foot.listings', href: '/listings' },
+  { key: 'foot.screening', href: '/screening' },
+]
 
 /** Not products: what things cost, what is free to use, the rules everything cites — and the page that is a demo throughout. */
 export const RESOURCE_NAV: SiteLink[] = [
@@ -65,11 +74,18 @@ export const COMPANY_NAV: SiteLink[] = [
   { key: 'foot.admin', href: '/admin' },
 ]
 
-/** The footer's four columns, left to right. On a phone they sit two by two, so the two columns with the
- *  longest labels (产品, 资源) are first and third: they share the grid's first column, which is sized to its widest link. */
-export const FOOTER_GROUPS: { titleKey: string; links: SiteLink[] }[] = [
-  { titleKey: 'foot.product', links: PRODUCT_NAV },
-  { titleKey: 'foot.forWhom', links: ROLE_NAV },
-  { titleKey: 'foot.resources', links: RESOURCE_NAV },
-  { titleKey: 'foot.company', links: COMPANY_NAV },
-]
+export type FooterGroup = { titleKey: string; links: SiteLink[] }
+const PRODUCT_GROUP: FooterGroup = { titleKey: 'foot.product', links: PRODUCT_NAV }
+const SHORTCUT_GROUP: FooterGroup = { titleKey: 'foot.shortcuts', links: SHORTCUT_NAV }
+const ROLE_GROUP: FooterGroup = { titleKey: 'foot.forWhom', links: ROLE_NAV }
+const RESOURCE_GROUP: FooterGroup = { titleKey: 'foot.resources', links: RESOURCE_NAV }
+const COMPANY_GROUP: FooterGroup = { titleKey: 'foot.company', links: COMPANY_NAV }
+
+/** The footer's five columns, left to right on a wide screen. */
+export const FOOTER_GROUPS: FooterGroup[] = [PRODUCT_GROUP, SHORTCUT_GROUP, ROLE_GROUP, RESOURCE_GROUP, COMPANY_GROUP]
+
+/** The same five as the footer lays them out. Below `lg` the cells sit two by two, so the two with the
+ *  longest labels (产品, 资源) are first and third: they share the grid's first column, which is sized to
+ *  its widest link. The two short groups (常用入口 has two links, 为谁打造 four) share the second cell,
+ *  one above the other — about as tall as 产品 beside them; from `lg` that cell dissolves and each is a column. */
+export const FOOTER_CELLS: FooterGroup[][] = [[PRODUCT_GROUP], [SHORTCUT_GROUP, ROLE_GROUP], [RESOURCE_GROUP], [COMPANY_GROUP]]

@@ -228,7 +228,7 @@ describe('wiring', () => {
     expect(read('components/AgentPicker.tsx')).toContain('profile_slug')
     // 2026-11-24: the footer's links live in lib/nav/siteNav.ts, the list the header's 「产品」 menu shows too
     expect(read('lib/nav/siteNav.ts')).toContain("{ key: 'foot.findAgent', href: '/agents',")
-    expect(read('components/Footer.tsx')).toContain('{FOOTER_GROUPS.map((g) => (')
+    expect(read('components/Footer.tsx')).toContain('{FOOTER_CELLS.map((cell) => cell.length === 1 ? group(cell[0]) : (')
     const audit = read('scripts/route-audit.mjs')
     expect(audit).toContain("'/agents'")
     expect(audit).toContain('agent contact anon → 401')

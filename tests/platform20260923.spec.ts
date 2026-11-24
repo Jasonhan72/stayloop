@@ -26,7 +26,7 @@ describe('product structure: lifecycle + Stayloop API', () => {
     const nav = readFileSync('lib/nav/siteNav.ts', 'utf8')
     expect(nav).toMatch(/PRODUCT_NAV[^\n]*= \[\n  \{ key: 'foot\.platform', href: '\/platform'/)
     expect(nav).toMatch(/foot\.platform[\s\S]*foot\.stayloopApi/)
-    expect(readFileSync('components/Footer.tsx', 'utf8')).toContain("import { FOOTER_GROUPS } from '@/lib/nav/siteNav'")
+    expect(readFileSync('components/Footer.tsx', 'utf8')).toContain("import { FOOTER_CELLS, type FooterGroup } from '@/lib/nav/siteNav'")
     // 2026-09-28: the lifecycle cards were retired (the film plays before → during → after); the section links the full structure
     const home = readFileSync('components/home/HomeNext.tsx', 'utf8')
     const how = home.slice(home.indexOf('{/* ================= HOW IT WORKS'), home.indexOf('{/* ================= ROLES'))
