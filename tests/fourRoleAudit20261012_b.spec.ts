@@ -133,10 +133,14 @@ describe('P1-5 · neutral pages framed by activeHat render blank until the hats 
     expect(after).not.toMatch(/\n  (const \[.*\] = useState|useEffect\(|const .* = useRef)/)
     expect(read('app/messages/page.tsx')).toContain('if (auth.loading || !auth.user || hats.loading) return <div className="min-h-screen bg-[#F3F8FC]" />')
   })
-  it('/leases/import: blank while signed in and the hats load; the anonymous sign-in prompt is unchanged', () => {
+  it('/leases/import: blank while signed in and the hats load; a visitor still gets the way to sign in and come back', () => {
     const s = read('app/leases/import/page.tsx')
     expect(s).toContain('if (loading || (user && hats.loading)) return <div className="min-h-screen bg-[#F3F8FC]" />')
     expect(s.indexOf('if (loading || (user && hats.loading)) return')).toBeLessThan(s.indexOf('if (!loading && !user) {'))
-    expect(s).toContain('<Link href="/login?next=/leases/import"')
+    // 2026-11-24: the one-line prompt became a page saying what the module is (it is a row of the product list);
+    // the link back through sign-in is on it
+    const anon = s.slice(s.indexOf('if (!loading && !user) {'), s.indexOf("const input = 'w-full rounded-lg border"))
+    expect(anon).toContain('<ImportIntro zh={zh} />')
+    expect(read('components/household/ImportIntro.tsx')).toContain('<Link href="/login?next=/leases/import"')
   })
 })

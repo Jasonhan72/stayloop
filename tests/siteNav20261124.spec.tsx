@@ -27,6 +27,7 @@ vi.mock('@/lib/supabase', () => ({ supabase: { from: () => { throw new Error('no
 import { I18nProvider } from '../lib/i18n'
 import Footer from '../components/Footer'
 import PlatformPage from '../app/platform/page'
+import ImportIntro, { IMPORT_STEPS } from '../components/household/ImportIntro'
 import { COMPANY_NAV, FOOTER_GROUPS, PRODUCT_NAV, RESOURCE_NAV, ROLE_NAV } from '../lib/nav/siteNav'
 
 // the real dictionary, in Chinese: the provider paints its default and then follows the stored choice
@@ -36,12 +37,13 @@ const mount = (node: React.ReactElement) => render(<I18nProvider>{node}</I18nPro
 const group = (c: ParentNode, k: string) => all<HTMLAnchorElement>(only(c, `[data-testid="foot-group-${k}"]`), 'a').map((a) => [a.getAttribute('href'), textOf(a)])
 
 describe('one list of product modules', () => {
-  it('seven of them, in the order a tenancy meets them, the overview first; every one has a page', () => {
+  it('eight of them, in the order a tenancy meets them, the overview first; every one has a page', () => {
     expect(PRODUCT_NAV.map((m) => [m.key, m.href])).toEqual([
       ['foot.platform', '/platform'],
       ['nav.listings', '/listings'],
       ['foot.screening', '/screening'],
       ['foot.passport', '/tenant/passport'],
+      ['foot.leases', '/leases/import'],
       ['foot.services', '/services'],
       ['foot.findAgent', '/agents'],
       ['foot.stayloopApi', '/stayloop-api'],
@@ -68,7 +70,7 @@ describe('the footer', () => {
     const { container: c } = mount(<Footer />)
     expect(all(c, 'footer h4').map(textOf)).toEqual(['产品', '为谁打造', '资源', '公司'])
     expect(group(c, 'product')).toEqual([
-      ['/platform', '产品总览'], ['/listings', '房源'], ['/screening', '租客筛查'], ['/tenant/passport', '租客护照'], ['/services', '维修与服务网络'], ['/agents', '找经纪 · 服务商'], ['/stayloop-api', 'Stayloop API'],
+      ['/platform', '产品总览'], ['/listings', '房源'], ['/screening', '租客筛查'], ['/tenant/passport', '租客护照'], ['/leases/import', '租约与租金记录'], ['/services', '维修与服务网络'], ['/agents', '找经纪 · 服务商'], ['/stayloop-api', 'Stayloop API'],
     ])
     expect(group(c, 'resources')).toEqual([['/pricing', '定价'], ['/tools', '租房小工具'], ['/rules', '安省租房规则'], ['/disputes', '争议解决']])
     // the demo page says so beside its link, and only there
@@ -124,7 +126,7 @@ describe('the header', () => {
 })
 
 describe('/platform is the overview of the same list', () => {
-  it('an index of the six modules besides itself, then the resources', () => {
+  it('an index of the seven modules besides itself, then the resources', () => {
     const { container: c } = mount(<PlatformPage />)
     const cards = all<HTMLAnchorElement>(c, '[data-testid="platform-module"]')
     expect(cards.map((a) => a.getAttribute('href'))).toEqual(PRODUCT_NAV.slice(1).map((m) => m.href))
@@ -141,5 +143,31 @@ describe('/platform is the overview of the same list', () => {
     // the two directories it had never heard of
     expect(s).toContain("href: '/agents' },")
     expect(s).toContain("href: '/providers' },")
+  })
+})
+
+describe('租约与租金记录 is on the list because its page says what it is to a visitor', () => {
+  it('signed out, /leases/import is the module in three steps and a way in — not one line asking to sign in', () => {
+    const page = read('app/leases/import/page.tsx')
+    expect(page).toContain('<ImportIntro zh={zh} />')
+    expect(page).not.toMatch(/请先登录后再导入|Please sign in first\./)
+    const { container: c } = mount(<ImportIntro zh />)
+    expect(textOf(only(c, '[data-testid="import-intro-title"]'))).toBe('已经在租了？把签好的租约带进来')
+    expect(all(c, '[data-testid="import-intro-steps"] li').length).toBe(3)
+    expect(IMPORT_STEPS.map((x) => x.title.zh)).toEqual(['上传租约，核对信息', '邀请对方加入', '每月记租金，需要时导出'])
+    for (const x of IMPORT_STEPS) expect(c.textContent).toContain(x.body.zh)
+    expect(only<HTMLAnchorElement>(c, '[data-testid="import-intro-signin"]').getAttribute('href')).toBe('/login?next=/leases/import')
+  })
+  it('it says only what exists: a confirm form, a record — no money through Stayloop, no tribunal form filed', () => {
+    const { container: c } = mount(<ImportIntro zh />)
+    const text = c.textContent ?? ''
+    expect(text).toContain('只有你确认过的内容才会保存')
+    expect(text).toContain('不是 LTB 表格，也不替你提交')
+    expect(textOf(only(c, '[data-testid="import-intro-note"]'))).toBe('Stayloop 不经手资金：租金由你们自己收付，这里只是记录。')
+    expect(IMPORT_STEPS.length).toBe(3)
+    const src = read('components/household/ImportIntro.tsx').split('\n').filter((l) => !l.trim().startsWith('//')).join('\n')
+    expect(src).not.toMatch(/收租|催收|上报|代收|助手|背调|supabase|fetch\(/)
+    cleanup()
+    expect(mount(<ImportIntro zh={false} />).container.textContent).not.toMatch(/[一-鿿]/)
   })
 })

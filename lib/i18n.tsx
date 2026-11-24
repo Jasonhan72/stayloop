@@ -91,6 +91,7 @@ export const DICT = {
   'foot.services': { en: 'Repairs & services network', zh: '维修与服务网络' },
   'foot.screening': { en: 'Screening', zh: '租客筛查' },
   'foot.passport': { en: 'Tenant Passport', zh: '租客护照' },
+  'foot.leases': { en: 'Leases & rent records', zh: '租约与租金记录' },
   'foot.disputes': { en: 'Disputes', zh: '争议解决' },
   'foot.findAgent': { en: 'Find agents & providers', zh: '找经纪 · 服务商' },
   // Footer · resource links

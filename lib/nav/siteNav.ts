@@ -24,6 +24,8 @@ export const PRODUCT_NAV: (SiteLink & { desc: Words })[] = [
   { key: 'nav.listings', href: '/listings', desc: { zh: '找房，或发布核验过的房源', en: 'Find a place, or publish a verified listing' } },
   { key: 'foot.screening', href: '/screening', desc: { zh: '材料取证、公开记录、四项评分', en: 'Document forensics, public records, a four-part score' } },
   { key: 'foot.passport', href: '/tenant/passport', desc: { zh: '一份申请包，每次申请带上', en: 'One applicant pack to bring to every application' } },
+  // the landlord's main way in (「已经在租」); listed since /leases/import says what it is to a visitor (components/household/ImportIntro.tsx)
+  { key: 'foot.leases', href: '/leases/import', desc: { zh: '导入已签的租约，每月记租金，需要时导出', en: 'Bring in a signed lease, record the rent each month, export when needed' } },
   { key: 'foot.services', href: '/services', desc: { zh: '报修工单，派给核验过的服务商或你自己的联系人', en: 'Repair tickets, dispatched to verified providers or your own contacts' } },
   { key: 'foot.findAgent', href: '/agents', desc: { zh: '核验过的经纪、物业管理服务和专业服务', en: 'Verified agents, property maintenance and professional services' } },
   { key: 'foot.stayloopApi', href: '/stayloop-api', desc: { zh: '规则、合规检查、租金基准，接进你的系统', en: 'Rules, compliance checks and rent benchmarks for your system' } },

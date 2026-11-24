@@ -20,6 +20,7 @@ import { activeHat, useHats } from '@/lib/useHats'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
+import ImportIntro from '@/components/household/ImportIntro'
 import type { LeaseImportExtraction } from '@/lib/household/importExtract'
 import { sameTenancyAddress } from '@/lib/lease/householdMatch'
 import { emailShapeOk, EMAIL_SHAPE_MESSAGE } from '@/lib/validation/emailShape'
@@ -296,15 +297,8 @@ export default function LeaseImportPage() {
     return (
       <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
         <Header variant="transparent" />
-        <div className="flex flex-1 items-center justify-center px-5 text-center">
-          <div>
-            <h1 className="text-[22px] font-extrabold">{zh ? '导入已有租约' : 'Import an existing lease'}</h1>
-            <p className="mt-2 text-[14px] text-body-2">{zh ? '请先登录后再导入。' : 'Please sign in first.'}</p>
-            <Link href="/login?next=/leases/import" className="mt-5 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#00ACE4' }}>
-              {zh ? '去登录' : 'Sign in'}
-            </Link>
-          </div>
-        </div>
+        {/* 2026-11-24: this page is a row of the product list, so a visitor gets what the module is, not one line asking them to sign in. */}
+        <ImportIntro zh={zh} />
         <Footer />
       </div>
     )
