@@ -72,7 +72,7 @@ describe('every module on the product list is known to the conversation', () => 
   })
   it('what the record says about today: a tenant’s repair, and the lease import, are finished in the conversation', () => {
     const finishes = MODULES_IN_CHAT.flatMap((m) => ASSISTANT_ROLES.filter((r) => m.reach[r] === 'finishes').map((r) => `${m.href} ${r}`))
-    // the import half of 租约与租金记录 (the lease import card, 2026-11-24); recording rent is still done on the page
+    // 租约与租金记录: the lease import card and the rent record card (both 2026-11-24); an agent's conversation records no rent
     expect(finishes).toEqual(['/leases/import tenant', '/leases/import landlord', '/leases/import agent', '/services tenant'])
     // …and the approval cards are still as the prompt says: a landlord's and an agent's conversation propose none
     // (the lease import card is a form the person submits, like the listing draft card — not a proposed action)
@@ -113,6 +113,10 @@ describe('the assistant is told about each module', () => {
   it('it is told what it cannot do: record rent, import a lease, fill a pack, dispatch a job', () => {
     expect(productModulesGuide('landlord')).toContain('你不能替他导入,也不能替他把某一期记成已收')
     for (const role of ASSISTANT_ROLES) expect(productModulesGuide(role)).toContain('系统会在你的回复下面放一张导入卡')
+    for (const role of ['landlord', 'tenant'] as const) expect(productModulesGuide(role)).toContain('系统会在你的回复下面放一张记租金的卡')
+    expect(productModulesGuide('agent')).not.toContain('记租金的卡')
+    // the cards are the person's to confirm: the assistant is told it cannot see or confirm them
+    expect(productModulesGuide('landlord')).toContain('由用户本人在卡上确认,你看不到卡上的内容,也不能替他确认')
     expect(productModulesGuide('landlord')).toContain('你不能在对话里替他派单')
     expect(productModulesGuide('tenant')).toContain('你不能替他填、替他分享')
     expect(productModulesGuide('tenant')).toContain('你不能替他导入或替他记')

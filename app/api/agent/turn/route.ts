@@ -41,6 +41,7 @@ import { llmChat, llmChatStream, LlmHttpError, LlmKeyMissingError, LlmTruncatedE
 import { createReplyStreamer, type TurnStreamEvent } from '@/lib/agent/replyStream'
 import { afterResponse } from '@/lib/afterResponse'
 import { LEASE_IMPORT_TURN_NOTE, wantsLeaseImport } from '@/lib/agent/leaseImportIntent'
+import { RENT_RECORD_TURN_NOTE, wantsRentRecord } from '@/lib/agent/rentRecordIntent'
 
 
 // ── Auth + rate limiting ─────────────────────────────────────────────────────
@@ -596,6 +597,10 @@ export async function POST(req: Request) {
   // import card under the reply, and the model is told so (lib/agent/leaseImportIntent.ts). Read from the
   // person's own words, never from the model's output; never on an anonymous turn — an import needs an account.
   const leaseImportOffer = !anonymous && !!turnUserId && wantsLeaseImport(message)
+  // 「记租金」 (2026-11-24): the same kind of card for a landlord or a tenant who says rent was received or paid
+  // (lib/agent/rentRecordIntent.ts). One card a turn — a sentence that asks for both gets the import first,
+  // since there is nothing to record against until the tenancy exists. An agent's conversation records no rent.
+  const rentRecordOffer = !anonymous && !!turnUserId && !leaseImportOffer && (role === 'landlord' || role === 'tenant') && wantsRentRecord(message)
 
   // `let`: the PDF attachments are read inside runTurn (behind the heartbeat); a lease from
   // another province appends that province's fact block before the model is called.
@@ -606,6 +611,7 @@ export async function POST(req: Request) {
     landlordAddendum +
     userContextAddendum +
     (leaseImportOffer ? LEASE_IMPORT_TURN_NOTE : '') +
+    (rentRecordOffer ? RENT_RECORD_TURN_NOTE : '') +
     (anonymous ? ANON_PROMPT_ADDENDUM : '')
 
   // ---- Heartbeat-streamed response ------------------------------------------
@@ -1335,6 +1341,7 @@ export async function POST(req: Request) {
     if (market) { const area = String((market as { area?: unknown }).area ?? '').trim(); receipt.did.push({ kind: 'market', zh: `查了 CMHC / 统计局租金基准${area ? `（${area}）` : ''}`, en: `Checked the CMHC / StatCan rent benchmark${area ? ` (${area})` : ''}` }) }
     if (draftListing) receipt.did.push({ kind: 'draft', zh: '准备了房源草稿卡', en: 'Prepared a listing draft card' })
     if (leaseImportOffer) receipt.did.push({ kind: 'draft', zh: '放了一张导入租约的卡，等你核对确认', en: 'Added a lease import card for you to check and confirm' })
+    if (rentRecordOffer) receipt.did.push({ kind: 'draft', zh: '放了一张记租金的卡，等你勾选确认', en: 'Added a rent record card for you to tick and confirm' })
     if (!anonymous && out.proposedAction) receipt.did.push({ kind: 'card', zh: `出了待批卡：${String(out.proposedAction.title || '').slice(0, 40)}`, en: `Proposed a card for your approval: ${String(out.proposedAction.title || '').slice(0, 40)}` })
     receipt.read = receipt.read.slice(0, RECEIPT_MAX_LINES); receipt.did = receipt.did.slice(0, RECEIPT_MAX_LINES)
   }
@@ -1363,6 +1370,7 @@ export async function POST(req: Request) {
     followups,
     // the lease import card's id is its own: the browser remembers under it that this import was finished
     lease_import: leaseImportOffer ? { id: crypto.randomUUID() } : undefined,
+    rent_record: rentRecordOffer ? { id: crypto.randomUUID() } : undefined,
     draft_listing: draftListing,
     receipt,
     knowledge: kbRefs.length ? kbRefs : undefined,

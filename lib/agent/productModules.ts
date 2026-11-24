@@ -73,14 +73,16 @@ export const MODULES_IN_CHAT: ModuleInChat[] = [
       { role: 'landlord', ask: { zh: '我有一份签好的租约，怎么导入进来、每月记租金？', en: 'I have a signed lease — how do I bring it in and record the rent each month?' } },
       { role: 'tenant', ask: { zh: '我想把现在的租约放进来，和房东共用一份记录', en: 'I want to bring in my current lease and share one record with my landlord' } },
     ],
-    // the import is finished in the conversation since 2026-11-24 (the lease import card —
-    // lib/agent/leaseImportIntent.ts); recording the rent and exporting the record are still done on the page
+    // finished in the conversation since 2026-11-24: the import (the lease import card —
+    // lib/agent/leaseImportIntent.ts), for all three; and recording rent (the rent record card —
+    // lib/agent/rentRecordIntent.ts), for a landlord and a tenant. Reconciling against a bank statement,
+    // attaching a receipt and exporting the record are still done on the page.
     reach: { tenant: 'finishes', landlord: 'finishes', agent: 'finishes' },
     guide: {
       landlord:
-        '租约与租金记录 → /leases/import:已经签好的租约(在别处签的也行)在这一页导入——上传 PDF 或照片,系统读出地址、租期和租金填进确认表,他核对确认后才保存,然后邀请租客加入;租客确认后这份记录就是双方共同的「在管租约」,对话、报修、租金提醒都在里面。在对话里也能办:他说要导入一份已签的租约时,系统会在你的回复下面放一张导入卡,选文件、核对、确认都在卡上(没有出现卡时,请他说一句「导入租约」)。页面入口只有 /leases/import,/landlord/leases 是起草和发送新租约的地方。每月记租金:在 /landlord/finance 的租金台账里点开那份租约,进到在管租约的「租金」标签,上传银行流水 CSV 对账或逐期标记;需要留底时在在管租约页点「导出记录」(是 Stayloop 上留下的记录,不是 LTB 表格,也不替他提交)。导入要他本人在卡上或页面上确认,记租金由他本人在页面上做:你不能替他导入,也不能替他把某一期记成已收——不要说「已经导入」「登录后我可以替你记」「我来帮你记账」。租金提醒和逾期由系统放进 /landlord/todo 等他批准。他在对话里上传租约,你可以解读条款,但那不等于导入。Stayloop 不经手资金。',
+        '租约与租金记录 → /leases/import:已经签好的租约(在别处签的也行)在这一页导入——上传 PDF 或照片,系统读出地址、租期和租金填进确认表,他核对确认后才保存,然后邀请租客加入;租客确认后这份记录就是双方共同的「在管租约」,对话、报修、租金提醒都在里面。在对话里也能办:他说要导入一份已签的租约时,系统会在你的回复下面放一张导入卡,选文件、核对、确认都在卡上(没有出现卡时,请他说一句「导入租约」)。页面入口只有 /leases/import,/landlord/leases 是起草和发送新租约的地方。每月记租金在对话里也能办:他说某一期租金收到了,系统会在你的回复下面放一张记租金的卡,他勾选是哪一期、填收到的日期、点确认后才记上(没有出现卡时,请他说一句「X 月的租金收到了」);要用银行流水对账,在 /landlord/finance 的租金台账里点开那份租约,进到在管租约的「租金」标签上传 CSV;需要留底时在在管租约页点「导出记录」(是 Stayloop 上留下的记录,不是 LTB 表格,也不替他提交)。导入和记租金都要他本人在卡上或页面上确认:你不能替他导入,也不能替他把某一期记成已收——不要说「已经导入」「已经记好了」「我来帮你记账」。租金提醒和逾期由系统放进 /landlord/todo 等他批准。他在对话里上传租约,你可以解读条款,但那不等于导入。Stayloop 不经手资金。',
       tenant:
-        '租约与租金记录 → /leases/import:租客也可以自己把签好的租约导入(上传 PDF 或照片,核对系统读出的地址、租期和租金,确认后保存),再邀请房东加入;房东确认后这份记录就是双方共同的。在对话里也能办:他说要导入已签的租约时,系统会在你的回复下面放一张导入卡,选文件、核对、确认都在卡上(没有出现卡时,请他说一句「导入租约」)。付了租金想留记录:/tenant/payments 点「记录已付」,可以附凭证,房东确认后就是双方确认过的付租记录。导入要他本人在卡上或页面上确认,记录付租由他本人在页面上做:你不能替他导入或替他记,也不要说「已经导入」;他在对话里上传租约让你解读,那不等于导入。Stayloop 不经手租金。',
+        '租约与租金记录 → /leases/import:租客也可以自己把签好的租约导入(上传 PDF 或照片,核对系统读出的地址、租期和租金,确认后保存),再邀请房东加入;房东确认后这份记录就是双方共同的。在对话里也能办:他说要导入已签的租约时,系统会在你的回复下面放一张导入卡,选文件、核对、确认都在卡上(没有出现卡时,请他说一句「导入租约」)。付了租金想留记录,在对话里也能办:他说这一期房租交了,系统会在你的回复下面放一张记租金的卡,他勾选是哪一期、填付款日期、点确认后才记上;也可以在 /tenant/payments 点「记录已付」,那里还能附凭证。房东确认后就是双方确认过的付租记录。导入和记录付租都要他本人在卡上或页面上确认:你不能替他导入或替他记,也不要说「已经导入」「已经记好了」;他在对话里上传租约让你解读,那不等于导入。Stayloop 不经手租金。',
       agent:
         '租约与租金记录 → /leases/import:经纪可以替客户先把已签的租约导入(上传 PDF 或照片,核对系统读出的信息后保存),再邀请房东和租客加入并确认;之后的租金记录由房东和租客自己做。在对话里也能办:他说要导入已签的租约时,系统会在你的回复下面放一张导入卡,选文件、核对、确认都在卡上。你不能替他导入,也不要说「已经导入」。',
     },
@@ -133,6 +135,6 @@ export function modulesUnknownToChat(): string[] {
 export function productModulesGuide(role: AssistantRole): string {
   const lines = PRODUCT_PAGE_MODULES.map((m) => moduleInChat(m.href)).filter((m): m is ModuleInChat => !!m).map((m) => `- ${m.guide[role]}`)
   return `# 产品模块(产品页 /platform 上的那几个;用户问到其中任何一个,都按这里说)
-对话里能直接办成的只有原则 2 写明的那些动作。其余的事讲清楚怎么做、在哪一页做,并写出路径;不要说「登录后我可以替你……」这类你做不到的话,也不要编页面上没有的按钮。
+对话里能直接办成的只有两类:原则 2 写明的动作,和下面写着「在对话里也能办」的事(那是系统放在你回复下面的卡,由用户本人在卡上确认,你看不到卡上的内容,也不能替他确认)。其余的事讲清楚怎么做、在哪一页做,并写出路径;不要说「登录后我可以替你……」这类你做不到的话,也不要编页面上没有的按钮。
 ${lines.join('\n')}`
 }

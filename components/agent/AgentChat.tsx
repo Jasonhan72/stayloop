@@ -13,6 +13,7 @@ import { useT } from '@/lib/i18n'
 import AgentInputBar, { type ComposerDraft } from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
 import LeaseImportChatCard from './LeaseImportChatCard'
+import RentRecordChatCard from './RentRecordChatCard'
 import ListingChatCard from './ListingChatCard'
 import CommercialCompareTable from './CommercialCompareTable'
 import BenchmarkTrendChart from './BenchmarkTrendChart'
@@ -516,6 +517,10 @@ export default function AgentChat({
               {/* 「导入已签租约」 finished in the thread (2026-11-24): the card under the reply, with the files the question carried */}
               {m.role === 'agent' && m.leaseImport && live && (
                 <LeaseImportChatCard offer={m.leaseImport} role={role} attachments={messages[i - 1]?.role === 'user' ? messages[i - 1].attachments : undefined} />
+              )}
+              {/* 「记租金」 finished in the thread (2026-11-24): the card under the reply, started from what the person said */}
+              {m.role === 'agent' && m.rentRecord && live && (
+                <RentRecordChatCard offer={m.rentRecord} role={role} said={messages[i - 1]?.role === 'user' ? messages[i - 1].text : undefined} />
               )}
             </div>
           </div>

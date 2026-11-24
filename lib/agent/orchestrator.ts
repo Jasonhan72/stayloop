@@ -161,6 +161,8 @@ export type AgentTurn = {
   draftListing?: DraftListing
   /** Set by the server when the person asked to import a signed lease; never on an anonymous turn. */
   leaseImport?: { id: string }
+  /** Set by the server when a landlord or tenant said rent was received or paid; never on an anonymous turn. */
+  rentRecord?: { id: string }
   urlImages?: string[]
   /** What the turn read / did (lib/agent/receipt.ts). */
   receipt?: TurnReceipt
@@ -302,6 +304,7 @@ export async function runAgentTurn(args: {
     followups?: FollowUp[]
     draft_listing?: DraftListing
     lease_import?: { id: string }
+    rent_record?: { id: string }
     receipt?: TurnReceipt
     knowledge?: ChatMessage['knowledge']
     sources?: FoldedSource[]
@@ -417,6 +420,7 @@ export async function runAgentTurn(args: {
     draftListing: turn.draft_listing,
     // an import needs an account: an anonymous turn never carries the card, whatever the response says
     leaseImport: !anonymous && turn.lease_import && typeof turn.lease_import.id === 'string' ? { id: turn.lease_import.id } : undefined,
+    rentRecord: !anonymous && turn.rent_record && typeof turn.rent_record.id === 'string' ? { id: turn.rent_record.id } : undefined,
     receipt: turn.receipt,
     knowledge: turn.knowledge,
     sources: turn.sources,

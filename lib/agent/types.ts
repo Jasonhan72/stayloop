@@ -272,6 +272,8 @@ export type ChatMessage = {
   draftListing?: DraftListing
   /** The person asked to bring a signed lease in: the reply carries the lease import card (lib/agent/leaseImportIntent.ts). */
   leaseImport?: { id: string }
+  /** The person said rent was received or paid: the reply carries the rent record card (lib/agent/rentRecordIntent.ts). */
+  rentRecord?: { id: string }
   /** What the turn read / did (lib/agent/receipt.ts); rendered as the receipt card under the reply. */
   receipt?: { read: { kind: string; zh: string; en: string }[]; did: { kind: string; zh: string; en: string }[] }
   /** 「记住了：…」 lines for the memories this turn stored. */

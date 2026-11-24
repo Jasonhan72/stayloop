@@ -937,6 +937,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       let followups: ChatMessage['followups']
       let draftListing: ChatMessage['draftListing']
       let leaseImport: ChatMessage['leaseImport']
+      let rentRecord: ChatMessage['rentRecord']
 
       setStatus('working')
       // Real reasoning for authenticated live sessions AND anonymous visitors
@@ -982,6 +983,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
           followups = turn.followups
           draftListing = turn.draftListing
           leaseImport = turn.leaseImport
+          rentRecord = turn.rentRecord
           receipt = turn.receipt
           knowledge = turn.knowledge
           sources = turn.sources
@@ -1161,7 +1163,7 @@ export function useAgentSession(role: AgentRole, opts: UseAgentSessionOptions = 
       // was asked in. If the user opened another conversation meanwhile, the
       // reply is written to that row instead of the one on screen (review 2026-09-25).
       const memoryNotes = memoryNoteLines(memoryWrites, langRef.current === 'zh')
-      const reply: ChatMessage = { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, links, market, followups, draftListing, leaseImport, receipt, knowledge: knowledge && knowledge.length ? knowledge : undefined, sources: sources && sources.length ? sources : undefined, memoryNotes: memoryNotes.length ? memoryNotes : undefined }
+      const reply: ChatMessage = { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, links, market, followups, draftListing, leaseImport, rentRecord, receipt, knowledge: knowledge && knowledge.length ? knowledge : undefined, sources: sources && sources.length ? sources : undefined, memoryNotes: memoryNotes.length ? memoryNotes : undefined }
       // The finished message takes the draft's place in the same render.
       setStreamingText(null)
       setStreamingSources(undefined)
