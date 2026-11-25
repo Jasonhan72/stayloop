@@ -440,8 +440,12 @@ const APPLICANT_PACK: IntakeSpec = {
     const part = q.said('part')
     const have = q.has('have', 'nothing') ? '' : q.said('have')
     const when = q.said('when')
-    if (zh) return `帮我准备申请包：${all ? '全部都要准备' : `先准备「${part}」`}${have ? `，手头已有${have}` : '，手头还没有材料'}${when ? `，${when}` : ''}${q.attachments ? '（文件已经附上）' : ''}。告诉我每部分要填什么、文件怎么传、房东在申请里会看到什么，以及从哪里开始。`
-    return `Help me build my application pack: ${all ? 'all of it' : `starting with ${part.toLowerCase()}`}${have ? `, I already have ${have.toLowerCase()}` : ', I have no documents on hand yet'}${when ? `, ${when.toLowerCase()}` : ''}${q.attachments ? ' (the files are attached)' : ''}. Tell me what each part asks for, how to add files, what a landlord sees in an application, and where to start.`
+    // Files added without ticking anything (seen on production, 2026-11-25): the sentence said
+    // 「手头还没有材料…（文件已经附上）」 in one breath. With files on the message, 「nothing yet」 is not said.
+    const haveZh = have ? `，手头已有${have}` : q.attachments ? '' : '，手头还没有材料'
+    const haveEn = have ? `, I already have ${have.toLowerCase()}` : q.attachments ? '' : ', I have no documents on hand yet'
+    if (zh) return `帮我准备申请包：${all ? '全部都要准备' : `先准备「${part}」`}${haveZh}${when ? `，${when}` : ''}${q.attachments ? '（文件已经附上）' : ''}。告诉我每部分要填什么、文件怎么传、房东在申请里会看到什么，以及从哪里开始。`
+    return `Help me build my application pack: ${all ? 'all of it' : `starting with ${part.toLowerCase()}`}${haveEn}${when ? `, ${when.toLowerCase()}` : ''}${q.attachments ? ' (the files are attached)' : ''}. Tell me what each part asks for, how to add files, what a landlord sees in an application, and where to start.`
   },
 }
 

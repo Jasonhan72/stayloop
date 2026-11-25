@@ -100,6 +100,26 @@ describe('when the card is offered: a tenant’s own words, read deterministical
       expect(wantsPackFill(said), said).toBe(true)
       expect(said.includes(lang === 'zh' ? '文件已经附上' : 'the files are attached'), said).toBe(n > 0)
     }
+    // files added without ticking anything: the sentence does not also say there is nothing on hand (production, 2026-11-25)
+    for (const lang of ['zh', 'en'] as const) {
+      const none = lang === 'zh' ? '手头还没有材料' : 'no documents on hand'
+      const withFiles = composeIntake(spec, { part: { picks: ['identity'], text: '' } }, lang, 2)
+      expect(withFiles.includes(none), withFiles).toBe(false)
+      expect(wantsPackFill(withFiles), withFiles).toBe(true)
+      expect(composeIntake(spec, { part: { picks: ['identity'], text: '' } }, lang, 0).includes(none)).toBe(true)
+      expect(composeIntake(spec, { part: { picks: ['identity'], text: '' }, have: { picks: ['nothing'], text: '' } }, lang, 0).includes(none)).toBe(true)
+    }
+  })
+  it('the card is the tenant’s: the landlord’s and the agent’s assistant are told it is not in their conversation', () => {
+    // production, 2026-11-25: an anonymous landlord was told 「登录后你可以在对话里直接唤起申请包卡片」
+    const m = MODULES_IN_CHAT.find((x) => x.href === '/tenant/passport')!
+    for (const role of ['landlord', 'agent'] as const) {
+      expect(m.guide[role]).toContain('申请包卡只出现在租客自己的对话里')
+      expect(m.guide[role]).toContain('不要说在这里(或登录后在这里)能唤起它')
+    }
+    expect(m.guide.tenant).not.toContain('申请包卡只出现在租客自己的对话里')
+    // and the route never offers it outside the tenant's conversation
+    expect(read('app/api/agent/turn/route.ts')).toContain("role === 'tenant' && !leaseImportOffer && !rentRecordOffer && !directoryOffer && wantsPackFill(message)")
   })
 })
 
@@ -134,7 +154,11 @@ describe('the turn: the server decides, the model is told; tenants only, one car
     expect(replyClaimsExecution('已帮你申请了这套房。')).toBe(true)
     expect(productModulesGuide('tenant')).toContain('系统会在你的回复下面放一张申请包卡')
     expect(productModulesGuide('tenant')).toContain('卡上的内容你看不到,也不要说「已经填好了」')
-    for (const role of ['landlord', 'agent'] as const) expect(productModulesGuide(role)).not.toContain('申请包卡')
+    // the landlord's and the agent's assistant are never told a pack card is offered — only that it is the tenant's
+    for (const role of ['landlord', 'agent'] as const) {
+      expect(productModulesGuide(role)).not.toContain('放一张申请包卡')
+      expect(productModulesGuide(role)).toContain('申请包卡只出现在租客自己的对话里')
+    }
   })
   it('the chat shows the card under the reply, in a live session only, with the files the question carried', () => {
     const chat = read('components/agent/AgentChat.tsx')
