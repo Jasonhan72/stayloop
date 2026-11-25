@@ -163,6 +163,8 @@ export type AgentTurn = {
   leaseImport?: { id: string }
   /** Set by the server when a landlord or tenant said rent was received or paid; never on an anonymous turn. */
   rentRecord?: { id: string }
+  /** Set by the server when a tenant asked to get the application pack ready; never on an anonymous turn. */
+  packFill?: { id: string }
   /** Set by the server when the person asked for someone from the directory; never on an anonymous turn. */
   directory?: ChatMessage['directory']
   urlImages?: string[]
@@ -308,6 +310,7 @@ export async function runAgentTurn(args: {
     lease_import?: { id: string }
     rent_record?: { id: string }
     directory?: ChatMessage['directory']
+    pack_fill?: { id: string }
     receipt?: TurnReceipt
     knowledge?: ChatMessage['knowledge']
     sources?: FoldedSource[]
@@ -425,6 +428,7 @@ export async function runAgentTurn(args: {
     leaseImport: !anonymous && turn.lease_import && typeof turn.lease_import.id === 'string' ? { id: turn.lease_import.id } : undefined,
     rentRecord: !anonymous && turn.rent_record && typeof turn.rent_record.id === 'string' ? { id: turn.rent_record.id } : undefined,
     directory: !anonymous && turn.directory && typeof turn.directory.id === 'string' && ['agents', 'repairs', 'professional'].includes(turn.directory.kind) ? turn.directory : undefined,
+    packFill: !anonymous && turn.pack_fill && typeof turn.pack_fill.id === 'string' ? { id: turn.pack_fill.id } : undefined,
     receipt: turn.receipt,
     knowledge: turn.knowledge,
     sources: turn.sources,

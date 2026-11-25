@@ -57,10 +57,13 @@ export const MODULES_IN_CHAT: ModuleInChat[] = [
   {
     href: '/tenant/passport',
     asks: [{ role: 'tenant', ask: { zh: '帮我准备申请包，要哪些材料？', en: 'Help me build my application pack — what do I need?' } }],
-    reach: { tenant: 'guides', landlord: 'guides', agent: 'guides' },
+    // for the tenant, finished in the conversation since 2026-11-25 as far as a pay stub or an employment
+    // letter can take it (the pack card — lib/agent/packFillIntent.ts): the employment and income fields and
+    // the files. The rest of the pack, the consent and the share link are the applicant's own on the page.
+    reach: { tenant: 'finishes', landlord: 'guides', agent: 'guides' },
     guide: {
       tenant:
-        '租客护照(申请包)→ /tenant/passport:申请表会问的资料和文件准备一次(身份与联系方式、工作与收入、租房历史、其他,加上文件和一份同意书),以后在房源的申请页选「用我的申请包填写」自动带入;也可以在那一页生成只读的分享链接发给站外的房东,随时能撤销。对话里你能做的:讲清每一段要填什么、看他发来的图片或文件说还缺什么、解释房东在申请里会看到什么。填写、上传、勾选同意、生成或撤销分享链接都由他本人在 /tenant/passport 做——你不能替他填、替他分享,他在对话里发给你的文件也不会存进申请包,不要说「已经存好」。',
+        '租客护照(申请包)→ /tenant/passport:申请表会问的资料和文件准备一次(身份与联系方式、工作与收入、租房历史、其他,加上文件和一份同意书),以后在房源的申请页选「用我的申请包填写」自动带入;也可以在那一页生成只读的分享链接发给站外的房东,随时能撤销。在对话里也能办一部分:他说要准备申请包时,系统会在你的回复下面放一张申请包卡——读他发来的工资单或在职信,把申请包里还空着的几项(姓名、雇佣状态、雇主、职位、入职日期、月收入、雇主联系方式)列出来给他核对,他确认后才写进申请包,文件也按类别存进去(没有出现卡时,请他说一句「帮我准备申请包」)。对话里你自己能做的:讲清每一段要填什么、解释房东在申请里会看到什么。其余的——电话、现住址、租房历史、同住人和宠物、勾选同意、生成或撤销分享链接——由他本人在 /tenant/passport 做。你不能替他填、替他分享:卡片以外,他在对话里发给你的文件不会存进申请包,不要说「已经存好」;卡上的内容你看不到,也不要说「已经填好了」。',
       landlord:
         '租客护照(申请包):这是租客自己准备的申请资料,申请时自动带进申请表;房东在 /landlord/applicants 打开那位申请人看到的就是它。里面是申请人自己提供的内容,不等于已经核验。',
       agent:

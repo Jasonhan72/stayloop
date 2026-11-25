@@ -130,6 +130,7 @@ await probe('admin knowledge page shell', `${BASE}/admin/knowledge`, {}, { statu
 await probe('v1 OPTIONS → 204', `${BASE}/api/v1/rules`, { method: 'OPTIONS' }, { status: 204, headers: { 'access-control-allow-origin': /^\*$/ } })
 await probe('cron/realtor-freshness without secret → 401', `${BASE}/api/cron/realtor-freshness`, { method: 'POST', ...J, body: '{}' }, { status: 401 })
 await probe('household/extract anon → 401', `${BASE}/api/household/extract`, { method: 'POST', ...J, body: '{}' }, { status: [401, 400] })
+await probe('profile/extract anon → 401', `${BASE}/api/profile/extract`, { method: 'POST', body: '' }, { status: 401 })
 await probe('household/invite anon → 401', `${BASE}/api/household/invite`, { method: 'POST', ...J, body: '{}' }, { status: [401, 400] })
 await probe('classify-files anon', `${BASE}/api/classify-files`, { method: 'POST', ...J, body: '{}' }, { status: [400, 401] })
 await probe('notify-landlord anon → 4xx', `${BASE}/api/notify-landlord`, { method: 'POST', ...J, body: '{}' }, { status: [400, 401] })

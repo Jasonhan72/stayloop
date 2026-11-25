@@ -37,7 +37,9 @@ const PROTECTED_GROUNDS =
 
 // Phrases that falsely claim a key action already happened — actions must be
 // proposed as approval cards, never reported as done by the agent itself.
-const EXEC_VERBS_ZH = '发送|发出|发给|提交|递交|分享|签署|签好|签了|扣款|付款|支付|批准|拒绝|婉拒|预约|安排|下单|升级|申请|邀请'
+// 「申请」 is the act only when it is not the first half of a noun: 「已在下方为你生成了申请包卡片」 claimed nothing, and the
+// guardrail appended its 「尚未真正执行」 note to it (2026-11-25, seen on the first pack card reply).
+const EXEC_VERBS_ZH = '发送|发出|发给|提交|递交|分享|签署|签好|签了|扣款|付款|支付|批准|拒绝|婉拒|预约|安排|下单|升级|申请(?![包人表页材费书者单])|邀请'
 const EXEC_VERBS_EN =
   'sent|submitted|shared|signed|scheduled|booked|paid|approved|rejected|declined|applied|cancelled|canceled|upgraded|went\\s+out|has\\s+been\\s+sent|was\\s+sent'
 const EXECUTED_CLAIM = new RegExp(

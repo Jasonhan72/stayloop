@@ -15,6 +15,7 @@ import DraftListingChatCard from './DraftListingChatCard'
 import LeaseImportChatCard from './LeaseImportChatCard'
 import RentRecordChatCard from './RentRecordChatCard'
 import DirectoryChatCard from './DirectoryChatCard'
+import PackFillChatCard from './PackFillChatCard'
 import type { DirectoryOffer } from '@/lib/agent/directoryIntent'
 import ListingChatCard from './ListingChatCard'
 import CommercialCompareTable from './CommercialCompareTable'
@@ -527,6 +528,10 @@ export default function AgentChat({
               {/* 「找人」 finished in the thread (2026-11-24): the directory's own rows and cards under the reply; the assistant sees none of them */}
               {m.role === 'agent' && m.directory && live && (
                 <DirectoryChatCard offer={m.directory as DirectoryOffer} role={role} />
+              )}
+              {/* 「准备申请包」 finished in the thread (2026-11-25): the card under the reply, with the files the question carried */}
+              {m.role === 'agent' && m.packFill && live && (
+                <PackFillChatCard offer={m.packFill} role={role} attachments={messages[i - 1]?.role === 'user' ? messages[i - 1].attachments : undefined} />
               )}
             </div>
           </div>

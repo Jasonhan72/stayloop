@@ -151,7 +151,7 @@ describe('the turn: the system lists, the model does not', () => {
     }
     // a visitor: these cards are for signed-in conversations only
     const anon = route.match(/const ANON_PROMPT_ADDENDUM = `([\s\S]*?)`\n/)?.[1] ?? ''
-    expect(anon).toContain('目录卡)只在登录后的对话里出现')
+    expect(anon).toContain('目录卡、申请包卡)只在登录后的对话里出现')
   })
   it('the chat shows the card under the reply, in a live session only', () => {
     const chat = read('components/agent/AgentChat.tsx')

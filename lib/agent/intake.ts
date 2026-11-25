@@ -406,6 +406,8 @@ const CONTACT_LANDLORD: IntakeSpec = {
 // passport badges — the tenant card now helps build the application pack
 // (/tenant/passport), which /apply/[slug] fills in with one tap. Nothing here says a landlord sees more
 // or that any file is "verified": the pack is what the applicant provides.
+// 2026-11-25: the 「手头有什么」 step takes the files themselves, and the sentence composed opens the pack
+// card under the reply (lib/agent/packFillIntent.ts), which reads them and writes only what is confirmed.
 const APPLICANT_PACK: IntakeSpec = {
   id: 'applicant_pack',
   title: { zh: '准备申请包', en: 'Build my application pack' },
@@ -418,7 +420,7 @@ const APPLICANT_PACK: IntakeSpec = {
       { value: 'files', label: { zh: '文件', en: 'Files' } },
       { value: 'all', label: { zh: '全部', en: 'All of it' } },
     ] },
-    { key: 'have', ask: { zh: '现在手头有什么材料？', en: 'What do you have on hand right now?' }, hint: { zh: '可多选；没有也没关系。', en: 'Pick any; none is fine too.' }, multi: true, optional: true, options: [
+    { key: 'have', ask: { zh: '现在手头有什么材料？', en: 'What do you have on hand right now?' }, hint: { zh: '可多选；没有也没关系。有工资单或在职信可以直接加进来：我读出来，你在下一步的卡上核对后才存进申请包。', en: 'Pick any; none is fine too. A pay stub or an employment letter can be added here: I read it, and nothing goes into the pack until you check it on the card that follows.' }, multi: true, optional: true, attach: true, options: [
       { value: 'id', label: { zh: '政府证件', en: 'Government ID' } },
       { value: 'paystub', label: { zh: '近期工资单', en: 'Recent pay stubs' } },
       { value: 'bank_statement', label: { zh: '银行对账单', en: 'Bank statement' } },
@@ -438,8 +440,8 @@ const APPLICANT_PACK: IntakeSpec = {
     const part = q.said('part')
     const have = q.has('have', 'nothing') ? '' : q.said('have')
     const when = q.said('when')
-    if (zh) return `帮我准备申请包：${all ? '全部都要准备' : `先准备「${part}」`}${have ? `，手头已有${have}` : '，手头还没有材料'}${when ? `，${when}` : ''}。告诉我每部分要填什么、文件怎么传、房东在申请里会看到什么，以及从哪里开始。`
-    return `Help me build my application pack: ${all ? 'all of it' : `starting with ${part.toLowerCase()}`}${have ? `, I already have ${have.toLowerCase()}` : ', I have no documents on hand yet'}${when ? `, ${when.toLowerCase()}` : ''}. Tell me what each part asks for, how to add files, what a landlord sees in an application, and where to start.`
+    if (zh) return `帮我准备申请包：${all ? '全部都要准备' : `先准备「${part}」`}${have ? `，手头已有${have}` : '，手头还没有材料'}${when ? `，${when}` : ''}${q.attachments ? '（文件已经附上）' : ''}。告诉我每部分要填什么、文件怎么传、房东在申请里会看到什么，以及从哪里开始。`
+    return `Help me build my application pack: ${all ? 'all of it' : `starting with ${part.toLowerCase()}`}${have ? `, I already have ${have.toLowerCase()}` : ', I have no documents on hand yet'}${when ? `, ${when.toLowerCase()}` : ''}${q.attachments ? ' (the files are attached)' : ''}. Tell me what each part asks for, how to add files, what a landlord sees in an application, and where to start.`
   },
 }
 

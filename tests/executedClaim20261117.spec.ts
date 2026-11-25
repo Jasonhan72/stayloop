@@ -13,6 +13,8 @@ const flagged = (reply: string, role: 'tenant' | 'landlord' | 'agent' = 'tenant'
 
 // The assistant saying it (or the platform) already did something outbound.
 const CLAIMS = [
+  // the act itself is still a claim
+  '已帮你申请了这套房。', '我已经替你申请了。',
   '我已发送申请给房东。', '我给房东发送了消息', '邮件已经发给房东了', 'Done — I emailed the landlord.',
   '已经把你的申请提交给房东了', '我已帮你提交了申请', '已替你把资料分享给 Sarah', '资料已经发出去了',
   'I have already sent your application', 'Your application has been submitted', "I've submitted your application", 'I already shared your documents',
@@ -30,6 +32,8 @@ const CLAIMS = [
 
 // Somebody else's action, a condition, a question, advice, a label, a thing — or the reader's own words.
 const NOT_CLAIMS = [
+  // 2026-11-25: 「申请包 / 申请人 / 申请表」 are nouns — a reply that says a card for the pack is below claims nothing
+  '我已经读取了你发来的工资单和在职信。系统已在下方为你生成了申请包卡片，请逐项核对。', '已为你打开申请人页面的入口。', '已经在下面放了一张申请包卡。', '已帮你整理好申请表上会问的几项。',
   // the three that reached real users
   '双方已经同意解约或已发出搬迁通知，房东在上午 8 点至晚上 8 点之间带新租客看房。',
   '若你已更新完毕，可进入 /dashboard 打开该房源编辑页，确认所有必填项已保存并处于「已提交审核」状态。',

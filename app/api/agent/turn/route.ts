@@ -43,6 +43,7 @@ import { afterResponse } from '@/lib/afterResponse'
 import { LEASE_IMPORT_TURN_NOTE, wantsLeaseImport } from '@/lib/agent/leaseImportIntent'
 import { RENT_RECORD_TURN_NOTE, wantsRentRecord } from '@/lib/agent/rentRecordIntent'
 import { directoryAsk, directoryTurnNote } from '@/lib/agent/directoryIntent'
+import { PACK_FILL_TURN_NOTE, wantsPackFill } from '@/lib/agent/packFillIntent'
 
 
 // ── Auth + rate limiting ─────────────────────────────────────────────────────
@@ -69,7 +70,7 @@ const ANON_PROMPT_ADDENDUM = `
 - proposed_action 永远输出 null —— 不要拟议任何关键动作。
 - memory_writes 永远输出空数组 [] —— 这个会话没有持久记忆,不要声称"我记住了/我已记下"。
 - 当用户想提交申请、盖护照章、发布房源、保存偏好、联系房东/租客等需要账号的能力时,自然地说明"登录后我可以替你……",然后把当下能答的部分照样答好。
-- 「产品模块」里写着「在对话里也能办」的那些卡(导入租约的卡、记租金的卡、目录卡)只在登录后的对话里出现,这个预览会话里不会有。用户想导入租约、记租金或找经纪和服务商时:直接说明要先登录,登录后在对话里说同一句话就会出现那张卡(找人现在可以先打开目录页看);【不要】让他在这里「再说一句」来唤起卡片,也不要说下面有卡。`
+- 「产品模块」里写着「在对话里也能办」的那些卡(导入租约的卡、记租金的卡、目录卡、申请包卡)只在登录后的对话里出现,这个预览会话里不会有。用户想导入租约、记租金、找经纪和服务商或准备申请包时:直接说明要先登录,登录后在对话里说同一句话就会出现那张卡(找人现在可以先打开目录页看);【不要】让他在这里「再说一句」来唤起卡片,也不要说下面有卡。`
 
 type TurnRequest = {
   role: AgentRole
@@ -607,6 +608,9 @@ export async function POST(req: Request) {
   // the directory's own rows in its fixed order, read in the browser under the person's own session
   // (lib/agent/directoryIntent.ts). The model still sees nobody: nothing about the directory is put in its prompt.
   const directoryOffer = !anonymous && !!turnUserId && !leaseImportOffer && !rentRecordOffer ? directoryAsk(message, role) : null
+  // 「准备申请包」 (2026-11-25): a tenant's own pack — the card reads the pay stub or employment letter they
+  // send, lists what the pack still lacks, and writes only what they confirm (lib/agent/packFillIntent.ts).
+  const packFillOffer = !anonymous && !!turnUserId && role === 'tenant' && !leaseImportOffer && !rentRecordOffer && !directoryOffer && wantsPackFill(message)
 
   // `let`: the PDF attachments are read inside runTurn (behind the heartbeat); a lease from
   // another province appends that province's fact block before the model is called.
@@ -619,6 +623,7 @@ export async function POST(req: Request) {
     (leaseImportOffer ? LEASE_IMPORT_TURN_NOTE : '') +
     (rentRecordOffer ? RENT_RECORD_TURN_NOTE : '') +
     (directoryOffer ? directoryTurnNote(directoryOffer.kind) : '') +
+    (packFillOffer ? PACK_FILL_TURN_NOTE : '') +
     (anonymous ? ANON_PROMPT_ADDENDUM : '')
 
   // ---- Heartbeat-streamed response ------------------------------------------
@@ -1350,6 +1355,7 @@ export async function POST(req: Request) {
     if (leaseImportOffer) receipt.did.push({ kind: 'draft', zh: '放了一张导入租约的卡，等你核对确认', en: 'Added a lease import card for you to check and confirm' })
     if (rentRecordOffer) receipt.did.push({ kind: 'draft', zh: '放了一张记租金的卡，等你勾选确认', en: 'Added a rent record card for you to tick and confirm' })
     if (directoryOffer) receipt.did.push({ kind: 'draft', zh: '放了一张目录卡：按目录的固定顺序列出，助理看不到上面是谁', en: 'Added a directory card: listed in the directory’s fixed order; the AI Agent does not see who is on it' })
+    if (packFillOffer) receipt.did.push({ kind: 'draft', zh: '放了一张申请包卡，等你核对确认', en: 'Added an application pack card for you to check and confirm' })
     if (!anonymous && out.proposedAction) receipt.did.push({ kind: 'card', zh: `出了待批卡：${String(out.proposedAction.title || '').slice(0, 40)}`, en: `Proposed a card for your approval: ${String(out.proposedAction.title || '').slice(0, 40)}` })
     receipt.read = receipt.read.slice(0, RECEIPT_MAX_LINES); receipt.did = receipt.did.slice(0, RECEIPT_MAX_LINES)
   }
@@ -1380,6 +1386,7 @@ export async function POST(req: Request) {
     lease_import: leaseImportOffer ? { id: crypto.randomUUID() } : undefined,
     rent_record: rentRecordOffer ? { id: crypto.randomUUID() } : undefined,
     directory: directoryOffer ? { id: crypto.randomUUID(), ...directoryOffer } : undefined,
+    pack_fill: packFillOffer ? { id: crypto.randomUUID() } : undefined,
     draft_listing: draftListing,
     receipt,
     knowledge: kbRefs.length ? kbRefs : undefined,

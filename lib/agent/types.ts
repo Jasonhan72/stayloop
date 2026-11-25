@@ -274,6 +274,8 @@ export type ChatMessage = {
   leaseImport?: { id: string }
   /** The person said rent was received or paid: the reply carries the rent record card (lib/agent/rentRecordIntent.ts). */
   rentRecord?: { id: string }
+  /** A tenant asked to get the application pack ready: the reply carries the pack card (lib/agent/packFillIntent.ts). */
+  packFill?: { id: string }
   /** The person asked for an agent, a tradesperson or a professional: the reply carries the directory card (lib/agent/directoryIntent.ts). */
   directory?: { id: string; kind: 'agents' | 'repairs' | 'professional'; trade: string | null; language: string | null; city: string | null }
   /** What the turn read / did (lib/agent/receipt.ts); rendered as the receipt card under the reply. */
