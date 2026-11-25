@@ -2,21 +2,44 @@
 # Cross-hat access probes against production with the four test accounts
 # (节点 2 · 清楚, 2026-09-26). Every request carries a real user JWT; the
 # assertions are "a hat you do not hold sees nothing", not "the page hides a
-# menu". The password grant uses the documented test password from the
-# environment — never hard-code it here.
+# menu".
 #
-#   E2E_TEST_PASSWORD=… bash scripts/e2e/hat-probes.sh
+# Sign-in is a one-time link minted with the service role (2026-11-25). The test
+# accounts have no usable password, so there is none to pass in and none to
+# leak. The service role key is read from .env.local inside this script and
+# reaches curl only through a 0600 header file: never argv, never the output.
+#
+#   bash scripts/e2e/hat-probes.sh
 set -u
 BASE="${SUPABASE_URL:-https://auth.stayloop.ai}"
-ANON_FROM_ENV_FILE=$(grep -E '^NEXT_PUBLIC_SUPABASE_ANON_KEY=' .env.local 2>/dev/null | cut -d= -f2-)
-ANON="${NEXT_PUBLIC_SUPABASE_ANON_KEY:-$ANON_FROM_ENV_FILE}"
-PW="${E2E_TEST_PASSWORD:?set E2E_TEST_PASSWORD to the test accounts password, see CLAUDE.md}"
-OUT=/tmp/hat-probe.out
+envval() { grep -E "^$1=" .env.local 2>/dev/null | head -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
+ANON="${NEXT_PUBLIC_SUPABASE_ANON_KEY:-$(envval NEXT_PUBLIC_SUPABASE_ANON_KEY)}"
+SERVICE="$(envval SUPABASE_SERVICE_ROLE_KEY)"
+if [ -z "$ANON" ] || [ -z "$SERVICE" ]; then echo "run from the repo root: .env.local must hold the anon and the service role key"; exit 1; fi
+OUT=$(mktemp); HDR=$(mktemp); chmod 600 "$HDR"
+printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SERVICE" "$SERVICE" > "$HDR"
+unset SERVICE
+T=''; L=''; A=''; P=''
+finish() {
+  # One session per account was opened for this run; close exactly those
+  # (scope=local), not every session the account has.
+  for t in "$T" "$L" "$A" "$P"; do
+    [ -n "$t" ] && curl -s -o /dev/null -X POST "$BASE/auth/v1/logout?scope=local" -H "apikey: $ANON" -H "Authorization: Bearer $t"
+  done
+  rm -f "$HDR" "$OUT"
+}
+trap finish EXIT
 pass=0; fail=0
 
 jwt() {
-  curl -s -X POST "$BASE/auth/v1/token?grant_type=password" -H "apikey: $ANON" -H 'Content-Type: application/json' \
-    -d "{\"email\":\"$1\",\"password\":\"$PW\"}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))"
+  local hashed
+  hashed=$(curl -s -X POST "$BASE/auth/v1/admin/generate_link" -H @"$HDR" -H 'Content-Type: application/json' \
+    -d "{\"type\":\"magiclink\",\"email\":\"$1\"}" \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('hashed_token') or (d.get('properties') or {}).get('hashed_token') or '')")
+  [ -n "$hashed" ] || return 0
+  printf '{"type":"magiclink","token_hash":"%s"}' "$hashed" \
+    | curl -s -X POST "$BASE/auth/v1/verify" -H "apikey: $ANON" -H 'Content-Type: application/json' --data @- \
+    | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))"
 }
 rest() { curl -s -o "$OUT" -w '%{http_code}' -H "apikey: $ANON" -H "Authorization: Bearer $1" "$BASE/rest/v1/$2"; }
 rpc()  { curl -s -o "$OUT" -w '%{http_code}' -X POST -H "apikey: $ANON" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' "$BASE/rest/v1/rpc/$2" -d '{}'; }

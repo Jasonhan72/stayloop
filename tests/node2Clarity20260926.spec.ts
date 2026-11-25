@@ -169,10 +169,13 @@ describe('copy and access', () => {
     expect(imp).toContain('<WorkspaceShell role={shellRole} hideAside>')
     expect(imp).toContain("aria-label={zh ? '选择租约文件' : 'Choose lease file(s)'}")
   })
-  it('the cross-hat probe script exists and never hard-codes the password', () => {
+  it('the cross-hat probe script exists and signs in without any password', () => {
+    // 2026-11-25: the test accounts have no usable password; the script mints one-time links
+    // (the rest of that rule is pinned in noSharedTestPassword20261125).
     const s = read('scripts/e2e/hat-probes.sh')
-    expect(s).toContain('E2E_TEST_PASSWORD')
-    expect(s).not.toMatch(/Test1234/)
+    expect(s).toContain('/auth/v1/admin/generate_link')
+    expect(s).not.toContain('grant_type=password')
+    expect(s).not.toContain('E2E_TEST_PASSWORD')
     expect(s).toContain('lifecycle_facts_landlord')
   })
 })

@@ -276,7 +276,8 @@ describe('scripts/demo — drawn avatars and demo content for the "[TEST]" entri
     const call = seed.slice(seed.indexOf('admin.auth.admin.createUser('), seed.indexOf('if (error || !data?.user)'))
     expect(call.length).toBeGreaterThan(40)
     expect(call).not.toMatch(/password/i)
-    expect(seed).not.toContain('Test1234')
+    // and no password is assigned anywhere else in the script
+    expect(seed).not.toMatch(/password\s*[:=]\s*['"`]/i)
     for (const m of seed.matchAll(/email: '([^']+)'/g)) expect(m[1]).toMatch(/^pro-[a-z]+-test@stayloop\.ai$/)
     // fictional numbers only (555-01xx), no made-up website
     for (const m of seed.matchAll(/phone: '([^']+)'/g)) expect(m[1]).toMatch(/^416-555-01\d\d$/)
