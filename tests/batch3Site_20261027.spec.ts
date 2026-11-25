@@ -71,7 +71,8 @@ describe('agent directory signals', () => {
     expect(srv).toContain("admin.rpc('agent_public_signals', { p_auth_ids: optIn })")
   })
   it('the card prints counts and says not-enough-data below the sample floor; no auth id leaves the server', () => {
-    const page = code('app/agents/page.tsx')
+    // the directory's card is a component since 2026-11-24 (the AI conversation shows the same card)
+    const page = code('components/directory/AgentCard.tsx')
     expect(page).toContain('data-testid="agent-signals"')
     expect(page).toContain('尚无足够数据')
     expect(page).toContain('s.response_samples >= SIGNAL_MIN_SAMPLES')

@@ -21,7 +21,7 @@ export const CITIES_ON_CARD = 4
 
 export type ProviderCardChip = { key: string; label: string; ok: boolean }
 
-export default function ProviderCard({ id, name, legalName, zh, badge, rating, chips, cities, detail, email, phone, photoUrl, languages, testid = 'provider-card' }: {
+export default function ProviderCard({ id, name, legalName, zh, badge, rating, chips, cities, detail, email, phone, photoUrl, languages, testid = 'provider-card', onMessage, messageOpen }: {
   id: string
   /** the name the provider goes by */
   name: string
@@ -44,6 +44,9 @@ export default function ProviderCard({ id, name, legalName, zh, badge, rating, c
   /** language codes (the agent profile's list) */
   languages?: string[] | null
   testid?: string
+  /** Where the message form opens beside the card (the AI conversation, 2026-11-24) instead of on the provider's page: 发消息 is then a button. */
+  onMessage?: () => void
+  messageOpen?: boolean
 }) {
   const href = providerHref(id)
   const registered = legalName && legalName.trim() && legalName.trim() !== name ? legalName.trim() : null
@@ -93,7 +96,9 @@ export default function ProviderCard({ id, name, legalName, zh, badge, rating, c
           ) : <span />}
           <div className="flex flex-none gap-2">
             <Link href={href} className={CARD_VIEW} data-testid="provider-card-view">{zh ? '看主页' : 'View profile'}</Link>
-            <Link href={`${href}#contact`} className={CARD_MESSAGE} data-testid="provider-card-message">{zh ? '发消息' : 'Message'}</Link>
+            {onMessage
+              ? <button type="button" onClick={onMessage} aria-expanded={!!messageOpen} className={CARD_MESSAGE} data-testid="provider-card-message">{zh ? '发消息' : 'Message'}</button>
+              : <Link href={`${href}#contact`} className={CARD_MESSAGE} data-testid="provider-card-message">{zh ? '发消息' : 'Message'}</Link>}
           </div>
         </div>
       </div>

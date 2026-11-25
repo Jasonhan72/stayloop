@@ -107,9 +107,12 @@ describe('the cards share one look', () => {
     expect(CARD).toMatch(/hover:shadow-\[/)
   })
   it('both the agent card and the provider card are built from those classes', () => {
-    const agents = read('app/agents/page.tsx')
-    expect(agents).toContain('<article key={`p-${a.slug}`} className={CARD} data-testid="agent-card">')
-    expect(agents).toContain('<article key={`b-${a.reco_number}`} className={CARD} data-testid="agent-basic-card">')
+    // 2026-11-24: the card of an agent with a profile is a component (the AI conversation shows the same one); the page keeps the register-only card
+    const page = read('app/agents/page.tsx')
+    expect(page).toContain("e.kind === 'public' ? <AgentCard key={`p-${e.agent.slug}`} agent={e.agent} zh={zh} /> : (() => {")
+    expect(page).toContain('<article key={`b-${a.reco_number}`} className={CARD} data-testid="agent-basic-card">')
+    const agents = read('components/directory/AgentCard.tsx')
+    expect(agents).toContain('<article className={CARD} data-testid="agent-card">')
     expect(agents).toContain('<Link href={href} className={CARD_VIEW} data-testid="agent-card-view">')
     expect(agents).toContain('<Link href={`${href}#contact`} className={CARD_MESSAGE} data-testid="agent-card-message">')
     const card = read('components/directory/ProviderCard.tsx')
@@ -174,7 +177,8 @@ describe('the two profile pages wear the same surfaces as the list they are open
   it('the brokerage keeps a line of its own, in bold on the page and in the name’s colour on the card', () => {
     // O. Reg. 567/05 s.12.1: the brokerage is named clearly and prominently wherever the agent is shown.
     expect(agent).toMatch(/font-bold" data-testid="agent-profile-brokerage">\{agent\.brokerage_name\}<\/div>/)
-    const list = read('app/agents/page.tsx')
+    // both cards — the one with a profile (a component since 2026-11-24) and the register-only one on the page
+    const list = read('app/agents/page.tsx') + read('components/directory/AgentCard.tsx')
     expect(list.match(/<div className="break-words text-\[14px\] font-semibold leading-snug text-ink" data-testid="agent-card-brokerage">\{a\.brokerage_name\}<\/div>/g)?.length).toBe(2)
     expect(list).not.toMatch(/<span className="[^"]*" data-testid="agent-card-brokerage">/)
   })

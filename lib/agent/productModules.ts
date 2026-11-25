@@ -110,8 +110,11 @@ export const MODULES_IN_CHAT: ModuleInChat[] = [
       { role: 'tenant', ask: { zh: '我想找一位租赁经纪', en: 'I am looking for a leasing agent' } },
       { role: 'landlord', ask: { zh: '哪里能找到水管工？', en: 'Where can I find a plumber?' } },
     ],
-    reach: { tenant: 'guides', landlord: 'guides', agent: 'guides' },
-    guide: same('找经纪 · 服务商:见下方「找经纪 / 找服务商」——你看不到目录里有谁,只给入口。'),
+    // finished in the conversation since 2026-11-24: the directory card (lib/agent/directoryIntent.ts) lists
+    // the directory's own rows under the reply and the person writes to someone from it. Not for a tenant
+    // asking for a tradesperson (a repair request comes first), nor for an agent looking for an agent.
+    reach: { tenant: 'finishes', landlord: 'finishes', agent: 'finishes' },
+    guide: same('找经纪 · 服务商:在对话里也能办——他说要找经纪、师傅或专业服务时,系统会在你的回复下面放一张目录卡,按目录的固定顺序列出符合条件的人,他可以在卡上直接给对方发消息。你看不到卡上是谁:不点名、不推荐、不说有几位。细则见下方「找经纪 / 找服务商」。'),
   },
   {
     href: '/stayloop-api',

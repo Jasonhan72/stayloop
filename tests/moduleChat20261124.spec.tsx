@@ -70,10 +70,11 @@ describe('every module on the product list is known to the conversation', () => 
       expect(ASSISTANT_ROLES, a.ask.en).toContain(a.role)
     }
   })
-  it('what the record says about today: a tenant’s repair, and the lease import, are finished in the conversation', () => {
+  it('what the record says about today: a tenant’s repair, the lease module and the directory are finished in the conversation', () => {
     const finishes = MODULES_IN_CHAT.flatMap((m) => ASSISTANT_ROLES.filter((r) => m.reach[r] === 'finishes').map((r) => `${m.href} ${r}`))
     // 租约与租金记录: the lease import card and the rent record card (both 2026-11-24); an agent's conversation records no rent
-    expect(finishes).toEqual(['/leases/import tenant', '/leases/import landlord', '/leases/import agent', '/services tenant'])
+    // 找经纪 · 服务商: the directory card (2026-11-24) — the system lists the directory's rows; the assistant still names nobody
+    expect(finishes).toEqual(['/leases/import tenant', '/leases/import landlord', '/leases/import agent', '/services tenant', '/agents tenant', '/agents landlord', '/agents agent'])
     // …and the approval cards are still as the prompt says: a landlord's and an agent's conversation propose none
     // (the lease import card is a form the person submits, like the listing draft card — not a proposed action)
     const p = read('lib/agent/prompts.ts')

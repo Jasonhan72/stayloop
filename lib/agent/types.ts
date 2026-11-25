@@ -274,6 +274,8 @@ export type ChatMessage = {
   leaseImport?: { id: string }
   /** The person said rent was received or paid: the reply carries the rent record card (lib/agent/rentRecordIntent.ts). */
   rentRecord?: { id: string }
+  /** The person asked for an agent, a tradesperson or a professional: the reply carries the directory card (lib/agent/directoryIntent.ts). */
+  directory?: { id: string; kind: 'agents' | 'repairs' | 'professional'; trade: string | null; language: string | null; city: string | null }
   /** What the turn read / did (lib/agent/receipt.ts); rendered as the receipt card under the reply. */
   receipt?: { read: { kind: string; zh: string; en: string }[]; did: { kind: string; zh: string; en: string }[] }
   /** 「记住了：…」 lines for the memories this turn stored. */
