@@ -52,9 +52,10 @@ export const ROLE_META: Record<
 // WorkflowStatusPanel (resolved per lang) and the turn's stage hint.
 export const WORKFLOW_STAGES: Record<AgentRole, { key: string; label: { zh: string; en: string } }[]> = {
   tenant: [
-    { key: 'intake', label: { zh: '身份验证 · 身份章', en: 'Identity check · identity stamp' } },
+    // 2026-11-25: was 「身份验证 · 身份章」 — there is no identity step a tenant does on arrival, and no stamp.
+    { key: 'intake', label: { zh: '开始 · 说说你的情况', en: 'Getting started' } },
     { key: 'preference_collection', label: { zh: '设定偏好 · 区域 / 预算 / 户型', en: 'Set preferences · area / budget / layout' } },
-    { key: 'passport_readiness', label: { zh: 'Passport 就绪检查', en: 'Passport readiness check' } },
+    { key: 'passport_readiness', label: { zh: '准备申请包', en: 'Prepare the application pack' } },
     { key: 'shortlist_and_apply', label: { zh: '筛选房源 + 提交意向', en: 'Shortlist homes + apply' } },
     { key: 'application_review', label: { zh: '申请 → 房东审核 → 看房', en: 'Application → landlord review → viewing' } },
     { key: 'sign_and_move_in', label: { zh: '电子签约 + 入住', en: 'E-sign + move in' } },

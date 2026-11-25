@@ -98,12 +98,14 @@ async function landlordContext(sb: SupabaseClient, uid: string): Promise<{ text:
 
 async function tenantContext(sb: SupabaseClient, uid: string): Promise<{ text: string; read: ContextRead }> {
   const [tenant, leases, memberships] = await Promise.all([
-    guard(sb.from('tenants').select('id,full_name,email,tier').eq('auth_id', uid).maybeSingle()),
+    // `tenants.tier` is not read: it is a column default (1) on every row, not a measurement, and the model
+    // turned 「租客护照认证 1 级」 into 「已盖 1/4 枚章」 — a verified identity nobody had verified (2026-11-25).
+    guard(sb.from('tenants').select('id,full_name,email').eq('auth_id', uid).maybeSingle()),
     // RLS ("leases_parties") scopes lease rows to this tenant.
     guard(sb.from('lease_documents').select('status,monthly_rent,start_date,end_date,unit_label,listing:listings(address,unit,city)').order('created_at', { ascending: false }).limit(5)),
     guard(sb.from('household_members').select('household_id').eq('user_id', uid).eq('role', 'tenant').eq('status', 'active').limit(10)),
   ])
-  const t = tenant?.data as { id?: string; full_name?: string; email?: string; tier?: number } | null
+  const t = tenant?.data as { id?: string; full_name?: string; email?: string } | null
   const hhIds = ((memberships?.data ?? []) as { household_id: string }[]).map((m) => m.household_id).filter(Boolean)
   // Tickets hang off the managed tenancy (household_id); tenant_id is a V4
   // column nothing writes any more, so filtering on it always showed none.
@@ -115,7 +117,7 @@ async function tenantContext(sb: SupabaseClient, uid: string): Promise<{ text: s
     ticketQuery ? guard(ticketQuery.not('status', 'in', '(done,cancelled)').order('created_at', { ascending: false }).limit(6)) : Promise.resolve(null),
   ])
   const lines: string[] = []
-  if (t) lines.push(`- 账号: ${[t.full_name, t.email].filter(Boolean).join(' · ')}${typeof t.tier === 'number' ? ` · 租客护照认证 ${t.tier} 级` : ''}`)
+  if (t) lines.push(`- 账号: ${[t.full_name, t.email].filter(Boolean).join(' · ')}`)
   const leaseRows = (leases?.data ?? []) as Array<{ status?: string; monthly_rent?: number; start_date?: string; end_date?: string; unit_label?: string; listing?: { address?: string; unit?: string; city?: string } | null }>
   if (leaseRows.length) {
     lines.push(`- 我的租约(${leaseRows.length} 份):`)

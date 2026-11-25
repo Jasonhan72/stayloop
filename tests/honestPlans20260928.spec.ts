@@ -74,7 +74,9 @@ describe('2 · stamps unlock nothing', () => {
   })
   it('the assistant is told stamps gate nothing', () => {
     const prompts = read('lib/agent/prompts.ts')
-    expect(prompts).toContain('章不限制任何房源，不要说盖章能解锁房源或加快审批')
+    // 2026-11-25: the prompt no longer speaks of stamps at all (tests/noStampTalk20261125.spec.ts); the same promise, about verification
+    expect(prompts).toContain('核验不限制任何房源，不要说做了核验能解锁房源或加快审批')
+    expect(prompts).toContain('申请任何一套房都不以核验为前提')
     expect(prompts).not.toMatch(/42%/)
   })
   it('the landlord preview demo shows no cutoff screening', () => {
