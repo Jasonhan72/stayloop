@@ -174,6 +174,11 @@ try {
   for (const p of plan) {
     const ctx = await browser.newContext({ viewport: { width: p.load[0], height: p.load[1] }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: p.ua, locale: lang === 'en' ? 'en-CA' : 'zh-CN' })
     await ctx.addInitScript((l) => { try { localStorage.setItem('stayloop_lang', l) } catch {} }, lang)
+    // Playwright's WebKit has PushManager but no push backend behind it: a signed-in page that mounts the push card
+    // (/settings, the progress page, the assistant panel's 身份 tab) freezes the page on that card's first read —
+    // on production too (found 2026-11-27). A Safari tab on a real iPhone has no PushManager at all, so removing it
+    // here is the closer match, and the sweep can measure those pages.
+    if (engine === 'webkit') await ctx.addInitScript(() => { try { delete window.PushManager } catch {} })
     const page = await ctx.newPage()
     let errors = []
     page.on('pageerror', (e) => errors.push(String(e?.message || e).slice(0, 180)))
