@@ -61,17 +61,19 @@ describe('the conversation is the page', () => {
 
 describe('assistant panel', () => {
   const panel = read('components/agent/AssistantPanel.tsx')
-  it('avatar · name, then 待办 / 记忆 / 设置; closable; rename writes the account’s assistant profile (one assistant, 2026-09-25)', () => {
-    // 2026-10-04: three tabs with their names written out; the 活动 tab is gone (conversations live in the AI chats list)
-    expect(panel).toContain("{ key: 'todo', label: zh ? '待办' : 'To-do', icon: <TodoTabIcon />, badge: waiting.length }")
-    expect(panel).toContain("{ key: 'memory', label: zh ? '记忆' : 'Memory', icon: <MemoryIcon />, badge: 0 }")
-    expect(panel).toContain("{ key: 'settings', label: zh ? '设置' : 'Settings', icon: <SlidersIcon />, badge: 0 }")
+  it('avatar · name, then 任务 / 批准 / 身份 / 收件; closable; rename writes the account’s assistant profile (one assistant, 2026-09-25)', () => {
+    // 2026-11-27: four tabs after the Muse panel the user showed (tasks · approvals history · identity · inbox),
+    // their names still written out (2026-10-04); the 活动 tab stays gone (conversations live in the AI chats list)
+    expect(panel).toContain("{ key: 'tasks', label: zh ? '任务' : 'Tasks', icon: <TasksIcon />, badge: 0 }")
+    expect(panel).toContain("{ key: 'approvals', label: zh ? '批准' : 'Approvals', icon: <ApprovalsIcon />, badge: waiting.length }")
+    expect(panel).toContain("{ key: 'identity', label: zh ? '身份' : 'Identity', icon: <IdentityIcon />, badge: 0 }")
+    expect(panel).toContain("{ key: 'inbox', label: zh ? '收件' : 'Inbox', icon: <InboxIcon />, badge: unreadMessages }")
     expect(panel).not.toContain("key: 'activity'")
-    expect(panel).toContain('useRecentOutcomes(live, role, visible, 12)')
+    expect(read('components/agent/PanelTasksTab.tsx')).toContain('useRecentOutcomes(live, role, visible, 12)')
     expect(panel).toContain('await saveAssistantName(supabase, auth.user.id, next)')
     expect(panel).not.toContain("from('agent_configs')")
     expect(panel).toContain('onClick={onClose}')
-    expect(panel).toContain('<PrivateMemorySnapshot agentName={name} memories={memories} role={role} editable={live} />')
+    expect(read('components/agent/PanelIdentityTab.tsx')).toContain('<PrivateMemorySnapshot agentName={name} memories={memories} role={role} editable={live} />')
   })
   it('default open, remembered per browser, never decided on the server render', () => {
     const hook = read('lib/agent/useAssistantPanel.ts')

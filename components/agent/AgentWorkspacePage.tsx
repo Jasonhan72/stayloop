@@ -9,7 +9,8 @@
 // 2026-10-04 (「重新布置…更系统化、更友好」): left = where to go and what you
 // talked about (the icon rail with ＋ 新对话, then the AI chats list — a column
 // from xl, a drawer below), middle = this conversation, right = the AI Agent
-// itself (待办 · 记忆 · 设置; a sheet below lg, opened from the chat head).
+// itself (任务 · 批准 · 身份 · 收件 since 2026-11-27; a sheet below lg, opened
+// from the chat head).
 // Each thing appears once. Phone: [context strip] + [chat] between the 56px
 // header and the 64px tab bar. 今日 lives on /x/todo, the 租前·租中·租后 rail on
 // /x/progress — nothing sits above the conversation.
@@ -19,7 +20,8 @@ import { useOnChange } from '@/lib/ui/useOnChange'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
-import AssistantPanel, { type PanelTab } from '@/components/agent/AssistantPanel'
+import AssistantPanel from '@/components/agent/AssistantPanel'
+import { panelRequest, type PanelRequest } from '@/lib/agent/panelTabs'
 import ThreadList, { SidebarIcon } from '@/components/agent/ThreadList'
 import AssistantSheet from '@/components/mobile/AssistantSheet'
 import { useMinWidth } from '@/lib/ui/useMinWidth'
@@ -98,18 +100,20 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
   // Below lg the chat head opens the same AI Agent panel as a sheet.
   const [sheetOpen, setSheetOpen] = useState(false)
   useOnChange(lgUp, () => { if (lgUp) setSheetOpen(false) })
-  // /x/agent?panel=todo|memory|settings (2026-10-05, the progress page's 「记忆」 line): open the AI Agent on
-  // that tab — the column from lg, the sheet below — and drop the parameter. Read after mount only. The request
-  // is one-shot: whichever surface shows it hands it back (clearTabRequest), so closing and reopening the panel
-  // returns to the tab the person last used.
-  const [requestedTab, setRequestedTab] = useState<PanelTab | null>(null)
+  // /x/agent?panel=tasks|approvals|identity|inbox (2026-10-05, the progress page's 「记忆」 line; the names
+  // the tabs had before 2026-11-27 — todo · memory · settings — still land somewhere sensible, see
+  // panelRequest): open the AI Agent on that tab — the column from lg, the sheet below — and drop the
+  // parameter. Read after mount only. The request is one-shot: whichever surface shows it hands it back
+  // (clearTabRequest), so closing and reopening the panel returns to the tab the person last used.
+  const [requestedTab, setRequestedTab] = useState<PanelRequest | null>(null)
   const clearTabRequest = useCallback(() => setRequestedTab(null), [])
   useEffect(() => {
     try {
       const want = new URLSearchParams(window.location.search).get('panel')
-      if (want !== 'todo' && want !== 'memory' && want !== 'settings') return
+      const ask = panelRequest(want)
+      if (!ask) return
       stripUrlParams(['panel'])
-      setRequestedTab(want)
+      setRequestedTab(ask)
       const wide = typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1024px)').matches
       if (wide) setPanelOpen(true)
       else setSheetOpen(true)
@@ -238,11 +242,11 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
         )}
         {panelOpen && (
           <aside className="hidden lg:flex lg:w-[320px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider 2xl:w-[360px]">
-            <AssistantPanel role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} onClose={() => setPanelOpen(false)} visible={lgUp} initialTab={requestedTab ?? undefined} onTabRequestUsed={clearTabRequest} />
+            <AssistantPanel role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} onClose={() => setPanelOpen(false)} visible={lgUp} status={status} initialTab={requestedTab ?? undefined} onTabRequestUsed={clearTabRequest} />
           </aside>
         )}
         {sheetOpen && !lgUp && (
-          <AssistantSheet role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} initialTab={requestedTab ?? undefined} onTabRequestUsed={clearTabRequest} onClose={() => setSheetOpen(false)} />
+          <AssistantSheet role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} status={status} initialTab={requestedTab ?? undefined} onTabRequestUsed={clearTabRequest} onClose={() => setSheetOpen(false)} />
         )}
       </div>
     </WorkspaceShell>

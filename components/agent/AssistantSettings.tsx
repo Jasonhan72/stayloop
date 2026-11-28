@@ -1,9 +1,12 @@
 'use client'
 
-// The AI Agent's long-term setup, in two views (2026-10-04 panel regroup):
-// view='settings' is the panel's 设置 tab (persona · style · model · push);
-// view='profile' is the 画像 block at the top of its 记忆 tab. Name and face are
-// changed from the pencil beside the avatar. Everything here DEFINES the
+// The AI Agent's long-term setup, in four views of the panel's 身份 tab (2026-11-27, after the
+// Muse panel's Identity tab; until then: a 设置 tab and a 记忆 tab, 2026-10-04):
+//   view='vibe'    the identity card — the name, then 风格, edited in place;
+//   view='persona' 人设 on its own page (the 人设 card opens it);
+//   view='runtime' what it runs with — 对话模型 and push — under the two cards;
+//   view='profile' the 画像 block at the top of the 记忆 page.
+// Name and face are changed from the pencil beside the avatar. Everything here DEFINES the
 // person's one AI Agent and is its long-term record (user
 // 2026-09-25: "这里的内容都是定义这个 Agent 的，需要专门和长期的保存，每一项也是需要
 // 可以修改的"): name · avatar · speaking style live on assistant_profiles (one
@@ -65,12 +68,14 @@ function fmtDate(iso: string | null | undefined, zh: boolean): string {
   return d.toLocaleDateString(zh ? 'zh-CN' : 'en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
-export default function AssistantSettings({ role, live, view = 'settings' }: {
+export default function AssistantSettings({ role, live, view = 'runtime', name }: {
   role: AgentRole
   live: boolean
-  /** 2026-10-04 panel regroup: 'settings' = the 设置 tab (人设 · 风格 · 模型 · 推送);
-   *  'profile' = the 画像 block at the top of the 记忆 tab (what it has learned about you). */
-  view?: 'settings' | 'profile'
+  /** 'vibe' = the identity card (name · 风格); 'persona' = 人设; 'runtime' = 对话模型 · 推送;
+   *  'profile' = the 画像 block at the top of the 记忆 page (what it has learned about you). */
+  view?: 'vibe' | 'persona' | 'runtime' | 'profile'
+  /** 'vibe' only: the assistant's name, at the top of the identity card. */
+  name?: string
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -91,12 +96,13 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
   const [personaSaving, setPersonaSaving] = useState(false)
   const [vibeErr, setVibeErr] = useState<string | null>(null)
   const [personaErr, setPersonaErr] = useState<string | null>(null)
+  const wantsStyle = view === 'vibe' || view === 'persona'
   useEffect(() => {
-    if (!uid || view !== 'settings') { setVibe(null); setPersona(null); setVibeReady(true); return }
+    if (!uid || !wantsStyle) { setVibe(null); setPersona(null); setVibeReady(true); return }
     let cancelled = false
     readAssistantProfile(supabase).then((p) => { if (!cancelled) { setVibe(p?.vibe ?? null); setPersona(p?.persona ?? null); setVibeReady(true) } })
     return () => { cancelled = true }
-  }, [uid, view])
+  }, [uid, wantsStyle])
   // Text the injection filter rejects is never written (it used to be saved as NULL over the
   // stored style / persona while the editor closed as if saved — sweep 2026-10-01): the editor
   // stays open with the reason. Only an explicitly empty draft clears the field.
@@ -125,7 +131,7 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
   const [models, setModels] = useState<TurnModelState | null>(null)
   const [modelSaved, setModelSaved] = useState(false)
   useEffect(() => {
-    if (!uid || view !== 'settings') { setModels(null); return }
+    if (!uid || view !== 'runtime') { setModels(null); return }
     let cancelled = false
     loadTurnModels(uid).then((m) => { if (!cancelled) setModels(m) })
     return () => { cancelled = true }
@@ -350,17 +356,8 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
     )
   }
 
-  return (
-    <div className="space-y-3" data-testid="assistant-settings">
-      {!live ? (
-        <div className="rounded-xl bg-surface-chip px-3 py-2 text-[12px] leading-relaxed text-body-3">
-          {zh ? '预览模式 · 登录后这里是你的 AI 助理的长期设定：人设、风格、对话模型、推送提醒，每一项都能改。' : 'Preview mode · sign in and this is your AI Agent’s long-term setup: persona, style, model, push alerts — every item editable.'}
-        </div>
-      ) : (
-        <div className="px-1 font-mono text-[10.5px] leading-relaxed text-body-3">{zh ? '长期档案 · 存在你的账号里，跨设备同步 · 这里的每一项都会进入它的每一次思考，每一项都可以改' : 'Long-term record · stored on your account, synced across devices · every item shapes every reply, every item editable'}</div>
-      )}
-
-      <section className="rounded-2xl bg-surface-chip p-4">
+  const personaBlock = (
+    <>
         {/* Persona: who it is and how it works — read before every turn, inside the rules. */}
         <div className={eyebrow}>{zh ? '人设' : 'Persona'}</div>
         {personaEditing ? (
@@ -396,7 +393,10 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
           </>
         )}
         <p className="mt-2 text-[11px] leading-relaxed text-body-3">{zh ? '它每次思考前都会先读这段话；规则、事实与能做的事不受影响。' : 'Read before every reply; the rules, the facts and what it may do are unaffected.'}</p>
-
+    </>
+  )
+  const vibeBlock = (
+    <>
         <div className={`mt-3.5 ${eyebrow}`}>{zh ? '风格' : 'Vibe'}</div>
         {editing ? (
           <form onSubmit={(e) => { e.preventDefault(); void saveVibe() }} className="mt-1.5">
@@ -431,11 +431,35 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
           </>
         )}
         <p className="mt-2 text-[11px] leading-relaxed text-body-3">{zh ? '只影响语气与措辞，不改变它遵守的规则和能做的事。' : 'Tone and wording only — never the rules it follows or what it may do.'}</p>
+    </>
+  )
 
-        <div className="mt-3 border-t border-line-soft">
+  if (view === 'persona') {
+    return <section className="rounded-2xl bg-surface-chip p-4" data-testid="assistant-persona">{personaBlock}</section>
+  }
+
+  if (view === 'vibe') {
+    // The identity card, as on the Muse panel: the name, the style in one line under it, then 风格 with its editor.
+    return (
+      <section className="rounded-2xl bg-surface-chip p-4" data-testid="assistant-identity">
+        {name && <div className="truncate text-[15px] font-semibold leading-tight text-ink">{name}</div>}
+        {name && (
+          <div className="mt-0.5 truncate text-[12.5px] text-body-3" data-testid="assistant-identity-line">
+            {!live ? (zh ? '预览 · 登录后可以改' : 'Preview · sign in to edit') : !vibeReady ? (zh ? '读取中…' : 'Loading…') : (vibe || (zh ? '还没写说话风格' : 'No speaking style yet'))}
+          </div>
+        )}
+        {vibeBlock}
+      </section>
+    )
+  }
+
+  return (
+    <div className="space-y-3" data-testid="assistant-settings">
+      <section className="rounded-2xl bg-surface-chip px-4 py-1.5">
+        <div>
           {/* Answering model: the same pick as the input bar's selector and /settings/models. */}
           <div className={row}>
-            <span className="text-body-2">{zh ? '对话模型' : 'Model'}</span>
+            <span className="flex-none whitespace-nowrap text-body-2">{zh ? '对话模型' : 'Model'}</span>
             {models ? (
               <span className="flex min-w-0 items-center gap-1.5">
                 {modelSaved && <span className="text-[11px] font-bold text-success">{zh ? '已保存' : 'Saved'}</span>}
@@ -443,7 +467,7 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
                   value={models.selected}
                   onChange={(e) => void chooseModel(e.target.value)}
                   aria-label={zh ? '对话模型' : 'Answering model'}
-                  className="max-w-[190px] rounded-full border border-line-divider bg-white px-2.5 py-1 text-[12px] font-bold text-body-2 outline-none focus:border-brand"
+                  className="w-full min-w-0 max-w-[190px] rounded-full border border-line-divider bg-white px-2.5 py-1 text-[12px] font-bold text-body-2 outline-none focus:border-brand"
                 >
                   <option value="">{zh ? `默认 · ${models.defaultLabel}` : `Default · ${models.defaultLabel}`}</option>
                   {models.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
@@ -460,6 +484,14 @@ export default function AssistantSettings({ role, live, view = 'settings' }: {
       <section className="rounded-2xl bg-surface-chip p-4">
         <PushSettingsCard live={live} frameless />
       </section>
+
+      {!live ? (
+        <div className="rounded-xl bg-surface-chip px-3 py-2 text-[12px] leading-relaxed text-body-3">
+          {zh ? '预览模式 · 登录后这里是你的 AI 助理的长期设定：人设、风格、对话模型、推送提醒，每一项都能改。' : 'Preview mode · sign in and this is your AI Agent’s long-term setup: persona, style, model, push alerts — every item editable.'}
+        </div>
+      ) : (
+        <div className="px-1 font-mono text-[10.5px] leading-relaxed text-body-3">{zh ? '长期档案 · 存在你的账号里，跨设备同步 · 这里的每一项都会进入它的每一次思考，每一项都可以改' : 'Long-term record · stored on your account, synced across devices · every item shapes every reply, every item editable'}</div>
+      )}
 
       <p className="px-1 text-[11.5px] leading-relaxed text-body-3">
         {zh ? '名字和头像：点头像旁的铅笔。' : 'Name and face: the pencil beside the avatar.'}{' '}

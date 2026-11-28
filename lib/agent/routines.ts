@@ -57,6 +57,19 @@ export function scheduleLabel(s: RoutineSchedule, lang: 'zh' | 'en'): string {
   return lang === 'zh' ? `每月 ${s.day ?? 1} 号 ${hh}` : `Monthly on the ${s.day ?? 1} at ${hh}`
 }
 
+/** When a routine runs next, on the reader's own clock: 「今天 09:00」 · 「明天 09:00」 · 「11月28日 09:00」
+ *  (the panel's row, 2026-11-27 — a bare 09:00 does not say which day). */
+export function nextRunLabel(iso: string, lang: 'zh' | 'en', now: Date = new Date()): string {
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return ''
+  const hm = d.toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const dayOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const diff = Math.round((dayOf(d) - dayOf(now)) / 86_400_000)
+  if (diff === 0) return lang === 'zh' ? `今天 ${hm}` : `Today ${hm}`
+  if (diff === 1) return lang === 'zh' ? `明天 ${hm}` : `Tomorrow ${hm}`
+  return `${d.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-CA', { month: 'short', day: 'numeric' })} ${hm}`
+}
+
 export function isValidSchedule(s: unknown): s is RoutineSchedule {
   if (!s || typeof s !== 'object') return false
   const o = s as Record<string, unknown>

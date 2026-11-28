@@ -215,7 +215,7 @@ export default function SettingsPage() {
               </QuickAction>
               <QuickAction
                 label={zh ? 'AI 助理的说话风格' : 'How your AI Agent speaks'}
-                desc={zh ? '一句话，只影响语气与措辞（AI 助理面板的「AI 助理设置」里也能改）' : 'One line — tone and wording only (also in the AI Agent panel)'}
+                desc={zh ? '一句话，只影响语气与措辞（AI 助理面板的「身份」里也能改）' : 'One line — tone and wording only (also in the AI Agent panel)'}
               >
                 <VibeEditor zh={zh} user={auth.user} />
               </QuickAction>

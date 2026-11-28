@@ -1,16 +1,24 @@
 'use client'
-// 「例行」 in the panel's 待办 tab (第三批 ⑥, 2026-10-25): the person's recurring jobs for the
-// assistant — list (frequency, next run, last result, on / off, run now, delete in two steps) and
-// a small form to add one from the hat's allow-list. Rows are the person's own (RLS); explicit
-// columns only (column-level grants). The cron does the running; 「现在运行」 asks the same route.
+// 「例行任务」 at the top of the panel's 任务 tab (第三批 ⑥, 2026-10-25; laid out after the Muse
+// panel's 「scheduled tasks」 on 2026-11-27): the person's recurring jobs for the assistant. Each
+// row is a bell, the job and when it runs next; opening a row shows its schedule, the last result
+// and what can be done with it (run now, on / off, delete in two steps). Three rows show until
+// 「查看全部」. Below: a small form to add one from the hat's allow-list. Rows are the person's own
+// (RLS); explicit columns only (column-level grants). The cron does the running; 「现在运行」 asks
+// the same route.
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import type { AgentRole } from '@/lib/agent/types'
-import { ROUTINE_COLUMNS, ROUTINE_KINDS, isValidSchedule, nextRunAt, routineDef, scheduleLabel, type RoutineRow, type RoutineSchedule } from '@/lib/agent/routines'
+import { ROUTINE_COLUMNS, ROUTINE_KINDS, isValidSchedule, nextRunAt, nextRunLabel, routineDef, scheduleLabel, type RoutineRow, type RoutineSchedule } from '@/lib/agent/routines'
 import { fmtRowTime } from '@/lib/agent/activityLog'
 import { notifyActivityChanged } from '@/lib/agent/useActivityLog'
+import PanelFold, { RowIcon } from './PanelFold'
+import { BellIcon } from './panelIcons'
+
+/** How many rows show before 「查看全部」. */
+const FIRST_ROWS = 3
 
 export default function RoutinesSection({ role, live }: { role: AgentRole; live: boolean }) {
   const { lang } = useT()
@@ -27,6 +35,8 @@ export default function RoutinesSection({ role, live }: { role: AgentRole; live:
   const [busy, setBusy] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
   const def = routineDef(role, kind)
 
   const load = useCallback(async () => {
@@ -75,51 +85,85 @@ export default function RoutinesSection({ role, live }: { role: AgentRole; live:
     await load(); notifyActivityChanged()
   }
 
-  if (!live) return null
+  const n = rows?.length ?? 0
+  const title = n > 0 ? (zh ? `${n} 个例行任务` : `${n} routine${n === 1 ? '' : 's'}`) : (zh ? '例行任务' : 'Routines')
+
+  // Preview: nothing is stored for a visitor, so there is nothing to list — say what this is for.
+  if (!live) {
+    return (
+      <PanelFold title={title} testid="panel-routines">
+        <p className="pb-1 text-[13px] leading-relaxed text-body-3">
+          {zh ? '登录后，可以让它每天、每周或每月替你做一件事：到期前提醒交租、检查续约窗口、汇总新申请。发给别人的每一条仍要你点头。' : 'Once signed in, it can do one thing for you every day, week or month — a rent reminder before the due date, a renewal-window check, a digest of new applications. Anything sent to someone else still needs your OK.'}
+        </p>
+      </PanelFold>
+    )
+  }
+
   const WD = zh ? ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const sel = 'rounded-lg border border-line-divider bg-white px-2 py-1 text-[12.5px]'
+  const more = 'flex min-h-10 w-full items-center justify-center text-[13px] font-semibold text-ink transition hover:text-brand-strong'
+  const shown = rows ? (showAll ? rows : rows.slice(0, FIRST_ROWS)) : []
   return (
-    <section data-testid="panel-routines">
-      <div className="mb-1 flex items-baseline justify-between">
-        <h3 className="text-[12.5px] font-semibold text-body-2">{zh ? `例行 · ${rows?.length ?? 0}` : `Routines · ${rows?.length ?? 0}`}</h3>
-        {!adding && <button type="button" data-testid="routine-add" onClick={() => setAdding(true)} className="text-[12.5px] font-semibold text-brand-strong">{zh ? '＋ 新例行' : '+ New routine'}</button>}
-      </div>
+    <PanelFold title={title} testid="panel-routines">
       {rows === null ? (
         <p className="py-2 text-[12.5px] text-body-3">{zh ? '读取中…' : 'Loading…'}</p>
       ) : rows.length === 0 && !adding ? (
-        <p className="py-2 text-[13px] leading-relaxed text-body-3">{zh ? '还没有例行任务。比如「每周一检查续约窗口」「到期前提醒租客交租」。' : 'No routines yet — e.g. “check renewal windows every Monday”.'}</p>
+        <p className="py-1 text-[13px] leading-relaxed text-body-3">{zh ? '还没有例行任务。比如「每周一检查续约窗口」「到期前提醒租客交租」。' : 'No routines yet — e.g. “check renewal windows every Monday”.'}</p>
       ) : (
-        <ul className="divide-y divide-line-soft">
-          {rows.map((r) => {
+        <ul>
+          {shown.map((r) => {
             const lr = r.last_result as { ok?: boolean; count?: number; note?: string } | null
+            const open = openId === r.id
+            // The stored title is in the language the routine was made in; the allow-list has both.
+            const d = routineDef(role, r.kind)
+            const name = d ? (zh ? d.zh : d.en) : r.title
             return (
-              <li key={r.id} className="py-2.5" data-testid="routine-row">
-                <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className={`text-[13.5px] font-semibold leading-snug ${r.enabled ? 'text-ink' : 'text-body-3'}`}>⏱ {r.title}</div>
-                    <div className="mt-0.5 text-[12px] leading-snug text-body-3">
-                      {scheduleLabel(r.schedule, lang === 'zh' ? 'zh' : 'en')} · {zh ? '下次' : 'next'} {r.enabled ? fmtRowTime(r.next_run_at, lang) : (zh ? '已停' : 'off')}
+              <li key={r.id} data-testid="routine-row">
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  onClick={() => { setOpenId(open ? null : r.id); setConfirm(null) }}
+                  className="-mx-2 flex w-[calc(100%+16px)] items-start gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-surface-chip/70"
+                >
+                  <RowIcon><BellIcon /></RowIcon>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block text-[14px] font-semibold leading-snug ${r.enabled ? 'text-ink' : 'text-body-3'}`}>{name}</span>
+                    <span className="mt-0.5 block text-[12.5px] leading-snug text-body-3">{r.enabled ? nextRunLabel(r.next_run_at, zh ? 'zh' : 'en') : (zh ? '已停用' : 'Turned off')}</span>
+                  </span>
+                </button>
+                {open && (
+                  <div className="mb-2 ml-12 space-y-1.5" data-testid="routine-detail">
+                    <div className="text-[12px] leading-snug text-body-3">
+                      {scheduleLabel(r.schedule, zh ? 'zh' : 'en')} · {zh ? '多伦多时间' : 'Toronto time'}
                       {r.last_run_at && <> · {zh ? '上次' : 'last'} {fmtRowTime(r.last_run_at, lang)} {lr?.ok === false ? <span className="text-danger">✕ {lr.note}</span> : lr ? <span>✓ {lr.count ?? 0}</span> : null}</>}
                     </div>
-                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
-                      <button type="button" disabled={busy === r.id} onClick={() => void runNow(r)} className="text-brand-strong font-semibold disabled:opacity-50">{busy === r.id ? '…' : zh ? '现在运行' : 'Run now'}</button>
-                      <button type="button" disabled={busy === r.id} onClick={() => void toggle(r)} className="text-body-2 disabled:opacity-50">{r.enabled ? (zh ? '停用' : 'Turn off') : (zh ? '启用' : 'Turn on')}</button>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px]">
+                      <button type="button" disabled={busy === r.id} onClick={() => void runNow(r)} className="min-h-9 font-semibold text-brand-strong disabled:opacity-50">{busy === r.id ? '…' : zh ? '现在运行' : 'Run now'}</button>
+                      <button type="button" disabled={busy === r.id} onClick={() => void toggle(r)} className="min-h-9 text-body-2 disabled:opacity-50">{r.enabled ? (zh ? '停用' : 'Turn off') : (zh ? '启用' : 'Turn on')}</button>
                       {confirm === r.id ? (
-                        <span data-testid="routine-delete-confirm" className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-0.5">
-                          {zh ? '删除这条例行？' : 'Delete this routine?'}
+                        <span data-testid="routine-delete-confirm" className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1">
+                          {zh ? '删除这条例行任务？' : 'Delete this routine?'}
                           <button type="button" onClick={() => void remove(r)} className="font-semibold text-danger">{zh ? '确认' : 'Confirm'}</button>
                           <button type="button" onClick={() => setConfirm(null)}>{zh ? '取消' : 'Cancel'}</button>
                         </span>
                       ) : (
-                        <button type="button" onClick={() => setConfirm(r.id)} className="text-body-3">{zh ? '删除' : 'Delete'}</button>
+                        <button type="button" onClick={() => setConfirm(r.id)} className="min-h-9 text-body-3">{zh ? '删除' : 'Delete'}</button>
                       )}
                     </div>
                   </div>
-                </div>
+                )}
               </li>
             )
           })}
         </ul>
+      )}
+      {rows && rows.length > FIRST_ROWS && (
+        <button type="button" data-testid="routine-see-all" aria-expanded={showAll} onClick={() => setShowAll((v) => !v)} className={more}>
+          {showAll ? (zh ? '收起' : 'Show fewer') : (zh ? `查看全部 ${rows.length} 个例行任务` : `See all ${rows.length} routines`)}
+        </button>
+      )}
+      {!adding && rows !== null && (
+        <button type="button" data-testid="routine-add" onClick={() => setAdding(true)} className={more}>{zh ? '＋ 新例行任务' : '+ New routine'}</button>
       )}
       {adding && def && (
         <div className="mt-2 rounded-xl border border-line-divider bg-surface-chip/50 p-3" data-testid="routine-form">
@@ -145,6 +189,6 @@ export default function RoutinesSection({ role, live }: { role: AgentRole; live:
         </div>
       )}
       {err && <div className="mt-1 text-[12px] text-danger">{err}</div>}
-    </section>
+    </PanelFold>
   )
 }

@@ -126,8 +126,10 @@ describe('conversation threads: loading is not a change; a reply lands in the th
     const page = read('components/agent/AgentWorkspacePage.tsx')
     expect(page).toContain('const lgUp = useMinWidth(1024)')
     expect(page).toContain('{live && xlUp && listPref === \'open\' && (')
+    // 2026-11-27: the outcomes are read by the panel's 任务 tab; every tab body mounts only while visible
+    expect(read('components/agent/PanelTasksTab.tsx')).toContain('useRecentOutcomes(live, role, visible, 12)')
     const panel = read('components/agent/AssistantPanel.tsx')
-    expect(panel).toContain('useRecentOutcomes(live, role, visible, 12)')
+    for (const t of ['tasks', 'approvals', 'identity', 'inbox']) expect(panel, t).toContain(`{visible && tab === '${t}' && `)
     expect(read('components/agent/AvatarPicker.tsx')).toContain("!avatar || avatar === 'default'") // the grid moved to the shared picker (2026-09-27)
     expect(read('lib/agent/pendingCount.ts')).toContain("import { ACTIVITY_CHANGED_EVENT } from './useActivityLog'")
     expect(read('lib/agent/pendingCount.ts')).not.toContain("new Event('sl-activity-changed')")

@@ -13,9 +13,9 @@ const read = (p: string) => readFileSync(p, 'utf8')
 const wf = { workflow_type: 'tenant_search', workflow_id: null, current_stage: 'intake', completed_steps: [], status: 'active' as const }
 
 describe('assistant panel, Muse round', () => {
-  it('three tabs with their names written out — 待办 · 记忆 · 设置 — a real tablist (2026-10-04, replacing four icon-only tabs)', () => {
+  it('four tabs with their names written out — 任务 · 批准 · 身份 · 收件 — a real tablist (2026-11-27; three tabs 2026-10-04; four icon-only tabs before that)', () => {
     const panel = read('components/agent/AssistantPanel.tsx')
-    expect(panel).toContain("{ key: 'settings', label: zh ? '设置' : 'Settings', icon: <SlidersIcon />, badge: 0 }")
+    expect(panel).toContain("{ key: 'identity', label: zh ? '身份' : 'Identity', icon: <IdentityIcon />, badge: 0 }")
     expect(panel).toContain('role="tablist" aria-label={zh ? \'AI 助理\' : \'AI Agent\'}')
     expect(panel).toContain('role="tab"')
     expect(panel).toContain('aria-selected={tab === t.key}')
@@ -23,7 +23,7 @@ describe('assistant panel, Muse round', () => {
     expect(panel).toContain('role="tabpanel"')
     expect(panel).toMatch(/\{t\.icon\}\s*<span>\{t\.label\}<\/span>/) // the name is visible text, not a tooltip
     expect(panel).toContain("e.key === 'ArrowRight'")
-    for (const icon of ['MemoryIcon', 'TodoTabIcon', 'SlidersIcon', 'AvatarIcon', 'PencilIcon']) {
+    for (const icon of ['TasksIcon', 'ApprovalsIcon', 'IdentityIcon', 'InboxIcon', 'AvatarIcon', 'PencilIcon']) {
       expect(read('components/agent/panelIcons.tsx')).toContain(`export function ${icon}()`)
     }
   })
@@ -33,15 +33,19 @@ describe('assistant panel, Muse round', () => {
     expect(panel).toContain("onClick={() => { setMenu(false); setPicking(true) }} className=\"flex w-full items-center gap-2.5 px-3 py-2 text-[13.5px] font-semibold text-ink transition hover:bg-surface\"><AvatarIcon /> {zh ? '换头像' : 'Change avatar'}")
     expect(panel).toContain("onClick={() => { setMenu(false); setRenaming(true) }} className=\"flex w-full items-center gap-2.5 px-3 py-2 text-[13.5px] font-semibold text-ink transition hover:bg-surface\"><PencilIcon /> {zh ? '改名' : 'Edit name'}")
     expect(panel).toContain("if (e.key === 'Escape') { e.preventDefault(); setMenu(false) }")
-    expect(panel).toContain('<AssistantSettings role={role} live={live} view="settings" />')
-    expect(panel).toContain('<AssistantSettings role={role} live={live} view="profile" />') // 画像 sits at the top of 记忆
+    // the long-term setup is the 身份 tab now: 风格 on the identity card, 人设 and 画像 on a page each, model · push under them
+    const identity = read('components/agent/PanelIdentityTab.tsx')
+    for (const view of ['vibe', 'persona', 'profile', 'runtime']) expect(identity, view).toContain(`view="${view}"`)
   })
   it('the settings tab: persona / vibe / model / notifications edited in place — name and face only on the pencil; 画像 is its own view (the 记忆 tab)', () => {
     const s = read('components/agent/AssistantSettings.tsx')
     expect(s).toContain('const ok = await saveAssistantVibe(supabase, uid, next)')
     expect(s).not.toMatch(/onChangeAvatar|'换头像'|onRename|onOpenMemory/)
     expect(s).toContain('maxLength={VIBE_MAX}')
-    expect(s).toContain("view?: 'settings' | 'profile'")
+    expect(s).toContain("view?: 'vibe' | 'persona' | 'runtime' | 'profile'")
+    // each view loads only what it shows: the style row for 风格 / 人设, the model list for 对话模型
+    expect(s).toContain("const wantsStyle = view === 'vibe' || view === 'persona'")
+    expect(s).toContain("if (!uid || view !== 'runtime') { setModels(null); return }")
     expect(s).toContain("{zh ? '画像 · 它对你的理解' : 'Profile · what it understands about you'}")
     // the profile card reads the reflection row (role self, key user_model) and forgetting it is audited
     expect(s).toContain("const USER_MODEL_KEY = 'user_model'")

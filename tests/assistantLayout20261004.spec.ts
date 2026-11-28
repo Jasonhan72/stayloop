@@ -82,28 +82,39 @@ describe('AI chats list: this hat first, others folded, clean names', () => {
   })
 })
 
-describe('the AI Agent panel: 待办 · 记忆 · 设置, no 活动', () => {
+// 2026-11-27: the panel went from 待办 · 记忆 · 设置 to 任务 · 批准 · 身份 · 收件 (the Muse panel the user
+// showed). What this file pinned still holds, in the tabs' own files: no mixed activity log, the waiting
+// cards say where they are handled, nothing in the panel decides, one home for the memory editor.
+describe('the AI Agent panel: 任务 · 批准 · 身份 · 收件 (until 2026-11-27: 待办 · 记忆 · 设置), no 活动', () => {
   const panel = read('components/agent/AssistantPanel.tsx')
-  it('three labelled tabs; the activity log and its sheet are gone', () => {
-    expect(panel).toContain("type PanelTab = 'todo' | 'memory' | 'settings'")
-    expect(panel).not.toMatch(/useActivityLog\(|buildActivity|openItem/)
+  const approvals = read('components/agent/PanelApprovalsTab.tsx')
+  const identity = read('components/agent/PanelIdentityTab.tsx')
+  const parts = ['components/agent/AssistantPanel.tsx', 'components/agent/PanelTasksTab.tsx', 'components/agent/PanelApprovalsTab.tsx', 'components/agent/PanelIdentityTab.tsx', 'components/agent/PanelInboxTab.tsx']
+  it('four labelled tabs; the activity log and its sheet are gone', () => {
+    expect(read('lib/agent/panelTabs.ts')).toContain("export type PanelTab = 'tasks' | 'approvals' | 'identity' | 'inbox'")
+    for (const f of parts) expect(read(f), f).not.toMatch(/useActivityLog\(|buildActivity|openItem/)
     expect(existsSync('components/mobile/ActivitySheet.tsx')).toBe(false)
   })
-  it('待办 says where each waiting card is handled; approvals stay on the cards', () => {
-    expect(panel).toContain("{zh ? '在这段对话里 ↓' : 'In this chat ↓'}")
-    expect(panel).toContain('`在对话「${t}」里 →`')
-    expect(panel).toContain("{zh ? '已批准，尚未执行 · 去待办页处理 →' : 'Approved, not run yet · open To-do →'}")
-    expect(panel).not.toMatch(/onDecide/)
+  it('批准 says where each waiting card is handled; approvals stay on the cards', () => {
+    expect(approvals).toContain("{zh ? '在这段对话里 ↓' : 'In this chat ↓'}")
+    expect(approvals).toContain('`在对话「${t}」里 →`')
+    expect(approvals).toContain("{zh ? '已批准，尚未执行 · 去待办页处理 →' : 'Approved, not run yet · open To-do →'}")
+    // nothing in the panel decides, writes a card or calls the executor — the record is read-only
+    for (const f of parts) expect(read(f), f).not.toMatch(/onDecide|decide_pending_action|\/api\/agent\/execute/)
+    expect(approvals).not.toMatch(/agent_pending_actions'\)\.(update|insert|delete|upsert)/)
     expect(waitingCards([{ status: 'pending' }, { status: 'approved' }, { status: 'executed' }, { status: 'rejected' }]).length).toBe(2)
   })
   it('「最近替你办完」 lists outcomes only — not avatars, views, exports, memory edits, acknowledgements or non-events', () => {
     for (const a of ['executed_send_message', 'executed_send_decision', 'executed_maintenance_request', 'work_order_auto_dispatched', 'household_created_from_esign']) expect(isOutcomeAction(a), a).toBe(true)
     for (const a of ['assistant_avatar_generated', 'memory_edited', 'application_file_viewed', 'thread_export_generated', 'work_order_dispatch_no_candidate', 'executed_claim_in_reply', 'executed_renewal_checkpoint', 'approval_abandoned', 'tenant_agent_turn']) expect(isOutcomeAction(a), a).toBe(false)
   })
-  it('记忆 = 画像 + what it remembers; 设置 = persona · style · model · push', () => {
-    expect(panel).toContain('<AssistantSettings role={role} live={live} view="profile" />')
-    expect(panel).toContain('<PrivateMemorySnapshot agentName={name} memories={memories} role={role} editable={live} />')
-    expect(panel).toContain('<AssistantSettings role={role} live={live} view="settings" />')
+  it('身份 = name · 风格, then 人设 and 记忆 (画像 + what it remembers) on a page each, then model · push', () => {
+    expect(panel).toContain('<PanelIdentityTab role={role} live={live} name={name} memories={memories} visible={visible} page={identityPage} onPage={setIdentityPage} />')
+    expect(identity).toContain('<AssistantSettings role={role} live={live} view="vibe" name={name} />')
+    expect(identity).toContain('<AssistantSettings role={role} live={live} view="persona" />')
+    expect(identity).toContain('<AssistantSettings role={role} live={live} view="profile" />')
+    expect(identity).toContain('<PrivateMemorySnapshot agentName={name} memories={memories} role={role} editable={live} />')
+    expect(identity).toContain('<AssistantSettings role={role} live={live} view="runtime" />')
   })
 })
 
@@ -142,14 +153,22 @@ describe('memory lives in one place (user 2026-10-05: 「进度页那份重复�
     expect(pages).not.toContain('PrivateMemorySnapshot')
     expect(pages).toContain('<Link id="memory" href={`/${role}/agent?panel=memory`} data-testid="progress-memory-link"')
     expect(pages).not.toContain('它记住了什么')
-    // the editor has exactly one home: the panel's 记忆 tab (column and sheet are the same component)
-    const users = ['components/agent/AssistantPanel.tsx', 'components/mobile/RolePages.tsx', 'components/agent/AgentWorkspacePage.tsx', 'components/mobile/AssistantSheet.tsx']
+    // the editor has exactly one home: the panel's 身份 › 记忆 page (column and sheet are the same component)
+    const users = ['components/agent/AssistantPanel.tsx', 'components/agent/PanelIdentityTab.tsx', 'components/agent/PanelTasksTab.tsx', 'components/agent/PanelApprovalsTab.tsx', 'components/agent/PanelInboxTab.tsx', 'components/mobile/RolePages.tsx', 'components/agent/AgentWorkspacePage.tsx', 'components/mobile/AssistantSheet.tsx']
       .filter((f) => read(f).includes('<PrivateMemorySnapshot'))
-    expect(users).toEqual(['components/agent/AssistantPanel.tsx'])
+    expect(users).toEqual(['components/agent/PanelIdentityTab.tsx'])
   })
-  it('?panel=todo|memory|settings opens the AI Agent on that tab — column from lg, sheet below — and drops the parameter', () => {
+  it('?panel=… opens the AI Agent on that tab — column from lg, sheet below — and drops the parameter; the old names still land somewhere', async () => {
     expect(page).toContain("const want = new URLSearchParams(window.location.search).get('panel')")
-    expect(page).toContain("if (want !== 'todo' && want !== 'memory' && want !== 'settings') return")
+    expect(page).toContain('const ask = panelRequest(want)\n      if (!ask) return')
+    const { panelRequest, tabOfRequest } = await import('@/lib/agent/panelTabs')
+    for (const t of ['tasks', 'approvals', 'identity', 'inbox'] as const) expect(panelRequest(t)).toBe(t)
+    // the progress page's 「记忆」 line (and anything bookmarked before 2026-11-27)
+    expect(panelRequest('memory')).toBe('memory')
+    expect(tabOfRequest('memory')).toBe('identity')
+    expect(panelRequest('todo')).toBe('approvals')
+    expect(panelRequest('settings')).toBe('identity')
+    for (const bad of [null, undefined, '', 'activity', 'Tasks', 'javascript:alert(1)']) expect(panelRequest(bad), String(bad)).toBeNull()
     expect(page).toContain("stripUrlParams(['panel'])")
     expect(page).toContain('if (wide) setPanelOpen(true)')
     expect(page).toContain('else setSheetOpen(true)')
@@ -183,6 +202,6 @@ describe('memory lives in one place (user 2026-10-05: 「进度页那份重复�
     } finally { g.window = prev }
   })
   it('preview says only what preview can do', () => {
-    expect(pages).toContain("'它记住的事，在 AI 助理的「记忆」里看（登录后可以修改）'")
+    expect(pages).toContain("'它记住的事，在 AI 助理的「身份 › 记忆」里看（登录后可以修改）'")
   })
 })

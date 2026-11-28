@@ -1,14 +1,14 @@
 'use client'
 
 // The AI Agent panel below lg (2026-10-04): tapping the avatar or the status line in the chat
-// head opens the SAME panel as the desktop column — 待办 · 记忆 · 设置, the pencil for
-// 换头像 / 改名 — as a bottom sheet (a centred dialog from sm). It replaces the old activity
+// head opens the SAME panel as the desktop column — 任务 · 批准 · 身份 · 收件 (2026-11-27), the
+// pencil for 换头像 / 改名 — as a bottom sheet (a centred dialog from sm). It replaces the old activity
 // sheet; conversations are in the AI chats drawer.
 import { useRef } from 'react'
 import { useT } from '@/lib/i18n'
 import { useModalA11y } from '@/lib/ui/useModalA11y'
-import AssistantPanel, { type PanelTab } from '@/components/agent/AssistantPanel'
-import type { AgentRole, MemoryItem, PendingAction } from '@/lib/agent/types'
+import AssistantPanel, { type PanelRequest } from '@/components/agent/AssistantPanel'
+import type { AgentRole, AgentStatus, MemoryItem, PendingAction } from '@/lib/agent/types'
 
 export default function AssistantSheet(props: {
   role: AgentRole
@@ -21,8 +21,9 @@ export default function AssistantSheet(props: {
   currentThreadId: string | null
   onOpenThread: (id: string) => void | Promise<void>
   onScrollToCard?: (id: string) => void
-  initialTab?: PanelTab
+  initialTab?: PanelRequest
   onTabRequestUsed?: () => void
+  status?: AgentStatus
   onClose: () => void
 }) {
   const { lang } = useT()

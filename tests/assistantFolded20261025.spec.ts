@@ -20,9 +20,11 @@ describe('④ day groups', () => {
     expect(groupOutcomesByDay([at(100)], now).map((x) => x.key)).toEqual(['week'])
   })
   it('the panel renders the groups, reads 12 rows, and marks a failed run with ✕ and its reason', () => {
-    const p = code('components/agent/AssistantPanel.tsx')
+    // 2026-11-27: the 任务 tab. Today is its own timeline (with today's conversations); the day groups hold what came before.
+    const p = code('components/agent/PanelTasksTab.tsx')
     expect(p).toContain('useRecentOutcomes(live, role, visible, 12)')
-    expect(p).toContain('groupOutcomesByDay(outcomes).map((g) =>')
+    expect(p).toContain('const earlier = outcomes ? groupOutcomesByDay(beforeToday(outcomes)) : []')
+    expect(p).toContain('{earlier.map((g) => (')
     expect(p).toContain('data-testid={`outcomes-${g.key}`}')
     expect(p).toContain("const failed = o.metadata?.ok === false")
     expect(p).toMatch(/\{failed \? '✕' : '✓'\}/)

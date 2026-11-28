@@ -1,41 +1,44 @@
 'use client'
 
-// The AI Agent itself, beside the conversation (lg+) or in a sheet (below lg):
-// who it is, what it is waiting on you for, what it knows about you, how it is
-// set up. Muse web reference (2026-09-25); regrouped 2026-10-04 (user: 「重新
-// 布置…更系统化、更友好」 → 「取消活动，对话只在左边」):
-//   · the 活动 tab is gone — conversations are listed once, in the AI chats
-//     list (ThreadList); what it finished for you sits under 待办 as
-//     「最近替你办完」, and bookkeeping (a new avatar, file views, exports)
-//     stays on the audit page;
-//   · three tabs with their names written out: 待办 · 记忆 · 设置;
-//   · 记忆 holds both what it learned (画像) and what it remembers.
-// Nothing under the name: no status line, no hat marker (user 2026-09-25).
-// Approvals still happen only on the cards in the conversation.
+// The AI Agent itself, beside the conversation (lg+) or in a sheet (below lg): who it is, what it
+// does for you and when, what it asked you and what you said, what arrives for you.
+//
+// 2026-11-27 (user: 「把我们 agent 的控制页面也改成和这个类似，尤其是功能上」, with four
+// screenshots of the Muse panel): four tabs, after that panel —
+//   任务  例行任务 (what it does on a schedule) · 今天 (what it did today) · 更早办完的
+//   批准  等你点头 · 批准记录 (every card it proposed and what became of it)
+//   身份  name · 风格 · 人设 · 记忆 · what it runs with (对话模型 · 推送)
+//   收件  what other people wrote to you (the message centre's threads)
+// Under the name: what it is doing right now while a reply is on its way, else what it is
+// connected to. Each tab's body lives in its own file (PanelTasksTab …); this file is the head
+// and the tab bar.
+//
+// What did not change: approvals happen only on the cards in the conversation — the panel shows
+// where each waiting card is and keeps the record, it never decides; the full list of
+// conversations is the AI chats list on the left (2026-10-04) and 今天 lists today's only; the
+// tabs have their names written out (2026-10-04); no hat marker under the name (2026-09-25).
+// Before this: 待办 · 记忆 · 设置 (2026-10-04), and four icon-only tabs before that (2026-09-25).
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
-import RoutinesSection from './RoutinesSection'
-import { OUTCOME_GROUP_LABEL, groupOutcomesByDay } from '@/lib/agent/activityLog'
 import { useOnChange } from '@/lib/ui/useOnChange'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { setAIName, invalidateAiName } from '@/lib/aiName'
-import { auditActionLabel } from '@/lib/agent/ideas'
-import { fmtRowTime } from '@/lib/agent/activityLog'
-import { useRecentOutcomes } from '@/lib/agent/useActivityLog'
-import { cardThreadId, waitingCards } from '@/lib/agent/threadCards'
-import { cleanTitle } from '@/lib/agent/threadList'
+import { waitingCards } from '@/lib/agent/threadCards'
 import { AssistantAvatar, setStoredAvatar } from '@/lib/agent/avatars'
 import AvatarPicker from './AvatarPicker'
 import { saveAssistantAvatar, saveAssistantName } from '@/lib/agent/assistantProfile'
-import type { AgentRole, MemoryItem, PendingAction } from '@/lib/agent/types'
-import PrivateMemorySnapshot from './PrivateMemorySnapshot'
-import AssistantSettings from './AssistantSettings'
-import { AvatarIcon, MemoryIcon, PencilIcon, SlidersIcon, TodoTabIcon } from './panelIcons'
+import { useUnreadMessages } from '@/lib/messages/unread'
+import { PANEL_TABS, isPanelTab, tabOfRequest, type PanelRequest, type PanelTab } from '@/lib/agent/panelTabs'
+import type { AgentRole, AgentStatus, MemoryItem, PendingAction } from '@/lib/agent/types'
+import PanelTasksTab from './PanelTasksTab'
+import PanelApprovalsTab from './PanelApprovalsTab'
+import PanelIdentityTab, { type IdentityPage } from './PanelIdentityTab'
+import PanelInboxTab from './PanelInboxTab'
+import { ApprovalsIcon, AvatarIcon, IdentityIcon, InboxIcon, PencilIcon, TasksIcon } from './panelIcons'
 
-export type PanelTab = 'todo' | 'memory' | 'settings'
-const TAB_ORDER: PanelTab[] = ['todo', 'memory', 'settings']
+export type { PanelRequest, PanelTab } from '@/lib/agent/panelTabs'
+const TAB_ORDER = PANEL_TABS
 const STATUS_READS: Record<string, { zh: string; en: string }> = {
   tenant: { zh: '你的记忆、待办与租约', en: 'your memory, to-dos and lease' },
   landlord: { zh: '你的申请、租约与房源', en: 'your applications, leases and listings' },
@@ -45,7 +48,7 @@ const TAB_KEY = 'sl-assistant-panel-tab'
 
 export default function AssistantPanel({
   role, agentName, pendingActions, memories, live, avatar, onAvatarChange, currentThreadId, onOpenThread, onScrollToCard, onClose,
-  variant = 'column', initialTab, onTabRequestUsed, visible = true,
+  variant = 'column', initialTab, onTabRequestUsed, visible = true, status,
 }: {
   role: AgentRole
   agentName: string
@@ -61,23 +64,26 @@ export default function AssistantPanel({
   onClose: () => void
   /** 'column' beside the chat (lg+); 'sheet' = the same panel in a bottom sheet (below lg). */
   variant?: 'column' | 'sheet'
-  /** A tab the page asks for (a ?panel= link). One-shot: once shown, onTabRequestUsed hands it back. */
-  initialTab?: PanelTab
+  /** A tab the page asks for (a ?panel= link; 'memory' = 身份 opened on its 记忆 page). One-shot: once shown, onTabRequestUsed hands it back. */
+  initialTab?: PanelRequest
   onTabRequestUsed?: () => void
   /** Mounted but off screen → fetch nothing. */
   visible?: boolean
+  /** What the conversation is doing right now — the line under the name follows it. */
+  status?: AgentStatus
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const auth = useAuth()
 
-  // Which tab: the caller's, else (column) the last one used, else 待办; the sheet opens on 记忆
-  // because the phone's bottom bar already has 待办.
-  const [tab, setTabState] = useState<PanelTab>(initialTab ?? (variant === 'sheet' ? 'memory' : 'todo'))
+  // Which tab: the caller's, else (column) the last one used, else 任务.
+  const [tab, setTabState] = useState<PanelTab>(initialTab ? tabOfRequest(initialTab) : 'tasks')
+  // 身份 has pages (home · 人设 · 记忆); a ?panel=memory link lands on 记忆.
+  const [identityPage, setIdentityPage] = useState<IdentityPage>(initialTab === 'memory' ? 'memory' : 'home')
   // On mount only: the column reopens on the last tab used, unless the page asked for one.
   useEffect(() => {
     if (initialTab || variant === 'sheet') return
-    try { const v = localStorage.getItem(TAB_KEY); if (v === 'todo' || v === 'memory' || v === 'settings') setTabState(v) } catch { /* private mode */ }
+    try { const v = localStorage.getItem(TAB_KEY); if (isPanelTab(v)) setTabState(v) } catch { /* private mode */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   // The page asked for a tab: show it, move focus to it (a link said 「在记忆里」 — keyboard and screen-reader
@@ -85,23 +91,47 @@ export default function AssistantPanel({
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
   useEffect(() => {
     if (!initialTab) return
-    setTabState(initialTab)
-    const i = TAB_ORDER.indexOf(initialTab)
+    const want = tabOfRequest(initialTab)
+    setTabState(want)
+    setIdentityPage(initialTab === 'memory' ? 'memory' : 'home')
+    const i = TAB_ORDER.indexOf(want)
     // Directly, not in requestAnimationFrame: a tab opened in the background runs no frames, and in the sheet
     // this lands before the dialog's own first-focus (which then leaves it alone).
     tabRefs.current[i]?.focus({ preventScroll: true })
     onTabRequestUsed?.()
   }, [initialTab, onTabRequestUsed])
+  // A new tab, or a new page of 身份, starts at its top: the scroll position belonged to what was there before
+  // (the column scrolls its tab body, the sheet scrolls as a whole).
+  const rootRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = variant === 'sheet' ? rootRef.current : bodyRef.current
+    if (el) el.scrollTop = 0
+  }, [tab, identityPage, variant])
   const setTab = useCallback((t: PanelTab) => {
     setTabState(t)
+    // Tapping 身份 always shows its first page — also when it is already the tab on screen.
+    if (t === 'identity') setIdentityPage('home')
     if (variant === 'column') { try { localStorage.setItem(TAB_KEY, t) } catch { /* private mode */ } }
   }, [variant])
 
   const waiting = waitingCards(pendingActions)
-  // 名片状态 (第一批 ③, 2026-10-25): connected and reading what, or preview.
-  const statusLine = live
+  // 名片状态: what it is doing right now while a reply is on its way (2026-11-27, the Muse panel's
+  // 「Explaining plan C」 line); otherwise connected and reading what, or preview (第一批 ③, 2026-10-25).
+  const busyLine = status === 'understanding'
+    ? (zh ? '正在读你的消息…' : 'Reading your message…')
+    : status === 'working' ? (zh ? '正在处理你的请求…' : 'Working on your request…') : null
+  const statusLine = busyLine ?? (live
     ? (zh ? `已连接 · 读取${STATUS_READS[role].zh}` : `Connected · reads ${STATUS_READS[role].en}`)
-    : (zh ? '预览 · 未登录，只看不记' : 'Preview · not signed in, nothing is saved')
+    : (zh ? '预览 · 未登录，只看不记' : 'Preview · not signed in, nothing is saved'))
+  const statusNode = (
+    <>
+      {busyLine && <span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand align-middle" />}
+      {statusLine}
+    </>
+  )
+  // 收件's badge: unread messages from people (the same count as the rail's 消息).
+  const unreadMessages = useUnreadMessages(live && visible)
 
   // Rename in place: the name is the account's (assistant_profiles RLS = self).
   const [renaming, setRenaming] = useState(false)
@@ -138,9 +168,10 @@ export default function AssistantPanel({
   }
 
   const TABS: { key: PanelTab; label: string; icon: ReactNode; badge: number }[] = [
-    { key: 'todo', label: zh ? '待办' : 'To-do', icon: <TodoTabIcon />, badge: waiting.length },
-    { key: 'memory', label: zh ? '记忆' : 'Memory', icon: <MemoryIcon />, badge: 0 },
-    { key: 'settings', label: zh ? '设置' : 'Settings', icon: <SlidersIcon />, badge: 0 },
+    { key: 'tasks', label: zh ? '任务' : 'Tasks', icon: <TasksIcon />, badge: 0 },
+    { key: 'approvals', label: zh ? '批准' : 'Approvals', icon: <ApprovalsIcon />, badge: waiting.length },
+    { key: 'identity', label: zh ? '身份' : 'Identity', icon: <IdentityIcon />, badge: 0 },
+    { key: 'inbox', label: zh ? '收件' : 'Inbox', icon: <InboxIcon />, badge: unreadMessages },
   ]
   function onTabKey(e: ReactKeyboardEvent<HTMLButtonElement>, i: number) {
     const last = TABS.length - 1
@@ -184,7 +215,7 @@ export default function AssistantPanel({
   )
 
   return (
-    <div data-testid="assistant-panel" className={`flex h-full min-h-0 flex-col bg-white ${sheet ? 'overflow-y-auto overscroll-contain' : ''}`}>
+    <div ref={rootRef} data-testid="assistant-panel" className={`flex h-full min-h-0 flex-col bg-white ${sheet ? 'overflow-y-auto overscroll-contain' : ''}`}>
       {sheet ? (
         <div className="relative flex flex-none items-center gap-3 border-b border-line-soft px-4 pb-3 pt-1">
           <div className="relative h-12 w-12 flex-none">
@@ -195,7 +226,7 @@ export default function AssistantPanel({
           </div>
           <div className="min-w-0 flex-1">
             {renaming ? nameEditor : <div className="truncate text-[17px] font-medium tracking-tight text-ink">{name}</div>}
-            <div data-testid="assistant-status" className="truncate text-[11px] text-body-3">{statusLine}</div>
+            <div data-testid="assistant-status" data-busy={busyLine ? 'true' : undefined} aria-live="polite" className="truncate text-[11px] text-body-3">{statusNode}</div>
           </div>
           <button type="button" onClick={onClose} aria-label={zh ? '关闭' : 'Close'} className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-[22px] text-body-3 transition hover:bg-surface-chip hover:text-body">×</button>
         </div>
@@ -209,13 +240,15 @@ export default function AssistantPanel({
             {pencil}
           </div>
           {renaming ? nameEditor : <div className="mt-3 text-[26px] font-medium leading-tight tracking-tight text-ink">{name}</div>}
-          <div data-testid="assistant-status" className="mt-1 text-[11.5px] text-body-3">{statusLine}</div>
+          <div data-testid="assistant-status" data-busy={busyLine ? 'true' : undefined} aria-live="polite" className="mt-1 text-[11.5px] text-body-3">{statusNode}</div>
         </div>
       )}
       {picking && <AvatarPicker role={role} avatar={avatar} live={live} zh={zh} onPick={(k) => void chooseAvatar(k)} className={`mx-auto mt-3 max-w-[300px] flex-none ${sheet ? 'px-4' : ''}`} />}
 
-      {/* Three tabs, names written out (2026-10-04). */}
-      <div className={`${sheet ? 'mx-4' : 'mx-5'} mt-3 flex flex-none items-center gap-1 rounded-full bg-surface-chip p-[3px]`} role="tablist" aria-label={zh ? 'AI 助理' : 'AI Agent'}>
+      {/* Four tabs (2026-11-27), names written out (2026-10-04). Each takes the room its name needs and they
+          share what is left (flex-auto, not four equal quarters): in a 320px column 「Approvals」 with its icon
+          is wider than a quarter, and an equal split squeezed the icon out. */}
+      <div className={`${sheet ? 'mx-4' : 'mx-4 2xl:mx-5'} mt-3 flex flex-none items-center gap-0.5 rounded-full bg-surface-chip p-[3px]`} role="tablist" aria-label={zh ? 'AI 助理' : 'AI Agent'}>
         {TABS.map((t, i) => (
           <button
             key={t.key}
@@ -229,148 +262,28 @@ export default function AssistantPanel({
             onClick={() => setTab(t.key)}
             onKeyDown={(e) => onTabKey(e, i)}
             data-testid={`panel-tab-${t.key}`}
-            className={`relative flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold transition ${tab === t.key ? 'bg-white text-ink shadow-[0_1px_3px_rgba(27,27,60,.1)]' : 'text-body-3 hover:text-body-2'}`}
+            className={`relative flex h-10 flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-full px-1 text-[12.5px] font-semibold transition [&>svg]:flex-none ${tab === t.key ? 'bg-white text-ink shadow-[0_1px_3px_rgba(27,27,60,.1)]' : 'text-body-3 hover:text-body-2'}`}
           >
             {t.icon}
             <span>{t.label}</span>
-            {t.badge > 0 && <span className="min-w-[16px] rounded-full bg-warning px-1 text-center text-[10px] font-extrabold leading-4 text-white">{t.badge > 99 ? '99+' : t.badge}</span>}
+            {t.badge > 0 && <span data-testid={`panel-badge-${t.key}`} className="absolute -top-0.5 right-0 min-w-[16px] rounded-full bg-warning px-1 text-center text-[10px] font-extrabold leading-4 text-white">{t.badge > 99 ? '99+' : t.badge}</span>}
           </button>
         ))}
       </div>
 
-      <div className={`${sheet ? 'flex-none px-4' : 'min-h-0 flex-1 overflow-y-auto px-5'} pb-5 pt-3.5`} role="tabpanel" id={`${idp}-panel-${tab}`} aria-labelledby={`${idp}-tab-${tab}`}>
+      <div ref={bodyRef} className={`${sheet ? 'flex-none px-4' : 'min-h-0 flex-1 overflow-y-auto px-5'} pb-5 pt-3.5`} role="tabpanel" id={`${idp}-panel-${tab}`} aria-labelledby={`${idp}-tab-${tab}`}>
         {/* Mounted but off screen (the column below lg) → render no tab body, so nothing fetches. */}
-        {!visible ? null : tab === 'todo' && (
-          <TodoTab role={role} live={live} waiting={waiting} currentThreadId={currentThreadId} onOpenThread={onOpenThread} onScrollToCard={onScrollToCard} onClose={variant === 'sheet' ? onClose : undefined} visible={visible} />
+        {visible && tab === 'tasks' && (
+          <PanelTasksTab role={role} live={live} visible={visible} onOpenThread={onOpenThread} onClose={variant === 'sheet' ? onClose : undefined} />
         )}
-        {visible && tab === 'memory' && (
-          <div className="space-y-3">
-            <AssistantSettings role={role} live={live} view="profile" />
-            <div className="rounded-2xl border border-line-divider bg-white p-4">
-              <div className="mb-1 text-[13.5px] font-semibold text-ink">{zh ? '它记住的事' : 'What it remembers'}</div>
-              <PrivateMemorySnapshot agentName={name} memories={memories} role={role} editable={live} />
-            </div>
-            <p className="px-1 text-[11.5px] text-body-3">{zh ? '画像和记忆跨身份共用一份，只有你能看到。' : 'One profile and one memory across your roles — only you can see them.'}</p>
-          </div>
+        {visible && tab === 'approvals' && (
+          <PanelApprovalsTab role={role} live={live} waiting={waiting} currentThreadId={currentThreadId} onOpenThread={onOpenThread} onScrollToCard={onScrollToCard} onClose={variant === 'sheet' ? onClose : undefined} visible={visible} />
         )}
-        {visible && tab === 'settings' && <AssistantSettings role={role} live={live} view="settings" />}
+        {visible && tab === 'identity' && (
+          <PanelIdentityTab role={role} live={live} name={name} memories={memories} visible={visible} page={identityPage} onPage={setIdentityPage} />
+        )}
+        {visible && tab === 'inbox' && <PanelInboxTab live={live} visible={visible} />}
       </div>
-    </div>
-  )
-}
-
-/** 待办: what it is waiting on you for — and where to handle each one — then what it finished lately. */
-function TodoTab({ role, live, waiting, currentThreadId, onOpenThread, onScrollToCard, onClose, visible }: {
-  role: AgentRole
-  live: boolean
-  waiting: PendingAction[]
-  currentThreadId: string | null
-  onOpenThread: (id: string) => void | Promise<void>
-  onScrollToCard?: (id: string) => void
-  /** Sheet only: close it before moving the chat underneath. */
-  onClose?: () => void
-  visible: boolean
-}) {
-  const { lang } = useT()
-  const zh = lang === 'zh'
-  const outcomes = useRecentOutcomes(live, role, visible, 12)
-
-  // Titles of the other conversations the waiting cards came from (one small query, only when needed).
-  const otherIds = Array.from(new Set(waiting.map(cardThreadId).filter((t): t is string => !!t && t !== currentThreadId)))
-  const idsKey = otherIds.sort().join(',')
-  const [titles, setTitles] = useState<Record<string, string> | null>(null)
-  useEffect(() => {
-    if (!live || !visible || !idsKey) { setTitles({}); return }
-    let cancelled = false
-    supabase.from('agent_threads').select('id, title, custom_title').in('id', idsKey.split(','))
-      .then(({ data }) => {
-        if (cancelled) return
-        const m: Record<string, string> = {}
-        for (const r of (data ?? []) as { id: string; title: string | null; custom_title: string | null }[]) m[r.id] = r.custom_title?.trim() || cleanTitle(r.title) || (zh ? '一段对话' : 'a chat')
-        setTitles(m)
-      }, () => { if (!cancelled) setTitles({}) })
-    return () => { cancelled = true }
-  }, [live, visible, idsKey, zh])
-
-  const link = 'inline-flex min-h-9 items-center text-[12.5px] font-semibold text-brand-strong hover:underline'
-  const where = (a: PendingAction): ReactNode => {
-    const tid = cardThreadId(a)
-    if (a.status === 'approved') return <Link href={`/${role}/todo`} className={link}>{zh ? '已批准，尚未执行 · 去待办页处理 →' : 'Approved, not run yet · open To-do →'}</Link>
-    if (tid && tid === currentThreadId) {
-      return <button type="button" className={link} onClick={() => { onClose?.(); requestAnimationFrame(() => onScrollToCard?.(a.id)) }}>{zh ? '在这段对话里 ↓' : 'In this chat ↓'}</button>
-    }
-    if (tid && titles && titles[tid]) {
-      const t = titles[tid].length > 18 ? `${titles[tid].slice(0, 17)}…` : titles[tid]
-      return <button type="button" className={link} onClick={() => { onClose?.(); void onOpenThread(tid) }}>{zh ? `在对话「${t}」里 →` : `In the chat “${t}” →`}</button>
-    }
-    return <Link href={`/${role}/todo`} className={link}>{zh ? '去待办页处理 →' : 'Handle on To-do →'}</Link>
-  }
-
-  return (
-    <div className="space-y-5">
-      <section>
-        <h3 className="mb-1 text-[12.5px] font-semibold text-body-2">{zh ? `等你点头 · ${waiting.length}` : `Waiting on you · ${waiting.length}`}</h3>
-        {waiting.length === 0 ? (
-          <p className="py-2 text-[13px] leading-relaxed text-body-3">{zh ? '没有等你点头的事。它提议的每件事都要你批准才执行。' : 'Nothing waiting on you. Everything it proposes runs only once you approve.'}</p>
-        ) : (
-          <ul className="divide-y divide-line-soft" data-testid="panel-waiting">
-            {waiting.map((a) => (
-              <li key={a.id} className="py-2.5">
-                <div className="text-[13.5px] font-semibold leading-snug text-ink">{a.title}</div>
-                {a.summary && <div className="mt-0.5 line-clamp-1 text-[12px] leading-snug text-body-3">{a.summary}</div>}
-                <div className="mt-0.5">{where(a)}</div>
-              </li>
-            ))}
-          </ul>
-        )}
-        <Link href={`/${role}/todo`} className="mt-1 inline-flex min-h-9 items-center text-[12.5px] font-semibold text-brand-strong">{zh ? '全部待办 → 待办页' : 'All to-dos → To-do page'}</Link>
-      </section>
-
-      <RoutinesSection role={role} live={live} />
-
-      {live && (
-        <section>
-          <h3 className="mb-1 text-[12.5px] font-semibold text-body-2">{zh ? '最近替你办完' : 'Recently done for you'}</h3>
-          {outcomes === null ? (
-            <p className="py-2 text-[12.5px] text-body-3">{zh ? '读取中…' : 'Loading…'}</p>
-          ) : outcomes.length === 0 ? (
-            <p className="py-2 text-[13px] text-body-3">{zh ? '最近 7 天还没有替你办完的事。' : 'Nothing done for you in the last 7 days.'}</p>
-          ) : (
-            <div className="space-y-2" data-testid="panel-outcomes">
-              {groupOutcomesByDay(outcomes).map((g) => (
-                <div key={g.key} data-testid={`outcomes-${g.key}`}>
-                  <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? OUTCOME_GROUP_LABEL[g.key].zh : OUTCOME_GROUP_LABEL[g.key].en}</div>
-                  <ul className="space-y-0.5">
-                    {g.rows.map((o) => {
-                      const tid = typeof o.metadata?.thread_id === 'string' ? (o.metadata.thread_id as string) : null
-                      // A run the executor recorded as failed shows ✕ with its reason — a timeline that only ever ticks is not a record.
-                      const failed = o.metadata?.ok === false
-                      const reason = failed ? String(o.metadata?.reason ?? o.metadata?.error ?? '').slice(0, 60) : ''
-                      const body = (
-                        <>
-                          <span className={`mt-px flex-none ${failed ? 'text-danger' : 'text-success'}`}>{failed ? '✕' : '✓'}</span>
-                          <span className="min-w-0 flex-1 text-[13px] leading-snug text-body">{auditActionLabel(o.action, lang, o.metadata || undefined)}{reason && <span className="text-body-3"> · {reason}</span>}</span>
-                          <span className="flex-none font-mono text-[10.5px] text-body-3">{fmtRowTime(o.created_at, lang)}</span>
-                        </>
-                      )
-                      return (
-                        <li key={o.id}>
-                          {tid ? (
-                            <button type="button" onClick={() => { onClose?.(); void onOpenThread(tid) }} title={zh ? '回到这段对话' : 'Back to this chat'} className="-mx-2 flex w-[calc(100%+16px)] items-start gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-surface-chip">{body}</button>
-                          ) : (
-                            <div className="-mx-2 flex items-start gap-2 px-2 py-1.5">{body}</div>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-          <Link href={`/${role}/audit`} className="mt-1 inline-flex min-h-9 items-center text-[12.5px] font-semibold text-brand-strong">{zh ? '完整审计 →' : 'Full audit →'}</Link>
-        </section>
-      )}
     </div>
   )
 }

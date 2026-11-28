@@ -241,8 +241,8 @@ function ProgressInner({ role }: { role: AgentRole }) {
             (user 2026-10-05: 「进度页那份重复的记忆也收掉吧」). One line points there; the id keeps old #memory links landing. */}
         <Link id="memory" href={`/${role}/agent?panel=memory`} data-testid="progress-memory-link" className="flex scroll-mt-20 items-center justify-between gap-3 rounded-2xl border border-line-divider bg-white px-4 py-3.5 text-[13.5px] text-body-2 transition hover:border-line-strong">
           <span className="min-w-0">{live
-            ? (zh ? '它记住的事和对你的画像，在 AI 助理的「记忆」里查看和修改' : 'What it remembers and its profile of you: view and edit under Memory in your AI Agent')
-            : (zh ? '它记住的事，在 AI 助理的「记忆」里看（登录后可以修改）' : 'See what it remembers under Memory in your AI Agent (sign in to edit)')}</span>
+            ? (zh ? '它记住的事和对你的画像，在 AI 助理的「身份 › 记忆」里查看和修改' : 'What it remembers and its profile of you: view and edit under Identity › Memory in your AI Agent')
+            : (zh ? '它记住的事，在 AI 助理的「身份 › 记忆」里看（登录后可以修改）' : 'See what it remembers under Identity › Memory in your AI Agent (sign in to edit)')}</span>
           <span className="flex-none text-[16px] font-bold text-brand" aria-hidden>›</span>
         </Link>
         <PushSettingsCard live={live} />
