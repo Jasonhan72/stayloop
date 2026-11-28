@@ -120,7 +120,7 @@ describe('when the card is offered: the person’s own words, read deterministic
 describe('the turn: the server decides, the model is told, one card a turn', () => {
   const route = read('app/api/agent/turn/route.ts')
   it('offered from the message, for a signed-in landlord or tenant; never with the import card, never to an agent or a visitor', () => {
-    expect(route).toContain("const rentRecordOffer = !anonymous && !!turnUserId && !leaseImportOffer && (role === 'landlord' || role === 'tenant') && wantsRentRecord(message)")
+    expect(route).toContain("const rentRecordOffer = !anonymous && !!turnUserId && !leaseImportOffer && (role === 'landlord' || role === 'tenant') && wantsRentRecord(own)") // `own` = the message without a forwarded-mail block (2026-11-27): a mail's text never asks for a card
     expect(route).toContain("(rentRecordOffer ? RENT_RECORD_TURN_NOTE : '') +")
     expect(route).toContain('rent_record: rentRecordOffer ? { id: crypto.randomUUID() } : undefined,')
     expect(route).not.toMatch(/parsed\??\.rent_record/)
@@ -154,7 +154,7 @@ describe('the turn: the server decides, the model is told, one card a turn', () 
   it('the chat shows the card under the reply, in a live session only, started from what the person said', () => {
     const chat = read('components/agent/AgentChat.tsx')
     expect(chat).toContain("{m.role === 'agent' && m.rentRecord && live && (")
-    expect(chat).toContain("<RentRecordChatCard offer={m.rentRecord} role={role} said={messages[i - 1]?.role === 'user' ? messages[i - 1].text : undefined} />")
+    expect(chat).toContain("<RentRecordChatCard offer={m.rentRecord} role={role} said={messages[i - 1]?.role === 'user' ? ownWords(messages[i - 1].text) : undefined} />")
     expect(read('lib/agent/useAgentSession.ts')).toContain('rentRecord = turn.rentRecord')
   })
 })

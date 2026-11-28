@@ -119,14 +119,14 @@ describe('when the card is offered: a tenant’s own words, read deterministical
     }
     expect(m.guide.tenant).not.toContain('申请包卡只出现在租客自己的对话里')
     // and the route never offers it outside the tenant's conversation
-    expect(read('app/api/agent/turn/route.ts')).toContain("role === 'tenant' && !leaseImportOffer && !rentRecordOffer && !directoryOffer && wantsPackFill(message)")
+    expect(read('app/api/agent/turn/route.ts')).toContain("role === 'tenant' && !leaseImportOffer && !rentRecordOffer && !directoryOffer && wantsPackFill(own)")
   })
 })
 
 describe('the turn: the server decides, the model is told; tenants only, one card a turn', () => {
   const route = read('app/api/agent/turn/route.ts')
   it('offered from the message, for a signed-in tenant; never with another card', () => {
-    expect(route).toContain("const packFillOffer = !anonymous && !!turnUserId && role === 'tenant' && !leaseImportOffer && !rentRecordOffer && !directoryOffer && wantsPackFill(message)")
+    expect(route).toContain("const packFillOffer = !anonymous && !!turnUserId && role === 'tenant' && !leaseImportOffer && !rentRecordOffer && !directoryOffer && wantsPackFill(own)")
     expect(route).toContain("(packFillOffer ? PACK_FILL_TURN_NOTE : '') +")
     expect(route).toContain('pack_fill: packFillOffer ? { id: crypto.randomUUID() } : undefined,')
     expect(route).not.toMatch(/parsed\??\.pack_fill/)

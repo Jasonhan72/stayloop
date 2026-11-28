@@ -9,6 +9,7 @@ import { droppedProposalNote, gateProposedAction, sanitizeActionMetadata } from 
 import { buildFoldedSources, type FoldedSource } from '@/lib/agent/foldedSources'
 import { tenantCardRecipient } from '@/lib/agent/chatCopy'
 import { NextResponse } from 'next/server'
+import { ownWords } from '@/lib/assistantMail/handoff'
 import { RECEIPT_MAX_LINES, type TurnReceipt } from '@/lib/agent/receipt'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
@@ -599,18 +600,21 @@ export async function POST(req: Request) {
   // 「导入已签租约」 (2026-11-24): a signed-in person asking to bring a signed lease in gets the lease
   // import card under the reply, and the model is told so (lib/agent/leaseImportIntent.ts). Read from the
   // person's own words, never from the model's output; never on an anonymous turn — an import needs an account.
-  const leaseImportOffer = !anonymous && !!turnUserId && wantsLeaseImport(message)
+  // What the person said themselves: a mail handed over from the assistant's mailbox sits in the message between
+  // two rule lines and is somebody else's writing — it must not be what asks for a card (lib/assistantMail/handoff.ts).
+  const own = ownWords(message)
+  const leaseImportOffer = !anonymous && !!turnUserId && wantsLeaseImport(own)
   // 「记租金」 (2026-11-24): the same kind of card for a landlord or a tenant who says rent was received or paid
   // (lib/agent/rentRecordIntent.ts). One card a turn — a sentence that asks for both gets the import first,
   // since there is nothing to record against until the tenancy exists. An agent's conversation records no rent.
-  const rentRecordOffer = !anonymous && !!turnUserId && !leaseImportOffer && (role === 'landlord' || role === 'tenant') && wantsRentRecord(message)
+  const rentRecordOffer = !anonymous && !!turnUserId && !leaseImportOffer && (role === 'landlord' || role === 'tenant') && wantsRentRecord(own)
   // 「找人」 (2026-11-24): asking for an agent, a tradesperson or a professional gets the directory card —
   // the directory's own rows in its fixed order, read in the browser under the person's own session
   // (lib/agent/directoryIntent.ts). The model still sees nobody: nothing about the directory is put in its prompt.
-  const directoryOffer = !anonymous && !!turnUserId && !leaseImportOffer && !rentRecordOffer ? directoryAsk(message, role) : null
+  const directoryOffer = !anonymous && !!turnUserId && !leaseImportOffer && !rentRecordOffer ? directoryAsk(own, role) : null
   // 「准备申请包」 (2026-11-25): a tenant's own pack — the card reads the pay stub or employment letter they
   // send, lists what the pack still lacks, and writes only what they confirm (lib/agent/packFillIntent.ts).
-  const packFillOffer = !anonymous && !!turnUserId && role === 'tenant' && !leaseImportOffer && !rentRecordOffer && !directoryOffer && wantsPackFill(message)
+  const packFillOffer = !anonymous && !!turnUserId && role === 'tenant' && !leaseImportOffer && !rentRecordOffer && !directoryOffer && wantsPackFill(own)
 
   // `let`: the PDF attachments are read inside runTurn (behind the heartbeat); a lease from
   // another province appends that province's fact block before the model is called.

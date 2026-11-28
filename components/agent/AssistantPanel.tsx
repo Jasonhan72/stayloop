@@ -34,7 +34,8 @@ import type { AgentRole, AgentStatus, MemoryItem, PendingAction } from '@/lib/ag
 import PanelTasksTab from './PanelTasksTab'
 import PanelApprovalsTab from './PanelApprovalsTab'
 import PanelIdentityTab, { type IdentityPage } from './PanelIdentityTab'
-import PanelInboxTab from './PanelInboxTab'
+import PanelInboxTab, { type MailHandoff } from './PanelInboxTab'
+import { useMailboxAvailable, useNewMailCount } from '@/lib/assistantMail/client'
 import { ApprovalsIcon, AvatarIcon, IdentityIcon, InboxIcon, PencilIcon, TasksIcon } from './panelIcons'
 
 export type { PanelRequest, PanelTab } from '@/lib/agent/panelTabs'
@@ -48,7 +49,7 @@ const TAB_KEY = 'sl-assistant-panel-tab'
 
 export default function AssistantPanel({
   role, agentName, pendingActions, memories, live, avatar, onAvatarChange, currentThreadId, onOpenThread, onScrollToCard, onClose,
-  variant = 'column', initialTab, onTabRequestUsed, visible = true, status,
+  variant = 'column', initialTab, onTabRequestUsed, visible = true, status, onHandOffMail,
 }: {
   role: AgentRole
   agentName: string
@@ -71,6 +72,8 @@ export default function AssistantPanel({
   visible?: boolean
   /** What the conversation is doing right now — the line under the name follows it. */
   status?: AgentStatus
+  /** 收件 → 「交给 AI 助理」: put a mail into the conversation's composer (the page owns it). */
+  onHandOffMail?: (d: MailHandoff) => void
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -130,8 +133,12 @@ export default function AssistantPanel({
       {statusLine}
     </>
   )
-  // 收件's badge: unread messages from people (the same count as the rail's 消息).
+  // 收件's badge counts what the tab lists: mail in the assistant's mailbox nobody has opened yet — or, for an
+  // account the mailbox is not open to, the unread messages from people (the same count as the rail's 消息).
   const unreadMessages = useUnreadMessages(live && visible)
+  const mailboxOpen = useMailboxAvailable(live && auth.user ? auth.user.id : null, live && visible)
+  const newMail = useNewMailCount(live && visible && mailboxOpen === true)
+  const inboxBadge = mailboxOpen === null ? 0 : mailboxOpen ? newMail : unreadMessages
 
   // Rename in place: the name is the account's (assistant_profiles RLS = self).
   const [renaming, setRenaming] = useState(false)
@@ -171,7 +178,7 @@ export default function AssistantPanel({
     { key: 'tasks', label: zh ? '任务' : 'Tasks', icon: <TasksIcon />, badge: 0 },
     { key: 'approvals', label: zh ? '批准' : 'Approvals', icon: <ApprovalsIcon />, badge: waiting.length },
     { key: 'identity', label: zh ? '身份' : 'Identity', icon: <IdentityIcon />, badge: 0 },
-    { key: 'inbox', label: zh ? '收件' : 'Inbox', icon: <InboxIcon />, badge: unreadMessages },
+    { key: 'inbox', label: zh ? '收件' : 'Inbox', icon: <InboxIcon />, badge: inboxBadge },
   ]
   function onTabKey(e: ReactKeyboardEvent<HTMLButtonElement>, i: number) {
     const last = TABS.length - 1
@@ -282,7 +289,7 @@ export default function AssistantPanel({
         {visible && tab === 'identity' && (
           <PanelIdentityTab role={role} live={live} name={name} memories={memories} visible={visible} page={identityPage} onPage={setIdentityPage} />
         )}
-        {visible && tab === 'inbox' && <PanelInboxTab live={live} visible={visible} />}
+        {visible && tab === 'inbox' && <PanelInboxTab live={live} visible={visible} onHandOff={onHandOffMail} onClose={variant === 'sheet' ? onClose : undefined} />}
       </div>
     </div>
   )

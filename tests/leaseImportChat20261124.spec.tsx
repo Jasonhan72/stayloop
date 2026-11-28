@@ -112,7 +112,7 @@ describe('when the card is offered: the person’s own words, read deterministic
 describe('the turn: the server decides, the model is told, an anonymous turn never carries the card', () => {
   const route = read('app/api/agent/turn/route.ts')
   it('offered from the message, for a signed-in caller only', () => {
-    expect(route).toContain('const leaseImportOffer = !anonymous && !!turnUserId && wantsLeaseImport(message)')
+    expect(route).toContain('const leaseImportOffer = !anonymous && !!turnUserId && wantsLeaseImport(own)') // `own` = the message without a forwarded-mail block (2026-11-27): a mail's text never asks for a card
     expect(route).toContain("(leaseImportOffer ? LEASE_IMPORT_TURN_NOTE : '') +")
     expect(route).toContain('lease_import: leaseImportOffer ? { id: crypto.randomUUID() } : undefined,')
     // never from the model's output: the response schema has no such field, and the route reads none

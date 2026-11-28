@@ -68,6 +68,11 @@ await probe('onboard assist anon → 401', `${BASE}/api/onboard/assist`, { metho
 await probe('provider photo POST anon → 401', `${BASE}/api/providers/photo`, { method: 'POST', body: '' }, { status: 401 })
 await probe('provider photo DELETE anon → 401', `${BASE}/api/providers/photo`, { method: 'DELETE' }, { status: 401 })
 await probe('cron agent-routines anon → 401', `${BASE}/api/cron/agent-routines`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }, { status: 401 })
+// AI 助理的邮箱 (2026-11-27): the delivery route needs the Worker's secret, the sweep the cron secret, the rest a signed-in caller.
+await probe('assistant inbound anon → 403', `${BASE}/api/assistant/inbound`, { method: 'POST', headers: { 'content-type': 'message/rfc822', 'x-mail-to': 'ai-abcdef@reply.stayloop.ai' }, body: 'From: a@b.c\r\n\r\nhi' }, { status: 403 })
+await probe('cron assistant-mail-sweep anon → 401', `${BASE}/api/cron/assistant-mail-sweep`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }, { status: 401 })
+await probe('assistant inbox anon → 401', `${BASE}/api/assistant/inbox`, {}, { status: 401 })
+await probe('assistant mail anon → 401', `${BASE}/api/assistant/mail`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"id":"x","action":"delete"}' }, { status: 401 })
 // APIs — anonymous
 const J = { headers: { 'content-type': 'application/json' } }
 await probe('public stats', `${BASE}/api/public/stats?${bust()}`, {}, { status: 200, headers: { 'x-content-type-options': /^nosniff$/i }, json: j => (['screenings', 'ltbOrders', 'listings', 'trrebQuarters'].every(k => typeof j[k] === 'number' && j[k] >= 0)) || `keys: ${Object.keys(j)}` })

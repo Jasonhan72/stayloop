@@ -21,6 +21,7 @@ import WorkspaceShell from '@/components/WorkspaceShell'
 import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
 import AssistantPanel from '@/components/agent/AssistantPanel'
+import type { MailHandoff } from '@/components/agent/PanelInboxTab'
 import { panelRequest, type PanelRequest } from '@/lib/agent/panelTabs'
 import ThreadList, { SidebarIcon } from '@/components/agent/ThreadList'
 import AssistantSheet from '@/components/mobile/AssistantSheet'
@@ -72,6 +73,8 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
   const { loading, live, data, status, messages, streamingText, streamingSources, decide, sendMessage, markListingsShown, scheduled, undo, threadId, threadLoading, openThread, newThread } = useAgentSession(role)
   const [draft, setDraft] = useState<ComposerDraft | null>(null)
   const prefill = useCallback((t: string) => setDraft({ text: t, nonce: Date.now() }), [])
+  // 「交给 AI 助理」 in the panel's 收件 tab: the mail and its attachments go into the composer — not sent.
+  const handOffMail = useCallback((d: MailHandoff) => setDraft({ text: d.text, attachments: d.attachments, nonce: Date.now() }), [])
   usePromptDeepLink(loading, sendMessage, prefill)
   const { lifecycle } = useLifecycle(role)
   const [panelOpen, setPanelOpen] = useAssistantPanel()
@@ -242,11 +245,11 @@ function AgentWorkspaceInner({ role }: { role: AgentRole }) {
         )}
         {panelOpen && (
           <aside className="hidden lg:flex lg:w-[320px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider 2xl:w-[360px]">
-            <AssistantPanel role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} onClose={() => setPanelOpen(false)} visible={lgUp} status={status} initialTab={requestedTab ?? undefined} onTabRequestUsed={clearTabRequest} />
+            <AssistantPanel role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} onHandOffMail={handOffMail} onClose={() => setPanelOpen(false)} visible={lgUp} status={status} initialTab={requestedTab ?? undefined} onTabRequestUsed={clearTabRequest} />
           </aside>
         )}
         {sheetOpen && !lgUp && (
-          <AssistantSheet role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} status={status} initialTab={requestedTab ?? undefined} onTabRequestUsed={clearTabRequest} onClose={() => setSheetOpen(false)} />
+          <AssistantSheet role={role} agentName={shownName} pendingActions={chatCards} memories={memories} live={live} avatar={avatar} onAvatarChange={setAvatar} currentThreadId={threadId} onOpenThread={openThread} onScrollToCard={scrollToCard} onHandOffMail={handOffMail} status={status} initialTab={requestedTab ?? undefined} onTabRequestUsed={clearTabRequest} onClose={() => setSheetOpen(false)} />
         )}
       </div>
     </WorkspaceShell>

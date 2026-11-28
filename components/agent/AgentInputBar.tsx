@@ -22,7 +22,9 @@ type TurnModelState = {
   defaultLabel: string
 }
 
-export type ComposerDraft = { text: string; nonce: number }
+/** `attachments` (2026-11-27): files that come with the draft — a mail handed over from the AI Agent's mailbox
+ *  arrives with its PDFs and pictures already on the 「+」. They replace whatever was attached; nothing is sent. */
+export type ComposerDraft = { text: string; nonce: number; attachments?: ChatAttachment[] }
 
 export default function AgentInputBar({
   agentName,
@@ -58,7 +60,7 @@ export default function AgentInputBar({
 
   // Draft → composer: put the text in, focus, and select the first 【…】
   // placeholder so typing replaces it.
-  useOnChange(draft, () => { if (draft) setValue(draft.text) })
+  useOnChange(draft, () => { if (draft) { setValue(draft.text); if (draft.attachments) setAtts(draft.attachments.slice(0, ATTACH_MAX_FILES)) } })
   useEffect(() => {
     if (!draft) return
     const place = () => {

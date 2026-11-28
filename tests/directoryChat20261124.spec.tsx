@@ -118,7 +118,7 @@ describe('what counts as asking for someone: the person’s own words, read dete
 describe('the turn: the system lists, the model does not', () => {
   const route = read('app/api/agent/turn/route.ts')
   it('offered from the message, for a signed-in caller, one card a turn — and nothing about the directory goes into the prompt', () => {
-    expect(route).toContain('const directoryOffer = !anonymous && !!turnUserId && !leaseImportOffer && !rentRecordOffer ? directoryAsk(message, role) : null')
+    expect(route).toContain('const directoryOffer = !anonymous && !!turnUserId && !leaseImportOffer && !rentRecordOffer ? directoryAsk(own, role) : null') // `own` = the message without a forwarded-mail block (2026-11-27): a mail's text never asks for a card
     expect(route).toContain("(directoryOffer ? directoryTurnNote(directoryOffer.kind) : '') +")
     expect(route).toContain('directory: directoryOffer ? { id: crypto.randomUUID(), ...directoryOffer } : undefined,')
     expect(route).not.toMatch(/parsed\??\.directory\b/)

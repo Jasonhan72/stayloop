@@ -9,6 +9,7 @@ import { useT } from '@/lib/i18n'
 import { useModalA11y } from '@/lib/ui/useModalA11y'
 import AssistantPanel, { type PanelRequest } from '@/components/agent/AssistantPanel'
 import type { AgentRole, AgentStatus, MemoryItem, PendingAction } from '@/lib/agent/types'
+import type { MailHandoff } from '@/components/agent/PanelInboxTab'
 
 export default function AssistantSheet(props: {
   role: AgentRole
@@ -21,6 +22,7 @@ export default function AssistantSheet(props: {
   currentThreadId: string | null
   onOpenThread: (id: string) => void | Promise<void>
   onScrollToCard?: (id: string) => void
+  onHandOffMail?: (d: MailHandoff) => void
   initialTab?: PanelRequest
   onTabRequestUsed?: () => void
   status?: AgentStatus

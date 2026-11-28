@@ -9,8 +9,9 @@
 //   · 今天 is today only (today's conversations of this hat + today's outcomes), newest first;
 //   · the panel never decides, writes a card or sends a message — every tab is a view (the only
 //     writes are the ones that were already there: a routine, the name, 风格 / 人设, a memory);
-//   · the Muse inbox is the assistant's own mailbox; this assistant has none, and the tab says
-//     what it shows instead — messages people wrote to the person — and that it never replies;
+//   · 收件 became the assistant's own mailbox the same week (assistantMail20261127 pins that); an
+//     account it is not open to yet still sees what this file first pinned — the messages people
+//     wrote to the person, and the note that the assistant never replies;
 //   · the old ?panel= names keep working.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -72,6 +73,8 @@ const card = (o: Partial<ApprovalRow>): ApprovalRow => ({
 })
 
 beforeEach(() => {
+  // No mailbox for this account (the switch is off for it): 收件 shows the messages people wrote, as it first did.
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ available: false, address: null, createdAt: null, loginEmail: null, senders: [], limits: { keepDays: 30, perDay: 20, maxMb: 10, files: 5, senders: 10 } }), { status: 200, headers: { 'content-type': 'application/json' } })))
   db.user = { id: 'u1' }
   db.tables = {}
   db.threads = []
@@ -81,7 +84,7 @@ beforeEach(() => {
   db.unread = 0
   localStorage.clear()
 })
-afterEach(() => { cleanup(); vi.useRealTimers(); localStorage.clear() })
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); localStorage.clear() })
 
 describe('批准记录: what became of a card, from the row alone', () => {
   it('waiting / ran / failed / declined / refused / lapsed', () => {
@@ -214,7 +217,8 @@ describe('the panel, rendered', () => {
     expect(all(container, '[role="tab"] > span:not([data-testid])').map(textOf)).toEqual(['任务', '批准', '身份', '收件'])
     expect(tab(container, 'tasks').getAttribute('aria-selected')).toBe('true')
     expect(textOf(only(container, '[data-testid="panel-badge-approvals"]'))).toBe('1')
-    expect(textOf(only(container, '[data-testid="panel-badge-inbox"]'))).toBe('3')
+    // this account has no mailbox, so 收件 counts the unread messages it lists (known once the switch has been asked)
+    await waitFor(() => expect(textOf(only(container, '[data-testid="panel-badge-inbox"]'))).toBe('3'))
     expect(all(container, '[data-testid="panel-badge-tasks"], [data-testid="panel-badge-identity"]').length).toBe(0)
     await waitFor(() => expect(only(container, '[data-testid="panel-today"]')).toBeTruthy())
   })
@@ -321,7 +325,7 @@ describe('the panel, rendered', () => {
     expect(used).toHaveBeenCalledTimes(1)
   })
 
-  it('收件: the message centre’s threads, unread first, one language, each a link into Messages — and the note that it never replies', async () => {
+  it('收件, for an account the mailbox is not open to: the message centre’s threads, unread first, one language, each a link into Messages — and the note that it never replies', async () => {
     vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
     db.tables.my_threads = [
       { id: 'm1', kind: 'tenancy', party: 'landlord', last_at: at(13), last_body: '好的，周六见。', last_sender_id: 'u1', unread: 0, counterpart_names: ['Test Tenant'], counterpart_roles: ['tenant'] },
@@ -342,6 +346,7 @@ describe('the panel, rendered', () => {
     expect(textOf(only(container, '[data-testid="panel-inbox-unread"]'))).toBe('1 段有未读')
     const inbox = only(container, '[data-testid="panel-inbox"]')
     expect(textOf(inbox)).toContain('AI 助理每次对话会读其中没读的几条来提醒你，不会替你回复')
+    expect(inbox.dataset.mode).toBe('messages')
     // nothing to type into and nothing to send
     expect(all(inbox, 'textarea, input, button').length).toBe(0)
     expect(db.writes).toEqual([])
@@ -372,7 +377,7 @@ describe('the panel, rendered', () => {
     expect(textOf(only(container, '[data-testid="assistant-identity-line"]'))).toBe('预览 · 登录后可以改')
     expect(textOf(only(container, '[data-testid="identity-card-persona"]'))).toContain('登录后可以写')
     fireEvent.click(tab(container, 'inbox'))
-    expect(textOf(only(container, '[data-testid="panel-inbox"]'))).toContain('预览模式没有消息')
+    expect(textOf(only(container, '[data-testid="panel-inbox"]'))).toContain('预览模式没有邮箱')
     await act(async () => { await Promise.resolve() })
     expect(db.reads).toEqual([])
     expect(db.rpc).toEqual([])
@@ -416,14 +421,13 @@ describe('the rules, in the source', () => {
     expect(approvals).not.toContain('fetch(')
     expect(approvals).toContain("const one = (t: string | null | undefined) => pickCardLang(t, zh ? 'zh' : 'en')")
   })
-  it('收件 is the message centre’s own read; it sends nothing and gives the assistant no mailbox', () => {
+  it('收件 without a mailbox is the message centre’s own read; the tab itself writes no table and promises nothing that is not there', () => {
     expect(inbox).toContain("supabase.rpc('my_threads')")
     expect(inbox).toContain('href={`/messages?t=${r.id}`}')
+    // the tab never writes a table itself: every change goes through the mailbox routes (lib/assistantMail/client.ts)
     expect(inbox).not.toMatch(/\.(insert|update|delete|upsert)\(/)
     expect(inbox).not.toContain('fetch(')
-    expect(inbox).not.toMatch(/textarea|<input/)
-    // no promise of an address for the assistant, no 「即将上线」
-    for (const f of [inbox, panel]) expect(f).not.toMatch(/即将上线|coming soon|Create an email|创建邮箱|@agent\.stayloop/i)
+    for (const f of [inbox, panel]) expect(f).not.toMatch(/即将上线|coming soon/i)
     // what the note claims is what the turn route does: it folds in unread messages from people
     expect(read('lib/agent/foldedSources.ts')).toContain("timeout(sb.rpc('my_threads'), 2500)")
     expect(read('lib/agent/foldedSources.ts')).toContain('.filter((t) => (t.unread ?? 0) > 0 && t.last_sender_kind !== \'system\')')

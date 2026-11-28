@@ -7,4 +7,5 @@ compatibility_flags = ["global_fetch_strictly_public"]
 
 [vars]
 INBOUND_URL = "https://www.stayloop.ai/api/threads/inbound"
+ASSISTANT_INBOUND_URL = "https://www.stayloop.ai/api/assistant/inbound"
 # INBOUND_EMAIL_SECRET is a secret: wrangler secret put INBOUND_EMAIL_SECRET

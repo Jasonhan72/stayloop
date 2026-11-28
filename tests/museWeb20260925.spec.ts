@@ -67,7 +67,9 @@ describe('assistant panel', () => {
     expect(panel).toContain("{ key: 'tasks', label: zh ? '任务' : 'Tasks', icon: <TasksIcon />, badge: 0 }")
     expect(panel).toContain("{ key: 'approvals', label: zh ? '批准' : 'Approvals', icon: <ApprovalsIcon />, badge: waiting.length }")
     expect(panel).toContain("{ key: 'identity', label: zh ? '身份' : 'Identity', icon: <IdentityIcon />, badge: 0 }")
-    expect(panel).toContain("{ key: 'inbox', label: zh ? '收件' : 'Inbox', icon: <InboxIcon />, badge: unreadMessages }")
+    expect(panel).toContain("{ key: 'inbox', label: zh ? '收件' : 'Inbox', icon: <InboxIcon />, badge: inboxBadge }")
+    // the badge is unopened mail in the assistant's mailbox; without a mailbox, the unread messages its 收件 tab lists instead
+    expect(panel).toContain('const inboxBadge = mailboxOpen === null ? 0 : mailboxOpen ? newMail : unreadMessages')
     expect(panel).not.toContain("key: 'activity'")
     expect(read('components/agent/PanelTasksTab.tsx')).toContain('useRecentOutcomes(live, role, visible, 12)')
     expect(panel).toContain('await saveAssistantName(supabase, auth.user.id, next)')
